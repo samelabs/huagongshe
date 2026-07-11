@@ -1,0 +1,11 @@
+{
+    "name": "回帖排序",
+    "brief": "修正tabindex和aria-label。<br />(FOR 4.0正式版)",
+    "version": "1.2",
+    "bbs_version": "4.0",
+    "installed": 1,
+    "enable": 1,
+    "hooks_rank": [],
+    "overwrites_rank": [],
+    "dependencies": []
+}

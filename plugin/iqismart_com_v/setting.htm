@@ -1,0 +1,308 @@
+<?php include _include(ADMIN_PATH.'view/htm/header.inc.htm'); $set = setting_get('tt_sign');
+$static = db_count('sign',array('time'=>array('>',strtotime(date('Y-m-d',time()))-1)));
+?>
+<?php
+    $num_pid = db_count('user',array('v'=>array('!='=>'0')));
+	$page = param(1,1);
+	$data =  db_find('user',array('v'=>array('!='=>'0')), array('uid'=>-1), $page, $pagesize = 20);
+    $pagination = pagination(url("iqismart_com_v-{page}"), $num_pid, $page, $pagesize);
+	
+	$kv = kv_cache_get('iqismart_com_v');
+
+	$applying_count = db_count('v_apply',array('status'=>0)); 
+	$applyed_count = db_count('v_apply',array('status'=>1)); 
+?>
+
+<style type="text/css">
+#wrapper{ background: #fff}
+.fr{float: right;}
+.fl{float: left;}
+.card{border: 1px solid rgba(0, 0, 0, 0.125);box-shadow: 0px 0px 10px 0px #e2e2e2; margin-top:0px;}
+.btn-default {color: #333;background-color: #fff;border-color: #ccc;}
+.btn-default:hover {color: #333;background-color: #e6e6e6;border-color: #adadad;}
+.card-header .label {display: inline-block;padding: .25em .4em;font-size: 75%;line-height: 1;color: #fff;white-space: nowrap;vertical-align: baseline;border-radius: .25rem;}
+.card-header .label-success {background-color: #5cb85c;}
+/*标题行*/
+.card-title{border-bottom:1px dashed rgb(245, 245, 245); height: 50px;line-height: 30px;}
+.card-title i,.nav-item i{display: inline-block; margin-right: 5px;}
+/*TAB行*/
+#myTab li{ padding: 0; }
+#myTab li.nav-item.pull-right{ float: right; }
+#myTab a{ display: inline-block;text-decoration: none; padding: 0.5rem 1rem 0.5rem 1rem }
+#myTab a:hover{color:#000; background: #F9F9F9}
+#myTab a.active{ background-color:#fff; }
+/*TAB内容*/
+.tab-content{ margin-bottom: 10px;border-bottom-right-radius:5px;border-bottom-left-radius:5px;}
+/*form内容*/
+.form-group { padding: 0.5rem 1rem;border-bottom: 1px dashed rgba(226, 226, 226, 0.46);margin-bottom: 0;}
+.form-group b{ font-weight: normal; }
+.form-group p,.form-group label{ margin-bottom: 0; }
+.form-group p em{ font-style: normal; padding: 0 1rem }
+.form-group label{font-size:0.85rem;}
+.form-group .form-control-label b{font-size: 12px;padding:0px 4px; border:solid 1px #e2e2e2;display:inline-block;color:#333;background: #f2f2f2;border-radius: 2px; font-weight: normal;font-family:courier new, sans-serif; margin: 0px 2px 2px 0px;}
+.form-group .form-control-label b.z-js{background: #f0ad4e;color:#fff;border:none;}
+.form-group .form-control-label b.z-jq{background: #6AB3DE;color:#fff;border:none;}
+.form-group .form-control{box-shadow:0px 1px 5px 0px #e2e2e2 inset;}
+.form-group .form-control:focus { box-shadow:0px 1px 5px 0px #E2F1FF inset;border-color: #9BC9EF;}
+/*form内容-附件列表*/
+#attachpages i{margin-right: 5px;}
+.pagination a{ cursor: pointer; }
+#attachpages { font-size: 12px; }
+#attachpages a{text-decoration: none;}
+#attachpages a:hover{  color: #F44336 }
+/*头像*/
+.img_demo{ max-height: 96px; max-width: 100%; overflow: hidden; }
+.img_demo img{ max-height: 100%;max-width: 100%; }
+  
+  td{
+  	text-align:center;
+  }  
+</style>
+
+<div class="row">
+	<div class="col-lg-12">
+
+			<div class="card">
+				<div class="card-header"> 
+					<div class="row">
+						<div class="col-lg-4"><p class="m-y-xs text-muted fl"><i class="icon-cog m-r-sm"></i>加V认证管理<span class="m-l-xs label label-success">免费版</span></p></div>
+						<div class="col-lg-8 text-right ">
+						    <div class="btn-group">
+							    <a class="btn btn-default text-muted btn-sm" target="_blank" href="//www.iqismart.com" role="button">问题反馈</a>
+								<a class="btn btn-default text-muted btn-sm" target="_blank" href="http://wpa.qq.com/msgrd?v=3&uin=364337403&site=%D6%D0%D4%AD%B9%A4%D1%A7%D4%BA%C2%DB%CC%B3&menu=yes&from=discuz" role="button"><i class="icon-qq"></i></a>
+								<a class="btn btn-default text-muted btn-sm" href="<?php echo url("plugin-setting-iqismart_com_v");?>" role="button"><i class="icon-refresh"></i></a>
+								<a class="btn btn-default text-muted btn-sm" href="<?php echo url("plugin");?>" role="button"><i class="icon-times"></i></a>
+							</div>
+						</div>
+					</div>
+				</div>
+				<!-- card-block start -->
+			    <div class="card-block">
+					<!-- tab -->
+					 <ul class="nav nav-tabs" role="tablist" id="myTab">
+                      
+					  <li class="nav-item active"><a href="#tab2"  class="nav-link">等待审核(<?php echo $applying_count;?>)</a></li>
+					  <li class="nav-item"><a href="#tab3" class="nav-link"> 审核通过(<?php echo $applyed_count;?>)</a></li>
+					  <li class="nav-item"><a href="#tab4" class="nav-link">添加认证</a></li>
+                        <li class="nav-item active"><a href="#tab1"  class="nav-link">设置</a></li>
+					</ul>
+					<div class="tab-content card-block">
+				        <div class="tab-pane active" id="tab1">
+				 	          <!-- 参数配置 -->
+							  <form action="<?php echo url("plugin-setting-iqismart_com_v");?>" method="post" id="setvForm">
+                               	<input type="hidden" name="op" value="2"/>
+								<div class="form-group row">
+									<label class="col-sm-2 form-control-label">消耗积分类型</label>
+                                  <div class="col-sm-10">
+                                      <select name="type" class="custom-select" id="sign9"> 
+                                        <option value="credits" <?php if($kv['type']=='credits') {?> selected="selected" <?php } ?>  >credits 经验</option>
+                                        <option value="golds" <?php if($kv['type']=='golds') {?> selected="selected" <?php } ?> >golds 金币</option> 
+                                        <option value="rmbs" <?php if($kv['type']=='rmbs') {?> selected="selected" <?php } ?> >rmbs 人民币</option> 
+                                      </select>
+                                  </div>
+								</div>
+                                <div class="form-group row">
+                                  <label class="col-sm-2 form-control-label">消耗积分数量：</label>
+                                  <div class="col-sm-10">
+                                    	<input type="text" name="count" id="count" placeholder="" value="<?php echo $kv['count'];?>" class="form-control">
+                                    	<span>如不需要消耗积分请设置为0</span>
+                                  </div>
+                                  
+                                </div>
+                                
+								<div class="form-group row">
+									<label class="col-sm-2 form-control-label"></label>
+									<div class="col-sm-2 m-b-sm">
+										<button type="submit" class="btn btn-primary btn-block" id="setvSubmit" data-loading-text="<?php echo lang('submiting');?>..."><?php echo lang('confirm');?></button>
+									</div>
+									<div class="col-sm-2 m-b-sm">
+										<a role="button" class="btn btn-secondary btn-block" href="javascript:history.back();"><?php echo lang('back');?></a>
+									</div>
+						        </div>
+							</form>
+				        </div>
+					    <div class="tab-pane table-responsive" id="tab2">
+					        <!-- 等待审核 -->
+				            <table class="table">
+						      <thead>
+						        <tr>
+						          <th>UID</th>
+						          <th>用户名</th>
+						          <th>认证头衔</th>
+                                  <th>证明信息</th>
+                                  <th>证明文件</th>
+                                  <th>申请时间</th>
+                                   <th>操作</th>
+						        </tr>
+						      </thead>
+						      <tbody id="attachpages">
+                                 <?php echo $applying_list; ?>
+					        </tbody>
+                            </table>
+                            <nav class="text-center"><ul class="pagination pagination-sm"><?php echo $applying_pagination; ?></ul></nav> 	
+					    </div>
+                       <div class="tab-pane table-responsive" id="tab3">
+					        <!-- 已审核通过 -->
+				             <table class="table">
+						      <thead>
+						        <tr>
+						          <th>UID</th>
+						          <th>用户名</th>
+						          <th>认证头衔</th>
+                                  <th>证明信息</th>
+                                  <th>证明文件</th>
+                                  <th>申请时间</th>
+                                   
+						        </tr>
+						      </thead>
+						      <tbody id="attachpages">
+                                 <?php echo $applyed_list; ?>
+					        </tbody>
+                            </table>
+                            <nav class="text-center"><ul class="pagination pagination-sm"><?php echo $applyed_pagination; ?></ul></nav> 	
+					    </div>
+                      	<div class="tab-pane" id="tab4">
+					        <!-- 手动设置 -->
+				            <div id="setv" class="card">
+                              <div class="card-body" ><h3>设置加V认证</h3>认证信息填写0，即取消这个用户的加V认证。<br>
+                                请输入用户名: <input name="username" id="username" value="admin"/><br>
+                                认证信息：<input name="v_content" id="v_content" value="admin是劳模，本站站长，大家都喜欢他！" style="width:80%;" maxlength="100"/><br><br>
+                                <button type="button" width="200px" class="btn btn-success" id="submit" data-loading-text="<?php echo lang('submiting');?>..."><?php echo lang('confirm');?></button> <button type="button" class="btn btn-success" id="inquire" width="200px" data-loading-text="<?php echo lang('submiting');?>..."><?php echo lang('inquire');?></button>
+                                </div>
+                            </div> 	
+					    </div>
+			             
+				        
+			        </div>
+			        <!-- tabcontent end -->
+			    </div>
+			    <!-- card-block end -->
+				<div class="card-footer text-right"><p class="m-y-xs text-muted  text-small"><i class="icon-qq m-r-sm"></i>XiunoBBS交流群：474834730</p></div>
+		</div>
+	</div>
+</div>
+<script src="/view/js/jquery-3.1.0.js?1.0"></script>
+<script>
+  $(function () {
+    $('#myTab a:first').tab('show');
+    $('#myTab a').click(function (e) {
+	  e.preventDefault()
+	  $(this).tab('show')
+    });
+ 
+	 
+})
+</script>
+
+<div class="row" style="display:none">
+  	<div class="col-lg-10 mx-auto">   
+      <ul class="nav nav-tabs">
+        <li><a href="#applylist" class='class="active"' data-toggle="tab">等待审核</a></li>
+         <li><a href="#vlist" data-toggle="tab">已通过</a></li>
+         <li><a href="#setv" data-toggle="tab">手动设置</a></li>
+        
+      </ul>
+      
+        <div id="applylist" class="card">
+          <div class="card-body" ><h3>等待审核的加V认证</h3>
+            <?php foreach($data as $v){?>
+            <li class="media thread tap" >
+              用户名: <?php echo $v['username'];?> | 认证信息: <?php echo $v['v'];?> &nbsp;&nbsp;<button onclick="b_click('<?php echo $v['username'];?>','<?php echo $v['v'];?>');">编辑</button>
+            </li><?php }?>
+            <nav class="text-center"><ul class="pagination"><?php echo $pagination; ?></ul></nav>
+          </div>
+        </div>
+		<div id="setv" class="card">
+          <div class="card-body" ><h3>设置加V认证</h3>认证信息填写0，即取消这个用户的加V认证。<br>
+        	请输入用户名: <input name="username" id="username" value="admin"/><br>
+        	认证信息：<input name="v_content" id="v_content" value="admin是劳模，本站站长，大家都喜欢他！" style="width:80%;" maxlength="100"/><br><br>
+            <button type="button" width="200px" class="btn btn-success" id="submit" data-loading-text="<?php echo lang('submiting');?>..."><?php echo lang('confirm');?></button> <button type="button" class="btn btn-success" id="inquire" width="200px" data-loading-text="<?php echo lang('submiting');?>..."><?php echo lang('inquire');?></button>
+        	</div>
+      	</div>
+      
+        <div id="vlist" class="card">
+          <div class="card-body" ><h3>已通过的加V认证</h3>
+            <?php foreach($data as $v){?>
+            <li class="media thread tap" >
+              用户名: <?php echo $v['username'];?> | 认证信息: <?php echo $v['v'];?> &nbsp;&nbsp;<button onclick="b_click('<?php echo $v['username'];?>','<?php echo $v['v'];?>');">编辑</button>
+            </li><?php }?>
+            <nav class="text-center"><ul class="pagination"><?php echo $pagination; ?></ul></nav>
+          </div>
+        </div>
+
+      	<div class="card"><div class="card-body" ><h3>后期技术支持</h3>官方网站：http://www.iqismart.com/ <a href="http://www.6rabbit.com"target="_blank" style="text-decoration: none">点击进入</a><br>
+	</div>
+</div>
+
+</div></div>
+<?php include _include(ADMIN_PATH.'view/htm/footer.inc.htm');?>
+<script>
+    var jsubmit = $("#submit"); 
+  	var jinquire = $("#inquire");
+  	var jusername=$("#username"); 
+  	var jcontent=$("#v_content");
+    jinquire.on('click',function(){
+        jinquire.button('loading'); var postdata ="op=0&username="+jusername.val();
+        $.xpost("<?php echo url('plugin-setting-iqismart_com_v');?>",postdata,function(code,message){
+            if(code == 0) {jcontent.val(message);} else {$.alert(message);}
+            jinquire.button('reset');
+        });
+    });
+    jsubmit.on('click',function(){
+        jsubmit.button('loading'); var postdata ="op=1&username="+jusername.val()+"&val="+jcontent.val();
+        $.xpost("<?php echo url('plugin-setting-iqismart_com_v');?>",postdata,function(code,message){
+            $.alert(message);setTimeout(function(){location.reload();},1000); });
+    });
+    function b_click(username,identity)
+    {
+        jusername.val(username); jcontent.val(identity);
+    }
+  
+  {
+  	$("#setvForm").on('submit', function(){
+        $("#setvForm").reset();
+        $("#setvSubmit").button('loading');
+        var postdata = $("#setvForm").serialize();
+        console.log(postdata);
+        $.xpost($("#setvForm").attr('action'), postdata, function(code, message) {
+              if(code == 0) {
+                  $.alert(message);
+                  $("#setvSubmit").text(message.a).delay(1000).button('reset');
+                    //.location(referer);
+                  return;
+              } else {
+                  $.alert(message);
+                  $("#setvSubmit").button('reset');
+              }
+          });
+      	return false;
+    });
+
+  }
+  
+  function pass(uid){
+  	//xn.url('admin/plugin-setting-iqismart_com_v-pass'), 
+    var postdata ="uid="+uid;
+    $.xpost("<?php echo url('plugin-setting-iqismart_com_v-pass');?>",postdata,function(code,message){
+      		if(code == 0){
+              	setTimeout(function(){location.reload();},1000);
+              	return;
+            }
+            $.alert(message);
+      		 
+    });
+  }
+  
+  function reject(uid){
+  	// xn.url('admin/plugin-setting-iqismart_com_v-reject'), 
+    var postdata ="uid="+uid;
+    $.xpost("<?php echo url('plugin-setting-iqismart_com_v-reject');?>",postdata,function(code,message){
+      		if(code == 0){
+              	setTimeout(function(){location.reload();},1000);
+              	return;
+            }
+            $.alert(message);
+      		
+    });
+  }
+</script>

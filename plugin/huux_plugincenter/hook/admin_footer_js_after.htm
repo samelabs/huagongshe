@@ -1,0 +1,18 @@
+<script>
+    // 仅用于临时解决4.0.4后台插件不能卸载问题
+    $('a.unstall.confirm').on('click', function() {
+    	var jthis = $(this);
+    	var text = jthis.data('confirm-text');
+    	$.confirm(text, function() {
+    		var href = jthis.attr('href');
+            $.xpost(href, function(code, message) {
+                if(code == 0) {
+                    window.location.reload();
+                } else {
+                    alert(message);					
+                }
+            });
+    	})
+    	return false;
+    });
+</script>

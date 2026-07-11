@@ -1,0 +1,6 @@
+<?php if($gid == 1 || $gid ==2){?>
+<?php if($_user['gid'] == 7) { ?>
+<a role="button" class="btn btn-success confirm btn-block my-3" data-confirm-text="确定将用户从禁言用户组移除吗？" data-method="post" href="<?php echo url("mod-unblock-$_user[uid]");?>">解封用户</a>
+<?php } elseif ( $_user['gid'] > 6 || $_user['gid'] < 1){ ?>
+<a role="button" class="btn btn-info confirm btn-block my-3" data-confirm-text="确定要将用户移至禁言用户组吗？" data-method="post" href="<?php echo url("mod-block-$_user[uid]");?>">禁言用户</a>
+<?php } }?>

@@ -1,0 +1,48 @@
+<?php
+include 'plugin/nciaer_wxshare/jssdk.php';
+$pconfig = kv_get('nciaer_wxshare');
+$jssdk = new WeiXinShare($pconfig['appid'], $pconfig['appsecret'], 7000);
+$sharelogo = $pconfig['logo'];
+$signPackage = $jssdk->GetSignPackage();
+if($route == 'thread' && $action != 'create') {
+    preg_match('/<img[^>]*?src="([^"]*?)"[^>]*?>/i', $first['message_fmt'], $match);
+    if(!empty($match[1])) {
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+        $siteurl = "$protocol$_SERVER[HTTP_HOST]";
+        if(substr($match[1], 0, 4) == 'http') {
+            $sharelogo = $match[1];
+        } else {
+            $sharelogo = $siteurl.'/'.$match[1];
+        }
+    }
+}
+?>
+<script src="https://res.wx.qq.com/open/js/jweixin-1.2.0.js"></script>
+<script>
+    wx.config({
+        debug: <?php echo $pconfig['debug'] ? 'true':'false';?>,
+        appId: '<?php echo $signPackage[appId];?>',
+        timestamp: '<?php echo $signPackage[timestamp];?>',
+        nonceStr: '<?php echo $signPackage["nonceStr"];?>',
+        signature: '<?php echo $signPackage["signature"];?>',
+        jsApiList: ['onMenuShareTimeline', 'onMenuShareAppMessage']
+    });
+    wx.ready(function () {
+        wx.onMenuShareTimeline({
+            title: document.title,
+            link: location.href,
+            imgUrl: '<?php echo $sharelogo;?>',
+            success: function () {},
+            cancel: function () {}
+        });
+        wx.onMenuShareAppMessage({
+            title: document.title,
+            link: location.href,
+            imgUrl: '<?php echo $sharelogo;?>',
+            type: '',
+            dataUrl: '',
+            success: function () {},
+            cancel: function () {}
+        });
+    });
+</script>

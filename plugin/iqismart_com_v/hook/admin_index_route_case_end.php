@@ -1,0 +1,1 @@
+case 'iqismart_com_v': include APP_PATH.'plugin/iqismart_com_v/setting.php'; break;

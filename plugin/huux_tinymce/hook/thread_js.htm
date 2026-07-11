@@ -1,0 +1,12 @@
+<!--{hook huux_tinymce_thread_js_before.htm}-->
+<script type="text/javascript">
+if (typeof huux_tinymce_default == 'undefined') {
+    // TinyMCE 5.2 + PrismJS 1.19
+    if ($('div.message pre[class*="language-"]')[0]) {
+        $.require_css('plugin/huux_tinymce/prism/prism.css');
+        $.require('plugin/huux_tinymce/prism/prism.js');
+    }
+    $.require_css('plugin/huux_tinymce/tinymce/style.css');
+}
+</script>
+<!--{hook huux_tinymce_thread_js_after.htm}-->

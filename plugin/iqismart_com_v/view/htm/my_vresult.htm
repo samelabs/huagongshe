@@ -1,0 +1,54 @@
+<template include="./plugin/iqismart_com_v/view/htm/my_v.template.htm">
+<slot name="my_body">
+  
+  <?php
+      $apply = v_apply_read('v_apply','uid',$user['uid']);
+?>
+<div class="row">
+<div class="col-lg-6 offset-lg-3">
+<?php if(!empty($apply ) && $apply['status']<0) {?>
+<div class="alert alert-danger">很抱歉！您的加V认证申请被拒绝，原因：<?php echo $apply['remark']; ?></div>
+<?php } ?>
+  
+<?php if(!empty($apply ) && $apply['status'] == 0) {?>
+<div class="alert alert-danger">审核中，请留意邮件和私信通知</div>
+<?php } ?> 
+  
+ 
+<?php if($user['v'] != '0') {?>
+<div class="alert alert-success">恭喜！您的加V认证审核通过。</div>
+<?php } ?>
+<form action="<?php echo url('my-v');?>" method="post" id="form">
+ <div class="input-group mb-3">
+      	<div class="input-group-prepend">
+          	<span class="input-group-text">认证头衔</span>
+      	</div>
+      	<input disabled type="text" id="v" name="v" value="<?php echo $user['v']; ?>"   placeholder="请输入认证头衔" maxlength="10" class="form-control">
+  	</div>
+ 
+<button  type="submit" class="btn btn-primary btn-block" id="submit" data-loading-text="<?php echo lang('submiting');?>...">重新认证</button>
+ 
+</form>
+</div>
+</div>
+</slot>
+</template>
+<script>
+  var jform =$('#form');
+  var jsubmit =$('#submit');
+  jform.on('submit',function() {
+  	location.href="<?php echo url('my-vapply');?>"
+    return false;
+  
+  });
+ 
+<?php if(!empty($apply ) && $apply['status'] == 0) {?>
+ 	$("#v").val("");$("#form").hide();
+                                                    
+<?php } ?> 
+</script>
+<script>
+  
+  $('a[data-active="my-vresult"]').addClass('active');
+
+</script>

@@ -1,0 +1,60 @@
+<?php include _include(ADMIN_PATH.'view/htm/header.inc.htm');?>
+<div class="row">
+    <div class = "col-12">
+        <div class="card">
+            <div class="card-body">
+                <form action="<?php echo url('plugin-setting-xn_360_seo');?>" method="post" id="form">
+                <div class="form-group row">
+                    <div class="col-sm-12"><h4>设置</h4></div>
+                </div>
+                <div class="form-group row">
+                    <label class="col-sm-2 form-control-label">360hash:</label>
+                    <div class="col-sm-10">
+                        <input class="form-control" type="text" name="hash" value="<?php echo $hash;?>" placeholder="请填写360hash"/>
+                        <p class="mt-2 text-grey small">注：hash获取地址：http://zhanzhang.so.com/sitetool/auto_include</p>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label class="col-sm-2 form-control-label">是否启用：</label>
+                    <div class="col-sm-10">
+                        <label class = "form-check-inline">
+                            <input type = "checkbox" name = "status_360" value = "1" <?php echo $status_360 ? 'checked = "checked"' : '';?>/>&nbsp;开启
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label class="col-sm-2 form-control-label"></label>
+                    <div class="col-sm-10">
+                        <button type="submit" class="btn btn-primary btn-block" id="submit" data-loading-text="<?php echo lang('submiting');?>...">提交</button>
+                        <a role="button" class="btn btn-secondary btn-block mt-3" href="javascript:history.back();">返回</a>
+                    </div>
+                </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?php include _include(ADMIN_PATH.'view/htm/footer.inc.htm');?>
+<script>
+    var jform = $("#form");
+    var jsubmit = $("#submit");
+    var referer = '<?php echo url("plugin-setting-xn_360_seo");?>';
+    jform.on('submit', function () {
+        jform.reset();
+        jsubmit.button('loading');
+        var postdata = jform.serialize();
+        $.xpost(jform.attr('action'), postdata, function (code, message) {
+            if (code == 0) {
+                $.alert(message);
+                jsubmit.text(message).delay(1000).button('reset').location(referer);
+            } else {
+                $.alert('提交失败！');
+                jsubmit.button('reset');
+            }
+        });
+        return false;
+    });
+</script>

@@ -1,0 +1,35 @@
+<?php include _include(ADMIN_PATH.'view/htm/header.inc.htm');?>
+
+<div class="row">
+	<div class="col-lg-12">
+		<div class="card">
+			<div class="card-header d-flex justify-content-between">
+				<ul class="nav nav-tabs card-header-tabs">
+					<li class="nav-item">
+						<a class="nav-link active"><?php echo $plugin['name']; ?> <?php echo $plugin['version']; ?></a>
+					</li>
+				</ul>
+				<div class="text-right text-small pt-1 card-header-dropdown">
+					<div class="btn-toolbar" role="toolbar">
+						<div class="dropdown btn-group">
+							<a href="#" class="dropdown-toggle" id="feedback_dropdown_menu" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+								帮助					
+							</a>
+							<div class="dropdown-menu dropdown-menu-right text-small text-center" aria-labelledby="feedback_dropdown_menu">
+								<?php foreach ($plugin_rtmenu as $r) { ?>
+									<a target="_blank" class="dropdown-item" href="<?php echo $r['url'];?>"><i class="<?php echo $r['icon'];?>"></i> <?php echo $r['text'];?></a>
+								<?php  } ?>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+			</div>
+			<div class="card-body">
+				<slot name="plugin_setting_body" />
+			</div>
+	    </div>
+	</div>
+</div>
+
+<?php include _include(ADMIN_PATH.'view/htm/footer.inc.htm');?>

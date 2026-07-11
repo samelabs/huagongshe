@@ -1,0 +1,10 @@
+{
+    "name": "用户黑名单防灌水插件",
+    "brief": "将用户拉黑名单，并且配合每日限制IP插件将用户IP屏蔽禁止发帖，注册等行为。<br>更新：<span class='text-danger'>发帖间隔1分钟，并发延迟执行。</span><br>作者：<a href='http://bbs.432k.cn'>迷途</a><br>商业插件官方网站：<a href='http://www.432k.cn'>点此进入</a>",
+    "version": "1.5",
+    "bbs_version": "4.0",
+    "installed": 1,
+    "enable": 1,
+    "hooks_rank": [],
+    "dependencies": []
+}

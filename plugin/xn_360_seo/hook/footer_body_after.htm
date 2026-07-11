@@ -1,0 +1,14 @@
+<?php $pconfig = setting_get('xn_360_seo');?>
+
+<?php
+if($pconfig['status_360']):
+?>
+<script>
+    (function(){
+        var src = "https://jspassport.ssl.qhimg.com/11.0.1.js?<?php echo $pconfig['hash'];?>";
+        document.write('<script src="' + src + '" id="sozz"><\/script>');
+    })();
+</script>
+<?php
+    endif;
+?>

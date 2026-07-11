@@ -1,0 +1,25 @@
+<?php 
+$ax_seo = kv_get('ax_seo');
+$ax_seo_open = $ax_seo['ax_add_open'];
+$action = param(1);
+if($action == 'create'){
+	$thread['thread_keywords'] = '';
+	$thread['thread_description'] = '';
+}?>
+<?php if($ax_seo_open == 1){?>
+
+<?php if($post['isfirst'] == 1){?>
+<div class="form-group input-group">
+	<div class="input-group-prepend">
+		<span class="input-group-text">关键词</span>
+	</div>
+	<input type="text" class="form-control" placeholder="关键词" name="thread_keywords" value="<?php echo $thread['thread_keywords']?>" id="thread_keywords">
+</div>
+<div class="form-group input-group">
+	<div class="input-group-prepend">
+		<span class="input-group-text">描&emsp;述</span>
+	</div>
+	<input type="text" class="form-control" placeholder="描述" name="thread_description" value="<?php echo $thread['thread_description']?>" id="thread_description">
+</div>
+<?php }?>
+<?php }?>

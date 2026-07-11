@@ -1,0 +1,11 @@
+{
+    "name": "蓝天采集器",
+    "brief": "一款免费的数据采集发布爬虫系统，全自动定时定量发布数据到您的xiuno论坛",
+    "version": "1.0",
+    "bbs_version": "4.0",
+    "installed": 0,
+    "enable": 0,
+    "hooks_rank": [],
+    "overwrites_rank": [],
+    "dependencies": []
+}

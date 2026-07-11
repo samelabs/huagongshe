@@ -1,0 +1,10 @@
+{
+    "name": "快速禁言",
+    "brief": "在前台显要位置显示[<font color=blue>禁言/解封</font>]用户的快捷按钮。<br>修改自迷途的“用户黑名单防灌水插件”<br><font color=red>效果演示：</font><a href=http://www.westping.com>http://www.westping.com</a>",
+    "version": "1.0",
+    "bbs_version": "4.0",
+    "installed": 1,
+    "enable": 1,
+    "hooks_rank": [],
+    "dependencies": []
+}

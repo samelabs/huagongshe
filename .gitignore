@@ -1,0 +1,5 @@
+upload/
+log/
+tmp/
+conf/
+*.log

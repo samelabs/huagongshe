@@ -1,0 +1,10 @@
+{
+    "name": "Xiuno BBS 数据重新统计",
+    "brief": "重新统计主题回复数，经常删除用户可能会导致帖子数据不准确。",
+    "version": "1.0",
+    "bbs_version": "4.0.4",
+    "installed": 0,
+    "enable": 0,
+    "hooks_rank": [],
+    "dependencies": []
+}

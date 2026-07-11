@@ -1,0 +1,10 @@
+{
+    "name": "【自丢网】版块热门主题显示",
+    "brief": "<a href='http://www.zidiu.com' target='_blank'>【自丢网zidiu.com】</a>如果在建站过程中有疑惑或者遇到问题以及插件模板网站修改维护都可以联系我：<a href='http://wpa.qq.com/msgrd?v=3&uin=515138&site=qq&menu=yes' target='_blank'>QQ：515138</a><br>本插件版块和内容页右侧显示本版块热门主题。",
+    "version": "1.4",
+    "bbs_version": "4.0",
+    "installed": 1,
+    "enable": 1,
+    "hooks_rank": [],
+    "dependencies": []
+}

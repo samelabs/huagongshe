@@ -1,0 +1,11 @@
+{
+    "name": "大白·插件中心",
+    "brief": "高品质xiuno插件模板，后台在线安装升级。",
+    "version": "1.4",
+    "bbs_version": "4.0",
+    "installed": 0,
+    "enable": 0,
+    "hooks_rank": [],
+    "overwrites_rank": [],
+    "dependencies": []
+}

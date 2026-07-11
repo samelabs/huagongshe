@@ -1,0 +1,15 @@
+<template include="./view/htm/my.common.template.htm">
+	<slot name="my_nav">
+		<ul class="nav nav-tabs card-header-tabs">
+			<!--{hook my_nav_v_before.htm}-->
+			<li class="nav-item">
+				<a class="nav-link" href="<?php echo url("my-vapply");?>" data-active="my-vapply"><?php echo lang('v_sub_nav');?></a>
+			</li>
+			<!--{hook my_nav_v_after.htm}-->
+		</ul>
+	</slot>
+</template>
+
+<script>
+$('a[data-active="menu-my-vapply"]').addClass('active');
+</script>

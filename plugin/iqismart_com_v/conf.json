@@ -1,0 +1,11 @@
+{
+    "name": "加V认证",
+    "brief": "用户申请加v认证，管理员后台审核，通过后可以在用户头像上加V。使用交流：<a href='http://iqismart.com'>http://iqismart.com 一起smart出品  QQ: 364337403</a>",
+    "version": "1.0",
+    "bbs_version": "4.0.4",
+    "installed": 1,
+    "enable": 0,
+    "hooks_rank": [],
+    "overwrites_rank": [],
+    "dependencies": []
+}
