@@ -1,0 +1,419 @@
+"""Public read API for the autonomous chemicals and reactions data model."""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from rdkit import Chem, RDLogger
+from sqlalchemy import text
+
+from .cache import cache_get, cache_set
+from .config import settings
+from .database import get_db
+
+RDLogger.DisableLog("rdApp.error")
+
+router = APIRouter(tags=["chemistry"])
+
+CAS_RE = re.compile(r"^\d{2,7}-\d{2}-\d$")
+INCHIKEY_RE = re.compile(r"^[A-Z]{14}-[A-Z]{10}-[A-Z]$")
+DTXSID_RE = re.compile(r"^DTXSID\d{7,12}$", re.I)
+IDENTIFIER_ARRAYS = {
+    "cas": "cas_numbers",
+    "nikkaji": "nikkaji_numbers",
+    "chembl": "chembl_ids",
+    "ec": "ec_numbers",
+    "unii": "unii_codes",
+    "chebi": "chebi_ids",
+}
+CHEMICAL_SELECT = """
+    c.id, c.pubchem_cid, c.smiles, c.pubchem_smiles,
+    c.preferred_name, c.iupac_name, c.molecular_formula,
+    c.average_mass, c.monoisotopic_mass, c.inchikey, c.dtxsid,
+    c.cas_numbers, c.nikkaji_numbers, c.chembl_ids, c.ec_numbers,
+    c.unii_codes, c.chebi_ids
+"""
+
+
+def canonicalize_smiles(value: str) -> str | None:
+    value = value.strip()
+    if not value or len(value) > 4000:
+        return None
+    mol = Chem.MolFromSmiles(value)
+    return Chem.MolToSmiles(mol, canonical=True) if mol is not None else None
+
+
+def chemical_dict(row: Any, score: float | None = None) -> dict[str, Any]:
+    return {
+        "id": row[0],
+        "pubchem_cid": row[1],
+        "smiles": row[2],
+        "pubchem_smiles": row[3],
+        "preferred_name": row[4],
+        "iupac_name": row[5],
+        "molecular_formula": row[6],
+        "average_mass": float(row[7]) if row[7] is not None else None,
+        "monoisotopic_mass": float(row[8]) if row[8] is not None else None,
+        "inchikey": row[9],
+        "dtxsid": row[10],
+        "cas_numbers": row[11] or [],
+        "nikkaji_numbers": row[12] or [],
+        "chembl_ids": row[13] or [],
+        "ec_numbers": row[14] or [],
+        "unii_codes": row[15] or [],
+        "chebi_ids": row[16] or [],
+        "similarity": round(float(score), 4) if score is not None else None,
+    }
+
+
+async def fetch_chemicals(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = (await db.execute(text(sql), params)).fetchall()
+    return [chemical_dict(row, row[17] if len(row) > 17 else None) for row in rows]
+
+
+async def reaction_summaries(
+    db: Any,
+    chemical_ids: list[int],
+    role: str,
+    page: int,
+    page_size: int,
+) -> tuple[int, list[dict[str, Any]]]:
+    if not chemical_ids:
+        return 0, []
+    role_clause = ""
+    params: dict[str, Any] = {"chemical_ids": chemical_ids}
+    if role != "any":
+        role_clause = "AND rc.role = :role"
+        params["role"] = role.upper()
+    params.update(limit=page_size + 1, offset=(page - 1) * page_size)
+    rows = (await db.execute(text(f"""
+        WITH ids AS MATERIALIZED (
+            SELECT DISTINCT rc.reaction_id
+            FROM chemistry.reaction_chemicals rc
+            WHERE rc.chemical_id = ANY(:chemical_ids) {role_clause}
+            ORDER BY rc.reaction_id
+            LIMIT :limit OFFSET :offset
+        )
+        SELECT DISTINCT ON (rx.id)
+            rx.id, rx.reaction_smiles, rp.doi, rp.patent,
+            d.name,
+            (SELECT min(rc.role) FROM chemistry.reaction_chemicals rc
+             WHERE rc.reaction_id=rx.id AND rc.chemical_id=ANY(:chemical_ids))
+        FROM ids
+        JOIN chemistry.reactions rx ON rx.id = ids.reaction_id
+        LEFT JOIN ord.reaction_map lm ON lm.reaction_id = rx.id
+        LEFT JOIN ord.reaction o ON o.id = lm.ord_reaction_id
+        LEFT JOIN ord.reaction_provenance rp ON rp.reaction_id = o.id
+        LEFT JOIN ord.dataset d ON d.id = o.dataset_id
+        ORDER BY rx.id, rp.id
+    """), params)).fetchall()
+    has_more = len(rows) > page_size
+    rows = rows[:page_size]
+    seen = (page - 1) * page_size + len(rows)
+    total = 10001 if has_more else seen
+    return total, [
+        {
+            "id": row[0], "reaction_smiles": row[1], "doi": row[2],
+            "patent": row[3], "dataset_name": row[4], "matched_role": row[5],
+        }
+        for row in rows
+    ]
+
+
+@router.get("/stats")
+async def stats(db=Depends(get_db)):
+    cached = await cache_get("v2:stats")
+    if cached:
+        return cached
+    row = (await db.execute(text("""
+        SELECT
+          (SELECT reltuples::bigint FROM pg_class WHERE oid='chemistry.chemicals'::regclass),
+          (SELECT reltuples::bigint FROM pg_class WHERE oid='chemistry.reactions'::regclass),
+          (SELECT count(*) FROM ord.dataset),
+          (SELECT count(*) FROM ingest.reaction_rdkit_failures)
+    """))).one()
+    data = {
+        "chemicals": max(row[0], 0), "reactions": max(row[1], 0),
+        "datasets": row[2], "rdkit_failures": row[3],
+    }
+    await cache_set("v2:stats", data, ttl=3600)
+    return data
+
+
+@router.get("/search")
+async def search(
+    q: str = Query(..., min_length=1, max_length=4000),
+    mode: str = Query("exact", pattern="^(exact|substructure|similarity)$"),
+    page_size: int = Query(20, ge=1, le=50),
+    db=Depends(get_db),
+):
+    """One entry point for names, external identifiers, SMILES and structures."""
+    query = q.strip()
+    cache_key = f"v3:chemical-search:{mode}:{page_size}:{query}"
+    cached = await cache_get(cache_key)
+    if cached:
+        return cached
+
+    canonical = canonicalize_smiles(query)
+    chemicals: list[dict[str, Any]] = []
+    limit = min(page_size, 30)
+    try:
+        if mode == "substructure":
+            if not canonical:
+                raise HTTPException(400, "无法识别该 SMILES/SMARTS 结构")
+            await db.execute(text("SET LOCAL statement_timeout = '30s'"))
+            chemicals = await fetch_chemicals(db, f"""
+                SELECT {CHEMICAL_SELECT}
+                FROM chemistry.chemicals c
+                WHERE c.mol @> mol_from_smiles(:smiles)
+                ORDER BY c.id LIMIT :limit
+            """, {"smiles": canonical, "limit": limit})
+        elif mode == "similarity":
+            if not canonical:
+                raise HTTPException(400, "无法识别该 SMILES 结构")
+            await db.execute(text("SET LOCAL statement_timeout = '30s'"))
+            chemicals = await fetch_chemicals(db, f"""
+                SELECT {CHEMICAL_SELECT},
+                       1 - (c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles)))
+                FROM chemistry.chemicals c
+                WHERE c.mol IS NOT NULL
+                ORDER BY c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles))
+                LIMIT :limit
+            """, {"smiles": canonical, "limit": limit})
+            chemicals.sort(key=lambda item: item.get("similarity") or 0, reverse=True)
+        else:
+            clauses: list[str] = []
+            params: dict[str, Any] = {"q": query, "uq": query.upper(), "limit": limit}
+            prefix, sep, raw_value = query.partition(":")
+            if sep and prefix.lower() in IDENTIFIER_ARRAYS:
+                clauses.append(f"c.{IDENTIFIER_ARRAYS[prefix.lower()]} @> ARRAY[:qv]")
+                params["qv"] = raw_value.strip()
+            elif sep and prefix.lower() == "cid" and raw_value.strip().isdigit():
+                clauses.append("c.pubchem_cid = :number")
+                params["number"] = int(raw_value)
+            elif sep and prefix.lower() == "id" and raw_value.strip().isdigit():
+                clauses.append("c.id = :number")
+                params["number"] = int(raw_value)
+            else:
+                if query.isdigit():
+                    clauses.extend(["c.id = :number", "c.pubchem_cid = :number"])
+                    params["number"] = int(query)
+                if CAS_RE.fullmatch(query):
+                    clauses.append("c.cas_numbers @> ARRAY[:q]")
+                elif INCHIKEY_RE.fullmatch(query.upper()):
+                    clauses.append("c.inchikey = :uq")
+                elif DTXSID_RE.fullmatch(query):
+                    clauses.append("upper(c.dtxsid) = :uq")
+                elif query.upper().startswith("CHEMBL"):
+                    clauses.append("c.chembl_ids @> ARRAY[:q]")
+                elif query.upper().startswith("CHEBI:"):
+                    clauses.append("c.chebi_ids @> ARRAY[:q]")
+                elif canonical:
+                    # The exact-SMILES btree is intentionally partial; repeat its
+                    # predicate so PostgreSQL can use it instead of scanning 124M rows.
+                    clauses.append("(c.smiles = :smiles AND c.mol IS NOT NULL)")
+                    params["smiles"] = canonical
+            if clauses:
+                chemicals = await fetch_chemicals(db, f"""
+                    SELECT {CHEMICAL_SELECT}
+                    FROM chemistry.chemicals c
+                    WHERE {' OR '.join(clauses)}
+                    ORDER BY c.id LIMIT :limit
+                """, params)
+            if not chemicals and not canonical and len(query) >= 2:
+                # Keep the two trigram indexes independent. A cross-column OR on
+                # 124M rows is both slower and less predictable than two bounded scans.
+                chemicals = await fetch_chemicals(db, f"""
+                    SELECT {CHEMICAL_SELECT}
+                    FROM chemistry.chemicals c
+                    WHERE c.preferred_name ILIKE '%' || :q || '%'
+                    LIMIT :limit
+                """, {"q": query, "limit": limit})
+                if len(chemicals) < limit:
+                    secondary = await fetch_chemicals(db, f"""
+                        SELECT {CHEMICAL_SELECT}
+                        FROM chemistry.chemicals c
+                        WHERE c.iupac_name ILIKE '%' || :q || '%'
+                        LIMIT :limit
+                    """, {"q": query, "limit": limit})
+                    seen = {item["id"] for item in chemicals}
+                    chemicals.extend(item for item in secondary if item["id"] not in seen)
+                    chemicals = chemicals[:limit]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
+
+    data = {
+        "query": query, "mode": mode, "canonical_smiles": canonical,
+        "chemicals": chemicals, "page_size": page_size,
+    }
+    await cache_set(cache_key, data, ttl=600)
+    return data
+
+
+@router.get("/chemicals/{chemical_id}")
+async def chemical_detail(chemical_id: int, db=Depends(get_db)):
+    rows = await fetch_chemicals(db, f"""
+        SELECT {CHEMICAL_SELECT} FROM chemistry.chemicals c WHERE c.id=:id
+    """, {"id": chemical_id})
+    if not rows:
+        raise HTTPException(404, "化合物不存在")
+    result = rows[0]
+    result["reaction_count"] = (await db.execute(text("""
+        SELECT count(DISTINCT reaction_id) FROM chemistry.reaction_chemicals
+        WHERE chemical_id=:id
+    """), {"id": chemical_id})).scalar() or 0
+    return result
+
+
+@router.get("/chemicals/{chemical_id}/reactions")
+async def chemical_reactions(
+    chemical_id: int,
+    role: str = Query("any", pattern="^(any|reactant|reagent|solvent|catalyst|product)$"),
+    page: int = Query(1, ge=1, le=500),
+    page_size: int = Query(20, ge=1, le=50),
+    db=Depends(get_db),
+):
+    total, items = await reaction_summaries(db, [chemical_id], role, page, page_size)
+    return {"total": total, "page": page, "page_size": page_size, "reactions": items}
+
+
+@router.get("/chemicals/{chemical_id}/substructure")
+async def chemical_substructure(
+    chemical_id: int, limit: int = Query(20, ge=1, le=50), db=Depends(get_db)
+):
+    smiles = (await db.execute(text(
+        "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
+    ), {"id": chemical_id})).scalar()
+    if not smiles:
+        raise HTTPException(404, "化合物没有可检索结构")
+    await db.execute(text("SET LOCAL statement_timeout = '30s'"))
+    items = await fetch_chemicals(db, f"""
+        SELECT {CHEMICAL_SELECT}
+        FROM chemistry.chemicals c
+        WHERE c.mol @> mol_from_smiles(:smiles) AND c.id<>:id
+        ORDER BY c.id LIMIT :limit
+    """, {"id": chemical_id, "smiles": smiles, "limit": limit})
+    return {"chemicals": items}
+
+
+@router.get("/chemicals/{chemical_id}/similarity")
+async def chemical_similarity(
+    chemical_id: int,
+    threshold: float = Query(0.7, ge=0.4, le=1.0),
+    limit: int = Query(20, ge=1, le=50),
+    db=Depends(get_db),
+):
+    smiles = (await db.execute(text(
+        "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
+    ), {"id": chemical_id})).scalar()
+    if not smiles:
+        raise HTTPException(404, "化合物没有可检索结构")
+    await db.execute(text("SET LOCAL statement_timeout = '30s'"))
+    items = await fetch_chemicals(db, f"""
+        SELECT {CHEMICAL_SELECT},
+               1 - (c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles)))
+        FROM chemistry.chemicals c
+        WHERE c.mol IS NOT NULL AND c.id<>:id
+        ORDER BY c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles))
+        LIMIT :limit
+    """, {"id": chemical_id, "smiles": smiles, "limit": limit})
+    items = [item for item in items if (item.get("similarity") or 0) >= threshold]
+    return {"threshold": threshold, "chemicals": items}
+
+
+@router.get("/reactions/{reaction_id}")
+async def reaction_detail(reaction_id: int, db=Depends(get_db)):
+    base = (await db.execute(text("""
+        SELECT rx.id, rx.reaction_smiles, o.id, o.reaction_id, d.name,
+               rp.doi, rp.patent, rp.publication_url,
+               rn.procedure_details, rn.safety_notes,
+               cond.reflux, cond.ph, cond.details
+        FROM chemistry.reactions rx
+        LEFT JOIN ord.reaction_map lm ON lm.reaction_id=rx.id
+        LEFT JOIN ord.reaction o ON o.id=lm.ord_reaction_id
+        LEFT JOIN ord.dataset d ON d.id=o.dataset_id
+        LEFT JOIN LATERAL (SELECT * FROM ord.reaction_provenance p WHERE p.reaction_id=o.id ORDER BY p.id LIMIT 1) rp ON true
+        LEFT JOIN LATERAL (SELECT * FROM ord.reaction_notes n WHERE n.reaction_id=o.id ORDER BY n.id LIMIT 1) rn ON true
+        LEFT JOIN LATERAL (SELECT * FROM ord.reaction_conditions c WHERE c.reaction_id=o.id ORDER BY c.id LIMIT 1) cond ON true
+        WHERE rx.id=:id
+    """), {"id": reaction_id})).fetchone()
+    if not base:
+        raise HTTPException(404, "反应不存在")
+
+    participants = (await db.execute(text(f"""
+        SELECT {CHEMICAL_SELECT}, rc.role, rc.occurrence_count
+        FROM chemistry.reaction_chemicals rc
+        JOIN chemistry.chemicals c ON c.id=rc.chemical_id
+        WHERE rc.reaction_id=:id
+        ORDER BY CASE rc.role WHEN 'REACTANT' THEN 1 WHEN 'REAGENT' THEN 2
+                 WHEN 'CATALYST' THEN 3 WHEN 'SOLVENT' THEN 4 WHEN 'PRODUCT' THEN 5 ELSE 6 END,
+                 c.id
+    """), {"id": reaction_id})).fetchall()
+    compounds = []
+    for row in participants:
+        item = chemical_dict(row)
+        item.update(role=row[17], occurrence_count=row[18])
+        compounds.append(item)
+
+    temperature = (await db.execute(text("""
+        SELECT t.value, t.units::text
+        FROM ord.reaction_map lm
+        JOIN ord.reaction_conditions rc ON rc.reaction_id=lm.ord_reaction_id
+        JOIN ord.temperature_conditions tc ON tc.reaction_conditions_id=rc.id
+        JOIN ord.temperature t ON t.temperature_conditions_id=tc.id
+        WHERE lm.reaction_id=:id AND t.value IS NOT NULL ORDER BY t.id LIMIT 1
+    """), {"id": reaction_id})).fetchone()
+    workup = (await db.execute(text("""
+        SELECT rw.type::text, rw.details, rw.keep_phase, rw.target_ph
+        FROM ord.reaction_map lm
+        JOIN ord.reaction_workup rw ON rw.reaction_id=lm.ord_reaction_id
+        WHERE lm.reaction_id=:id ORDER BY rw.id
+    """), {"id": reaction_id})).fetchall()
+    yields = (await db.execute(text("""
+        SELECT pc.chemical_id, max(p.value)
+        FROM ord.reaction_map lm
+        JOIN ord.reaction_outcome ro ON ro.reaction_id=lm.ord_reaction_id
+        JOIN ord.product_compound pc ON pc.reaction_outcome_id=ro.id
+        JOIN ord.product_measurement pm ON pm.product_compound_id=pc.id AND pm.type='YIELD'
+        JOIN ord.percentage p ON p.product_measurement_id=pm.id
+        WHERE lm.reaction_id=:id AND pc.chemical_id IS NOT NULL
+        GROUP BY pc.chemical_id
+    """), {"id": reaction_id})).fetchall()
+    yield_map = {row[0]: float(row[1]) for row in yields}
+    for item in compounds:
+        if item["role"] == "PRODUCT":
+            item["yield_percent"] = yield_map.get(item["id"])
+
+    return {
+        "id": base[0], "reaction_smiles": base[1], "ord_record_id": base[2],
+        "ord_id": base[3], "dataset_name": base[4], "doi": base[5],
+        "patent": base[6], "publication_url": base[7],
+        "procedure_details": base[8], "safety_notes": base[9],
+        "reflux": base[10], "ph": base[11], "conditions_detail": base[12],
+        "temperature": ({"value": temperature[0], "unit": temperature[1]} if temperature else None),
+        "participants": compounds,
+        "workup": [
+            {"type": row[0], "details": row[1], "keep_phase": row[2], "target_ph": row[3]}
+            for row in workup
+        ],
+    }
+
+
+@router.get("/datasets")
+async def datasets(
+    page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=50), db=Depends(get_db)
+):
+    rows = (await db.execute(text("""
+        SELECT id, dataset_id, name, description, num_reactions, submitted_at
+        FROM ord.dataset ORDER BY num_reactions DESC NULLS LAST, id
+        LIMIT :limit OFFSET :offset
+    """), {"limit": page_size, "offset": (page - 1) * page_size})).fetchall()
+    return [{
+        "id": row[0], "dataset_id": row[1], "name": row[2], "description": row[3],
+        "reaction_count": row[4], "submitted_at": row[5],
+    } for row in rows]

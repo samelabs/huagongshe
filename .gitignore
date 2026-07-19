@@ -1,5 +1,28 @@
-upload/
-log/
-tmp/
-conf/
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime and import artifacts
 *.log
+*.csv
+*.tsv
+*.gz
+*.parquet
+*.dump
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/

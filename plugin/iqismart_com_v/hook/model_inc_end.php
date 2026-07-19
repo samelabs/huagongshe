@@ -1,1 +1,0 @@
-include _include(APP_PATH.'plugin/iqismart_com_v/model/v.func.php');

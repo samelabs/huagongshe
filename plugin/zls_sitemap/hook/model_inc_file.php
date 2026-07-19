@@ -1,1 +1,0 @@
-APP_PATH.'plugin/zls_sitemap/model/sitemap.func.php',

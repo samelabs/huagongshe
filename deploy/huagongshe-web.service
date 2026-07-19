@@ -1,0 +1,25 @@
+[Unit]
+Description=Huagongshe Next.js web
+After=network.target huagongshe-api.service
+Wants=huagongshe-api.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/var/www/huagongshe/web/.next/standalone
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=HOSTNAME=127.0.0.1
+Environment=API_BASE=http://127.0.0.1:8000/api
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
