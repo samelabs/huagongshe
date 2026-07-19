@@ -384,17 +384,21 @@ async def reaction_detail(reaction_id: int, db=Depends(get_db)):
         WHERE lm.reaction_id=:id AND pc.chemical_id IS NOT NULL
         GROUP BY pc.chemical_id
     """), {"id": reaction_id})).fetchall()
-    yield_map = {row[0]: float(row[1]) for row in yields}
+    yield_map = {row[0]: round(float(row[1]), 3) for row in yields}
     for item in compounds:
         if item["role"] == "PRODUCT":
             item["yield_percent"] = yield_map.get(item["id"])
+
+    conditions_detail = base[12]
+    if conditions_detail and conditions_detail.strip().lower().startswith("see reaction.notes"):
+        conditions_detail = None
 
     return {
         "id": base[0], "reaction_smiles": base[1], "ord_record_id": base[2],
         "ord_id": base[3], "dataset_name": base[4], "doi": base[5],
         "patent": base[6], "publication_url": base[7],
         "procedure_details": base[8], "safety_notes": base[9],
-        "reflux": base[10], "ph": base[11], "conditions_detail": base[12],
+        "reflux": base[10], "ph": base[11], "conditions_detail": conditions_detail,
         "temperature": ({"value": temperature[0], "unit": temperature[1]} if temperature else None),
         "participants": compounds,
         "workup": [

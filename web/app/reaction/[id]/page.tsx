@@ -32,7 +32,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
             <span className="participant-role">{roleNames[chemical.role || ""] || chemical.role}</span>
             <div className="mol-frame"><Molecule smiles={chemical.smiles} width={180} height={120} /></div>
             <p className="result-title">{chemical.preferred_name || chemical.iupac_name || `化合物 #${chemical.id}`}</p>
-            {chemical.yield_percent != null && <p className="result-sub">收率 {chemical.yield_percent}%</p>}
+            {chemical.yield_percent != null && <p className="result-sub">收率 {formatYield(chemical.yield_percent)}%</p>}
           </Link>
         ))}
       </div>
@@ -50,7 +50,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
       {reaction.procedure_details && <section><h2 className="section-label">实验过程</h2><p className="prose">{reaction.procedure_details}</p></section>}
       {reaction.workup.length > 0 && <section><h2 className="section-label">后处理</h2>{reaction.workup.map((step, index) => <p className="prose" key={index}>{index + 1}. {step.type ? `${step.type} · ` : ""}{step.details}</p>)}</section>}
       {reaction.safety_notes && <section><h2 className="section-label">安全说明</h2><p className="prose">{reaction.safety_notes}</p></section>}
-      <div className="actions"><Link className="button" href="/submit?type=reaction">补充或纠正该反应</Link></div>
+      <div className="actions"><Link className="button" href={`/submit?type=reaction&reaction=${reaction.id}`}>补充或纠正该反应</Link></div>
     </div>
   );
 }
@@ -58,4 +58,8 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
 function Fact({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return <div className="fact"><dt>{label}</dt><dd>{value}</dd></div>;
+}
+
+function formatYield(value: number) {
+  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 3 }).format(value);
 }

@@ -6,6 +6,7 @@ import { useState } from "react";
 export function SubmissionForm() {
   const search = useSearchParams();
   const initial = search.get("type") === "reaction" ? "reaction" : "chemical";
+  const reactionId = /^\d+$/.test(search.get("reaction") || "") ? Number(search.get("reaction")) : null;
   const [kind, setKind] = useState<"chemical" | "reaction">(initial);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -20,7 +21,7 @@ export function SubmissionForm() {
         const values = new FormData(event.currentTarget);
         const payload = kind === "chemical"
           ? { smiles: values.get("smiles") || null, cas: values.get("cas") || null, note: values.get("note") || null }
-          : { reaction_smiles: values.get("reaction_smiles"), note: values.get("note") || null };
+          : { reaction_id: reactionId, reaction_smiles: values.get("reaction_smiles"), note: values.get("note") || null };
         const response = await fetch(`/api/community/${kind}-submissions`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
         });
@@ -39,6 +40,7 @@ export function SubmissionForm() {
         ) : (
           <>
             <label>反应 SMILES<textarea name="reaction_smiles" required placeholder="reactants&gt;agents&gt;products" /></label>
+            {reactionId && <p className="result-sub">补充或纠正反应 #{reactionId}</p>}
             <p className="result-sub">反应物和产物中的每个结构都会先进行格式校验。</p>
           </>
         )}

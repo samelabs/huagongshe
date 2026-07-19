@@ -54,7 +54,7 @@ export default async function ChemicalPage({ params }: { params: Promise<{ id: s
         <Link className="button primary" href="#reactions">查看参与反应</Link>
         <Link className="button" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>子结构</Link>
         <Link className="button" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>相似结构</Link>
-        <Link className="button" href={`/submit?type=reaction&chemical=${chemical.id}`}>发布反应求助</Link>
+        <Link className="button" href="/submit?type=reaction">提交相关反应</Link>
       </div>
       {reactions.reactions.length > 0 && (
         <section id="reactions">

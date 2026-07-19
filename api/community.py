@@ -57,6 +57,7 @@ class ChemicalSubmissionBody(BaseModel):
 
 class ReactionSubmissionBody(BaseModel):
     reaction_smiles: str = Field(min_length=3, max_length=12000)
+    reaction_id: int | None = Field(default=None, gt=0)
     note: str | None = Field(default=None, max_length=10000)
 
 
@@ -214,11 +215,18 @@ async def submit_reaction(
         for smiles in filter(None, side.split(".")):
             if not canonicalize_smiles(smiles):
                 raise HTTPException(400, f"无法解析结构：{smiles[:80]}")
+    if body.reaction_id is not None:
+        exists = (await db.execute(text(
+            "SELECT 1 FROM chemistry.reactions WHERE id=:id"
+        ), {"id": body.reaction_id})).scalar()
+        if not exists:
+            raise HTTPException(404, "需要补充的反应不存在")
     row = (await db.execute(text("""
-        INSERT INTO community.reaction_submissions(user_id,reaction_smiles,note)
-        VALUES (:user_id,:reaction_smiles,:note) RETURNING id,status,created_at
+        INSERT INTO community.reaction_submissions(user_id,reaction_id,reaction_smiles,note)
+        VALUES (:user_id,:reaction_id,:reaction_smiles,:note) RETURNING id,status,created_at
     """), {
-        "user_id": user["id"], "reaction_smiles": body.reaction_smiles.strip(), "note": body.note,
+        "user_id": user["id"], "reaction_id": body.reaction_id,
+        "reaction_smiles": body.reaction_smiles.strip(), "note": body.note,
     })).one()
     await db.commit()
     return {"id": row[0], "status": row[1], "created_at": row[2]}
