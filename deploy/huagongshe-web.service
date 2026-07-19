@@ -15,6 +15,7 @@ Environment=API_BASE=http://127.0.0.1:8000/api
 ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=3
+SuccessExitStatus=143 SIGTERM
 TimeoutStopSec=20
 NoNewPrivileges=true
 PrivateTmp=true
