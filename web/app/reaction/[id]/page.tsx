@@ -54,12 +54,15 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
 
       <dl className="facts">
         {reaction.temperature && <Fact label="温度" value={`${reaction.temperature.value} ${reaction.temperature.unit}`} />}
+        {reaction.duration && <Fact label="反应时间" value={`${reaction.duration.value} ${reaction.duration.unit}`} />}
+        {reaction.atmosphere && <Fact label="气氛" value={reaction.atmosphere} />}
+        {reaction.pressure && <Fact label="压力" value={`${reaction.pressure.value} ${reaction.pressure.unit}`} />}
         {reaction.ph != null && <Fact label="pH" value={String(reaction.ph)} />}
         {reaction.reflux && <Fact label="回流" value="是" />}
         <Fact label="条件" value={reaction.conditions_detail} />
         <Fact label="DOI" value={reaction.doi} />
         <Fact label="专利" value={reaction.patent} />
-        <Fact label="数据来源" value={reaction.ord_id ? "Open Reaction Database (ORD)" : null} />
+        <Fact label="数据来源" value={reaction.ord_id ? "Open Reaction Database (ORD)" : reaction.community_submission_id ? "化工社社区审核" : null} />
         <Fact label="来源数据集" value={reaction.dataset_name} />
         <Fact label="来源记录" value={reaction.ord_id} />
       </dl>

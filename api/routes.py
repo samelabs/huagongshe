@@ -97,8 +97,10 @@ async def reaction_summaries(
             LIMIT :limit OFFSET :offset
         )
         SELECT DISTINCT ON (rx.id)
-            rx.id, rx.reaction_smiles, rp.doi, rp.patent,
-            d.name,
+            rx.id, rx.reaction_smiles,
+            COALESCE(NULLIF(cs.doi,''),rp.doi),
+            COALESCE(NULLIF(cs.patent,''),rp.patent),
+            CASE WHEN o.id IS NULL AND cs.id IS NOT NULL THEN '社区审核' ELSE d.name END,
             (SELECT min(rc.role) FROM chemistry.reaction_chemicals rc
              WHERE rc.reaction_id=rx.id AND rc.chemical_id=ANY(:chemical_ids))
         FROM ids
@@ -107,6 +109,12 @@ async def reaction_summaries(
         LEFT JOIN ord.reaction o ON o.id = lm.ord_reaction_id
         LEFT JOIN ord.reaction_provenance rp ON rp.reaction_id = o.id
         LEFT JOIN ord.dataset d ON d.id = o.dataset_id
+        LEFT JOIN LATERAL (
+          SELECT s.id,s.doi,s.patent
+          FROM community.reaction_submissions s
+          WHERE s.reaction_id=rx.id AND s.status='accepted'
+          ORDER BY s.reviewed_at DESC NULLS LAST,s.id DESC LIMIT 1
+        ) cs ON true
         ORDER BY rx.id, rp.id
     """), params)).fetchall()
     has_more = len(rows) > page_size
@@ -329,10 +337,18 @@ async def chemical_similarity(
 @router.get("/reactions/{reaction_id}")
 async def reaction_detail(reaction_id: int, db=Depends(get_db)):
     base = (await db.execute(text("""
-        SELECT rx.id, rx.reaction_smiles, o.id, o.reaction_id, d.name,
-               rp.doi, rp.patent, rp.publication_url,
-               rn.procedure_details, rn.safety_notes,
-               cond.reflux, cond.ph, cond.details
+        SELECT rx.id, rx.reaction_smiles, o.id, o.reaction_id,
+               CASE WHEN o.id IS NULL AND cs.id IS NOT NULL THEN '社区审核' ELSE d.name END,
+               COALESCE(NULLIF(cs.doi,''),rp.doi),
+               COALESCE(NULLIF(cs.patent,''),rp.patent),
+               COALESCE(NULLIF(cs.source_url,''),rp.publication_url),
+               COALESCE(NULLIF(cs.procedure_details,''),rn.procedure_details),
+               COALESCE(NULLIF(cs.safety_notes,''),rn.safety_notes),
+               cond.reflux,COALESCE(cs.ph,cond.ph),
+               COALESCE(NULLIF(cs.conditions_detail,''),cond.details),
+               cs.temperature_value,cs.temperature_unit,
+               cs.duration_value,cs.duration_unit,cs.atmosphere,
+               cs.pressure_value,cs.pressure_unit,cs.id
         FROM chemistry.reactions rx
         LEFT JOIN ord.reaction_map lm ON lm.reaction_id=rx.id
         LEFT JOIN ord.reaction o ON o.id=lm.ord_reaction_id
@@ -340,6 +356,11 @@ async def reaction_detail(reaction_id: int, db=Depends(get_db)):
         LEFT JOIN LATERAL (SELECT * FROM ord.reaction_provenance p WHERE p.reaction_id=o.id ORDER BY p.id LIMIT 1) rp ON true
         LEFT JOIN LATERAL (SELECT * FROM ord.reaction_notes n WHERE n.reaction_id=o.id ORDER BY n.id LIMIT 1) rn ON true
         LEFT JOIN LATERAL (SELECT * FROM ord.reaction_conditions c WHERE c.reaction_id=o.id ORDER BY c.id LIMIT 1) cond ON true
+        LEFT JOIN LATERAL (
+          SELECT * FROM community.reaction_submissions s
+          WHERE s.reaction_id=rx.id AND s.status='accepted'
+          ORDER BY s.reviewed_at DESC NULLS LAST,s.id DESC LIMIT 1
+        ) cs ON true
         WHERE rx.id=:id
     """), {"id": reaction_id})).fetchone()
     if not base:
@@ -385,6 +406,15 @@ async def reaction_detail(reaction_id: int, db=Depends(get_db)):
         GROUP BY pc.chemical_id
     """), {"id": reaction_id})).fetchall()
     yield_map = {row[0]: round(float(row[1]), 3) for row in yields}
+    community_yields = (await db.execute(text("""
+        SELECT p.chemical_id,max(p.yield_percent)
+        FROM community.reaction_submissions s
+        JOIN community.reaction_submission_participants p ON p.submission_id=s.id
+        WHERE s.reaction_id=:id AND s.status='accepted' AND p.role='PRODUCT'
+          AND p.chemical_id IS NOT NULL AND p.yield_percent IS NOT NULL
+        GROUP BY p.chemical_id
+    """), {"id": reaction_id})).fetchall()
+    yield_map.update({row[0]: round(float(row[1]), 3) for row in community_yields})
     for item in compounds:
         if item["role"] == "PRODUCT":
             item["yield_percent"] = yield_map.get(item["id"])
@@ -399,7 +429,14 @@ async def reaction_detail(reaction_id: int, db=Depends(get_db)):
         "patent": base[6], "publication_url": base[7],
         "procedure_details": base[8], "safety_notes": base[9],
         "reflux": base[10], "ph": base[11], "conditions_detail": conditions_detail,
-        "temperature": ({"value": temperature[0], "unit": temperature[1]} if temperature else None),
+        "temperature": (
+            {"value": base[13], "unit": base[14]} if base[13] is not None
+            else ({"value": temperature[0], "unit": temperature[1]} if temperature else None)
+        ),
+        "duration": ({"value": base[15], "unit": base[16]} if base[15] is not None else None),
+        "atmosphere": base[17],
+        "pressure": ({"value": base[18], "unit": base[19]} if base[18] is not None else None),
+        "community_submission_id": base[20],
         "participants": compounds,
         "workup": [
             {"type": row[0], "details": row[1], "keep_phase": row[2], "target_ph": row[3]}

@@ -68,6 +68,10 @@ export type ReactionDetail = {
   ph: number | null;
   conditions_detail: string | null;
   temperature: { value: number; unit: string } | null;
+  duration: { value: number; unit: string } | null;
+  atmosphere: string | null;
+  pressure: { value: number; unit: string } | null;
+  community_submission_id: number | null;
   participants: Chemical[];
   workup: { type: string | null; details: string | null; keep_phase: string | null; target_ph: number | null }[];
 };

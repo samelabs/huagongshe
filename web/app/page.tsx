@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { SearchBox } from "@/components/SearchBox";
 import { apiGet } from "@/lib/api";
 
@@ -30,10 +29,6 @@ export default async function Home() {
             </div>
           </div>
         )}
-        <div className="home-actions">
-          <Link href="/submit?type=chemical">提交化合物</Link>
-          <Link href="/submit?type=reaction">提交反应</Link>
-        </div>
       </section>
     </div>
   );

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
+import { HeaderAccount } from "@/components/HeaderAccount";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,13 +26,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <header className="site-header">
           <div className="header-inner">
-            <Link href="/" className="brand" aria-label="化工社首页">
-              <span>化工社</span>
+            <Link href="/" className="brand" aria-label="huagongshe.com 首页">
+              <Image src="/icon.svg" alt="" width={28} height={28} priority />
+              <span>huagongshe.com</span>
             </Link>
-            <nav aria-label="主导航">
-              <Link href="/submit">提交</Link>
-              <Link href="/login" className="login-link">登录</Link>
-            </nav>
+            <HeaderAccount />
           </div>
         </header>
         <main>{children}</main>

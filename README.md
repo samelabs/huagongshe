@@ -13,6 +13,19 @@
 
 PubChem、DSSTox 和 ORD 是数据来源；RDKit 是解析、标准化和检索能力。它们都不形成与 `chemistry` 并列的产品数据主线。
 
+## 社区数据闭环
+
+1. 用户注册并登录；密码在服务端进行强度和二次输入一致性校验，会话使用安全的 HttpOnly Cookie。
+2. 化合物提交先经 RDKit/CAS 格式校验和现有数据匹配；反应提交按参与物角色、过程、条件、收率和来源结构化保存。
+3. `editor` 或 `admin` 在 `/admin` 审核。拒绝必须说明原因；接受会在一个数据库事务内写入或更新 `chemistry.chemicals`、`chemistry.reactions` 和 `chemistry.reaction_chemicals`。
+4. 用户在 `/submit` 查看审核状态；接受后的对象可直接进入化合物或反应详情页。
+
+审核权限不随注册自动授予。服务器管理员核实账号后执行：
+
+```sql
+UPDATE community.users SET role='editor' WHERE lower(email)=lower('reviewer@example.com');
+```
+
 ## 代码边界
 
 - `api/`：FastAPI 同域 API。

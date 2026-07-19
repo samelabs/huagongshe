@@ -18,9 +18,15 @@ export function AccountForm() {
         event.preventDefault();
         setBusy(true); setMessage("");
         const values = new FormData(event.currentTarget);
+        if (kind === "register" && values.get("password") !== values.get("confirm_password")) {
+          setMessage("两次输入的密码不一致"); setBusy(false); return;
+        }
         const payload = kind === "login"
           ? { account: values.get("account"), password: values.get("password") }
-          : { username: values.get("username"), email: values.get("email"), password: values.get("password") };
+          : {
+              username: values.get("username"), email: values.get("email"),
+              password: values.get("password"), confirm_password: values.get("confirm_password"),
+            };
         const response = await fetch(`/api/community/${kind}`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
         });
@@ -35,6 +41,12 @@ export function AccountForm() {
           </>
         ) : <label>用户名或邮箱<input name="account" required autoComplete="username" /></label>}
         <label>密码<input name="password" type="password" required minLength={kind === "register" ? 10 : 1} autoComplete={kind === "login" ? "current-password" : "new-password"} /></label>
+        {kind === "register" && (
+          <>
+            <p className="field-hint">至少 10 位，并同时包含字母和数字。</p>
+            <label>确认密码<input name="confirm_password" type="password" required minLength={10} autoComplete="new-password" /></label>
+          </>
+        )}
         {message && <p className="form-message bad">{message}</p>}
         <button className="button primary" disabled={busy}>{busy ? "处理中…" : kind === "login" ? "登录" : "创建账号"}</button>
       </form>

@@ -26,3 +26,11 @@ async def cache_set(key: str, value, ttl: int = 0):
     if hasattr(value, 'model_dump'):
         value = value.model_dump()
     await client.set(key, json.dumps(value, default=str), ex=ttl or settings.cache_ttl)
+
+
+async def cache_delete(*keys: str):
+    """Delete exact cache keys after a reviewed core-data mutation."""
+    if not keys:
+        return
+    client = redis.Redis(connection_pool=pool)
+    await client.delete(*keys)
