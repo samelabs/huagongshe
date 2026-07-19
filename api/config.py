@@ -7,8 +7,8 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str = "redis://127.0.0.1:6379/1"
     cache_ttl: int = 600
-    api_title: str = "化工社开放化学数据 API"
-    api_version: str = "2.0.0"
+    api_title: str = "化工社 API"
+    api_version: str = "3.0.0"
     page_size: int = 20
     max_page_size: int = 50
     cors_origins: list[str] = ["https://huagongshe.com", "https://www.huagongshe.com"]
