@@ -34,24 +34,27 @@ def reaction_to_svg(reaction_smiles: str, width: int = 1200, height: int = 300) 
     """Render a reaction SMILES as a clean, atom-map-free SVG equation."""
     if not reaction_smiles or len(reaction_smiles) > 20000:
         return None
-    reaction = rdChemReactions.ReactionFromSmarts(reaction_smiles, useSmiles=True)
-    if reaction is None or not reaction.GetNumReactantTemplates() or not reaction.GetNumProductTemplates():
+    try:
+        reaction = rdChemReactions.ReactionFromSmarts(reaction_smiles, useSmiles=True)
+        if reaction is None or not reaction.GetNumReactantTemplates() or not reaction.GetNumProductTemplates():
+            return None
+        for molecule in (
+            list(reaction.GetReactants())
+            + list(reaction.GetAgents())
+            + list(reaction.GetProducts())
+        ):
+            for atom in molecule.GetAtoms():
+                atom.SetAtomMapNum(0)
+        drawer = Draw.rdMolDraw2D.MolDraw2DSVG(width, height)
+        options = drawer.drawOptions()
+        options.bondLineWidth = 1.8
+        options.scaleBondWidth = False
+        options.padding = 0.08
+        drawer.DrawReaction(reaction)
+        drawer.FinishDrawing()
+        return re.sub(r'<\?xml[^>]+\?>', '', drawer.GetDrawingText())
+    except Exception:
         return None
-    for molecule in (
-        list(reaction.GetReactants())
-        + list(reaction.GetAgents())
-        + list(reaction.GetProducts())
-    ):
-        for atom in molecule.GetAtoms():
-            atom.SetAtomMapNum(0)
-    drawer = Draw.rdMolDraw2D.MolDraw2DSVG(width, height)
-    options = drawer.drawOptions()
-    options.bondLineWidth = 1.8
-    options.scaleBondWidth = False
-    options.padding = 0.08
-    drawer.DrawReaction(reaction)
-    drawer.FinishDrawing()
-    return re.sub(r'<\?xml[^>]+\?>', '', drawer.GetDrawingText())
 
 
 @router.get("/mol/svg")
