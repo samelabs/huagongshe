@@ -124,13 +124,13 @@ async def reaction_summaries(
 
 @router.get("/stats")
 async def stats(db=Depends(get_db)):
-    cached = await cache_get("v2:stats")
+    cached = await cache_get("v3:stats:exact")
     if cached:
         return cached
     row = (await db.execute(text("""
         SELECT
-          (SELECT reltuples::bigint FROM pg_class WHERE oid='chemistry.chemicals'::regclass),
-          (SELECT reltuples::bigint FROM pg_class WHERE oid='chemistry.reactions'::regclass),
+          (SELECT exact_count FROM chemistry.statistics WHERE metric='chemicals'),
+          (SELECT exact_count FROM chemistry.statistics WHERE metric='reactions'),
           (SELECT count(*) FROM ord.dataset),
           (SELECT count(*) FROM ingest.reaction_rdkit_failures)
     """))).one()
@@ -138,7 +138,7 @@ async def stats(db=Depends(get_db)):
         "chemicals": max(row[0], 0), "reactions": max(row[1], 0),
         "datasets": row[2], "rdkit_failures": row[3],
     }
-    await cache_set("v2:stats", data, ttl=3600)
+    await cache_set("v3:stats:exact", data, ttl=3600)
     return data
 
 

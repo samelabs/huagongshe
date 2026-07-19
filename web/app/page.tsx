@@ -19,13 +19,18 @@ export default async function Home() {
       </section>
       <section className="home-meta" aria-label="数据概况">
         {stats && (
-          <p>
-            <strong>{formatCount(stats.chemicals)}</strong> 个化合物
-            <span>·</span>
-            <strong>{formatCount(stats.reactions)}</strong> 条反应
-          </p>
+          <div className="home-stats">
+            <div className="home-stat">
+              <strong>{formatCount(stats.chemicals)}</strong>
+              <span>个化合物</span>
+            </div>
+            <div className="home-stat">
+              <strong>{formatCount(stats.reactions)}</strong>
+              <span>条反应</span>
+            </div>
+          </div>
         )}
-        <div>
+        <div className="home-actions">
           <Link href="/submit?type=chemical">提交化合物</Link>
           <Link href="/submit?type=reaction">提交反应</Link>
         </div>
@@ -35,5 +40,5 @@ export default async function Home() {
 }
 
 function formatCount(value: number) {
-  return new Intl.NumberFormat("zh-CN", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+  return new Intl.NumberFormat("zh-CN").format(value);
 }
