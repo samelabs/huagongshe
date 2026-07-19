@@ -1,9 +1,12 @@
-"""Molecule SVG rendering using RDKit."""
+"""Molecule and reaction SVG rendering using RDKit."""
+import asyncio
 import re
 from rdkit import Chem
-from rdkit.Chem import Draw, AllChem
-from fastapi import APIRouter, HTTPException, Response
+from rdkit.Chem import Draw, AllChem, rdChemReactions
+from fastapi import APIRouter, Depends, HTTPException, Response
+from sqlalchemy import text
 from .cache import cache_get, cache_set
+from .database import get_db
 
 router = APIRouter(tags=["molecule"])
 
@@ -27,6 +30,30 @@ def smiles_to_svg(smiles: str, width: int = 400, height: int = 300) -> str:
     return svg
 
 
+def reaction_to_svg(reaction_smiles: str, width: int = 1200, height: int = 300) -> str | None:
+    """Render a reaction SMILES as a clean, atom-map-free SVG equation."""
+    if not reaction_smiles or len(reaction_smiles) > 20000:
+        return None
+    reaction = rdChemReactions.ReactionFromSmarts(reaction_smiles, useSmiles=True)
+    if reaction is None or not reaction.GetNumReactantTemplates() or not reaction.GetNumProductTemplates():
+        return None
+    for molecule in (
+        list(reaction.GetReactants())
+        + list(reaction.GetAgents())
+        + list(reaction.GetProducts())
+    ):
+        for atom in molecule.GetAtoms():
+            atom.SetAtomMapNum(0)
+    drawer = Draw.rdMolDraw2D.MolDraw2DSVG(width, height)
+    options = drawer.drawOptions()
+    options.bondLineWidth = 1.8
+    options.scaleBondWidth = False
+    options.padding = 0.08
+    drawer.DrawReaction(reaction)
+    drawer.FinishDrawing()
+    return re.sub(r'<\?xml[^>]+\?>', '', drawer.GetDrawingText())
+
+
 @router.get("/mol/svg")
 async def render_molecule(smiles: str, w: int = 400, h: int = 300):
     """Render a SMILES to SVG image. Cached in Redis."""
@@ -44,3 +71,42 @@ async def render_molecule(smiles: str, w: int = 400, h: int = 300):
 
     await cache_set(cache_key, svg, ttl=86400)  # Cache 24h
     return Response(content=svg, media_type="image/svg+xml")
+
+
+@router.get("/reactions/{reaction_id}/svg")
+async def render_reaction(
+    reaction_id: int,
+    w: int = 1200,
+    h: int = 300,
+    db=Depends(get_db),
+):
+    """Render the stored reaction expression by stable reaction ID."""
+    w = min(max(w, 600), 1800)
+    h = min(max(h, 180), 600)
+    row = (await db.execute(text("""
+        SELECT reaction_smiles, updated_at
+        FROM chemistry.reactions
+        WHERE id=:id AND reaction_smiles IS NOT NULL
+    """), {"id": reaction_id})).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="反应没有可渲染的结构表达")
+
+    version = int(row[1].timestamp()) if row[1] else 0
+    cache_key = f"reaction_svg:v1:{reaction_id}:{version}:{w}x{h}"
+    cached = await cache_get(cache_key)
+    if cached:
+        return Response(
+            content=cached,
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    svg = await asyncio.to_thread(reaction_to_svg, row[0], w, h)
+    if svg is None:
+        raise HTTPException(status_code=422, detail="反应结构无法渲染")
+    await cache_set(cache_key, svg, ttl=86400)
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
