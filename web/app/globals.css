@@ -49,14 +49,15 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .button:disabled { opacity: .5; cursor: not-allowed; }
 .text-button { border: 0; padding: 0; color: var(--blue); background: none; cursor: pointer; font-size: 13px; }
 .page-kicker, .record-kicker, .section-heading p { margin: 0 0 8px; color: var(--blue); font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-.entity-id { display: inline-grid; grid-auto-flow: column; align-items: stretch; border: 1px solid #bfd7fb; border-radius: 5px; overflow: hidden; vertical-align: middle; font-variant-numeric: tabular-nums; line-height: 1; }
-.entity-id > span { padding: 7px 8px; color: white; background: var(--blue); font-size: 9px; font-weight: 850; letter-spacing: .08em; }
-.entity-id > strong { padding: 7px 9px; color: var(--blue-deep); background: var(--blue-pale); font-size: 12px; font-weight: 800; }
-.entity-id.reaction { border-color: #cbd5e5; }
-.entity-id.reaction > span { background: #263b66; }
-.entity-id.reaction > strong { color: #263b66; background: #eef2f8; }
-.entity-id.compact > span { padding: 5px 6px; font-size: 8px; }
-.entity-id.compact > strong { padding: 5px 7px; font-size: 10px; }
+.entity-id { display: inline-flex; align-items: baseline; gap: 5px; border-radius: 3px; padding: 5px 7px; color: var(--ink); background: #f1f6fd; box-shadow: inset 2px 0 0 var(--blue); vertical-align: middle; font-variant-numeric: tabular-nums; line-height: 1; }
+.entity-id > span { color: var(--blue-deep); font-size: 8px; font-weight: 850; letter-spacing: .09em; }
+.entity-id > strong { color: #30415e; font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; font-weight: 700; }
+.entity-id.reaction { background: #f1f3f7; box-shadow: inset 2px 0 0 #52627f; }
+.entity-id.reaction > span { color: #52627f; }
+.entity-id.reaction > strong { color: #344056; }
+.entity-id.compact { gap: 4px; padding: 3px 6px; }
+.entity-id.compact > span { font-size: 7px; }
+.entity-id.compact > strong { font-size: 9px; }
 
 .home { width: min(820px, calc(100% - 40px)); margin: auto; }
 .hero { padding: clamp(72px, 11vh, 112px) 0 62px; text-align: center; }
@@ -124,6 +125,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .reaction-badges span { height: fit-content; border-radius: 999px; padding: 5px 9px; color: var(--blue-deep); background: var(--blue-pale); font-size: 10px; }
 .reaction-preview { height: 178px; border-top: 1px solid #f0f2f6; border-bottom: 1px solid #f0f2f6; display: block; overflow-x: auto; }
 .reaction-preview img { display: block; width: 100%; min-width: 780px; height: 100%; object-fit: contain; }
+.reaction-preview.unavailable { display: flex; align-items: center; justify-content: center; padding: 20px; color: var(--quiet); background: var(--wash); font-size: 12px; text-align: center; }
 .reaction-result-foot { padding: 11px 18px; display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 11px; }
 .reaction-result-foot p { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reaction-result-foot a { flex: 0 0 auto; color: var(--blue); }
@@ -193,18 +195,20 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .reaction-equation { margin-bottom: 52px; }
 .reaction-scheme { width: 100%; border: 1px solid var(--line); overflow-x: auto; background: white; }
 .reaction-scheme img { display: block; width: 100%; min-width: 900px; height: 310px; object-fit: contain; }
+.reaction-scheme.unavailable { min-height: 180px; display: flex; align-items: center; justify-content: center; padding: 24px; color: var(--quiet); background: var(--wash); font-size: 13px; text-align: center; }
 .reaction-layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 60px; align-items: start; }
 .reaction-main { min-width: 0; display: grid; gap: 48px; }
 .reaction-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
-.participant-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 10px; }
-.reaction-sides .participant-grid { grid-template-columns: 1fr; }
-.participant-card { min-width: 0; border: 1px solid var(--line); padding: 13px; display: grid; grid-template-columns: 128px 1fr; gap: 13px; align-items: center; transition: .15s ease; }
+.participant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 10px; }
+.reaction-sides .participant-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.participant-card { min-width: 0; border: 1px solid var(--line); padding: 13px; display: block; overflow: hidden; transition: .15s ease; }
 .participant-card:hover { border-color: #a9c9f5; }
-.participant-structure { height: 106px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.participant-structure { width: 100%; height: 132px; border-bottom: 1px solid #edf0f4; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .participant-structure img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.participant-card h3 { margin: 5px 0; font-size: 13px; line-height: 1.4; }
+.participant-card > div:last-child { min-width: 0; padding-top: 10px; }
+.participant-card h3 { margin: 7px 0 5px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
 .participant-card p { margin: 0; color: var(--muted); font-size: 11px; }
-.role-label { color: var(--blue); font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.role-label { display: block; margin-bottom: 6px; color: var(--blue); font-size: 9px; font-weight: 800; letter-spacing: .08em; }
 .yield-value { display: block; margin-top: 7px; color: var(--success); font-size: 11px; }
 .condition-list { margin: 0 0 18px; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
 .condition-list > div { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 12px; }
@@ -364,7 +368,8 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   .chemical-aside, .reaction-aside { grid-template-columns: 1fr; }
   .reaction-title { align-items: start; flex-direction: column; }
   .reaction-scheme img { min-width: 760px; height: 250px; }
-  .participant-card { grid-template-columns: 105px 1fr; }
+  .participant-grid, .reaction-sides .participant-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
+  .participant-structure { height: 116px; }
   .condition-list { grid-template-columns: repeat(2, 1fr); }
   .workup-list li { grid-template-columns: 1fr; gap: 5px; }
   .form-section { padding: 18px; }

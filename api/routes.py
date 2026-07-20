@@ -233,8 +233,12 @@ async def search(
                 SELECT {CHEMICAL_SELECT}
                 FROM chemistry.chemicals c
                 WHERE c.mol @> mol_from_smiles(:smiles)
-                ORDER BY c.id LIMIT :limit
+                LIMIT :limit
             """, {"smiles": canonical, "limit": limit})
+            # A database-side ORDER BY id makes PostgreSQL scan the 124M-row
+            # primary key and apply the RDKit predicate row by row. Keep the
+            # GiST index scan bounded, then order the small response in memory.
+            chemicals.sort(key=lambda item: item["id"])
         elif mode == "similarity":
             if not canonical:
                 raise HTTPException(400, "无法识别该 SMILES 结构")
@@ -437,8 +441,10 @@ async def chemical_substructure(
         SELECT {CHEMICAL_SELECT}
         FROM chemistry.chemicals c
         WHERE c.mol @> mol_from_smiles(:smiles) AND c.id<>:id
-        ORDER BY c.id LIMIT :limit
+        LIMIT :limit
     """, {"id": chemical_id, "smiles": smiles, "limit": limit})
+    # Preserve the RDKit GiST plan; see the same rule in the public search.
+    items.sort(key=lambda item: item["id"])
     return {"chemicals": items}
 
 

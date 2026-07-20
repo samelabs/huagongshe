@@ -38,6 +38,13 @@ PubChem、DSSTox 和 ORD 是数据来源；RDKit 是解析、标准化和检索�
 3. `editor` 或 `admin` 在 `/admin` 审核。拒绝必须说明原因；接受会在一个数据库事务内写入或更新 `chemistry.chemicals`、`chemistry.reactions` 和 `chemistry.reaction_chemicals`。
 4. 用户在 `/submit` 查看审核状态；接受后的对象可直接进入化合物或反应详情页。
 
+## 检索与反应表达
+
+- 精确 SMILES 使用部分 B-tree；子结构使用 `chemicals_mol_gist_idx`；相似结构使用 Morgan bit-vector GiST KNN。
+- 子结构 SQL 不得按 `chemical_id` 预排序。该排序会让 PostgreSQL 放弃 RDKit GiST，改为扫描主键后逐行判断；API 只对有限结果做内存排序。
+- CAS 等数组标识使用 GIN，名称使用独立 trigram GIN，反应与化合物关系使用 `(chemical_id,reaction_id)` 覆盖索引。
+- 当前 2,428,291 条反应中，2,428,170 条已有反应 SMILES 和 RDKit reaction。剩余 121 条缺少反应物或生成物，按原因记录在 `ingest.reaction_rdkit_failures`，页面不得尝试渲染不存在的方程式。
+
 审核权限不随注册自动授予。服务器管理员核实账号后执行：
 
 ```sql

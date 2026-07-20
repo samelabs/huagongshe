@@ -642,7 +642,7 @@ async def review_reaction_submission(
         reaction_id = (await db.execute(text("""
             INSERT INTO chemistry.reactions(id,reaction_smiles,reaction)
             VALUES (nextval('chemistry.reactions_id_seq'),:reaction_smiles,
-                    reaction_from_smiles(:reaction_input)) RETURNING id
+                    CAST(:reaction_input AS public.reaction)) RETURNING id
         """), {
             "reaction_smiles": submission["reaction_smiles"],
             "reaction_input": submission["reaction_smiles"],
@@ -655,7 +655,7 @@ async def review_reaction_submission(
         await db.execute(text("""
             UPDATE chemistry.reactions
             SET reaction_smiles=:reaction_smiles,
-                reaction=reaction_from_smiles(:reaction_input),updated_at=now()
+                reaction=CAST(:reaction_input AS public.reaction),updated_at=now()
             WHERE id=:id
         """), {
             "id": reaction_id, "reaction_smiles": submission["reaction_smiles"],

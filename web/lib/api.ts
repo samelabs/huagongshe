@@ -110,7 +110,7 @@ export type SearchResponse = {
 
 export type ReactionDetail = {
   id: number;
-  reaction_smiles: string;
+  reaction_smiles: string | null;
   ord_record_id: number | null;
   ord_id: string | null;
   dataset_name: string | null;

@@ -26,11 +26,12 @@ export function ReactionResult({ reaction }: { reaction: ReactionSummary | React
           {lookup?.ord_id && <span>{lookup.ord_id}</span>}
         </div>
       </div>
-      <Link className="reaction-preview" href={`/reaction/${reaction.id}`}>
-        {/* The endpoint renders the stored RDKit reaction, never user HTML. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={`反应 ${reaction.id} 方程式`} loading="lazy" />
-      </Link>
+      {reaction.reaction_smiles ? (
+        <Link className="reaction-preview" href={`/reaction/${reaction.id}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={`HRID ${reaction.id} 方程式`} loading="lazy" />
+        </Link>
+      ) : <div className="reaction-preview unavailable">缺少完整反应物或生成物，暂不能生成方程式</div>}
       <div className="reaction-result-foot">
         <p>{source || "结构数据已入库，来源信息待补全"}</p>
         <Link href={`/reaction/${reaction.id}`}>查看条件与参与物</Link>

@@ -29,14 +29,14 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     error = "查询暂时不可用，请稍后重试或缩小结构范围。";
   }
 
-  const relationLabel = mode === "substructure" ? "子结构" : "相似结构";
+  const relationLabel = mode === "substructure" ? "子结构匹配" : "相似结构";
   return (
     <div className="content-page search-page">
       <header className="search-head">
         <p className="page-kicker">DATA FINDER</p>
         <h1>{chemicalId ? `${relationLabel}结果` : "查询化学数据"}</h1>
         <GlobalSearch initial={q} compact />
-        {chemicalId && <p className="context-line"><Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link> 的{relationLabel}结果</p>}
+        {chemicalId && <p className="context-line">以 <Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link> 为查询结构的{relationLabel}{mode === "similarity" ? "（相似度 ≥ 70%）" : ""}</p>}
       </header>
       {error && <div className="notice error">{error}</div>}
       {!error && !q && !chemicalId && (

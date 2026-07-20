@@ -50,7 +50,7 @@ export default async function ChemicalPage({ params, searchParams }: {
 
   return (
     <div className="content-page chemical-page">
-      <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><EntityId kind="chemical" id={chemical.id} compact /></nav>
+      <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><span>化合物详情</span></nav>
       <header className="chemical-identity">
         <div className="chemical-structure"><Molecule smiles={chemical.smiles} width={360} height={280} /></div>
         <div className="chemical-title-block">
@@ -64,7 +64,7 @@ export default async function ChemicalPage({ params, searchParams }: {
           </div>
           <div className="context-actions">
             <Link className="button primary" href="#reactions">查看参与反应</Link>
-            <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>查找子结构</Link>
+            <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>子结构检索</Link>
             <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>查找相似结构</Link>
           </div>
         </div>

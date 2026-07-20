@@ -34,7 +34,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="content-page reaction-page">
-      <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><EntityId kind="reaction" id={reaction.id} compact /></nav>
+      <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><span>反应详情</span></nav>
       <header className="reaction-title">
         <div>
           <EntityId kind="reaction" id={reaction.id} />
@@ -45,10 +45,10 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
 
       <section className="reaction-equation" aria-labelledby="equation-title">
         <div className="section-heading compact-heading"><div><p>EQUATION</p><h2 id="equation-title">反应方程式</h2></div></div>
-        <div className="reaction-scheme">
+        {reaction.reaction_smiles ? <div className="reaction-scheme">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={reactionSvgUrl(reaction.id, 1500, 340)} width="1500" height="340" alt={`反应 ${reaction.id} 的结构方程式`} />
-        </div>
+          <img src={reactionSvgUrl(reaction.id, 1500, 340)} width="1500" height="340" alt={`HRID ${reaction.id} 的结构方程式`} />
+        </div> : <div className="reaction-scheme unavailable">缺少完整反应物或生成物，暂不能生成方程式</div>}
       </section>
 
       <div className="reaction-layout">
@@ -92,7 +92,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
           <section>
             <h2>来源与证据</h2>
             <dl>
-              <Source label="数据体系" value={reaction.ord_id ? "Open Reaction Database" : reaction.community_submission_id ? "化工社社区审核" : "结构库"} />
+              <Source label="来源类型" value={reaction.ord_id ? "Open Reaction Database" : reaction.community_submission_id ? "化工社社区审核" : "化工社"} />
               <Source label="ORD 记录" value={reaction.ord_id} />
               <Source label="来源数据集" value={reaction.dataset_name} />
               <Source label="DOI" value={reaction.doi} href={reaction.doi ? `https://doi.org/${reaction.doi}` : undefined} />
@@ -100,10 +100,10 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
               <Source label="原始链接" value={reaction.publication_url ? "查看来源" : null} href={reaction.publication_url || undefined} />
             </dl>
           </section>
-          <details className="source-expression">
+          {reaction.reaction_smiles && <details className="source-expression">
             <summary>反应 SMILES</summary>
             <p className="mono">{reaction.reaction_smiles}</p>
-          </details>
+          </details>}
           <section className="contribute-panel">
             <h2>发现缺失或错误？</h2>
             <p>修订会保留提交者、审核状态与依据，不在页面上直接改写。</p>
