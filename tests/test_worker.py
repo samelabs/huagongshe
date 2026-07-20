@@ -2,8 +2,41 @@ from __future__ import annotations
 
 import unittest
 
+from api.pubchem_core import chemical_core_values
 from worker.chemistry import select_verified_cid
-from worker.pubchem import PubChemRateController, normalize_view, throttle_status
+from worker.pubchem import PROPERTY_NAMES, PubChemRateController, normalize_view, throttle_status
+
+
+class ChemicalCoreMappingTests(unittest.TestCase):
+    def test_worker_requests_all_chemicals_core_properties(self) -> None:
+        requested = set(PROPERTY_NAMES.split(","))
+        self.assertTrue({
+            "Title", "IUPACName", "MolecularFormula", "MolecularWeight",
+            "MonoisotopicMass", "InChIKey",
+        }.issubset(requested))
+
+    def test_verified_pubchem_properties_map_to_chemicals(self) -> None:
+        values = chemical_core_values({
+            "Title": "Aspirin",
+            "IUPACName": "2-acetyloxybenzoic acid",
+            "MolecularFormula": "C9H8O4",
+            "MolecularWeight": "180.16",
+            "MonoisotopicMass": "180.04225873",
+            "InChIKey": "BSYNRYMUTXBXSQ-UHFFFAOYSA-N",
+        })
+        self.assertEqual(values["preferred_name"], "Aspirin")
+        self.assertEqual(values["average_mass"], 180.16)
+        self.assertEqual(values["monoisotopic_mass"], 180.04225873)
+        self.assertEqual(values["inchikey"], "BSYNRYMUTXBXSQ-UHFFFAOYSA-N")
+
+    def test_missing_or_invalid_values_do_not_clear_existing_core(self) -> None:
+        values = chemical_core_values({
+            "Title": " ",
+            "MolecularWeight": "not-a-number",
+            "MonoisotopicMass": -1,
+            "InChIKey": "invalid",
+        })
+        self.assertTrue(all(value is None for value in values.values()))
 
 
 class ThrottleTests(unittest.TestCase):

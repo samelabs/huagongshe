@@ -67,7 +67,7 @@ API 连接信息由服务器上的 `/etc/huagongshe/api.env` 提供，不写入 
 
 ## PubChem 按需补全
 
-`chemistry.chemical_details` 是稀疏的一对一扩展表：只有实际被请求的 chemical 才产生行，且各信息分区分别记录抓取时间。`maintenance.pubchem_jobs` 是可恢复的租约队列；worker 崩溃或失联后任务会重试，超过次数进入 `dead`，不会无限循环。
+PubChem 结果通过 CID 与标准结构双重校验后，同步维护 `chemistry.chemicals` 的名称、分子式、质量和 InChIKey；CID 与 SMILES 不由 worker 改写。`chemistry.chemical_details` 是稀疏的一对一扩展表：只有实际被请求的 chemical 才产生行，且各信息分区分别记录抓取时间。`maintenance.pubchem_jobs` 是可恢复的租约队列；worker 崩溃或失联后任务会重试，超过次数进入 `dead`，不会无限循环。
 
 worker 通过 `python -m worker.issue_token WORKER_ID` 生成一次性凭据。数据库只保存令牌摘要；worker 环境只需要本机 `/workapi` 地址、worker ID 和令牌，不需要数据库连接。生产服务使用 `deploy/huagongshe-pubchem-worker.service`。
 

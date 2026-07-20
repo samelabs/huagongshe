@@ -20,6 +20,7 @@ from .cache import cache_delete, get_cache
 from .config import settings
 from .database import get_db
 from .chemistry import canonicalize_smiles
+from .pubchem_core import chemical_core_values, number_or_none
 
 router = APIRouter(prefix="/workapi/v1", tags=["workapi"])
 
@@ -249,11 +250,42 @@ def as_json_object(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def number_or_none(value: Any, cast=float):
-    try:
-        return cast(value) if value is not None else None
-    except (TypeError, ValueError):
-        return None
+async def sync_chemical_core(
+    db: Any,
+    chemical_id: int,
+    properties: dict[str, Any],
+    *,
+    record_title: Any = None,
+) -> None:
+    """Synchronize trusted PubChem core fields without changing identity/structure."""
+    values = chemical_core_values(properties, record_title=record_title)
+    await db.execute(text("""
+        WITH incoming AS (
+            SELECT CAST(:preferred_name AS text) AS preferred_name,
+                   CAST(:iupac_name AS text) AS iupac_name,
+                   CAST(:molecular_formula AS text) AS molecular_formula,
+                   CAST(:average_mass AS double precision) AS average_mass,
+                   CAST(:monoisotopic_mass AS double precision) AS monoisotopic_mass,
+                   CAST(:inchikey AS text) AS inchikey
+        )
+        UPDATE chemistry.chemicals
+        SET preferred_name=coalesce(incoming.preferred_name,chemistry.chemicals.preferred_name),
+            iupac_name=coalesce(incoming.iupac_name,chemistry.chemicals.iupac_name),
+            molecular_formula=coalesce(incoming.molecular_formula,chemistry.chemicals.molecular_formula),
+            average_mass=coalesce(incoming.average_mass,chemistry.chemicals.average_mass),
+            monoisotopic_mass=coalesce(incoming.monoisotopic_mass,chemistry.chemicals.monoisotopic_mass),
+            inchikey=coalesce(incoming.inchikey,chemistry.chemicals.inchikey),
+            updated_at=now()
+        FROM incoming
+        WHERE chemistry.chemicals.id=:chemical_id AND (
+            (incoming.preferred_name IS NOT NULL AND chemistry.chemicals.preferred_name IS DISTINCT FROM incoming.preferred_name) OR
+            (incoming.iupac_name IS NOT NULL AND chemistry.chemicals.iupac_name IS DISTINCT FROM incoming.iupac_name) OR
+            (incoming.molecular_formula IS NOT NULL AND chemistry.chemicals.molecular_formula IS DISTINCT FROM incoming.molecular_formula) OR
+            (incoming.average_mass IS NOT NULL AND chemistry.chemicals.average_mass IS DISTINCT FROM incoming.average_mass) OR
+            (incoming.monoisotopic_mass IS NOT NULL AND chemistry.chemicals.monoisotopic_mass IS DISTINCT FROM incoming.monoisotopic_mass) OR
+            (incoming.inchikey IS NOT NULL AND chemistry.chemicals.inchikey IS DISTINCT FROM incoming.inchikey)
+        )
+    """), {"chemical_id": chemical_id, **values})
 
 
 async def reject_completed_job(
@@ -491,6 +523,12 @@ async def complete_job(
             "regulatory", "pharmacology", "uses",
         } and key in allowed_for_job and isinstance(value, dict)}
         if chemical_id is not None and selected_cid is not None:
+            await sync_chemical_core(
+                db,
+                int(chemical_id),
+                properties,
+                record_title=result.get("record_title"),
+            )
             await upsert_details(db, int(chemical_id), properties, sections, result)
 
         summary = {
