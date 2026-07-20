@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from worker.chemistry import select_verified_cid
-from worker.pubchem import normalize_view, throttle_status
+from worker.pubchem import PubChemRateController, normalize_view, throttle_status
 
 
 class ThrottleTests(unittest.TestCase):
@@ -13,6 +13,20 @@ class ThrottleTests(unittest.TestCase):
 
     def test_missing_signal_is_conservative_green(self) -> None:
         self.assertEqual(throttle_status(None), "green")
+
+
+class LocalRateControllerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_feedback_changes_only_the_worker_local_spacing(self) -> None:
+        controller = PubChemRateController(4)
+        self.assertEqual(controller.spacing, 0.25)
+        await controller.feedback("red", 200)
+        self.assertEqual(controller.spacing, 1.0)
+        await controller.feedback("green", 200)
+        self.assertEqual(controller.spacing, 0.8)
+
+    async def test_invalid_rate_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            PubChemRateController(6)
 
 
 class IdentitySelectionTests(unittest.TestCase):

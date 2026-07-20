@@ -1,4 +1,4 @@
-"""Distributed PubChem worker.  It never opens a database connection."""
+"""PubChem worker using the authenticated maintenance API as its only writer."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from typing import Any
 
 import aiohttp
 
-from .pubchem import PubChemClient, PubChemError
+from .pubchem import PubChemClient, PubChemError, PubChemRateController
 from .chemistry import select_verified_cid
 
 log = logging.getLogger("huagongshe-worker")
@@ -71,12 +71,15 @@ async def heartbeat(client: WorkApiClient, job: dict[str, Any], stop: asyncio.Ev
 
 
 async def process_job(
-    session: aiohttp.ClientSession, workapi: WorkApiClient, job: dict[str, Any]
+    session: aiohttp.ClientSession,
+    workapi: WorkApiClient,
+    rate: PubChemRateController,
+    job: dict[str, Any],
 ) -> None:
     stop = asyncio.Event()
     heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop))
     try:
-        pubchem = PubChemClient(session, workapi)
+        pubchem = PubChemClient(session, rate)
         candidates = await pubchem.resolve(job["query_kind"], str(job["query_value"]))
         properties = await pubchem.properties(candidates)
         expected_cid = job.get("expected_pubchem_cid")
@@ -177,9 +180,11 @@ async def run() -> None:
     worker_id = os.environ["HGS_WORKER_ID"]
     token = os.environ["HGS_WORKER_TOKEN"]
     concurrency = min(max(int(os.environ.get("HGS_WORKER_CONCURRENCY", "2")), 1), 8)
+    requests_per_second = float(os.environ.get("HGS_PUBCHEM_REQUESTS_PER_SECOND", "4"))
     connector = aiohttp.TCPConnector(limit=concurrency + 4, ttl_dns_cache=300)
     async with aiohttp.ClientSession(connector=connector) as session:
         workapi = WorkApiClient(session, base_url, worker_id, token)
+        rate = PubChemRateController(requests_per_second)
         log.info("worker started id=%s concurrency=%s", worker_id, concurrency)
         idle_seconds = 2.0
         while True:
@@ -195,7 +200,9 @@ async def run() -> None:
                     await asyncio.sleep(idle_seconds + random.random())
                     continue
                 idle_seconds = 2.0
-                await asyncio.gather(*(process_job(session, workapi, job) for job in jobs))
+                await asyncio.gather(
+                    *(process_job(session, workapi, rate, job) for job in jobs)
+                )
             except Exception:
                 log.exception("worker cycle failed")
                 await asyncio.sleep(5)

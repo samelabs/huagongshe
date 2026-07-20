@@ -1,4 +1,4 @@
-"""Private POST-only maintenance API for database-less external workers."""
+"""Authenticated POST-only maintenance API used by the PubChem worker."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -24,7 +24,8 @@ from .chemistry import canonicalize_smiles
 router = APIRouter(prefix="/workapi/v1", tags=["workapi"])
 
 NONCE_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
-THROTTLE_RANK = {"green": 0, "yellow": 1, "red": 2, "black": 3}
+
+
 @dataclass(frozen=True)
 class WorkerContext:
     worker_id: str
@@ -50,15 +51,6 @@ class FailBody(LeaseProof):
     error_detail: str = Field(default="", max_length=2000)
     retryable: bool = True
     retry_after_seconds: int = Field(default=30, ge=1, le=3600)
-
-
-class RateAcquireBody(BaseModel):
-    operation: str = Field(default="pubchem", pattern="^pubchem$")
-
-
-class RateFeedbackBody(BaseModel):
-    throttle_status: Literal["green", "yellow", "red", "black"] = "green"
-    http_status: int = Field(default=200, ge=100, le=599)
 
 
 async def authenticated_worker(
@@ -113,8 +105,8 @@ async def authenticated_worker(
         raise HTTPException(503, "worker replay protection unavailable") from exc
     if not accepted:
         raise HTTPException(409, "replayed worker request")
-    # Authentication is exercised for every rate-coordination call.  Throttle
-    # last-seen persistence so those calls do not create avoidable WAL churn.
+    # The worker calls this API throughout a task. Throttle last-seen
+    # persistence so heartbeats do not create avoidable WAL churn.
     seen_key = f"workapi:last-seen:{x_worker_id}"
     if await redis.set(seen_key, "1", ex=300, nx=True):
         await db.execute(text("""
@@ -588,68 +580,3 @@ async def fail_job(
     except Exception:
         await db.rollback()
         raise
-
-
-RATE_ACQUIRE_LUA = """
-local now = tonumber(ARGV[1])
-local base = tonumber(ARGV[2])
-local spacing = tonumber(redis.call('GET', KEYS[2]) or base)
-local pause_until = tonumber(redis.call('GET', KEYS[3]) or '0')
-local next_at = tonumber(redis.call('GET', KEYS[1]) or '0')
-local reserved = math.max(now, pause_until, next_at)
-redis.call('SET', KEYS[1], reserved + spacing, 'PX', 600000)
-return {math.max(0, reserved - now), spacing}
-"""
-
-
-@router.post("/rate/acquire")
-async def acquire_rate_slot(
-    body: RateAcquireBody,
-    db=Depends(get_db),
-    worker: WorkerContext = Depends(authenticated_worker),
-):
-    redis = await get_cache()
-    now_ms = int(time.time() * 1000)
-    try:
-        wait_ms, spacing_ms = await redis.eval(
-            RATE_ACQUIRE_LUA,
-            3,
-            "pubchem:rate:next",
-            "pubchem:rate:spacing",
-            "pubchem:rate:pause-until",
-            now_ms,
-            settings.pubchem_request_spacing_ms,
-        )
-        await db.commit()
-        return {"wait_ms": int(wait_ms), "spacing_ms": int(spacing_ms)}
-    except Exception as exc:
-        await db.rollback()
-        raise HTTPException(503, "global PubChem rate coordinator unavailable") from exc
-
-
-@router.post("/rate/feedback")
-async def rate_feedback(
-    body: RateFeedbackBody,
-    db=Depends(get_db),
-    worker: WorkerContext = Depends(authenticated_worker),
-):
-    redis = await get_cache()
-    now_ms = int(time.time() * 1000)
-    status = body.throttle_status
-    spacing = {
-        "green": settings.pubchem_request_spacing_ms,
-        "yellow": max(settings.pubchem_request_spacing_ms, 500),
-        "red": 1000,
-        "black": 2000,
-    }[status]
-    try:
-        current = int(await redis.get("pubchem:rate:spacing") or 0)
-        if status != "green" or current <= settings.pubchem_request_spacing_ms:
-            await redis.set("pubchem:rate:spacing", spacing, ex=120)
-        if status == "black" or body.http_status == 503:
-            await redis.set("pubchem:rate:pause-until", now_ms + 60000, px=300000)
-        await db.commit()
-        return {"accepted": True, "throttle_rank": THROTTLE_RANK[status]}
-    except Exception as exc:
-        await db.rollback()
-        raise HTTPException(503, "global PubChem rate coordinator unavailable") from exc

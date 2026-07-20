@@ -17,7 +17,6 @@ class Settings(BaseSettings):
     worker_max_body_bytes: int = 2 * 1024 * 1024
     worker_signature_skew_seconds: int = 300
     worker_job_lease_seconds: int = 180
-    pubchem_request_spacing_ms: int = 250
 
     model_config = SettingsConfigDict(env_prefix="HGS_", env_file=".env", extra="ignore")
 

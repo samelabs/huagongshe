@@ -1,22 +1,22 @@
 [Unit]
-Description=Huagongshe distributed PubChem worker
-After=network-online.target
-Wants=network-online.target
+Description=Huagongshe PubChem worker
+After=network-online.target huagongshe-api.service
+Wants=network-online.target huagongshe-api.service
 
 [Service]
 Type=simple
-User=huagongshe-worker
-Group=huagongshe-worker
-WorkingDirectory=/opt/huagongshe-worker
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/var/www/huagongshe
 EnvironmentFile=/etc/huagongshe/pubchem-worker.env
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/opt/huagongshe-worker/venv/bin/python -m worker.main
+ExecStart=/var/www/huagongshe/venv/bin/python -m worker.main
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
+ProtectSystem=full
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

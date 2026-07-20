@@ -10,7 +10,7 @@
 - `community.*`：用户、会话、数据提交和反应求助。
 - `ord.*`：ORD 原始反应事实与来源上下文，不承担化工社自主身份。
 - `ingest.*`：PubChem、DSSTox、RDKit/ORD 迁移审计和一次性导入数据，不进入线上查询路径。
-- `maintenance.*`：持久任务、外部 worker 身份和维护审计，不进入公共查询模型。
+- `maintenance.*`：持久任务、worker 身份和维护审计，不进入公共查询模型。
 
 PubChem、DSSTox 和 ORD 是数据来源；RDKit 是解析、标准化和检索能力。它们都不形成与 `chemistry` 并列的产品数据主线。
 
@@ -27,9 +27,9 @@ PubChem、DSSTox 和 ORD 是数据来源；RDKit 是解析、标准化和检索�
 ## API 边界
 
 - `/api/*`：面向用户和前端的查询、社区提交及查询触发的按需补全状态。
-- `/workapi/*`：只接受受信任外部 worker 的签名 POST；不提供公共数据查询。
-- 外部 worker 不持有数据库凭据。它只领取租约、获取 PubChem 数据并提交来源证据；最终校验和事务写入由 `/workapi` 完成。
-- 所有 worker 共享一个全局 PubChem 请求预算，不得利用分布式节点绕过 PubChem 的组织级限流。
+- `/workapi/*`：只接受受信任 worker 的签名 POST；不提供公共数据查询。
+- worker 不持有数据库凭据。它通过 `/workapi` 领取租约、报告状态并提交 PubChem 结果；最终标准化、校验和事务写入由 API 完成。
+- PubChem 访问节流属于 worker 自身能力，不由 `/workapi` 提供限速或流量协调服务。
 
 ## 社区数据闭环
 
@@ -47,7 +47,7 @@ UPDATE community.users SET role='editor' WHERE lower(email)=lower('reviewer@exam
 ## 代码边界
 
 - `api/`：FastAPI 公共 `/api` 与维护 `/workapi`，两个路由域严格分离。
-- `worker/`：无数据库权限的可分布式 PubChem worker。
+- `worker/`：无数据库权限、通过维护 API 闭环运行的 PubChem worker。
 - `web/`：Next.js 简洁查询与社区入口。
 - `migrations/`：可审计的数据库结构迁移。
 
@@ -69,6 +69,6 @@ API 连接信息由服务器上的 `/etc/huagongshe/api.env` 提供，不写入 
 
 `chemistry.chemical_details` 是稀疏的一对一扩展表：只有实际被请求的 chemical 才产生行，且各信息分区分别记录抓取时间。`maintenance.pubchem_jobs` 是可恢复的租约队列；worker 崩溃或失联后任务会重试，超过次数进入 `dead`，不会无限循环。
 
-worker 通过 `python -m worker.issue_token WORKER_ID` 生成一次性凭据。数据库只保存令牌摘要；节点环境只需要 `/workapi` 地址、worker ID 和令牌，不需要数据库连接。首个同机节点使用 `deploy/huagongshe-local-pubchem-worker.service`，远端节点使用 `deploy/huagongshe-pubchem-worker.service`。
+worker 通过 `python -m worker.issue_token WORKER_ID` 生成一次性凭据。数据库只保存令牌摘要；worker 环境只需要本机 `/workapi` 地址、worker ID 和令牌，不需要数据库连接。生产服务使用 `deploy/huagongshe-pubchem-worker.service`。
 
 PUG View 外部标识先写入 `identifier_evidence`，并保留 CAS、Related CAS、Deprecated CAS 等语义和逐值来源。它不会自动修改 `chemicals.cas_numbers` 等核心索引字段；核心字段的晋升必须经过来源与结构粒度规则。

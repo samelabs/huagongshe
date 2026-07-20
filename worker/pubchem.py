@@ -55,6 +55,43 @@ class PubChemError(RuntimeError):
         self.retryable = retryable
 
 
+class PubChemRateController:
+    """Process-local adaptive rate control for this worker's PubChem traffic."""
+
+    def __init__(self, requests_per_second: float = 4.0):
+        if not 0 < requests_per_second <= 5:
+            raise ValueError("PubChem requests_per_second must be between 0 and 5")
+        self.base_spacing = 1.0 / requests_per_second
+        self.spacing = self.base_spacing
+        self.next_at = 0.0
+        self.pause_until = 0.0
+        self.lock = asyncio.Lock()
+
+    async def acquire(self) -> None:
+        loop = asyncio.get_running_loop()
+        async with self.lock:
+            now = loop.time()
+            reserved = max(now, self.next_at, self.pause_until)
+            self.next_at = reserved + self.spacing
+            wait_seconds = max(0.0, reserved - now)
+        if wait_seconds:
+            await asyncio.sleep(wait_seconds)
+
+    async def feedback(self, status: str, http_status: int) -> None:
+        loop = asyncio.get_running_loop()
+        async with self.lock:
+            if status == "green":
+                self.spacing = max(self.base_spacing, self.spacing * 0.8)
+            elif status == "yellow":
+                self.spacing = max(self.spacing, 0.5)
+            elif status == "red":
+                self.spacing = max(self.spacing, 1.0)
+            else:
+                self.spacing = max(self.spacing, 2.0)
+            if status == "black" or http_status == 503:
+                self.pause_until = max(self.pause_until, loop.time() + 60.0)
+
+
 def throttle_status(header: str | None) -> str:
     states = [value.lower() for value in STATUS_RE.findall(header or "")]
     worst = max((STATUS_RANK.get(value, 0) for value in states), default=0)
@@ -210,9 +247,9 @@ def normalize_view(payload: dict[str, Any], section_name: str) -> dict[str, Any]
 
 
 class PubChemClient:
-    def __init__(self, session: aiohttp.ClientSession, workapi: Any):
+    def __init__(self, session: aiohttp.ClientSession, rate: PubChemRateController):
         self.session = session
-        self.workapi = workapi
+        self.rate = rate
         self.response_hashes: list[str] = []
 
     async def request_json(
@@ -224,8 +261,7 @@ class PubChemClient:
         params: dict[str, str] | None = None,
     ) -> dict[str, Any] | None:
         for attempt in range(4):
-            slot = await self.workapi.post("/workapi/v1/rate/acquire", {"operation": "pubchem"})
-            await asyncio.sleep(max(0, int(slot.get("wait_ms", 0))) / 1000)
+            await self.rate.acquire()
             try:
                 async with self.session.request(
                     method,
@@ -237,10 +273,7 @@ class PubChemClient:
                 ) as response:
                     raw = await response.read()
                     status = throttle_status(response.headers.get("X-Throttling-Control"))
-                    await self.workapi.post(
-                        "/workapi/v1/rate/feedback",
-                        {"throttle_status": status, "http_status": response.status},
-                    )
+                    await self.rate.feedback(status, response.status)
                     if len(raw) > 8 * 1024 * 1024:
                         raise PubChemError("response_too_large", "PubChem response exceeded 8 MiB", retryable=False)
                     if response.status == 404:
