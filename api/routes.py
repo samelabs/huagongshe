@@ -26,6 +26,10 @@ IDENTIFIER_ARRAYS = {
     "unii": "unii_codes",
     "chebi": "chebi_ids",
 }
+FULL_DETAILS_SECTIONS = (
+    "computed", "identifiers", "synonyms", "physical", "safety",
+    "toxicity", "regulatory", "pharmacology", "uses",
+)
 CHEMICAL_SELECT = """
     c.id, c.pubchem_cid, c.smiles, c.pubchem_smiles,
     c.preferred_name, c.iupac_name, c.molecular_formula,
@@ -77,7 +81,12 @@ async def reaction_summaries(
     if role != "any":
         role_clause = "AND rc.role = :role"
         params["role"] = role.upper()
-    params.update(limit=page_size + 1, offset=(page - 1) * page_size)
+    total = int((await db.execute(text(f"""
+        SELECT count(DISTINCT rc.reaction_id)
+        FROM chemistry.reaction_chemicals rc
+        WHERE rc.chemical_id = ANY(:chemical_ids) {role_clause}
+    """), params)).scalar() or 0)
+    params.update(limit=page_size, offset=(page - 1) * page_size)
     rows = (await db.execute(text(f"""
         WITH ids AS MATERIALIZED (
             SELECT DISTINCT rc.reaction_id
@@ -91,7 +100,8 @@ async def reaction_summaries(
             COALESCE(NULLIF(cs.doi,''),rp.doi),
             COALESCE(NULLIF(cs.patent,''),rp.patent),
             CASE WHEN o.id IS NULL AND cs.id IS NOT NULL THEN '社区审核' ELSE d.name END,
-            (SELECT min(rc.role) FROM chemistry.reaction_chemicals rc
+            (SELECT array_agg(DISTINCT rc.role ORDER BY rc.role)
+             FROM chemistry.reaction_chemicals rc
              WHERE rc.reaction_id=rx.id AND rc.chemical_id=ANY(:chemical_ids))
         FROM ids
         JOIN chemistry.reactions rx ON rx.id = ids.reaction_id
@@ -107,14 +117,71 @@ async def reaction_summaries(
         ) cs ON true
         ORDER BY rx.id, rp.id
     """), params)).fetchall()
-    has_more = len(rows) > page_size
-    rows = rows[:page_size]
-    seen = (page - 1) * page_size + len(rows)
-    total = 10001 if has_more else seen
     return total, [
         {
             "id": row[0], "reaction_smiles": row[1], "doi": row[2],
-            "patent": row[3], "dataset_name": row[4], "matched_role": row[5],
+            "patent": row[3], "dataset_name": row[4],
+            "matched_roles": row[5] or [],
+        }
+        for row in rows
+    ]
+
+
+async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any]]:
+    """Resolve stable reaction identities; chemical structures are searched as chemicals."""
+    clauses: list[str] = []
+    params: dict[str, Any] = {"limit": min(limit, 20)}
+    prefix, sep, raw_value = query.partition(":")
+    value = raw_value.strip() if sep else query
+    normalized_prefix = prefix.strip().lower() if sep else ""
+
+    if normalized_prefix in {"reaction", "rxn"} and value.isdigit():
+        clauses.append("rx.id=:reaction_id")
+        params["reaction_id"] = int(value)
+    elif normalized_prefix == "ord" and value:
+        clauses.append("o.reaction_id=:source_id")
+        params["source_id"] = value if value.lower().startswith("ord-") else f"ord-{value}"
+    elif normalized_prefix == "doi" and value:
+        clauses.append("rp.doi=:doi")
+        params["doi"] = value
+    elif query.isdigit():
+        clauses.append("rx.id=:reaction_id")
+        params["reaction_id"] = int(query)
+    elif query.lower().startswith("ord-"):
+        clauses.append("o.reaction_id=:source_id")
+        params["source_id"] = query
+    elif query.lower().startswith("10.") and "/" in query:
+        clauses.append("rp.doi=:doi")
+        params["doi"] = query
+    if not clauses:
+        return []
+
+    rows = (await db.execute(text(f"""
+        SELECT DISTINCT ON (rx.id)
+          rx.id,rx.reaction_smiles,o.reaction_id,d.name,rp.doi,rp.patent,
+          CASE
+            WHEN rx.id=:reaction_id_hint THEN 'reaction_id'
+            WHEN lower(coalesce(o.reaction_id,''))=lower(:source_id_hint) THEN 'ord_id'
+            ELSE 'doi'
+          END AS match_basis
+        FROM chemistry.reactions rx
+        LEFT JOIN ord.reaction_map lm ON lm.reaction_id=rx.id
+        LEFT JOIN ord.reaction o ON o.id=lm.ord_reaction_id
+        LEFT JOIN ord.dataset d ON d.id=o.dataset_id
+        LEFT JOIN ord.reaction_provenance rp ON rp.reaction_id=o.id
+        WHERE {' OR '.join(clauses)}
+        ORDER BY rx.id,rp.id
+        LIMIT :limit
+    """), {
+        **params,
+        "reaction_id_hint": params.get("reaction_id", -1),
+        "source_id_hint": params.get("source_id", ""),
+    })).fetchall()
+    return [
+        {
+            "id": row[0], "reaction_smiles": row[1], "ord_id": row[2],
+            "dataset_name": row[3], "doi": row[4], "patent": row[5],
+            "match_basis": row[6],
         }
         for row in rows
     ]
@@ -149,7 +216,7 @@ async def search(
 ):
     """One entry point for names, external identifiers, SMILES and structures."""
     query = q.strip()
-    cache_key = f"v3:chemical-search:{mode}:{page_size}:{query}"
+    cache_key = f"v4:unified-search:{mode}:{page_size}:{query}"
     cached = await cache_get(cache_key)
     if cached:
         return cached
@@ -245,16 +312,22 @@ async def search(
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
 
+    reactions = await reaction_lookup(db, query, page_size) if mode == "exact" else []
     data: dict[str, Any] = {
         "query": query, "mode": mode, "canonical_smiles": canonical,
-        "chemicals": chemicals, "page_size": page_size,
+        "chemicals": chemicals, "reactions": reactions, "page_size": page_size,
     }
     await cache_set(cache_key, data, ttl=600)
     return data
 
 
 @router.get("/chemicals/{chemical_id}")
-async def chemical_detail(request: Request, chemical_id: int, db=Depends(get_db)):
+async def chemical_detail(
+    request: Request,
+    chemical_id: int,
+    enrich: str = Query("core", pattern="^(core|full)$"),
+    db=Depends(get_db),
+):
     rows = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT} FROM chemistry.chemicals c WHERE c.id=:id
     """, {"id": chemical_id})
@@ -281,7 +354,11 @@ async def chemical_detail(request: Request, chemical_id: int, db=Depends(get_db)
         WHERE chemical_id=:id
     """), {"id": chemical_id})).scalar() or 0
     details, job_id, needs_refresh = await enqueue_chemical_if_needed(
-        db, chemical_id, sections=DEFAULT_SECTIONS, priority=80, request=request
+        db,
+        chemical_id,
+        sections=FULL_DETAILS_SECTIONS if enrich == "full" else DEFAULT_SECTIONS,
+        priority=80,
+        request=request,
     )
     if job_id is not None:
         await db.commit()
@@ -291,7 +368,9 @@ async def chemical_detail(request: Request, chemical_id: int, db=Depends(get_db)
             "rate_limited" if needs_refresh else "current"
         ),
         "job_id": job_id,
-        "requested_sections": list(DEFAULT_SECTIONS),
+        "requested_sections": list(
+            FULL_DETAILS_SECTIONS if enrich == "full" else DEFAULT_SECTIONS
+        ),
     }
     return result
 
@@ -461,11 +540,16 @@ async def reaction_detail(reaction_id: int, db=Depends(get_db)):
     """), {"id": reaction_id})).fetchall()
     yield_map = {row[0]: round(float(row[1]), 3) for row in yields}
     community_yields = (await db.execute(text("""
+        WITH latest AS (
+          SELECT id FROM community.reaction_submissions
+          WHERE reaction_id=:id AND status='accepted'
+          ORDER BY reviewed_at DESC NULLS LAST,id DESC LIMIT 1
+        )
         SELECT p.chemical_id,max(p.yield_percent)
-        FROM community.reaction_submissions s
-        JOIN community.reaction_submission_participants p ON p.submission_id=s.id
-        WHERE s.reaction_id=:id AND s.status='accepted' AND p.role='PRODUCT'
-          AND p.chemical_id IS NOT NULL AND p.yield_percent IS NOT NULL
+        FROM latest
+        JOIN community.reaction_submission_participants p ON p.submission_id=latest.id
+        WHERE p.role='PRODUCT' AND p.chemical_id IS NOT NULL
+          AND p.yield_percent IS NOT NULL
         GROUP BY p.chemical_id
     """), {"id": reaction_id})).fetchall()
     yield_map.update({row[0]: round(float(row[1]), 3) for row in community_yields})

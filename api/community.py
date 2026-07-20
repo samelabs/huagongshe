@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import os
@@ -22,6 +23,7 @@ from .cache import cache_delete
 from .config import settings
 from .database import get_db
 from .chemistry import CAS_RE, canonicalize_smiles
+from .mol import reaction_to_svg
 
 router = APIRouter(prefix="/community", tags=["community"])
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_\-\u4e00-\u9fff]{2,30}$")
@@ -350,15 +352,36 @@ async def submit_chemical(
     if not smiles and not cas:
         raise HTTPException(400, "至少提交 SMILES 或 CAS")
     chemical_id = None
+    smiles_id = None
+    cas_ids: list[int] = []
     if smiles:
-        chemical_id = (await db.execute(text("""
+        smiles_id = (await db.execute(text("""
             SELECT id FROM chemistry.chemicals
             WHERE smiles=:smiles AND mol IS NOT NULL ORDER BY id LIMIT 1
         """), {"smiles": smiles})).scalar()
-    if chemical_id is None and cas:
-        chemical_id = (await db.execute(text(
-            "SELECT id FROM chemistry.chemicals WHERE cas_numbers @> ARRAY[:cas] ORDER BY id LIMIT 1"
-        ), {"cas": cas})).scalar()
+    if cas:
+        cas_ids = [int(row[0]) for row in (await db.execute(text("""
+            SELECT id FROM chemistry.chemicals
+            WHERE cas_numbers @> ARRAY[:cas] ORDER BY id LIMIT 20
+        """), {"cas": cas})).fetchall()]
+    if smiles and cas and cas_ids:
+        if smiles_id is not None and int(smiles_id) not in cas_ids:
+            raise HTTPException(409, "SMILES 与 CAS 当前指向不同化合物，请核实后提交")
+        if smiles_id is None:
+            matching = (await db.execute(text("""
+                SELECT id FROM chemistry.chemicals
+                WHERE id=ANY(:ids) AND smiles=:smiles AND mol IS NOT NULL
+                ORDER BY id
+            """), {"ids": cas_ids, "smiles": smiles})).fetchall()
+            if not matching:
+                raise HTTPException(409, "提交结构与该 CAS 的现有结构不一致")
+            smiles_id = matching[0][0]
+    if smiles_id is not None:
+        chemical_id = int(smiles_id)
+    elif len(cas_ids) == 1:
+        chemical_id = cas_ids[0]
+    elif len(cas_ids) > 1:
+        raise HTTPException(409, "该 CAS 对应多个结构，请同时提交 SMILES 以明确化合物")
     row = (await db.execute(text("""
         INSERT INTO community.chemical_submissions
           (user_id,chemical_id,submitted_smiles,submitted_cas,submitted_name,note)
@@ -423,6 +446,25 @@ async def submit_reaction(
         """), {"submission_id": row[0], **participant})
     await db.commit()
     return {"id": row[0], "status": row[1], "created_at": row[2], "reaction_smiles": reaction_smiles}
+
+
+@router.get("/admin/reaction-submissions/{submission_id}/svg")
+async def render_reaction_submission(
+    submission_id: int,
+    w: int = Query(1200, ge=600, le=1800),
+    h: int = Query(300, ge=180, le=600),
+    user=Depends(reviewer),
+    db=Depends(get_db),
+):
+    reaction_smiles = (await db.execute(text("""
+        SELECT reaction_smiles FROM community.reaction_submissions WHERE id=:id
+    """), {"id": submission_id})).scalar()
+    if not reaction_smiles:
+        raise HTTPException(404, "提交没有可渲染的反应结构")
+    svg = await asyncio.to_thread(reaction_to_svg, reaction_smiles, w, h)
+    if svg is None:
+        raise HTTPException(422, "提交的反应结构无法渲染")
+    return Response(content=svg, media_type="image/svg+xml")
 
 
 @router.get("/my-submissions")
@@ -503,11 +545,29 @@ async def review_chemical_submission(
 
     chemical_id = submission["chemical_id"]
     if chemical_id is not None:
-        exists = (await db.execute(text(
-            "SELECT 1 FROM chemistry.chemicals WHERE id=:id"
-        ), {"id": chemical_id})).scalar()
-        if not exists:
+        current = (await db.execute(text(
+            "SELECT smiles FROM chemistry.chemicals WHERE id=:id"
+        ), {"id": chemical_id})).fetchone()
+        if not current:
             chemical_id = None
+        elif submission["submitted_smiles"] and current[0] != submission["submitted_smiles"]:
+            raise HTTPException(409, "提交结构与匹配化合物不一致，禁止写入")
+        elif submission["submitted_cas"]:
+            conflicting = (await db.execute(text("""
+                SELECT id FROM chemistry.chemicals
+                WHERE id<>:id AND cas_numbers @> ARRAY[:cas]
+                  AND smiles IS DISTINCT FROM :smiles
+                ORDER BY id LIMIT 1
+            """), {
+                "id": chemical_id,
+                "cas": submission["submitted_cas"],
+                "smiles": current[0],
+            })).scalar()
+            if conflicting is not None:
+                raise HTTPException(
+                    409,
+                    f"该 CAS 已指向结构不同的化合物 {conflicting}，需先完成人工溯源",
+                )
     if chemical_id is None:
         if not submission["submitted_smiles"]:
             raise HTTPException(409, "CAS 未匹配现有化合物，需补充可验证结构后再接受")

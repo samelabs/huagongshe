@@ -13,6 +13,10 @@ export function molSvgUrl(smiles: string, width = 260, height = 180) {
   return `/api/mol/svg?smiles=${encodeURIComponent(smiles)}&w=${width}&h=${height}`;
 }
 
+export function reactionSvgUrl(reactionId: number, width = 1100, height = 230) {
+  return `/api/reactions/${reactionId}/svg?w=${width}&h=${height}`;
+}
+
 export type Chemical = {
   id: number;
   pubchem_cid: number | null;
@@ -35,8 +39,46 @@ export type Chemical = {
   synonym_count?: number;
   similarity: number | null;
   reaction_count?: number;
+  details?: ChemicalDetails | null;
+  enrichment?: EnrichmentState;
   role?: string;
+  occurrence_count?: number;
   yield_percent?: number | null;
+};
+
+export type ChemicalDetails = {
+  record_title?: string | null;
+  record_description?: string | null;
+  xlogp?: number | null;
+  topological_polar_surface_area?: number | null;
+  complexity?: number | null;
+  hbond_donor_count?: number | null;
+  hbond_acceptor_count?: number | null;
+  rotatable_bond_count?: number | null;
+  heavy_atom_count?: number | null;
+  formal_charge?: number | null;
+  physical_properties?: EvidenceBlock | null;
+  ghs_classification?: EvidenceBlock | null;
+  hazards?: EvidenceBlock | null;
+  safety_measures?: EvidenceBlock | null;
+  toxicity?: EvidenceBlock | null;
+  regulatory?: EvidenceBlock | null;
+  pharmacology?: EvidenceBlock | null;
+  uses_and_manufacturing?: EvidenceBlock | null;
+  fetched_sections?: string[];
+  section_fetched_at?: Record<string, string>;
+  fetched_at?: string | null;
+};
+
+export type EvidenceBlock = {
+  entries?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+export type EnrichmentState = {
+  status: "queued" | "rate_limited" | "current";
+  job_id?: number | null;
+  requested_sections?: string[];
 };
 
 export type ReactionSummary = {
@@ -45,7 +87,17 @@ export type ReactionSummary = {
   doi: string | null;
   patent: string | null;
   dataset_name: string | null;
-  matched_role: string | null;
+  matched_roles: string[];
+};
+
+export type ReactionLookup = {
+  id: number;
+  reaction_smiles: string | null;
+  ord_id: string | null;
+  dataset_name: string | null;
+  doi: string | null;
+  patent: string | null;
+  match_basis: "reaction_id" | "ord_id" | "doi";
 };
 
 export type SearchResponse = {
@@ -53,6 +105,7 @@ export type SearchResponse = {
   mode: string;
   canonical_smiles: string | null;
   chemicals: Chemical[];
+  reactions: ReactionLookup[];
 };
 
 export type ReactionDetail = {

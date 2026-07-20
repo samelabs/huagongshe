@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Molecule } from "@/components/Molecule";
-import { apiGet, type Chemical, type ReactionDetail } from "@/lib/api";
+import { apiGet, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
 
 const roleNames: Record<string, string> = {
   REACTANT: "反应物", REAGENT: "试剂", CATALYST: "催化剂", SOLVENT: "溶剂",
@@ -11,7 +11,7 @@ const roleNames: Record<string, string> = {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  return { title: `反应 #${id}`, description: "反应方程式、反应物、生成物与实验信息" };
+  return { title: `反应 ${id}`, description: "反应方程式、参与物、条件、结果与来源" };
 }
 
 export default async function ReactionPage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,95 +22,130 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
   const reactants = reaction.participants.filter((item) => item.role === "REACTANT");
   const products = reaction.participants.filter((item) => item.role === "PRODUCT");
   const auxiliaries = reaction.participants.filter((item) => item.role !== "REACTANT" && item.role !== "PRODUCT");
+  const conditions = [
+    reaction.temperature ? ["温度", `${reaction.temperature.value} ${unitName(reaction.temperature.unit)}`] : null,
+    reaction.duration ? ["时间", `${reaction.duration.value} ${unitName(reaction.duration.unit)}`] : null,
+    reaction.atmosphere ? ["气氛", reaction.atmosphere] : null,
+    reaction.pressure ? ["压力", `${reaction.pressure.value} ${reaction.pressure.unit}`] : null,
+    reaction.ph != null ? ["pH", String(reaction.ph)] : null,
+    reaction.reflux ? ["回流", "是"] : null,
+  ].filter(Boolean) as string[][];
 
   return (
-    <div className="page reaction-page">
-      <div className="page-head">
-        <p className="eyebrow">反应记录</p>
-        <h1>反应 #{reaction.id}</h1>
-      </div>
-
-      <section aria-labelledby="reaction-equation-title">
-        <h2 className="section-label" id="reaction-equation-title">反应方程式</h2>
-        <div className="reaction-scheme">
-          <img
-            src={`/api/reactions/${reaction.id}/svg?w=1400&h=320`}
-            width="1400"
-            height="320"
-            alt={`反应 ${reaction.id} 的结构方程式`}
-          />
+    <div className="content-page reaction-page">
+      <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><span>反应 {reaction.id}</span></nav>
+      <header className="reaction-title">
+        <div>
+          <p className="page-kicker">REACTION {reaction.id}</p>
+          <h1>结构化反应记录</h1>
+          <p>{reaction.ord_id ? "源自 ORD 并与 chemicals 结构身份对齐" : "经化工社审核写入的社区反应"}</p>
         </div>
-        <details className="reaction-source-expression">
-          <summary>查看反应 SMILES</summary>
-          <div className="reaction-code mono">{reaction.reaction_smiles}</div>
-        </details>
+        <Link className="button secondary" href={`/submit?type=reaction&reaction=${reaction.id}`}>补充或修订</Link>
+      </header>
+
+      <section className="reaction-equation" aria-labelledby="equation-title">
+        <div className="section-heading compact-heading"><div><p>EQUATION</p><h2 id="equation-title">反应方程式</h2></div></div>
+        <div className="reaction-scheme">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={reactionSvgUrl(reaction.id, 1500, 340)} width="1500" height="340" alt={`反应 ${reaction.id} 的结构方程式`} />
+        </div>
       </section>
 
-      <div className="reaction-groups">
-        <ParticipantGroup title="反应物" items={reactants} />
-        <ParticipantGroup title="生成物" items={products} />
-        {auxiliaries.length > 0 && <ParticipantGroup title="试剂与条件组分" items={auxiliaries} showRole />}
-      </div>
+      <div className="reaction-layout">
+        <main className="reaction-main">
+          <div className="reaction-sides">
+            <ParticipantGroup title="反应物" eyebrow="REACTANTS" items={reactants} />
+            <ParticipantGroup title="生成物" eyebrow="PRODUCTS" items={products} />
+          </div>
+          {auxiliaries.length > 0 && <ParticipantGroup title="试剂、催化剂与溶剂" eyebrow="AUXILIARIES" items={auxiliaries} showRole />}
 
-      <dl className="facts">
-        {reaction.temperature && <Fact label="温度" value={`${reaction.temperature.value} ${reaction.temperature.unit}`} />}
-        {reaction.duration && <Fact label="反应时间" value={`${reaction.duration.value} ${reaction.duration.unit}`} />}
-        {reaction.atmosphere && <Fact label="气氛" value={reaction.atmosphere} />}
-        {reaction.pressure && <Fact label="压力" value={`${reaction.pressure.value} ${reaction.pressure.unit}`} />}
-        {reaction.ph != null && <Fact label="pH" value={String(reaction.ph)} />}
-        {reaction.reflux && <Fact label="回流" value="是" />}
-        <Fact label="条件" value={reaction.conditions_detail} />
-        <Fact label="DOI" value={reaction.doi} />
-        <Fact label="专利" value={reaction.patent} />
-        <Fact label="数据来源" value={reaction.ord_id ? "Open Reaction Database (ORD)" : reaction.community_submission_id ? "化工社社区审核" : null} />
-        <Fact label="来源数据集" value={reaction.dataset_name} />
-        <Fact label="来源记录" value={reaction.ord_id} />
-      </dl>
-      {reaction.procedure_details && <section><h2 className="section-label">实验过程</h2><p className="prose">{reaction.procedure_details}</p></section>}
-      {reaction.workup.length > 0 && <section><h2 className="section-label">后处理</h2>{reaction.workup.map((step, index) => <p className="prose" key={index}>{index + 1}. {step.type ? `${step.type} · ` : ""}{step.details}</p>)}</section>}
-      {reaction.safety_notes && <section><h2 className="section-label">安全说明</h2><p className="prose">{reaction.safety_notes}</p></section>}
-      <div className="actions"><Link className="button" href={`/submit?type=reaction&reaction=${reaction.id}`}>补充或纠正该反应</Link></div>
+          {(conditions.length > 0 || reaction.conditions_detail) && (
+            <section className="reaction-section">
+              <div className="section-heading compact-heading"><div><p>CONDITIONS</p><h2>反应条件</h2></div></div>
+              {conditions.length > 0 && <dl className="condition-list">{conditions.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}
+              {reaction.conditions_detail && <p className="document-text">{reaction.conditions_detail}</p>}
+            </section>
+          )}
+          {reaction.procedure_details && (
+            <section className="reaction-section">
+              <div className="section-heading compact-heading"><div><p>PROCEDURE</p><h2>实验过程</h2></div></div>
+              <p className="document-text">{reaction.procedure_details}</p>
+            </section>
+          )}
+          {reaction.workup.length > 0 && (
+            <section className="reaction-section">
+              <div className="section-heading compact-heading"><div><p>WORKUP</p><h2>后处理</h2></div></div>
+              <ol className="workup-list">{reaction.workup.map((step, index) => (
+                <li key={index}><strong>{step.type ? unitName(step.type) : `步骤 ${index + 1}`}</strong><span>{[step.details, step.keep_phase ? `保留 ${step.keep_phase}` : null, step.target_ph != null ? `目标 pH ${step.target_ph}` : null].filter(Boolean).join(" · ") || "未记录说明"}</span></li>
+              ))}</ol>
+            </section>
+          )}
+          {reaction.safety_notes && (
+            <section className="reaction-section safety-panel">
+              <div className="section-heading compact-heading"><div><p>SAFETY</p><h2>安全说明</h2></div></div>
+              <p className="document-text">{reaction.safety_notes}</p>
+            </section>
+          )}
+        </main>
+
+        <aside className="reaction-aside">
+          <section>
+            <h2>来源与证据</h2>
+            <dl>
+              <Source label="数据体系" value={reaction.ord_id ? "Open Reaction Database" : reaction.community_submission_id ? "化工社社区审核" : "结构库"} />
+              <Source label="ORD 记录" value={reaction.ord_id} />
+              <Source label="来源数据集" value={reaction.dataset_name} />
+              <Source label="DOI" value={reaction.doi} href={reaction.doi ? `https://doi.org/${reaction.doi}` : undefined} />
+              <Source label="专利" value={reaction.patent} />
+              <Source label="原始链接" value={reaction.publication_url ? "查看来源" : null} href={reaction.publication_url || undefined} />
+            </dl>
+          </section>
+          <details className="source-expression">
+            <summary>RDKit 反应表达</summary>
+            <p className="mono">{reaction.reaction_smiles}</p>
+          </details>
+          <section className="contribute-panel">
+            <h2>发现缺失或错误？</h2>
+            <p>修订会保留提交者、审核状态与依据，不在页面上直接改写。</p>
+            <Link href={`/submit?type=reaction&reaction=${reaction.id}`}>提交补充或修订</Link>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }
 
-function ParticipantGroup({
-  title,
-  items,
-  showRole = false,
-}: {
-  title: string;
-  items: Chemical[];
-  showRole?: boolean;
+function ParticipantGroup({ title, eyebrow, items, showRole = false }: {
+  title: string; eyebrow: string; items: Chemical[]; showRole?: boolean;
 }) {
   return (
-    <section className="reaction-group">
-      <div className="reaction-group-head">
-        <h2>{title}</h2>
-        <span>{items.length}</span>
-      </div>
-      {items.length > 0 ? (
-        <div className="participants">
-          {items.map((chemical) => (
-            <Link className="participant" href={`/chemical/${chemical.id}`} key={`${chemical.role}-${chemical.id}`}>
-              {showRole && <span className="participant-role">{roleNames[chemical.role || ""] || chemical.role}</span>}
-              <div className="mol-frame"><Molecule smiles={chemical.smiles} width={210} height={130} /></div>
-              <p className="result-title">{chemical.preferred_name || chemical.iupac_name || `化合物 #${chemical.id}`}</p>
-              {chemical.molecular_formula && <p className="result-sub">{chemical.molecular_formula}</p>}
-              {chemical.yield_percent != null && <p className="participant-yield">收率 {formatYield(chemical.yield_percent)}%</p>}
-            </Link>
-          ))}
-        </div>
-      ) : <p className="reaction-group-empty">暂无可识别的{title}</p>}
+    <section className="participant-section">
+      <div className="section-heading compact-heading"><div><p>{eyebrow}</p><h2>{title}</h2></div><span>{items.length}</span></div>
+      {items.length > 0 ? <div className="participant-grid">{items.map((chemical) => (
+        <Link className="participant-card" href={`/chemical/${chemical.id}`} key={`${chemical.role}-${chemical.id}`}>
+          <div className="participant-structure"><Molecule smiles={chemical.smiles} width={220} height={140} /></div>
+          <div>
+            {showRole && <span className="role-label">{roleNames[chemical.role || ""] || chemical.role}</span>}
+            <h3>{chemical.preferred_name || chemical.iupac_name || `化合物 ${chemical.id}`}</h3>
+            <p>{chemical.molecular_formula || `Chemical ${chemical.id}`}</p>
+            {chemical.yield_percent != null && <strong className="yield-value">收率 {formatYield(chemical.yield_percent)}%</strong>}
+          </div>
+        </Link>
+      ))}</div> : <p className="quiet-empty">暂无可对齐的{title}结构。</p>}
     </section>
   );
 }
 
-function Fact({ label, value }: { label: string; value: string | null | undefined }) {
+function Source({ label, value, href }: { label: string; value: string | null | undefined; href?: string }) {
   if (!value) return null;
-  return <div className="fact"><dt>{label}</dt><dd>{value}</dd></div>;
+  return <div><dt>{label}</dt><dd>{href ? <a href={href} target="_blank" rel="noreferrer">{value}</a> : value}</dd></div>;
 }
 
 function formatYield(value: number) {
   return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 3 }).format(value);
+}
+
+function unitName(value: string) {
+  const labels: Record<string, string> = { CELSIUS: "°C", KELVIN: "K", MINUTE: "分钟", HOUR: "小时", DAY: "天" };
+  return labels[value] || value.replaceAll("_", " ").toLowerCase();
 }

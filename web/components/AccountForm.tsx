@@ -32,7 +32,7 @@ export function AccountForm() {
         });
         if (response.ok) { router.push("/submit"); router.refresh(); return; }
         const error = await response.json().catch(() => null);
-        setMessage(error?.detail || "操作失败，请稍后重试"); setBusy(false);
+        setMessage(apiError(error?.detail)); setBusy(false);
       }}>
         {kind === "register" ? (
           <>
@@ -52,4 +52,12 @@ export function AccountForm() {
       </form>
     </>
   );
+}
+
+function apiError(detail: unknown) {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((item) => typeof item?.msg === "string" ? item.msg.replace(/^Value error,\s*/, "") : null).filter(Boolean).join("；") || "输入内容未通过校验";
+  }
+  return "操作失败，请稍后重试";
 }
