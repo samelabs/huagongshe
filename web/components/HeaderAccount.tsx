@@ -29,13 +29,12 @@ export function HeaderAccount() {
 
   return (
     <nav aria-label="主导航">
-      <Link href="/search">数据查询</Link>
-      <Link href="/submit">贡献数据</Link>
-      {user && (user.role === "admin" || user.role === "editor") && <Link href="/admin">数据审核</Link>}
+      <Link href="/submit" className="nav-contribute">贡献数据</Link>
+      {user && (user.role === "admin" || user.role === "editor") && <Link href="/admin" className="nav-review">数据审核</Link>}
       {user ? (
         <div className="account-nav">
           <span title={user.email}>{user.username}</span>
-          <button type="button" onClick={logout}>退出登录</button>
+          <button type="button" onClick={logout}>退出</button>
         </div>
       ) : ready ? (
         <Link href="/login" className="login-link">登录 / 注册</Link>
