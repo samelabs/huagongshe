@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { EntityId } from "@/components/EntityId";
 import { Molecule } from "@/components/Molecule";
 import type { Chemical } from "@/lib/api";
 
 export function ChemicalResult({ chemical }: { chemical: Chemical }) {
-  const title = chemical.preferred_name || chemical.iupac_name || `化合物 ${chemical.id}`;
+  const title = chemical.preferred_name || chemical.iupac_name || "未命名化合物";
   const identity = [
     chemical.cas_numbers[0] ? `CAS ${chemical.cas_numbers[0]}` : null,
     chemical.pubchem_cid ? `CID ${chemical.pubchem_cid}` : null,
@@ -16,7 +17,7 @@ export function ChemicalResult({ chemical }: { chemical: Chemical }) {
         <Molecule smiles={chemical.smiles} width={176} height={122} />
       </Link>
       <div className="chemical-result-copy">
-        <p className="record-kicker">化合物 {chemical.id}</p>
+        <EntityId kind="chemical" id={chemical.id} compact />
         <h3><Link href={`/chemical/${chemical.id}`}>{title}</Link></h3>
         {identity && <p className="record-meta">{identity}</p>}
         {chemical.smiles && <p className="structure-code mono">{chemical.smiles}</p>}

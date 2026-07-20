@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { EntityId } from "@/components/EntityId";
 import { Molecule } from "@/components/Molecule";
 
 type Status = "pending" | "accepted" | "rejected";
@@ -48,8 +49,8 @@ export function AdminReview() {
     const reviewNote = (notes[key] || "").trim();
     if (decision === "reject" && !reviewNote) { setError("拒绝提交必须填写审核说明。"); return; }
     const warning = kind === "reaction"
-      ? "确认参与物、角色、方程式、条件与来源均已核对？接受后会写入 reactions 及其 chemical 关系。"
-      : "确认结构与身份信息一致，并且来源足以支持写入 chemicals？";
+      ? "确认参与物、角色、方程式、条件与来源均已核对？接受后会写入核心数据。"
+      : "确认结构、身份信息与来源均已核对？";
     if (decision === "accept" && !window.confirm(warning)) return;
     setBusy(key); setError("");
     const response = await fetch(`/api/community/admin/${kind}-submissions/${id}/review`, {
@@ -72,24 +73,24 @@ export function AdminReview() {
       {queue && queue.chemicals.length > 0 && <section className="review-section"><div className="section-heading"><div><p>CHEMICALS</p><h2>化合物身份</h2></div><span>{queue.chemicals.length} 条</span></div>{queue.chemicals.map((item) => {
         const key = `chemical-${item.id}`;
         return <article className="review-item chemical-review" key={key}>
-          <header><div><p>提交 {item.id} · {formatDate(item.created_at)}</p><h3>{item.submitted_name || "未命名化合物"}</h3><span>提交人 {item.username}</span></div>{item.chemical_id && <Link href={`/chemical/${item.chemical_id}`}>查看匹配化合物 {item.chemical_id}</Link>}</header>
+          <header><div><p>提交 {item.id} · {formatDate(item.created_at)}</p><h3>{item.submitted_name || "未命名化合物"}</h3><span>提交人 {item.username}</span></div>{item.chemical_id && <Link href={`/chemical/${item.chemical_id}`}><EntityId kind="chemical" id={item.chemical_id} compact /></Link>}</header>
           <div className="chemical-review-body">
             <div className="review-molecule"><Molecule smiles={item.submitted_smiles} width={260} height={180} /></div>
             <dl><Data label="SMILES" value={item.submitted_smiles} mono /><Data label="CAS" value={item.submitted_cas} /><Data label="名称" value={item.submitted_name} /><Data label="提交说明" value={item.note} /></dl>
           </div>
-          {!item.submitted_smiles && <div className="review-warning">该提交只有 CAS，若未唯一匹配现有 chemicals，不应接受。</div>}
+          {!item.submitted_smiles && <div className="review-warning">该提交只有 CAS；未唯一匹配现有化合物时不应接受。</div>}
           <ReviewActions status={item.status} note={notes[key] ?? item.review_note ?? ""} busy={busy === key} onNote={(value) => setNotes((current) => ({ ...current, [key]: value }))} onAccept={() => review("chemical", item.id, "accept")} onReject={() => review("chemical", item.id, "reject")} />
         </article>;
       })}</section>}
       {queue && queue.reactions.length > 0 && <section className="review-section"><div className="section-heading"><div><p>REACTIONS</p><h2>反应事实</h2></div><span>{queue.reactions.length} 条</span></div>{queue.reactions.map((item) => {
         const key = `reaction-${item.id}`;
         return <article className="review-item reaction-review" key={key}>
-          <header><div><p>提交 {item.id} · {formatDate(item.created_at)}</p><h3>{item.reaction_id ? `修订反应 ${item.reaction_id}` : "新增反应"}</h3><span>提交人 {item.username}</span></div>{item.reaction_id && <Link href={`/reaction/${item.reaction_id}`}>打开当前反应</Link>}</header>
+          <header><div><p>提交 {item.id} · {formatDate(item.created_at)}</p><h3>{item.reaction_id ? "反应修订" : "新增反应"}</h3><span>提交人 {item.username}</span></div>{item.reaction_id && <Link href={`/reaction/${item.reaction_id}`}><EntityId kind="reaction" id={item.reaction_id} compact /></Link>}</header>
           {item.reaction_id && <div className="comparison-labels"><span>提交版本</span><span>当前版本需另页核对</span></div>}
           <div className="review-reaction-scheme">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={`/api/community/admin/reaction-submissions/${item.id}/svg?w=1400&h=300`} width="1400" height="300" alt={`反应提交 ${item.id} 方程式`} /></div>
           <div className="review-participant-table">{item.participants.map((participant) => <div key={participant.position}><span>{roleName[participant.role] || participant.role}</span><code>{participant.canonical_smiles}</code>{participant.yield_percent != null ? <strong>{participant.yield_percent}%</strong> : <i>—</i>}</div>)}</div>
           <dl className="review-data"><Data label="实验过程" value={item.procedure_details} /><Data label="其他条件" value={item.conditions_detail} /><Data label="标准条件" value={conditionLine(item)} /><Data label="来源" value={[item.doi, item.patent, item.source_url].filter(Boolean).join(" · ")} /><Data label="安全说明" value={item.safety_notes} /><Data label="提交说明" value={item.note} /></dl>
-          <details className="source-expression"><summary>检查 RDKit 反应表达</summary><p className="mono">{item.reaction_smiles}</p></details>
+          <details className="source-expression"><summary>检查反应 SMILES</summary><p className="mono">{item.reaction_smiles}</p></details>
           <ReviewActions status={item.status} note={notes[key] ?? item.review_note ?? ""} busy={busy === key} onNote={(value) => setNotes((current) => ({ ...current, [key]: value }))} onAccept={() => review("reaction", item.id, "accept")} onReject={() => review("reaction", item.id, "reject")} />
         </article>;
       })}</section>}

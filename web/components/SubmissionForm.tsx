@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { EntityId } from "@/components/EntityId";
 import { Molecule } from "@/components/Molecule";
 
 type Kind = "chemical" | "reaction";
@@ -61,7 +62,7 @@ export function SubmissionForm() {
           key: rowSequence++, role: item.role, smiles: item.smiles || "",
           yield_percent: item.yield_percent == null ? "" : String(item.yield_percent),
         })));
-      }).catch(() => setMessage({ ok: false, text: `反应 ${reactionId} 无法读取，未进行预填。` })).finally(() => setContextBusy(false));
+      }).catch(() => setMessage({ ok: false, text: `HRID ${reactionId} 无法读取，未进行预填。` })).finally(() => setContextBusy(false));
       return;
     }
     if (chemicalId) {
@@ -70,7 +71,7 @@ export function SubmissionForm() {
         const data = await response.json() as { smiles: string | null; cas_numbers: string[]; preferred_name: string | null };
         if (initial === "chemical") setChemicalDraft({ smiles: data.smiles || "", cas: data.cas_numbers[0] || "", name: data.preferred_name || "" });
         else if (data.smiles) setParticipants([ { key: rowSequence++, role: "REACTANT", smiles: data.smiles, yield_percent: "" }, blankRow("PRODUCT") ]);
-      }).catch(() => setMessage({ ok: false, text: `化合物 ${chemicalId} 无法读取，未进行预填。` })).finally(() => setContextBusy(false));
+      }).catch(() => setMessage({ ok: false, text: `HCID ${chemicalId} 无法读取，未进行预填。` })).finally(() => setContextBusy(false));
       return;
     }
     setContextBusy(false);
@@ -134,8 +135,8 @@ export function SubmissionForm() {
         <form className="structured-form" onSubmit={submit}>
           {kind === "chemical" ? (
             <section className="form-section">
-              <div className="form-section-head"><span>IDENTITY</span><div><h2>确认化合物身份</h2><p>SMILES 决定结构，CAS 与名称作为待审核身份信息；两者冲突时系统会拒绝提交。</p></div></div>
-              {chemicalDraft.smiles && <div className="submission-preview"><Molecule smiles={chemicalDraft.smiles} width={220} height={150} /><span>RDKit 结构预览</span></div>}
+                <div className="form-section-head"><span>IDENTITY</span><div><h2>{chemicalId ? <>确认 <EntityId kind="chemical" id={chemicalId} compact /> 身份</> : "确认化合物身份"}</h2><p>SMILES 决定结构，CAS 与名称作为待审核身份信息；两者冲突时系统会拒绝提交。</p></div></div>
+              {chemicalDraft.smiles && <div className="submission-preview"><Molecule smiles={chemicalDraft.smiles} width={220} height={150} /><span>结构预览</span></div>}
               <div className="form-fields two-columns">
                 <label className="wide">SMILES <input value={chemicalDraft.smiles} onChange={(event) => setChemicalDraft((current) => ({ ...current, smiles: event.target.value }))} placeholder="例如 CCO" /></label>
                 <label>CAS <input value={chemicalDraft.cas} onChange={(event) => setChemicalDraft((current) => ({ ...current, cas: event.target.value }))} placeholder="例如 64-17-5" /></label>
@@ -146,7 +147,7 @@ export function SubmissionForm() {
           ) : (
             <>
               <section className="form-section">
-                <div className="form-section-head"><span>STRUCTURE</span><div><h2>{reactionId ? `修订反应 ${reactionId}` : "定义参与物与角色"}</h2><p>每个结构单独指定角色，系统据此生成 RDKit 反应表达，不从混合文本猜测。</p></div></div>
+                <div className="form-section-head"><span>STRUCTURE</span><div><h2>{reactionId ? <><span className="heading-action">修订</span> <EntityId kind="reaction" id={reactionId} compact /></> : "定义参与物与角色"}</h2><p>逐项填写参与物、生成物与其他组分，避免角色混淆。</p></div></div>
                 <div className="participant-editor">
                   <div className="participant-editor-labels"><span>角色</span><span>SMILES</span><span>收率</span><span /></div>
                   {participants.map((item) => (
@@ -213,7 +214,7 @@ function SubmissionHistoryView({ history }: { history: SubmissionHistory }) {
   ].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, 20);
   if (!items.length) return null;
   return <section className="submission-history"><div className="section-heading compact-heading"><div><p>HISTORY</p><h2>我的提交</h2></div></div><div>{items.map((item) => (
-    <article key={`${item.kind}-${item.id}`}><div><strong>{item.kind}提交 {item.id}</strong><span className={`status ${item.status}`}>{statusLabel[item.status]}</span></div><p>{item.submitted_name || item.submitted_smiles || item.reaction_smiles || "结构化数据"}</p>{item.review_note && <small>审核说明：{item.review_note}</small>}{item.status === "accepted" && item.chemical_id && <Link href={`/chemical/${item.chemical_id}`}>查看化合物</Link>}{item.status === "accepted" && item.reaction_id && <Link href={`/reaction/${item.reaction_id}`}>查看反应</Link>}</article>
+    <article key={`${item.kind}-${item.id}`}><div><strong>{item.kind}提交 {item.id}</strong><span className={`status ${item.status}`}>{statusLabel[item.status]}</span></div><p>{item.submitted_name || item.submitted_smiles || item.reaction_smiles || "结构化数据"}</p>{item.review_note && <small>审核说明：{item.review_note}</small>}{item.status === "accepted" && item.chemical_id && <Link href={`/chemical/${item.chemical_id}`}><EntityId kind="chemical" id={item.chemical_id} compact /></Link>}{item.status === "accepted" && item.reaction_id && <Link href={`/reaction/${item.reaction_id}`}><EntityId kind="reaction" id={item.reaction_id} compact /></Link>}</article>
   ))}</div></section>;
 }
 

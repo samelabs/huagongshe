@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChemicalResult } from "@/components/ChemicalResult";
+import { EntityId } from "@/components/EntityId";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ReactionResult } from "@/components/ReactionResult";
 import { apiGet, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
@@ -35,7 +36,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         <p className="page-kicker">DATA FINDER</p>
         <h1>{chemicalId ? `${relationLabel}结果` : "查询化学数据"}</h1>
         <GlobalSearch initial={q} compact />
-        {chemicalId && <p className="context-line">基于 <Link href={`/chemical/${chemicalId}`}>化合物 {chemicalId}</Link> 的 RDKit {relationLabel}检索</p>}
+        {chemicalId && <p className="context-line"><Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link> 的{relationLabel}结果</p>}
       </header>
       {error && <div className="notice error">{error}</div>}
       {!error && !q && !chemicalId && (

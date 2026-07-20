@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EntityId } from "@/components/EntityId";
 import { Molecule } from "@/components/Molecule";
 import { apiGet, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
 
@@ -11,7 +12,7 @@ const roleNames: Record<string, string> = {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  return { title: `反应 ${id}`, description: "反应方程式、参与物、条件、结果与来源" };
+  return { title: `HRID ${id}`, description: "反应方程式、参与物、条件、结果与来源" };
 }
 
 export default async function ReactionPage({ params }: { params: Promise<{ id: string }> }) {
@@ -33,12 +34,11 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="content-page reaction-page">
-      <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><span>反应 {reaction.id}</span></nav>
+      <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><EntityId kind="reaction" id={reaction.id} compact /></nav>
       <header className="reaction-title">
         <div>
-          <p className="page-kicker">REACTION {reaction.id}</p>
-          <h1>结构化反应记录</h1>
-          <p>{reaction.ord_id ? "源自 ORD 并与 chemicals 结构身份对齐" : "经化工社审核写入的社区反应"}</p>
+          <EntityId kind="reaction" id={reaction.id} />
+          <h1>反应详情</h1>
         </div>
         <Link className="button secondary" href={`/submit?type=reaction&reaction=${reaction.id}`}>补充或修订</Link>
       </header>
@@ -101,7 +101,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
             </dl>
           </section>
           <details className="source-expression">
-            <summary>RDKit 反应表达</summary>
+            <summary>反应 SMILES</summary>
             <p className="mono">{reaction.reaction_smiles}</p>
           </details>
           <section className="contribute-panel">
@@ -126,12 +126,13 @@ function ParticipantGroup({ title, eyebrow, items, showRole = false }: {
           <div className="participant-structure"><Molecule smiles={chemical.smiles} width={220} height={140} /></div>
           <div>
             {showRole && <span className="role-label">{roleNames[chemical.role || ""] || chemical.role}</span>}
-            <h3>{chemical.preferred_name || chemical.iupac_name || `化合物 ${chemical.id}`}</h3>
-            <p>{chemical.molecular_formula || `Chemical ${chemical.id}`}</p>
+            <EntityId kind="chemical" id={chemical.id} compact />
+            <h3>{chemical.preferred_name || chemical.iupac_name || "未命名化合物"}</h3>
+            {chemical.molecular_formula && <p>{chemical.molecular_formula}</p>}
             {chemical.yield_percent != null && <strong className="yield-value">收率 {formatYield(chemical.yield_percent)}%</strong>}
           </div>
         </Link>
-      ))}</div> : <p className="quiet-empty">暂无可对齐的{title}结构。</p>}
+      ))}</div> : <p className="quiet-empty">暂无{title}数据。</p>}
     </section>
   );
 }

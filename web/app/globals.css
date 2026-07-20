@@ -48,12 +48,20 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .button.small { min-height: 34px; padding: 0 12px; }
 .button:disabled { opacity: .5; cursor: not-allowed; }
 .text-button { border: 0; padding: 0; color: var(--blue); background: none; cursor: pointer; font-size: 13px; }
-.page-kicker, .record-kicker, .section-heading p, .hero-mark { margin: 0 0 8px; color: var(--blue); font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.page-kicker, .record-kicker, .section-heading p { margin: 0 0 8px; color: var(--blue); font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.entity-id { display: inline-grid; grid-auto-flow: column; align-items: stretch; border: 1px solid #bfd7fb; border-radius: 5px; overflow: hidden; vertical-align: middle; font-variant-numeric: tabular-nums; line-height: 1; }
+.entity-id > span { padding: 7px 8px; color: white; background: var(--blue); font-size: 9px; font-weight: 850; letter-spacing: .08em; }
+.entity-id > strong { padding: 7px 9px; color: var(--blue-deep); background: var(--blue-pale); font-size: 12px; font-weight: 800; }
+.entity-id.reaction { border-color: #cbd5e5; }
+.entity-id.reaction > span { background: #263b66; }
+.entity-id.reaction > strong { color: #263b66; background: #eef2f8; }
+.entity-id.compact > span { padding: 5px 6px; font-size: 8px; }
+.entity-id.compact > strong { padding: 5px 7px; font-size: 10px; }
 
 .home { width: min(820px, calc(100% - 40px)); margin: auto; }
 .hero { padding: clamp(72px, 11vh, 112px) 0 62px; text-align: center; }
 .hero h1 { margin: 0; font-size: clamp(34px, 5vw, 50px); line-height: 1.14; letter-spacing: -.05em; }
-.hero-copy { max-width: 580px; margin: 16px auto 30px; color: var(--muted); font-size: 15px; line-height: 1.7; }
+.hero h1 + .global-search { margin-top: 27px; }
 .global-search { width: min(690px, 100%); min-height: 54px; margin: auto; border: 1px solid var(--line-strong); border-radius: 9px; display: flex; background: white; box-shadow: 0 12px 34px rgba(30,66,117,.09); overflow: hidden; }
 .global-search:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(23,105,224,.1), 0 16px 45px rgba(30,66,117,.11); }
 .global-search input { width: 0; min-width: 0; flex: 1; border: 0; outline: 0; padding: 0 17px; color: var(--ink); font-size: 15px; }
@@ -67,7 +75,6 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .home-stat { display: flex; flex-direction: column; gap: 8px; }
 .home-stat strong { max-width: 100%; color: var(--ink); font-size: clamp(27px, 4vw, 38px); font-weight: 800; line-height: 1.1; letter-spacing: -.035em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .home-stat span, .home-meta > p { color: var(--muted); font-size: 13px; }
-.home-meta > p { margin: 27px 0 0; }
 
 .content-page { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; padding: 42px 0 90px; }
 .breadcrumbs { margin-bottom: 30px; display: flex; gap: 9px; color: var(--quiet); font-size: 12px; }
@@ -101,6 +108,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .chemical-result-structure { height: 124px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .chemical-result-structure img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .chemical-result-copy { min-width: 0; }
+.chemical-result-copy > .entity-id { margin-bottom: 9px; }
 .chemical-result h3, .reaction-result h3 { margin: 0 0 8px; font-size: 18px; }
 .chemical-result h3 a:hover, .reaction-result h3 a:hover { color: var(--blue); }
 .record-meta { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
@@ -111,6 +119,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .reaction-result { border: 1px solid var(--line); background: white; }
 .reaction-result-head { padding: 17px 19px 10px; display: flex; justify-content: space-between; gap: 20px; }
 .reaction-result h3 { margin-bottom: 0; }
+.reaction-source-name { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
 .reaction-badges { display: flex; flex-wrap: wrap; justify-content: end; gap: 6px; }
 .reaction-badges span { height: fit-content; border-radius: 999px; padding: 5px 9px; color: var(--blue-deep); background: var(--blue-pale); font-size: 10px; }
 .reaction-preview { height: 178px; border-top: 1px solid #f0f2f6; border-bottom: 1px solid #f0f2f6; display: block; overflow-x: auto; }
@@ -179,6 +188,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 
 .reaction-title { margin-bottom: 38px; display: flex; align-items: end; justify-content: space-between; gap: 24px; }
 .reaction-title h1 { margin: 0; font-size: clamp(32px, 5vw, 48px); letter-spacing: -.045em; }
+.reaction-title .entity-id { margin-bottom: 13px; }
 .reaction-title p:last-child { margin: 13px 0 0; color: var(--muted); font-size: 14px; }
 .reaction-equation { margin-bottom: 52px; }
 .reaction-scheme { width: 100%; border: 1px solid var(--line); overflow-x: auto; background: white; }
@@ -225,6 +235,8 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .form-section-head { margin-bottom: 24px; display: grid; grid-template-columns: 100px 1fr; gap: 18px; }
 .form-section-head > span { color: var(--blue); font-size: 9px; font-weight: 800; letter-spacing: .16em; }
 .form-section-head h2 { margin: 0; font-size: 19px; }
+.form-section-head h2 .entity-id { transform: translateY(-1px); }
+.heading-action { margin-right: 4px; }
 .form-section-head p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
 .form-fields { display: grid; gap: 15px; }
 .form-fields.two-columns { grid-template-columns: 1fr 1fr; }
@@ -326,7 +338,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   footer span:last-child { display: none; }
   .hero { padding: 58px 0 46px; }
   .hero h1 { font-size: clamp(32px, 10vw, 42px); }
-  .hero-copy { margin: 13px auto 24px; font-size: 14px; }
+  .hero h1 + .global-search { margin-top: 22px; }
   .global-search { min-height: 50px; }
   .global-search input { padding: 0 12px; font-size: 13px; }
   .global-search button { padding: 0 14px; font-size: 12px; }

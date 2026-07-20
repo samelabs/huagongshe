@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChemicalHelp } from "@/components/ChemicalHelp";
 import { ChemicalKnowledge } from "@/components/ChemicalKnowledge";
+import { EntityId } from "@/components/EntityId";
 import { Molecule } from "@/components/Molecule";
 import { ReactionResult } from "@/components/ReactionResult";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
@@ -22,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   try {
     const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=full`, 3600);
-    return { title: chemical.preferred_name || chemical.iupac_name || `化合物 ${id}`, description: chemical.smiles || undefined };
+    return { title: chemical.preferred_name || chemical.iupac_name || `HCID ${id}`, description: chemical.smiles || undefined };
   } catch { return { title: "化合物" }; }
 }
 
@@ -49,11 +50,11 @@ export default async function ChemicalPage({ params, searchParams }: {
 
   return (
     <div className="content-page chemical-page">
-      <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><span>化合物 {chemical.id}</span></nav>
+      <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><EntityId kind="chemical" id={chemical.id} compact /></nav>
       <header className="chemical-identity">
         <div className="chemical-structure"><Molecule smiles={chemical.smiles} width={360} height={280} /></div>
         <div className="chemical-title-block">
-          <p className="page-kicker">CHEMICAL {chemical.id}</p>
+          <EntityId kind="chemical" id={chemical.id} />
           <h1>{title}</h1>
           {chemical.iupac_name && chemical.iupac_name.toLowerCase() !== title.toLowerCase() && <p className="iupac-name">{chemical.iupac_name}</p>}
           <div className="identity-primary">

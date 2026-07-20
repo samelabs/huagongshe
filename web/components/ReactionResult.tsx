@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EntityId } from "@/components/EntityId";
 import { reactionSvgUrl, type ReactionLookup, type ReactionSummary } from "@/lib/api";
 
 const roleLabels: Record<string, string> = {
@@ -17,8 +18,8 @@ export function ReactionResult({ reaction }: { reaction: ReactionSummary | React
     <article className="reaction-result">
       <div className="reaction-result-head">
         <div>
-          <p className="record-kicker">反应 {reaction.id}</p>
-          <h3><Link href={`/reaction/${reaction.id}`}>结构化反应记录</Link></h3>
+          <Link href={`/reaction/${reaction.id}`}><EntityId kind="reaction" id={reaction.id} /></Link>
+          {reaction.dataset_name && <p className="reaction-source-name">{reaction.dataset_name}</p>}
         </div>
         <div className="reaction-badges">
           {roles && <span>作为{roles}</span>}
