@@ -20,7 +20,7 @@ from .cache import cache_delete, get_cache
 from .config import settings
 from .database import get_db
 from .chemistry import canonicalize_smiles
-from .pubchem_core import chemical_core_values, number_or_none
+from .pubchem_core import chemical_core_values, number_or_none, validate_synonyms
 
 router = APIRouter(prefix="/workapi/v1", tags=["workapi"])
 
@@ -256,6 +256,7 @@ async def sync_chemical_core(
     properties: dict[str, Any],
     *,
     record_title: Any = None,
+    synonyms: list[str] | None = None,
 ) -> None:
     """Synchronize trusted PubChem core fields without changing identity/structure."""
     values = chemical_core_values(properties, record_title=record_title)
@@ -266,7 +267,9 @@ async def sync_chemical_core(
                    CAST(:molecular_formula AS text) AS molecular_formula,
                    CAST(:average_mass AS double precision) AS average_mass,
                    CAST(:monoisotopic_mass AS double precision) AS monoisotopic_mass,
-                   CAST(:inchikey AS text) AS inchikey
+                   CAST(:inchikey AS text) AS inchikey,
+                   CAST(:sync_synonyms AS boolean) AS sync_synonyms,
+                   CAST(:synonyms AS jsonb) AS synonyms
         )
         UPDATE chemistry.chemicals
         SET preferred_name=coalesce(incoming.preferred_name,chemistry.chemicals.preferred_name),
@@ -275,6 +278,8 @@ async def sync_chemical_core(
             average_mass=coalesce(incoming.average_mass,chemistry.chemicals.average_mass),
             monoisotopic_mass=coalesce(incoming.monoisotopic_mass,chemistry.chemicals.monoisotopic_mass),
             inchikey=coalesce(incoming.inchikey,chemistry.chemicals.inchikey),
+            synonyms=CASE WHEN incoming.sync_synonyms
+                THEN incoming.synonyms ELSE chemistry.chemicals.synonyms END,
             updated_at=now()
         FROM incoming
         WHERE chemistry.chemicals.id=:chemical_id AND (
@@ -283,9 +288,16 @@ async def sync_chemical_core(
             (incoming.molecular_formula IS NOT NULL AND chemistry.chemicals.molecular_formula IS DISTINCT FROM incoming.molecular_formula) OR
             (incoming.average_mass IS NOT NULL AND chemistry.chemicals.average_mass IS DISTINCT FROM incoming.average_mass) OR
             (incoming.monoisotopic_mass IS NOT NULL AND chemistry.chemicals.monoisotopic_mass IS DISTINCT FROM incoming.monoisotopic_mass) OR
-            (incoming.inchikey IS NOT NULL AND chemistry.chemicals.inchikey IS DISTINCT FROM incoming.inchikey)
+            (incoming.inchikey IS NOT NULL AND chemistry.chemicals.inchikey IS DISTINCT FROM incoming.inchikey) OR
+            (incoming.sync_synonyms AND chemistry.chemicals.synonyms IS DISTINCT FROM incoming.synonyms)
         )
-    """), {"chemical_id": chemical_id, **values})
+    """), {
+        "chemical_id": chemical_id,
+        "sync_synonyms": synonyms is not None,
+        "synonyms": json.dumps(synonyms, ensure_ascii=False, separators=(",", ":"))
+        if synonyms is not None else None,
+        **values,
+    })
 
 
 async def reject_completed_job(
@@ -519,15 +531,33 @@ async def complete_job(
         allowed_for_job = set(job[4] or [])
         sections = as_json_object(result.get("sections"))
         sections = {key: value for key, value in sections.items() if key in {
-            "computed", "identifiers", "physical", "safety", "toxicity",
+            "computed", "identifiers", "synonyms", "physical", "safety", "toxicity",
             "regulatory", "pharmacology", "uses",
         } and key in allowed_for_job and isinstance(value, dict)}
+        synonyms = None
+        if "synonyms" in allowed_for_job:
+            if "synonyms" not in sections:
+                await reject_completed_job(
+                    db, body.job_id, worker.worker_id, "synonyms_missing",
+                    "worker omitted the requested PubChem synonym list",
+                )
+                await db.commit()
+                raise HTTPException(422, "worker omitted requested synonyms")
+            try:
+                synonyms = validate_synonyms(sections["synonyms"].get("values"))
+            except ValueError as exc:
+                await reject_completed_job(
+                    db, body.job_id, worker.worker_id, "synonyms_invalid", str(exc),
+                )
+                await db.commit()
+                raise HTTPException(422, str(exc)) from exc
         if chemical_id is not None and selected_cid is not None:
             await sync_chemical_core(
                 db,
                 int(chemical_id),
                 properties,
                 record_title=result.get("record_title"),
+                synonyms=synonyms,
             )
             await upsert_details(db, int(chemical_id), properties, sections, result)
 

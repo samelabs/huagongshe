@@ -31,8 +31,8 @@ class WorkApiClient:
 
     async def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
-        if len(body) > 1_900_000:
-            raise RuntimeError("workapi payload exceeds the 1.9 MB worker safety limit")
+        if len(body) > 9_500_000:
+            raise RuntimeError("workapi payload exceeds the 9.5 MB worker safety limit")
         timestamp = str(int(time.time()))
         nonce = secrets.token_urlsafe(24)
         body_hash = hashlib.sha256(body).hexdigest()
@@ -108,7 +108,12 @@ async def process_job(
                     "values": selected_properties,
                     "source": "PubChem PUG REST",
                 }
-            for section in sorted(requested - {"computed"}):
+            if "synonyms" in requested:
+                sections["synonyms"] = {
+                    "values": await pubchem.synonyms(selected_cid),
+                    "source": "PubChem PUG REST",
+                }
+            for section in sorted(requested - {"computed", "synonyms"}):
                 if section not in {"identifiers", "physical", "safety", "toxicity", "regulatory", "pharmacology", "uses"}:
                     continue
                 title, normalized = await pubchem.view(selected_cid, section)

@@ -23,6 +23,7 @@ ALLOWED_SECTIONS = frozenset(
     {
         "computed",
         "identifiers",
+        "synonyms",
         "physical",
         "safety",
         "toxicity",
@@ -31,7 +32,7 @@ ALLOWED_SECTIONS = frozenset(
         "uses",
     }
 )
-DEFAULT_SECTIONS = ("computed", "identifiers")
+DEFAULT_SECTIONS = ("computed", "identifiers", "synonyms")
 PUBLIC_ENQUEUE_LIMIT_PER_HOUR = 30
 
 

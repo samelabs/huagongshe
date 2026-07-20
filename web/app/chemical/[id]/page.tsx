@@ -49,6 +49,10 @@ export default async function ChemicalPage({ params }: { params: Promise<{ id: s
         <Fact label="UNII" value={chemical.unii_codes.join(", ") || null} />
         <Fact label="EC Number" value={chemical.ec_numbers.join(", ") || null} />
         <Fact label="Nikkaji" value={chemical.nikkaji_numbers.join(", ") || null} />
+        <Fact
+          label={`别名${chemical.synonym_count ? ` · ${chemical.synonym_count}` : ""}`}
+          value={chemical.synonyms?.slice(0, 12).join("、") || null}
+        />
       </dl>
       <div className="actions">
         <Link className="button primary" href="#reactions">查看参与反应</Link>

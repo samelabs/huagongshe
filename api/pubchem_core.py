@@ -7,6 +7,8 @@ import re
 from typing import Any
 
 INCHIKEY_RE = re.compile(r"^[A-Z]{14}-[A-Z]{10}-[A-Z]$")
+MAX_SYNONYM_COUNT = 200_000
+MAX_SYNONYM_BYTES = 8 * 1024 * 1024
 
 
 def number_or_none(value: Any, cast=float):
@@ -53,3 +55,17 @@ def chemical_core_values(
         ),
         "inchikey": inchikey,
     }
+
+
+def validate_synonyms(value: Any) -> list[str]:
+    """Validate without ranking, filtering, deduplicating, or reordering."""
+    if not isinstance(value, list) or len(value) > MAX_SYNONYM_COUNT:
+        raise ValueError("invalid PubChem synonym list")
+    total_bytes = 0
+    for synonym in value:
+        if not isinstance(synonym, str) or not synonym:
+            raise ValueError("invalid PubChem synonym value")
+        total_bytes += len(synonym.encode("utf-8"))
+        if total_bytes > MAX_SYNONYM_BYTES:
+            raise ValueError("PubChem synonym list exceeds the verified source limit")
+    return value

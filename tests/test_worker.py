@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import unittest
 
-from api.pubchem_core import chemical_core_values
+from api.pubchem_core import chemical_core_values, validate_synonyms
 from worker.chemistry import select_verified_cid
-from worker.pubchem import PROPERTY_NAMES, PubChemRateController, normalize_view, throttle_status
+from worker.pubchem import (
+    PROPERTY_NAMES,
+    PubChemRateController,
+    extract_synonyms,
+    normalize_view,
+    throttle_status,
+)
 
 
 class ChemicalCoreMappingTests(unittest.TestCase):
@@ -37,6 +43,20 @@ class ChemicalCoreMappingTests(unittest.TestCase):
             "InChIKey": "invalid",
         })
         self.assertTrue(all(value is None for value in values.values()))
+
+    def test_complete_synonyms_preserve_source_order_and_duplicates(self) -> None:
+        payload = {
+            "InformationList": {
+                "Information": [{"CID": 702, "Synonym": ["ethanol", "EtOH", "ethanol"]}]
+            }
+        }
+        values = extract_synonyms(payload)
+        self.assertEqual(values, ["ethanol", "EtOH", "ethanol"])
+        self.assertIs(validate_synonyms(values), values)
+
+    def test_malformed_synonyms_are_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            validate_synonyms(["valid", 702])
 
 
 class ThrottleTests(unittest.TestCase):

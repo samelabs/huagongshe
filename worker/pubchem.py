@@ -249,6 +249,15 @@ def normalize_view(payload: dict[str, Any], section_name: str) -> dict[str, Any]
     }
 
 
+def extract_synonyms(payload: dict[str, Any] | None) -> list[str]:
+    """Preserve the complete active synonym list and PubChem response order."""
+    information = ((payload or {}).get("InformationList") or {}).get("Information") or []
+    if not information:
+        return []
+    values = information[0].get("Synonym") or []
+    return [value for value in values if isinstance(value, str)]
+
+
 class PubChemClient:
     def __init__(self, session: aiohttp.ClientSession, rate: PubChemRateController):
         self.session = session
@@ -325,6 +334,10 @@ class PubChemClient:
         url = f"{PUG_REST}/compound/cid/{cid_text}/property/{PROPERTY_NAMES}/JSON"
         payload = await self.request_json("GET", url)
         return list(((payload or {}).get("PropertyTable") or {}).get("Properties") or [])
+
+    async def synonyms(self, cid: int) -> list[str]:
+        url = f"{PUG_REST}/compound/cid/{cid}/synonyms/JSON"
+        return extract_synonyms(await self.request_json("GET", url))
 
     async def view(self, cid: int, section: str) -> tuple[str | None, dict[str, Any]]:
         heading = VIEW_HEADINGS[section]

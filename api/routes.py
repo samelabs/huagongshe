@@ -261,6 +261,21 @@ async def chemical_detail(request: Request, chemical_id: int, db=Depends(get_db)
     if not rows:
         raise HTTPException(404, "化合物不存在")
     result = rows[0]
+    synonym_row = (await db.execute(text("""
+        WITH source AS (
+            SELECT CASE WHEN jsonb_typeof(synonyms)='array'
+                THEN synonyms ELSE '[]'::jsonb END AS items
+            FROM chemistry.chemicals WHERE id=:id
+        )
+        SELECT jsonb_array_length(items),coalesce((
+            SELECT jsonb_agg(value ORDER BY ordinality)
+            FROM jsonb_array_elements_text(items) WITH ORDINALITY AS alias(value,ordinality)
+            WHERE ordinality<=20
+        ),'[]'::jsonb)
+        FROM source
+    """), {"id": chemical_id})).fetchone()
+    result["synonym_count"] = int(synonym_row[0]) if synonym_row else 0
+    result["synonyms"] = list(synonym_row[1] or []) if synonym_row else []
     result["reaction_count"] = (await db.execute(text("""
         SELECT count(DISTINCT reaction_id) FROM chemistry.reaction_chemicals
         WHERE chemical_id=:id
@@ -279,6 +294,42 @@ async def chemical_detail(request: Request, chemical_id: int, db=Depends(get_db)
         "requested_sections": list(DEFAULT_SECTIONS),
     }
     return result
+
+
+@router.get("/chemicals/{chemical_id}/synonyms")
+async def chemical_synonyms(
+    chemical_id: int,
+    page: int = Query(1, ge=1, le=10000),
+    page_size: int = Query(100, ge=1, le=500),
+    db=Depends(get_db),
+):
+    offset = (page - 1) * page_size
+    row = (await db.execute(text("""
+        WITH source AS (
+            SELECT CASE WHEN jsonb_typeof(synonyms)='array'
+                THEN synonyms ELSE '[]'::jsonb END AS values
+            FROM chemistry.chemicals WHERE id=:chemical_id
+        )
+        SELECT jsonb_array_length(values),coalesce((
+            SELECT jsonb_agg(value ORDER BY ordinality)
+            FROM jsonb_array_elements_text(values) WITH ORDINALITY AS alias(value,ordinality)
+            WHERE ordinality>:offset AND ordinality<=:offset+:page_size
+        ),'[]'::jsonb)
+        FROM source
+    """), {
+        "chemical_id": chemical_id,
+        "offset": offset,
+        "page_size": page_size,
+    })).fetchone()
+    if not row:
+        raise HTTPException(404, "化合物不存在")
+    return {
+        "chemical_id": chemical_id,
+        "total": int(row[0]),
+        "page": page,
+        "page_size": page_size,
+        "synonyms": list(row[1] or []),
+    }
 
 
 @router.get("/chemicals/{chemical_id}/reactions")

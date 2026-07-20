@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["https://huagongshe.com", "https://www.huagongshe.com"]
     session_cookie: str = "hgs_session"
     session_days: int = 30
-    worker_max_body_bytes: int = 2 * 1024 * 1024
+    worker_max_body_bytes: int = 10 * 1024 * 1024
     worker_signature_skew_seconds: int = 300
     worker_job_lease_seconds: int = 180
 

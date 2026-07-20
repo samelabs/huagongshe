@@ -31,6 +31,8 @@ export type Chemical = {
   ec_numbers: string[];
   unii_codes: string[];
   chebi_ids: string[];
+  synonyms?: string[];
+  synonym_count?: number;
   similarity: number | null;
   reaction_count?: number;
   role?: string;
