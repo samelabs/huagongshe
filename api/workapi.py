@@ -156,6 +156,21 @@ async def lease_jobs(
         await db.commit()
         return {"jobs": [], "retry_after_seconds": 30}
     try:
+        redis = await get_cache()
+        if await redis.set("pubchem:jobs:prune", "1", ex=3600, nx=True):
+            # Bounded retention keeps the durable queue auditable without
+            # allowing successful task/event history to grow forever.
+            await db.execute(text("""
+                DELETE FROM maintenance.pubchem_jobs
+                WHERE id IN (
+                    SELECT id FROM maintenance.pubchem_jobs
+                    WHERE completed_at IS NOT NULL AND (
+                        (status='succeeded' AND completed_at<now()-interval '30 days') OR
+                        (status IN ('failed','dead') AND completed_at<now()-interval '90 days')
+                    )
+                    ORDER BY completed_at,id LIMIT 5000
+                )
+            """))
         await db.execute(text("""
             UPDATE maintenance.pubchem_jobs
             SET status=CASE WHEN attempt_count>=max_attempts THEN 'dead' ELSE 'retry' END,
@@ -282,6 +297,13 @@ async def upsert_details(
     fetched_sections.update(sections)
     section_times = dict(current.get("section_fetched_at") or {})
     section_times.update({section: now_iso for section in sections})
+    section_hashes = dict(current.get("section_source_hashes") or {})
+    result_source_hash = str(result.get("source_hash") or "")
+    if not re.fullmatch(r"[0-9a-f]{64}", result_source_hash, re.I):
+        result_source_hash = hashlib.sha256(
+            json.dumps(result, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+    section_hashes.update({section: result_source_hash for section in sections})
     references = dict(current.get("source_references") or {})
     for section_name, section in sections.items():
         if isinstance(section, dict):
@@ -328,12 +350,14 @@ async def upsert_details(
         "section_times": section_times,
         "created_on": result.get("pubchem_created_on") or current.get("pubchem_created_on"),
         "modified_on": result.get("pubchem_modified_on") or current.get("pubchem_modified_on"),
-        "source_hash": result.get("source_hash") or current.get("source_hash"),
+        "source_hash": result_source_hash,
+        "section_hashes": section_hashes,
         "expires_at": expires_at,
     }
     json_keys = (
         "computed", "physical", "ghs", "hazards", "measures", "toxicity",
-        "regulatory", "pharmacology", "uses", "identifiers", "references", "section_times",
+        "regulatory", "pharmacology", "uses", "identifiers", "references",
+        "section_times", "section_hashes",
     )
     params = dict(values)
     for key in json_keys:
@@ -346,6 +370,7 @@ async def upsert_details(
             computed_properties,physical_properties,ghs_classification,hazards,
             safety_measures,toxicity,regulatory,pharmacology,uses_and_manufacturing,
             identifier_evidence,source_references,fetched_sections,section_fetched_at,
+            section_source_hashes,
             pubchem_created_on,pubchem_modified_on,source_hash,schema_version,
             fetched_at,expires_at,updated_at
         ) VALUES (
@@ -355,6 +380,7 @@ async def upsert_details(
             CAST(:measures AS jsonb),CAST(:toxicity AS jsonb),CAST(:regulatory AS jsonb),
             CAST(:pharmacology AS jsonb),CAST(:uses AS jsonb),CAST(:identifiers AS jsonb),
             CAST(:references AS jsonb),:fetched_sections,CAST(:section_times AS jsonb),
+            CAST(:section_hashes AS jsonb),
             :created_on,:modified_on,:source_hash,1,now(),:expires_at,now()
         )
         ON CONFLICT (chemical_id) DO UPDATE SET
@@ -381,6 +407,7 @@ async def upsert_details(
             source_references=excluded.source_references,
             fetched_sections=excluded.fetched_sections,
             section_fetched_at=excluded.section_fetched_at,
+            section_source_hashes=excluded.section_source_hashes,
             pubchem_created_on=excluded.pubchem_created_on,
             pubchem_modified_on=excluded.pubchem_modified_on,
             source_hash=excluded.source_hash,
@@ -481,9 +508,11 @@ async def complete_job(
             "candidates": candidates[:10],
             "fetched_sections": sorted(sections),
         }
-        result_hash = str(result.get("source_hash") or hashlib.sha256(
-            json.dumps(result, sort_keys=True, ensure_ascii=False).encode()
-        ).hexdigest())
+        result_hash = str(result.get("source_hash") or "")
+        if not re.fullmatch(r"[0-9a-f]{64}", result_hash, re.I):
+            result_hash = hashlib.sha256(
+                json.dumps(result, sort_keys=True, ensure_ascii=False).encode()
+            ).hexdigest()
         await db.execute(text("""
             UPDATE maintenance.pubchem_jobs
             SET status='succeeded',chemical_id=coalesce(chemical_id,:chemical_id),
