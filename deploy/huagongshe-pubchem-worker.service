@@ -1,0 +1,27 @@
+[Unit]
+Description=Huagongshe distributed PubChem worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=huagongshe-worker
+Group=huagongshe-worker
+WorkingDirectory=/opt/huagongshe-worker
+EnvironmentFile=/etc/huagongshe/pubchem-worker.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/huagongshe-worker/venv/bin/python -m worker.main
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

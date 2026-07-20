@@ -10,8 +10,26 @@
 - `community.*`：用户、会话、数据提交和反应求助。
 - `ord.*`：ORD 原始反应事实与来源上下文，不承担化工社自主身份。
 - `ingest.*`：PubChem、DSSTox、RDKit/ORD 迁移审计和一次性导入数据，不进入线上查询路径。
+- `maintenance.*`：持久任务、外部 worker 身份和维护审计，不进入公共查询模型。
 
 PubChem、DSSTox 和 ORD 是数据来源；RDKit 是解析、标准化和检索能力。它们都不形成与 `chemistry` 并列的产品数据主线。
+
+## 化合物事实规则
+
+- `chemistry.chemicals.id` 是项目稳定的 `chemical_id`；PubChem CID 只标识 PubChem 来源子集。
+- `smiles` 是 RDKit 标准化后的结构表达，也是 chemicals 与 ORD 共存、跨来源对齐的基础。
+- DSSTox 数据只能在标准化 SMILES 或完整 InChIKey 验证后挂载，CAS 不能单独确认结构。
+- PubChem `CID-Identifiers` 是缺少逐值来源上下文的第三方关联集合，不得直接作为已核实外部标识写入。
+- CAS、EC、UNII、ChEMBL、ChEBI、Nikkaji 等允许真实多值；每个值必须保留来源证据并通过实体或结构粒度核验。
+- PubChem PUG REST 用于 CID、结构和计算属性；PUG View 用于带来源的物性、安全、毒性和外部标识注释。
+- 扩展信息按需写入 `chemistry.chemical_details`，禁止为 1.24 亿条 chemicals 预建空行或保存完整 PUG View 原文。
+
+## API 边界
+
+- `/api/*`：面向用户和前端的查询、社区提交及查询触发的按需补全状态。
+- `/workapi/*`：只接受受信任外部 worker 的签名 POST；不提供公共数据查询。
+- 外部 worker 不持有数据库凭据。它只领取租约、获取 PubChem 数据并提交来源证据；最终校验和事务写入由 `/workapi` 完成。
+- 所有 worker 共享一个全局 PubChem 请求预算，不得利用分布式节点绕过 PubChem 的组织级限流。
 
 ## 社区数据闭环
 
@@ -28,7 +46,8 @@ UPDATE community.users SET role='editor' WHERE lower(email)=lower('reviewer@exam
 
 ## 代码边界
 
-- `api/`：FastAPI 同域 API。
+- `api/`：FastAPI 公共 `/api` 与维护 `/workapi`，两个路由域严格分离。
+- `worker/`：无数据库权限的可分布式 PubChem worker。
 - `web/`：Next.js 简洁查询与社区入口。
 - `migrations/`：可审计的数据库结构迁移。
 
@@ -37,6 +56,7 @@ UPDATE community.users SET role='editor' WHERE lower(email)=lower('reviewer@exam
 - `huagongshe-api.service`：`127.0.0.1:8000`
 - `huagongshe-web.service`：`127.0.0.1:3001`
 - Nginx：HTTPS、同域 `/api/*` 代理与 `www` 到主域跳转。
+- Nginx：`/workapi/*` 独立限流并代理到维护 API；所有请求仍强制 HTTPS。
 
 ```bash
 systemctl status huagongshe-api huagongshe-web nginx postgresql redis-server
@@ -44,3 +64,11 @@ curl -fsS https://huagongshe.com/api/health
 ```
 
 API 连接信息由服务器上的 `/etc/huagongshe/api.env` 提供，不写入 Git。
+
+## PubChem 按需补全
+
+`chemistry.chemical_details` 是稀疏的一对一扩展表：只有实际被请求的 chemical 才产生行，且各信息分区分别记录抓取时间。`maintenance.pubchem_jobs` 是可恢复的租约队列；worker 崩溃或失联后任务会重试，超过次数进入 `dead`，不会无限循环。
+
+worker 通过 `python -m worker.issue_token WORKER_ID` 生成一次性凭据。数据库只保存令牌摘要；节点环境只需要 `/workapi` 地址、worker ID 和令牌，不需要数据库连接。首个同机节点使用 `deploy/huagongshe-local-pubchem-worker.service`，远端节点使用 `deploy/huagongshe-pubchem-worker.service`。
+
+PUG View 外部标识先写入 `identifier_evidence`，并保留 CAS、Related CAS、Deprecated CAS 等语义和逐值来源。它不会自动修改 `chemicals.cas_numbers` 等核心索引字段；核心字段的晋升必须经过来源与结构粒度规则。

@@ -8,8 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from .community import router as community_router
 from .config import settings
 from .database import engine
+from .enrichment import router as enrichment_router
 from .mol import router as molecule_router
 from .routes import router as chemistry_router
+from .workapi import router as workapi_router
 
 
 @asynccontextmanager
@@ -35,6 +37,8 @@ app.add_middleware(
 app.include_router(chemistry_router, prefix="/api")
 app.include_router(molecule_router, prefix="/api")
 app.include_router(community_router, prefix="/api")
+app.include_router(enrichment_router, prefix="/api")
+app.include_router(workapi_router, include_in_schema=False)
 
 
 @app.get("/api/health")

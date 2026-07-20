@@ -1,0 +1,47 @@
+"""Worker-side structure comparison; the API repeats this validation."""
+
+from __future__ import annotations
+
+from rdkit import Chem, RDLogger
+from typing import Any
+
+RDLogger.DisableLog("rdApp.error")
+
+
+def canonicalize_smiles(value: str) -> str | None:
+    value = value.strip()
+    if not value or len(value) > 4000:
+        return None
+    mol = Chem.MolFromSmiles(value)
+    return Chem.MolToSmiles(mol, canonical=True) if mol is not None else None
+
+
+def select_verified_cid(
+    candidates: list[int],
+    properties: list[dict[str, Any]],
+    *,
+    expected_cid: int | None,
+    expected_smiles: str | None,
+) -> int | None:
+    """Choose only an explicitly expected or uniquely structure-matched CID."""
+    property_map = {
+        int(item["CID"]): item
+        for item in properties
+        if item.get("CID") is not None
+    }
+    if expected_cid is not None:
+        return expected_cid if expected_cid in candidates and expected_cid in property_map else None
+
+    expected_structure = canonicalize_smiles(expected_smiles or "")
+    if expected_structure:
+        matching = []
+        for cid, item in property_map.items():
+            returned = item.get("SMILES") or item.get("ConnectivitySMILES")
+            if canonicalize_smiles(str(returned or "")) == expected_structure:
+                matching.append(cid)
+        if len(matching) == 1:
+            return matching[0]
+
+    if len(candidates) == 1 and candidates[0] in property_map:
+        return candidates[0]
+    return None

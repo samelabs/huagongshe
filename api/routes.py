@@ -2,24 +2,22 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from rdkit import Chem, RDLogger
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import text
 
 from .cache import cache_get, cache_set
+from .chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE, canonicalize_smiles
 from .config import settings
 from .database import get_db
-
-RDLogger.DisableLog("rdApp.error")
+from .enrichment import (
+    DEFAULT_SECTIONS,
+    enqueue_chemical_if_needed,
+)
 
 router = APIRouter(tags=["chemistry"])
 
-CAS_RE = re.compile(r"^\d{2,7}-\d{2}-\d$")
-INCHIKEY_RE = re.compile(r"^[A-Z]{14}-[A-Z]{10}-[A-Z]$")
-DTXSID_RE = re.compile(r"^DTXSID\d{7,12}$", re.I)
 IDENTIFIER_ARRAYS = {
     "cas": "cas_numbers",
     "nikkaji": "nikkaji_numbers",
@@ -35,14 +33,6 @@ CHEMICAL_SELECT = """
     c.cas_numbers, c.nikkaji_numbers, c.chembl_ids, c.ec_numbers,
     c.unii_codes, c.chebi_ids
 """
-
-
-def canonicalize_smiles(value: str) -> str | None:
-    value = value.strip()
-    if not value or len(value) > 4000:
-        return None
-    mol = Chem.MolFromSmiles(value)
-    return Chem.MolToSmiles(mol, canonical=True) if mol is not None else None
 
 
 def chemical_dict(row: Any, score: float | None = None) -> dict[str, Any]:
@@ -255,7 +245,7 @@ async def search(
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
 
-    data = {
+    data: dict[str, Any] = {
         "query": query, "mode": mode, "canonical_smiles": canonical,
         "chemicals": chemicals, "page_size": page_size,
     }
@@ -264,7 +254,7 @@ async def search(
 
 
 @router.get("/chemicals/{chemical_id}")
-async def chemical_detail(chemical_id: int, db=Depends(get_db)):
+async def chemical_detail(request: Request, chemical_id: int, db=Depends(get_db)):
     rows = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT} FROM chemistry.chemicals c WHERE c.id=:id
     """, {"id": chemical_id})
@@ -275,6 +265,19 @@ async def chemical_detail(chemical_id: int, db=Depends(get_db)):
         SELECT count(DISTINCT reaction_id) FROM chemistry.reaction_chemicals
         WHERE chemical_id=:id
     """), {"id": chemical_id})).scalar() or 0
+    details, job_id, needs_refresh = await enqueue_chemical_if_needed(
+        db, chemical_id, sections=DEFAULT_SECTIONS, priority=80, request=request
+    )
+    if job_id is not None:
+        await db.commit()
+    result["details"] = details
+    result["enrichment"] = {
+        "status": "queued" if job_id is not None else (
+            "rate_limited" if needs_refresh else "current"
+        ),
+        "job_id": job_id,
+        "requested_sections": list(DEFAULT_SECTIONS),
+    }
     return result
 
 

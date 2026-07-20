@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from .cache import cache_delete
 from .config import settings
 from .database import get_db
-from .routes import CAS_RE, canonicalize_smiles
+from .chemistry import CAS_RE, canonicalize_smiles
 
 router = APIRouter(prefix="/community", tags=["community"])
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_\-\u4e00-\u9fff]{2,30}$")
