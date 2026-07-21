@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from rdkit import Chem
 from sqlalchemy import text
 
 from .cache import cache_get, cache_set
@@ -15,6 +16,8 @@ from .enrichment import (
     DEFAULT_SECTIONS,
     enqueue_chemical_if_needed,
 )
+from .security import Actor, optional_actor
+from .rate_limit import enforce, request_identity
 
 router = APIRouter(tags=["chemistry"])
 
@@ -37,6 +40,17 @@ CHEMICAL_SELECT = """
     c.cas_numbers, c.nikkaji_numbers, c.chembl_ids, c.ec_numbers,
     c.unii_codes, c.chebi_ids
 """
+MIN_SUBSTRUCTURE_HEAVY_ATOMS = 4
+
+
+def bounded_substructure_smiles(smiles: str) -> str:
+    """Reject queries whose result set is effectively unbounded at PubChem scale."""
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise HTTPException(400, "无法识别该 SMILES 结构")
+    if mol.GetNumHeavyAtoms() < MIN_SUBSTRUCTURE_HEAVY_ATOMS:
+        raise HTTPException(422, "子结构过小，请至少提供 4 个非氢原子")
+    return smiles
 
 
 def chemical_dict(row: Any, score: float | None = None) -> dict[str, Any]:
@@ -84,22 +98,27 @@ async def reaction_summaries(
     total = int((await db.execute(text(f"""
         SELECT count(DISTINCT rc.reaction_id)
         FROM chemistry.reaction_chemicals rc
+        JOIN chemistry.reactions rx ON rx.id=rc.reaction_id
         WHERE rc.chemical_id = ANY(:chemical_ids) {role_clause}
+          AND rx.visibility='public' AND rx.moderation_status='visible'
     """), params)).scalar() or 0)
     params.update(limit=page_size, offset=(page - 1) * page_size)
     rows = (await db.execute(text(f"""
         WITH ids AS MATERIALIZED (
             SELECT DISTINCT rc.reaction_id
             FROM chemistry.reaction_chemicals rc
+            JOIN chemistry.reactions visible_rx ON visible_rx.id=rc.reaction_id
             WHERE rc.chemical_id = ANY(:chemical_ids) {role_clause}
+              AND visible_rx.visibility='public' AND visible_rx.moderation_status='visible'
             ORDER BY rc.reaction_id
             LIMIT :limit OFFSET :offset
         )
         SELECT DISTINCT ON (rx.id)
             rx.id, rx.reaction_smiles,
-            COALESCE(NULLIF(cs.doi,''),rp.doi),
-            COALESCE(NULLIF(cs.patent,''),rp.patent),
-            CASE WHEN o.id IS NULL AND cs.id IS NOT NULL THEN '社区审核' ELSE d.name END,
+            COALESCE(NULLIF(rx.doi,''),rp.doi),
+            COALESCE(NULLIF(rx.patent,''),rp.patent),
+            CASE WHEN rx.created_by_user_id IS NOT NULL
+                 THEN COALESCE(NULLIF(rx.source_citation,''),'用户发布') ELSE d.name END,
             (SELECT array_agg(DISTINCT rc.role ORDER BY rc.role)
              FROM chemistry.reaction_chemicals rc
              WHERE rc.reaction_id=rx.id AND rc.chemical_id=ANY(:chemical_ids))
@@ -109,12 +128,6 @@ async def reaction_summaries(
         LEFT JOIN ord.reaction o ON o.id = lm.ord_reaction_id
         LEFT JOIN ord.reaction_provenance rp ON rp.reaction_id = o.id
         LEFT JOIN ord.dataset d ON d.id = o.dataset_id
-        LEFT JOIN LATERAL (
-          SELECT s.id,s.doi,s.patent
-          FROM community.reaction_submissions s
-          WHERE s.reaction_id=rx.id AND s.status='accepted'
-          ORDER BY s.reviewed_at DESC NULLS LAST,s.id DESC LIMIT 1
-        ) cs ON true
         ORDER BY rx.id, rp.id
     """), params)).fetchall()
     return total, [
@@ -142,7 +155,7 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
         clauses.append("o.reaction_id=:source_id")
         params["source_id"] = value if value.lower().startswith("ord-") else f"ord-{value}"
     elif normalized_prefix == "doi" and value:
-        clauses.append("rp.doi=:doi")
+        clauses.append("COALESCE(rx.doi,rp.doi)=:doi")
         params["doi"] = value
     elif query.isdigit():
         clauses.append("rx.id=:reaction_id")
@@ -151,14 +164,17 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
         clauses.append("o.reaction_id=:source_id")
         params["source_id"] = query
     elif query.lower().startswith("10.") and "/" in query:
-        clauses.append("rp.doi=:doi")
+        clauses.append("COALESCE(rx.doi,rp.doi)=:doi")
         params["doi"] = query
     if not clauses:
         return []
 
     rows = (await db.execute(text(f"""
         SELECT DISTINCT ON (rx.id)
-          rx.id,rx.reaction_smiles,o.reaction_id,d.name,rp.doi,rp.patent,
+          rx.id,rx.reaction_smiles,o.reaction_id,
+          CASE WHEN rx.created_by_user_id IS NOT NULL
+               THEN COALESCE(NULLIF(rx.source_citation,''),'用户发布') ELSE d.name END,
+          COALESCE(rx.doi,rp.doi),COALESCE(rx.patent,rp.patent),
           CASE
             WHEN rx.id=:reaction_id_hint THEN 'reaction_id'
             WHEN lower(coalesce(o.reaction_id,''))=lower(:source_id_hint) THEN 'ord_id'
@@ -169,7 +185,8 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
         LEFT JOIN ord.reaction o ON o.id=lm.ord_reaction_id
         LEFT JOIN ord.dataset d ON d.id=o.dataset_id
         LEFT JOIN ord.reaction_provenance rp ON rp.reaction_id=o.id
-        WHERE {' OR '.join(clauses)}
+        WHERE ({' OR '.join(clauses)})
+          AND rx.visibility='public' AND rx.moderation_status='visible'
         ORDER BY rx.id,rp.id
         LIMIT :limit
     """), {
@@ -209,6 +226,7 @@ async def stats(db=Depends(get_db)):
 
 @router.get("/search")
 async def search(
+    request: Request,
     q: str = Query(..., min_length=1, max_length=4000),
     mode: str = Query("exact", pattern="^(exact|substructure|similarity)$"),
     page_size: int = Query(20, ge=1, le=50),
@@ -216,6 +234,11 @@ async def search(
 ):
     """One entry point for names, external identifiers, SMILES and structures."""
     query = q.strip()
+    if mode in {"substructure", "similarity"}:
+        await enforce(
+            "structure-query", request_identity(request),
+            settings.api_structure_limit_per_minute, 60,
+        )
     cache_key = f"v4:unified-search:{mode}:{page_size}:{query}"
     cached = await cache_get(cache_key)
     if cached:
@@ -227,8 +250,9 @@ async def search(
     try:
         if mode == "substructure":
             if not canonical:
-                raise HTTPException(400, "无法识别该 SMILES/SMARTS 结构")
-            await db.execute(text("SET LOCAL statement_timeout = '30s'"))
+                raise HTTPException(400, "无法识别该 SMILES 结构")
+            canonical = bounded_substructure_smiles(canonical)
+            await db.execute(text("SET LOCAL statement_timeout = '8s'"))
             chemicals = await fetch_chemicals(db, f"""
                 SELECT {CHEMICAL_SELECT}
                 FROM chemistry.chemicals c
@@ -242,7 +266,7 @@ async def search(
         elif mode == "similarity":
             if not canonical:
                 raise HTTPException(400, "无法识别该 SMILES 结构")
-            await db.execute(text("SET LOCAL statement_timeout = '30s'"))
+            await db.execute(text("SET LOCAL statement_timeout = '8s'"))
             chemicals = await fetch_chemicals(db, f"""
                 SELECT {CHEMICAL_SELECT},
                        1 - (c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles)))
@@ -330,6 +354,7 @@ async def chemical_detail(
     request: Request,
     chemical_id: int,
     enrich: str = Query("core", pattern="^(core|full)$"),
+    actor: Actor | None = Depends(optional_actor),
     db=Depends(get_db),
 ):
     rows = await fetch_chemicals(db, f"""
@@ -354,9 +379,17 @@ async def chemical_detail(
     result["synonym_count"] = int(synonym_row[0]) if synonym_row else 0
     result["synonyms"] = list(synonym_row[1] or []) if synonym_row else []
     result["reaction_count"] = (await db.execute(text("""
-        SELECT count(DISTINCT reaction_id) FROM chemistry.reaction_chemicals
-        WHERE chemical_id=:id
+        SELECT count(DISTINCT rc.reaction_id) FROM chemistry.reaction_chemicals rc
+        JOIN chemistry.reactions rx ON rx.id=rc.reaction_id
+        WHERE rc.chemical_id=:id AND rx.visibility='public' AND rx.moderation_status='visible'
     """), {"id": chemical_id})).scalar() or 0
+    follow_row = (await db.execute(text("""
+        SELECT count(*),EXISTS(
+          SELECT 1 FROM community.chemical_follows WHERE chemical_id=:id AND user_id=:user_id
+        ) FROM community.chemical_follows WHERE chemical_id=:id
+    """), {"id": chemical_id, "user_id": actor.id if actor else 0})).fetchone()
+    result["follower_count"] = int(follow_row[0])
+    result["is_following"] = bool(follow_row[1])
     details, job_id, needs_refresh = await enqueue_chemical_if_needed(
         db,
         chemical_id,
@@ -429,14 +462,16 @@ async def chemical_reactions(
 
 @router.get("/chemicals/{chemical_id}/substructure")
 async def chemical_substructure(
-    chemical_id: int, limit: int = Query(20, ge=1, le=50), db=Depends(get_db)
+    request: Request, chemical_id: int, limit: int = Query(20, ge=1, le=50), db=Depends(get_db)
 ):
+    await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
     smiles = (await db.execute(text(
         "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
     ), {"id": chemical_id})).scalar()
     if not smiles:
         raise HTTPException(404, "化合物没有可检索结构")
-    await db.execute(text("SET LOCAL statement_timeout = '30s'"))
+    smiles = bounded_substructure_smiles(smiles)
+    await db.execute(text("SET LOCAL statement_timeout = '8s'"))
     items = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT}
         FROM chemistry.chemicals c
@@ -450,17 +485,19 @@ async def chemical_substructure(
 
 @router.get("/chemicals/{chemical_id}/similarity")
 async def chemical_similarity(
+    request: Request,
     chemical_id: int,
     threshold: float = Query(0.7, ge=0.4, le=1.0),
     limit: int = Query(20, ge=1, le=50),
     db=Depends(get_db),
 ):
+    await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
     smiles = (await db.execute(text(
         "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
     ), {"id": chemical_id})).scalar()
     if not smiles:
         raise HTTPException(404, "化合物没有可检索结构")
-    await db.execute(text("SET LOCAL statement_timeout = '30s'"))
+    await db.execute(text("SET LOCAL statement_timeout = '8s'"))
     items = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT},
                1 - (c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles)))
@@ -474,39 +511,49 @@ async def chemical_similarity(
 
 
 @router.get("/reactions/{reaction_id}")
-async def reaction_detail(reaction_id: int, db=Depends(get_db)):
+async def reaction_detail(
+    reaction_id: int,
+    actor: Actor | None = Depends(optional_actor),
+    db=Depends(get_db),
+):
+    viewer_id = actor.id if actor else 0
+    viewer_is_admin = bool(actor and actor.role == "admin")
     base = (await db.execute(text("""
-        SELECT rx.id, rx.reaction_smiles, o.id, o.reaction_id,
-               CASE WHEN o.id IS NULL AND cs.id IS NOT NULL THEN '社区审核' ELSE d.name END,
-               COALESCE(NULLIF(cs.doi,''),rp.doi),
-               COALESCE(NULLIF(cs.patent,''),rp.patent),
-               COALESCE(NULLIF(cs.source_url,''),rp.publication_url),
-               COALESCE(NULLIF(cs.procedure_details,''),rn.procedure_details),
-               COALESCE(NULLIF(cs.safety_notes,''),rn.safety_notes),
-               cond.reflux,COALESCE(cs.ph,cond.ph),
-               COALESCE(NULLIF(cs.conditions_detail,''),cond.details),
-               cs.temperature_value,cs.temperature_unit,
-               cs.duration_value,cs.duration_unit,cs.atmosphere,
-               cs.pressure_value,cs.pressure_unit,cs.id
+        SELECT rx.id,rx.reaction_smiles,rx.visibility,rx.moderation_status,
+               rx.created_by_user_id,rx.created_at,rx.updated_at,
+               COALESCE(NULLIF(rx.procedure_details,''),rn.procedure_details),
+               COALESCE(NULLIF(rx.safety_notes,''),rn.safety_notes),
+               COALESCE(rx.ph,cond.ph),COALESCE(NULLIF(rx.conditions_detail,''),cond.details),
+               rx.temperature_value,rx.temperature_unit,rx.duration_value,rx.duration_unit,
+               rx.atmosphere,rx.pressure_value,rx.pressure_unit,rx.workup_details,
+               rx.source_type,COALESCE(NULLIF(rx.doi,''),rp.doi),
+               COALESCE(NULLIF(rx.patent,''),rp.patent),
+               COALESCE(NULLIF(rx.source_url,''),rp.publication_url),
+               CASE WHEN rx.created_by_user_id IS NOT NULL
+                    THEN rx.source_citation ELSE d.name END,
+               rx.note,o.id,o.reaction_id,cond.reflux,
+               u.username,u.display_name,u.avatar_path,
+               (SELECT count(*) FROM community.reaction_follows WHERE reaction_id=rx.id),
+               EXISTS(SELECT 1 FROM community.reaction_follows
+                      WHERE reaction_id=rx.id AND user_id=:viewer_id)
         FROM chemistry.reactions rx
+        LEFT JOIN community.users u ON u.id=rx.created_by_user_id
         LEFT JOIN ord.reaction_map lm ON lm.reaction_id=rx.id
         LEFT JOIN ord.reaction o ON o.id=lm.ord_reaction_id
         LEFT JOIN ord.dataset d ON d.id=o.dataset_id
         LEFT JOIN LATERAL (SELECT * FROM ord.reaction_provenance p WHERE p.reaction_id=o.id ORDER BY p.id LIMIT 1) rp ON true
         LEFT JOIN LATERAL (SELECT * FROM ord.reaction_notes n WHERE n.reaction_id=o.id ORDER BY n.id LIMIT 1) rn ON true
         LEFT JOIN LATERAL (SELECT * FROM ord.reaction_conditions c WHERE c.reaction_id=o.id ORDER BY c.id LIMIT 1) cond ON true
-        LEFT JOIN LATERAL (
-          SELECT * FROM community.reaction_submissions s
-          WHERE s.reaction_id=rx.id AND s.status='accepted'
-          ORDER BY s.reviewed_at DESC NULLS LAST,s.id DESC LIMIT 1
-        ) cs ON true
         WHERE rx.id=:id
-    """), {"id": reaction_id})).fetchone()
+          AND (:is_admin OR rx.created_by_user_id=:viewer_id
+               OR (rx.visibility='public' AND rx.moderation_status='visible'))
+    """), {"id": reaction_id, "viewer_id": viewer_id, "is_admin": viewer_is_admin})).fetchone()
     if not base:
         raise HTTPException(404, "反应不存在")
 
     participants = (await db.execute(text(f"""
-        SELECT {CHEMICAL_SELECT}, rc.role, rc.occurrence_count
+        SELECT {CHEMICAL_SELECT}, rc.role,rc.occurrence_count,rc.amount_value,rc.amount_unit,
+               rc.equivalents,rc.concentration_value,rc.concentration_unit,rc.yield_percent
         FROM chemistry.reaction_chemicals rc
         JOIN chemistry.chemicals c ON c.id=rc.chemical_id
         WHERE rc.reaction_id=:id
@@ -517,7 +564,11 @@ async def reaction_detail(reaction_id: int, db=Depends(get_db)):
     compounds = []
     for row in participants:
         item = chemical_dict(row)
-        item.update(role=row[17], occurrence_count=row[18])
+        item.update(
+            role=row[17],occurrence_count=row[18],amount_value=row[19],amount_unit=row[20],
+            equivalents=row[21],concentration_value=row[22],concentration_unit=row[23],
+            yield_percent=float(row[24]) if row[24] is not None else None,
+        )
         compounds.append(item)
 
     temperature = (await db.execute(text("""
@@ -545,42 +596,34 @@ async def reaction_detail(reaction_id: int, db=Depends(get_db)):
         GROUP BY pc.chemical_id
     """), {"id": reaction_id})).fetchall()
     yield_map = {row[0]: round(float(row[1]), 3) for row in yields}
-    community_yields = (await db.execute(text("""
-        WITH latest AS (
-          SELECT id FROM community.reaction_submissions
-          WHERE reaction_id=:id AND status='accepted'
-          ORDER BY reviewed_at DESC NULLS LAST,id DESC LIMIT 1
-        )
-        SELECT p.chemical_id,max(p.yield_percent)
-        FROM latest
-        JOIN community.reaction_submission_participants p ON p.submission_id=latest.id
-        WHERE p.role='PRODUCT' AND p.chemical_id IS NOT NULL
-          AND p.yield_percent IS NOT NULL
-        GROUP BY p.chemical_id
-    """), {"id": reaction_id})).fetchall()
-    yield_map.update({row[0]: round(float(row[1]), 3) for row in community_yields})
     for item in compounds:
-        if item["role"] == "PRODUCT":
+        if item["role"] == "PRODUCT" and item["yield_percent"] is None:
             item["yield_percent"] = yield_map.get(item["id"])
 
-    conditions_detail = base[12]
+    conditions_detail = base[10]
     if conditions_detail and conditions_detail.strip().lower().startswith("see reaction.notes"):
         conditions_detail = None
 
     return {
-        "id": base[0], "reaction_smiles": base[1], "ord_record_id": base[2],
-        "ord_id": base[3], "dataset_name": base[4], "doi": base[5],
-        "patent": base[6], "publication_url": base[7],
-        "procedure_details": base[8], "safety_notes": base[9],
-        "reflux": base[10], "ph": base[11], "conditions_detail": conditions_detail,
+        "id": base[0], "reaction_smiles": base[1], "visibility": base[2],
+        "moderation_status": base[3], "created_at": base[5], "updated_at": base[6],
+        "ord_record_id": base[25], "ord_id": base[26], "dataset_name": base[23],
+        "source_type": base[19], "doi": base[20], "patent": base[21],
+        "publication_url": base[22], "source_citation": base[23],
+        "procedure_details": base[7], "safety_notes": base[8],
+        "reflux": base[27], "ph": base[9], "conditions_detail": conditions_detail,
         "temperature": (
-            {"value": base[13], "unit": base[14]} if base[13] is not None
+            {"value": base[11], "unit": base[12]} if base[11] is not None
             else ({"value": temperature[0], "unit": temperature[1]} if temperature else None)
         ),
-        "duration": ({"value": base[15], "unit": base[16]} if base[15] is not None else None),
-        "atmosphere": base[17],
-        "pressure": ({"value": base[18], "unit": base[19]} if base[18] is not None else None),
-        "community_submission_id": base[20],
+        "duration": ({"value": base[13], "unit": base[14]} if base[13] is not None else None),
+        "atmosphere": base[15],
+        "pressure": ({"value": base[16], "unit": base[17]} if base[16] is not None else None),
+        "workup_details": base[18], "note": base[24],
+        "creator": ({"username": base[28], "display_name": base[29], "avatar_url": base[30]}
+                    if base[28] else None),
+        "is_owner": base[4] == viewer_id and base[4] is not None,
+        "follower_count": int(base[31]), "is_following": bool(base[32]),
         "participants": compounds,
         "workup": [
             {"type": row[0], "details": row[1], "keep_phase": row[2], "target_ph": row[3]}

@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChemicalHelp } from "@/components/ChemicalHelp";
+import { cookies } from "next/headers";
 import { ChemicalKnowledge } from "@/components/ChemicalKnowledge";
 import { EntityId } from "@/components/EntityId";
+import { FollowButton } from "@/components/FollowButton";
 import { Molecule } from "@/components/Molecule";
 import { ReactionResult } from "@/components/ReactionResult";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
 import { apiGet, type Chemical, type ChemicalDetails, type EnrichmentState, type ReactionSummary } from "@/lib/api";
 
-type HelpPost = { id: number; title: string; body: string; username: string; created_at: string };
 type DetailResponse = { details: ChemicalDetails | null; enrichment: EnrichmentState };
 type SearchParams = { reaction_page?: string; role?: string };
 
@@ -36,13 +36,12 @@ export default async function ChemicalPage({ params, searchParams }: {
   const page = /^\d+$/.test(query.reaction_page || "") ? Math.max(1, Number(query.reaction_page)) : 1;
   const role = roles.includes(query.role as typeof roles[number]) ? query.role! : "any";
   let chemical: Chemical;
-  try { chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=full`); } catch { notFound(); }
+  const cookie = (await cookies()).toString();
+  try { chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=full`, 0, cookie ? { Cookie: cookie } : undefined); } catch { notFound(); }
 
   let details: DetailResponse = { details: chemical.details || null, enrichment: chemical.enrichment || { status: "current" } };
   let reactions: { total: number; page: number; page_size: number; reactions: ReactionSummary[] } = { total: 0, page, page_size: 8, reactions: [] };
-  let help: HelpPost[] = [];
   try { reactions = await apiGet(`/chemicals/${id}/reactions?page=${page}&page_size=8&role=${role}`); } catch {}
-  try { help = await apiGet(`/community/chemicals/${id}/help`); } catch {}
 
   const title = chemical.preferred_name || chemical.iupac_name || details.details?.record_title || "未命名化合物";
   const pageCount = Math.min(500, Math.max(1, Math.ceil(reactions.total / reactions.page_size)));
@@ -63,6 +62,7 @@ export default async function ChemicalPage({ params, searchParams }: {
             {chemical.cas_numbers[0] && <span>CAS {chemical.cas_numbers[0]}</span>}
           </div>
           <div className="context-actions">
+            <FollowButton endpoint={`/api/chemicals/${chemical.id}/follow`} initial={Boolean(chemical.is_following)} count={chemical.follower_count || 0} />
             <Link className="button primary" href="#reactions">查看参与反应</Link>
             <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>子结构检索</Link>
             <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>查找相似结构</Link>
@@ -104,7 +104,6 @@ export default async function ChemicalPage({ params, searchParams }: {
             </nav>}
           </section>
 
-          <ChemicalHelp chemicalId={chemical.id} initialPosts={help} />
         </main>
 
         <aside className="chemical-aside">
@@ -113,11 +112,9 @@ export default async function ChemicalPage({ params, searchParams }: {
             <dl>{identifiers.map(([label, values]) => <div key={label}><dt>{label}</dt><dd>{values.join("、")}</dd></div>)}</dl>
           </section>
           <section className="contribute-panel">
-            <h2>维护这条数据</h2>
-            <p>核心结构和身份的变更需要结构校验与人工审核。</p>
-            <Link href={`/submit?type=chemical&chemical=${chemical.id}`}>补充或纠正化合物</Link>
-            <Link href={`/submit?type=reaction&chemical=${chemical.id}`}>提交相关反应</Link>
-            <Link href="#reaction-help">发布反应求助</Link>
+            <h2>发布相关反应</h2>
+            <p>该结构将作为反应物预填，并在发布时建立 HCID 关联。</p>
+            <Link href={`/submit?chemical=${chemical.id}`}>以此化合物创建反应</Link>
           </section>
         </aside>
       </div>

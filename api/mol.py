@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import text
 from .cache import cache_get, cache_set
 from .database import get_db
+from .security import Actor, optional_actor
 
 router = APIRouter(tags=["molecule"])
 
@@ -81,16 +82,22 @@ async def render_reaction(
     reaction_id: int,
     w: int = 1200,
     h: int = 300,
+    actor: Actor | None = Depends(optional_actor),
     db=Depends(get_db),
 ):
     """Render the stored reaction expression by stable reaction ID."""
     w = min(max(w, 600), 1800)
     h = min(max(h, 180), 600)
     row = (await db.execute(text("""
-        SELECT reaction_smiles, updated_at
+        SELECT reaction_smiles,updated_at,visibility
         FROM chemistry.reactions
         WHERE id=:id AND reaction_smiles IS NOT NULL
-    """), {"id": reaction_id})).fetchone()
+          AND (:is_admin OR created_by_user_id=:viewer_id
+               OR (visibility='public' AND moderation_status='visible'))
+    """), {
+        "id": reaction_id, "viewer_id": actor.id if actor else 0,
+        "is_admin": bool(actor and actor.role == "admin"),
+    })).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="反应没有可渲染的结构表达")
 
@@ -101,7 +108,7 @@ async def render_reaction(
         return Response(
             content=cached,
             media_type="image/svg+xml",
-            headers={"Cache-Control": "public, max-age=86400"},
+            headers={"Cache-Control": "public, max-age=86400" if row[2] == "public" else "private, no-store"},
         )
 
     svg = await asyncio.to_thread(reaction_to_svg, row[0], w, h)
@@ -111,5 +118,5 @@ async def render_reaction(
     return Response(
         content=svg,
         media_type="image/svg+xml",
-        headers={"Cache-Control": "public, max-age=86400"},
+        headers={"Cache-Control": "public, max-age=86400" if row[2] == "public" else "private, no-store"},
     )

@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { EntityId } from "@/components/EntityId";
+import { FollowButton } from "@/components/FollowButton";
 import { Molecule } from "@/components/Molecule";
+import { ReactionOwnerActions } from "@/components/ReactionOwnerActions";
 import { apiGet, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
 
 const roleNames: Record<string, string> = {
@@ -18,7 +21,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function ReactionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let reaction: ReactionDetail;
-  try { reaction = await apiGet<ReactionDetail>(`/reactions/${id}`); } catch { notFound(); }
+  const cookie = (await cookies()).toString();
+  try { reaction = await apiGet<ReactionDetail>(`/reactions/${id}`, 0, cookie ? { Cookie: cookie } : undefined); } catch { notFound(); }
 
   const reactants = reaction.participants.filter((item) => item.role === "REACTANT");
   const products = reaction.participants.filter((item) => item.role === "PRODUCT");
@@ -40,7 +44,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
           <EntityId kind="reaction" id={reaction.id} />
           <h1>反应详情</h1>
         </div>
-        <Link className="button secondary" href={`/submit?type=reaction&reaction=${reaction.id}`}>补充或修订</Link>
+        {reaction.is_owner ? <ReactionOwnerActions reactionId={reaction.id} /> : <FollowButton endpoint={`/api/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} />}
       </header>
 
       <section className="reaction-equation" aria-labelledby="equation-title">
@@ -72,12 +76,13 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
               <p className="document-text">{reaction.procedure_details}</p>
             </section>
           )}
-          {reaction.workup.length > 0 && (
+          {(reaction.workup.length > 0 || reaction.workup_details) && (
             <section className="reaction-section">
               <div className="section-heading compact-heading"><div><p>WORKUP</p><h2>后处理</h2></div></div>
-              <ol className="workup-list">{reaction.workup.map((step, index) => (
+              {reaction.workup_details && <p className="document-text">{reaction.workup_details}</p>}
+              {reaction.workup.length > 0 && <ol className="workup-list">{reaction.workup.map((step, index) => (
                 <li key={index}><strong>{step.type ? unitName(step.type) : `步骤 ${index + 1}`}</strong><span>{[step.details, step.keep_phase ? `保留 ${step.keep_phase}` : null, step.target_ph != null ? `目标 pH ${step.target_ph}` : null].filter(Boolean).join(" · ") || "未记录说明"}</span></li>
-              ))}</ol>
+              ))}</ol>}
             </section>
           )}
           {reaction.safety_notes && (
@@ -89,10 +94,11 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
         </main>
 
         <aside className="reaction-aside">
+          {reaction.creator && <section className="creator-card"><h2>创建者</h2><Link href={`/user/${reaction.creator.username}`}><span className="creator-avatar">{reaction.creator.avatar_url ? <img src={reaction.creator.avatar_url.replace(".webp", "-128.webp")} alt="" /> : reaction.creator.display_name.slice(0, 1)}</span><span><strong>{reaction.creator.display_name}</strong><small>@{reaction.creator.username}</small></span></Link><p>{reaction.visibility === "public" ? "公开反应" : "私有反应"} · 更新于 {new Date(reaction.updated_at).toLocaleDateString("zh-CN")}</p></section>}
           <section>
             <h2>来源与证据</h2>
             <dl>
-              <Source label="来源类型" value={reaction.ord_id ? "Open Reaction Database" : reaction.community_submission_id ? "化工社社区审核" : "化工社"} />
+              <Source label="来源类型" value={reaction.ord_id ? "Open Reaction Database" : sourceTypeName(reaction.source_type)} />
               <Source label="ORD 记录" value={reaction.ord_id} />
               <Source label="来源数据集" value={reaction.dataset_name} />
               <Source label="DOI" value={reaction.doi} href={reaction.doi ? `https://doi.org/${reaction.doi}` : undefined} />
@@ -104,11 +110,6 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
             <summary>反应 SMILES</summary>
             <p className="mono">{reaction.reaction_smiles}</p>
           </details>}
-          <section className="contribute-panel">
-            <h2>发现缺失或错误？</h2>
-            <p>修订会保留提交者、审核状态与依据，不在页面上直接改写。</p>
-            <Link href={`/submit?type=reaction&reaction=${reaction.id}`}>提交补充或修订</Link>
-          </section>
         </aside>
       </div>
     </div>
@@ -129,6 +130,11 @@ function ParticipantGroup({ title, eyebrow, items, showRole = false }: {
             <EntityId kind="chemical" id={chemical.id} compact />
             <h3>{chemical.preferred_name || chemical.iupac_name || "未命名化合物"}</h3>
             {chemical.molecular_formula && <p>{chemical.molecular_formula}</p>}
+            {(chemical.amount_value != null || chemical.equivalents != null || chemical.concentration_value != null) && <p className="participant-measure-summary">{[
+              chemical.amount_value != null ? `${chemical.amount_value} ${chemical.amount_unit || ""}` : null,
+              chemical.equivalents != null ? `${chemical.equivalents} eq` : null,
+              chemical.concentration_value != null ? `${chemical.concentration_value} ${chemical.concentration_unit || ""}` : null,
+            ].filter(Boolean).join(" · ")}</p>}
             {chemical.yield_percent != null && <strong className="yield-value">收率 {formatYield(chemical.yield_percent)}%</strong>}
           </div>
         </Link>
@@ -149,4 +155,9 @@ function formatYield(value: number) {
 function unitName(value: string) {
   const labels: Record<string, string> = { CELSIUS: "°C", KELVIN: "K", MINUTE: "分钟", HOUR: "小时", DAY: "天" };
   return labels[value] || value.replaceAll("_", " ").toLowerCase();
+}
+
+function sourceTypeName(value: string | null) {
+  const labels: Record<string, string> = { self: "本人实验", doi: "文献", patent: "专利", database: "数据库", url: "网页", other: "其他" };
+  return value ? labels[value] || value : "未注明";
 }

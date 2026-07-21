@@ -1,81 +1,88 @@
 # 化工社
 
-化工社是开放、非商业化的化学数据项目，以化合物和反应为两个核心对象。线上站点为 `https://huagongshe.com`。
+化工社是开放、非商业化的化学数据与反应发布平台，线上域名为 `https://huagongshe.com`。
 
-## 数据边界
+## 产品主线
 
-- `chemistry.chemicals`：化合物身份、标准结构、基础属性与外部标识。
-- `chemistry.reactions`：反应身份与可检索的反应表达。
-- `chemistry.reaction_chemicals`：反应与化合物的角色关系。
-- `community.*`：用户、会话、数据提交和反应求助。
-- `ord.*`：ORD 原始反应事实与来源上下文，不承担化工社自主身份。
-- `ingest.*`：PubChem、DSSTox、RDKit/ORD 迁移审计和一次性导入数据，不进入线上查询路径。
-- `maintenance.*`：持久任务、worker 身份和维护审计，不进入公共查询模型。
+- `chemistry.chemicals` 是全局化合物身份底座。PubChem、DSSTox 和 RDKit/ORD 只作为来源和补全能力，不形成并行产品库。
+- `chemistry.reactions` 是唯一反应内容实体。系统导入反应和用户发布反应共享 HRID、RDKit 表达与查询链路。
+- `chemistry.reaction_chemicals` 是 HRID 与 HCID 的唯一参与关系。
+- 用户发布反应时直接写入上述实体，不经过人工科学审核，不存在待审核缓存层。
+- 用户拥有自己发布的反应，可以编辑、设为公开或私有，也可以直接删除；关联 chemicals 不随反应删除。
 
-PubChem、DSSTox 和 ORD 是数据来源；RDKit 是解析、标准化和检索能力。它们都不形成与 `chemistry` 并列的产品数据主线。
+## 用户能力
 
-## 化合物事实规则
+- 注册、登录、公开资料与压缩头像；
+- 公开和私有反应仓库；
+- 发布、维护和删除自己的反应；
+- 关注用户、化合物和公开反应；
+- 关注用户发布新反应、关注化合物出现新反应、关注反应被更新时接收站内通知；
+- 创建与账号绑定的 AI Agent Token。
 
-- `chemistry.chemicals.id` 是项目稳定的 `chemical_id`；PubChem CID 只标识 PubChem 来源子集。
-- `smiles` 是 RDKit 标准化后的结构表达，也是 chemicals 与 ORD 共存、跨来源对齐的基础。
-- DSSTox 数据只能在标准化 SMILES 或完整 InChIKey 验证后挂载，CAS 不能单独确认结构。
-- PubChem `CID-Identifiers` 是缺少逐值来源上下文的第三方关联集合，不得直接作为已核实外部标识写入。
-- CAS、EC、UNII、ChEMBL、ChEBI、Nikkaji 等允许真实多值；每个值必须保留来源证据并通过实体或结构粒度核验。
-- PubChem PUG REST 用于 CID、结构和计算属性；PUG View 用于带来源的物性、安全、毒性和外部标识注释。
-- 扩展信息按需写入 `chemistry.chemical_details`，禁止为 1.24 亿条 chemicals 预建空行或保存完整 PUG View 原文。
+平台管理只处理账号状态和用户反应可见度，不判断反应是否科学正确。项目不提供开放评论、求助、私信或审核队列。
+
+## 反应发布事务
+
+网页和 AI Agent 共用同一个反应字段模型和反应写入逻辑：
+
+1. 校验参与物、条件、来源和可见性；
+2. 使用 RDKit 标准化每个 SMILES 并验证 reaction SMILES；
+3. 匹配现有 HCID，缺失时创建 chemical 及 mol、指纹、InChIKey、分子式和质量；
+4. 创建 HRID；
+5. 写入 `reaction_chemicals`；
+6. 在同一数据库事务中提交，任一步失败全部回滚。
+
+用户反应至少包含反应物、产物和来源类型。未知过程、条件或收率可以留空，禁止为了字段完整而猜测。
 
 ## API 边界
 
-- `/api/*`：面向用户和前端的查询、社区提交及查询触发的按需补全状态。
-- `/workapi/*`：只接受受信任 worker 的签名 POST；不提供公共数据查询。
-- worker 不持有数据库凭据。它通过 `/workapi` 领取租约、报告状态并提交 PubChem 结果；最终标准化、校验和事务写入由 API 完成。
-- PubChem 访问节流属于 worker 自身能力，不由 `/workapi` 提供限速或流量协调服务。
+- `/api/*`：网站与用户 AI Agent 共用的查询和用户能力。
+- `/api/agent-guide`：面向 AI Agent 的字段语义、行为规则和调用顺序。
+- `/api/openapi.json`：稳定的结构化契约。
+- `/workapi/*`：只服务受信任 PubChem worker，与用户 Agent 完全无关。
 
-## 社区数据闭环
+网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 Bearer Token；数据库只保存 Token 摘要。Agent 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
 
-1. 用户注册并登录；密码在服务端进行强度和二次输入一致性校验，会话使用安全的 HttpOnly Cookie。
-2. 化合物提交先经 RDKit/CAS 格式校验和现有数据匹配；反应提交按参与物角色、过程、条件、收率和来源结构化保存。
-3. `editor` 或 `admin` 在 `/admin` 审核。拒绝必须说明原因；接受会在一个数据库事务内写入或更新 `chemistry.chemicals`、`chemistry.reactions` 和 `chemistry.reaction_chemicals`。
-4. 用户在 `/submit` 查看审核状态；接受后的对象可直接进入化合物或反应详情页。
+## 化合物事实规则
 
-## 检索与反应表达
+- `chemistry.chemicals.id` 是稳定 HCID；PubChem CID 只标识 PubChem 来源子集。
+- `smiles` 是 RDKit 标准表达，也是跨来源结构对齐基础。
+- DSSTox 数据只能在标准结构或完整 InChIKey 验证后挂载，CAS 不能单独确认结构。
+- PubChem PUG REST 用于 CID、结构和计算属性；PUG View 用于带来源的扩展信息。
+- PubChem worker 可以补全名称、分子式、质量、InChIKey 和同义词，但不能修改 HCID、CID 或标准 SMILES。
 
-- 精确 SMILES 使用部分 B-tree；子结构使用 `chemicals_mol_gist_idx`；相似结构使用 Morgan bit-vector GiST KNN。
-- 子结构 SQL 不得按 `chemical_id` 预排序。该排序会让 PostgreSQL 放弃 RDKit GiST，改为扫描主键后逐行判断；API 只对有限结果做内存排序。
-- CAS 等数组标识使用 GIN，名称使用独立 trigram GIN，反应与化合物关系使用 `(chemical_id,reaction_id)` 覆盖索引。
-- 当前 2,428,291 条反应中，2,428,170 条已有反应 SMILES 和 RDKit reaction。剩余 121 条缺少反应物或生成物，按原因记录在 `ingest.reaction_rdkit_failures`，页面不得尝试渲染不存在的方程式。
+## 检索
 
-审核权限不随注册自动授予。服务器管理员核实账号后执行：
+- 精确 SMILES 使用部分 B-tree；
+- 子结构使用 RDKit mol GiST；
+- 相似结构使用 Morgan bit-vector GiST KNN；
+- 外部数组标识使用 GIN，名称使用独立 trigram GIN；
+- 反应检索使用 RDKit reaction GiST 和 `(chemical_id,reaction_id)` 关系索引。
 
-```sql
-UPDATE community.users SET role='editor' WHERE lower(email)=lower('reviewer@example.com');
-```
+子结构查询不得按 HCID 在数据库中预排序，否则 PostgreSQL 会放弃 RDKit GiST。API 只对有限结果在内存中排序。
 
 ## 代码边界
 
-- `api/`：FastAPI 公共 `/api` 与维护 `/workapi`，两个路由域严格分离。
-- `worker/`：无数据库权限、通过维护 API 闭环运行的 PubChem worker。
-- `web/`：Next.js 简洁查询与社区入口。
-- `migrations/`：可审计的数据库结构迁移。
+- `api/routes.py`：公开化学查询；
+- `api/reactions.py`：网页与 Agent 共用的唯一反应写入能力；
+- `api/users.py`、`api/security.py`：用户、头像、会话和 Agent Token；
+- `api/social.py`：三类关注与通知；
+- `api/admin.py`：账号和可见度治理；
+- `api/workapi.py`：PubChem worker 维护接口；
+- `web/`：Next.js 用户界面；
+- `migrations/`：可审计数据库迁移；
+- `archive/`：已经结束的一次性数据迁移程序，不参与线上运行。
 
 ## 线上运行
 
 - `huagongshe-api.service`：`127.0.0.1:8000`
 - `huagongshe-web.service`：`127.0.0.1:3001`
-- Nginx：HTTPS、同域 `/api/*` 代理与 `www` 到主域跳转。
-- Nginx：`/workapi/*` 独立限流并代理到维护 API；所有请求仍强制 HTTPS。
+- `huagongshe-pubchem-worker.service`：本机 PubChem 补全 worker
+- Nginx：HTTPS、同域 `/api`、独立 `/workapi` 与版本化头像静态文件
 
 ```bash
-systemctl status huagongshe-api huagongshe-web nginx postgresql redis-server
+systemctl status huagongshe-api huagongshe-web huagongshe-pubchem-worker nginx postgresql redis-server
 curl -fsS https://huagongshe.com/api/health
 ```
 
-API 连接信息由服务器上的 `/etc/huagongshe/api.env` 提供，不写入 Git。
-
-## PubChem 按需补全
-
-PubChem 结果通过 CID 与标准结构双重校验后，同步维护 `chemistry.chemicals` 的名称、分子式、质量、InChIKey 和完整活动别名；CID 与 SMILES 不由 worker 改写。完整别名保存在主表中，公共详情只返回有限预览，分页接口按需读取全量，避免拖大搜索与列表响应。`chemistry.chemical_details` 是稀疏的一对一扩展表：只有实际被请求的 chemical 才产生行，且各信息分区分别记录抓取时间。`maintenance.pubchem_jobs` 是可恢复的租约队列；worker 崩溃或失联后任务会重试，超过次数进入 `dead`，不会无限循环。
-
-worker 通过 `python -m worker.issue_token WORKER_ID` 生成一次性凭据。数据库只保存令牌摘要；worker 环境只需要本机 `/workapi` 地址、worker ID 和令牌，不需要数据库连接。生产服务使用 `deploy/huagongshe-pubchem-worker.service`。
-
-PUG View 外部标识先写入 `identifier_evidence`，并保留 CAS、Related CAS、Deprecated CAS 等语义和逐值来源。它不会自动修改 `chemicals.cas_numbers` 等核心索引字段；核心字段的晋升必须经过来源与结构粒度规则。
+数据库凭据、用户 Token 和 worker Token 不写入 Git。

@@ -1,0 +1,129 @@
+"""Three explicit follow relationships and their data-driven notifications."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import text
+
+from .database import get_db
+from .security import Actor, current_actor
+
+router = APIRouter(tags=["follows"])
+
+
+@router.post("/users/{username}/follow", status_code=204)
+async def follow_user(username: str, actor: Actor = Depends(current_actor), db=Depends(get_db)):
+    target = (await db.execute(text("""
+        SELECT id FROM community.users WHERE lower(username)=lower(:username) AND status='active'
+    """), {"username": username})).scalar()
+    if target is None:
+        raise HTTPException(404, "用户不存在")
+    if int(target) == actor.id:
+        raise HTTPException(409, "不能关注自己")
+    await db.execute(text("""
+        INSERT INTO community.user_follows(follower_user_id,followed_user_id)
+        VALUES (:actor,:target) ON CONFLICT DO NOTHING
+    """), {"actor": actor.id, "target": target})
+    await db.commit()
+
+
+@router.delete("/users/{username}/follow", status_code=204)
+async def unfollow_user(username: str, actor: Actor = Depends(current_actor), db=Depends(get_db)):
+    await db.execute(text("""
+        DELETE FROM community.user_follows f USING community.users u
+        WHERE f.follower_user_id=:actor AND f.followed_user_id=u.id
+          AND lower(u.username)=lower(:username)
+    """), {"actor": actor.id, "username": username})
+    await db.commit()
+
+
+@router.post("/chemicals/{chemical_id}/follow", status_code=204)
+async def follow_chemical(chemical_id: int, actor: Actor = Depends(current_actor), db=Depends(get_db)):
+    exists = (await db.execute(text("SELECT 1 FROM chemistry.chemicals WHERE id=:id"), {"id": chemical_id})).scalar()
+    if not exists:
+        raise HTTPException(404, "化合物不存在")
+    await db.execute(text("""
+        INSERT INTO community.chemical_follows(user_id,chemical_id)
+        VALUES (:user_id,:chemical_id) ON CONFLICT DO NOTHING
+    """), {"user_id": actor.id, "chemical_id": chemical_id})
+    await db.commit()
+
+
+@router.delete("/chemicals/{chemical_id}/follow", status_code=204)
+async def unfollow_chemical(chemical_id: int, actor: Actor = Depends(current_actor), db=Depends(get_db)):
+    await db.execute(text("""
+        DELETE FROM community.chemical_follows WHERE user_id=:user_id AND chemical_id=:chemical_id
+    """), {"user_id": actor.id, "chemical_id": chemical_id})
+    await db.commit()
+
+
+@router.post("/reactions/{reaction_id}/follow", status_code=204)
+async def follow_reaction(reaction_id: int, actor: Actor = Depends(current_actor), db=Depends(get_db)):
+    row = (await db.execute(text("""
+        SELECT created_by_user_id,visibility,moderation_status
+        FROM chemistry.reactions WHERE id=:id
+    """), {"id": reaction_id})).fetchone()
+    if not row or row[1] != "public" or row[2] != "visible":
+        raise HTTPException(404, "公开反应不存在")
+    if row[0] == actor.id:
+        raise HTTPException(409, "无需关注自己创建的反应")
+    await db.execute(text("""
+        INSERT INTO community.reaction_follows(user_id,reaction_id)
+        VALUES (:user_id,:reaction_id) ON CONFLICT DO NOTHING
+    """), {"user_id": actor.id, "reaction_id": reaction_id})
+    await db.commit()
+
+
+@router.delete("/reactions/{reaction_id}/follow", status_code=204)
+async def unfollow_reaction(reaction_id: int, actor: Actor = Depends(current_actor), db=Depends(get_db)):
+    await db.execute(text("""
+        DELETE FROM community.reaction_follows WHERE user_id=:user_id AND reaction_id=:reaction_id
+    """), {"user_id": actor.id, "reaction_id": reaction_id})
+    await db.commit()
+
+
+@router.get("/users/me/follows")
+async def my_follows(actor: Actor = Depends(current_actor), db=Depends(get_db)):
+    users = (await db.execute(text("""
+        SELECT u.username,u.display_name,u.avatar_path,f.created_at
+        FROM community.user_follows f JOIN community.users u ON u.id=f.followed_user_id
+        WHERE f.follower_user_id=:id AND u.status='active' ORDER BY f.created_at DESC
+    """), {"id": actor.id})).mappings().all()
+    chemicals = (await db.execute(text("""
+        SELECT c.id,c.preferred_name,c.iupac_name,c.smiles,f.created_at
+        FROM community.chemical_follows f JOIN chemistry.chemicals c ON c.id=f.chemical_id
+        WHERE f.user_id=:id ORDER BY f.created_at DESC LIMIT 200
+    """), {"id": actor.id})).mappings().all()
+    reactions = (await db.execute(text("""
+        SELECT r.id,r.reaction_smiles,r.updated_at,f.created_at
+        FROM community.reaction_follows f JOIN chemistry.reactions r ON r.id=f.reaction_id
+        WHERE f.user_id=:id AND r.visibility='public' AND r.moderation_status='visible'
+        ORDER BY f.created_at DESC LIMIT 200
+    """), {"id": actor.id})).mappings().all()
+    return {
+        "users": [dict(row) for row in users],
+        "chemicals": [dict(row) for row in chemicals],
+        "reactions": [dict(row) for row in reactions],
+    }
+
+
+@router.get("/users/me/notifications")
+async def notifications(
+    limit: int = Query(50, ge=1, le=100), actor: Actor = Depends(current_actor), db=Depends(get_db)
+):
+    rows = (await db.execute(text("""
+        SELECT n.id,n.event_type,n.reaction_id,n.chemical_id,n.created_at,n.read_at,
+               u.username AS actor_username,u.display_name AS actor_display_name
+        FROM community.notifications n
+        LEFT JOIN community.users u ON u.id=n.actor_user_id
+        WHERE n.user_id=:id ORDER BY n.id DESC LIMIT :limit
+    """), {"id": actor.id, "limit": limit})).mappings().all()
+    return [dict(row) for row in rows]
+
+
+@router.post("/users/me/notifications/read", status_code=204)
+async def read_notifications(actor: Actor = Depends(current_actor), db=Depends(get_db)):
+    await db.execute(text("""
+        UPDATE community.notifications SET read_at=now() WHERE user_id=:id AND read_at IS NULL
+    """), {"id": actor.id})
+    await db.commit()

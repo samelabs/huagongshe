@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { AdminReview } from "@/components/AdminReview";
+import { AdminConsole } from "@/components/AdminConsole";
 
-export const metadata: Metadata = { title: "数据审核", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "平台管理", robots: { index: false, follow: false } };
 
 export default function AdminPage() {
-  return <div className="content-page admin-page"><header className="page-title"><p className="page-kicker">REVIEW</p><h1>数据审核</h1><p>先核对结构与身份，再核对角色、条件和来源。审核结论决定是否写入核心数据。</p></header><AdminReview /></div>;
+  return <div className="content-page admin-page"><header className="page-title"><p className="page-kicker">ADMIN</p><h1>平台管理</h1><p>管理用户账号和用户内容可见度，不审核化学结论。</p></header><AdminConsole /></div>;
 }

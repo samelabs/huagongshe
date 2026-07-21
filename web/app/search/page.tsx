@@ -58,7 +58,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         </section>
       )}
       {!error && (q || chemicalId) && chemicals.length === 0 && reactions.length === 0 && (
-        <div className="empty-state"><strong>没有找到可确认的记录</strong><p>请检查标识符；若这是尚未收录的数据，可以登录后提交。</p><Link className="button secondary" href="/submit">贡献数据</Link></div>
+        <div className="empty-state"><strong>没有找到可确认的记录</strong><p>请检查标识符；你也可以发布包含相关结构的反应。</p><Link className="button secondary" href="/submit">发布反应</Link></div>
       )}
     </div>
   );

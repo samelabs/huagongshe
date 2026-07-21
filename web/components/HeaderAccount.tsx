@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type User = { id: number; username: string; email: string; role: "member" | "editor" | "admin" };
+type User = { id: number; username: string; display_name: string; email: string; avatar_url: string | null; role: "member" | "admin" };
 
 export function HeaderAccount() {
   const router = useRouter();
@@ -13,7 +13,7 @@ export function HeaderAccount() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/community/me", { cache: "no-store" })
+    fetch("/api/users/me", { cache: "no-store" })
       .then(async (response) => response.ok ? response.json() as Promise<User> : null)
       .then((value) => { if (active) { setUser(value); setReady(true); } })
       .catch(() => { if (active) setReady(true); });
@@ -21,7 +21,7 @@ export function HeaderAccount() {
   }, []);
 
   async function logout() {
-    await fetch("/api/community/logout", { method: "POST" });
+    await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
     router.push("/");
     router.refresh();
@@ -29,11 +29,14 @@ export function HeaderAccount() {
 
   return (
     <nav aria-label="主导航">
-      <Link href="/submit" className="nav-contribute">贡献数据</Link>
-      {user && (user.role === "admin" || user.role === "editor") && <Link href="/admin" className="nav-review">数据审核</Link>}
+      <Link href="/submit" className="nav-contribute">发布反应</Link>
+      {user?.role === "admin" && <Link href="/admin" className="nav-review">平台管理</Link>}
       {user ? (
         <div className="account-nav">
-          <span title={user.email}>{user.username}</span>
+          <Link href="/me" className="account-identity" title={user.email}>
+            {user.avatar_url ? <img src={user.avatar_url.replace(".webp", "-128.webp")} alt="" /> : <span className="avatar-fallback">{user.display_name.slice(0, 1)}</span>}
+            <span>{user.display_name}</span>
+          </Link>
           <button type="button" onClick={logout}>退出</button>
         </div>
       ) : ready ? (

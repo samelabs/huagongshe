@@ -27,10 +27,10 @@ export function AccountForm() {
               username: values.get("username"), email: values.get("email"),
               password: values.get("password"), confirm_password: values.get("confirm_password"),
             };
-        const response = await fetch(`/api/community/${kind}`, {
+        const response = await fetch(`/api/auth/${kind}`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
         });
-        if (response.ok) { router.push("/submit"); router.refresh(); return; }
+        if (response.ok) { router.push("/me"); router.refresh(); return; }
         const error = await response.json().catch(() => null);
         setMessage(apiError(error?.detail)); setBusy(false);
       }}>

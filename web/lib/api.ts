@@ -1,7 +1,8 @@
 const SERVER_API = process.env.API_BASE || process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000/api";
 
-export async function apiGet<T>(path: string, revalidate = 0): Promise<T> {
+export async function apiGet<T>(path: string, revalidate = 0, headers?: HeadersInit): Promise<T> {
   const response = await fetch(`${SERVER_API}${path}`, {
+    headers,
     next: revalidate > 0 ? { revalidate } : undefined,
     cache: revalidate > 0 ? "force-cache" : "no-store",
   });
@@ -39,10 +40,17 @@ export type Chemical = {
   synonym_count?: number;
   similarity: number | null;
   reaction_count?: number;
+  follower_count?: number;
+  is_following?: boolean;
   details?: ChemicalDetails | null;
   enrichment?: EnrichmentState;
   role?: string;
   occurrence_count?: number;
+  amount_value?: number | null;
+  amount_unit?: string | null;
+  equivalents?: number | null;
+  concentration_value?: number | null;
+  concentration_unit?: string | null;
   yield_percent?: number | null;
 };
 
@@ -126,7 +134,27 @@ export type ReactionDetail = {
   duration: { value: number; unit: string } | null;
   atmosphere: string | null;
   pressure: { value: number; unit: string } | null;
-  community_submission_id: number | null;
+  visibility: "public" | "private";
+  moderation_status: "visible" | "hidden";
+  created_at: string;
+  updated_at: string;
+  source_type: string | null;
+  source_citation: string | null;
+  workup_details: string | null;
+  note: string | null;
+  creator: { username: string; display_name: string; avatar_url: string | null } | null;
+  is_owner: boolean;
+  follower_count: number;
+  is_following: boolean;
   participants: Chemical[];
   workup: { type: string | null; details: string | null; keep_phase: string | null; target_ph: number | null }[];
+};
+
+export type User = {
+  id: number;
+  username: string;
+  display_name: string;
+  email?: string;
+  role?: "member" | "admin";
+  avatar_url: string | null;
 };
