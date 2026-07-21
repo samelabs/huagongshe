@@ -428,6 +428,13 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .guide-lead { max-width: 760px; margin: -4px 0 18px; }
 .prompt-box { border: 1px solid var(--line-strong); border-radius: 8px; padding: 18px; background: var(--wash); }
 .prompt-box pre { max-height: 420px; margin: 0 0 16px; overflow: auto; color: #344056; font-family: inherit; font-size: 12px; line-height: 1.75; white-space: pre-wrap; }
+.technical-guide { color: var(--muted); }
+.technical-guide summary { width: fit-content; color: var(--muted); cursor: pointer; font-size: 12px; }
+.technical-guide summary:hover { color: var(--blue); }
+.technical-guide-content { margin-top: 20px; border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; align-items: center; justify-content: space-between; gap: 28px; background: var(--wash); }
+.technical-guide-content h2 { margin: 0; color: #385879; font-size: 19px; font-weight: 600; }
+.technical-guide-content p { max-width: 620px; margin: 8px 0 0; font-size: 12px; line-height: 1.7; }
+.technical-guide-content .guide-actions { flex: 0 0 auto; margin-top: 0; }
 .skill-guide { display: grid; grid-template-columns: minmax(0,1.05fr) minmax(300px,.95fr); gap: 54px; align-items: start; }
 .skill-guide h2 { margin: 0; font-size: 27px; letter-spacing: -.025em; }
 .skill-guide > div:first-child > p:not(.page-kicker) { margin: 13px 0 0; }
@@ -546,6 +553,8 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   .guide-hero { padding-top: 10px; }
   .guide-steps, .guide-principles { grid-template-columns: 1fr; }
   .skill-guide { grid-template-columns: 1fr; gap: 28px; }
+  .technical-guide-content { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .technical-guide-content .guide-actions { margin-top: 0; }
   .guide-section { padding: 36px 0; }
   .profile-header, .public-profile-header { grid-template-columns: 72px 1fr; align-items: start; }
   .profile-avatar { width: 68px; height: 68px; font-size: 22px; }

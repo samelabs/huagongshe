@@ -38,8 +38,8 @@ export default async function Home() {
         )}
       </section>
       <section className="home-contribute">
-        <div><span>AI WORKFLOW</span><strong>AI 辅助维护反应数据</strong><p>AI 可从文献、专利和实验记录中整理反应，经校验后使用 API Token 提交。你可以在个人仓库中继续编辑和管理。</p></div>
-        <Link className="text-button" href="/guide">查看 AI 使用指南 →</Link>
+        <div><span>AI 辅助</span><strong>把资料交给 AI，确认后发布</strong><p>发送文献、专利或实验记录，AI 会整理反应结构和条件。你确认后即可保存到个人反应库。</p></div>
+        <Link className="text-button" href="/guide">了解如何用 AI 发布 →</Link>
       </section>
     </div>
   );
