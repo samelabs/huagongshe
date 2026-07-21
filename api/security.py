@@ -110,6 +110,13 @@ async def current_actor(actor: Actor | None = Depends(optional_actor)) -> Actor:
     return actor
 
 
+async def current_session(actor: Actor = Depends(current_actor)) -> Actor:
+    """Require an interactive web session for account and community mutations."""
+    if actor.auth_kind != "session":
+        raise HTTPException(403, "该操作必须使用网页登录会话")
+    return actor
+
+
 def require_scope(actor: Actor, scope: str) -> None:
     if actor.auth_kind == "agent" and scope not in actor.scopes:
         raise HTTPException(403, f"API Token 缺少 {scope} 权限")

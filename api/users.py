@@ -19,7 +19,10 @@ from sqlalchemy.exc import IntegrityError
 from .config import settings
 from .database import get_db
 from .rate_limit import enforce
-from .security import Actor, actor_payload, current_actor, optional_actor, password_hash, password_matches
+from .security import (
+    Actor, actor_payload, current_actor, current_session, optional_actor,
+    password_hash, password_matches,
+)
 
 auth_router = APIRouter(prefix="/auth", tags=["users"])
 router = APIRouter(prefix="/users", tags=["users"])
@@ -171,11 +174,14 @@ async def logout(
 
 @router.get("/me")
 async def me(actor: Actor = Depends(current_actor)):
-    return actor_payload(actor)
+    result = actor_payload(actor)
+    if actor.auth_kind == "agent":
+        result.pop("email", None)
+    return result
 
 
 @router.patch("/me")
-async def update_profile(body: ProfileBody, actor: Actor = Depends(current_actor), db=Depends(get_db)):
+async def update_profile(body: ProfileBody, actor: Actor = Depends(current_session), db=Depends(get_db)):
     await db.execute(text("""
         UPDATE community.users SET display_name=:display_name,bio=:bio,updated_at=now()
         WHERE id=:id
@@ -186,10 +192,8 @@ async def update_profile(body: ProfileBody, actor: Actor = Depends(current_actor
 
 @router.post("/me/password", status_code=204)
 async def change_password(
-    body: PasswordBody, response: Response, actor: Actor = Depends(current_actor), db=Depends(get_db)
+    body: PasswordBody, response: Response, actor: Actor = Depends(current_session), db=Depends(get_db)
 ):
-    if actor.auth_kind != "session":
-        raise HTTPException(403, "修改密码必须使用网页登录会话")
     encoded = (await db.execute(text(
         "SELECT password_hash FROM community.users WHERE id=:id"
     ), {"id": actor.id})).scalar_one()
@@ -208,7 +212,7 @@ async def change_password(
 
 @router.post("/me/avatar")
 async def upload_avatar(
-    image: UploadFile = File(...), actor: Actor = Depends(current_actor), db=Depends(get_db)
+    image: UploadFile = File(...), actor: Actor = Depends(current_session), db=Depends(get_db)
 ):
     await enforce("avatar", str(actor.id), settings.api_avatar_limit_per_hour, 3600)
     raw = await image.read(settings.avatar_max_bytes + 1)
@@ -263,7 +267,7 @@ async def upload_avatar(
 
 
 @router.get("/me/tokens")
-async def list_tokens(actor: Actor = Depends(current_actor), db=Depends(get_db)):
+async def list_tokens(actor: Actor = Depends(current_session), db=Depends(get_db)):
     rows = (await db.execute(text("""
         SELECT id,name,token_prefix,scopes,created_at,expires_at,last_used_at,revoked_at
         FROM community.user_api_tokens WHERE user_id=:id ORDER BY id DESC
@@ -272,7 +276,7 @@ async def list_tokens(actor: Actor = Depends(current_actor), db=Depends(get_db))
 
 
 @router.post("/me/tokens", status_code=201)
-async def create_token(body: TokenBody, actor: Actor = Depends(current_actor), db=Depends(get_db)):
+async def create_token(body: TokenBody, actor: Actor = Depends(current_session), db=Depends(get_db)):
     active = int((await db.execute(text("""
         SELECT count(*) FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now())
@@ -305,7 +309,7 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_actor), d
 
 
 @router.delete("/me/tokens/{token_id}", status_code=204)
-async def revoke_token(token_id: int, actor: Actor = Depends(current_actor), db=Depends(get_db)):
+async def revoke_token(token_id: int, actor: Actor = Depends(current_session), db=Depends(get_db)):
     result = await db.execute(text("""
         UPDATE community.user_api_tokens SET revoked_at=now()
         WHERE id=:token_id AND user_id=:user_id AND revoked_at IS NULL

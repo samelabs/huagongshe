@@ -10,12 +10,12 @@ from sqlalchemy import text
 
 from .cache import cache_delete
 from .database import get_db
-from .security import Actor, current_actor
+from .security import Actor, current_session
 
 router = APIRouter(prefix="/admin", tags=["administration"])
 
 
-async def admin(actor: Actor = Depends(current_actor)) -> Actor:
+async def admin(actor: Actor = Depends(current_session)) -> Actor:
     if actor.role != "admin":
         raise HTTPException(403, "没有平台管理权限")
     return actor
