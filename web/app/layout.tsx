@@ -26,6 +26,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
+      <head>
+        <script charSet="UTF-8" id="LA_COLLECT" src="//sdk.51.la/js-sdk-pro.min.js" />
+        <script dangerouslySetInnerHTML={{ __html: 'LA.init({id:"1vMIAXQLAZjjdeBt",ck:"1vMIAXQLAZjjdeBt"})' }} />
+      </head>
       <body>
         <AccountProvider>
           <header className="site-header">
@@ -40,8 +44,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <main>{children}</main>
         </AccountProvider>
         <footer>
-          <span>huagongshe.com</span>
-          <span>开放化学数据</span>
+          <span>AIchem 开放数据计划：<a href="mailto:mail@huagongshe.com">mail@huagongshe.com</a></span>
         </footer>
       </body>
     </html>

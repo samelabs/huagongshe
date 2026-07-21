@@ -67,7 +67,8 @@ nav[aria-label="主导航"] > a:hover { color: var(--blue); }
 .account-dropdown > button { border-top: 1px solid var(--line); border-radius: 0 0 5px 5px; color: var(--quiet); }
 .nav-placeholder { width: 82px; height: 32px; }
 main { min-height: calc(100vh - 132px); }
-footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(20px, calc((100vw - var(--max)) / 2)); display: flex; justify-content: space-between; align-items: center; color: var(--quiet); font-size: 12px; }
+footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(20px, calc((100vw - var(--max)) / 2)); display: flex; justify-content: center; align-items: center; color: var(--quiet); font-size: 12px; text-align: center; }
+footer a:hover { color: var(--blue); }
 
 .button { min-height: 40px; border: 1px solid transparent; border-radius: 7px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; font-weight: 650; font-size: 13px; transition: .15s ease; }
 .button.primary { color: white; background: var(--blue); }
