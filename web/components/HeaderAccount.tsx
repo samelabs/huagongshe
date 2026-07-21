@@ -43,6 +43,7 @@ export function HeaderAccount() {
 
   return (
     <nav aria-label="主导航">
+      <Link href="/guide" className="nav-guide"><span className="guide-full">帮助指南</span><span className="guide-short">指南</span></Link>
       <Link href="/submit" className="nav-contribute"><span aria-hidden="true">＋</span>发布反应</Link>
       {user ? (
         <details className="account-menu" ref={menu}>

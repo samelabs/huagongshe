@@ -36,6 +36,10 @@ export default async function Home() {
           </div>
         )}
       </section>
+      <section className="home-contribute">
+        <div><strong>建立自己的反应仓库</strong><p>从网页表单发布，或让 AI 从文献和实验文档中整理。你可以持续编辑、调整公开范围或删除自己的反应。</p></div>
+        <div><Link className="button primary small" href="/submit">发布反应</Link><Link className="text-button" href="/guide">AI 提交指南</Link></div>
+      </section>
     </div>
   );
 }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "化工社反应发布"
+  short_description: "从网页、文档或对话中整理反应并安全提交到化工社用户仓库"
+  default_prompt: "使用 $huagongshe-reaction-publisher 从这份资料中提取反应，先让我确认，再提交到我的化工社仓库。"

@@ -136,6 +136,7 @@ export function UserDashboard() {
       <div className="dashboard-identity">
         <span>@{user.username}</span>
         <h1>{user.display_name}</h1>
+        <p className="dashboard-purpose">发布、维护和管理属于你的结构化反应。</p>
         <div className="profile-actions">
           <Link className="button primary" href="/submit">＋ 发布新反应</Link>
           <Link className="button secondary" href="/me/settings">账号设置</Link>

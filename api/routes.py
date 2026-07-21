@@ -241,7 +241,7 @@ async def search(
             "structure-query", request_identity(request),
             settings.api_structure_limit_per_minute, 60,
         )
-    cache_key = f"v4:unified-search:{mode}:{page_size}:{query}"
+    cache_key = f"v1:unified-search:{mode}:{page_size}:{query}"
     cached = await cache_get(cache_key)
     if cached:
         return cached

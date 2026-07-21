@@ -10,6 +10,7 @@ from pydantic import ValidationError
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
 from api import reactions
+from api.config import settings
 from api.reactions import ParticipantBody, ReactionBody, canonical_participants
 
 
@@ -76,6 +77,18 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn("LIMIT :window", source)
         self.assertIn('"items": [dict(row) for row in rows]', source)
         self.assertIn('"all": sum(counts.values())', source)
+
+    def test_public_api_starts_at_version_one(self) -> None:
+        self.assertEqual(settings.api_version, "1.0")
+
+        routes_source = inspect.getsource(__import__("api.routes", fromlist=["unified_search"]))
+        self.assertNotIn('f"v4:unified-search', routes_source)
+        self.assertIn('f"v1:unified-search', routes_source)
+
+    def test_agent_guide_links_the_public_skill_and_confirmation_flow(self) -> None:
+        source = inspect.getsource(reactions.agent_guide)
+        self.assertIn("huagongshe-reaction-publisher/SKILL.md", source)
+        self.assertIn("用户确认后携带唯一 Idempotency-Key", source)
 
 
 if __name__ == "__main__":

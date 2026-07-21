@@ -39,6 +39,8 @@
 - `/api/*`：网站与用户 AI Agent 共用的查询和用户能力。
 - `/api/agent-guide`：面向 AI Agent 的字段语义、行为规则和调用顺序。
 - `/api/openapi.json`：稳定的结构化契约。
+- `/guide`：面向用户的网页发布、AI 对话提示词与 Skill 使用指南。
+- `/skills/huagongshe-reaction-publisher/SKILL.md`：可直接交给 AI 的反应整理与发布 Skill。
 - `/workapi/*`：只服务受信任 PubChem worker，与用户 Agent 完全无关。
 
 网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 Bearer Token；数据库只保存 Token 摘要。Agent 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
