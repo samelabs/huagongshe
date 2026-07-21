@@ -241,10 +241,14 @@ async def search(
             "structure-query", request_identity(request),
             settings.api_structure_limit_per_minute, 60,
         )
+    # Exact searches can include user-created reactions. Keep them live so a
+    # create, edit or delete is reflected immediately. Only expensive
+    # structure searches use the short-lived shared cache.
     cache_key = f"v1:unified-search:{mode}:{page_size}:{query}"
-    cached = await cache_get(cache_key)
-    if cached:
-        return cached
+    if mode != "exact":
+        cached = await cache_get(cache_key)
+        if cached:
+            return cached
 
     canonical = canonicalize_smiles(query)
     chemicals: list[dict[str, Any]] = []
@@ -347,7 +351,8 @@ async def search(
         "query": query, "mode": mode, "canonical_smiles": canonical,
         "chemicals": chemicals, "reactions": reactions, "page_size": page_size,
     }
-    await cache_set(cache_key, data, ttl=600)
+    if mode != "exact":
+        await cache_set(cache_key, data, ttl=600)
     return data
 
 

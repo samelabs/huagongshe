@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import inspect
 import unittest
 
 from fastapi import HTTPException
@@ -8,10 +9,15 @@ from fastapi import HTTPException
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
 from api.rate_limit import is_loopback_host
+from api import routes
 from api.routes import bounded_substructure_smiles
 
 
 class StructureSearchContractTests(unittest.TestCase):
+    def test_exact_search_is_not_cached_with_mutable_user_reactions(self) -> None:
+        source = inspect.getsource(routes.search)
+        self.assertEqual(source.count('if mode != "exact":'), 2)
+
     def test_bounded_substructure_accepts_specific_structure(self) -> None:
         self.assertEqual(bounded_substructure_smiles("c1ccccc1"), "c1ccccc1")
 
