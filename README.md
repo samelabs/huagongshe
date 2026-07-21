@@ -16,7 +16,7 @@
 - 公开和私有反应仓库；
 - 发布、维护和删除自己的反应；
 - 关注用户、化合物和公开反应；
-- 关注用户发布新反应、关注化合物出现新反应、关注反应被更新时接收站内通知；
+- 关注用户发布公开反应时接收站内动态；化合物和反应关注只形成个人列表，不触发通知；
 - 创建与账号绑定的 API Token，为 AI 或其他客户端授权。
 
 平台管理只处理账号状态和用户反应可见度，不判断反应是否科学正确。项目不提供开放评论、求助、私信或审核队列。
@@ -81,6 +81,13 @@
 - `huagongshe-web.service`：`127.0.0.1:3001`
 - `huagongshe-pubchem-worker.service`：本机 PubChem 补全 worker
 - Nginx：HTTPS、同域 `/api`、独立 `/workapi` 与版本化头像静态文件
+
+生产源码固定在 `/var/www/huagongshe`。前端只运行
+`web/.next/standalone`，服务器不保留用于开发构建的完整 `web/node_modules`；
+构建在开发机完成后发布 standalone 产物。Python 依赖固定在项目根目录的 `venv`。
+
+GitHub `samelabs/huagongshe` 是版本中心，本地开发目录与生产目录都跟踪 `main`，
+禁止在服务器保留未提交源码改动。
 
 ```bash
 systemctl status huagongshe-api huagongshe-web huagongshe-pubchem-worker nginx postgresql redis-server
