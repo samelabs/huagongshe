@@ -58,7 +58,7 @@ export function HeaderAccount() {
               <span>@{user.username}</span>
             </div>
             <div className="account-menu-links">
-              <Link href="/me" onClick={closeMenu}>我的主页</Link>
+              <Link href="/me" onClick={closeMenu}>个人中心</Link>
               <Link href={`/user/${encodeURIComponent(user.username)}`} onClick={closeMenu}>公开主页</Link>
               <Link href="/me/settings/profile" onClick={closeMenu}>账户设置</Link>
               {user.role === "admin" && <Link href="/admin" onClick={closeMenu}>平台管理</Link>}

@@ -301,8 +301,9 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .public-profile-page, .settings-page { max-width: 1060px; }
 .dashboard-header { margin-bottom: 0; padding: 8px 0 28px; display: grid; grid-template-columns: 104px minmax(0,1fr) auto; gap: 24px; align-items: center; }
 .dashboard-header .profile-avatar { width: 96px; height: 96px; font-size: 30px; }
+.dashboard-identity { min-width: 0; }
 .dashboard-identity > span { color: var(--quiet); font-size: 11px; }
-.dashboard-identity h1 { margin: 3px 0 0; font-size: 31px; letter-spacing: -.035em; }
+.dashboard-identity h1 { margin: 3px 0 0; font-size: 31px; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .dashboard-identity .profile-bio { margin-top: 9px; font-size: 12px; }
 .dashboard-profile-actions { margin: 0; display: grid; justify-items: end; gap: 9px; }
 .dashboard-shell { min-width: 0; }
@@ -325,7 +326,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .profile-header h1 { margin: 0; font-size: 31px; font-weight: 600; letter-spacing: -.012em; }
 .profile-header > div:nth-child(2) > p:first-child { margin: 0 0 5px; color: var(--quiet); font-size: 12px; }
-.profile-bio { margin: 12px 0 0; max-width: 600px; color: var(--muted); line-height: 1.7; }
+.profile-bio { margin: 12px 0 0; max-width: 600px; color: var(--muted); line-height: 1.7; overflow-wrap: anywhere; }
 .profile-actions, .profile-counts { margin-top: 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 9px 18px; }
 .profile-counts span { color: var(--muted); font-size: 12px; }
 .profile-counts strong { color: var(--ink); }
@@ -406,7 +407,8 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .token-secret > span { color: var(--muted); font-size: 10px; }
 .token-list { margin-top: 18px; border-top: 1px solid var(--line); }
 .token-list article { border-bottom: 1px solid var(--line); padding: 11px 0; display: flex; align-items: center; justify-content: space-between; }
-.token-list article > div { display: grid; gap: 4px; }
+.token-list article > div { min-width: 0; display: grid; gap: 4px; }
+.token-list strong { overflow-wrap: anywhere; }
 .token-list span { color: var(--quiet); font-size: 10px; }
 .token-list small { color: var(--quiet); font-size: 9px; }
 .api-guide-link { margin-top: 14px; display: inline-block; color: var(--blue); font-size: 12px; }
@@ -469,7 +471,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   .header-inner { height: 58px; }
   .brand { min-width: 0; gap: 7px; font-size: 14px; }
   .brand img { width: 24px; height: 24px; }
-  nav[aria-label="主导航"] { gap: 10px; font-size: 12px; }
+  nav[aria-label="主导航"] { gap: 8px; font-size: 12px; }
   .guide-full { display: none; }
   .guide-short { display: inline; }
   .nav-contribute { min-height: 32px; padding: 0 9px; font-size: 11px; }
@@ -491,6 +493,8 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   .home-stat strong { font-size: clamp(20px, 6.5vw, 27px); }
   .home-stat span { font-size: 11px; }
   .content-page { padding-top: 28px; }
+  .section-heading { align-items: flex-start; gap: 12px; }
+  .section-heading > span { flex: 0 0 auto; }
   .search-guide { grid-template-columns: 1fr; }
   .chemical-result { grid-template-columns: 105px 1fr; gap: 12px; padding-right: 0; }
   .chemical-result-structure { height: 95px; }
@@ -498,6 +502,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   .structure-code { max-width: 210px; }
   .reaction-result-head, .reaction-result-foot { flex-direction: column; }
   .reaction-badges { justify-content: start; }
+  .reaction-badges span, .reaction-result-foot p { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .reaction-preview { height: 145px; }
   .chemical-identity { grid-template-columns: 1fr; gap: 12px; }
   .chemical-structure { height: 230px; }
@@ -518,27 +523,46 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   .form-fields .wide { grid-column: auto; }
   .participant-input-main { grid-template-columns: 95px 1fr auto; }
   .participant-measures { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .dashboard-header { grid-template-columns: 72px minmax(0,1fr); gap: 14px; padding-bottom: 22px; }
-  .dashboard-header .profile-avatar { width: 60px; height: 60px; font-size: 20px; }
-  .dashboard-identity h1 { font-size: 25px; }
+  .auth-required { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .auth-required a { min-height: 40px; display: inline-flex; align-items: center; }
+  .submit-button { width: 100%; justify-self: stretch; }
+  .dashboard-header { grid-template-columns: 64px minmax(0,1fr); gap: 12px; padding: 0 0 22px; align-items: start; }
+  .dashboard-header .profile-avatar { width: 56px; height: 56px; font-size: 20px; }
+  .dashboard-identity h1 { font-size: 24px; line-height: 1.2; }
+  .dashboard-identity .profile-bio { margin-top: 7px; }
+  .dashboard-identity .profile-count-links { margin-top: 12px; gap: 6px 14px; }
   .dashboard-profile-actions { grid-column: 1 / -1; width: 100%; display: flex; justify-content: flex-start; }
   .dashboard-profile-actions .button { min-height: 34px; padding: 0 10px; font-size: 11px; }
+  .dashboard-profile-actions .text-button { min-height: 34px; display: inline-flex; align-items: center; }
   .profile-tabs { margin-left: -14px; margin-right: -14px; padding: 0 14px; }
   .profile-tabs > a { min-height: 43px; padding: 0 9px; }
   .dashboard-panel { min-height: 420px; }
-  .dashboard-panel-heading { align-items: center; }
+  .dashboard-panel-heading { min-width: 0; align-items: flex-start; gap: 12px; }
+  .dashboard-panel-heading > div { min-width: 0; }
+  .dashboard-panel-heading h2 { font-size: 21px; overflow-wrap: anywhere; }
+  .dashboard-panel-heading > strong { flex: 0 0 auto; }
   .guide-hero { padding-top: 10px; }
   .guide-steps, .guide-principles { grid-template-columns: 1fr; }
   .skill-guide { grid-template-columns: 1fr; gap: 28px; }
   .guide-section { padding: 36px 0; }
   .profile-header, .public-profile-header { grid-template-columns: 72px 1fr; align-items: start; }
   .profile-avatar { width: 68px; height: 68px; font-size: 22px; }
+  .profile-primary { min-width: 0; }
+  .profile-header h1 { overflow-wrap: anywhere; }
   .public-profile-action { grid-column: 1 / -1; justify-self: start; }
   .profile-count-links { gap: 7px 18px; }
   .repository-grid { grid-template-columns: 1fr; }
+  .repository-scheme { height: 138px; }
+  .repository-scheme img { min-width: 0; }
   .person-row { grid-template-columns: 42px minmax(0,1fr); padding-left: 0; padding-right: 0; }
   .person-avatar { width: 40px; height: 40px; }
   .person-open { display: none; }
+  .person-summary > a { min-width: 0; flex-wrap: wrap; gap: 2px 7px; }
+  .person-summary strong, .person-summary span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .followed-entity-list > a { grid-template-columns: auto minmax(0,1fr); gap: 9px; padding-left: 0; padding-right: 0; }
+  .followed-entity-list em { display: none; }
+  .notification-list a { align-items: flex-start; }
+  .notification-list .entity-id { flex: 0 0 auto; }
   .settings-layout { grid-template-columns: 1fr; gap: 24px; }
   .settings-nav { position: static; margin: 0 -14px; padding: 0 14px 7px; display: flex; overflow-x: auto; scrollbar-width: none; }
   .settings-nav::-webkit-scrollbar { display: none; }
@@ -546,8 +570,51 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   .token-create { grid-template-columns: 1fr; }
   .token-secret > div { align-items: stretch; flex-direction: column; }
   .token-actions { align-items: stretch; flex-direction: column; }
+  .token-list article { align-items: flex-start; gap: 12px; }
   .avatar-upload { align-items: stretch; flex-direction: column; }
   .admin-table article { grid-template-columns: 1fr auto; }
   .admin-table article > button { grid-column: 2; }
   .auth-panel { padding: 21px; }
+  .structured-form input, .structured-form textarea, .structured-form select,
+  .form-stack input, .settings-content input, .settings-content textarea, .settings-content select { min-width: 0; font-size: 16px; }
+}
+
+@media (max-width: 420px) {
+  .header-inner { width: calc(100% - 20px); }
+  .brand { font-size: 13px; }
+  nav[aria-label="主导航"] { gap: 6px; }
+  .nav-guide { display: none; }
+  .nav-contribute { padding: 0 8px; }
+  .login-link { padding-left: 8px; padding-right: 8px; }
+  .content-page, .home, .auth-page { width: calc(100% - 24px); }
+  .hero h1 { font-size: 28px; }
+  .global-search input { padding-left: 10px; padding-right: 8px; }
+  .global-search button { min-width: 58px; padding: 0 10px; }
+  .page-title h1, .search-head h1, .reaction-title h1 { font-size: 27px; overflow-wrap: anywhere; }
+  .chemical-result { grid-template-columns: 82px minmax(0,1fr); gap: 10px; }
+  .chemical-result-structure { height: 82px; }
+  .structure-code { max-width: 100%; }
+  .identity-table > div { grid-template-columns: 92px minmax(0,1fr); gap: 12px; }
+  .metric-grid { grid-template-columns: 1fr; }
+  .condition-list { grid-template-columns: 1fr; }
+  .participant-grid, .reaction-sides .participant-grid { grid-template-columns: 1fr; }
+  .participant-input-main { grid-template-columns: minmax(0,1fr) auto; }
+  .participant-input-main select { grid-column: 1 / -1; }
+  .participant-input-main input { grid-column: 1; }
+  .participant-input-main button { grid-column: 2; }
+  .dashboard-header { grid-template-columns: 52px minmax(0,1fr); gap: 10px; }
+  .dashboard-header .profile-avatar { width: 48px; height: 48px; font-size: 18px; }
+  .dashboard-identity h1 { font-size: 22px; }
+  .profile-count-links { gap: 6px 12px; }
+  .profile-count-links strong { font-size: 14px; }
+  .profile-count-links span { font-size: 11px; }
+  .dashboard-profile-actions { gap: 8px; flex-wrap: wrap; }
+  .profile-tabs { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; }
+  .profile-header, .public-profile-header { grid-template-columns: 56px minmax(0,1fr); gap: 12px; }
+  .profile-avatar { width: 54px; height: 54px; font-size: 19px; }
+  .profile-header h1 { font-size: 24px; }
+  .form-section { padding: 15px; }
+  .auth-panel { padding: 18px 15px; }
+  .guide-actions .button { width: 100%; }
+  .admin-table article { gap: 9px; }
 }

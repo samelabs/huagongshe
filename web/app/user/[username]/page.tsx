@@ -50,7 +50,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
         </div>
       </div>
       <div className="public-profile-action">{profile.is_me
-        ? <Link className="button secondary" href="/me">管理主页</Link>
+        ? <Link className="button secondary" href="/me">进入个人中心</Link>
         : <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} count={profile.followers} showCount={false} />}
       </div>
     </header>

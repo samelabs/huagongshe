@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { UserDashboard, type DashboardTab } from "@/components/UserDashboard";
 
-export const metadata: Metadata = { title: "我的反应仓库", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "个人中心", robots: { index: false, follow: false } };
 const tabs = new Set<DashboardTab>(["public", "private", "people", "followers", "chemicals", "reactions", "activity"]);
 
 export default async function MePage({ searchParams }: { searchParams: Promise<{ tab?: string | string[]; page?: string | string[] }> }) {

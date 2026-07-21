@@ -127,12 +127,12 @@ export function UserDashboard({ activeTab, page }: { activeTab: DashboardTab; pa
     </header>
 
     <div className="dashboard-shell social-dashboard-shell">
-      <nav className="dashboard-nav profile-tabs" aria-label="个人主页内容">{tabs.map((item) => <Link href={item.id === "public" ? "/me" : `/me?tab=${item.id}`} className={activeTab === item.id ? "active" : ""} key={item.id}>
+      <nav className="dashboard-nav profile-tabs" aria-label="个人中心内容">{tabs.map((item) => <Link href={item.id === "public" ? "/me" : `/me?tab=${item.id}`} className={activeTab === item.id ? "active" : ""} key={item.id}>
         <span>{item.label}</span><em className={item.id === "activity" && counts?.unread ? "unread-count" : ""}>{item.id === "activity" && countFor(item.id) === 0 ? "" : countFor(item.id)}</em>
       </Link>)}</nav>
 
       <main className="dashboard-panel">
-        {summaryState === "error" && <p className="profile-summary-error">主页统计暂时无法读取。</p>}
+        {summaryState === "error" && <p className="profile-summary-error">个人中心数据暂时无法读取。</p>}
         {(activeTab === "public" || activeTab === "private") && <Repository title={activeTab === "public" ? "公开反应" : "私有反应"} subtitle={activeTab === "public" ? "公开主页中的反应条目" : "仅当前账号可见"} items={reactions} count={activeTab === "public" ? counts?.public_reactions : counts?.private_reactions} state={contentState} visibility={activeTab} page={page} />}
         {(activeTab === "people" || activeTab === "followers") && <PeopleSection title={activeTab === "people" ? "关注的人" : "粉丝"} data={people} state={contentState} empty={activeTab === "people" ? "还没有关注用户。" : "还没有粉丝。"} tab={activeTab} />}
         {activeTab === "chemicals" && <ChemicalFollows data={chemicals} state={contentState} />}
