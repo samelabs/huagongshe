@@ -1,32 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-
-type User = {
-  id: number;
-  username: string;
-  display_name: string;
-  email: string;
-  avatar_url: string | null;
-  role: "member" | "admin";
-};
+import { useAccount } from "@/components/AccountContext";
+import type { User } from "@/lib/api";
 
 export function HeaderAccount() {
   const router = useRouter();
   const menu = useRef<HTMLDetailsElement>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    fetch("/api/users/me", { cache: "no-store" })
-      .then(async (response) => response.ok ? response.json() as Promise<User> : null)
-      .then((value) => { if (active) { setUser(value); setReady(true); } })
-      .catch(() => { if (active) setReady(true); });
-    return () => { active = false; };
-  }, []);
+  const { user, ready, clear } = useAccount();
 
   useEffect(() => {
     function closeOnOutside(event: PointerEvent) {
@@ -53,7 +36,7 @@ export function HeaderAccount() {
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     closeMenu();
-    setUser(null);
+    clear();
     router.push("/");
     router.refresh();
   }

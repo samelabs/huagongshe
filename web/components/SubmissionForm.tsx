@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAccount } from "@/components/AccountContext";
 import { EntityId } from "@/components/EntityId";
-import type { ReactionDetail, User } from "@/lib/api";
+import type { ReactionDetail } from "@/lib/api";
 
 type Role = "REACTANT" | "PRODUCT" | "REAGENT" | "CATALYST" | "SOLVENT";
 type Participant = {
@@ -25,21 +26,13 @@ const blank = (role: Role, smiles = ""): Participant => ({
 export function SubmissionForm() {
   const search = useSearchParams();
   const router = useRouter();
+  const { user, ready } = useAccount();
   const reactionId = numberParam(search.get("reaction"));
   const chemicalId = numberParam(search.get("chemical"));
-  const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(false);
   const [details, setDetails] = useState<ReactionDetail | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([blank("REACTANT"), blank("PRODUCT")]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    fetch("/api/users/me", { cache: "no-store" }).then(async (response) => {
-      if (response.ok) setUser(await response.json());
-      setReady(true);
-    }).catch(() => setReady(true));
-  }, []);
 
   useEffect(() => {
     if (reactionId) {

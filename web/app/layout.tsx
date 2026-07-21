@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { AccountProvider } from "@/components/AccountContext";
 import { HeaderAccount } from "@/components/HeaderAccount";
 import "./globals.css";
 
@@ -24,16 +25,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="zh-CN">
       <body>
-        <header className="site-header">
-          <div className="header-inner">
-            <Link href="/" className="brand" aria-label="huagongshe.com 首页">
-              <Image src="/icon.svg" alt="" width={28} height={28} priority />
-              <span>huagongshe.com</span>
-            </Link>
-            <HeaderAccount />
-          </div>
-        </header>
-        <main>{children}</main>
+        <AccountProvider>
+          <header className="site-header">
+            <div className="header-inner">
+              <Link href="/" className="brand" aria-label="huagongshe.com 首页">
+                <Image src="/icon.svg" alt="" width={28} height={28} priority />
+                <span>huagongshe.com</span>
+              </Link>
+              <HeaderAccount />
+            </div>
+          </header>
+          <main>{children}</main>
+        </AccountProvider>
         <footer>
           <span>huagongshe.com</span>
           <span>开放数据，共同维护</span>

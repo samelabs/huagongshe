@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useAccount } from "@/components/AccountContext";
 import { EntityId } from "@/components/EntityId";
-import { reactionSvgUrl, type User } from "@/lib/api";
+import { reactionSvgUrl } from "@/lib/api";
 
 type Reaction = {
   id: number;
@@ -46,8 +47,7 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 export function UserDashboard() {
-  const [user, setUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const { user, ready: authReady } = useAccount();
   const [tab, setTab] = useState<Tab>("overview");
   const [publicReactions, setPublicReactions] = useState<Reaction[]>([]);
   const [privateReactions, setPrivateReactions] = useState<Reaction[]>([]);
@@ -59,22 +59,11 @@ export function UserDashboard() {
   const [noticeState, setNoticeState] = useState<LoadState>("loading");
 
   useEffect(() => {
+    if (!user) return;
     let active = true;
-    async function start() {
-      try {
-        const response = await fetch("/api/users/me", { cache: "no-store" });
-        if (!response.ok) { if (active) setAuthReady(true); return; }
-        const value = await response.json() as User;
-        if (!active) return;
-        setUser(value);
-        setAuthReady(true);
-        void loadRepositories();
-        void loadFollows();
-        void loadNotifications();
-      } catch {
-        if (active) setAuthReady(true);
-      }
-    }
+    setReactionState("loading");
+    setFollowState("loading");
+    setNoticeState("loading");
     async function loadRepositories() {
       try {
         const [publicResponse, privateResponse] = await Promise.all([
@@ -120,9 +109,11 @@ export function UserDashboard() {
         if (active) setNoticeState("error");
       }
     }
-    void start();
+    void loadRepositories();
+    void loadFollows();
+    void loadNotifications();
     return () => { active = false; };
-  }, []);
+  }, [user]);
 
   const recent = useMemo(
     () => [...publicReactions, ...privateReactions].sort((a, b) => b.id - a.id).slice(0, 4),

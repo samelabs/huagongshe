@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAccount } from "@/components/AccountContext";
 
 export function AccountForm() {
   const router = useRouter();
+  const { refresh } = useAccount();
   const [kind, setKind] = useState<"login" | "register">("login");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,7 +32,7 @@ export function AccountForm() {
         const response = await fetch(`/api/auth/${kind}`, {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
         });
-        if (response.ok) { router.push("/me"); router.refresh(); return; }
+        if (response.ok) { await refresh(); router.push("/me"); router.refresh(); return; }
         const error = await response.json().catch(() => null);
         setMessage(apiError(error?.detail)); setBusy(false);
       }}>
