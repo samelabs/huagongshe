@@ -206,7 +206,7 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
 
 @router.get("/stats")
 async def stats(db=Depends(get_db)):
-    cached = await cache_get("v3:stats:exact")
+    cached = await cache_get("v1:stats:exact")
     if cached:
         return cached
     row = (await db.execute(text("""
@@ -220,7 +220,7 @@ async def stats(db=Depends(get_db)):
         "chemicals": max(row[0], 0), "reactions": max(row[1], 0),
         "datasets": row[2], "rdkit_failures": row[3],
     }
-    await cache_set("v3:stats:exact", data, ttl=3600)
+    await cache_set("v1:stats:exact", data, ttl=3600)
     return data
 
 

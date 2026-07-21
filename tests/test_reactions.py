@@ -82,7 +82,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertEqual(settings.api_version, "1.0")
 
         routes_source = inspect.getsource(__import__("api.routes", fromlist=["unified_search"]))
-        self.assertNotIn('f"v4:unified-search', routes_source)
+        self.assertIn('"v1:stats:exact"', routes_source)
         self.assertIn('f"v1:unified-search', routes_source)
 
     def test_agent_guide_links_the_public_skill_and_confirmation_flow(self) -> None:

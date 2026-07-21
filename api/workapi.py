@@ -600,7 +600,7 @@ async def complete_job(
         })
         await db.commit()
         if chemical_id is not None:
-            await cache_delete(f"v3:chemical:{chemical_id}")
+            await cache_delete(f"v1:chemical:{chemical_id}")
         return summary
     except HTTPException:
         raise

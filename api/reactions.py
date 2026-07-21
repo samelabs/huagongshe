@@ -308,7 +308,7 @@ async def create_reaction(
         """))
         await notify_new_reaction(db, actor.id, reaction_id, [item["chemical_id"] for item in resolved])
     await db.commit()
-    await cache_delete("v3:stats:exact")
+    await cache_delete("v1:stats:exact")
     return await reaction_response(db, reaction_id, created_chemicals)
 
 
@@ -317,7 +317,7 @@ async def update_reaction(
     reaction_id: int, body: ReactionBody, actor: Actor = Depends(current_actor), db=Depends(get_db)
 ):
     if actor.auth_kind == "agent":
-        raise HTTPException(403, "第一版 Agent Token 不开放反应编辑")
+        raise HTTPException(403, "Agent Token 当前不开放反应编辑，请使用网页登录会话")
     await enforce("reaction-write-minute", str(actor.id), settings.api_reaction_write_limit_per_minute, 60)
     current = (await db.execute(text("""
         SELECT created_by_user_id,visibility FROM chemistry.reactions WHERE id=:id FOR UPDATE
@@ -370,14 +370,14 @@ async def update_reaction(
         })
     await db.commit()
     if current[1] != body.visibility:
-        await cache_delete("v3:stats:exact")
+        await cache_delete("v1:stats:exact")
     return await reaction_response(db, reaction_id, created_chemicals)
 
 
 @router.delete("/reactions/{reaction_id}", status_code=204)
 async def delete_reaction(reaction_id: int, actor: Actor = Depends(current_actor), db=Depends(get_db)):
     if actor.auth_kind == "agent":
-        raise HTTPException(403, "第一版 Agent Token 不开放反应删除")
+        raise HTTPException(403, "Agent Token 当前不开放反应删除，请使用网页登录会话")
     record = (await db.execute(text("""
         SELECT created_by_user_id,visibility,moderation_status
         FROM chemistry.reactions WHERE id=:id FOR UPDATE
@@ -396,7 +396,7 @@ async def delete_reaction(reaction_id: int, actor: Actor = Depends(current_actor
             WHERE metric='reactions'
         """))
     await db.commit()
-    await cache_delete("v3:stats:exact")
+    await cache_delete("v1:stats:exact")
 
 
 @router.get("/users/me/reactions")
