@@ -11,7 +11,7 @@ from .config import settings
 from .database import engine
 from .enrichment import router as enrichment_router
 from .mol import router as molecule_router
-from .rate_limit import consume, request_identity
+from .rate_limit import consume, is_loopback_host, request_identity
 from .reactions import router as reaction_write_router
 from .routes import router as chemistry_router
 from .social import router as social_router
@@ -54,7 +54,7 @@ app.include_router(workapi_router, include_in_schema=False)
 async def public_api_rate_limit(request, call_next):
     if not request.url.path.startswith("/api") or request.url.path in {
         "/api/health", "/api/openapi.json", "/api/docs", "/api/redoc",
-    }:
+    } or is_loopback_host(request.client.host if request.client else None):
         return await call_next(request)
     try:
         remaining, reset, allowed = await consume(

@@ -3,12 +3,22 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import time
 
 import redis.asyncio as redis
 from fastapi import HTTPException, Request
 
 from .cache import pool
+
+
+def is_loopback_host(host: str | None) -> bool:
+    if not host:
+        return False
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 async def consume(bucket: str, identity: str, limit: int, window_seconds: int) -> tuple[int, int, bool]:

@@ -68,6 +68,15 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn('"reaction_id_text": str(reaction_id)', source)
         self.assertIn('"reaction_text": str(reaction_id)', source)
 
+    def test_all_owned_reactions_use_bounded_visibility_branches(self) -> None:
+        source = inspect.getsource(reactions.my_reactions)
+        self.assertIn("WITH owned AS MATERIALIZED", source)
+        self.assertIn("visibility='public'", source)
+        self.assertIn("visibility='private'", source)
+        self.assertIn("LIMIT :window", source)
+        self.assertIn('"items": [dict(row) for row in rows]', source)
+        self.assertIn('"all": sum(counts.values())', source)
+
 
 if __name__ == "__main__":
     unittest.main()

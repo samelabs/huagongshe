@@ -17,7 +17,7 @@ from .enrichment import (
     enqueue_chemical_if_needed,
 )
 from .security import Actor, optional_actor
-from .rate_limit import enforce, request_identity
+from .rate_limit import enforce, is_loopback_host, request_identity
 
 router = APIRouter(tags=["chemistry"])
 
@@ -234,7 +234,9 @@ async def search(
 ):
     """One entry point for names, external identifiers, SMILES and structures."""
     query = q.strip()
-    if mode in {"substructure", "similarity"}:
+    if mode in {"substructure", "similarity"} and not is_loopback_host(
+        request.client.host if request.client else None
+    ):
         await enforce(
             "structure-query", request_identity(request),
             settings.api_structure_limit_per_minute, 60,
@@ -464,7 +466,8 @@ async def chemical_reactions(
 async def chemical_substructure(
     request: Request, chemical_id: int, limit: int = Query(20, ge=1, le=50), db=Depends(get_db)
 ):
-    await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
+    if not is_loopback_host(request.client.host if request.client else None):
+        await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
     smiles = (await db.execute(text(
         "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
     ), {"id": chemical_id})).scalar()
@@ -491,7 +494,8 @@ async def chemical_similarity(
     limit: int = Query(20, ge=1, le=50),
     db=Depends(get_db),
 ):
-    await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
+    if not is_loopback_host(request.client.host if request.client else None):
+        await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
     smiles = (await db.execute(text(
         "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
     ), {"id": chemical_id})).scalar()

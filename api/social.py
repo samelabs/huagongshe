@@ -87,7 +87,8 @@ async def my_follows(actor: Actor = Depends(current_actor), db=Depends(get_db)):
     users = (await db.execute(text("""
         SELECT u.username,u.display_name,u.avatar_path,f.created_at
         FROM community.user_follows f JOIN community.users u ON u.id=f.followed_user_id
-        WHERE f.follower_user_id=:id AND u.status='active' ORDER BY f.created_at DESC
+        WHERE f.follower_user_id=:id AND u.status='active'
+        ORDER BY f.created_at DESC LIMIT 200
     """), {"id": actor.id})).mappings().all()
     chemicals = (await db.execute(text("""
         SELECT c.id,c.preferred_name,c.iupac_name,c.smiles,f.created_at
@@ -100,10 +101,17 @@ async def my_follows(actor: Actor = Depends(current_actor), db=Depends(get_db)):
         WHERE f.user_id=:id AND r.visibility='public' AND r.moderation_status='visible'
         ORDER BY f.created_at DESC LIMIT 200
     """), {"id": actor.id})).mappings().all()
+    counts = (await db.execute(text("""
+        SELECT
+          (SELECT count(*) FROM community.user_follows WHERE follower_user_id=:id),
+          (SELECT count(*) FROM community.chemical_follows WHERE user_id=:id),
+          (SELECT count(*) FROM community.reaction_follows WHERE user_id=:id)
+    """), {"id": actor.id})).one()
     return {
         "users": [dict(row) for row in users],
         "chemicals": [dict(row) for row in chemicals],
         "reactions": [dict(row) for row in reactions],
+        "counts": {"users": counts[0], "chemicals": counts[1], "reactions": counts[2]},
     }
 
 
