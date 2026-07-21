@@ -54,6 +54,15 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertFalse(is_loopback_host("127.0.0.1.example.com"))
         self.assertFalse(is_loopback_host("203.0.113.8"))
 
+    def test_chemical_reaction_counts_avoid_visible_reaction_point_lookups(self) -> None:
+        summary_source = inspect.getsource(routes.reaction_summaries)
+        detail_source = inspect.getsource(routes.chemical_detail)
+        self.assertIn("total_all", summary_source)
+        self.assertIn("excluded", summary_source)
+        self.assertIn("NOT EXISTS", summary_source)
+        self.assertIn("total_reactions", detail_source)
+        self.assertIn("excluded_reactions", detail_source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -207,23 +207,17 @@ async def write_relationships(db, reaction_id: int, participants: list[dict[str,
         """), {"reaction_id": reaction_id, **item})
 
 
-async def notify_new_reaction(db, actor_id: int, reaction_id: int, chemical_ids: list[int]) -> None:
+async def notify_new_reaction(db, actor_id: int, reaction_id: int) -> None:
     await db.execute(text("""
-        WITH recipients AS (
-          SELECT follower_user_id AS user_id FROM community.user_follows
-          WHERE followed_user_id=:actor_id
-          UNION
-          SELECT user_id FROM community.chemical_follows WHERE chemical_id=ANY(:chemical_ids)
-        )
         INSERT INTO community.notifications
           (user_id,event_type,actor_user_id,reaction_id,dedupe_key)
-        SELECT user_id,'new_reaction',:actor_id,:reaction_id,
-               'new-reaction:' || user_id::text || ':' || :reaction_id_text
-        FROM recipients WHERE user_id<>:actor_id
+        SELECT follower_user_id,'new_reaction',:actor_id,:reaction_id,
+               'new-reaction:' || follower_user_id::text || ':' || :reaction_id_text
+        FROM community.user_follows
+        WHERE followed_user_id=:actor_id AND follower_user_id<>:actor_id
         ON CONFLICT (dedupe_key) DO NOTHING
     """), {
-        "actor_id": actor_id, "reaction_id": reaction_id,
-        "reaction_id_text": str(reaction_id), "chemical_ids": chemical_ids,
+        "actor_id": actor_id, "reaction_id": reaction_id, "reaction_id_text": str(reaction_id),
     })
 
 
@@ -316,7 +310,7 @@ async def create_reaction(
             UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
             WHERE metric='reactions'
         """))
-        await notify_new_reaction(db, actor.id, reaction_id, [item["chemical_id"] for item in resolved])
+        await notify_new_reaction(db, actor.id, reaction_id)
     await db.commit()
     await cache_delete("v1:stats:exact")
     return await reaction_response(db, reaction_id, created_chemicals)
@@ -366,18 +360,7 @@ async def update_reaction(
             UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
             WHERE metric='reactions'
         """))
-        await notify_new_reaction(db, actor.id, reaction_id, [item["chemical_id"] for item in resolved])
-    else:
-        await db.execute(text("""
-            INSERT INTO community.notifications
-              (user_id,event_type,actor_user_id,reaction_id,dedupe_key)
-            SELECT user_id,'reaction_updated',:actor,:reaction,
-                   'reaction-updated:' || user_id::text || ':' || :reaction_text
-                     || ':' || txid_current()::text
-            FROM community.reaction_follows WHERE reaction_id=:reaction AND user_id<>:actor
-        """), {
-            "actor": actor.id, "reaction": reaction_id, "reaction_text": str(reaction_id),
-        })
+        await notify_new_reaction(db, actor.id, reaction_id)
     await db.commit()
     if current[1] != body.visibility:
         await cache_delete("v1:stats:exact")

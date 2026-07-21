@@ -73,7 +73,12 @@ class ReactionContractTests(unittest.TestCase):
     def test_notification_keys_cast_numeric_parameters(self) -> None:
         source = inspect.getsource(reactions)
         self.assertIn('"reaction_id_text": str(reaction_id)', source)
-        self.assertIn('"reaction_text": str(reaction_id)', source)
+
+    def test_activity_is_only_new_reactions_from_followed_users(self) -> None:
+        source = inspect.getsource(reactions.notify_new_reaction)
+        self.assertIn("FROM community.user_follows", source)
+        self.assertNotIn("chemical_follows", source)
+        self.assertNotIn("reaction_updated", inspect.getsource(reactions.update_reaction))
 
     def test_all_owned_reactions_use_bounded_visibility_branches(self) -> None:
         source = inspect.getsource(reactions.my_reactions)

@@ -96,21 +96,30 @@ async def reaction_summaries(
     if role != "any":
         role_clause = "AND rc.role = :role"
         params["role"] = role.upper()
-    total = int((await db.execute(text(f"""
+    total_all = int((await db.execute(text(f"""
         SELECT count(DISTINCT rc.reaction_id)
         FROM chemistry.reaction_chemicals rc
-        JOIN chemistry.reactions rx ON rx.id=rc.reaction_id
         WHERE rc.chemical_id = ANY(:chemical_ids) {role_clause}
-          AND rx.visibility='public' AND rx.moderation_status='visible'
     """), params)).scalar() or 0)
+    excluded = int((await db.execute(text(f"""
+        SELECT count(DISTINCT rc.reaction_id)
+        FROM chemistry.reactions rx
+        JOIN chemistry.reaction_chemicals rc ON rc.reaction_id=rx.id
+        WHERE (rx.visibility<>'public' OR rx.moderation_status<>'visible')
+          AND rc.chemical_id = ANY(:chemical_ids) {role_clause}
+    """), params)).scalar() or 0)
+    total = max(total_all - excluded, 0)
     params.update(limit=page_size, offset=(page - 1) * page_size)
     rows = (await db.execute(text(f"""
         WITH ids AS MATERIALIZED (
             SELECT DISTINCT rc.reaction_id
             FROM chemistry.reaction_chemicals rc
-            JOIN chemistry.reactions visible_rx ON visible_rx.id=rc.reaction_id
             WHERE rc.chemical_id = ANY(:chemical_ids) {role_clause}
-              AND visible_rx.visibility='public' AND visible_rx.moderation_status='visible'
+              AND NOT EXISTS (
+                SELECT 1 FROM chemistry.reactions excluded_rx
+                WHERE excluded_rx.id=rc.reaction_id
+                  AND (excluded_rx.visibility<>'public' OR excluded_rx.moderation_status<>'visible')
+              )
             ORDER BY rc.reaction_id
             LIMIT :limit OFFSET :offset
         )
@@ -437,11 +446,18 @@ async def chemical_detail(
     """), {"id": chemical_id})).fetchone()
     result["synonym_count"] = int(synonym_row[0]) if synonym_row else 0
     result["synonyms"] = list(synonym_row[1] or []) if synonym_row else []
-    result["reaction_count"] = (await db.execute(text("""
+    total_reactions = int((await db.execute(text("""
         SELECT count(DISTINCT rc.reaction_id) FROM chemistry.reaction_chemicals rc
-        JOIN chemistry.reactions rx ON rx.id=rc.reaction_id
-        WHERE rc.chemical_id=:id AND rx.visibility='public' AND rx.moderation_status='visible'
-    """), {"id": chemical_id})).scalar() or 0
+        WHERE rc.chemical_id=:id
+    """), {"id": chemical_id})).scalar() or 0)
+    excluded_reactions = int((await db.execute(text("""
+        SELECT count(DISTINCT rc.reaction_id)
+        FROM chemistry.reactions rx
+        JOIN chemistry.reaction_chemicals rc ON rc.reaction_id=rx.id
+        WHERE (rx.visibility<>'public' OR rx.moderation_status<>'visible')
+          AND rc.chemical_id=:id
+    """), {"id": chemical_id})).scalar() or 0)
+    result["reaction_count"] = max(total_reactions - excluded_reactions, 0)
     follow_row = (await db.execute(text("""
         SELECT count(*),EXISTS(
           SELECT 1 FROM community.chemical_follows WHERE chemical_id=:id AND user_id=:user_id

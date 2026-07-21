@@ -1,4 +1,4 @@
-"""Three explicit follow relationships and their data-driven notifications."""
+"""Explicit follow lists and notifications from followed users."""
 
 from __future__ import annotations
 

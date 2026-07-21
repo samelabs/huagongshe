@@ -16,7 +16,7 @@ type ReactionResponse = { items: Reaction[]; counts: { all: number; public: numb
 type PeopleResponse = { items: PersonSummary[]; total: number; page: number; page_size: number };
 type ChemicalFollow = { id: number; preferred_name: string | null; iupac_name: string | null; smiles: string | null };
 type PageResponse<T> = { items: T[]; total: number; page: number; page_size: number };
-type Notice = { id: number; event_type: "new_reaction" | "reaction_updated"; reaction_id: number; actor_display_name: string | null; created_at: string; read_at: string | null };
+type Notice = { id: number; event_type: "new_reaction"; reaction_id: number; actor_display_name: string | null; created_at: string; read_at: string | null };
 
 const tabs: { id: DashboardTab; label: string }[] = [
   { id: "public", label: "公开反应" },
@@ -180,8 +180,8 @@ function ReactionCards({ items, editable = false }: { items: Reaction[]; editabl
   <footer><span>{item.visibility === "private" ? "仅自己可见" : editable ? `${item.followers || 0} 人关注` : "公开反应"}</span>{editable ? <Link href={`/submit?reaction=${item.id}`}>编辑</Link> : <Link href={`/reaction/${item.id}`}>查看</Link>}</footer>
 </article>)}</div>; }
 
-function Activity({ notices, state }: { notices: Notice[]; state: LoadState }) { return <section><PanelHeading title="动态" subtitle="关注用户发布反应或关注反应更新时显示在这里" />
-  {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}{state === "ready" && (notices.length ? <div className="notification-list">{notices.map((item) => <Link href={`/reaction/${item.reaction_id}`} key={item.id}><span><strong>{item.event_type === "new_reaction" ? `${item.actor_display_name || "关注用户"} 发布了新反应` : "关注的反应已更新"}</strong><small>{new Date(item.created_at).toLocaleString("zh-CN")}</small></span><EntityId kind="reaction" id={item.reaction_id} compact /></Link>)}</div> : <DashboardEmpty text="暂时没有动态。" />)}
+function Activity({ notices, state }: { notices: Notice[]; state: LoadState }) { return <section><PanelHeading title="动态" subtitle="你关注的用户发布公开反应时显示在这里" />
+  {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}{state === "ready" && (notices.length ? <div className="notification-list">{notices.map((item) => <Link href={`/reaction/${item.reaction_id}`} key={item.id}><span><strong>{item.actor_display_name || "关注用户"} 发布了新反应</strong><small>{new Date(item.created_at).toLocaleString("zh-CN")}</small></span><EntityId kind="reaction" id={item.reaction_id} compact /></Link>)}</div> : <DashboardEmpty text="关注用户发布反应后，动态会显示在这里。" />)}
 </section>; }
 
 function PanelHeading({ title, subtitle, count, unit = "" }: { title: string; subtitle?: string; count?: number | string; unit?: string }) { return <div className="dashboard-panel-heading"><div><h2>{title}</h2>{subtitle && <span>{subtitle}</span>}</div>{count !== undefined && <strong>{count} {unit}</strong>}</div>; }
