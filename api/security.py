@@ -1,4 +1,4 @@
-"""Authentication shared by the web session and user-owned AI Agent tokens."""
+"""Authentication shared by the web session and user-owned API tokens."""
 
 from __future__ import annotations
 
@@ -106,10 +106,10 @@ async def optional_actor(
 
 async def current_actor(actor: Actor | None = Depends(optional_actor)) -> Actor:
     if actor is None:
-        raise HTTPException(401, "请先登录或提供有效的 Agent Token")
+        raise HTTPException(401, "请先登录或提供有效的 API Token")
     return actor
 
 
 def require_scope(actor: Actor, scope: str) -> None:
     if actor.auth_kind == "agent" and scope not in actor.scopes:
-        raise HTTPException(403, f"Agent Token 缺少 {scope} 权限")
+        raise HTTPException(403, f"API Token 缺少 {scope} 权限")

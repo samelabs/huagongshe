@@ -1,4 +1,4 @@
-"""Accounts, public profiles, avatars and user-owned Agent tokens."""
+"""Accounts, public profiles, avatars and user-owned API tokens."""
 
 from __future__ import annotations
 
@@ -278,7 +278,7 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_actor), d
         WHERE user_id=:id AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now())
     """), {"id": actor.id})).scalar() or 0)
     if active >= 5:
-        raise HTTPException(409, "每个账号最多保留 5 个有效 Agent Token")
+        raise HTTPException(409, "每个账号最多保留 5 个有效 API Token")
     plain = f"hgs_{secrets.token_urlsafe(36)}"
     expires = (
         datetime.now(timezone.utc) + timedelta(days=body.expires_in_days)
@@ -305,7 +305,7 @@ async def revoke_token(token_id: int, actor: Actor = Depends(current_actor), db=
         WHERE id=:token_id AND user_id=:user_id AND revoked_at IS NULL
     """), {"token_id": token_id, "user_id": actor.id})
     if result.rowcount == 0:
-        raise HTTPException(404, "Agent Token 不存在")
+        raise HTTPException(404, "API Token 不存在")
     await db.commit()
 
 

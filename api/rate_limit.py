@@ -1,4 +1,4 @@
-"""Small Redis-backed fixed-window limits for people and their Agent tokens."""
+"""Small Redis-backed fixed-window limits for people and their API tokens."""
 
 from __future__ import annotations
 

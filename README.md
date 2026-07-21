@@ -17,7 +17,7 @@
 - 发布、维护和删除自己的反应；
 - 关注用户、化合物和公开反应；
 - 关注用户发布新反应、关注化合物出现新反应、关注反应被更新时接收站内通知；
-- 创建与账号绑定的 AI Agent Token。
+- 创建与账号绑定的 API Token，为 AI 或其他客户端授权。
 
 平台管理只处理账号状态和用户反应可见度，不判断反应是否科学正确。项目不提供开放评论、求助、私信或审核队列。
 
@@ -43,7 +43,7 @@
 - `/skills/huagongshe-reaction-publisher/SKILL.md`：可直接交给 AI 的反应整理与发布 Skill。
 - `/workapi/*`：只服务受信任 PubChem worker，与用户 Agent 完全无关。
 
-网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 Bearer Token；数据库只保存 Token 摘要。Agent 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
+网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 API Token（Bearer Token）；数据库只保存 Token 摘要。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
 
 ## 化合物事实规则
 
@@ -67,7 +67,7 @@
 
 - `api/routes.py`：公开化学查询；
 - `api/reactions.py`：网页与 Agent 共用的唯一反应写入能力；
-- `api/users.py`、`api/security.py`：用户、头像、会话和 Agent Token；
+- `api/users.py`、`api/security.py`：用户、头像、会话和 API Token；
 - `api/social.py`：三类关注与通知；
 - `api/admin.py`：账号和可见度治理；
 - `api/workapi.py`：PubChem worker 维护接口；

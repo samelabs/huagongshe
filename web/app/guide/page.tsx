@@ -15,7 +15,7 @@ export default function GuidePage() {
       <p>网页、文献、专利、实验文档或图片都可以作为起点。AI 负责整理结构和字段，你确认事实与可见性，化工社负责校验、建立 HCID 关联并生成 HRID。</p>
       <div className="guide-actions">
         <Link className="button primary" href="/submit">网页发布</Link>
-        <Link className="button secondary" href="/me/settings">创建 Agent Token</Link>
+        <Link className="button secondary" href="/me/settings/api-tokens">创建 API Token</Link>
       </div>
     </header>
 
@@ -41,17 +41,17 @@ export default function GuidePage() {
         <p>Skill 为支持技能文件的 AI 提供稳定工作流：读取实时 OpenAPI、保留来源、不编造事实、请求用户确认、验证后幂等提交。</p>
         <div className="guide-actions">
           <a className="button primary" href="/skills/huagongshe-reaction-publisher/SKILL.md" download>下载 SKILL.md</a>
-          <a className="button secondary" href="/api/agent-guide" target="_blank" rel="noreferrer">查看 Agent 契约</a>
+          <a className="button secondary" href="/api/agent-guide" target="_blank" rel="noreferrer">查看 AI 接口规则</a>
         </div>
       </div>
       <div className="skill-install">
         <strong>使用方法</strong>
         <ol>
-          <li>在“账号与 Agent”创建 Token；明文只保存一次。</li>
+          <li>在账户设置中创建 API Token；明文只显示一次。</li>
           <li>把 SKILL.md 放入 AI 的技能目录，或直接把文件发给 AI。</li>
           <li>提供资料并调用该 Skill；正式发布前由 AI 向你确认。</li>
         </ol>
-        <p>Token 仅用于查询、验证和创建。反应的编辑、可见性调整与删除由用户在化工社网页完成。</p>
+        <p>API Token 当前用于查询、验证和创建。反应的编辑、可见性调整与删除由用户在化工社网页完成。</p>
       </div>
     </section>
 

@@ -37,8 +37,8 @@ export default async function Home() {
         )}
       </section>
       <section className="home-contribute">
-        <div><strong>建立自己的反应仓库</strong><p>从网页表单发布，或让 AI 从文献和实验文档中整理。你可以持续编辑、调整公开范围或删除自己的反应。</p></div>
-        <div><Link className="button primary small" href="/submit">发布反应</Link><Link className="text-button" href="/guide">AI 提交指南</Link></div>
+        <div><span>AI-ASSISTED</span><strong>让 AI 参与反应数据维护</strong><p>把网页、文献、专利或实验文档交给 AI。AI 使用你的 API Token 查询、校验并提交结构化反应；你在个人仓库继续编辑、调整公开范围或删除。</p></div>
+        <Link className="text-button" href="/guide">查看 AI 使用指南 →</Link>
       </section>
     </div>
   );

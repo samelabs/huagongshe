@@ -1,6 +1,6 @@
 ---
 name: huagongshe-reaction-publisher
-description: Extract and normalize chemical reactions from webpages, DOI or patent pages, PDFs, Word files, images, or pasted text, then validate and submit them to the user's Huagongshe reaction repository. Use when an AI agent needs to turn source material into a structured reaction, check chemical structures, preserve evidence, ask the user about missing facts, or publish through the Huagongshe Agent API.
+description: Extract and normalize chemical reactions from webpages, DOI or patent pages, PDFs, Word files, images, or pasted text, then validate and submit them to the user's Huagongshe reaction repository. Use when an AI agent needs to turn source material into a structured reaction, check chemical structures, preserve evidence, ask the user about missing facts, or publish through the Huagongshe API.
 ---
 
 # Publish reactions to Huagongshe
@@ -10,7 +10,7 @@ Use `https://huagongshe.com/api` as the API base. Read these live contracts befo
 - `GET /agent-guide` for behavioral rules and limits.
 - `GET /openapi.json` for current request and response schemas.
 
-Require a user-created Agent Token and send it as `Authorization: Bearer <token>`. Never print, store in source files, or send the token anywhere except `https://huagongshe.com`.
+Require a user-created API Token and send it as `Authorization: Bearer <token>`. Never print, store in source files, or send the token anywhere except `https://huagongshe.com`.
 
 ## Workflow
 
@@ -50,5 +50,5 @@ Use one `source_type`:
 - Let the API perform final RDKit canonicalization and chemical matching.
 - Do not create duplicate participant entries with the same role and canonical structure.
 - Do not make a reaction public without explicit user confirmation.
-- The current Agent Token supports query, validation, and creation. Direct the user to the website to edit, change visibility, or delete a reaction.
+- The current API Token supports query, validation, and creation. Direct the user to the website to edit, change visibility, or delete a reaction.
 - Stop and explain the unresolved field when the source cannot support an accurate submission.

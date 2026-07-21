@@ -138,8 +138,7 @@ export function UserDashboard() {
         <h1>{user.display_name}</h1>
         <p className="dashboard-purpose">发布、维护和管理属于你的结构化反应。</p>
         <div className="profile-actions">
-          <Link className="button primary" href="/submit">＋ 发布新反应</Link>
-          <Link className="button secondary" href="/me/settings">账号设置</Link>
+          <Link className="button secondary" href="/me/settings">账户设置</Link>
           <Link className="text-button" href={`/user/${encodeURIComponent(user.username)}`}>查看公开主页</Link>
         </div>
       </div>
@@ -190,7 +189,7 @@ function Overview({ reactions, reactionCounts, reactionState, followed, followSt
 }) {
   const unread = notices.filter((item) => !item.read_at).length;
   return <>
-    <div className="dashboard-panel-heading"><div><p>OVERVIEW</p><h2>概览</h2></div><Link href="/submit">发布反应</Link></div>
+    <div className="dashboard-panel-heading"><div><p>OVERVIEW</p><h2>概览</h2></div></div>
     <div className="dashboard-stats">
       <button onClick={() => onOpen("public")}><strong>{reactionState === "ready" ? reactionCounts.public : "—"}</strong><span>公开反应</span></button>
       <button onClick={() => onOpen("private")}><strong>{reactionState === "ready" ? reactionCounts.private : "—"}</strong><span>私有反应</span></button>

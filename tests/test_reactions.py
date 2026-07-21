@@ -89,6 +89,8 @@ class ReactionContractTests(unittest.TestCase):
         source = inspect.getsource(reactions.agent_guide)
         self.assertIn("huagongshe-reaction-publisher/SKILL.md", source)
         self.assertIn("用户确认后携带唯一 Idempotency-Key", source)
+        self.assertIn("用户创建的 API Token", source)
+        self.assertNotIn("Agent Token", source)
 
 
 if __name__ == "__main__":

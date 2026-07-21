@@ -266,7 +266,7 @@ async def create_reaction(
     await enforce("reaction-write-minute", str(actor.id), settings.api_reaction_write_limit_per_minute, 60)
     await enforce("reaction-write-day", str(actor.id), settings.api_reaction_write_limit_per_day, 86400)
     if actor.auth_kind == "agent" and not idempotency_key:
-        raise HTTPException(400, "AI Agent 提交必须提供 Idempotency-Key")
+        raise HTTPException(400, "使用 API Token 提交必须提供 Idempotency-Key")
     if idempotency_key and len(idempotency_key) > 200:
         raise HTTPException(400, "Idempotency-Key 不能超过 200 个字符")
     if idempotency_key:
@@ -317,7 +317,7 @@ async def update_reaction(
     reaction_id: int, body: ReactionBody, actor: Actor = Depends(current_actor), db=Depends(get_db)
 ):
     if actor.auth_kind == "agent":
-        raise HTTPException(403, "Agent Token 当前不开放反应编辑，请使用网页登录会话")
+        raise HTTPException(403, "API Token 当前不开放反应编辑，请使用网页登录会话")
     await enforce("reaction-write-minute", str(actor.id), settings.api_reaction_write_limit_per_minute, 60)
     current = (await db.execute(text("""
         SELECT created_by_user_id,visibility FROM chemistry.reactions WHERE id=:id FOR UPDATE
@@ -377,7 +377,7 @@ async def update_reaction(
 @router.delete("/reactions/{reaction_id}", status_code=204)
 async def delete_reaction(reaction_id: int, actor: Actor = Depends(current_actor), db=Depends(get_db)):
     if actor.auth_kind == "agent":
-        raise HTTPException(403, "Agent Token 当前不开放反应删除，请使用网页登录会话")
+        raise HTTPException(403, "API Token 当前不开放反应删除，请使用网页登录会话")
     record = (await db.execute(text("""
         SELECT created_by_user_id,visibility,moderation_status
         FROM chemistry.reactions WHERE id=:id FOR UPDATE
@@ -477,7 +477,7 @@ async def agent_guide():
         "purpose": "帮助用户查询化学数据并提交属于该用户的结构化反应",
         "help_url": "https://huagongshe.com/guide",
         "skill_url": "https://huagongshe.com/skills/huagongshe-reaction-publisher/SKILL.md",
-        "authentication": "Authorization: Bearer <用户创建的 Agent Token>",
+        "authentication": "Authorization: Bearer <用户创建的 API Token>",
         "workflow": [
             "读取用户提供的网页、文档、图片或文本并保留来源证据",
             "只整理明确事实；结构有歧义或必要字段缺失时向用户确认",
@@ -493,7 +493,7 @@ async def agent_guide():
             "公开提交前必须确认用户希望 visibility=public；否则使用 private。",
             "正式提交必须发送唯一 Idempotency-Key，重试时复用同一个值。",
             "先调用 POST /api/reactions/validate，再调用 POST /api/reactions。",
-            "Agent Token 当前只用于查询、验证和创建；编辑、可见性调整与删除由用户在网页完成。",
+            "API Token 当前只用于查询、验证和创建；编辑、可见性调整与删除由用户在网页完成。",
         ],
         "source_types": {
             "self": "用户本人实验", "doi": "必须提供 doi", "patent": "必须提供 patent",
