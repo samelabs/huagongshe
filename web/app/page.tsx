@@ -13,7 +13,7 @@ export default async function Home() {
     <div className="home">
       <section className="hero">
         <h1>AI化学开放数据</h1>
-        <GlobalSearch autoFocus />
+        <GlobalSearch />
         <div className="search-examples" aria-label="查询示例">
           <span>试试</span>
           <Link href="/search?q=64-17-5">64-17-5</Link>

@@ -9,6 +9,7 @@
 - PubChem worker 形成“本地闭环 + 受信任 `/workapi` 写回”机制，不修改 HCID、PubChem CID 或标准 SMILES。
 - 前端围绕化合物、反应、用户仓库与 AI 提交重构，品牌统一为 `huagongshe.com`。
 - 完成核心查询可靠性收口：限制分页和结构检索范围，化合物页面使用有界详情投影，缓存故障不影响数据库写入结果，RDKit 与图片处理移出 API 事件循环。
+- 修复首页搜索框的移动端聚焦溢出：取消强制自动聚焦，保持 16px 输入字号以避免 iOS Safari 自动缩放，并固定查询按钮的可见宽度。
 - 生产路径固定为 `/var/www/huagongshe`；服务为 `huagongshe-api`、`huagongshe-web`、`huagongshe-pubchem-worker`，前端运行 Next.js standalone。
 
 ### 当前基线

@@ -81,7 +81,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .hero { padding: clamp(72px, 11vh, 112px) 0 62px; text-align: center; }
 .hero h1 { margin: 0; font-size: clamp(29px, 4vw, 40px); font-weight: 600; line-height: 1.28; letter-spacing: -.012em; }
 .hero h1 + .global-search { margin-top: 27px; }
-.global-search { width: min(690px, 100%); min-height: 54px; margin: auto; border: 1px solid var(--line-strong); border-radius: 9px; display: flex; background: white; box-shadow: 0 12px 34px rgba(30,66,117,.09); overflow: hidden; }
+.global-search { width: min(690px, 100%); max-width: 100%; min-width: 0; min-height: 54px; margin: auto; border: 1px solid var(--line-strong); border-radius: 9px; display: flex; background: white; box-shadow: 0 12px 34px rgba(30,66,117,.09); overflow: hidden; }
 .global-search:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(23,105,224,.1), 0 16px 45px rgba(30,66,117,.11); }
 .global-search input { width: 0; min-width: 0; flex: 1; border: 0; outline: 0; padding: 0 17px; color: var(--ink); font-size: 15px; }
 .global-search input::placeholder { color: #9aa4b4; }
@@ -482,9 +482,9 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   .hero { padding: 58px 0 46px; }
   .hero h1 { font-size: clamp(28px, 8.5vw, 36px); }
   .hero h1 + .global-search { margin-top: 22px; }
-  .global-search { min-height: 50px; }
-  .global-search input { padding: 0 12px; font-size: 13px; }
-  .global-search button { padding: 0 14px; font-size: 12px; }
+  .global-search { width: 100%; min-height: 50px; }
+  .global-search input { padding: 0 12px; font-size: 16px; }
+  .global-search button { min-width: 62px; padding: 0 13px; font-size: 12px; }
   .home-meta { padding: 28px 0 38px; }
   .home-stats { gap: 12px; }
   .home-contribute { margin-bottom: 42px; padding: 18px; align-items: stretch; flex-direction: column; gap: 15px; }

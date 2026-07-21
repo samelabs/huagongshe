@@ -3,9 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function GlobalSearch({ initial = "", autoFocus = false, compact = false }: {
+export function GlobalSearch({ initial = "", compact = false }: {
   initial?: string;
-  autoFocus?: boolean;
   compact?: boolean;
 }) {
   const router = useRouter();
@@ -24,7 +23,6 @@ export function GlobalSearch({ initial = "", autoFocus = false, compact = false 
         onChange={(event) => setQuery(event.target.value)}
         placeholder="名称、CAS、SMILES、CID、ORD 记录号或 DOI"
         autoComplete="off"
-        autoFocus={autoFocus}
       />
       <button type="submit">查询</button>
     </form>
