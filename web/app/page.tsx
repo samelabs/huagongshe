@@ -38,7 +38,7 @@ export default async function Home() {
         )}
       </section>
       <section className="home-contribute">
-        <div><span>AI 辅助</span><strong>让 AI 帮你整理反应资料</strong><p>从文献、专利或实验记录中提取反应结构和条件，整理结果保存在你的个人反应库，方便随时查找和维护。</p></div>
+        <div><span>AI 辅助</span><strong>让 AI 帮你整理反应资料</strong><p>从文献、专利或实验记录中提取反应结构和条件，整理结果保存在你的个人反应库。数据由你管理，可设为仅自己可见，API Token 可随时撤销。</p></div>
         <Link className="text-button" href="/guide">查看 AI 使用方法 →</Link>
       </section>
     </div>

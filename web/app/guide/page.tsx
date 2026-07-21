@@ -13,6 +13,7 @@ export default function GuidePage() {
       <p className="page-kicker">GUIDE</p>
       <h1>用 AI 整理你的反应资料</h1>
       <p>AI 可以从文献、专利、实验记录或网页中整理反应条目。你核对后保存到个人反应库，数据由你自己管理。</p>
+      <div className="guide-security-note"><strong>数据安全</strong><span>反应可设为仅自己可见；API Token 仅用于你的授权操作，并可随时撤销。</span></div>
       <div className="guide-actions">
         <Link className="button primary" href="/me/settings/api-tokens">使用 AI 整理</Link>
         <Link className="button secondary" href="/submit">手动填写</Link>
@@ -49,11 +50,11 @@ export default function GuidePage() {
     </details>
 
     <section className="guide-section ownership-guide">
-      <div className="section-heading"><div><p>YOUR DATA</p><h2>管理你的反应</h2></div></div>
+      <div className="section-heading"><div><p>你的数据</p><h2>安全保存，自主管理</h2></div></div>
       <div className="guide-principles">
-        <article><strong>保存到个人反应库</strong><p>整理后的反应归入你的账号，形成自己的数据档案。</p></article>
-        <article><strong>由你持续维护</strong><p>你可以随时编辑、管理或删除自己保存的反应。</p></article>
-        <article><strong>来源始终保留</strong><p>来源随反应保存；资料中没有的信息保持为空。</p></article>
+        <article><strong>可设为仅自己可见</strong><p>可见范围由你选择，私有反应仅当前账号可以查看。</p></article>
+        <article><strong>授权随时可撤销</strong><p>API Token 仅显示一次；不再使用时可在个人中心撤销。</p></article>
+        <article><strong>数据由你管理</strong><p>你可以随时编辑或删除自己保存的反应，来源信息随记录保留。</p></article>
       </div>
     </section>
   </div>;

@@ -418,6 +418,8 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .guide-hero { max-width: 820px; padding: 30px 0 34px; }
 .guide-hero h1 { margin: 0; font-size: clamp(30px,4.2vw,42px); font-weight: 600; line-height: 1.28; letter-spacing: -.012em; }
 .guide-hero > p:not(.page-kicker) { max-width: 760px; margin: 18px 0 0; color: var(--muted); font-size: 15px; line-height: 1.8; }
+.guide-security-note { width: fit-content; margin-top: 18px; border-left: 2px solid var(--blue); padding: 3px 0 3px 12px; display: flex; flex-wrap: wrap; gap: 5px 10px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.guide-security-note strong { color: #385879; }
 .guide-actions { margin-top: 22px; display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
 .guide-section { border-top: 1px solid var(--line); padding: 48px 0; }
 .guide-steps { margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 13px; list-style: none; counter-reset: steps; }
