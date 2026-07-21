@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     avatar_root: str = "/var/lib/huagongshe/uploads/avatars"
     avatar_max_bytes: int = 5 * 1024 * 1024
     api_query_limit_per_minute: int = 60
+    api_render_limit_per_minute: int = 120
     api_structure_limit_per_minute: int = 20
     api_reaction_write_limit_per_minute: int = 10
     api_reaction_write_limit_per_day: int = 200

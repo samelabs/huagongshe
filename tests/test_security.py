@@ -36,6 +36,12 @@ class SessionBoundaryTests(unittest.TestCase):
         ):
             self.assertIn("Depends(current_session)", inspect.getsource(endpoint))
 
+    def test_rendering_has_an_independent_bounded_rate_budget(self) -> None:
+        middleware = __import__("api.main", fromlist=["public_api_rate_limit"]).public_api_rate_limit
+        source = inspect.getsource(middleware)
+        self.assertIn('bucket = "api-render" if is_render else "api"', source)
+        self.assertIn("api_render_limit_per_minute", source)
+
 
 if __name__ == "__main__":
     unittest.main()

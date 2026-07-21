@@ -56,9 +56,14 @@ async def public_api_rate_limit(request, call_next):
         "/api/health", "/api/openapi.json", "/api/docs", "/api/redoc",
     } or is_loopback_host(request.client.host if request.client else None):
         return await call_next(request)
+    is_render = request.url.path == "/api/mol/svg" or (
+        request.url.path.startswith("/api/reactions/") and request.url.path.endswith("/svg")
+    )
+    bucket = "api-render" if is_render else "api"
+    limit = settings.api_render_limit_per_minute if is_render else settings.api_query_limit_per_minute
     try:
         remaining, reset, allowed = await consume(
-            "api", request_identity(request), settings.api_query_limit_per_minute, 60
+            bucket, request_identity(request), limit, 60
         )
     except Exception:
         return await call_next(request)
@@ -68,7 +73,7 @@ async def public_api_rate_limit(request, call_next):
             headers={"Retry-After": str(max(reset - int(__import__('time').time()), 1))},
         )
     response = await call_next(request)
-    response.headers["X-RateLimit-Limit"] = str(settings.api_query_limit_per_minute)
+    response.headers["X-RateLimit-Limit"] = str(limit)
     response.headers["X-RateLimit-Remaining"] = str(remaining)
     response.headers["X-RateLimit-Reset"] = str(reset)
     return response
