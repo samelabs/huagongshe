@@ -32,7 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <div className="header-inner">
               <Link href="/" className="brand" aria-label="huagongshe.com 首页">
                 <Image src="/logo.png" alt="" width={28} height={28} priority />
-                <span>huagongshe.com</span>
+                <span className="brand-domain"><span>huagongshe</span><span>.com</span></span>
               </Link>
               <HeaderAccount />
             </div>
