@@ -36,10 +36,11 @@ h2, h3 { font-weight: var(--section-weight); }
 
 .site-header { position: sticky; z-index: 30; top: 0; border-bottom: 1px solid rgba(223,229,238,.9); background: rgba(255,255,255,.95); backdrop-filter: blur(12px); }
 .header-inner { width: min(var(--max), calc(100% - 40px)); min-width: 0; height: 64px; margin: 0 auto; display: flex; align-items: center; }
-.brand { display: inline-flex; align-items: center; gap: 9px; }
-.brand img { flex: 0 0 auto; }
-.brand-domain { display: inline-flex; align-items: baseline; color: var(--blue-deep); font-size: 16px; font-weight: 650; letter-spacing: -.018em; line-height: 1; }
-.brand-domain > span:last-child { color: #6f87a6; font-size: .88em; font-weight: 520; letter-spacing: -.01em; }
+.brand { display: inline-flex; align-items: center; gap: 8px; }
+.brand img { flex: 0 0 auto; width: 28px; height: 28px; }
+.brand-domain { display: inline-flex; align-items: baseline; color: #315f94; font-family: "Avenir Next", "Segoe UI Variable", var(--font-ui); font-size: 15.5px; line-height: 1; letter-spacing: .002em; transform: translateY(-.5px); }
+.brand-domain > span:first-child { font-weight: 650; }
+.brand-domain > span:last-child { color: #58789d; font-weight: 430; }
 nav[aria-label="主导航"] { min-width: 0; margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 22px; color: var(--muted); font-size: 13px; white-space: nowrap; }
 nav[aria-label="主导航"] > a:hover { color: var(--blue); }
 .login-link { border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 13px; color: var(--ink); }
@@ -492,7 +493,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   .header-inner, .content-page, .home, .auth-page { width: min(100% - 28px, var(--max)); }
   .header-inner { height: 58px; }
   .brand { min-width: 0; gap: 7px; }
-  .brand-domain { font-size: 14px; }
+  .brand-domain { font-size: 14.5px; }
   .brand img { width: 24px; height: 24px; }
   nav[aria-label="主导航"] { gap: 8px; font-size: 12px; }
   .guide-full { display: none; }
@@ -607,7 +608,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 
 @media (max-width: 420px) {
   .header-inner { width: calc(100% - 20px); }
-  .brand-domain { font-size: 13px; }
+  .brand-domain { font-size: 13.5px; }
   nav[aria-label="主导航"] { gap: 6px; }
   .nav-guide { display: none; }
   .nav-contribute { padding: 0 8px; }
