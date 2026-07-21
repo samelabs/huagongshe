@@ -13,6 +13,7 @@ export default async function Home() {
     <div className="home">
       <section className="hero">
         <h1>AI化学开放数据</h1>
+        <p className="hero-subtitle">让 AI 帮你快速建立和管理化学数据</p>
         <GlobalSearch />
         <div className="search-examples" aria-label="查询示例">
           <span>试试</span>
