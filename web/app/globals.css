@@ -387,6 +387,7 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .token-create { display: grid; grid-template-columns: 1fr 160px auto; }
 .token-secret { margin-top: 15px; border: 1px solid #e2c878; padding: 13px; display: grid; gap: 8px; background: #fffbed; font-size: 11px; }
 .token-secret > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.token-actions { display: flex; align-items: center; gap: 7px; }
 .token-secret code { overflow-wrap: anywhere; color: var(--danger); }
 .token-secret > span { color: var(--muted); font-size: 10px; }
 .token-list { margin-top: 18px; border-top: 1px solid var(--line); }
@@ -532,6 +533,8 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
   .settings-nav a { flex: 0 0 auto; }
   .settings-cards a { grid-template-columns: 105px 1fr auto; gap: 10px; }
   .token-create { grid-template-columns: 1fr; }
+  .token-secret > div { align-items: stretch; flex-direction: column; }
+  .token-actions { align-items: stretch; flex-direction: column; }
   .avatar-upload { align-items: stretch; flex-direction: column; }
   .admin-table article { grid-template-columns: 1fr auto; }
   .admin-table article > button { grid-column: 2; }

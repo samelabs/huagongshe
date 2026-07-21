@@ -9,7 +9,7 @@ from rdkit import Chem
 from sqlalchemy import text
 
 from .cache import cache_get, cache_set
-from .chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE, canonicalize_smiles
+from .chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE, canonicalize_smiles, normalize_doi
 from .config import settings
 from .database import get_db
 from .enrichment import (
@@ -41,6 +41,7 @@ CHEMICAL_SELECT = """
     c.unii_codes, c.chebi_ids
 """
 MIN_SUBSTRUCTURE_HEAVY_ATOMS = 4
+MIN_FUZZY_NAME_LENGTH = 3
 
 
 def bounded_substructure_smiles(smiles: str) -> str:
@@ -148,24 +149,70 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
     value = raw_value.strip() if sep else query
     normalized_prefix = prefix.strip().lower() if sep else ""
 
+    doi_candidate = value if (
+        (normalized_prefix == "doi" and value)
+        or (not sep and query.lower().startswith("10.") and "/" in query)
+    ) else None
+    doi_value = normalize_doi(doi_candidate)
+    if normalized_prefix == "doi" and not doi_value:
+        raise HTTPException(400, "DOI 格式不正确")
+
+    if doi_value:
+        rows = (await db.execute(text("""
+            (
+            SELECT
+              rx.id,rx.reaction_smiles,NULL::text AS ord_id,
+              COALESCE(NULLIF(rx.source_citation,''),'用户发布') AS dataset_name,
+              rx.doi,rx.patent,'doi' AS match_basis
+            FROM chemistry.reactions rx
+            WHERE lower(rx.doi)=:doi
+              AND rx.visibility='public' AND rx.moderation_status='visible'
+            ORDER BY rx.id
+            LIMIT :limit
+            )
+            UNION ALL
+            (
+            SELECT
+              rx.id,rx.reaction_smiles,o.reaction_id,d.name,
+              rp.doi,COALESCE(rx.patent,rp.patent),'doi' AS match_basis
+            FROM (
+              SELECT reaction_id,doi,patent
+              FROM ord.reaction_provenance
+              WHERE lower(doi)=:doi
+              ORDER BY reaction_id,id
+              LIMIT :limit
+            ) rp
+            JOIN ord.reaction o ON o.id=rp.reaction_id
+            JOIN ord.reaction_map lm ON lm.ord_reaction_id=o.id
+            JOIN chemistry.reactions rx ON rx.id=lm.reaction_id
+            LEFT JOIN ord.dataset d ON d.id=o.dataset_id
+            WHERE rx.visibility='public' AND rx.moderation_status='visible'
+            ORDER BY rx.id
+            )
+            ORDER BY 1
+            LIMIT :limit
+        """), {"doi": doi_value, "limit": params["limit"]})).fetchall()
+        return [
+            {
+                "id": row[0], "reaction_smiles": row[1], "ord_id": row[2],
+                "dataset_name": row[3], "doi": row[4], "patent": row[5],
+                "match_basis": row[6],
+            }
+            for row in rows
+        ]
+
     if normalized_prefix in {"reaction", "rxn"} and value.isdigit():
         clauses.append("rx.id=:reaction_id")
         params["reaction_id"] = int(value)
     elif normalized_prefix == "ord" and value:
         clauses.append("o.reaction_id=:source_id")
         params["source_id"] = value if value.lower().startswith("ord-") else f"ord-{value}"
-    elif normalized_prefix == "doi" and value:
-        clauses.append("COALESCE(rx.doi,rp.doi)=:doi")
-        params["doi"] = value
     elif query.isdigit():
         clauses.append("rx.id=:reaction_id")
         params["reaction_id"] = int(query)
     elif query.lower().startswith("ord-"):
         clauses.append("o.reaction_id=:source_id")
         params["source_id"] = query
-    elif query.lower().startswith("10.") and "/" in query:
-        clauses.append("COALESCE(rx.doi,rp.doi)=:doi")
-        params["doi"] = query
     if not clauses:
         return []
 
@@ -254,6 +301,8 @@ async def search(
     chemicals: list[dict[str, Any]] = []
     limit = min(page_size, 30)
     try:
+        if mode == "exact":
+            await db.execute(text("SET LOCAL statement_timeout = '5s'"))
         if mode == "substructure":
             if not canonical:
                 raise HTTPException(400, "无法识别该 SMILES 结构")
@@ -304,7 +353,7 @@ async def search(
                 elif INCHIKEY_RE.fullmatch(query.upper()):
                     clauses.append("c.inchikey = :uq")
                 elif DTXSID_RE.fullmatch(query):
-                    clauses.append("upper(c.dtxsid) = :uq")
+                    clauses.append("c.dtxsid = :uq")
                 elif query.upper().startswith("CHEMBL"):
                     clauses.append("c.chembl_ids @> ARRAY[:q]")
                 elif query.upper().startswith("CHEBI:"):
@@ -321,7 +370,7 @@ async def search(
                     WHERE {' OR '.join(clauses)}
                     ORDER BY c.id LIMIT :limit
                 """, params)
-            if not chemicals and not canonical and len(query) >= 2:
+            if not chemicals and not canonical and len(query) >= MIN_FUZZY_NAME_LENGTH:
                 # Keep the two trigram indexes independent. A cross-column OR on
                 # 124M rows is both slower and less predictable than two bounded scans.
                 chemicals = await fetch_chemicals(db, f"""
@@ -340,13 +389,16 @@ async def search(
                     seen = {item["id"] for item in chemicals}
                     chemicals.extend(item for item in secondary if item["id"] not in seen)
                     chemicals = chemicals[:limit]
+            elif not chemicals and not canonical and len(query) < MIN_FUZZY_NAME_LENGTH:
+                raise HTTPException(422, "名称查询至少需要 3 个字符")
+
+        reactions = await reaction_lookup(db, query, page_size) if mode == "exact" else []
     except HTTPException:
         raise
     except Exception as exc:
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
 
-    reactions = await reaction_lookup(db, query, page_size) if mode == "exact" else []
     data: dict[str, Any] = {
         "query": query, "mode": mode, "canonical_smiles": canonical,
         "chemicals": chemicals, "reactions": reactions, "page_size": page_size,

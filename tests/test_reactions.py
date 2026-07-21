@@ -38,6 +38,12 @@ class ReactionContractTests(unittest.TestCase):
             body(source_type="doi")
         self.assertEqual(body(source_type="doi", doi="10.1000/example").doi, "10.1000/example")
 
+    def test_doi_is_normalized_for_storage(self) -> None:
+        self.assertEqual(
+            body(source_type="doi", doi="https://doi.org/10.1039/C8SC04228D").doi,
+            "10.1039/c8sc04228d",
+        )
+
     def test_unknown_optional_facts_can_stay_empty(self) -> None:
         value = body()
         self.assertIsNone(value.procedure_details)
@@ -87,7 +93,9 @@ class ReactionContractTests(unittest.TestCase):
 
     def test_agent_guide_links_the_public_skill_and_confirmation_flow(self) -> None:
         source = inspect.getsource(reactions.agent_guide)
-        self.assertIn("huagongshe-reaction-publisher/SKILL.md", source)
+        self.assertIn("optional_skill_url", source)
+        self.assertIn("openapi_url", source)
+        self.assertIn("本入口和 OpenAPI 即可完成接入", source)
         self.assertIn("用户确认后携带唯一 Idempotency-Key", source)
         self.assertIn("用户创建的 API Token", source)
         self.assertNotIn("Agent Token", source)

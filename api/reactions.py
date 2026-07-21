@@ -12,7 +12,7 @@ from rdkit.Chem import Descriptors, rdChemReactions, rdMolDescriptors
 from sqlalchemy import text
 
 from .cache import cache_delete
-from .chemistry import canonicalize_smiles
+from .chemistry import canonicalize_smiles, normalize_doi
 from .config import settings
 from .database import get_db
 from .rate_limit import enforce
@@ -68,13 +68,23 @@ class ReactionBody(BaseModel):
 
     @field_validator(
         "procedure_details", "conditions_detail", "atmosphere", "pressure_unit",
-        "workup_details", "safety_notes", "doi", "patent", "source_url",
+        "workup_details", "safety_notes", "patent", "source_url",
         "source_citation", "note",
     )
     @classmethod
     def clean_text(cls, value: str | None) -> str | None:
         result = (value or "").strip()
         return result or None
+
+    @field_validator("doi")
+    @classmethod
+    def clean_doi(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        normalized = normalize_doi(value)
+        if not normalized:
+            raise ValueError("DOI 格式不正确")
+        return normalized
 
     @model_validator(mode="after")
     def validate_reaction(self):
@@ -475,9 +485,17 @@ async def agent_guide():
     return {
         "api_version": settings.api_version,
         "purpose": "帮助用户查询化学数据并提交属于该用户的结构化反应",
+        "api_base_url": "https://huagongshe.com/api",
+        "openapi_url": "https://huagongshe.com/api/openapi.json",
         "help_url": "https://huagongshe.com/guide",
-        "skill_url": "https://huagongshe.com/skills/huagongshe-reaction-publisher/SKILL.md",
+        "optional_skill_url": "https://huagongshe.com/skills/huagongshe-reaction-publisher/SKILL.md",
         "authentication": "Authorization: Bearer <用户创建的 API Token>",
+        "navigation": [
+            {"purpose": "查询化合物或反应", "method": "GET", "path": "/api/search"},
+            {"purpose": "校验反应草稿", "method": "POST", "path": "/api/reactions/validate"},
+            {"purpose": "发布已确认的反应", "method": "POST", "path": "/api/reactions"},
+            {"purpose": "读取用户反应库", "method": "GET", "path": "/api/users/me/reactions"},
+        ],
         "workflow": [
             "读取用户提供的网页、文档、图片或文本并保留来源证据",
             "只整理明确事实；结构有歧义或必要字段缺失时向用户确认",
@@ -487,6 +505,7 @@ async def agent_guide():
             "向用户返回 HRID、页面 URL、可见性和新建 HCID",
         ],
         "rules": [
+            "本入口和 OpenAPI 即可完成接入；Skill 仅用于为支持技能的 AI 固定行为约束。",
             "提交前应查询并核对参与物；系统最终仍会按标准结构匹配或创建 HCID。",
             "不得编造 SMILES、来源、条件、收率或实验过程；未知值应省略。",
             "至少提供一个反应物、一个产物和明确的 source_type。",

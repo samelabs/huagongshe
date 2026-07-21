@@ -295,7 +295,13 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_actor), d
         "expires_at": expires,
     })).mappings().one()
     await db.commit()
-    return {**dict(row), "token": plain}
+    return {
+        **dict(row),
+        "token": plain,
+        "api_base_url": "https://huagongshe.com/api",
+        "agent_guide_url": "https://huagongshe.com/api/agent-guide",
+        "openapi_url": "https://huagongshe.com/api/openapi.json",
+    }
 
 
 @router.delete("/me/tokens/{token_id}", status_code=204)
