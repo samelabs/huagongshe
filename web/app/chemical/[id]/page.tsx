@@ -63,7 +63,7 @@ export default async function ChemicalPage({ params, searchParams }: {
           </div>
           <div className="context-actions">
             <FollowButton endpoint={`/api/chemicals/${chemical.id}/follow`} initial={Boolean(chemical.is_following)} count={chemical.follower_count || 0} />
-            <Link className="button primary" href="#reactions">查看参与反应</Link>
+            <Link className="button primary" href="#reactions">查看相关反应</Link>
             <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>子结构检索</Link>
             <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>查找相似结构</Link>
           </div>
@@ -113,8 +113,8 @@ export default async function ChemicalPage({ params, searchParams }: {
           </section>
           <section className="contribute-panel">
             <h2>发布相关反应</h2>
-            <p>该结构将作为反应物预填，并在发布时建立 HCID 关联。</p>
-            <Link href={`/submit?chemical=${chemical.id}`}>以此化合物创建反应</Link>
+            <p>将当前化合物预填为反应物，并自动关联 HCID。</p>
+            <Link href={`/submit?chemical=${chemical.id}`}>创建相关反应</Link>
           </section>
         </aside>
       </div>

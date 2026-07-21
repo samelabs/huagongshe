@@ -16,7 +16,7 @@ export function ChemicalKnowledge({ details, enrichment }: {
   enrichment: EnrichmentState | null | undefined;
 }) {
   if (!details) {
-    return <div className="enrichment-note">扩展信息正在按需补全。核心结构与身份不受影响。</div>;
+    return <div className="enrichment-note">扩展信息尚未完成同步。</div>;
   }
   const available = sections.filter(({ key }) => hasEntries(details[key]));
   return (
@@ -39,7 +39,7 @@ export function ChemicalKnowledge({ details, enrichment }: {
         <EvidenceSection key={key} eyebrow={eyebrow} title={title} block={details[key] as EvidenceBlock} />
       ))}
       {available.length === 0 && enrichment?.status !== "current" && (
-        <div className="enrichment-note">物化、安全与法规信息已进入补全队列，稍后刷新可查看。</div>
+        <div className="enrichment-note">物化、安全与法规信息正在同步。</div>
       )}
     </>
   );
@@ -68,7 +68,7 @@ function EvidenceSection({ eyebrow, title, block }: { eyebrow: string; title: st
   if (!entries.length) return null;
   return (
     <section className="evidence-section">
-      <div className="section-heading compact-heading"><div><p>{eyebrow}</p><h2>{title}</h2></div><span>PubChem 汇集资料</span></div>
+      <div className="section-heading compact-heading"><div><p>{eyebrow}</p><h2>{title}</h2></div><span>来源：PubChem</span></div>
       <div className="evidence-list">{entries.map(([path, values], index) => (
         <details key={`${path}-${index}`} open={index < 3}>
           <summary>{leafLabel(path)}</summary>

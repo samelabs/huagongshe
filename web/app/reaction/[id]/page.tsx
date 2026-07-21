@@ -52,7 +52,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
         {reaction.reaction_smiles ? <div className="reaction-scheme">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={reactionSvgUrl(reaction.id, 1500, 340)} width="1500" height="340" alt={`HRID ${reaction.id} 的结构方程式`} />
-        </div> : <div className="reaction-scheme unavailable">缺少完整反应物或生成物，暂不能生成方程式</div>}
+        </div> : <div className="reaction-scheme unavailable">反应物或生成物不完整，无法生成方程式</div>}
       </section>
 
       <div className="reaction-layout">

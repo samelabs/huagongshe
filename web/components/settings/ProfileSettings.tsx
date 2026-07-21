@@ -22,7 +22,7 @@ export function ProfileSettings() {
   if (!user) return <LoginRequired text="登录后管理公开资料。" />;
 
   return <section className="form-section">
-    <div className="form-section-head"><span>PROFILE</span><div><h2>公开资料</h2><p>展示名称和简介会出现在你的公开主页与反应页面。</p></div></div>
+    <div className="form-section-head"><span>PROFILE</span><div><h2>公开资料</h2><p>展示名称和简介将显示在公开主页和反应页面。</p></div></div>
     <form className="form-fields" onSubmit={async (event) => {
       event.preventDefault();
       const response = await fetch("/api/users/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(profile) });

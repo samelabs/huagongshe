@@ -31,9 +31,9 @@ export function ReactionResult({ reaction }: { reaction: ReactionSummary | React
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={`HRID ${reaction.id} 方程式`} loading="lazy" />
         </Link>
-      ) : <div className="reaction-preview unavailable">缺少完整反应物或生成物，暂不能生成方程式</div>}
+      ) : <div className="reaction-preview unavailable">反应物或生成物不完整，无法生成方程式</div>}
       <div className="reaction-result-foot">
-        <p>{source || "结构数据已入库，来源信息待补全"}</p>
+        <p>{source || "未提供来源信息"}</p>
         <Link href={`/reaction/${reaction.id}`}>查看条件与参与物</Link>
       </div>
     </article>

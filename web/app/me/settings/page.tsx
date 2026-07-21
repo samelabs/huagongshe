@@ -1,10 +1,10 @@
 import Link from "next/link";
 
 const items = [
-  { href: "/me/settings/profile", label: "公开资料", text: "修改展示名称和个人简介。" },
-  { href: "/me/settings/avatar", label: "头像", text: "上传并更新公开头像。" },
-  { href: "/me/settings/security", label: "密码安全", text: "修改密码并使旧会话和 API Token 失效。" },
-  { href: "/me/settings/api-tokens", label: "API Token", text: "授权 AI 或其他客户端访问你的账户能力。" },
+  { href: "/me/settings/profile", label: "公开资料", text: "修改展示名称和简介。" },
+  { href: "/me/settings/avatar", label: "头像", text: "更新公开头像。" },
+  { href: "/me/settings/security", label: "密码安全", text: "修改密码并注销现有凭据。" },
+  { href: "/me/settings/api-tokens", label: "API Token", text: "创建或撤销 API 访问凭据。" },
 ];
 
 export default function SettingsPage() {

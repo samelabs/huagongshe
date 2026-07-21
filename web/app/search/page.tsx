@@ -26,7 +26,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       reactions = data.reactions || [];
     }
   } catch {
-    error = "查询暂时不可用，请稍后重试或缩小结构范围。";
+    error = "查询暂时不可用。请稍后重试，或缩小结构检索范围。";
   }
 
   const relationLabel = mode === "substructure" ? "子结构匹配" : "相似结构";
@@ -58,7 +58,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         </section>
       )}
       {!error && (q || chemicalId) && chemicals.length === 0 && reactions.length === 0 && (
-        <div className="empty-state"><strong>没有找到可确认的记录</strong><p>请检查标识符；你也可以发布包含相关结构的反应。</p><Link className="button secondary" href="/submit">发布反应</Link></div>
+        <div className="empty-state"><strong>没有匹配结果</strong><p>请核对查询内容或更换标识符。</p></div>
       )}
     </div>
   );

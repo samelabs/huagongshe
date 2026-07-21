@@ -102,11 +102,11 @@ export function SubmissionForm() {
     router.push(`/reaction/${body.id}`); router.refresh();
   }
 
-  if (ready && !user) return <div className="auth-required"><div><strong>发布反应需要账号</strong><span>反应将直接归入你的个人仓库。</span></div><Link href="/login">登录或注册</Link></div>;
+  if (ready && !user) return <div className="auth-required"><div><strong>请先登录</strong><span>提交后，反应将保存到你的个人反应库。</span></div><Link href="/login">登录或注册</Link></div>;
 
   return (
     <form className="structured-form" onSubmit={submit} key={details?.updated_at || "new"}>
-      {reactionId && <div className="editing-context"><span>正在维护</span><EntityId kind="reaction" id={reactionId} compact /></div>}
+      {reactionId && <div className="editing-context"><span>正在编辑</span><EntityId kind="reaction" id={reactionId} compact /></div>}
       <section className="form-section">
         <div className="form-section-head"><span>ACCESS</span><div><h2>仓库与来源</h2><p>公开反应可被查询和关注；私有反应仅自己可见。</p></div></div>
         <div className="form-fields two-columns">
@@ -120,7 +120,7 @@ export function SubmissionForm() {
       </section>
 
       <section className="form-section">
-        <div className="form-section-head"><span>STRUCTURE</span><div><h2>参与物与角色</h2><p>每个结构都会匹配已有 HCID；不存在时自动创建化合物身份。</p></div></div>
+        <div className="form-section-head"><span>STRUCTURE</span><div><h2>参与物与角色</h2><p>系统按结构匹配 HCID；未匹配时创建新的 HCID。</p></div></div>
         <div className="participant-editor-cards">
           {participants.map((item) => <article className="participant-input-card" key={item.key}>
             <div className="participant-input-main">
@@ -143,7 +143,7 @@ export function SubmissionForm() {
       </section>
 
       <section className="form-section">
-        <div className="form-section-head"><span>PROCESS</span><div><h2>过程与条件</h2><p>未知信息可以留空，不需要为了完整而猜测。</p></div></div>
+        <div className="form-section-head"><span>PROCESS</span><div><h2>过程与条件</h2><p>仅填写可确认的信息，其余字段留空。</p></div></div>
         <div className="form-fields">
           <label>实验过程<textarea name="procedure_details" rows={7} defaultValue={details?.procedure_details || ""} /></label>
           <div className="condition-fields">
@@ -159,7 +159,7 @@ export function SubmissionForm() {
         </div>
       </section>
       {message && <p className="form-message bad">{message}</p>}
-      <button className="button primary submit-button" disabled={busy || !user}>{busy ? "校验并保存中…" : reactionId ? "保存反应" : "发布到反应仓库"}</button>
+      <button className="button primary submit-button" disabled={busy || !user}>{busy ? "校验并保存中…" : reactionId ? "保存修改" : "发布反应"}</button>
     </form>
   );
 

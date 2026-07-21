@@ -11,7 +11,7 @@ export function AvatarSettings() {
   if (!user) return <LoginRequired text="登录后设置头像。" />;
 
   return <section className="form-section">
-    <div className="form-section-head"><span>AVATAR</span><div><h2>头像</h2><p>图片会自动裁切、移除元数据，并生成压缩 WebP 与缩略图。</p></div></div>
+    <div className="form-section-head"><span>AVATAR</span><div><h2>头像</h2><p>图片将自动裁切、移除元数据并压缩为 WebP。</p></div></div>
     <div className="avatar-settings-preview">{user.avatar_url ? <img src={user.avatar_url} alt="当前头像" /> : <span>{user.display_name.slice(0, 1)}</span>}<div><strong>当前头像</strong><small>支持 JPEG、PNG 和 WebP，最大 5 MB。</small></div></div>
     <form className="avatar-upload" onSubmit={async (event) => {
       event.preventDefault();

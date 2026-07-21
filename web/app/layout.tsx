@@ -7,13 +7,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://huagongshe.com"),
-  title: { default: "化工社｜开放化学数据", template: "%s｜化工社" },
-  description: "查询、补充和维护化合物与化学反应数据。",
+  title: { default: "化工社｜AI化学开放数据", template: "%s｜化工社" },
+  description: "开放查询和维护化合物与化学反应数据。",
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "化工社｜开放化学数据",
-    description: "查询、补充和维护化合物与化学反应数据。",
+    title: "化工社｜AI化学开放数据",
+    description: "开放查询和维护化合物与化学反应数据。",
     url: "/",
     siteName: "化工社",
     locale: "zh_CN",
@@ -39,7 +39,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </AccountProvider>
         <footer>
           <span>huagongshe.com</span>
-          <span>开放数据，共同维护</span>
+          <span>开放化学数据</span>
         </footer>
       </body>
     </html>

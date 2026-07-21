@@ -136,7 +136,7 @@ export function UserDashboard() {
       <div className="dashboard-identity">
         <span>@{user.username}</span>
         <h1>{user.display_name}</h1>
-        <p className="dashboard-purpose">发布、维护和管理属于你的结构化反应。</p>
+        <p className="dashboard-purpose">管理你的公开与私有反应。</p>
         <div className="profile-actions">
           <Link className="button secondary" href="/me/settings">账户设置</Link>
           <Link className="text-button" href={`/user/${encodeURIComponent(user.username)}`}>查看公开主页</Link>
@@ -200,7 +200,7 @@ function Overview({ reactions, reactionCounts, reactionState, followed, followSt
       <div className="section-heading"><div><p>RECENT</p><h2>最近的反应</h2></div>{reactionCounts.all > reactions.length && <button className="text-button" onClick={() => onOpen("public")}>查看仓库</button>}</div>
       {reactionState === "loading" && <PanelLoading />}
       {reactionState === "error" && <PanelError />}
-      {reactionState === "ready" && (reactions.length ? <ReactionCards items={reactions} /> : <DashboardEmpty text="你的反应仓库还是空的。" action />)}
+      {reactionState === "ready" && (reactions.length ? <ReactionCards items={reactions} /> : <DashboardEmpty text="尚未发布反应。" action />)}
     </section>
     {noticeState === "ready" && notices.some((item) => !item.read_at) && <section className="dashboard-section compact-section">
       <div className="section-heading"><div><p>UPDATES</p><h2>最新动态</h2></div><button className="text-button" onClick={() => onOpen("activity")}>查看全部</button></div>
@@ -231,7 +231,7 @@ function ReactionCards({ items }: { items: Reaction[] }) {
 
 function Following({ follows, state }: { follows: Follows | null; state: LoadState }) {
   return <section>
-    <div className="dashboard-panel-heading"><div><p>FOLLOWING</p><h2>我的关注</h2><span>追踪与你有关的用户、化合物和反应。</span></div></div>
+    <div className="dashboard-panel-heading"><div><p>FOLLOWING</p><h2>我的关注</h2><span>查看已关注的用户、化合物和反应。</span></div></div>
     {state === "loading" && <PanelLoading />}
     {state === "error" && <PanelError />}
     {state === "ready" && follows && <div className="following-columns">

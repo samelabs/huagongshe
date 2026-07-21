@@ -11,7 +11,7 @@ export function SecuritySettings() {
   if (!user) return <LoginRequired text="登录后修改密码。" />;
 
   return <section className="form-section">
-    <div className="form-section-head"><span>SECURITY</span><div><h2>修改密码</h2><p>修改成功后，全部网页登录会话和 API Token 都会失效，需要重新登录并按需创建 Token。</p></div></div>
+    <div className="form-section-head"><span>SECURITY</span><div><h2>修改密码</h2><p>修改后将注销全部会话并撤销现有 API Token。</p></div></div>
     <form className="form-fields" onSubmit={async (event) => {
       event.preventDefault();
       const values = new FormData(event.currentTarget);
