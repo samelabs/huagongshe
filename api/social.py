@@ -84,7 +84,7 @@ async def unfollow_reaction(reaction_id: int, actor: Actor = Depends(current_ses
 
 @router.get("/users/me/follows/chemicals")
 async def followed_chemicals(
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=500),
     page_size: int = Query(40, ge=1, le=100),
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
@@ -105,7 +105,7 @@ async def followed_chemicals(
 
 @router.get("/users/me/follows/reactions")
 async def followed_reactions(
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=500),
     page_size: int = Query(40, ge=1, le=100),
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),

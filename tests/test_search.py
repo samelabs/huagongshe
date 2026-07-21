@@ -10,6 +10,7 @@ os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.
 
 from api.rate_limit import is_loopback_host
 from api import routes
+from api.enrichment import display_details
 from api.chemistry import normalize_doi
 from api.routes import bounded_substructure_smiles
 
@@ -54,6 +55,11 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertFalse(is_loopback_host("127.0.0.1.example.com"))
         self.assertFalse(is_loopback_host("203.0.113.8"))
 
+    def test_arbitrary_cookies_cannot_create_fresh_rate_limit_budgets(self) -> None:
+        source = inspect.getsource(__import__("api.rate_limit", fromlist=["request_identity"]).request_identity)
+        self.assertNotIn('request.headers.get("cookie"', source)
+        self.assertIn("request.client.host", source)
+
     def test_chemical_reaction_counts_avoid_visible_reaction_point_lookups(self) -> None:
         summary_source = inspect.getsource(routes.reaction_summaries)
         detail_source = inspect.getsource(routes.chemical_detail)
@@ -62,6 +68,17 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertIn("NOT EXISTS", summary_source)
         self.assertIn("total_reactions", detail_source)
         self.assertIn("excluded_reactions", detail_source)
+
+    def test_display_details_bounds_page_evidence_without_mutating_source(self) -> None:
+        original = {
+            "source_references": {"1": "unused by page"},
+            "toxicity": {"entries": {f"item-{i}": list(range(10)) for i in range(20)}},
+        }
+        result = display_details(original)
+        self.assertNotIn("source_references", result)
+        self.assertEqual(len(result["toxicity"]["entries"]), 12)
+        self.assertEqual(len(result["toxicity"]["entries"]["item-0"]), 6)
+        self.assertEqual(len(original["toxicity"]["entries"]), 20)
 
 
 if __name__ == "__main__":

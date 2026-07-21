@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections import defaultdict
+import logging
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -10,6 +12,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from rdkit import Chem
 from rdkit.Chem import Descriptors, rdChemReactions, rdMolDescriptors
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from .cache import cache_delete
 from .chemistry import canonicalize_smiles, normalize_doi
@@ -19,6 +22,7 @@ from .rate_limit import enforce
 from .security import Actor, current_actor, require_scope
 
 router = APIRouter(tags=["reactions"])
+logger = logging.getLogger(__name__)
 ROLES = ("REACTANT", "REAGENT", "CATALYST", "SOLVENT", "PRODUCT")
 
 
@@ -135,7 +139,7 @@ async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
     """), {"smiles": smiles})).scalar()
     if chemical_id is not None:
         return int(chemical_id), False
-    props = chemical_properties(smiles)
+    props = await asyncio.to_thread(chemical_properties, smiles)
     chemical_id = int((await db.execute(text("""
         INSERT INTO chemistry.chemicals
           (smiles,molecular_formula,average_mass,monoisotopic_mass,inchikey,
@@ -221,6 +225,21 @@ async def notify_new_reaction(db, actor_id: int, reaction_id: int) -> None:
     })
 
 
+async def notify_new_reaction_safely(db, actor_id: int, reaction_id: int) -> None:
+    """Keep auxiliary activity fan-out outside and below the core write budget."""
+    try:
+        await db.execute(text("SET LOCAL statement_timeout='1000ms'"))
+        await notify_new_reaction(db, actor_id, reaction_id)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        logger.warning(
+            "reaction activity notification skipped",
+            exc_info=True,
+            extra={"actor_id": actor_id, "reaction_id": reaction_id},
+        )
+
+
 async def reaction_response(db, reaction_id: int, created_chemicals: list[int] | None = None) -> dict[str, Any]:
     row = (await db.execute(text("""
         SELECT id,reaction_smiles,visibility,created_by_user_id,created_via,created_at,updated_at
@@ -247,7 +266,7 @@ async def reaction_response(db, reaction_id: int, created_chemicals: list[int] |
 async def validate_reaction(body: ReactionBody, actor: Actor = Depends(current_actor)):
     require_scope(actor, "reaction:write")
     await enforce("reaction-validate", str(actor.id), 20, 60)
-    participants, reaction_smiles = canonical_participants(body)
+    participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
     return {
         "valid": True, "reaction_smiles": reaction_smiles,
         "participants": [
@@ -281,37 +300,49 @@ async def create_reaction(
         if existing is not None:
             return await reaction_response(db, int(existing))
 
-    participants, reaction_smiles = canonical_participants(body)
+    participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
     resolved, created_chemicals = await resolve_participants(db, participants)
     values = reaction_values(body)
-    reaction_id = int((await db.execute(text("""
-        INSERT INTO chemistry.reactions
-          (id,reaction_smiles,reaction,created_by_user_id,visibility,created_via,
-           procedure_details,conditions_detail,temperature_value,temperature_unit,
-           duration_value,duration_unit,ph,atmosphere,pressure_value,pressure_unit,
-           workup_details,safety_notes,source_type,doi,patent,source_url,source_citation,
-           note,idempotency_key)
-        VALUES
-          (nextval('chemistry.reactions_id_seq'),:reaction_smiles,
-           CAST(:reaction_input AS public.reaction),:user_id,:visibility,:created_via,
-           :procedure_details,:conditions_detail,:temperature_value,:temperature_unit,
-           :duration_value,:duration_unit,:ph,:atmosphere,:pressure_value,:pressure_unit,
-           :workup_details,:safety_notes,:source_type,:doi,:patent,:source_url,:source_citation,
-           :note,:idempotency_key)
-        RETURNING id
-    """), {
-        **values, "reaction_smiles": reaction_smiles, "reaction_input": reaction_smiles,
-        "user_id": actor.id, "created_via": "agent" if actor.auth_kind == "agent" else "web",
-        "idempotency_key": idempotency_key,
-    })).scalar_one())
+    try:
+        reaction_id = int((await db.execute(text("""
+            INSERT INTO chemistry.reactions
+              (id,reaction_smiles,reaction,created_by_user_id,visibility,created_via,
+               procedure_details,conditions_detail,temperature_value,temperature_unit,
+               duration_value,duration_unit,ph,atmosphere,pressure_value,pressure_unit,
+               workup_details,safety_notes,source_type,doi,patent,source_url,source_citation,
+               note,idempotency_key)
+            VALUES
+              (nextval('chemistry.reactions_id_seq'),:reaction_smiles,
+               CAST(:reaction_input AS public.reaction),:user_id,:visibility,:created_via,
+               :procedure_details,:conditions_detail,:temperature_value,:temperature_unit,
+               :duration_value,:duration_unit,:ph,:atmosphere,:pressure_value,:pressure_unit,
+               :workup_details,:safety_notes,:source_type,:doi,:patent,:source_url,:source_citation,
+               :note,:idempotency_key)
+            RETURNING id
+        """), {
+            **values, "reaction_smiles": reaction_smiles, "reaction_input": reaction_smiles,
+            "user_id": actor.id, "created_via": "agent" if actor.auth_kind == "agent" else "web",
+            "idempotency_key": idempotency_key,
+        })).scalar_one())
+    except IntegrityError:
+        await db.rollback()
+        if idempotency_key:
+            existing = (await db.execute(text("""
+                SELECT id FROM chemistry.reactions
+                WHERE created_by_user_id=:user_id AND idempotency_key=:key
+            """), {"user_id": actor.id, "key": idempotency_key})).scalar()
+            if existing is not None:
+                return await reaction_response(db, int(existing))
+        raise
     await write_relationships(db, reaction_id, resolved)
     if body.visibility == "public":
         await db.execute(text("""
             UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
             WHERE metric='reactions'
         """))
-        await notify_new_reaction(db, actor.id, reaction_id)
     await db.commit()
+    if body.visibility == "public":
+        await notify_new_reaction_safely(db, actor.id, reaction_id)
     await cache_delete("v1:stats:exact")
     return await reaction_response(db, reaction_id, created_chemicals)
 
@@ -330,7 +361,7 @@ async def update_reaction(
         raise HTTPException(404, "反应不存在")
     if current[0] != actor.id:
         raise HTTPException(403, "只能维护自己创建的反应")
-    participants, reaction_smiles = canonical_participants(body)
+    participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
     resolved, created_chemicals = await resolve_participants(db, participants)
     values = reaction_values(body)
     await db.execute(text("""
@@ -360,8 +391,9 @@ async def update_reaction(
             UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
             WHERE metric='reactions'
         """))
-        await notify_new_reaction(db, actor.id, reaction_id)
     await db.commit()
+    if body.visibility == "public" and current[1] == "private":
+        await notify_new_reaction_safely(db, actor.id, reaction_id)
     if current[1] != body.visibility:
         await cache_delete("v1:stats:exact")
     return await reaction_response(db, reaction_id, created_chemicals)
@@ -449,7 +481,7 @@ async def my_reactions(
 
 @router.get("/users/{username}/reactions")
 async def user_reactions(
-    username: str, page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=50),
+    username: str, page: int = Query(1, ge=1, le=500), page_size: int = Query(20, ge=1, le=50),
     db=Depends(get_db),
 ):
     rows = (await db.execute(text("""

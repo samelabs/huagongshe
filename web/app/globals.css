@@ -118,6 +118,9 @@ footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(
 .empty-state strong { font-size: 18px; }
 .empty-state p { margin: 9px 0 22px; color: var(--muted); }
 .quiet-empty { margin: 0; padding: 24px 0; color: var(--quiet); font-size: 13px; }
+.error-page { padding-top: clamp(72px, 12vh, 130px); text-align: center; }
+.error-page h1 { margin-bottom: 12px; font-size: clamp(26px, 4vw, 38px); font-weight: 620; }
+.error-page > p:not(.eyebrow) { margin-bottom: 24px; color: var(--muted); }
 .context-loading { padding: 35px 0; color: var(--muted); }
 
 .search-page { max-width: 1040px; }

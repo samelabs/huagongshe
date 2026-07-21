@@ -6,7 +6,7 @@ import { EntityId } from "@/components/EntityId";
 import { FollowButton } from "@/components/FollowButton";
 import { Molecule } from "@/components/Molecule";
 import { ReactionOwnerActions } from "@/components/ReactionOwnerActions";
-import { apiGet, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
+import { apiGet, isApiNotFound, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
 
 const roleNames: Record<string, string> = {
   REACTANT: "反应物", REAGENT: "试剂", CATALYST: "催化剂", SOLVENT: "溶剂",
@@ -22,7 +22,8 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   let reaction: ReactionDetail;
   const cookie = (await cookies()).toString();
-  try { reaction = await apiGet<ReactionDetail>(`/reactions/${id}`, 0, cookie ? { Cookie: cookie } : undefined); } catch { notFound(); }
+  try { reaction = await apiGet<ReactionDetail>(`/reactions/${id}`, 0, cookie ? { Cookie: cookie } : undefined); }
+  catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
 
   const reactants = reaction.participants.filter((item) => item.role === "REACTANT");
   const products = reaction.participants.filter((item) => item.role === "PRODUCT");

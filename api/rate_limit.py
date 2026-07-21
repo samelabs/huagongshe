@@ -50,8 +50,11 @@ async def enforce(bucket: str, identity: str, limit: int, window_seconds: int) -
 
 def request_identity(request: Request) -> str:
     authorization = request.headers.get("authorization", "")
-    cookie = request.headers.get("cookie", "")
-    raw = authorization if authorization.lower().startswith("bearer ") else cookie
-    if not raw:
-        raw = request.client.host if request.client else "unknown"
+    # Bearer tokens get their own budget. Browser and anonymous traffic are
+    # keyed by address: arbitrary Cookie headers must not create new budgets.
+    raw = (
+        authorization
+        if authorization.lower().startswith("bearer ")
+        else (request.client.host if request.client else "unknown")
+    )
     return hashlib.sha256(raw.encode()).hexdigest()[:24]

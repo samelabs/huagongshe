@@ -14,6 +14,7 @@ from .config import settings
 from .database import get_db
 from .enrichment import (
     DEFAULT_SECTIONS,
+    display_details,
     enqueue_chemical_if_needed,
 )
 from .security import Actor, optional_actor
@@ -422,6 +423,7 @@ async def chemical_detail(
     request: Request,
     chemical_id: int,
     enrich: str = Query("core", pattern="^(core|full)$"),
+    display: bool = Query(False),
     actor: Actor | None = Depends(optional_actor),
     db=Depends(get_db),
 ):
@@ -474,7 +476,7 @@ async def chemical_detail(
     )
     if job_id is not None:
         await db.commit()
-    result["details"] = details
+    result["details"] = display_details(details) if display else details
     result["enrichment"] = {
         "status": "queued" if job_id is not None else (
             "rate_limited" if needs_refresh else "current"
@@ -490,7 +492,7 @@ async def chemical_detail(
 @router.get("/chemicals/{chemical_id}/synonyms")
 async def chemical_synonyms(
     chemical_id: int,
-    page: int = Query(1, ge=1, le=10000),
+    page: int = Query(1, ge=1, le=500),
     page_size: int = Query(100, ge=1, le=500),
     db=Depends(get_db),
 ):
@@ -711,7 +713,7 @@ async def reaction_detail(
 
 @router.get("/datasets")
 async def datasets(
-    page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=50), db=Depends(get_db)
+    page: int = Query(1, ge=1, le=500), page_size: int = Query(20, ge=1, le=50), db=Depends(get_db)
 ):
     rows = (await db.execute(text("""
         SELECT id, dataset_id, name, description, num_reactions, submitted_at

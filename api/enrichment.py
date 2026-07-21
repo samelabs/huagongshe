@@ -34,6 +34,12 @@ ALLOWED_SECTIONS = frozenset(
 )
 DEFAULT_SECTIONS = ("computed", "identifiers", "synonyms")
 PUBLIC_ENQUEUE_LIMIT_PER_HOUR = 30
+DISPLAY_EVIDENCE_SECTIONS = (
+    "physical_properties", "ghs_classification", "hazards", "safety_measures",
+    "toxicity", "regulatory", "pharmacology", "uses_and_manufacturing",
+)
+DISPLAY_ENTRY_LIMIT = 12
+DISPLAY_VALUE_LIMIT = 6
 
 
 def normalize_sections(raw: str | list[str] | tuple[str, ...] | None) -> tuple[str, ...]:
@@ -67,6 +73,31 @@ async def fetch_details(db: Any, chemical_id: int) -> dict[str, Any] | None:
         FROM chemistry.chemical_details WHERE chemical_id=:chemical_id
     """), {"chemical_id": chemical_id})).mappings().fetchone()
     return dict(row) if row else None
+
+
+def display_details(details: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Return the bounded page projection without changing stored evidence."""
+    if details is None:
+        return None
+    result = {
+        key: value for key, value in details.items()
+        if key not in {
+            "identifier_evidence", "source_references", "section_source_hashes",
+            "computed_properties",
+        }
+    }
+    for section in DISPLAY_EVIDENCE_SECTIONS:
+        block = result.get(section)
+        if not isinstance(block, dict):
+            continue
+        source = block.get("entries")
+        if not isinstance(source, dict):
+            source = block
+        entries: dict[str, Any] = {}
+        for key, values in list(source.items())[:DISPLAY_ENTRY_LIMIT]:
+            entries[key] = values[:DISPLAY_VALUE_LIMIT] if isinstance(values, list) else values
+        result[section] = {"entries": entries}
+    return result
 
 
 async def enqueue_job(

@@ -1,8 +1,14 @@
-"""Redis cache client."""
+"""Redis cache client.
+
+Cache failures must never change the result of a database read or mutation.
+Rate limiting deliberately uses its own fail-closed path in ``rate_limit``.
+"""
 import json
+import logging
 import redis.asyncio as redis
 from .config import settings
 
+logger = logging.getLogger(__name__)
 pool = redis.ConnectionPool.from_url(settings.redis_url, decode_responses=True)
 
 
@@ -14,9 +20,16 @@ async def get_cache():
 async def cache_get(key: str):
     """Get cached value by key. Returns None on miss."""
     client = redis.Redis(connection_pool=pool)
-    data = await client.get(key)
+    try:
+        data = await client.get(key)
+    except Exception:
+        logger.warning("cache read failed", exc_info=True, extra={"cache_key": key})
+        return None
     if data:
-        return json.loads(data)
+        try:
+            return json.loads(data)
+        except (TypeError, ValueError):
+            logger.warning("invalid cached JSON", extra={"cache_key": key})
     return None
 
 
@@ -25,7 +38,10 @@ async def cache_set(key: str, value, ttl: int = 0):
     client = redis.Redis(connection_pool=pool)
     if hasattr(value, 'model_dump'):
         value = value.model_dump()
-    await client.set(key, json.dumps(value, default=str), ex=ttl or settings.cache_ttl)
+    try:
+        await client.set(key, json.dumps(value, default=str), ex=ttl or settings.cache_ttl)
+    except Exception:
+        logger.warning("cache write failed", exc_info=True, extra={"cache_key": key})
 
 
 async def cache_delete(*keys: str):
@@ -33,4 +49,7 @@ async def cache_delete(*keys: str):
     if not keys:
         return
     client = redis.Redis(connection_pool=pool)
-    await client.delete(*keys)
+    try:
+        await client.delete(*keys)
+    except Exception:
+        logger.warning("cache delete failed", exc_info=True, extra={"cache_keys": keys})

@@ -80,6 +80,18 @@ class ReactionContractTests(unittest.TestCase):
         self.assertNotIn("chemical_follows", source)
         self.assertNotIn("reaction_updated", inspect.getsource(reactions.update_reaction))
 
+    def test_activity_cannot_block_the_core_reaction_transaction(self) -> None:
+        source = inspect.getsource(reactions.notify_new_reaction_safely)
+        self.assertIn("statement_timeout='1000ms'", source)
+        self.assertIn("await db.rollback()", source)
+        create_source = inspect.getsource(reactions.create_reaction)
+        self.assertLess(create_source.index("await db.commit()"), create_source.index("notify_new_reaction_safely"))
+
+    def test_concurrent_idempotent_submission_returns_existing_reaction(self) -> None:
+        source = inspect.getsource(reactions.create_reaction)
+        self.assertIn("except IntegrityError", source)
+        self.assertIn("return await reaction_response(db, int(existing))", source)
+
     def test_all_owned_reactions_use_bounded_visibility_branches(self) -> None:
         source = inspect.getsource(reactions.my_reactions)
         self.assertIn("WITH owned AS MATERIALIZED", source)

@@ -8,7 +8,7 @@ import { FollowButton } from "@/components/FollowButton";
 import { Molecule } from "@/components/Molecule";
 import { ReactionResult } from "@/components/ReactionResult";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
-import { apiGet, type Chemical, type ChemicalDetails, type EnrichmentState, type ReactionSummary } from "@/lib/api";
+import { apiGet, isApiNotFound, type Chemical, type ChemicalDetails, type EnrichmentState, type ReactionSummary } from "@/lib/api";
 
 type DetailResponse = { details: ChemicalDetails | null; enrichment: EnrichmentState };
 type SearchParams = { reaction_page?: string; role?: string };
@@ -21,10 +21,7 @@ const roleNames: Record<string, string> = {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  try {
-    const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=full`, 3600);
-    return { title: chemical.preferred_name || chemical.iupac_name || `HCID ${id}`, description: chemical.smiles || undefined };
-  } catch { return { title: "化合物" }; }
+  return { title: `HCID ${id}`, description: "化合物结构、身份、性质与相关反应" };
 }
 
 export default async function ChemicalPage({ params, searchParams }: {
@@ -37,11 +34,17 @@ export default async function ChemicalPage({ params, searchParams }: {
   const role = roles.includes(query.role as typeof roles[number]) ? query.role! : "any";
   let chemical: Chemical;
   const cookie = (await cookies()).toString();
-  try { chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=full`, 0, cookie ? { Cookie: cookie } : undefined); } catch { notFound(); }
+  try {
+    chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`, 0, cookie ? { Cookie: cookie } : undefined);
+  } catch (error) {
+    if (isApiNotFound(error)) notFound();
+    throw error;
+  }
 
   let details: DetailResponse = { details: chemical.details || null, enrichment: chemical.enrichment || { status: "current" } };
   let reactions: { total: number; page: number; page_size: number; reactions: ReactionSummary[] } = { total: 0, page, page_size: 8, reactions: [] };
-  try { reactions = await apiGet(`/chemicals/${id}/reactions?page=${page}&page_size=8&role=${role}`); } catch {}
+  let reactionsUnavailable = false;
+  try { reactions = await apiGet(`/chemicals/${id}/reactions?page=${page}&page_size=8&role=${role}`); } catch { reactionsUnavailable = true; }
 
   const title = chemical.preferred_name || chemical.iupac_name || details.details?.record_title || "未命名化合物";
   const pageCount = Math.min(500, Math.max(1, Math.ceil(reactions.total / reactions.page_size)));
@@ -89,15 +92,15 @@ export default async function ChemicalPage({ params, searchParams }: {
           <section className="chemical-reactions" id="reactions">
             <div className="section-heading">
               <div><p>REACTIONS</p><h2>参与反应</h2></div>
-              <span>{new Intl.NumberFormat("zh-CN").format(reactions.total)} 条</span>
+              {!reactionsUnavailable && <span>{new Intl.NumberFormat("zh-CN").format(reactions.total)} 条</span>}
             </div>
             <div className="role-filter">{roles.map((value) => (
               <Link className={role === value ? "active" : ""} href={`?role=${value}#reactions`} key={value}>{roleNames[value]}</Link>
             ))}</div>
-            {reactions.reactions.length > 0 ? (
+            {reactionsUnavailable ? <p className="quiet-empty">相关反应暂时无法加载，请稍后重试。</p> : reactions.reactions.length > 0 ? (
               <div className="reaction-results">{reactions.reactions.map((reaction) => <ReactionResult reaction={reaction} key={reaction.id} />)}</div>
             ) : <p className="quiet-empty">当前筛选下没有反应记录。</p>}
-            {pageCount > 1 && <nav className="pagination" aria-label="反应分页">
+            {!reactionsUnavailable && pageCount > 1 && <nav className="pagination" aria-label="反应分页">
               {page > 1 && <Link href={`?role=${role}&reaction_page=${page - 1}#reactions`}>上一页</Link>}
               <span>第 {page} / {pageCount} 页</span>
               {page < pageCount && <Link href={`?role=${role}&reaction_page=${page + 1}#reactions`}>下一页</Link>}

@@ -3,7 +3,7 @@ import asyncio
 import re
 from rdkit import Chem
 from rdkit.Chem import Draw, AllChem, rdChemReactions
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import text
 from .cache import cache_get, cache_set
 from .database import get_db
@@ -59,7 +59,11 @@ def reaction_to_svg(reaction_smiles: str, width: int = 1200, height: int = 300) 
 
 
 @router.get("/mol/svg")
-async def render_molecule(smiles: str, w: int = 400, h: int = 300):
+async def render_molecule(
+    smiles: str = Query(..., min_length=1, max_length=4000),
+    w: int = 400,
+    h: int = 300,
+):
     """Render a SMILES to SVG image. Cached in Redis."""
     w = min(max(w, 50), 800)
     h = min(max(h, 50), 800)
@@ -69,7 +73,7 @@ async def render_molecule(smiles: str, w: int = 400, h: int = 300):
     if cached:
         return Response(content=cached, media_type="image/svg+xml")
 
-    svg = smiles_to_svg(smiles, w, h)
+    svg = await asyncio.to_thread(smiles_to_svg, smiles, w, h)
     if svg is None:
         raise HTTPException(status_code=400, detail="Invalid SMILES")
 

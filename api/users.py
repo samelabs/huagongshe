@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import io
 import os
@@ -10,7 +11,7 @@ import secrets
 import tempfile
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import text
@@ -18,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .config import settings
 from .database import get_db
-from .rate_limit import enforce
+from .rate_limit import enforce, request_identity
 from .security import (
     Actor, actor_payload, current_actor, current_session, optional_actor,
     password_hash, password_matches,
@@ -105,6 +106,25 @@ class PasswordBody(BaseModel):
         return self
 
 
+def avatar_variants(raw: bytes) -> dict[int, bytes]:
+    """Decode, resize and compress outside the API event loop."""
+    try:
+        source = Image.open(io.BytesIO(raw))
+        if source.width * source.height > 20_000_000:
+            raise HTTPException(413, "头像像素尺寸过大")
+        source.seek(0)
+        source = ImageOps.exif_transpose(source).convert("RGB")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise HTTPException(400, "无法识别头像图片") from exc
+    result: dict[int, bytes] = {}
+    for size in (512, 128):
+        rendered = ImageOps.fit(source, (size, size), method=Image.Resampling.LANCZOS)
+        output = io.BytesIO()
+        rendered.save(output, "WEBP", quality=82, method=6)
+        result[size] = output.getvalue()
+    return result
+
+
 async def create_session(db, response: Response, user_id: int) -> None:
     token = secrets.token_urlsafe(32)
     expires = datetime.now(timezone.utc) + timedelta(days=settings.session_days)
@@ -120,7 +140,9 @@ async def create_session(db, response: Response, user_id: int) -> None:
 
 
 @auth_router.post("/register", status_code=201)
-async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
+async def register(body: RegisterBody, request: Request, response: Response, db=Depends(get_db)):
+    await enforce("register", request_identity(request), 5, 3600)
+    encoded_password = await asyncio.to_thread(password_hash, body.password)
     try:
         row = (await db.execute(text("""
             INSERT INTO community.users(username,display_name,email,password_hash)
@@ -128,7 +150,7 @@ async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
             RETURNING id,username,display_name,email,role,avatar_path
         """), {
             "username": body.username, "email": body.email,
-            "password_hash": password_hash(body.password),
+            "password_hash": encoded_password,
         })).one()
         await create_session(db, response, int(row[0]))
         return {
@@ -141,14 +163,15 @@ async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
 
 
 @auth_router.post("/login")
-async def login(body: LoginBody, response: Response, db=Depends(get_db)):
+async def login(body: LoginBody, request: Request, response: Response, db=Depends(get_db)):
+    await enforce("login", request_identity(request), 15, 900)
     account = body.account.strip().lower()
     row = (await db.execute(text("""
         SELECT id,username,display_name,email,role,password_hash,avatar_path
         FROM community.users
         WHERE (lower(email)=:account OR lower(username)=:account) AND status='active'
     """), {"account": account})).fetchone()
-    if not row or not password_matches(body.password, row[5]):
+    if not row or not await asyncio.to_thread(password_matches, body.password, row[5]):
         raise HTTPException(401, "账号或密码不正确")
     await db.execute(text("UPDATE community.users SET last_login_at=now() WHERE id=:id"), {"id": row[0]})
     await create_session(db, response, int(row[0]))
@@ -224,11 +247,12 @@ async def change_password(
     encoded = (await db.execute(text(
         "SELECT password_hash FROM community.users WHERE id=:id"
     ), {"id": actor.id})).scalar_one()
-    if not password_matches(body.current_password, encoded):
+    if not await asyncio.to_thread(password_matches, body.current_password, encoded):
         raise HTTPException(400, "当前密码不正确")
+    new_password_hash = await asyncio.to_thread(password_hash, body.new_password)
     await db.execute(text("""
         UPDATE community.users SET password_hash=:password_hash,updated_at=now() WHERE id=:id
-    """), {"id": actor.id, "password_hash": password_hash(body.new_password)})
+    """), {"id": actor.id, "password_hash": new_password_hash})
     await db.execute(text("DELETE FROM community.sessions WHERE user_id=:id"), {"id": actor.id})
     await db.execute(text("""
         UPDATE community.user_api_tokens SET revoked_at=coalesce(revoked_at,now()) WHERE user_id=:id
@@ -245,14 +269,7 @@ async def upload_avatar(
     raw = await image.read(settings.avatar_max_bytes + 1)
     if len(raw) > settings.avatar_max_bytes:
         raise HTTPException(413, "头像文件不能超过 5 MB")
-    try:
-        source = Image.open(io.BytesIO(raw))
-        if source.width * source.height > 20_000_000:
-            raise HTTPException(413, "头像像素尺寸过大")
-        source.seek(0)
-        source = ImageOps.exif_transpose(source).convert("RGB")
-    except (UnidentifiedImageError, OSError) as exc:
-        raise HTTPException(400, "无法识别头像图片") from exc
+    variants = await asyncio.to_thread(avatar_variants, raw)
 
     version = secrets.token_hex(10)
     user_dir = os.path.join(settings.avatar_root, str(actor.id))
@@ -264,9 +281,8 @@ async def upload_avatar(
             "SELECT avatar_path FROM community.users WHERE id=:id"
         ), {"id": actor.id})).scalar()
         for size, filename in final_names.items():
-            rendered = ImageOps.fit(source, (size, size), method=Image.Resampling.LANCZOS)
             with tempfile.NamedTemporaryFile(dir=user_dir, suffix=".webp", delete=False) as handle:
-                rendered.save(handle, "WEBP", quality=82, method=6)
+                handle.write(variants[size])
                 temporary.append((handle.name, os.path.join(user_dir, filename)))
         for temporary_path, final_path in temporary:
             os.replace(temporary_path, final_path)
@@ -428,7 +444,7 @@ async def relationship_page(
 @router.get("/{username}/followers")
 async def public_followers(
     username: str,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=500),
     page_size: int = Query(40, ge=1, le=100),
     actor: Actor | None = Depends(optional_actor),
     db=Depends(get_db),
@@ -439,7 +455,7 @@ async def public_followers(
 @router.get("/{username}/following")
 async def public_following(
     username: str,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=500),
     page_size: int = Query(40, ge=1, le=100),
     actor: Actor | None = Depends(optional_actor),
     db=Depends(get_db),

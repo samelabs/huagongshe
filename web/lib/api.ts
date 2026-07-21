@@ -1,12 +1,23 @@
 const SERVER_API = process.env.API_BASE || process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000/api";
 
+export class ApiError extends Error {
+  constructor(public status: number, path: string) {
+    super(`API ${status}: ${path}`);
+    this.name = "ApiError";
+  }
+}
+
+export function isApiNotFound(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 404;
+}
+
 export async function apiGet<T>(path: string, revalidate = 0, headers?: HeadersInit): Promise<T> {
   const response = await fetch(`${SERVER_API}${path}`, {
     headers,
     next: revalidate > 0 ? { revalidate } : undefined,
     cache: revalidate > 0 ? "force-cache" : "no-store",
   });
-  if (!response.ok) throw new Error(`API ${response.status}`);
+  if (!response.ok) throw new ApiError(response.status, path);
   return response.json() as Promise<T>;
 }
 
