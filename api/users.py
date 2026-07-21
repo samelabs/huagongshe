@@ -10,7 +10,7 @@ import secrets
 import tempfile
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Response, UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import text
@@ -180,6 +180,33 @@ async def me(actor: Actor = Depends(current_actor)):
     return result
 
 
+@router.get("/me/dashboard")
+async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(get_db)):
+    row = (await db.execute(text("""
+        SELECT u.username,u.display_name,u.bio,u.avatar_path,
+          (SELECT count(*) FROM chemistry.reactions r
+           WHERE r.created_by_user_id=u.id AND r.visibility='public' AND r.moderation_status='visible'),
+          (SELECT count(*) FROM chemistry.reactions r
+           WHERE r.created_by_user_id=u.id AND r.visibility='private'),
+          (SELECT count(*) FROM community.user_follows f WHERE f.follower_user_id=u.id),
+          (SELECT count(*) FROM community.user_follows f WHERE f.followed_user_id=u.id),
+          (SELECT count(*) FROM community.chemical_follows f WHERE f.user_id=u.id),
+          (SELECT count(*) FROM community.reaction_follows f
+           JOIN chemistry.reactions r ON r.id=f.reaction_id
+           WHERE f.user_id=u.id AND r.visibility='public' AND r.moderation_status='visible'),
+          (SELECT count(*) FROM community.notifications n WHERE n.user_id=u.id AND n.read_at IS NULL)
+        FROM community.users u WHERE u.id=:id AND u.status='active'
+    """), {"id": actor.id})).one()
+    return {
+        "username": row[0], "display_name": row[1], "bio": row[2], "avatar_url": row[3],
+        "counts": {
+            "public_reactions": row[4], "private_reactions": row[5],
+            "following": row[6], "followers": row[7],
+            "chemicals": row[8], "reactions": row[9], "unread": row[10],
+        },
+    }
+
+
 @router.patch("/me")
 async def update_profile(body: ProfileBody, actor: Actor = Depends(current_session), db=Depends(get_db)):
     await db.execute(text("""
@@ -340,3 +367,81 @@ async def public_profile(username: str, actor: Actor | None = Depends(optional_a
         "following": row[7], "public_reactions": row[8], "is_following": row[9],
         "is_me": bool(actor and row[0] == actor.id),
     }
+
+
+async def relationship_page(
+    username: str,
+    relation: str,
+    page: int,
+    page_size: int,
+    actor: Actor | None,
+    db,
+):
+    target_id = (await db.execute(text("""
+        SELECT id FROM community.users
+        WHERE lower(username)=lower(:username) AND status='active'
+    """), {"username": username})).scalar()
+    if target_id is None:
+        raise HTTPException(404, "用户不存在")
+
+    if relation == "followers":
+        target_column = "f.followed_user_id"
+        person_column = "f.follower_user_id"
+    elif relation == "following":
+        target_column = "f.follower_user_id"
+        person_column = "f.followed_user_id"
+    else:
+        raise ValueError("unsupported relationship")
+
+    total = int((await db.execute(text(f"""
+        SELECT count(*) FROM community.user_follows f
+        JOIN community.users u ON u.id={person_column}
+        WHERE {target_column}=:target_id AND u.status='active'
+    """), {"target_id": target_id})).scalar() or 0)
+    viewer_id = actor.id if actor else 0
+    rows = (await db.execute(text(f"""
+        SELECT u.username,u.display_name,u.bio,u.avatar_path AS avatar_url,
+               EXISTS(
+                 SELECT 1 FROM community.user_follows mine
+                 WHERE mine.follower_user_id=:viewer_id AND mine.followed_user_id=u.id
+               ) AS is_following,
+               u.id=:viewer_id AS is_me
+        FROM community.user_follows f
+        JOIN community.users u ON u.id={person_column}
+        WHERE {target_column}=:target_id AND u.status='active'
+        ORDER BY f.created_at DESC,u.id
+        LIMIT :page_size OFFSET :offset
+    """), {
+        "target_id": target_id,
+        "viewer_id": viewer_id,
+        "page_size": page_size,
+        "offset": (page - 1) * page_size,
+    })).mappings().all()
+    return {
+        "items": [dict(row) for row in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@router.get("/{username}/followers")
+async def public_followers(
+    username: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(40, ge=1, le=100),
+    actor: Actor | None = Depends(optional_actor),
+    db=Depends(get_db),
+):
+    return await relationship_page(username, "followers", page, page_size, actor, db)
+
+
+@router.get("/{username}/following")
+async def public_following(
+    username: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(40, ge=1, le=100),
+    actor: Actor | None = Depends(optional_actor),
+    db=Depends(get_db),
+):
+    return await relationship_page(username, "following", page, page_size, actor, db)

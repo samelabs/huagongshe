@@ -82,37 +82,49 @@ async def unfollow_reaction(reaction_id: int, actor: Actor = Depends(current_ses
     await db.commit()
 
 
-@router.get("/users/me/follows")
-async def my_follows(actor: Actor = Depends(current_actor), db=Depends(get_db)):
-    users = (await db.execute(text("""
-        SELECT u.username,u.display_name,u.avatar_path,f.created_at
-        FROM community.user_follows f JOIN community.users u ON u.id=f.followed_user_id
-        WHERE f.follower_user_id=:id AND u.status='active'
-        ORDER BY f.created_at DESC LIMIT 200
-    """), {"id": actor.id})).mappings().all()
-    chemicals = (await db.execute(text("""
+@router.get("/users/me/follows/chemicals")
+async def followed_chemicals(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(40, ge=1, le=100),
+    actor: Actor = Depends(current_actor),
+    db=Depends(get_db),
+):
+    total = int((await db.execute(text("""
+        SELECT count(*) FROM community.chemical_follows WHERE user_id=:id
+    """), {"id": actor.id})).scalar() or 0)
+    rows = (await db.execute(text("""
         SELECT c.id,c.preferred_name,c.iupac_name,c.smiles,f.created_at
         FROM community.chemical_follows f JOIN chemistry.chemicals c ON c.id=f.chemical_id
-        WHERE f.user_id=:id ORDER BY f.created_at DESC LIMIT 200
-    """), {"id": actor.id})).mappings().all()
-    reactions = (await db.execute(text("""
+        WHERE f.user_id=:id ORDER BY f.created_at DESC,c.id
+        LIMIT :page_size OFFSET :offset
+    """), {
+        "id": actor.id, "page_size": page_size, "offset": (page - 1) * page_size,
+    })).mappings().all()
+    return {"items": [dict(row) for row in rows], "total": total, "page": page, "page_size": page_size}
+
+
+@router.get("/users/me/follows/reactions")
+async def followed_reactions(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(40, ge=1, le=100),
+    actor: Actor = Depends(current_actor),
+    db=Depends(get_db),
+):
+    total = int((await db.execute(text("""
+        SELECT count(*) FROM community.reaction_follows f
+        JOIN chemistry.reactions r ON r.id=f.reaction_id
+        WHERE f.user_id=:id AND r.visibility='public' AND r.moderation_status='visible'
+    """), {"id": actor.id})).scalar() or 0)
+    rows = (await db.execute(text("""
         SELECT r.id,r.reaction_smiles,r.updated_at,f.created_at
         FROM community.reaction_follows f JOIN chemistry.reactions r ON r.id=f.reaction_id
         WHERE f.user_id=:id AND r.visibility='public' AND r.moderation_status='visible'
-        ORDER BY f.created_at DESC LIMIT 200
-    """), {"id": actor.id})).mappings().all()
-    counts = (await db.execute(text("""
-        SELECT
-          (SELECT count(*) FROM community.user_follows WHERE follower_user_id=:id),
-          (SELECT count(*) FROM community.chemical_follows WHERE user_id=:id),
-          (SELECT count(*) FROM community.reaction_follows WHERE user_id=:id)
-    """), {"id": actor.id})).one()
-    return {
-        "users": [dict(row) for row in users],
-        "chemicals": [dict(row) for row in chemicals],
-        "reactions": [dict(row) for row in reactions],
-        "counts": {"users": counts[0], "chemicals": counts[1], "reactions": counts[2]},
-    }
+        ORDER BY f.created_at DESC,r.id
+        LIMIT :page_size OFFSET :offset
+    """), {
+        "id": actor.id, "page_size": page_size, "offset": (page - 1) * page_size,
+    })).mappings().all()
+    return {"items": [dict(row) for row in rows], "total": total, "page": page, "page_size": page_size}
 
 
 @router.get("/users/me/notifications")
