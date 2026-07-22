@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import asyncio
 import inspect
 import unittest
 
@@ -9,9 +10,10 @@ from pydantic import ValidationError
 
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
-from api import reactions
+from api import agent, reactions
 from api.config import settings
 from api.reactions import ParticipantBody, ReactionBody, canonical_participants
+from api.security import Actor
 
 
 def body(**overrides) -> ReactionBody:
@@ -108,14 +110,37 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn('"v1:stats:exact"', routes_source)
         self.assertIn('f"v1:unified-search', routes_source)
 
-    def test_agent_guide_links_the_public_skill_and_confirmation_flow(self) -> None:
-        source = inspect.getsource(reactions.agent_guide)
+    def test_agent_guide_is_a_bounded_connection_and_operation_surface(self) -> None:
+        source = inspect.getsource(agent.agent_guide)
         self.assertIn("optional_skill_url", source)
         self.assertIn("openapi_url", source)
-        self.assertIn("本入口和 OpenAPI 即可完成接入", source)
-        self.assertIn("用户确认后携带唯一 Idempotency-Key", source)
+        self.assertIn('"operations"', source)
+        self.assertIn('"payload_hints"', source)
+        self.assertIn("携带唯一 Idempotency-Key", source)
         self.assertIn("用户创建的 API Token", source)
         self.assertNotIn("Agent Token", source)
+
+        actor = Actor(
+            7, "chemist", "Chemist", "chemist@example.test", "member", None,
+            "agent", scopes=("read", "reaction:write"),
+        )
+        guide = asyncio.run(agent.agent_guide("Bearer hgs_test_token", actor))
+        self.assertEqual(guide["connection"]["status"], "ready")
+        self.assertEqual(guide["connection"]["account"]["username"], "chemist")
+        self.assertEqual(
+            {item["id"] for item in guide["operations"]},
+            {
+                "search_chemistry_data", "get_chemical", "get_reaction",
+                "list_my_reactions", "validate_reaction", "create_reaction",
+            },
+        )
+
+    def test_token_connection_text_contains_token_and_single_entry_point(self) -> None:
+        value = agent.agent_connection_text("hgs_secret")
+        self.assertIn("https://huagongshe.com/api/agent-guide", value)
+        self.assertIn("访问令牌：hgs_secret", value)
+        self.assertIn("Authorization: Bearer", value)
+        self.assertIn("新记录默认 private", value)
 
 
 if __name__ == "__main__":

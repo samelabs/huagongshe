@@ -50,7 +50,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
         </div>
       </div>
       <div className="public-profile-action">{profile.is_me
-        ? <Link className="button secondary" href="/me">进入个人中心</Link>
+        ? <Link className="button secondary" href="/me">进入我的数据</Link>
         : <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} count={profile.followers} showCount={false} />}
       </div>
     </header>
@@ -64,7 +64,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
     <section className="dashboard-section public-profile-content">
       <div className="dashboard-panel-heading"><div><h2>{activeTab === "reactions" ? "公开反应" : activeTab === "following" ? "关注的人" : "粉丝"}</h2></div>{!contentUnavailable && <strong>{activeTab === "reactions" ? profile.public_reactions : people.total} {activeTab === "reactions" ? "条" : "人"}</strong>}</div>
       {contentUnavailable ? <div className="dashboard-empty"><p>内容暂时无法加载，请稍后重试。</p></div> : activeTab === "reactions" && (reactions.length ? <div className="repository-grid">{reactions.map((item) => <article key={item.id}>
-        <header><Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link><span>{item.followers} 人关注</span></header>
+        <header><Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link><span>{item.followers} 人收藏</span></header>
         <Link className="repository-scheme" href={`/reaction/${item.id}`}><img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={`HRID ${item.id}`} /></Link>
       </article>)}</div> : <div className="dashboard-empty"><p>还没有公开反应。</p></div>)}
       {!contentUnavailable && activeTab === "reactions" && profile.public_reactions > 20 && <nav className="profile-pagination" aria-label="分页">

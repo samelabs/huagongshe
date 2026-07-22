@@ -43,29 +43,34 @@ export function HeaderAccount() {
 
   return (
     <nav aria-label="主导航">
-      <Link href="/guide" className="nav-guide"><span className="guide-full">帮助指南</span><span className="guide-short">指南</span></Link>
-      <Link href="/submit" className="nav-contribute"><span aria-hidden="true">＋</span>发布反应</Link>
+      <Link href="/guide" className="nav-guide" aria-label="AI 指南">
+        <span className="guide-full">AI 指南</span><span className="guide-short">AI</span>
+      </Link>
       {user ? (
-        <details className="account-menu" ref={menu}>
-          <summary aria-label="打开用户菜单">
-            <Avatar user={user} />
-            <span className="account-name">{user.display_name}</span>
-            <span className="account-chevron" aria-hidden="true" />
-          </summary>
-          <div className="account-dropdown">
-            <div className="account-menu-profile">
-              <strong>{user.display_name}</strong>
-              <span>@{user.username}</span>
+        <>
+          <details className="account-menu" ref={menu}>
+            <summary aria-label="打开用户菜单">
+              <Avatar user={user} />
+              <span className="account-name">{user.display_name}</span>
+              <span className="account-chevron" aria-hidden="true" />
+            </summary>
+            <div className="account-dropdown">
+              <div className="account-menu-profile">
+                <strong>{user.display_name}</strong>
+                <span>@{user.username}</span>
+              </div>
+              <div className="account-menu-links">
+                <Link href="/me" onClick={closeMenu}>我的数据</Link>
+                <Link href="/submit" onClick={closeMenu}>新建反应记录</Link>
+                <Link href="/me/settings/api-tokens" onClick={closeMenu}>AI 授权</Link>
+                <Link href={`/user/${encodeURIComponent(user.username)}`} onClick={closeMenu}>公开主页</Link>
+                <Link href="/me/settings/profile" onClick={closeMenu}>账户设置</Link>
+                {user.role === "admin" && <Link href="/admin" onClick={closeMenu}>平台管理</Link>}
+              </div>
+              <button type="button" onClick={logout}>退出登录</button>
             </div>
-            <div className="account-menu-links">
-              <Link href="/me" onClick={closeMenu}>个人中心</Link>
-              <Link href={`/user/${encodeURIComponent(user.username)}`} onClick={closeMenu}>公开主页</Link>
-              <Link href="/me/settings/profile" onClick={closeMenu}>账户设置</Link>
-              {user.role === "admin" && <Link href="/admin" onClick={closeMenu}>平台管理</Link>}
-            </div>
-            <button type="button" onClick={logout}>退出登录</button>
-          </div>
-        </details>
+          </details>
+        </>
       ) : ready ? (
         <Link href="/login" className="login-link">登录 / 注册</Link>
       ) : <span className="nav-placeholder" aria-hidden="true" />}

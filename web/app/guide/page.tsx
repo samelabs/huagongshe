@@ -4,26 +4,25 @@ import { AiSubmissionPrompt } from "@/components/AiSubmissionPrompt";
 
 export const metadata: Metadata = {
   title: "帮助指南",
-  description: "使用 AI 整理文献、专利或实验记录，并保存到个人反应库。",
+  description: "连接自己的 AI 助手整理文献、专利或实验记录，并保存到个人反应库。",
 };
 
 export default function GuidePage() {
   return <div className="content-page guide-page">
     <header className="guide-hero">
       <p className="page-kicker">GUIDE</p>
-      <h1>用 AI 整理你的反应资料</h1>
-      <p>AI 可以从文献、专利、实验记录或网页中整理反应条目。你核对后保存到个人反应库，数据由你自己管理。</p>
-      <div className="guide-security-note"><strong>数据安全</strong><span>反应可设为仅自己可见；API Token 仅用于你的授权操作，并可随时撤销。</span></div>
+      <h1>连接你的 AI 助手整理反应资料</h1>
+      <p>授权你正在使用的 AI 从文献、专利、实验记录或网页中整理反应。核对后保存到个人反应库，记录由你自己管理。</p>
+      <div className="guide-security-note"><strong>授权边界</strong><span>AI 可以查询、校验和新建反应记录；修改和删除仍需在网页完成，授权可随时撤销。</span></div>
       <div className="guide-actions">
-        <Link className="button primary" href="/me/settings/api-tokens">使用 AI 整理</Link>
-        <Link className="button secondary" href="/submit">手动填写</Link>
+        <Link className="button primary" href="/me/settings/api-tokens">设置 AI 授权</Link>
       </div>
     </header>
 
     <section className="guide-section">
       <div className="section-heading"><div><p>三步完成</p><h2>从原始资料到个人反应库</h2></div></div>
       <ol className="guide-steps">
-        <li><strong>连接 AI</strong><span>创建 API Token，点击“复制给 AI”。这一步只需设置一次。</span></li>
+        <li><strong>授权 AI</strong><span>创建一项 AI 授权并点击“复制给 AI”。不再使用时可以随时撤销。</span></li>
         <li><strong>提供资料</strong><span>选择文件、网页链接、图片或实验记录，让 AI 进行整理。</span></li>
         <li><strong>核对保存</strong><span>检查整理后的结构、条件和来源，保存到你的反应库。</span></li>
       </ol>
@@ -53,7 +52,7 @@ export default function GuidePage() {
       <div className="section-heading"><div><p>你的数据</p><h2>安全保存，自主管理</h2></div></div>
       <div className="guide-principles">
         <article><strong>可设为仅自己可见</strong><p>可见范围由你选择，私有反应仅当前账号可以查看。</p></article>
-        <article><strong>授权随时可撤销</strong><p>API Token 仅显示一次；不再使用时可在个人中心撤销。</p></article>
+        <article><strong>授权随时可撤销</strong><p>授权 Token 仅显示一次；不再使用时可在账户设置中撤销。</p></article>
         <article><strong>数据由你管理</strong><p>你可以随时编辑或删除自己保存的反应，来源信息随记录保留。</p></article>
       </div>
     </section>

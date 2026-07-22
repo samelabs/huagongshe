@@ -44,10 +44,9 @@ h2, h3 { font-weight: var(--section-weight); }
 nav[aria-label="主导航"] { min-width: 0; margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 22px; color: var(--muted); font-size: 13px; white-space: nowrap; }
 nav[aria-label="主导航"] > a:hover { color: var(--blue); }
 .login-link { border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 13px; color: var(--ink); }
-.nav-guide { color: var(--muted); }
+.nav-guide { border: 1px solid #cedef3; border-radius: 999px; padding: 6px 10px; color: #315f94; background: #f7faff; font-weight: 650; }
+.nav-guide:hover { border-color: #9fc2ef; color: var(--blue-deep) !important; background: var(--blue-pale); }
 .guide-short { display: none; }
-.nav-contribute { min-height: 34px; border-radius: 7px; padding: 0 13px; display: inline-flex; align-items: center; gap: 4px; color: white !important; background: var(--blue); font-weight: 700; }
-.nav-contribute:hover { background: var(--blue-deep); }
 .account-menu { position: relative; }
 .account-menu > summary { min-height: 38px; border-radius: 8px; padding: 4px 7px 4px 5px; display: flex; align-items: center; gap: 8px; color: var(--ink); cursor: pointer; list-style: none; }
 .account-menu > summary::-webkit-details-marker { display: none; }
@@ -314,13 +313,10 @@ footer a:hover { color: var(--blue); }
 
 .dashboard-page { max-width: 1120px; }
 .public-profile-page, .settings-page { max-width: 1060px; }
-.dashboard-header { margin-bottom: 0; padding: 8px 0 28px; display: grid; grid-template-columns: 104px minmax(0,1fr) auto; gap: 24px; align-items: center; }
-.dashboard-header .profile-avatar { width: 96px; height: 96px; font-size: 30px; }
-.dashboard-identity { min-width: 0; }
-.dashboard-identity > span { color: var(--quiet); font-size: 11px; }
-.dashboard-identity h1 { margin: 3px 0 0; font-size: 31px; font-weight: var(--title-weight); letter-spacing: -.018em; overflow-wrap: anywhere; }
-.dashboard-identity .profile-bio { margin-top: 9px; font-size: 12px; }
-.dashboard-profile-actions { margin: 0; display: grid; justify-items: end; gap: 9px; }
+.workspace-header { margin-bottom: 26px; border-bottom: 1px solid var(--line); padding: 8px 0 28px; display: flex; align-items: end; justify-content: space-between; gap: 28px; }
+.workspace-header h1 { margin: 0; font-size: 31px; font-weight: var(--title-weight); letter-spacing: -.018em; }
+.workspace-header > div:first-child > p:last-child { margin: 9px 0 0; color: var(--muted); font-size: 13px; }
+.workspace-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
 .dashboard-shell { min-width: 0; }
 .profile-tabs { margin-bottom: 30px; border-bottom: 1px solid var(--line); display: flex; align-items: end; gap: 5px; overflow-x: auto; scrollbar-width: none; }
 .profile-tabs::-webkit-scrollbar { display: none; }
@@ -335,6 +331,10 @@ footer a:hover { color: var(--blue); }
 .dashboard-panel-heading div > span { margin-top: 5px; display: block; color: var(--quiet); font-size: 11px; }
 .dashboard-panel-heading > a { color: var(--blue); font-size: 12px; }
 .dashboard-panel-heading > strong { color: var(--muted); font-size: 12px; }
+.dashboard-filters { margin: -4px 0 20px; display: flex; flex-wrap: wrap; gap: 6px; }
+.dashboard-filters a { border-radius: 999px; padding: 6px 11px; color: var(--muted); background: var(--wash); font-size: 11px; }
+.dashboard-filters a:hover { color: var(--blue-deep); }
+.dashboard-filters a.active { color: white; background: var(--blue); }
 .profile-header { margin-bottom: 58px; border-bottom: 1px solid var(--line); padding: 8px 0 36px; display: grid; grid-template-columns: 112px 1fr; gap: 24px; align-items: center; }
 .public-profile-header { grid-template-columns: 112px 1fr auto; }
 .profile-avatar { width: 104px; height: 104px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; color: white; background: var(--blue); font-size: 32px; font-weight: 750; }
@@ -417,8 +417,7 @@ footer a:hover { color: var(--blue); }
 .token-create { display: grid; grid-template-columns: 1fr 160px auto; }
 .token-secret { margin-top: 15px; border: 1px solid #e2c878; padding: 13px; display: grid; gap: 8px; background: #fffbed; font-size: 11px; }
 .token-secret > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.token-actions { display: flex; align-items: center; gap: 7px; }
-.token-secret code { overflow-wrap: anywhere; color: var(--danger); }
+.token-connection { width: 100%; min-height: 190px; border: 1px solid #eadb9e; border-radius: 6px; padding: 11px; resize: vertical; color: var(--ink); background: white; font-family: var(--font-mono); font-size: 11px; line-height: 1.65; }
 .token-secret > span { color: var(--muted); font-size: 10px; }
 .token-list { margin-top: 18px; border-top: 1px solid var(--line); }
 .token-list article { border-bottom: 1px solid var(--line); padding: 11px 0; display: flex; align-items: center; justify-content: space-between; }
@@ -499,7 +498,6 @@ footer a:hover { color: var(--blue); }
   nav[aria-label="主导航"] { gap: 8px; font-size: 12px; }
   .guide-full { display: none; }
   .guide-short { display: inline; }
-  .nav-contribute { min-height: 32px; padding: 0 9px; font-size: 11px; }
   .account-name { display: none; }
   .account-menu > summary { padding-right: 5px; }
   .account-dropdown { position: fixed; top: 66px; right: 14px; width: min(240px, calc(100vw - 28px)); }
@@ -552,14 +550,8 @@ footer a:hover { color: var(--blue); }
   .auth-required { align-items: flex-start; flex-direction: column; gap: 12px; }
   .auth-required a { min-height: 40px; display: inline-flex; align-items: center; }
   .submit-button { width: 100%; justify-self: stretch; }
-  .dashboard-header { grid-template-columns: 64px minmax(0,1fr); gap: 12px; padding: 0 0 22px; align-items: start; }
-  .dashboard-header .profile-avatar { width: 56px; height: 56px; font-size: 20px; }
-  .dashboard-identity h1 { font-size: 24px; line-height: 1.2; }
-  .dashboard-identity .profile-bio { margin-top: 7px; }
-  .dashboard-identity .profile-count-links { margin-top: 12px; gap: 6px 14px; }
-  .dashboard-profile-actions { grid-column: 1 / -1; width: 100%; display: flex; justify-content: flex-start; }
-  .dashboard-profile-actions .button { min-height: 34px; padding: 0 10px; font-size: 11px; }
-  .dashboard-profile-actions .text-button { min-height: 34px; display: inline-flex; align-items: center; }
+  .workspace-header { align-items: flex-start; flex-direction: column; gap: 18px; padding-top: 0; }
+  .workspace-actions { width: 100%; justify-content: flex-start; }
   .profile-tabs { margin-left: -14px; margin-right: -14px; padding: 0 14px; }
   .profile-tabs > a { min-height: 43px; padding: 0 9px; }
   .dashboard-panel { min-height: 420px; }
@@ -597,7 +589,6 @@ footer a:hover { color: var(--blue); }
   .settings-nav a { flex: 0 0 auto; }
   .token-create { grid-template-columns: 1fr; }
   .token-secret > div { align-items: stretch; flex-direction: column; }
-  .token-actions { align-items: stretch; flex-direction: column; }
   .token-list article { align-items: flex-start; gap: 12px; }
   .avatar-upload { align-items: stretch; flex-direction: column; }
   .admin-table article { grid-template-columns: 1fr auto; }
@@ -611,8 +602,6 @@ footer a:hover { color: var(--blue); }
   .header-inner { width: calc(100% - 20px); }
   .brand-domain { font-size: 13.5px; }
   nav[aria-label="主导航"] { gap: 6px; }
-  .nav-guide { display: none; }
-  .nav-contribute { padding: 0 8px; }
   .login-link { padding-left: 8px; padding-right: 8px; }
   .content-page, .home, .auth-page { width: calc(100% - 24px); }
   .hero h1 { font-size: 24px; }
@@ -630,13 +619,9 @@ footer a:hover { color: var(--blue); }
   .participant-input-main select { grid-column: 1 / -1; }
   .participant-input-main input { grid-column: 1; }
   .participant-input-main button { grid-column: 2; }
-  .dashboard-header { grid-template-columns: 52px minmax(0,1fr); gap: 10px; }
-  .dashboard-header .profile-avatar { width: 48px; height: 48px; font-size: 18px; }
-  .dashboard-identity h1 { font-size: 22px; }
   .profile-count-links { gap: 6px 12px; }
   .profile-count-links strong { font-size: 14px; }
   .profile-count-links span { font-size: 11px; }
-  .dashboard-profile-actions { gap: 8px; flex-wrap: wrap; }
   .profile-tabs { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; }
   .profile-header, .public-profile-header { grid-template-columns: 56px minmax(0,1fr); gap: 12px; }
   .profile-avatar { width: 54px; height: 54px; font-size: 19px; }
@@ -644,5 +629,6 @@ footer a:hover { color: var(--blue); }
   .form-section { padding: 15px; }
   .auth-panel { padding: 18px 15px; }
   .guide-actions .button { width: 100%; }
+  .workspace-actions .button { flex: 1 1 auto; }
   .admin-table article { gap: 9px; }
 }

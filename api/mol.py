@@ -1,4 +1,7 @@
 """Molecule and reaction SVG rendering using RDKit."""
+
+from __future__ import annotations
+
 import asyncio
 import re
 from rdkit import Chem

@@ -3,7 +3,9 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { SubmissionForm } from "@/components/SubmissionForm";
 
-export const metadata: Metadata = { title: "发布反应" };
-export default function SubmitPage() {
-  return <div className="content-page submission-page"><header className="page-title"><p className="page-kicker">PUBLISH</p><h1>发布反应</h1><p>填写结构化反应，或先由 AI 从文献和实验记录中整理。提交后自动关联相关化合物。</p><Link className="text-button" href="/guide">查看 AI 提交指南 →</Link></header><Suspense><SubmissionForm /></Suspense></div>;
+export const metadata: Metadata = { title: "反应记录" };
+export default async function SubmitPage({ searchParams }: { searchParams: Promise<{ reaction?: string | string[] }> }) {
+  const query = await searchParams;
+  const editing = typeof query.reaction === "string" && /^\d+$/.test(query.reaction);
+  return <div className="content-page submission-page"><header className="page-title"><p className="page-kicker">MY REACTION</p><h1>{editing ? "编辑反应记录" : "新建反应记录"}</h1><p>{editing ? "修改这条反应的结构、条件、来源或可见范围。" : "保存结构化反应记录，并自动关联相关化合物。新记录默认仅自己可见。"}</p><Link className="text-button" href="/guide">了解如何使用 AI 整理 →</Link></header><Suspense><SubmissionForm /></Suspense></div>;
 }

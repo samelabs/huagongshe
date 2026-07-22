@@ -7,13 +7,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://huagongshe.com"),
-  title: { default: "化工社｜AI化学开放数据", template: "%s｜化工社" },
-  description: "开放查询和维护化合物与化学反应数据。",
+  title: { default: "化工社｜开放化学数据与个人反应记录", template: "%s｜化工社" },
+  description: "查询开放化学数据，保存和管理自己的反应记录。",
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "化工社｜AI化学开放数据",
-    description: "开放查询和维护化合物与化学反应数据。",
+    title: "化工社｜开放化学数据与个人反应记录",
+    description: "查询开放化学数据，保存和管理自己的反应记录。",
     url: "/",
     siteName: "化工社",
     locale: "zh_CN",

@@ -39,13 +39,13 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="content-page reaction-page">
-      <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><span>反应详情</span></nav>
+      <nav className="breadcrumbs" aria-label="面包屑"><Link href={reaction.is_owner ? "/me" : "/"}>{reaction.is_owner ? "我的反应" : "查数据"}</Link><span>/</span><span>反应详情</span></nav>
       <header className="reaction-title">
         <div>
           <EntityId kind="reaction" id={reaction.id} />
           <h1>反应详情</h1>
         </div>
-        {reaction.is_owner ? <ReactionOwnerActions reactionId={reaction.id} /> : <FollowButton endpoint={`/api/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} />}
+        {reaction.is_owner ? <ReactionOwnerActions reactionId={reaction.id} /> : <FollowButton endpoint={`/api/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="收藏" />}
       </header>
 
       <section className="reaction-equation" aria-labelledby="equation-title">
@@ -92,6 +92,12 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
               <p className="document-text">{reaction.safety_notes}</p>
             </section>
           )}
+          {reaction.note && (
+            <section className="reaction-section">
+              <div className="section-heading compact-heading"><div><p>NOTE</p><h2>补充说明</h2></div></div>
+              <p className="document-text">{reaction.note}</p>
+            </section>
+          )}
         </main>
 
         <aside className="reaction-aside">
@@ -105,6 +111,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
               <Source label="DOI" value={reaction.doi} href={reaction.doi ? `https://doi.org/${reaction.doi}` : undefined} />
               <Source label="专利" value={reaction.patent} />
               <Source label="原始链接" value={reaction.publication_url ? "查看来源" : null} href={reaction.publication_url || undefined} />
+              <Source label="来源说明" value={reaction.source_citation} />
             </dl>
           </section>
           {reaction.reaction_smiles && <details className="source-expression">
@@ -131,7 +138,8 @@ function ParticipantGroup({ title, eyebrow, items, showRole = false }: {
             <EntityId kind="chemical" id={chemical.id} compact />
             <h3>{chemical.preferred_name || chemical.iupac_name || "未命名化合物"}</h3>
             {chemical.molecular_formula && <p>{chemical.molecular_formula}</p>}
-            {(chemical.amount_value != null || chemical.equivalents != null || chemical.concentration_value != null) && <p className="participant-measure-summary">{[
+            {((chemical.occurrence_count != null && chemical.occurrence_count > 1) || chemical.amount_value != null || chemical.equivalents != null || chemical.concentration_value != null) && <p className="participant-measure-summary">{[
+              chemical.occurrence_count != null && chemical.occurrence_count > 1 ? `${chemical.occurrence_count} 次` : null,
               chemical.amount_value != null ? `${chemical.amount_value} ${chemical.amount_unit || ""}` : null,
               chemical.equivalents != null ? `${chemical.equivalents} eq` : null,
               chemical.concentration_value != null ? `${chemical.concentration_value} ${chemical.concentration_unit || ""}` : null,

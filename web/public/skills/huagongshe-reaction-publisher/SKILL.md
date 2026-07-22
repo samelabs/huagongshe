@@ -1,9 +1,9 @@
 ---
 name: huagongshe-reaction-publisher
-description: Extract and normalize chemical reactions from webpages, DOI or patent pages, PDFs, Word files, images, or pasted text, then validate and submit them to the user's Huagongshe reaction repository. Use when an AI agent needs to turn source material into a structured reaction, check chemical structures, preserve evidence, ask the user about missing facts, or publish through the Huagongshe API.
+description: Extract and normalize chemical reactions from webpages, DOI or patent pages, PDFs, Word files, images, or pasted text, then validate and save them to the user's Huagongshe reaction repository. Use when an AI agent needs to turn source material into a structured reaction, check chemical structures, preserve evidence, ask the user about missing facts, or save through the Huagongshe API.
 ---
 
-# Publish reactions to Huagongshe
+# Save reactions to Huagongshe
 
 Use `https://huagongshe.com/api` as the API base. Read these live contracts before acting:
 
@@ -20,7 +20,7 @@ Require a user-created API Token and send it as `Authorization: Bearer <token>`.
 4. Express structures as SMILES. When a name or identifier is ambiguous, query `GET /search` and ask the user instead of guessing.
 5. Build one reaction payload using the fields below. Require at least one reactant, one product, and a valid source.
 6. Show the user a concise draft containing structures, roles, conditions, yield, source, and visibility. Explicitly ask whether it should be `public` or `private`; default to `private` when the user has not decided.
-7. Call `POST /reactions/validate`. Resolve every validation error before publishing.
+7. Call `POST /reactions/validate`. Resolve every validation error before saving.
 8. After the user confirms, call `POST /reactions` with a new `Idempotency-Key`. Reuse that same key for retries of the same submission.
 9. Return the resulting HRID, URL, visibility, and any newly created HCIDs. Never report success without a successful API response.
 

@@ -281,7 +281,11 @@ async def stats(db=Depends(get_db)):
     return data
 
 
-@router.get("/search")
+@router.get(
+    "/search",
+    operation_id="search_chemistry_data",
+    summary="统一查询化合物和反应",
+)
 async def search(
     request: Request,
     q: str = Query(..., min_length=1, max_length=4000),
@@ -418,7 +422,11 @@ async def search(
     return data
 
 
-@router.get("/chemicals/{chemical_id}")
+@router.get(
+    "/chemicals/{chemical_id}",
+    operation_id="get_chemical",
+    summary="读取一个化合物记录",
+)
 async def chemical_detail(
     request: Request,
     chemical_id: int,
@@ -589,7 +597,11 @@ async def chemical_similarity(
     return {"threshold": threshold, "chemicals": items}
 
 
-@router.get("/reactions/{reaction_id}")
+@router.get(
+    "/reactions/{reaction_id}",
+    operation_id="get_reaction",
+    summary="读取一个反应记录",
+)
 async def reaction_detail(
     reaction_id: int,
     actor: Actor | None = Depends(optional_actor),

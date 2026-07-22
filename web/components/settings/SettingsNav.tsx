@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
+  { href: "/me/settings/api-tokens", label: "AI 授权" },
   { href: "/me/settings/profile", label: "公开资料" },
   { href: "/me/settings/avatar", label: "头像" },
   { href: "/me/settings/security", label: "密码安全" },
-  { href: "/me/settings/api-tokens", label: "API Token" },
 ];
 
 export function SettingsNav() {

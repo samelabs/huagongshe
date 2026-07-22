@@ -12,8 +12,8 @@ export default async function Home() {
   return (
     <div className="home">
       <section className="hero">
-        <h1>AI化学开放数据</h1>
-        <p className="hero-subtitle">让 AI 帮你快速建立和管理化学数据</p>
+        <h1>查询开放化学数据</h1>
+        <p className="hero-subtitle">查找化合物与反应，登录后保存自己的反应记录</p>
         <GlobalSearch />
         <div className="search-examples" aria-label="查询示例">
           <span>试试</span>
@@ -38,8 +38,8 @@ export default async function Home() {
         )}
       </section>
       <section className="home-contribute">
-        <div><span>AI 辅助</span><strong>让 AI 帮你整理反应资料</strong><p>从文献、专利或实验记录中提取反应结构和条件，整理结果保存在你的个人反应库。数据由你管理，可设为仅自己可见，API Token 可随时撤销。</p></div>
-        <Link className="text-button" href="/guide">查看 AI 使用方法 →</Link>
+        <div><span>个人反应记录</span><strong>保存并管理与你有关的反应</strong><p>登录后可以保存公开或仅自己可见的反应记录、收藏化学数据，也可以连接自己的 AI 助手整理资料。</p></div>
+        <Link className="text-button" href="/guide">了解 AI 整理方法 →</Link>
       </section>
     </div>
   );

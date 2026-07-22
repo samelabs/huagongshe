@@ -262,7 +262,11 @@ async def reaction_response(db, reaction_id: int, created_chemicals: list[int] |
     }
 
 
-@router.post("/reactions/validate")
+@router.post(
+    "/reactions/validate",
+    operation_id="validate_reaction",
+    summary="校验并标准化反应草稿",
+)
 async def validate_reaction(body: ReactionBody, actor: Actor = Depends(current_actor)):
     require_scope(actor, "reaction:write")
     await enforce("reaction-validate", str(actor.id), 20, 60)
@@ -277,7 +281,12 @@ async def validate_reaction(body: ReactionBody, actor: Actor = Depends(current_a
     }
 
 
-@router.post("/reactions", status_code=201)
+@router.post(
+    "/reactions",
+    status_code=201,
+    operation_id="create_reaction",
+    summary="保存用户确认的反应记录",
+)
 async def create_reaction(
     body: ReactionBody,
     request: Request,
@@ -424,7 +433,11 @@ async def delete_reaction(reaction_id: int, actor: Actor = Depends(current_actor
     await cache_delete("v1:stats:exact")
 
 
-@router.get("/users/me/reactions")
+@router.get(
+    "/users/me/reactions",
+    operation_id="list_my_reactions",
+    summary="读取当前用户自己的反应记录",
+)
 async def my_reactions(
     visibility: Literal["all", "public", "private"] = Query("all"),
     page: int = Query(1, ge=1, le=500), page_size: int = Query(20, ge=1, le=50),
@@ -493,62 +506,3 @@ async def user_reactions(
         ORDER BY r.id DESC LIMIT :limit OFFSET :offset
     """), {"username": username, "limit": page_size, "offset": (page-1)*page_size})).mappings().all()
     return [dict(row) for row in rows]
-
-
-@router.get("/agent-guide", tags=["agent"])
-async def agent_guide():
-    return {
-        "api_version": settings.api_version,
-        "purpose": "帮助用户查询化学数据并提交属于该用户的结构化反应",
-        "api_base_url": "https://huagongshe.com/api",
-        "openapi_url": "https://huagongshe.com/api/openapi.json",
-        "help_url": "https://huagongshe.com/guide",
-        "optional_skill_url": "https://huagongshe.com/skills/huagongshe-reaction-publisher/SKILL.md",
-        "authentication": "Authorization: Bearer <用户创建的 API Token>",
-        "navigation": [
-            {"purpose": "查询化合物或反应", "method": "GET", "path": "/api/search"},
-            {"purpose": "校验反应草稿", "method": "POST", "path": "/api/reactions/validate"},
-            {"purpose": "发布已确认的反应", "method": "POST", "path": "/api/reactions"},
-            {"purpose": "读取用户反应库", "method": "GET", "path": "/api/users/me/reactions"},
-        ],
-        "workflow": [
-            "读取用户提供的网页、文档、图片或文本并保留来源证据",
-            "只整理明确事实；结构有歧义或必要字段缺失时向用户确认",
-            "生成结构化草稿并确认 visibility=public 或 private",
-            "调用 POST /api/reactions/validate",
-            "用户确认后携带唯一 Idempotency-Key 调用 POST /api/reactions",
-            "向用户返回 HRID、页面 URL、可见性和新建 HCID",
-        ],
-        "rules": [
-            "本入口和 OpenAPI 即可完成接入；Skill 仅用于为支持技能的 AI 固定行为约束。",
-            "提交前应查询并核对参与物；系统最终仍会按标准结构匹配或创建 HCID。",
-            "不得编造 SMILES、来源、条件、收率或实验过程；未知值应省略。",
-            "至少提供一个反应物、一个产物和明确的 source_type。",
-            "公开提交前必须确认用户希望 visibility=public；否则使用 private。",
-            "正式提交必须发送唯一 Idempotency-Key，重试时复用同一个值。",
-            "先调用 POST /api/reactions/validate，再调用 POST /api/reactions。",
-            "API Token 当前只用于查询、验证和创建；编辑、可见性调整与删除由用户在网页完成。",
-        ],
-        "source_types": {
-            "self": "用户本人实验", "doi": "必须提供 doi", "patent": "必须提供 patent",
-            "url": "必须提供 source_url", "database": "必须提供 source_citation",
-            "other": "必须提供 source_citation",
-        },
-        "operation_ids": [
-            "GET /api/search", "GET /api/chemicals/{id}", "GET /api/reactions/{id}",
-            "POST /api/reactions/validate", "POST /api/reactions",
-            "GET /api/users/me/reactions",
-        ],
-        "ownership": {
-            "created_reaction": "直接归入 Token 所属用户的反应仓库",
-            "public": "可被所有人查询和关注",
-            "private": "仅创建者网页登录后可见",
-            "maintenance": "创建者可在网页编辑、切换可见性或删除",
-        },
-        "rate_limits": {
-            "queries_per_minute": settings.api_query_limit_per_minute,
-            "structure_queries_per_minute": settings.api_structure_limit_per_minute,
-            "reaction_writes_per_minute": settings.api_reaction_write_limit_per_minute,
-            "reaction_writes_per_day": settings.api_reaction_write_limit_per_day,
-        },
-    }

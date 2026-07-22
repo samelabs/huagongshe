@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str
+    public_base_url: str = "https://huagongshe.com"
     redis_url: str = "redis://127.0.0.1:6379/1"
     cache_ttl: int = 600
     api_title: str = "化工社 API"

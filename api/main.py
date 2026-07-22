@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from .admin import router as admin_router
+from .agent import router as agent_router
 from .config import settings
 from .database import engine
 from .enrichment import router as enrichment_router
@@ -40,6 +41,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "Idempotency-Key"],
 )
 app.include_router(chemistry_router, prefix="/api")
+app.include_router(agent_router, prefix="/api")
 app.include_router(molecule_router, prefix="/api")
 app.include_router(enrichment_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")

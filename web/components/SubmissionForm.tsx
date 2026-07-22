@@ -31,16 +31,24 @@ export function SubmissionForm() {
   const chemicalId = numberParam(search.get("chemical"));
   const [details, setDetails] = useState<ReactionDetail | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([blank("REACTANT"), blank("PRODUCT")]);
+  const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    let active = true;
     if (reactionId) {
+      setDetails(null);
+      setParticipants([blank("REACTANT"), blank("PRODUCT")]);
+      setVisibility("private");
+      setMessage("");
       fetch(`/api/reactions/${reactionId}`, { cache: "no-store" }).then(async (response) => {
         if (!response.ok) throw new Error();
         const reaction = await response.json() as ReactionDetail;
         if (!reaction.is_owner) throw new Error();
+        if (!active) return;
         setDetails(reaction);
+        setVisibility(reaction.visibility);
         setParticipants(reaction.participants.map((item) => ({
           key: sequence++, role: item.role as Role, smiles: item.smiles || "",
           occurrence_count: String(item.occurrence_count || 1),
@@ -50,16 +58,23 @@ export function SubmissionForm() {
           concentration_unit: item.concentration_unit || "",
           yield_percent: item.yield_percent == null ? "" : String(item.yield_percent),
         })));
-      }).catch(() => setMessage("该反应不存在，或不属于当前用户。"));
-      return;
+      }).catch(() => { if (active) setMessage("该反应不存在，或不属于当前用户。"); });
+      return () => { active = false; };
     }
+    setDetails(null);
+    setVisibility("private");
+    setMessage("");
     if (chemicalId) {
+      setParticipants([blank("REACTANT"), blank("PRODUCT")]);
       fetch(`/api/chemicals/${chemicalId}`, { cache: "no-store" }).then(async (response) => {
         if (!response.ok) return;
         const chemical = await response.json() as { smiles?: string };
-        if (chemical.smiles) setParticipants([blank("REACTANT", chemical.smiles), blank("PRODUCT")]);
+        if (active && chemical.smiles) setParticipants([blank("REACTANT", chemical.smiles), blank("PRODUCT")]);
       });
+      return () => { active = false; };
     }
+    setParticipants([blank("REACTANT"), blank("PRODUCT")]);
+    return () => { active = false; };
   }, [reactionId, chemicalId]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -102,15 +117,17 @@ export function SubmissionForm() {
     router.push(`/reaction/${body.id}`); router.refresh();
   }
 
-  if (ready && !user) return <div className="auth-required"><div><strong>请先登录</strong><span>提交后，反应将保存到你的个人反应库。</span></div><Link href="/login">登录或注册</Link></div>;
+  const queryString = search.toString();
+  const nextPath = `/submit${queryString ? `?${queryString}` : ""}`;
+  if (ready && !user) return <div className="auth-required"><div><strong>请先登录</strong><span>登录后将反应保存到你的个人反应库。</span></div><Link href={`/login?next=${encodeURIComponent(nextPath)}`}>登录或注册</Link></div>;
 
   return (
     <form className="structured-form" onSubmit={submit} key={details?.updated_at || "new"}>
       {reactionId && <div className="editing-context"><span>正在编辑</span><EntityId kind="reaction" id={reactionId} compact /></div>}
       <section className="form-section">
-        <div className="form-section-head"><span>ACCESS</span><div><h2>仓库与来源</h2><p>公开反应可被查询和关注；私有反应仅自己可见。</p></div></div>
+        <div className="form-section-head"><span>ACCESS</span><div><h2>可见性与来源</h2><p>私有记录仅自己可见；公开记录会显示在公开主页并可被他人查询和收藏。</p></div></div>
         <div className="form-fields two-columns">
-          <label>可见性<select name="visibility" defaultValue={details?.visibility || "public"}><option value="public">公开仓库</option><option value="private">私有仓库</option></select></label>
+          <label>可见性<select name="visibility" value={visibility} onChange={(event) => setVisibility(event.target.value as "public" | "private")}><option value="private">私有记录</option><option value="public">公开记录</option></select></label>
           <label>来源类型<select name="source_type" defaultValue={details?.source_type || "self"}><option value="self">本人实验</option><option value="doi">文献 DOI</option><option value="patent">专利</option><option value="database">数据库</option><option value="url">网页</option><option value="other">其他</option></select></label>
           <label>DOI<input name="doi" defaultValue={details?.doi || ""} /></label>
           <label>专利号<input name="patent" defaultValue={details?.patent || ""} /></label>
@@ -159,7 +176,7 @@ export function SubmissionForm() {
         </div>
       </section>
       {message && <p className="form-message bad">{message}</p>}
-      <button className="button primary submit-button" disabled={busy || !user}>{busy ? "校验并保存中…" : reactionId ? "保存修改" : "发布反应"}</button>
+      <button className="button primary submit-button" disabled={busy || !user}>{busy ? "校验并保存中…" : reactionId ? "保存修改" : visibility === "private" ? "保存为私有记录" : "公开并保存"}</button>
     </form>
   );
 

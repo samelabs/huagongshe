@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+from .agent import agent_connection_text
 from .config import settings
 from .database import get_db
 from .rate_limit import enforce, request_identity
@@ -345,9 +346,10 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
     return {
         **dict(row),
         "token": plain,
-        "api_base_url": "https://huagongshe.com/api",
-        "agent_guide_url": "https://huagongshe.com/api/agent-guide",
-        "openapi_url": "https://huagongshe.com/api/openapi.json",
+        "api_base_url": f"{settings.public_base_url.rstrip('/')}/api",
+        "agent_guide_url": f"{settings.public_base_url.rstrip('/')}/api/agent-guide",
+        "openapi_url": f"{settings.public_base_url.rstrip('/')}/api/openapi.json",
+        "agent_connection_text": agent_connection_text(plain),
     }
 
 

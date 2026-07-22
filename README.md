@@ -1,27 +1,27 @@
 # 化工社
 
-化工社是开放、非商业化的化学数据与反应发布平台，线上域名为 `https://huagongshe.com`。
+化工社是开放、非商业化的化学数据查询与个人反应记录平台，线上域名为 `https://huagongshe.com`。
 
 ## 产品主线
 
 - `chemistry.chemicals` 是全局化合物身份底座。PubChem、DSSTox 和 RDKit/ORD 只作为来源和补全能力，不形成并行产品库。
-- `chemistry.reactions` 是唯一反应内容实体。系统导入反应和用户发布反应共享 HRID、RDKit 表达与查询链路。
+- `chemistry.reactions` 是唯一反应内容实体。系统导入反应和用户保存的反应共享 HRID、RDKit 表达与查询链路。
 - `chemistry.reaction_chemicals` 是 HRID 与 HCID 的唯一参与关系。
-- 用户发布反应时直接写入上述实体，不经过人工科学审核，不存在待审核缓存层。
-- 用户拥有自己发布的反应，可以编辑、设为公开或私有，也可以直接删除；关联 chemicals 不随反应删除。
+- 用户保存反应时直接写入上述实体，不经过人工科学审核，不存在待审核缓存层。
+- 用户拥有自己保存的反应，可以编辑、设为公开或私有，也可以直接删除；关联 chemicals 不随反应删除。
 
 ## 用户能力
 
 - 注册、登录、公开资料与压缩头像；
 - 公开和私有反应仓库；
-- 发布、维护和删除自己的反应；
+- 保存、维护和删除自己的反应；
 - 关注用户、化合物和公开反应；
-- 关注用户发布公开反应时接收站内动态；化合物和反应关注只形成个人列表，不触发通知；
+- 关注用户新增公开反应时接收站内动态；化合物和反应收藏只形成个人列表，不触发通知；
 - 创建与账号绑定的 API Token，为 AI 或其他客户端授权。
 
 平台管理只处理账号状态和用户反应可见度，不判断反应是否科学正确。项目不提供开放评论、求助、私信或审核队列。
 
-## 反应发布事务
+## 反应保存事务
 
 网页和 AI Agent 共用同一个反应字段模型和反应写入逻辑：
 
@@ -37,10 +37,10 @@
 ## API 边界
 
 - `/api/*`：网站与用户 AI Agent 共用的查询和用户能力。
-- `/api/agent-guide`：面向 AI Agent 的字段语义、行为规则和调用顺序。
+- `/api/agent-guide`：AI 的唯一连接入口；携带 Token 时确认所属账号，并返回真实可用操作、字段要求、安全规则和调用顺序。
 - `/api/openapi.json`：稳定的结构化契约。
-- `/guide`：面向用户的网页发布、AI 对话提示词与 Skill 使用指南。
-- `/skills/huagongshe-reaction-publisher/SKILL.md`：可直接交给 AI 的反应整理与发布 Skill。
+- `/guide`：面向用户的网页记录、AI 对话提示词与 Skill 使用指南。
+- `/skills/huagongshe-reaction-publisher/SKILL.md`：可直接交给 AI 的反应整理与保存 Skill。
 - `/workapi/*`：只服务受信任 PubChem worker，与用户 Agent 完全无关。
 
 网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 API Token（Bearer Token）；数据库只保存 Token 摘要。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
@@ -66,6 +66,7 @@
 ## 代码边界
 
 - `api/routes.py`：公开化学查询；
+- `api/agent.py`：AI 连接信息和与现有能力一致的操作说明；
 - `api/reactions.py`：网页与 Agent 共用的唯一反应写入能力；
 - `api/users.py`、`api/security.py`：用户、头像、会话和 API Token；
 - `api/social.py`：三类关注与通知；

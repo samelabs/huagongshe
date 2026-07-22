@@ -47,13 +47,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       )}
       {chemicals.length > 0 && (
         <section className="results-section">
-          <div className="section-heading"><div><p>CHEMICALS</p><h2>{chemicalId ? relationLabel : "化合物"}</h2></div><span>{chemicals.length} 个结果</span></div>
+          <div className="section-heading"><div><p>CHEMICALS</p><h2>{chemicalId ? relationLabel : "化合物"}</h2></div><span>显示 {chemicals.length} 条匹配记录</span></div>
           <div className="chemical-results">{chemicals.map((chemical) => <ChemicalResult chemical={chemical} key={chemical.id} />)}</div>
         </section>
       )}
       {reactions.length > 0 && (
         <section className="results-section">
-          <div className="section-heading"><div><p>REACTIONS</p><h2>反应记录</h2></div><span>{reactions.length} 个结果</span></div>
+          <div className="section-heading"><div><p>REACTIONS</p><h2>反应记录</h2></div><span>显示 {reactions.length} 条匹配记录</span></div>
           <div className="reaction-results">{reactions.map((reaction) => <ReactionResult reaction={reaction} key={reaction.id} />)}</div>
         </section>
       )}
