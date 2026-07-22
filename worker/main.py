@@ -64,10 +64,17 @@ async def heartbeat(client: WorkApiClient, job: dict[str, Any], stop: asyncio.Ev
         try:
             await asyncio.wait_for(stop.wait(), timeout=interval)
         except asyncio.TimeoutError:
-            await client.post(
-                "/workapi/v1/jobs/heartbeat",
-                {"job_id": job["job_id"], "lease_token": job["lease_token"]},
-            )
+            try:
+                await client.post(
+                    "/workapi/v1/jobs/heartbeat",
+                    {"job_id": job["job_id"], "lease_token": job["lease_token"]},
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                # A transient heartbeat failure must not stop lease renewal for
+                # the remainder of a long-running PubChem request.
+                log.warning("heartbeat failed for job=%s: %s", job["job_id"], exc)
 
 
 async def process_job(

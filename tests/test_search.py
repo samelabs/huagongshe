@@ -42,11 +42,12 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertIn("MIN_FUZZY_NAME_LENGTH", source)
 
     def test_bounded_substructure_accepts_specific_structure(self) -> None:
-        self.assertEqual(bounded_substructure_smiles("c1ccccc1"), "c1ccccc1")
+        smiles = "CC(=O)Oc1ccccc1C(=O)O"
+        self.assertEqual(bounded_substructure_smiles(smiles), smiles)
 
     def test_bounded_substructure_rejects_broad_structure(self) -> None:
         with self.assertRaises(HTTPException) as raised:
-            bounded_substructure_smiles("CCO")
+            bounded_substructure_smiles("c1ccccc1")
         self.assertEqual(raised.exception.status_code, 422)
 
     def test_only_real_loopback_addresses_are_trusted(self) -> None:

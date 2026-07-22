@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import AsyncMock, patch
 
 from api.pubchem_core import chemical_core_values, validate_synonyms
 from worker.chemistry import select_verified_cid
+from worker.main import heartbeat
 from worker.pubchem import (
     PROPERTY_NAMES,
     PubChemRateController,
@@ -80,6 +82,26 @@ class LocalRateControllerTests(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_rate_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
             PubChemRateController(6)
+
+
+class HeartbeatTests(unittest.IsolatedAsyncioTestCase):
+    async def test_transient_failure_does_not_stop_lease_renewal(self) -> None:
+        stop = __import__("asyncio").Event()
+        client = AsyncMock()
+
+        async def post(_path, _payload):
+            if client.post.await_count == 1:
+                raise RuntimeError("temporary network failure")
+            stop.set()
+            return {}
+
+        client.post.side_effect = post
+        with patch("worker.main.asyncio.wait_for", new=AsyncMock(side_effect=[
+            __import__("asyncio").TimeoutError(),
+            __import__("asyncio").TimeoutError(),
+        ])):
+            await heartbeat(client, {"job_id": 7, "lease_token": "lease", "lease_seconds": 60}, stop)
+        self.assertEqual(client.post.await_count, 2)
 
 
 class IdentitySelectionTests(unittest.TestCase):

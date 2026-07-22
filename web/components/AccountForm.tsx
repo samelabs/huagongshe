@@ -13,8 +13,8 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
   return (
     <>
       <div className="tabs">
-        <button className={kind === "login" ? "active" : ""} onClick={() => setKind("login")}>登录</button>
-        <button className={kind === "register" ? "active" : ""} onClick={() => setKind("register")}>注册</button>
+        <button type="button" className={kind === "login" ? "active" : ""} disabled={busy} onClick={() => { setKind("login"); setMessage(""); }}>登录</button>
+        <button type="button" className={kind === "register" ? "active" : ""} disabled={busy} onClick={() => { setKind("register"); setMessage(""); }}>注册</button>
       </div>
       <form className="form-stack" onSubmit={async (event) => {
         event.preventDefault();
@@ -23,18 +23,27 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
         if (kind === "register" && values.get("password") !== values.get("confirm_password")) {
           setMessage("两次输入的密码不一致"); setBusy(false); return;
         }
+        if (kind === "register" && !/^(?=.*[A-Za-z])(?=.*\d).{10,}$/.test(String(values.get("password") || ""))) {
+          setMessage("密码至少 10 位，并同时包含字母和数字"); setBusy(false); return;
+        }
         const payload = kind === "login"
           ? { account: values.get("account"), password: values.get("password") }
           : {
               username: values.get("username"), email: values.get("email"),
               password: values.get("password"), confirm_password: values.get("confirm_password"),
             };
-        const response = await fetch(`/api/auth/${kind}`, {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
-        });
-        if (response.ok) { await refresh(); router.push(nextPath); router.refresh(); return; }
-        const error = await response.json().catch(() => null);
-        setMessage(apiError(error?.detail)); setBusy(false);
+        try {
+          const response = await fetch(`/api/auth/${kind}`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+          });
+          if (response.ok) { await refresh(); router.push(nextPath); router.refresh(); return; }
+          const error = await response.json().catch(() => null);
+          setMessage(apiError(error?.detail));
+        } catch {
+          setMessage("网络连接失败，请稍后重试");
+        } finally {
+          setBusy(false);
+        }
       }}>
         {kind === "register" ? (
           <>
@@ -50,7 +59,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
           </>
         )}
         {message && <p className="form-message bad">{message}</p>}
-        <button className="button primary" disabled={busy}>{busy ? "处理中…" : kind === "login" ? "登录" : "创建账号"}</button>
+        <button type="submit" className="button primary" disabled={busy}>{busy ? "处理中…" : kind === "login" ? "登录" : "创建账号"}</button>
       </form>
     </>
   );

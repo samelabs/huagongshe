@@ -19,10 +19,14 @@ export function GlobalSearch({ initial = "", compact = false }: {
       <label className="sr-only" htmlFor={compact ? "site-query-compact" : "site-query"}>查询化学数据</label>
       <input
         id={compact ? "site-query-compact" : "site-query"}
+        name="q"
+        type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="名称、CAS、SMILES、CID、ORD 记录号或 DOI"
         autoComplete="off"
+        enterKeyHint="search"
+        maxLength={4000}
       />
       <button type="submit">查询</button>
     </form>

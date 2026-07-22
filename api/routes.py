@@ -41,7 +41,9 @@ CHEMICAL_SELECT = """
     c.cas_numbers, c.nikkaji_numbers, c.chembl_ids, c.ec_numbers,
     c.unii_codes, c.chebi_ids
 """
-MIN_SUBSTRUCTURE_HEAVY_ATOMS = 4
+# Smaller motifs match too much of the 124M-compound corpus and can remain inside
+# RDKit's PostgreSQL extension after the client-side statement timeout expires.
+MIN_SUBSTRUCTURE_HEAVY_ATOMS = 10
 MIN_FUZZY_NAME_LENGTH = 3
 
 
@@ -51,7 +53,7 @@ def bounded_substructure_smiles(smiles: str) -> str:
     if mol is None:
         raise HTTPException(400, "无法识别该 SMILES 结构")
     if mol.GetNumHeavyAtoms() < MIN_SUBSTRUCTURE_HEAVY_ATOMS:
-        raise HTTPException(422, "子结构过小，请至少提供 4 个非氢原子")
+        raise HTTPException(422, f"子结构过小，请至少提供 {MIN_SUBSTRUCTURE_HEAVY_ATOMS} 个非氢原子")
     return smiles
 
 

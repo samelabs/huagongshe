@@ -218,7 +218,7 @@ footer a:hover { color: var(--blue); }
 .pagination a { color: var(--blue); }
 .section-intro { margin: -8px 0 18px; color: var(--muted); font-size: 13px; line-height: 1.7; }
 .structured-form label, .form-stack label, .settings-content label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
-.structured-form input, .structured-form textarea, .structured-form select, .form-stack input, .settings-content input, .settings-content textarea, .settings-content select { width: 100%; border: 1px solid var(--line-strong); border-radius: 6px; outline: 0; padding: 10px 11px; color: var(--ink); background: white; }
+.structured-form input, .structured-form textarea, .structured-form select, .form-stack input, .settings-content input, .settings-content textarea, .settings-content select { width: 100%; min-width: 0; max-width: 100%; border: 1px solid var(--line-strong); border-radius: 6px; outline: 0; padding: 10px 11px; color: var(--ink); background: white; }
 .structured-form input:focus, .structured-form textarea:focus, .structured-form select:focus, .form-stack input:focus, .settings-content input:focus, .settings-content textarea:focus, .settings-content select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(23,105,224,.09); }
 .inline-error { margin: 0; color: var(--danger); font-size: 12px; }
 .inline-error a { text-decoration: underline; }
@@ -280,7 +280,7 @@ footer a:hover { color: var(--blue); }
 .field-help { margin: 12px 0 0; color: var(--quiet); font-size: 11px; }
 .editing-context { border-left: 3px solid var(--blue); padding: 10px 13px; display: flex; align-items: center; gap: 9px; color: var(--muted); background: var(--wash); font-size: 12px; }
 .participant-editor-cards { display: grid; gap: 10px; }
-.participant-input-card { border: 1px solid var(--line); padding: 13px; }
+.participant-input-card { min-width: 0; border: 1px solid var(--line); padding: 13px; }
 .participant-input-main { display: grid; grid-template-columns: 130px 1fr auto; gap: 9px; align-items: center; }
 .participant-input-main button { border: 0; color: var(--danger); background: none; cursor: pointer; font-size: 11px; }
 .participant-measures { margin-top: 10px; display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 8px; }
@@ -290,7 +290,7 @@ footer a:hover { color: var(--blue); }
 .participant-add button { border: 1px solid var(--line); border-radius: 5px; padding: 6px 9px; color: var(--muted); background: var(--wash); cursor: pointer; font-size: 10px; }
 .condition-fields { display: grid; grid-template-columns: 1.2fr .8fr 1.2fr .8fr; gap: 12px; }
 .submit-button { justify-self: end; }
-.form-message { margin: 0; font-size: 12px; }
+.form-message { margin: 0; overflow-wrap: anywhere; font-size: 12px; }
 .form-message.ok { color: var(--success); }
 .form-message.bad { color: var(--danger); }
 .status { border-radius: 999px; padding: 3px 7px; font-size: 9px; }
