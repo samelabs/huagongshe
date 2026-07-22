@@ -4,13 +4,14 @@ import os
 import asyncio
 import inspect
 import unittest
+from pathlib import Path
 
 from fastapi import HTTPException
 from pydantic import ValidationError
 
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
-from api import agent, reactions
+from api import agent, reactions, social, users
 from api.config import settings
 from api.reactions import ParticipantBody, ReactionBody, canonical_participants
 from api.security import Actor
@@ -88,6 +89,21 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn("await db.rollback()", source)
         create_source = inspect.getsource(reactions.create_reaction)
         self.assertLess(create_source.index("await db.commit()"), create_source.index("notify_new_reaction_safely"))
+
+    def test_activity_feed_only_returns_current_visible_followed_reactions(self) -> None:
+        feed_source = inspect.getsource(social.notifications)
+        summary_source = inspect.getsource(users.dashboard_summary)
+        for source in (feed_source, summary_source):
+            self.assertIn("JOIN community.user_follows", source)
+            self.assertIn("n.created_at>=", source)
+            self.assertIn("r.visibility='public'", source)
+            self.assertIn("r.moderation_status='visible'", source)
+        self.assertIn("ORDER BY n.created_at DESC,n.id DESC", feed_source)
+
+    def test_activity_feed_has_a_bounded_order_index(self) -> None:
+        migration = Path("migrations/20260722_optimize_activity_feed.sql").read_text()
+        self.assertIn("notifications(user_id,created_at DESC,id DESC)", migration)
+        self.assertIn("WHERE event_type='new_reaction'", migration)
 
     def test_concurrent_idempotent_submission_returns_existing_reaction(self) -> None:
         source = inspect.getsource(reactions.create_reaction)

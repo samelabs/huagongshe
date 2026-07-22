@@ -4,14 +4,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAccount } from "@/components/AccountContext";
 import { EntityId } from "@/components/EntityId";
+import { PersonList, type PersonSummary } from "@/components/PersonList";
 import { reactionSvgUrl } from "@/lib/api";
 
 type LoadState = "loading" | "ready" | "error";
-export type DashboardTab = "mine" | "saved" | "activity";
+export type DashboardTab = "mine" | "saved" | "activity" | "followers" | "following";
 export type ReactionVisibility = "all" | "public" | "private";
 export type SavedKind = "chemicals" | "reactions";
 type Counts = { public_reactions: number; private_reactions: number; following: number; followers: number; chemicals: number; reactions: number; unread: number };
-type Summary = { counts: Counts };
+type Summary = { username: string; display_name: string; bio: string | null; avatar_url: string | null; created_at: string; counts: Counts };
 type Reaction = { id: number; reaction_smiles: string; visibility?: "public" | "private"; updated_at?: string; followers?: number };
 type ReactionResponse = { items: Reaction[]; counts: { all: number; public: number; private: number }; page: number; page_size: number };
 type ChemicalFollow = { id: number; preferred_name: string | null; iupac_name: string | null; smiles: string | null };
@@ -35,6 +36,7 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
   const [chemicals, setChemicals] = useState<PageResponse<ChemicalFollow>>(emptyPage<ChemicalFollow>());
   const [savedReactions, setSavedReactions] = useState<PageResponse<Reaction>>(emptyPage<Reaction>());
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [people, setPeople] = useState<PageResponse<PersonSummary>>(emptyPage<PersonSummary>());
 
   useEffect(() => {
     if (!user) return;
@@ -50,6 +52,7 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
 
   useEffect(() => {
     if (!user) return;
+    const username = user.username;
     let active = true;
     setContentState("loading");
     async function load() {
@@ -69,7 +72,7 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
         if (!response.ok) throw new Error();
         const value = await response.json() as PageResponse<Reaction>;
         if (active) setSavedReactions(value);
-      } else {
+      } else if (activeTab === "activity") {
         response = await fetch("/api/users/me/notifications?limit=100", { cache: "no-store" });
         if (!response.ok) throw new Error();
         const value = await response.json() as Notice[];
@@ -79,11 +82,16 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
             void fetch("/api/users/me/notifications/read", { method: "POST" }).then((readResponse) => {
               if (readResponse.ok && active) {
                 setNotices((items) => items.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })));
-                setSummary((current) => current ? { counts: { ...current.counts, unread: 0 } } : current);
+                setSummary((current) => current ? { ...current, counts: { ...current.counts, unread: 0 } } : current);
               }
             });
           }
         }
+      } else {
+        response = await fetch(`/api/users/${encodeURIComponent(username)}/${activeTab}?page=${page}&page_size=40`, { cache: "no-store" });
+        if (!response.ok) throw new Error();
+        const value = await response.json() as PageResponse<PersonSummary>;
+        if (active) setPeople(value);
       }
       if (active) setContentState("ready");
     }
@@ -98,14 +106,42 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
   const reactionTotal = counts ? counts.public_reactions + counts.private_reactions : null;
   const savedTotal = counts ? counts.chemicals + counts.reactions : null;
 
+  function relationshipChanged(person: PersonSummary, following: boolean) {
+    if (person.is_following === following) return;
+    setPeople((current) => ({
+      ...current,
+      items: activeTab === "following" && !following
+        ? current.items.filter((item) => item.username !== person.username)
+        : current.items.map((item) => item.username === person.username ? { ...item, is_following: following } : item),
+      total: activeTab === "following" && !following ? Math.max(current.total - 1, 0) : current.total,
+    }));
+    setSummary((current) => current ? {
+      ...current,
+      counts: {
+        ...current.counts,
+        following: Math.max(current.counts.following + (following ? 1 : -1), 0),
+      },
+    } : current);
+  }
+
   return <>
-    <header className="workspace-header">
-      <div><p className="page-kicker">MY DATA</p><h1>我的数据</h1><p>管理你保存的反应记录和收藏的数据。</p></div>
-      <div className="workspace-actions"><Link className="button primary" href="/submit">新建反应记录</Link><Link className="button secondary" href="/me/settings/api-tokens">AI 授权</Link></div>
+    <header className="profile-header center-profile-header">
+      <div className="profile-avatar">{(summary?.avatar_url || user.avatar_url) ? <img src={summary?.avatar_url || user.avatar_url || ""} alt="" /> : (summary?.display_name || user.display_name).slice(0, 1)}</div>
+      <div className="profile-primary">
+        <p className="page-kicker">个人中心</p>
+        <h1>{summary?.display_name || user.display_name}</h1>
+        <p className="profile-username">@{summary?.username || user.username}</p>
+        {summary?.created_at && <p className="profile-joined">加入时间：{new Date(summary.created_at).toLocaleDateString("zh-CN")}</p>}
+        <div className="profile-counts profile-count-links">
+          <Link className={activeTab === "following" ? "active" : ""} href="/me?tab=following"><strong>{counts?.following ?? "—"}</strong><span>关注</span></Link>
+          <Link className={activeTab === "followers" ? "active" : ""} href="/me?tab=followers"><strong>{counts?.followers ?? "—"}</strong><span>粉丝</span></Link>
+        </div>
+      </div>
+      <div className="profile-center-actions"><Link className="button primary" href="/submit">新建反应记录</Link><Link className="button secondary" href="/me/settings/api-tokens">AI 授权</Link></div>
     </header>
 
     <div className="dashboard-shell">
-      <nav className="dashboard-nav profile-tabs" aria-label="我的数据内容">
+      <nav className="dashboard-nav profile-tabs" aria-label="个人中心内容">
         <Link href="/me" className={activeTab === "mine" ? "active" : ""}><span>我的反应</span><em>{reactionTotal ?? "—"}</em></Link>
         <Link href="/me?tab=saved" className={activeTab === "saved" ? "active" : ""}><span>我的收藏</span><em>{savedTotal ?? "—"}</em></Link>
         <Link href="/me?tab=activity" className={activeTab === "activity" ? "active" : ""}><span>关注动态</span>{Boolean(counts?.unread) && <em className="unread-count">{counts?.unread}</em>}</Link>
@@ -116,6 +152,7 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
         {activeTab === "mine" && <MyReactions data={reactionData} state={contentState} visibility={visibility} page={page} />}
         {activeTab === "saved" && <SavedData chemicals={chemicals} reactions={savedReactions} state={contentState} kind={savedKind} page={page} />}
         {activeTab === "activity" && <Activity notices={notices} state={contentState} />}
+        {(activeTab === "followers" || activeTab === "following") && <Relationships data={people} state={contentState} kind={activeTab} page={page} onFollowChange={relationshipChanged} />}
       </main>
     </div>
   </>;
@@ -158,6 +195,22 @@ function ReactionCards({ items, editable = false }: { items: Reaction[]; editabl
 function Activity({ notices, state }: { notices: Notice[]; state: LoadState }) { return <section><PanelHeading title="关注动态" subtitle="你关注的用户新建公开反应后显示在这里" />
   {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}{state === "ready" && (notices.length ? <div className="notification-list">{notices.map((item) => <Link href={`/reaction/${item.reaction_id}`} key={item.id}><span><strong>{item.actor_display_name || "关注用户"} 新建了公开反应</strong><small>{new Date(item.created_at).toLocaleString("zh-CN")}</small></span><EntityId kind="reaction" id={item.reaction_id} compact /></Link>)}</div> : <DashboardEmpty text="关注的用户新建公开反应后，会显示在这里。" />)}
 </section>; }
+
+function Relationships({ data, state, kind, page, onFollowChange }: {
+  data: PageResponse<PersonSummary>;
+  state: LoadState;
+  kind: "followers" | "following";
+  page: number;
+  onFollowChange: (person: PersonSummary, following: boolean) => void;
+}) {
+  const title = kind === "followers" ? "粉丝" : "关注";
+  return <section>
+    <PanelHeading title={title} subtitle={kind === "followers" ? "关注你的人，可以查看主页或回关" : "你正在关注的人，可以查看主页或取消关注"} count={state === "ready" ? data.total : "—"} unit="人" />
+    {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}
+    {state === "ready" && <PersonList items={data.items} empty={kind === "followers" ? "还没有粉丝。" : "还没有关注用户。"} kind={kind} onFollowChange={onFollowChange} />}
+    {state === "ready" && data.total > data.page_size && <Pagination page={page} pageSize={data.page_size} total={data.total} href={(value) => `/me?tab=${kind}${value > 1 ? `&page=${value}` : ""}`} />}
+  </section>;
+}
 
 function PanelHeading({ title, subtitle, count, unit = "" }: { title: string; subtitle?: string; count?: number | string; unit?: string }) { return <div className="dashboard-panel-heading"><div><h2>{title}</h2>{subtitle && <span>{subtitle}</span>}</div>{count !== undefined && <strong>{count} {unit}</strong>}</div>; }
 function Pagination({ page, pageSize, total, href }: { page: number; pageSize: number; total: number; href: (page: number) => string }) { const pages = Math.ceil(total / pageSize); return <nav className="profile-pagination" aria-label="分页">{page > 1 ? <Link href={href(page - 1)}>上一页</Link> : <span />}<small>{page} / {pages}</small>{page < pages ? <Link href={href(page + 1)}>下一页</Link> : <span />}</nav>; }

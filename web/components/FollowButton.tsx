@@ -3,8 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = "关注" }: {
-  endpoint: string; initial: boolean; count?: number; disabled?: boolean; showCount?: boolean; label?: "关注" | "收藏";
+export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = "关注", idleText, activeText, onChange }: {
+  endpoint: string;
+  initial: boolean;
+  count?: number;
+  disabled?: boolean;
+  showCount?: boolean;
+  label?: "关注" | "收藏";
+  idleText?: string;
+  activeText?: string;
+  onChange?: (following: boolean) => void;
 }) {
   const router = useRouter();
   const [following, setFollowing] = useState(initial);
@@ -13,17 +21,23 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   async function toggle() {
     if (disabled || busy) return;
     setBusy(true);
-    const response = await fetch(endpoint, { method: following ? "DELETE" : "POST" });
-    if (response.status === 401) {
-      const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      router.push(`/login?next=${encodeURIComponent(next)}`);
-      return;
+    try {
+      const response = await fetch(endpoint, { method: following ? "DELETE" : "POST" });
+      if (response.status === 401) {
+        const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        router.push(`/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
+      if (response.ok) {
+        const next = !following;
+        setFollowing(next); setFollowers((value) => Math.max(value + (following ? -1 : 1), 0));
+        onChange?.(next);
+        router.refresh();
+      }
+    } finally {
+      setBusy(false);
     }
-    if (response.ok) {
-      setFollowing(!following); setFollowers((value) => Math.max(value + (following ? -1 : 1), 0));
-      router.refresh();
-    }
-    setBusy(false);
   }
-  return <button type="button" className={`follow-button ${following ? "following" : ""}`} onClick={toggle} disabled={disabled || busy}><span>{following ? `已${label}` : label}</span>{showCount && <strong>{followers.toLocaleString("zh-CN")}</strong>}</button>;
+  const text = following ? activeText || `已${label}` : idleText || label;
+  return <button type="button" className={`follow-button ${following ? "following" : ""}`} onClick={toggle} disabled={disabled || busy}><span>{text}</span>{showCount && <strong>{followers.toLocaleString("zh-CN")}</strong>}</button>;
 }

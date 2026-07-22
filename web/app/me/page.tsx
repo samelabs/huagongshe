@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { UserDashboard, type DashboardTab, type ReactionVisibility, type SavedKind } from "@/components/UserDashboard";
 
-export const metadata: Metadata = { title: "我的数据", robots: { index: false, follow: false } };
-const tabs = new Set<DashboardTab>(["mine", "saved", "activity"]);
+export const metadata: Metadata = { title: "个人中心", robots: { index: false, follow: false } };
+const tabs = new Set<DashboardTab>(["mine", "saved", "activity", "followers", "following"]);
 const visibilities = new Set<ReactionVisibility>(["all", "public", "private"]);
 const savedKinds = new Set<SavedKind>(["chemicals", "reactions"]);
 

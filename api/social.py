@@ -135,8 +135,14 @@ async def notifications(
         SELECT n.id,n.event_type,n.reaction_id,n.chemical_id,n.created_at,n.read_at,
                u.username AS actor_username,u.display_name AS actor_display_name
         FROM community.notifications n
-        LEFT JOIN community.users u ON u.id=n.actor_user_id
-        WHERE n.user_id=:id ORDER BY n.id DESC LIMIT :limit
+        JOIN community.users u ON u.id=n.actor_user_id AND u.status='active'
+        JOIN chemistry.reactions r ON r.id=n.reaction_id
+          AND r.visibility='public' AND r.moderation_status='visible'
+        JOIN community.user_follows f
+          ON f.follower_user_id=n.user_id AND f.followed_user_id=n.actor_user_id
+         AND n.created_at>=f.created_at
+        WHERE n.user_id=:id AND n.event_type='new_reaction'
+        ORDER BY n.created_at DESC,n.id DESC LIMIT :limit
     """), {"id": actor.id, "limit": limit})).mappings().all()
     return [dict(row) for row in rows]
 

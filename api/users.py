@@ -207,7 +207,7 @@ async def me(actor: Actor = Depends(current_actor)):
 @router.get("/me/dashboard")
 async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(get_db)):
     row = (await db.execute(text("""
-        SELECT u.username,u.display_name,u.bio,u.avatar_path,
+        SELECT u.username,u.display_name,u.bio,u.avatar_path,u.created_at,
           (SELECT count(*) FROM chemistry.reactions r
            WHERE r.created_by_user_id=u.id AND r.visibility='public' AND r.moderation_status='visible'),
           (SELECT count(*) FROM chemistry.reactions r
@@ -218,15 +218,26 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
           (SELECT count(*) FROM community.reaction_follows f
            JOIN chemistry.reactions r ON r.id=f.reaction_id
            WHERE f.user_id=u.id AND r.visibility='public' AND r.moderation_status='visible'),
-          (SELECT count(*) FROM community.notifications n WHERE n.user_id=u.id AND n.read_at IS NULL)
+          (SELECT count(*)
+           FROM community.notifications n
+           JOIN chemistry.reactions r ON r.id=n.reaction_id
+           JOIN community.users source_user
+             ON source_user.id=n.actor_user_id AND source_user.status='active'
+           JOIN community.user_follows current_follow
+             ON current_follow.follower_user_id=n.user_id
+            AND current_follow.followed_user_id=n.actor_user_id
+            AND n.created_at>=current_follow.created_at
+           WHERE n.user_id=u.id AND n.event_type='new_reaction' AND n.read_at IS NULL
+             AND r.visibility='public' AND r.moderation_status='visible')
         FROM community.users u WHERE u.id=:id AND u.status='active'
     """), {"id": actor.id})).one()
     return {
         "username": row[0], "display_name": row[1], "bio": row[2], "avatar_url": row[3],
+        "created_at": row[4],
         "counts": {
-            "public_reactions": row[4], "private_reactions": row[5],
-            "following": row[6], "followers": row[7],
-            "chemicals": row[8], "reactions": row[9], "unread": row[10],
+            "public_reactions": row[5], "private_reactions": row[6],
+            "following": row[7], "followers": row[8],
+            "chemicals": row[9], "reactions": row[10], "unread": row[11],
         },
     }
 

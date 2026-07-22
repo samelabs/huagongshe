@@ -60,7 +60,7 @@ export function HeaderAccount() {
                 <span>@{user.username}</span>
               </div>
               <div className="account-menu-links">
-                <Link href="/me" onClick={closeMenu}>我的数据</Link>
+                <Link href="/me" onClick={closeMenu}>个人中心</Link>
                 <Link href="/submit" onClick={closeMenu}>新建反应记录</Link>
                 <Link href="/me/settings/api-tokens" onClick={closeMenu}>AI 授权</Link>
                 <Link href={`/user/${encodeURIComponent(user.username)}`} onClick={closeMenu}>公开主页</Link>
