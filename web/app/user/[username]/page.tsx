@@ -6,7 +6,7 @@ import { EntityId } from "@/components/EntityId";
 import { FollowButton } from "@/components/FollowButton";
 import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
 
-type Profile = { id: number; username: string; display_name: string; bio: string | null; avatar_url: string | null; public_reactions: number; is_following: boolean; is_me: boolean };
+type Profile = { id: number; username: string; display_name: string; bio: string | null; avatar_url: string | null; created_at: string; followers: number; following: number; public_reactions: number; is_following: boolean; is_me: boolean };
 type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
@@ -34,7 +34,16 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   return <div className="content-page public-profile-page">
     <header className="profile-header public-profile-header social-profile-header">
       <div className="profile-avatar">{profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : profile.display_name.slice(0, 1)}</div>
-      <div className="profile-primary"><h1>{profile.display_name}</h1><p className="profile-username">@{profile.username}</p>{profile.bio && <p className="profile-bio">{profile.bio}</p>}</div>
+      <div className="profile-primary">
+        <h1>{profile.display_name}</h1>
+        <p className="profile-username">@{profile.username}</p>
+        {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+        <div className="profile-counts">
+          <span><strong>{profile.following}</strong> 关注</span>
+          <span><strong>{profile.followers}</strong> 粉丝</span>
+        </div>
+        <p className="profile-joined">加入时间：{new Date(profile.created_at).toLocaleDateString("zh-CN")}</p>
+      </div>
       <div className="public-profile-action">{profile.is_me
         ? <Link className="button secondary" href="/me">个人中心</Link>
         : <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />}

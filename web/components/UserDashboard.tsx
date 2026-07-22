@@ -128,7 +128,6 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
     <header className="profile-header center-profile-header">
       <div className="profile-avatar">{(summary?.avatar_url || user.avatar_url) ? <img src={summary?.avatar_url || user.avatar_url || ""} alt="" /> : (summary?.display_name || user.display_name).slice(0, 1)}</div>
       <div className="profile-primary">
-        <p className="page-kicker">个人中心</p>
         <h1>{summary?.display_name || user.display_name}</h1>
         <p className="profile-username">@{summary?.username || user.username}</p>
         {summary?.created_at && <p className="profile-joined">加入时间：{new Date(summary.created_at).toLocaleDateString("zh-CN")}</p>}
