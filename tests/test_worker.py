@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -86,7 +87,7 @@ class LocalRateControllerTests(unittest.IsolatedAsyncioTestCase):
 
 class HeartbeatTests(unittest.IsolatedAsyncioTestCase):
     async def test_transient_failure_does_not_stop_lease_renewal(self) -> None:
-        stop = __import__("asyncio").Event()
+        stop = asyncio.Event()
         client = AsyncMock()
 
         async def post(_path, _payload):
@@ -96,10 +97,11 @@ class HeartbeatTests(unittest.IsolatedAsyncioTestCase):
             return {}
 
         client.post.side_effect = post
-        with patch("worker.main.asyncio.wait_for", new=AsyncMock(side_effect=[
-            __import__("asyncio").TimeoutError(),
-            __import__("asyncio").TimeoutError(),
-        ])):
+        async def timeout_immediately(awaitable, timeout):
+            awaitable.close()
+            raise asyncio.TimeoutError
+
+        with patch("worker.main.asyncio.wait_for", new=timeout_immediately):
             await heartbeat(client, {"job_id": 7, "lease_token": "lease", "lease_seconds": 60}, stop)
         self.assertEqual(client.post.await_count, 2)
 
