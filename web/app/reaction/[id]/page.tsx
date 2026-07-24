@@ -13,6 +13,8 @@ const roleNames: Record<string, string> = {
   PRODUCT: "生成物", WORKUP: "后处理", INTERNAL_STANDARD: "内标", UNKNOWN: "其他",
 };
 
+export const revalidate = 3600;
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   return { title: `HRID ${id}`, description: "反应方程式、参与物、条件、结果与来源" };
@@ -20,10 +22,16 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ReactionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Anonymous traffic (no session cookie) gets the cached public rendering.
+  // Logged-in users skip the cache via dynamic rendering to see private
+  // reactions and owner controls.
+  const cookieStore = await cookies();
+  const hasSession = cookieStore.has("hgs_session");
+  const cookie = cookieStore.toString();
   let reaction: ReactionDetail;
-  const cookie = (await cookies()).toString();
-  try { reaction = await apiGet<ReactionDetail>(`/reactions/${id}`, 0, cookie ? { Cookie: cookie } : undefined); }
-  catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
+  try {
+    reaction = await apiGet<ReactionDetail>(`/reactions/${id}`, hasSession ? 0 : 3600, hasSession ? { Cookie: cookie } : undefined);
+  } catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
 
   const reactants = reaction.participants.filter((item) => item.role === "REACTANT");
   const products = reaction.participants.filter((item) => item.role === "PRODUCT");

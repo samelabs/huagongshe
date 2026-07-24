@@ -13,6 +13,10 @@ import { apiGet, isApiNotFound, type Chemical, type ChemicalDetails, type Enrich
 type DetailResponse = { details: ChemicalDetails | null; enrichment: EnrichmentState };
 type SearchParams = { reaction_page?: string; role?: string };
 
+// Anonymous traffic gets ISR (1h). Logged-in users skip the cache for live
+// follow state and enrichment queue feedback.
+export const revalidate = 3600;
+
 const roles = ["any", "reactant", "product", "reagent", "catalyst", "solvent"] as const;
 const roleNames: Record<string, string> = {
   any: "全部", reactant: "作为反应物", product: "作为生成物", reagent: "作为试剂",
@@ -32,19 +36,29 @@ export default async function ChemicalPage({ params, searchParams }: {
   const query = await searchParams;
   const page = /^\d+$/.test(query.reaction_page || "") ? Math.max(1, Number(query.reaction_page)) : 1;
   const role = roles.includes(query.role as typeof roles[number]) ? query.role! : "any";
-  let chemical: Chemical;
-  const cookie = (await cookies()).toString();
-  try {
-    chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`, 0, cookie ? { Cookie: cookie } : undefined);
-  } catch (error) {
-    if (isApiNotFound(error)) notFound();
-    throw error;
-  }
+  // Logged-in users get dynamic rendering for live follow state and
+  // enrichment queue feedback; anonymous traffic hits the ISR cache.
+  const hasSession = (await cookies()).has("hgs_session");
+  const ttl = hasSession ? 0 : 3600;
+  const authHeaders = hasSession ? { Cookie: (await cookies()).toString() } : undefined;
 
-  let details: DetailResponse = { details: chemical.details || null, enrichment: chemical.enrichment || { status: "current" } };
-  let reactions: { total: number; page: number; page_size: number; reactions: ReactionSummary[] } = { total: 0, page, page_size: 8, reactions: [] };
-  let reactionsUnavailable = false;
-  try { reactions = await apiGet(`/chemicals/${id}/reactions?page=${page}&page_size=8&role=${role}`); } catch { reactionsUnavailable = true; }
+  // These two requests have no dependency on each other — reactions only needs
+  // the chemical ID from the URL, not from the detail response. Fire them in
+  // parallel to cut SSR time, then split the results.
+  const [chemicalResult, reactionsResult] = await Promise.all([
+    apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`, ttl, authHeaders).catch((error: unknown) => {
+      if (isApiNotFound(error)) notFound();
+      throw error;
+    }),
+    apiGet<{ total: number; page: number; page_size: number; reactions: ReactionSummary[] }>(
+      `/chemicals/${id}/reactions?page=${page}&page_size=8&role=${role}`, ttl, authHeaders,
+    ).catch(() => null),
+  ]);
+  const chemical = chemicalResult;
+  const reactionsUnavailable = reactionsResult === null;
+  const reactions = reactionsResult ?? { total: 0, page, page_size: 8, reactions: [] as ReactionSummary[] };
+
+  const details: DetailResponse = { details: chemical.details || null, enrichment: chemical.enrichment || { status: "current" } };
 
   const title = chemical.preferred_name || chemical.iupac_name || details.details?.record_title || "未命名化合物";
   const pageCount = Math.min(500, Math.max(1, Math.ceil(reactions.total / reactions.page_size)));

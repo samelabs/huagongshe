@@ -738,3 +738,19 @@ async def datasets(
         "id": row[0], "dataset_id": row[1], "name": row[2], "description": row[3],
         "reaction_count": row[4], "submitted_at": row[5],
     } for row in rows]
+
+
+@router.get("/sitemap/reactions")
+async def sitemap_reactions(
+    after_id: int = Query(0, ge=0), limit: int = Query(50000, ge=1, le=50000), db=Depends(get_db)
+):
+    """Keyset-paginated public reaction IDs for sitemap generation."""
+    rows = (await db.execute(text("""
+        SELECT id, updated_at FROM chemistry.reactions
+        WHERE id > :after_id AND visibility='public' AND moderation_status='visible'
+        ORDER BY id LIMIT :limit
+    """), {"after_id": after_id, "limit": limit})).fetchall()
+    return {
+        "reactions": [{"id": row[0], "updated_at": row[1]} for row in rows],
+        "last_id": rows[-1][0] if rows else None,
+    }

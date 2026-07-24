@@ -129,8 +129,21 @@ async def followed_reactions(
 
 @router.get("/users/me/notifications")
 async def notifications(
-    limit: int = Query(50, ge=1, le=100), actor: Actor = Depends(current_actor), db=Depends(get_db)
+    page: int = Query(1, ge=1, le=500),
+    page_size: int = Query(50, ge=1, le=100),
+    actor: Actor = Depends(current_actor), db=Depends(get_db)
 ):
+    offset = (page - 1) * page_size
+    total = int((await db.execute(text("""
+        SELECT count(*) FROM community.notifications n
+        JOIN community.users u ON u.id=n.actor_user_id AND u.status='active'
+        JOIN chemistry.reactions r ON r.id=n.reaction_id
+          AND r.visibility='public' AND r.moderation_status='visible'
+        JOIN community.user_follows f
+          ON f.follower_user_id=n.user_id AND f.followed_user_id=n.actor_user_id
+         AND n.created_at>=f.created_at
+        WHERE n.user_id=:id AND n.event_type='new_reaction'
+    """), {"id": actor.id})).scalar() or 0)
     rows = (await db.execute(text("""
         SELECT n.id,n.event_type,n.reaction_id,n.chemical_id,n.created_at,n.read_at,
                u.username AS actor_username,u.display_name AS actor_display_name
@@ -142,9 +155,14 @@ async def notifications(
           ON f.follower_user_id=n.user_id AND f.followed_user_id=n.actor_user_id
          AND n.created_at>=f.created_at
         WHERE n.user_id=:id AND n.event_type='new_reaction'
-        ORDER BY n.created_at DESC,n.id DESC LIMIT :limit
-    """), {"id": actor.id, "limit": limit})).mappings().all()
-    return [dict(row) for row in rows]
+        ORDER BY n.created_at DESC,n.id DESC LIMIT :limit OFFSET :offset
+    """), {"id": actor.id, "limit": page_size, "offset": offset})).mappings().all()
+    return {
+        "items": [dict(row) for row in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.post("/users/me/notifications/read", status_code=204)

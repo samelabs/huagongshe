@@ -18,9 +18,11 @@ type ReactionResponse = { items: Reaction[]; counts: { all: number; public: numb
 type ChemicalFollow = { id: number; preferred_name: string | null; iupac_name: string | null; smiles: string | null };
 type PageResponse<T> = { items: T[]; total: number; page: number; page_size: number };
 type Notice = { id: number; event_type: "new_reaction"; reaction_id: number; actor_display_name: string | null; created_at: string; read_at: string | null };
+type NoticeResponse = { items: Notice[]; total: number; page: number; page_size: number };
 
 const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, page_size: 40 });
 const emptyReactions = (): ReactionResponse => ({ items: [], counts: { all: 0, public: 0, private: 0 }, page: 1, page_size: 20 });
+const emptyNotices = (): NoticeResponse => ({ items: [], total: 0, page: 1, page_size: 50 });
 
 export function UserDashboard({ activeTab, page, visibility, savedKind }: {
   activeTab: DashboardTab;
@@ -35,7 +37,7 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
   const [reactionData, setReactionData] = useState<ReactionResponse>(emptyReactions());
   const [chemicals, setChemicals] = useState<PageResponse<ChemicalFollow>>(emptyPage<ChemicalFollow>());
   const [savedReactions, setSavedReactions] = useState<PageResponse<Reaction>>(emptyPage<Reaction>());
-  const [notices, setNotices] = useState<Notice[]>([]);
+  const [notices, setNotices] = useState<NoticeResponse>(emptyNotices());
   const [people, setPeople] = useState<PageResponse<PersonSummary>>(emptyPage<PersonSummary>());
 
   useEffect(() => {
@@ -73,15 +75,15 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
         const value = await response.json() as PageResponse<Reaction>;
         if (active) setSavedReactions(value);
       } else if (activeTab === "activity") {
-        response = await fetch("/api/users/me/notifications?limit=100", { cache: "no-store" });
+        response = await fetch(`/api/users/me/notifications?page=${page}&page_size=50`, { cache: "no-store" });
         if (!response.ok) throw new Error();
-        const value = await response.json() as Notice[];
+        const value = await response.json() as NoticeResponse;
         if (active) {
           setNotices(value);
-          if (value.some((item) => !item.read_at)) {
+          if (page === 1 && value.items.some((item) => !item.read_at)) {
             void fetch("/api/users/me/notifications/read", { method: "POST" }).then((readResponse) => {
               if (readResponse.ok && active) {
-                setNotices((items) => items.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })));
+                setNotices((current) => ({ ...current, items: current.items.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })) }));
                 setSummary((current) => current ? { ...current, counts: { ...current.counts, unread: 0 } } : current);
               }
             });
@@ -150,7 +152,7 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
         {summaryState === "error" && <p className="profile-summary-error">数据概况暂时无法读取。</p>}
         {activeTab === "mine" && <MyReactions data={reactionData} state={contentState} visibility={visibility} page={page} />}
         {activeTab === "saved" && <SavedData chemicals={chemicals} reactions={savedReactions} state={contentState} kind={savedKind} page={page} />}
-        {activeTab === "activity" && <Activity notices={notices} state={contentState} />}
+        {activeTab === "activity" && <Activity notices={notices} state={contentState} page={page} />}
         {(activeTab === "followers" || activeTab === "following") && <Relationships data={people} state={contentState} kind={activeTab} page={page} onFollowChange={relationshipChanged} />}
       </main>
     </div>
@@ -191,8 +193,9 @@ function ReactionCards({ items, editable = false }: { items: Reaction[]; editabl
   <footer><span>{item.visibility === "private" ? "仅自己可见" : editable ? `公开记录 · ${item.followers || 0} 人收藏` : "公开记录"}</span>{editable ? <Link href={`/submit?reaction=${item.id}`}>编辑</Link> : <Link href={`/reaction/${item.id}`}>查看</Link>}</footer>
 </article>)}</div>; }
 
-function Activity({ notices, state }: { notices: Notice[]; state: LoadState }) { return <section><PanelHeading title="关注动态" subtitle="你关注的用户新建公开反应后显示在这里" />
-  {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}{state === "ready" && (notices.length ? <div className="notification-list">{notices.map((item) => <Link href={`/reaction/${item.reaction_id}`} key={item.id}><span><strong>{item.actor_display_name || "关注用户"} 新建了公开反应</strong><small>{new Date(item.created_at).toLocaleString("zh-CN")}</small></span><EntityId kind="reaction" id={item.reaction_id} compact /></Link>)}</div> : <DashboardEmpty text="关注的用户新建公开反应后，会显示在这里。" />)}
+function Activity({ notices, state, page }: { notices: NoticeResponse; state: LoadState; page: number }) { return <section><PanelHeading title="关注动态" subtitle="你关注的用户新建公开反应后显示在这里" />
+  {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}{state === "ready" && (notices.items.length ? <div className="notification-list">{notices.items.map((item) => <Link href={`/reaction/${item.reaction_id}`} key={item.id}><span><strong>{item.actor_display_name || "关注用户"} 新建了公开反应</strong><small>{new Date(item.created_at).toLocaleString("zh-CN")}</small></span><EntityId kind="reaction" id={item.reaction_id} compact /></Link>)}</div> : <DashboardEmpty text="关注的用户新建公开反应后，会显示在这里。" />)}
+  {state === "ready" && notices.total > notices.page_size && <Pagination page={page} pageSize={notices.page_size} total={notices.total} href={(value) => `/me?tab=activity${value > 1 ? `&page=${value}` : ""}`} />}
 </section>; }
 
 function Relationships({ data, state, kind, page, onFollowChange }: {

@@ -6,8 +6,10 @@ import { EntityId } from "@/components/EntityId";
 import { FollowButton } from "@/components/FollowButton";
 import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
 
-type Profile = { id: number; username: string; display_name: string; bio: string | null; avatar_url: string | null; created_at: string; followers: number; following: number; public_reactions: number; is_following: boolean; is_me: boolean };
+type Profile = { id: number; username: string; display_name: string; bio: string | null; avatar_url: string | null; created_at: string; followers: number; following: number; public_reactions: number; is_following: boolean; is_followed_by: boolean; is_mutual: boolean; is_me: boolean };
 type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
+
+export const revalidate = 3600;
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
@@ -19,15 +21,18 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const query = await searchParams;
   const requestedPage = typeof query.page === "string" ? Number.parseInt(query.page, 10) : 1;
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const cookie = (await cookies()).toString();
-  const headers = cookie ? { Cookie: cookie } : undefined;
+  // Logged-in users get dynamic rendering for live follow state and is_me;
+  // anonymous traffic hits the ISR cache.
+  const hasSession = (await cookies()).has("hgs_session");
+  const ttl = hasSession ? 0 : 3600;
+  const headers = hasSession ? { Cookie: (await cookies()).toString() } : undefined;
   let profile: Profile;
-  try { profile = await apiGet<Profile>(`/users/${encodeURIComponent(username)}`, 0, headers); }
+  try { profile = await apiGet<Profile>(`/users/${encodeURIComponent(username)}`, ttl, headers); }
   catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
 
   let reactions: Reaction[] = [];
   let contentUnavailable = false;
-  try { reactions = await apiGet<Reaction[]>(`/users/${encodeURIComponent(username)}/reactions?page=${page}&page_size=20`); }
+  try { reactions = await apiGet<Reaction[]>(`/users/${encodeURIComponent(username)}/reactions?page=${page}&page_size=20`, ttl); }
   catch { contentUnavailable = true; }
 
   const base = `/user/${encodeURIComponent(profile.username)}`;
@@ -44,9 +49,14 @@ export default async function UserPage({ params, searchParams }: { params: Promi
         </div>
         <p className="profile-joined">加入时间：{new Date(profile.created_at).toLocaleDateString("zh-CN")}</p>
       </div>
-      <div className="public-profile-action">{profile.is_me
-        ? <Link className="button secondary" href="/me">个人中心</Link>
-        : <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />}
+      <div className="public-profile-action">
+        {profile.is_me
+          ? <Link className="button secondary" href="/me">个人中心</Link>
+          : <>
+            {profile.is_followed_by && !profile.is_following && <span className="follow-status-tag">关注了你</span>}
+            {profile.is_mutual && <span className="follow-status-tag mutual">互相关注</span>}
+            <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />
+          </>}
       </div>
     </header>
 

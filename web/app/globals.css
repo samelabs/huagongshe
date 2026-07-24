@@ -127,6 +127,8 @@ footer a:hover { color: var(--blue); }
 .compact-heading h2 { font-size: 21px; }
 .notice { border-radius: 8px; padding: 14px 16px; font-size: 13px; }
 .notice.error { border: 1px solid #f0c9cc; color: var(--danger); background: #fff7f7; }
+.notice p { margin: 4px 0 0; color: var(--muted); }
+.search-notice { margin: 6px 0 0; font-size: 12px; color: var(--danger); }
 .empty-state { border: 1px solid var(--line); padding: 56px 20px; text-align: center; }
 .empty-state strong { font-size: 18px; }
 .empty-state strong, .search-guide strong, .auth-required strong, .guide-steps strong, .guide-principles article strong, .skill-install > strong { color: var(--heading); font-weight: var(--section-weight); }
@@ -349,6 +351,9 @@ footer a:hover { color: var(--blue); }
 .profile-count-links span { color: var(--muted); }
 .public-profile-header { margin-bottom: 0; border-bottom: 0; padding-bottom: 28px; }
 .public-profile-action, .profile-center-actions { justify-self: end; }
+.public-profile-action { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.follow-status-tag { font-size: 11px; color: var(--muted); background: var(--wash); border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px; white-space: nowrap; }
+.follow-status-tag.mutual { color: var(--blue); border-color: #cfe0fa; background: var(--blue-pale); }
 .profile-center-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
 .public-profile-content { min-height: 360px; }
 .dashboard-section + .dashboard-section { margin-top: 55px; }

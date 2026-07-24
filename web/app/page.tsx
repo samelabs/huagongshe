@@ -4,7 +4,7 @@ import { apiGet } from "@/lib/api";
 
 type Stats = { chemicals: number; reactions: number; datasets: number; rdkit_failures: number };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function Home() {
   let stats: Stats | null = null;

@@ -385,7 +385,9 @@ async def public_profile(username: str, actor: Actor | None = Depends(optional_a
           (SELECT count(*) FROM chemistry.reactions
            WHERE created_by_user_id=u.id AND visibility='public' AND moderation_status='visible'),
           EXISTS(SELECT 1 FROM community.user_follows
-                 WHERE follower_user_id=:viewer AND followed_user_id=u.id)
+                 WHERE follower_user_id=:viewer AND followed_user_id=u.id),
+          EXISTS(SELECT 1 FROM community.user_follows
+                 WHERE follower_user_id=u.id AND followed_user_id=:viewer)
         FROM community.users u WHERE lower(u.username)=lower(:username) AND u.status='active'
     """), {"username": username, "viewer": viewer_id})).fetchone()
     if not row:
@@ -393,7 +395,10 @@ async def public_profile(username: str, actor: Actor | None = Depends(optional_a
     return {
         "id": row[0], "username": row[1], "display_name": row[2], "bio": row[3],
         "avatar_url": row[4], "created_at": row[5], "followers": row[6],
-        "following": row[7], "public_reactions": row[8], "is_following": row[9],
+        "following": row[7], "public_reactions": row[8],
+        "is_following": row[9],
+        "is_followed_by": bool(row[10]) if viewer_id else False,
+        "is_mutual": bool(row[9] and row[10]) if viewer_id else False,
         "is_me": bool(actor and row[0] == actor.id),
     }
 
