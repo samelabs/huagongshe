@@ -153,7 +153,7 @@ async def enqueue_chemical_if_needed(
     request: Request | None = None,
 ) -> tuple[dict[str, Any] | None, int | None, bool]:
     chemical = (await db.execute(text("""
-        SELECT pubchem_cid,smiles FROM chemistry.chemicals WHERE id=:chemical_id
+        SELECT pubchem_cid,smiles,inchikey FROM chemistry.chemicals WHERE id=:chemical_id
     """), {"chemical_id": chemical_id})).fetchone()
     if not chemical:
         raise HTTPException(404, "化合物不存在")
@@ -180,8 +180,8 @@ async def enqueue_chemical_if_needed(
         return details, None, True
     if chemical[0] is not None:
         query_kind, query_value = "cid", str(chemical[0])
-    elif chemical[1]:
-        query_kind, query_value = "smiles", chemical[1]
+    elif chemical[2]:
+        query_kind, query_value = "inchikey", chemical[2]
     else:
         return details, None, True
     job_id = await enqueue_job(

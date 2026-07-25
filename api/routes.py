@@ -375,10 +375,14 @@ async def search(
                 elif query.upper().startswith("CHEBI:"):
                     clauses.append("c.chebi_ids @> ARRAY[:q]")
                 elif canonical:
-                    # The exact-SMILES btree is intentionally partial; repeat its
-                    # predicate so PostgreSQL can use it instead of scanning 124M rows.
+                    from rdkit import Chem as _Chem
+                    _mol = _Chem.MolFromSmiles(canonical)
+                    _ik = _Chem.MolToInchiKey(_mol) if _mol else None
                     clauses.append("(c.smiles = :smiles AND c.mol IS NOT NULL)")
                     params["smiles"] = canonical
+                    if _ik:
+                        clauses.append("c.inchikey = :ik")
+                        params["ik"] = _ik
             if clauses:
                 chemicals = await fetch_chemicals(db, f"""
                     SELECT {CHEMICAL_SELECT}

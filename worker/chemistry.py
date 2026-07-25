@@ -42,6 +42,7 @@ def select_verified_cid(
         if len(matching) == 1:
             return matching[0]
 
-    if len(candidates) == 1 and candidates[0] in property_map:
-        return candidates[0]
+    valid = [c for c in candidates if c in property_map]
+    if valid:
+        return min(valid)
     return None

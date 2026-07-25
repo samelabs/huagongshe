@@ -133,13 +133,21 @@ def chemical_properties(smiles: str) -> dict[str, Any]:
 
 async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:smiles,0))"), {"smiles": smiles})
-    chemical_id = (await db.execute(text("""
-        SELECT id FROM chemistry.chemicals
-        WHERE smiles=:smiles AND mol IS NOT NULL ORDER BY id LIMIT 1
-    """), {"smiles": smiles})).scalar()
+    props = await asyncio.to_thread(chemical_properties, smiles)
+    inchikey = props.get("inchikey")
+    chemical_id = None
+    if inchikey:
+        chemical_id = (await db.execute(text("""
+            SELECT id FROM chemistry.chemicals
+            WHERE inchikey=:inchikey AND mol IS NOT NULL ORDER BY id LIMIT 1
+        """), {"inchikey": inchikey})).scalar()
+    if chemical_id is None:
+        chemical_id = (await db.execute(text("""
+            SELECT id FROM chemistry.chemicals
+            WHERE smiles=:smiles AND mol IS NOT NULL ORDER BY id LIMIT 1
+        """), {"smiles": smiles})).scalar()
     if chemical_id is not None:
         return int(chemical_id), False
-    props = await asyncio.to_thread(chemical_properties, smiles)
     chemical_id = int((await db.execute(text("""
         INSERT INTO chemistry.chemicals
           (smiles,molecular_formula,average_mass,monoisotopic_mass,inchikey,

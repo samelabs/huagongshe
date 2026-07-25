@@ -39,6 +39,15 @@ def chemical_core_values(
         inchikey = None
     average_mass = number_or_none(properties.get("MolecularWeight"))
     monoisotopic_mass = number_or_none(properties.get("MonoisotopicMass"))
+    pubchem_cid = None
+    cid_raw = properties.get("CID")
+    if cid_raw is not None:
+        try:
+            cid_val = int(cid_raw)
+            if cid_val > 0:
+                pubchem_cid = cid_val
+        except (TypeError, ValueError):
+            pass
     return {
         "preferred_name": text_or_none(
             properties.get("Title") or record_title, max_length=1000
@@ -54,6 +63,10 @@ def chemical_core_values(
             else None
         ),
         "inchikey": inchikey,
+        "pubchem_cid": pubchem_cid,
+        "pubchem_smiles": text_or_none(
+            properties.get("SMILES") or properties.get("ConnectivitySMILES"), max_length=4000
+        ),
     }
 
 

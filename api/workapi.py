@@ -268,6 +268,8 @@ async def sync_chemical_core(
                    CAST(:average_mass AS double precision) AS average_mass,
                    CAST(:monoisotopic_mass AS double precision) AS monoisotopic_mass,
                    CAST(:inchikey AS text) AS inchikey,
+                   CAST(:pubchem_cid AS integer) AS pubchem_cid,
+                   CAST(:pubchem_smiles AS text) AS pubchem_smiles,
                    CAST(:sync_synonyms AS boolean) AS sync_synonyms,
                    CAST(:synonyms AS jsonb) AS synonyms
         )
@@ -278,6 +280,8 @@ async def sync_chemical_core(
             average_mass=coalesce(incoming.average_mass,chemistry.chemicals.average_mass),
             monoisotopic_mass=coalesce(incoming.monoisotopic_mass,chemistry.chemicals.monoisotopic_mass),
             inchikey=coalesce(incoming.inchikey,chemistry.chemicals.inchikey),
+            pubchem_cid=coalesce(incoming.pubchem_cid,chemistry.chemicals.pubchem_cid),
+            pubchem_smiles=coalesce(incoming.pubchem_smiles,chemistry.chemicals.pubchem_smiles),
             synonyms=CASE WHEN incoming.sync_synonyms
                 THEN incoming.synonyms ELSE chemistry.chemicals.synonyms END,
             updated_at=now()
@@ -289,6 +293,8 @@ async def sync_chemical_core(
             (incoming.average_mass IS NOT NULL AND chemistry.chemicals.average_mass IS DISTINCT FROM incoming.average_mass) OR
             (incoming.monoisotopic_mass IS NOT NULL AND chemistry.chemicals.monoisotopic_mass IS DISTINCT FROM incoming.monoisotopic_mass) OR
             (incoming.inchikey IS NOT NULL AND chemistry.chemicals.inchikey IS DISTINCT FROM incoming.inchikey) OR
+            (incoming.pubchem_cid IS NOT NULL AND chemistry.chemicals.pubchem_cid IS DISTINCT FROM incoming.pubchem_cid) OR
+            (incoming.pubchem_smiles IS NOT NULL AND chemistry.chemicals.pubchem_smiles IS DISTINCT FROM incoming.pubchem_smiles) OR
             (incoming.sync_synonyms AND chemistry.chemicals.synonyms IS DISTINCT FROM incoming.synonyms)
         )
     """), {
@@ -501,7 +507,7 @@ async def complete_job(
         chemical = None
         if chemical_id is not None:
             chemical = (await db.execute(text("""
-                SELECT id,pubchem_cid,smiles FROM chemistry.chemicals WHERE id=:id FOR UPDATE
+                SELECT id,pubchem_cid,smiles,inchikey FROM chemistry.chemicals WHERE id=:id FOR UPDATE
             """), {"id": chemical_id})).fetchone()
             if not chemical:
                 await reject_completed_job(db, body.job_id, worker.worker_id, "chemical_missing", "target chemical no longer exists")
@@ -509,7 +515,7 @@ async def complete_job(
                 raise HTTPException(422, "target chemical no longer exists")
         elif selected_cid is not None:
             chemical = (await db.execute(text("""
-                SELECT id,pubchem_cid,smiles FROM chemistry.chemicals
+                SELECT id,pubchem_cid,smiles,inchikey FROM chemistry.chemicals
                 WHERE pubchem_cid=:cid ORDER BY id LIMIT 1 FOR UPDATE
             """), {"cid": selected_cid})).fetchone()
             if chemical:
@@ -520,13 +526,12 @@ async def complete_job(
                 await reject_completed_job(db, body.job_id, worker.worker_id, "cid_mismatch", "result CID differs from stored PubChem CID")
                 await db.commit()
                 raise HTTPException(422, "result CID differs from stored PubChem CID")
-            returned_smiles = properties.get("SMILES") or properties.get("ConnectivitySMILES")
-            expected_smiles = canonicalize_smiles(chemical[2] or "")
-            actual_smiles = canonicalize_smiles(str(returned_smiles or ""))
-            if not expected_smiles or expected_smiles != actual_smiles:
-                await reject_completed_job(db, body.job_id, worker.worker_id, "structure_mismatch", "PubChem structure differs from chemicals.smiles")
+            returned_inchikey = properties.get("InChIKey")
+            expected_inchikey = chemical[3]
+            if returned_inchikey and expected_inchikey and returned_inchikey != expected_inchikey:
+                await reject_completed_job(db, body.job_id, worker.worker_id, "structure_mismatch", "PubChem InChIKey differs from chemicals.inchikey")
                 await db.commit()
-                raise HTTPException(422, "PubChem structure differs from chemicals.smiles")
+                raise HTTPException(422, "PubChem InChIKey differs from chemicals.inchikey")
 
         allowed_for_job = set(job[4] or [])
         sections = as_json_object(result.get("sections"))
