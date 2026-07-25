@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AccountProvider } from "@/components/AccountContext";
 import { HeaderAccount } from "@/components/HeaderAccount";
 import "./globals.css";
+import Script from "next/script";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://huagongshe.com"),
@@ -31,6 +32,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script dangerouslySetInnerHTML={{ __html: 'LA.init({id:"1vMIAXQLAZjjdeBt",ck:"1vMIAXQLAZjjdeBt"})' }} />
       </head>
       <body>
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2925838645350883"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
         <AccountProvider>
           <header className="site-header">
             <div className="header-inner">
