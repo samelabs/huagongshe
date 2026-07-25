@@ -182,6 +182,13 @@ async def enqueue_chemical_if_needed(
         query_kind, query_value = "cid", str(chemical[0])
     elif chemical[2]:
         query_kind, query_value = "inchikey", chemical[2]
+    elif chemical[1]:
+        from rdkit import Chem as _Chem
+        _mol = _Chem.MolFromSmiles(chemical[1])
+        _ik = _Chem.MolToInchiKey(_mol) if _mol else None
+        if not _ik:
+            return details, None, True
+        query_kind, query_value = "inchikey", _ik
     else:
         return details, None, True
     job_id = await enqueue_job(
