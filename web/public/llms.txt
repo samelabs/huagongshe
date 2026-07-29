@@ -1,0 +1,85 @@
+# 化工社 (huagongshe.com)
+
+> 化工社是一个 AI 化学开放数据平台，提供 1.24 亿化合物和 243 万反应的
+> 结构化检索、可视化与 AI 就绪数据接口。所有公开数据免费访问，无需注册。
+> 前身是 2014 年创立的化工资源共享社区，2026 年正式转型为 AI 时代的化学开放数据库。
+
+## For AI Agents
+
+化工社对 AI agent 完全开放。以下是接入指南。
+
+### 快速开始
+
+1. **读取连接指南**: `GET https://huagongshe.com/api/agent-guide`
+   返回完整的 agent 操作契约：可用操作、字段要求、安全规则、速率限制。
+   无需认证即可读取；携带 Bearer token 可同时确认账号身份。
+
+2. **查阅 API Schema**: `GET https://huagongshe.com/api/openapi.json`
+   完整的 OpenAPI 3.0 schema，所有端点的请求/响应结构。
+
+3. **查询数据**: `GET https://huagongshe.com/api/search?q=...`
+   统一入口，支持名称、CAS号、InChIKey、SMILES、DOI、HCID 等多种标识符。
+
+4. **管理反应记录**: 携带用户授权的 Bearer token，可校验和创建结构化反应记录。
+
+### 核心能力
+
+| 能力 | 端点 | 说明 |
+|------|------|------|
+| 统一搜索 | `GET /api/search` | 名称、CAS、InChIKey、SMILES、结构检索（精确/子结构/相似度）|
+| 化合物详情 | `GET /api/chemicals/{id}` | 结构、标识符、性质、关联反应、PubChem 富集 |
+| 反应详情 | `GET /api/reactions/{id}` | 参与物、条件、产率、来源、操作步骤 |
+| 分子渲染 | `GET /api/mol/svg?smiles=...` | SMILES → SVG 结构图（Redis 缓存 24h）|
+| 统计数据 | `GET /api/stats` | 化合物/反应/数据集总数 |
+| 数据集列表 | `GET /api/datasets` | ORD 来源数据集 |
+
+### Agent 专属能力（需用户授权 Token）
+
+| 能力 | 端点 | 说明 |
+|------|------|------|
+| 连接确认 | `GET /api/agent-guide` | 操作契约 + 身份验证 |
+| 我的反应 | `GET /api/users/me/reactions` | 读取 Token 所属用户的反应库 |
+| 校验草稿 | `POST /api/reactions/validate` | RDKit 标准化校验，不保存 |
+| 创建反应 | `POST /api/reactions` | 保存到用户反应库（需 Idempotency-Key）|
+
+### 认证
+
+- **公开数据**（搜索、化合物、反应读取）: 无需认证，直接调用。
+- **Agent 操作**（读取/创建用户反应记录）: 需要 Bearer token。
+  - 用户在网页端 `https://huagongshe.com` 登录后，于个人设置创建 API Token。
+  - 格式: `Authorization: Bearer <token>`
+  - Token 仅发送给 `huagongshe.com`，不写入公开提示词、代码或日志。
+  - 创建/校验反应时，先展示草稿给用户确认，再保存。默认 `private`，公开需用户明确确认。
+
+### 速率限制
+
+| 类型 | 限制 |
+|------|------|
+| 常规查询 | 60 次/分钟（从 loopback 访问不受限）|
+| 结构搜索（子结构/相似度）| 10 次/分钟 |
+| 反应写入 | 10 次/分钟，100 次/天 |
+| 分子 SVG 渲染 | 60 次/分钟 |
+
+超限时返回 `429` + `Retry-After` 头。
+
+### 数据规模
+
+- **化合物**: 124,221,299 条（PubChem CID 覆盖，RDKit 标准化）
+- **反应**: 2,427,691 条（ORD 兼容，可追溯 DOI/专利）
+- **数据集**: 来自 ORD、用户提交等
+
+### 标识符说明
+
+化工社使用以下稳定标识符：
+
+- **HCID** (Huagongshe Chemical ID): 化合物内部 ID，如 `12345678`
+- **HRID** (Huagongshe Reaction ID): 反应内部 ID，如 `8765432`
+- 搜索时支持前缀写法: `id:12345`, `cid:2244`, `cas:64-17-5`, `inchikey:LFQSCWFLJHTTHZ-UHFFFAOYSA-N`
+
+## Links
+
+- [Website](https://huagongshe.com)
+- [API Connection Guide](https://huagongshe.com/api/agent-guide)
+- [OpenAPI Schema](https://huagongshe.com/api/openapi.json)
+- [API Docs (Swagger UI)](https://huagongshe.com/api/docs)
+- [Reaction Publisher Skill](https://huagongshe.com/skills/huagongshe-reaction-publisher/SKILL.md)

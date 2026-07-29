@@ -64,8 +64,22 @@ export default async function ChemicalPage({ params, searchParams }: {
   const pageCount = Math.min(500, Math.max(1, Math.ceil(reactions.total / reactions.page_size)));
   const identifiers = identifierGroups(chemical);
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "MolecularEntity",
+    name: title,
+    ...(chemical.iupac_name ? { iupacName: chemical.iupac_name } : {}),
+    ...(chemical.molecular_formula ? { molecularFormula: chemical.molecular_formula } : {}),
+    ...(chemical.molecular_formula ? { molecularWeight: chemical.average_mass ? String(chemical.average_mass) : undefined } : {}),
+    ...(chemical.smiles ? { smiles: chemical.smiles } : {}),
+    ...(chemical.inchikey ? { inChIKey: chemical.inchikey } : {}),
+    ...(chemical.cas_numbers.length ? { casNumber: chemical.cas_numbers[0] } : {}),
+    ...(chemical.pubchem_cid ? { url: `https://huagongshe.com/chemical/${chemical.id}` } : {}),
+  };
+
   return (
     <div className="content-page chemical-page">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <nav className="breadcrumbs" aria-label="面包屑"><Link href="/">首页</Link><span>/</span><span>化合物详情</span></nav>
       <header className="chemical-identity">
         <div className="chemical-structure"><Molecule smiles={chemical.smiles} width={360} height={280} /></div>

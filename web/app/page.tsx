@@ -12,7 +12,7 @@ export default async function Home() {
   return (
     <div className="home">
       <section className="hero">
-        <h1>查询开放化学数据</h1>
+        <h1><span className="hero-brand">AIchem</span>开放化学数据</h1>
         <p className="hero-subtitle">查找化合物与反应，登录后保存自己的反应记录</p>
         <GlobalSearch />
         <div className="search-examples" aria-label="查询示例">

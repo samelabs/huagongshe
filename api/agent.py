@@ -58,7 +58,7 @@ async def agent_guide(
             "instruction": (
                 "连接已确认。只使用下列 operations；需要精确字段时再读取 OpenAPI。"
                 if agent
-                else "创建 AI 授权后，以 Authorization: Bearer <Token> 再次读取本入口以确认连接。"
+                else "创建 AI 授权：登录 huagongshe.com → 账户设置 → AI 授权（/me/settings/api-tokens），生成 Token 后以 Authorization: Bearer *** 再次读取本入口以确认连接。"
             ),
         },
         "authentication": {

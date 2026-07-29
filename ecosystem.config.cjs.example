@@ -1,0 +1,4 @@
+# PM2 ecosystem — secrets come from /etc/huagongshe.env, never committed.
+# Copy to /etc/huagongshe.env and fill in real values; chmod 600.
+HGS_DATABASE_URL=postgresql+asyncpg://CHANGEME@127.0.0.1:5432/huagongshe
+HGS_WORKER_TOKEN=CHANGEME

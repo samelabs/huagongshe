@@ -7,7 +7,7 @@ from collections import defaultdict
 import logging
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field, field_validator, model_validator
 from rdkit import Chem
 from rdkit.Chem import Descriptors, rdChemReactions, rdMolDescriptors
@@ -366,7 +366,7 @@ async def create_reaction(
 
 @router.put("/reactions/{reaction_id}")
 async def update_reaction(
-    reaction_id: int, body: ReactionBody, actor: Actor = Depends(current_actor), db=Depends(get_db)
+    body: ReactionBody, reaction_id: int = Path(..., ge=1), actor: Actor = Depends(current_actor), db=Depends(get_db)
 ):
     if actor.auth_kind == "agent":
         raise HTTPException(403, "API Token 当前不开放反应编辑，请使用网页登录会话")
@@ -417,7 +417,7 @@ async def update_reaction(
 
 
 @router.delete("/reactions/{reaction_id}", status_code=204)
-async def delete_reaction(reaction_id: int, actor: Actor = Depends(current_actor), db=Depends(get_db)):
+async def delete_reaction(reaction_id: int = Path(..., ge=1), actor: Actor = Depends(current_actor), db=Depends(get_db)):
     if actor.auth_kind == "agent":
         raise HTTPException(403, "API Token 当前不开放反应删除，请使用网页登录会话")
     record = (await db.execute(text("""

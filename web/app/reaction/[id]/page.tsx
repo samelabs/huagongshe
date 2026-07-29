@@ -45,8 +45,20 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
     reaction.reflux ? ["回流", "是"] : null,
   ].filter(Boolean) as string[][];
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ChemicalReaction",
+    name: `反应 HRID ${reaction.id}`,
+    url: `https://huagongshe.com/reaction/${reaction.id}`,
+    ...(reaction.reaction_smiles ? { reactionSmiles: reaction.reaction_smiles } : {}),
+    ...(reaction.doi ? { citation: { "@type": "CreativeWork", identifier: reaction.doi } } : {}),
+    ...(reaction.procedure_details ? { description: reaction.procedure_details } : {}),
+    ...(reaction.temperature ? { temperature: `${reaction.temperature.value} ${reaction.temperature.unit}` } : {}),
+  };
+
   return (
     <div className="content-page reaction-page">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <nav className="breadcrumbs" aria-label="面包屑"><Link href={reaction.is_owner ? "/me" : "/"}>{reaction.is_owner ? "我的反应" : "查数据"}</Link><span>/</span><span>反应详情</span></nav>
       <header className="reaction-title">
         <div>
