@@ -95,8 +95,14 @@ export default async function ChemicalPage({ params, searchParams }: {
           <div className="context-actions">
             <FollowButton endpoint={`/api/chemicals/${chemical.id}/follow`} initial={Boolean(chemical.is_following)} count={chemical.follower_count || 0} label="收藏" />
             <Link className="button primary" href="#reactions">查看相关反应</Link>
-            <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>子结构检索</Link>
-            <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>查找相似结构</Link>
+            {hasSession ? (
+              <>
+                <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>子结构检索</Link>
+                <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>查找相似结构</Link>
+              </>
+            ) : (
+              <Link className="button secondary" href="/login?next=%2Fchemical%3F">登录后使用结构检索</Link>
+            )}
           </div>
         </div>
       </header>

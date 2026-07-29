@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from rdkit import Chem
 from sqlalchemy import text
 
@@ -17,7 +17,7 @@ from .enrichment import (
     display_details,
     enqueue_chemical_if_needed,
 )
-from .security import Actor, optional_actor
+from .security import Actor, current_actor, optional_actor
 from .rate_limit import enforce, is_loopback_host, request_identity
 
 router = APIRouter(tags=["chemistry"])
@@ -553,7 +553,9 @@ async def chemical_reactions(
 
 @router.get("/chemicals/{chemical_id}/substructure")
 async def chemical_substructure(
-    request: Request, chemical_id: int, limit: int = Query(20, ge=1, le=50), db=Depends(get_db)
+    request: Request, chemical_id: int = Path(..., ge=1, le=2_147_483_647), limit: int = Query(20, ge=1, le=50),
+    actor: Actor = Depends(current_actor),
+    db=Depends(get_db)
 ):
     if not is_loopback_host(request.client.host if request.client else None):
         await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
@@ -578,9 +580,10 @@ async def chemical_substructure(
 @router.get("/chemicals/{chemical_id}/similarity")
 async def chemical_similarity(
     request: Request,
-    chemical_id: int,
+    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     threshold: float = Query(0.7, ge=0.4, le=1.0),
     limit: int = Query(20, ge=1, le=50),
+    actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):
     if not is_loopback_host(request.client.host if request.client else None):

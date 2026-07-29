@@ -3,6 +3,7 @@ import { ChemicalResult } from "@/components/ChemicalResult";
 import { EntityId } from "@/components/EntityId";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ReactionResult } from "@/components/ReactionResult";
+import { cookies } from "next/headers";
 import { apiGet, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 
 type SearchParams = { q?: string; mode?: string; chemical_id?: string };
@@ -15,6 +16,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const mode = ["exact", "substructure", "similarity"].includes(params.mode || "") ? params.mode! : "exact";
   const chemicalId = /^\d+$/.test(params.chemical_id || "") ? Number(params.chemical_id) : null;
   const cjkBlocked = CJK_RE.test(q);
+  const hasSession = (await cookies()).has("hgs_session");
+  const authHeaders = hasSession ? { Cookie: (await cookies()).toString() } : undefined;
   let chemicals: Chemical[] = [];
   let reactions: ReactionLookup[] = [];
   let error = "";
@@ -24,8 +27,12 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       // Skip the database entirely; the front-end search box already intercepts CJK input.
       // This guard exists for direct URL access and page refreshes.
     } else if (chemicalId && mode !== "exact") {
-      const related = await apiGet<{ chemicals: Chemical[] }>(`/chemicals/${chemicalId}/${mode}?limit=20`);
-      chemicals = related.chemicals;
+      if (!hasSession) {
+        error = "结构检索（子结构 / 相似性）需要登录后使用。";
+      } else {
+        const related = await apiGet<{ chemicals: Chemical[] }>(`/chemicals/${chemicalId}/${mode}?limit=20`, 0, authHeaders);
+        chemicals = related.chemicals;
+      }
     } else if (q) {
       const data = await apiGet<SearchResponse>(`/search?q=${encodeURIComponent(q)}&mode=${mode}&page_size=20`);
       chemicals = data.chemicals;
