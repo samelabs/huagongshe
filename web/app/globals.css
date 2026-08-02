@@ -234,10 +234,11 @@ footer a:hover { color: var(--blue); }
 .alias-list { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
 .alias-list span { border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; color: var(--muted); background: var(--wash); font-size: 11px; }
 .role-filter { margin: -5px 0 18px; display: flex; flex-wrap: wrap; gap: 6px; }
-.role-filter a { border-radius: 999px; padding: 6px 10px; color: var(--muted); background: var(--wash); font-size: 11px; }
-.role-filter a.active { color: white; background: var(--blue); }
+.role-filter-btn { border: 0; cursor: pointer; border-radius: 999px; padding: 6px 10px; color: var(--muted); background: var(--wash); font-size: 11px; }
+.role-filter-btn.active { color: white; background: var(--blue); }
 .pagination { margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 18px; color: var(--muted); font-size: 12px; }
-.pagination a { color: var(--blue); }
+.pagination a, .pagination-link { color: var(--blue); }
+.pagination-link { background: none; border: 0; cursor: pointer; font: inherit; }
 .section-intro { margin: -8px 0 18px; color: var(--muted); font-size: 13px; line-height: 1.7; }
 .structured-form label, .form-stack label, .settings-content label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
 .structured-form input, .structured-form textarea, .structured-form select, .form-stack input, .settings-content input, .settings-content textarea, .settings-content select { width: 100%; min-width: 0; max-width: 100%; border: 1px solid var(--line-strong); border-radius: 6px; outline: 0; padding: 10px 11px; color: var(--ink); background: white; }
