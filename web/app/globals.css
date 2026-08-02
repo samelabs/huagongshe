@@ -613,7 +613,8 @@ footer a:hover { color: var(--blue); }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .chemical-aside, .reaction-aside { grid-template-columns: 1fr; }
   .reaction-title { align-items: start; flex-direction: column; }
-  .reaction-scheme img { min-width: 760px; height: 250px; }
+  .reaction-scheme img { min-width: 100%; height: 250px; }
+  .reaction-preview img { min-width: 100%; }
   .participant-grid, .reaction-sides .participant-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
   .participant-structure { height: 116px; }
   .condition-list { grid-template-columns: repeat(2, 1fr); }
@@ -672,6 +673,13 @@ footer a:hover { color: var(--blue); }
   .auth-panel { padding: 21px; }
   .structured-form input, .structured-form textarea, .structured-form select,
   .form-stack input, .settings-content input, .settings-content textarea, .settings-content select { min-width: 0; font-size: 16px; }
+
+  /* 手机端内容可读性：禁止截断，允许换行 */
+  .structure-code { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
+  .identity-table dd { overflow-wrap: anywhere; }
+  .participant-card { overflow: visible; }
+  .reaction-result-foot p { white-space: normal; overflow: visible; }
+  .followed-entity-list strong, .followed-entity-list small { overflow: visible; white-space: normal; }
 }
 
 @media (max-width: 420px) {
