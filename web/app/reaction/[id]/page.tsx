@@ -14,8 +14,6 @@ const roleNames: Record<string, string> = {
   PRODUCT: t.submit.roles.product, WORKUP: t.reaction.workup, INTERNAL_STANDARD: "内标", UNKNOWN: "其他",
 };
 
-export const revalidate = 3600;
-
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   return { title: `HRID ${id}`, description: t.reaction.desc };
@@ -31,7 +29,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
   const cookie = cookieStore.toString();
   let reaction: ReactionDetail;
   try {
-    reaction = await apiGet<ReactionDetail>(`/reactions/${id}`, hasSession ? 0 : 3600, hasSession ? { Cookie: cookie } : undefined);
+    reaction = await apiGet<ReactionDetail>(`/reactions/${id}`, hasSession ? { Cookie: cookie } : undefined);
   } catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
 
   const reactants = reaction.participants.filter((item) => item.role === "REACTANT");

@@ -5,11 +5,9 @@ import t from "@/lib/i18n";
 
 type Stats = { chemicals: number; reactions: number; datasets: number; rdkit_failures: number };
 
-export const revalidate = 3600;
-
 export default async function Home() {
   let stats: Stats | null = null;
-  try { stats = await apiGet<Stats>("/stats", 3600); } catch {}
+  try { stats = await apiGet<Stats>("/stats"); } catch {}
   return (
     <div className="home">
       <section className="hero">

@@ -31,7 +31,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       if (!hasSession) {
         error = t.search.substructureLogin;
       } else {
-        const related = await apiGet<{ chemicals: Chemical[] }>(`/chemicals/${chemicalId}/${mode}?limit=20`, 0, authHeaders);
+        const related = await apiGet<{ chemicals: Chemical[] }>(`/chemicals/${chemicalId}/${mode}?limit=20`, authHeaders);
         chemicals = related.chemicals;
       }
     } else if (q) {

@@ -35,14 +35,14 @@ type SiteConfig = {
 export const dynamic = "force-dynamic";
 
 async function getSiteConfig(): Promise<SiteConfig> {
-  try { return await apiGet<SiteConfig>("/config", 300); }
+  try { return await apiGet<SiteConfig>("/config"); }
   catch { return {}; }
 }
 
 async function getSSRUser(cookieHeader: string | null): Promise<User | null> {
   try {
     if (!cookieHeader) return null;
-    return await apiGet<User>("/users/me", 0, { cookie: cookieHeader });
+    return await apiGet<User>("/users/me", { cookie: cookieHeader });
   } catch { return null; }
 }
 

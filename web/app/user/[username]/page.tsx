@@ -17,8 +17,6 @@ type Profile = {
 };
 type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
 
-export const revalidate = 3600;
-
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
   return { title: t.user.title.replace("{username}", username), description: t.user.desc };
@@ -29,18 +27,15 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const query = await searchParams;
   const requestedPage = typeof query.page === "string" ? Number.parseInt(query.page, 10) : 1;
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  // Logged-in users get dynamic rendering for live follow state and is_me;
-  // anonymous traffic hits the ISR cache.
   const hasSession = (await cookies()).has("hgs_session");
-  const ttl = hasSession ? 0 : 3600;
   const headers = hasSession ? { Cookie: (await cookies()).toString() } : undefined;
   let profile: Profile;
-  try { profile = await apiGet<Profile>(`/users/${encodeURIComponent(username)}`, ttl, headers); }
+  try { profile = await apiGet<Profile>(`/users/${encodeURIComponent(username)}`, headers); }
   catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
 
   let reactions: Reaction[] = [];
   let contentUnavailable = false;
-  try { reactions = await apiGet<Reaction[]>(`/users/${encodeURIComponent(username)}/reactions?page=${page}&page_size=20`, ttl); }
+  try { reactions = await apiGet<Reaction[]>(`/users/${encodeURIComponent(username)}/reactions?page=${page}&page_size=20`); }
   catch { contentUnavailable = true; }
 
   const base = `/user/${encodeURIComponent(profile.username)}`;

@@ -11,11 +11,10 @@ export function isApiNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 404;
 }
 
-export async function apiGet<T>(path: string, revalidate = 0, headers?: HeadersInit): Promise<T> {
+export async function apiGet<T>(path: string, headers?: HeadersInit): Promise<T> {
   const response = await fetch(`${SERVER_API}${path}`, {
     headers,
-    next: revalidate > 0 ? { revalidate } : undefined,
-    cache: revalidate > 0 ? "force-cache" : "no-store",
+    cache: "no-store",
   });
   if (!response.ok) throw new ApiError(response.status, path);
   return response.json() as Promise<T>;

@@ -12,10 +12,6 @@ import t from "@/lib/i18n";
 
 type DetailResponse = { details: ChemicalDetails | null; enrichment: EnrichmentState };
 
-// Anonymous traffic gets ISR (1h). Logged-in users skip the cache for live
-// follow state and enrichment queue feedback.
-export const revalidate = 3600;
-
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   return { title: `HCID ${id}`, description: t.chemical.desc };
@@ -25,15 +21,14 @@ export default async function ChemicalPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const ttl = 3600;
 
   const [chemicalResult, reactionsResult] = await Promise.all([
-    apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`, ttl).catch((error: unknown) => {
+    apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`).catch((error: unknown) => {
       if (isApiNotFound(error)) notFound();
       throw error;
     }),
     apiGet<{ total: number; page: number; page_size: number; reactions: ReactionSummary[] }>(
-      `/chemicals/${id}/reactions?page=1&page_size=8&role=any`, ttl,
+      `/chemicals/${id}/reactions?page=1&page_size=8&role=any`,
     ).catch(() => null),
   ]);
   const chemical = chemicalResult;
