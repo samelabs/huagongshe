@@ -31,7 +31,7 @@
 | 统一搜索 | `GET /api/search` | 名称、CAS、InChIKey、SMILES、结构检索（精确/子结构/相似度）|
 | 化合物详情 | `GET /api/chemicals/{id}` | 结构、标识符、性质、关联反应、PubChem 富集 |
 | 反应详情 | `GET /api/reactions/{id}` | 参与物、条件、产率、来源、操作步骤 |
-| 分子渲染 | `GET /api/mol/svg?smiles=...` | SMILES → SVG 结构图（Redis 缓存 24h）|
+| 分子渲染 | `GET /api/mol/{hcid}/svg/{w}x{h}.svg` | HCID → SVG 结构图 |
 | 统计数据 | `GET /api/stats` | 化合物/反应/数据集总数 |
 | 数据集列表 | `GET /api/datasets` | ORD 来源数据集 |
 

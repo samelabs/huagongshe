@@ -14,15 +14,15 @@ export function ChemicalResult({ chemical }: { chemical: Chemical }) {
 
   return (
     <article className="chemical-result">
-      <Link className="chemical-result-structure" href={`/chemical/${chemical.id}`} aria-label={title}>
-        <Molecule smiles={chemical.smiles} width={176} height={122} />
+      <Link className="chemical-result-structure" href={`/chemical/${chemical.id}`} aria-label={`${t.common.view} ${title}`}>
+        <Molecule chemicalId={chemical.id} width={176} height={122} />
       </Link>
       <div className="chemical-result-copy">
         <EntityId kind="chemical" id={chemical.id} compact />
         <h3><Link href={`/chemical/${chemical.id}`}>{title}</Link></h3>
         {identity && <p className="record-meta">{identity}</p>}
         {chemical.smiles && <p className="structure-code mono">{chemical.smiles}</p>}
-        {chemical.similarity != null && <p className="match-score">结构相似度 {(chemical.similarity * 100).toFixed(1)}%</p>}
+        {chemical.similarity != null && <p className="match-score">{t.search.similarityScore(chemical.similarity * 100)}</p>}
       </div>
       <Link className="record-open" href={`/chemical/${chemical.id}`}>{t.common.view}</Link>
     </article>

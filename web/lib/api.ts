@@ -21,8 +21,8 @@ export async function apiGet<T>(path: string, revalidate = 0, headers?: HeadersI
   return response.json() as Promise<T>;
 }
 
-export function molSvgUrl(smiles: string, width = 260, height = 180) {
-  return `/api/mol/svg?smiles=${encodeURIComponent(smiles)}&w=${width}&h=${height}`;
+export function molSvgUrl(chemicalId: number, width = 260, height = 180) {
+  return `/api/mol/${chemicalId}/svg/${width}x${height}.svg`;
 }
 
 export function reactionSvgUrl(reactionId: number, width = 1100, height = 230) {

@@ -26,7 +26,7 @@ const roleNames: Record<string, string> = {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  return { title: `HCID ${id}`, description: "化合物结构、身份、性质与相关反应" };
+  return { title: `HCID ${id}`, description: t.chemical.desc };
 }
 
 export default async function ChemicalPage({ params, searchParams }: {
@@ -83,7 +83,7 @@ export default async function ChemicalPage({ params, searchParams }: {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href="/">{t.chemical.home}</Link><span>/</span><span>{t.chemical.detail}</span></nav>
       <header className="chemical-identity">
-        <div className="chemical-structure"><Molecule smiles={chemical.smiles} width={360} height={280} /></div>
+        <div className="chemical-structure"><Molecule chemicalId={chemical.id} width={360} height={280} /></div>
         <div className="chemical-title-block">
           <EntityId kind="chemical" id={chemical.id} />
           <h1>{title}</h1>

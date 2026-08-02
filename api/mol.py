@@ -6,7 +6,7 @@ import asyncio
 import re
 from rdkit import Chem
 from rdkit.Chem import Draw, AllChem, rdChemReactions
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import text
 from .cache import cache_get, cache_set
 from .database import get_db
@@ -61,17 +61,25 @@ def reaction_to_svg(reaction_smiles: str, width: int = 1200, height: int = 300) 
         return None
 
 
-@router.get("/mol/svg")
+@router.get("/mol/{chemical_id}/svg")
 async def render_molecule(
-    smiles: str = Query(..., min_length=1, max_length=4000),
+    chemical_id: int,
     w: int = 400,
     h: int = 300,
+    db=Depends(get_db),
 ):
-    """Render a SMILES to SVG image. Cached in Redis."""
+    """Render a chemical structure to SVG by HCID. Cached in Redis."""
     w = min(max(w, 50), 800)
     h = min(max(h, 50), 800)
 
-    cache_key = f"mol_svg:{smiles}:{w}x{h}"
+    row = (await db.execute(text("""
+        SELECT smiles FROM chemistry.chemicals WHERE id=:id
+    """), {"id": chemical_id})).fetchone()
+    if not row or not row[0]:
+        raise HTTPException(status_code=404, detail="化合物没有可渲染的结构表达")
+
+    smiles = row[0]
+    cache_key = f"mol_svg:{chemical_id}:{w}x{h}"
     headers = {"Cache-Control": "public, max-age=31536000, immutable"}
     cached = await cache_get(cache_key)
     if cached:

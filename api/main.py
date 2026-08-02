@@ -58,7 +58,9 @@ async def public_api_rate_limit(request, call_next):
         "/api/health", "/api/openapi.json", "/api/docs", "/api/redoc",
     } or is_loopback_host(request.client.host if request.client else None):
         return await call_next(request)
-    is_render = request.url.path == "/api/mol/svg" or (
+    is_render = (
+        request.url.path.startswith("/api/mol/") and request.url.path.endswith("/svg")
+    ) or (
         request.url.path.startswith("/api/reactions/") and request.url.path.endswith("/svg")
     )
     bucket = "api-render" if is_render else "api"

@@ -18,7 +18,7 @@ export const revalidate = 3600;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  return { title: `HRID ${id}`, description: "反应方程式、参与物、条件、结果与来源" };
+  return { title: `HRID ${id}`, description: t.reaction.desc };
 }
 
 export default async function ReactionPage({ params }: { params: Promise<{ id: string }> }) {
@@ -83,7 +83,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
             <ParticipantGroup title={t.submit.roles.reactant} eyebrow="REACTANTS" items={reactants} />
             <ParticipantGroup title={t.submit.roles.product} eyebrow="PRODUCTS" items={products} />
           </div>
-          {auxiliaries.length > 0 && <ParticipantGroup title="试剂、催化剂与溶剂" eyebrow="AUXILIARIES" items={auxiliaries} showRole />}
+          {auxiliaries.length > 0 && <ParticipantGroup title={t.reaction.reagentsCatalystsSolvents} eyebrow="AUXILIARIES" items={auxiliaries} showRole />}
 
           {(conditions.length > 0 || reaction.conditions_detail) && (
             <section className="reaction-section">
@@ -153,7 +153,7 @@ function ParticipantGroup({ title, eyebrow, items, showRole = false }: {
       <div className="section-heading compact-heading"><div><p>{eyebrow}</p><h2>{title}</h2></div><span>{items.length}</span></div>
       {items.length > 0 ? <div className="participant-grid">{items.map((chemical) => (
         <Link className="participant-card" href={`/chemical/${chemical.id}`} key={`${chemical.role}-${chemical.id}`}>
-          <div className="participant-structure"><Molecule smiles={chemical.smiles} width={220} height={140} /></div>
+          <div className="participant-structure"><Molecule chemicalId={chemical.id} width={220} height={140} /></div>
           <div>
             {showRole && <span className="role-label">{roleNames[chemical.role || ""] || chemical.role}</span>}
             <EntityId kind="chemical" id={chemical.id} compact />
