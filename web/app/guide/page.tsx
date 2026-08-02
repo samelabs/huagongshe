@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AiSubmissionPrompt } from "@/components/AiSubmissionPrompt";
+import { ShareButton } from "@/components/ShareButton";
 import t from "@/lib/i18n";
 
 export const metadata: Metadata = {
@@ -11,7 +12,10 @@ export const metadata: Metadata = {
 export default function GuidePage() {
   return <div className="content-page guide-page">
     <header className="guide-hero">
-      <p className="page-kicker">GUIDE</p>
+      <div className="guide-hero-top">
+        <p className="page-kicker">GUIDE</p>
+        <ShareButton />
+      </div>
       <h1>{t.guide.hero}</h1>
       <p>{t.guide.heroBody}</p>
     </header>
