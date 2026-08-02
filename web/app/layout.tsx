@@ -1,26 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Inter, Noto_Sans_SC } from "next/font/google";
 import { AccountProvider } from "@/components/AccountContext";
 import { HeaderAccount } from "@/components/HeaderAccount";
 import { apiGet } from "@/lib/api";
 import "./globals.css";
 import t from "@/lib/i18n";
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-inter",
-});
-
-const notoSansSC = Noto_Sans_SC({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  display: "swap",
-  variable: "--font-noto-sc",
-  preload: true,
-});
 export const metadata: Metadata = {
   metadataBase: new URL("https://huagongshe.com"),
   title: { default: t.brand.seoTitle, template: `%s｜${t.brand.name}` },
@@ -60,7 +44,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const footerSlogan = config.branding?.slogan?.footer || t.brand.slogan;
 
   return (
-    <html lang="zh-CN" className={`${inter.variable} ${notoSansSC.variable}`}>
+    <html lang="zh-CN">
       <head>
         <link rel="llms-txt" href="/llms.txt" />
         {analytics?.enabled && analytics.id && analytics.provider === "51la" && (

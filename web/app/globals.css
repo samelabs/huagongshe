@@ -34,7 +34,7 @@
   --warning-border:var(--warning-border);
 
   /* ── 字体 ─────────────────────────────────────────────────── */
-  --font-ui: var(--font-inter), var(--font-noto-sc), ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-ui: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --title-weight: 500;
   --section-weight: 600;
@@ -58,7 +58,7 @@ h2, h3 { font-weight: var(--section-weight); }
 .site-header { position: sticky; z-index: 30; top: 0; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.95); backdrop-filter: blur(12px); }
 .header-inner { width: min(var(--max), calc(100% - 40px)); min-width: 0; height: 64px; margin: 0 auto; display: flex; align-items: center; }
 .brand { display: inline-flex; align-items: center; }
-.brand-domain { display: inline-flex; align-items: baseline; color: var(--blue-strong); font-family: var(--font-inter), var(--font-ui); font-size: 16px; line-height: 1; letter-spacing: -.01em; }
+.brand-domain { display: inline-flex; align-items: baseline; color: var(--blue-strong); font-family: var(--font-ui); font-size: 16px; line-height: 1; letter-spacing: -.01em; }
 .brand-domain > span:first-child { font-weight: 700; }
 .brand-dot { color: var(--quiet); font-weight: 400; margin: 0 1px; }
 .brand-domain > span:last-child { color: var(--heading-soft); font-weight: 400; opacity: .8; }
