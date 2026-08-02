@@ -14,48 +14,93 @@ export default function GuidePage() {
       <p className="page-kicker">GUIDE</p>
       <h1>{t.guide.hero}</h1>
       <p>{t.guide.heroBody}</p>
-      <div className="guide-security-note"><strong>{t.guide.securityNote}</strong><span>{t.guide.securityDetail}</span></div>
-      <div className="guide-actions">
-        <Link className="button primary" href="/me/settings/api-tokens">{t.guide.setupCta}</Link>
-      </div>
     </header>
 
     <section className="guide-section">
-      <div className="section-heading"><div><p>{t.guide.stepsKicker}</p><h2>{t.guide.stepsTitle}</h2></div></div>
-      <ol className="guide-steps">
-        <li><strong>{t.guide.step1Title}</strong><span>{t.guide.step1Desc}</span></li>
-        <li><strong>{t.guide.step2Title}</strong><span>{t.guide.step2Desc}</span></li>
-        <li><strong>{t.guide.step3Title}</strong><span>{t.guide.step3Desc}</span></li>
-      </ol>
+      <div className="section-heading"><div><p className="page-kicker">{t.guide.capabilityKicker}</p></div></div>
+      <div className="guide-cards">
+        <article className="guide-card">
+          <h3>{t.guide.cap1Title}</h3>
+          <p>{t.guide.cap1Desc}</p>
+        </article>
+        <article className="guide-card">
+          <h3>{t.guide.cap2Title}</h3>
+          <p>{t.guide.cap2Desc}</p>
+          <span className="guide-card-badge">{t.guide.cap2Badge}</span>
+        </article>
+        <article className="guide-card">
+          <h3>{t.guide.cap3Title}</h3>
+          <p>{t.guide.cap3Desc}</p>
+          <span className="guide-card-badge">{t.guide.cap3Badge}</span>
+        </article>
+        <article className="guide-card">
+          <h3>{t.guide.cap4Title}</h3>
+          <p>{t.guide.cap4Desc}</p>
+          <span className="guide-card-badge">{t.guide.cap4Badge}</span>
+        </article>
+      </div>
     </section>
 
-    <section className="guide-section guide-ai-section">
-      <div className="section-heading"><div><p>{t.guide.copyKicker}</p><h2>{t.guide.copyTitle}</h2></div></div>
-      <p className="guide-lead">{t.guide.copyBody}</p>
-      <AiSubmissionPrompt />
+    <section className="guide-section">
+      <div className="section-heading"><div><p className="page-kicker">{t.guide.startKicker}</p></div></div>
+      <div className="guide-paths">
+        <article className="guide-path">
+          <div className="guide-path-head">
+            <h3>{t.guide.path1Title}</h3>
+            <span className="guide-path-suit">{t.guide.path1Suit}</span>
+          </div>
+          <p>{t.guide.path1Desc}</p>
+          <AiSubmissionPrompt />
+        </article>
+        <article className="guide-path">
+          <div className="guide-path-head">
+            <h3>{t.guide.path2Title}</h3>
+            <span className="guide-path-suit">{t.guide.path2Suit}</span>
+          </div>
+          <p>{t.guide.path2Desc}</p>
+          <div className="guide-actions">
+            <Link className="button primary" href="/me/settings/api-tokens">{t.guide.setupCta}</Link>
+          </div>
+        </article>
+      </div>
     </section>
 
-    <details className="guide-section technical-guide">
-      <summary>{t.guide.techKicker}</summary>
-      <div className="technical-guide-content">
-        <div>
-          <h2>{t.guide.techTitle}</h2>
-          <p>{t.guide.techBody}</p>
-        </div>
-        <div className="guide-actions">
-          <a className="button secondary small" href="/skills/huagongshe-reaction-publisher/SKILL.md" download>{t.guide.downloadSkill}</a>
-          <a className="button secondary small" href="/api/agent-guide" target="_blank" rel="noreferrer">{t.guide.viewApi}</a>
-        </div>
-      </div>
-    </details>
+    <section className="guide-section">
+      <div className="section-heading"><div><p className="page-kicker">{t.guide.refKicker}</p></div></div>
+      <p className="guide-ref-intro">{t.guide.refIntro}</p>
+      <table className="guide-ref-table">
+        <tbody>
+          <tr>
+            <td className="guide-ref-name"><code>{t.guide.refLlmsTxt}</code></td>
+            <td className="guide-ref-desc">{t.guide.refLlmsTxtDesc}</td>
+            <td className="guide-ref-link"><Link href="/llms.txt">{t.guide.refView}</Link></td>
+          </tr>
+          <tr>
+            <td className="guide-ref-name"><code>{t.guide.refAgentGuide}</code></td>
+            <td className="guide-ref-desc">{t.guide.refAgentGuideDesc}</td>
+            <td className="guide-ref-link"><Link href="/api/agent-guide">{t.guide.refView}</Link></td>
+          </tr>
+          <tr>
+            <td className="guide-ref-name"><code>{t.guide.refOpenapi}</code></td>
+            <td className="guide-ref-desc">{t.guide.refOpenapiDesc}</td>
+            <td className="guide-ref-link"><Link href="/api/openapi.json">{t.guide.refView}</Link></td>
+          </tr>
+          <tr>
+            <td className="guide-ref-name"><code>{t.guide.refSkill}</code></td>
+            <td className="guide-ref-desc">{t.guide.refSkillDesc}</td>
+            <td className="guide-ref-link"><a href="/skills/huagongshe-reaction-publisher/SKILL.md" download>{t.guide.refDownload}</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
 
-    <section className="guide-section ownership-guide">
-      <div className="section-heading"><div><p>{t.guide.principlesTitle}</p><h2>{t.guide.principlesSubtitle}</h2></div></div>
-      <div className="guide-principles">
-        <article><strong>{t.guide.p1Title}</strong><p>{t.guide.p1Body}</p></article>
-        <article><strong>{t.guide.p2Title}</strong><p>{t.guide.p2Body}</p></article>
-        <article><strong>{t.guide.p3Title}</strong><p>{t.guide.p3Body}</p></article>
-      </div>
+    <section className="guide-section guide-trust">
+      <div className="section-heading"><div><p className="page-kicker">{t.guide.trustKicker}</p></div></div>
+      <ul className="guide-trust-list">
+        <li>{t.guide.trust1}</li>
+        <li>{t.guide.trust2}</li>
+        <li>{t.guide.trust3}</li>
+      </ul>
     </section>
   </div>;
 }
