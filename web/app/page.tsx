@@ -29,10 +29,11 @@ export default async function Home() {
           <p className="home-meta-line">{t.home.dataLine(formatCount(stats.chemicals), formatCount(stats.reactions))}</p>
         )}
       </section>
-      <section className="home-contribute">
-        <div><span>{t.home.ctaKicker}</span><strong>{t.home.ctaTitle}</strong><p>{t.home.ctaBody}</p></div>
-        <Link className="text-button" href="/guide">{t.home.ctaLink}</Link>
-      </section>
+      <Link className="home-contribute" href="/guide">
+        <span><span className="home-contribute-kicker">{t.home.ctaKicker}</span><strong>{t.home.ctaTitle}</strong></span>
+        <span>{t.home.ctaBody}</span>
+        <span className="home-contribute-link">{t.home.ctaLink}</span>
+      </Link>
     </div>
   );
 }
