@@ -10,7 +10,7 @@ import t from "@/lib/i18n";
 export function HeaderAccount() {
   const router = useRouter();
   const menu = useRef<HTMLDetailsElement>(null);
-  const { user, ready, clear } = useAccount();
+  const { user, ready, authed, clear } = useAccount();
 
   useEffect(() => {
     function closeOnOutside(event: PointerEvent) {
@@ -72,6 +72,12 @@ export function HeaderAccount() {
             </div>
           </details>
         </>
+      ) : authed && !ready ? (
+        /* SSR检测到session cookie，渲染骨架占位（灰色圆+名字条）等待fetch完成 */
+        <div className="account-skeleton" aria-hidden="true">
+          <span className="avatar-fallback" />
+          <span className="account-name-skeleton" />
+        </div>
       ) : ready ? (
         <Link href="/login" className="login-link">{t.nav.login}</Link>
       ) : <span className="nav-placeholder" aria-hidden="true" />}
