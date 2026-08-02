@@ -117,7 +117,7 @@ export default async function ChemicalPage({ params }: {
           <section className="contribute-panel">
             <h2>{t.chemical.newRelated}</h2>
             <p>{t.chemical.newRelatedHint}</p>
-            <Link href={`/submit?chemical=${chemical.id}`}>{t.chemical.newReaction}</Link>
+            <Link href={`/submit?chemical=${chemical.id}`} rel="nofollow">{t.chemical.newReaction}</Link>
           </section>
         </aside>
       </div>
