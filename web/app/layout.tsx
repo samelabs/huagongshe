@@ -32,8 +32,6 @@ type SiteConfig = {
   branding?: { slogan?: { footer?: string } };
 };
 
-export const dynamic = "force-dynamic";
-
 async function getSiteConfig(): Promise<SiteConfig> {
   try { return await apiGet<SiteConfig>("/config"); }
   catch { return {}; }
