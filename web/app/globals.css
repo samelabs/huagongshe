@@ -146,8 +146,7 @@ footer a:hover { color: var(--blue); }
 .search-examples a { color: var(--muted); border-bottom: 1px dotted var(--line-strong); }
 .home-meta { padding: 28px 0 0; text-align: center; }
 .home-meta-line { margin: 0; color: var(--quiet); font-size: var(--text); font-variant-numeric: tabular-nums; }
-.home-contribute { position: relative; margin-top: 32px; border: 1px solid var(--green-border); border-radius: 9px; padding: 23px 24px; display: grid; gap: 5px; color: var(--ink); background: linear-gradient(135deg, var(--green-tint) 0%, var(--green-tint) 60%, var(--warm-pale) 100%); transition: border-color .15s, box-shadow .15s; cursor: pointer; overflow: hidden; }
-.home-contribute::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, var(--green) 0%, var(--warm) 100%); }
+.home-contribute { margin-top: 32px; border: 1px solid var(--green-border); border-radius: 9px; padding: 23px 24px; display: grid; gap: 5px; color: var(--ink); background: linear-gradient(135deg, var(--green-tint) 0%, var(--green-tint) 60%, var(--warm-pale) 100%); transition: border-color .15s, box-shadow .15s; cursor: pointer; }
 .home-contribute:hover { border-color: var(--green); box-shadow: 0 4px 20px rgba(7,193,96,.12); }
 .home-contribute > span:first-child { display: grid; gap: 5px; }
 .home-contribute-kicker { color: var(--green-strong); font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; }
