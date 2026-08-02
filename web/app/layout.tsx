@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { AccountProvider } from "@/components/AccountContext";
 import { HeaderAccount } from "@/components/HeaderAccount";
 import { apiGet } from "@/lib/api";
+import type { User } from "@/lib/api";
 import "./globals.css";
 import t from "@/lib/i18n";
 export const metadata: Metadata = {
@@ -30,11 +32,18 @@ type SiteConfig = {
   branding?: { slogan?: { footer?: string } };
 };
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 async function getSiteConfig(): Promise<SiteConfig> {
   try { return await apiGet<SiteConfig>("/config", 300); }
   catch { return {}; }
+}
+
+async function getSSRUser(cookieHeader: string | null): Promise<User | null> {
+  try {
+    if (!cookieHeader) return null;
+    return await apiGet<User>("/users/me", 0, { cookie: cookieHeader });
+  } catch { return null; }
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -42,6 +51,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const analytics = config.analytics?.scripts;
   const adsense = config.ads?.adsense;
   const footerSlogan = config.branding?.slogan?.footer || t.brand.slogan;
+  const h = await headers();
+  const cookieHeader = h.get("cookie");
+  const initialUser = await getSSRUser(cookieHeader);
 
   return (
     <html lang="zh-CN">
@@ -58,7 +70,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         )}
       </head>
       <body>
-        <AccountProvider>
+        <AccountProvider initialUser={initialUser}>
           <header className="site-header">
             <div className="header-inner">
               <Link href="/" className="brand" aria-label={t.nav.home}>

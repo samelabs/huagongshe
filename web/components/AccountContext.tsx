@@ -12,9 +12,9 @@ type AccountContextValue = {
 
 const AccountContext = createContext<AccountContextValue | null>(null);
 
-export function AccountProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(false);
+export function AccountProvider({ children, initialUser }: { children: React.ReactNode; initialUser: User | null }) {
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [ready, setReady] = useState(!!initialUser);
 
   const refresh = useCallback(async () => {
     try {
@@ -27,7 +27,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { if (!initialUser) void refresh(); }, [refresh, initialUser]);
   const value = useMemo(() => ({ user, ready, refresh, clear: () => setUser(null) }), [user, ready, refresh]);
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }
