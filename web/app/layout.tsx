@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { headers } from "next/headers";
 import { AccountProvider } from "@/components/AccountContext";
 import { HeaderAccount } from "@/components/HeaderAccount";
 import { apiGet } from "@/lib/api";
@@ -43,8 +42,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const analytics = config.analytics?.scripts;
   const adsense = config.ads?.adsense;
   const footerSlogan = config.branding?.slogan?.footer || t.brand.slogan;
-  const h = await headers();
-  const hasSession = h.get("x-has-session") === "1";
 
   return (
     <html lang="zh-CN">
@@ -61,7 +58,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         )}
       </head>
       <body>
-        <AccountProvider initialAuthed={hasSession}>
+        <AccountProvider>
           <header className="site-header">
             <div className="header-inner">
               <Link href="/" className="brand" aria-label={t.nav.home}>

@@ -91,12 +91,6 @@ nav[aria-label="主导航"] > a:hover { color: var(--blue); }
 .account-menu-links a:hover, .account-dropdown > button:hover { color: var(--blue); background: var(--blue-pale); }
 .account-dropdown > button { border-top: 1px solid var(--line); border-radius: 0 0 5px 5px; color: var(--quiet); }
 .nav-placeholder { width: 82px; height: 38px; }
-
-/* 骨架占位 — SSR检测到session cookie，fetch完成前显示 */
-.account-skeleton { display: flex; align-items: center; gap: 8px; height: 38px; padding: 4px 7px 4px 5px; }
-.account-skeleton .avatar-fallback { width: 29px; height: 29px; border-radius: 50%; background: var(--wash); animation: skeleton-pulse 1.5s ease-in-out infinite; }
-.account-name-skeleton { width: 64px; height: 10px; border-radius: 3px; background: var(--wash); animation: skeleton-pulse 1.5s ease-in-out infinite; }
-@keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
 main { min-height: auto; }
 footer { min-height: 64px; border-top: 1px solid var(--line); padding: 20px max(20px, calc((100vw - var(--max)) / 2)); display: flex; justify-content: center; align-items: center; color: var(--quiet); font-size: var(--text); text-align: center; }
 footer a:hover { color: var(--blue); }

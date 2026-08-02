@@ -6,15 +6,13 @@ import type { User } from "@/lib/api";
 type AccountContextValue = {
   user: User | null;
   ready: boolean;
-  /** SSR detected session cookie — if true, show avatar skeleton during hydration */
-  authed: boolean;
   refresh: () => Promise<void>;
   clear: () => void;
 };
 
 const AccountContext = createContext<AccountContextValue | null>(null);
 
-export function AccountProvider({ children, initialAuthed }: { children: React.ReactNode; initialAuthed: boolean }) {
+export function AccountProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -30,7 +28,7 @@ export function AccountProvider({ children, initialAuthed }: { children: React.R
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
-  const value = useMemo(() => ({ user, ready, authed: initialAuthed, refresh, clear: () => setUser(null) }), [user, ready, initialAuthed, refresh]);
+  const value = useMemo(() => ({ user, ready, refresh, clear: () => setUser(null) }), [user, ready, refresh]);
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }
 
