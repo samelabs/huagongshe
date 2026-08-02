@@ -14,7 +14,6 @@ export default async function Home() {
     <div className="home">
       <section className="hero">
         <h1>{t.home.hero}</h1>
-        <p className="hero-subtitle">{t.home.subtitle}</p>
         <GlobalSearch />
         <div className="search-examples" aria-label={t.home.searchExamples}>
           <span>{t.home.searchExampleLabel}</span>

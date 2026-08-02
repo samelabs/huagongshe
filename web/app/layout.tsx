@@ -86,7 +86,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <main>{children}</main>
         </AccountProvider>
         <footer>
-          <span>{footerSlogan}</span>
+          <span>AIchem开放计划：<a href="mailto:mail@huagongshe.com" style={{ color: "var(--blue)" }}>mail@huagongshe.com</a></span>
         </footer>
       </body>
     </html>
