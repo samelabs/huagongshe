@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/AccountContext";
 import type { User } from "@/lib/api";
@@ -80,7 +80,9 @@ export function HeaderAccount() {
 }
 
 function Avatar({ user }: { user: User }) {
-  return user.avatar_url
-    ? <img className="header-avatar" src={user.avatar_url.replace(".webp", "-128.webp")} alt="" />
-    : <span className="avatar-fallback">{user.display_name.slice(0, 1)}</span>;
+  const [err, setErr] = useState(false);
+  if (user.avatar_url && !err) {
+    return <img className="header-avatar" src={user.avatar_url.replace(".webp", "-128.webp")} alt="" onError={() => setErr(true)} />;
+  }
+  return <span className="avatar-fallback">{user.display_name.slice(0, 1)}</span>;
 }
