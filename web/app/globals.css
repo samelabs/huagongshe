@@ -70,8 +70,9 @@ h2, h3 { font-weight: var(--section-weight); }
 nav[aria-label="主导航"] { min-width: 0; margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 22px; color: var(--muted); font-size: var(--text); white-space: nowrap; }
 nav[aria-label="主导航"] > a:hover { color: var(--blue); }
 .login-link { border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 13px; min-height: 38px; display: inline-flex; align-items: center; color: var(--ink); }
-.nav-guide { border: 1px solid var(--blue-border); border-radius: 999px; padding: 6px 10px; min-height: 38px; display: inline-flex; align-items: center; color: var(--blue-strong); background: var(--blue-tint); font-weight: 650; }
+.nav-guide { border: 1px solid var(--blue-border); border-radius: 999px; padding: 6px 10px; min-height: 38px; display: inline-flex; align-items: center; color: var(--blue-strong); background: var(--blue-tint); font-weight: 650; white-space: nowrap; }
 .nav-guide:hover { border-color: var(--blue-border); color: var(--blue-deep) !important; background: var(--blue-pale); }
+.guide-full { display: inline; }
 .guide-short { display: none; }
 .account-menu { position: relative; }
 .account-menu > summary { min-height: 38px; border-radius: 8px; padding: 4px 7px 4px 5px; display: flex; align-items: center; gap: 8px; color: var(--ink); cursor: pointer; list-style: none; }
