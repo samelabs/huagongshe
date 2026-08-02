@@ -132,8 +132,7 @@ footer a:hover { color: var(--blue); }
 .home { width: min(820px, calc(100% - 40px)); margin: auto; padding-bottom: 48px; }
 .hero { text-align: center; padding: clamp(56px, 10vh, 100px) 0 48px; }
 .hero h1 { margin: 0; font-size: clamp(26px, 3.2vw, 34px); font-weight: var(--title-weight); line-height: 1.35; letter-spacing: -.01em; color: var(--heading); }
-.hero-subtitle { margin: 14px auto 0; max-width: 580px; color: var(--muted); font-size: var(--text-lg); line-height: 1.7; }
-.hero-subtitle + .global-search, .hero-subtitle + .global-search-wrap { margin-top: 36px; }
+.hero h1 + .global-search, .hero h1 + .global-search-wrap { margin-top: 36px; }
 .global-search-wrap { width: min(690px, 100%); margin: auto; }
 .global-search { width: min(690px, 100%); max-width: 100%; min-width: 0; margin: auto; border: 1px solid var(--line-strong); border-radius: 10px; display: flex; flex-wrap: wrap; background: white; box-shadow: 0 8px 28px rgba(30,144,255,.08); }
 .global-search:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow), 0 8px 28px rgba(30,144,255,.12); }
@@ -586,8 +585,7 @@ footer a:hover { color: var(--blue); }
   footer { padding: 18px 14px; }
   .hero { padding: 36px 0 28px; }
   .hero h1 { font-size: clamp(22px, 6vw, 26px); }
-  .hero-subtitle { margin-top: 7px; font-size: var(--text); }
-  .hero-subtitle + .global-search, .hero-subtitle + .global-search-wrap { margin-top: 24px; }
+  .hero h1 + .global-search, .hero h1 + .global-search-wrap { margin-top: 24px; }
   .global-search { width: 100%; }
   .global-search input { padding: 0 12px; font-size: 16px; }
   .global-search button { padding: 0 18px; font-size: var(--text); }
