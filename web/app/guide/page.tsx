@@ -77,17 +77,17 @@ export default function GuidePage() {
           <tr>
             <td className="guide-ref-name"><code>{t.guide.refLlmsTxt}</code></td>
             <td className="guide-ref-desc">{t.guide.refLlmsTxtDesc}</td>
-            <td className="guide-ref-link"><Link href="/llms.txt">{t.guide.refView}</Link></td>
+            <td className="guide-ref-link"><a href="/llms.txt">{t.guide.refView}</a></td>
           </tr>
           <tr>
             <td className="guide-ref-name"><code>{t.guide.refAgentGuide}</code></td>
             <td className="guide-ref-desc">{t.guide.refAgentGuideDesc}</td>
-            <td className="guide-ref-link"><Link href="/api/agent-guide">{t.guide.refView}</Link></td>
+            <td className="guide-ref-link"><a href="/api/agent-guide">{t.guide.refView}</a></td>
           </tr>
           <tr>
             <td className="guide-ref-name"><code>{t.guide.refOpenapi}</code></td>
             <td className="guide-ref-desc">{t.guide.refOpenapiDesc}</td>
-            <td className="guide-ref-link"><Link href="/api/openapi.json">{t.guide.refView}</Link></td>
+            <td className="guide-ref-link"><a href="/api/openapi.json">{t.guide.refView}</a></td>
           </tr>
           <tr>
             <td className="guide-ref-name"><code>{t.guide.refSkill}</code></td>
