@@ -183,7 +183,7 @@ export function SubmissionForm() {
               <button type="button" onClick={() => setParticipants((current) => current.filter((row) => row.key !== item.key))} disabled={busy || participants.length <= 2}>{t.common.delete}</button>
             </div>
             <div className="participant-measures">
-              <label>次数<input type="number" min="1" max="20" value={item.occurrence_count} onChange={(event) => update(item.key, { occurrence_count: event.target.value })} /></label>
+              <label>{t.submit.occurrenceCount}<input type="number" min="1" max="20" value={item.occurrence_count} onChange={(event) => update(item.key, { occurrence_count: event.target.value })} /></label>
               <label>{t.submit.amount}<input type="number" min="0" step="any" value={item.amount_value} onChange={(event) => update(item.key, { amount_value: event.target.value })} /></label>
               <label>{t.submit.unit}<input value={item.amount_unit} onChange={(event) => update(item.key, { amount_unit: event.target.value })} placeholder="mmol" maxLength={40} /></label>
               <label>{t.submit.equivalents}<input type="number" min="0" step="any" value={item.equivalents} onChange={(event) => update(item.key, { equivalents: event.target.value })} /></label>
@@ -202,7 +202,7 @@ export function SubmissionForm() {
           <label>{t.submit.procedure}<textarea name="procedure_details" rows={7} defaultValue={details?.procedure_details || ""} maxLength={30000} /></label>
           <div className="condition-fields">
             <label>{t.submit.temperature}<input name="temperature_value" type="number" step="any" defaultValue={details?.temperature?.value ?? ""} /></label><label>{t.submit.unit}<select name="temperature_unit" defaultValue={details?.temperature?.unit || "CELSIUS"}><option value="CELSIUS">°C</option><option value="KELVIN">K</option></select></label>
-            <label>{t.submit.time}<input name="duration_value" type="number" min="0.000001" step="any" defaultValue={details?.duration?.value ?? ""} /></label><label>{t.submit.unit}<select name="duration_unit" defaultValue={details?.duration?.unit || "HOUR"}><option value="MINUTE">{t.reaction.timeUnits.minute}</option><option value="HOUR">{t.reaction.timeUnits.hour}</option><option value="DAY">天</option></select></label>
+            <label>{t.submit.time}<input name="duration_value" type="number" min="0.000001" step="any" defaultValue={details?.duration?.value ?? ""} /></label><label>{t.submit.unit}<select name="duration_unit" defaultValue={details?.duration?.unit || "HOUR"}><option value="MINUTE">{t.reaction.timeUnits.minute}</option><option value="HOUR">{t.reaction.timeUnits.hour}</option><option value="DAY">{t.reaction.timeUnits.day}</option></select></label>
             <label>pH<input name="ph" type="number" min="0" max="14" step="any" defaultValue={details?.ph ?? ""} /></label><label>{t.submit.atmosphere}<input name="atmosphere" defaultValue={details?.atmosphere || ""} maxLength={120} /></label>
             <label>{t.submit.pressure}<input name="pressure_value" type="number" min="0.000001" step="any" defaultValue={details?.pressure?.value ?? ""} /></label><label>{t.submit.unit}<input name="pressure_unit" defaultValue={details?.pressure?.unit || ""} placeholder="bar" maxLength={40} /></label>
           </div>

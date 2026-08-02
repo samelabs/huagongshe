@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import t from "@/lib/i18n";
 
 export function ReactionOwnerActions({ reactionId }: { reactionId: number }) {
   const router = useRouter();
@@ -14,5 +15,5 @@ export function ReactionOwnerActions({ reactionId }: { reactionId: number }) {
     if (response.ok) { router.push("/me"); router.refresh(); return; }
     setBusy(false);
   }
-  return <div className="owner-actions"><Link className="button secondary small" href={`/submit?reaction=${reactionId}`}>编辑</Link><button className="button danger small" onClick={remove} disabled={busy}>{busy ? "删除中…" : "删除"}</button></div>;
+  return <div className="owner-actions"><Link className="button secondary small" href={`/submit?reaction=${reactionId}`}>{t.common.edit}</Link><button className="button danger small" onClick={remove} disabled={busy}>{busy ? t.common.deleteInProgress : t.common.delete}</button></div>;
 }

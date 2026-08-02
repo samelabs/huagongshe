@@ -15,7 +15,7 @@ export function ChemicalResult({ chemical }: { chemical: Chemical }) {
   return (
     <article className="chemical-result">
       <Link className="chemical-result-structure" href={`/chemical/${chemical.id}`} aria-label={`${t.common.view} ${title}`}>
-        <Molecule chemicalId={chemical.id} width={176} height={122} />
+        <Molecule chemicalId={chemical.id} label={chemical.preferred_name || chemical.iupac_name} width={176} height={122} />
       </Link>
       <div className="chemical-result-copy">
         <EntityId kind="chemical" id={chemical.id} compact />

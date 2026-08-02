@@ -64,9 +64,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     <div className="content-page search-page">
       <header className="search-head">
         <p className="page-kicker">DATA FINDER</p>
-        <h1>{chemicalId ? `${relationLabel}结果` : t.search.title}</h1>
+        <h1>{chemicalId ? `${relationLabel}${t.search.resultSuffix}` : t.search.title}</h1>
         <GlobalSearch initial={q} compact />
-        {chemicalId && <p className="context-line">以 <Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link> 为查询结构的{relationLabel}{mode === "similarity" ? "（相似度 ≥ 70%）" : ""}</p>}
+        {chemicalId && <p className="context-line">{t.search.basedOnStructure}<Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link>{t.search.queryStructure}{relationLabel}{mode === "similarity" ? t.search.similarityThreshold : ""}</p>}
       </header>
       {error && <div className="notice error">{error}</div>}
       {cjkBlocked && (

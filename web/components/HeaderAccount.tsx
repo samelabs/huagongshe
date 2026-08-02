@@ -66,7 +66,7 @@ export function HeaderAccount() {
                 <Link href="/me/settings/api-tokens" onClick={closeMenu}>{t.nav.aiAssistant}</Link>
                 <Link href={`/user/${encodeURIComponent(user.username)}`} onClick={closeMenu}>{t.nav.publicProfile}</Link>
                 <Link href="/me/settings/profile" onClick={closeMenu}>{t.nav.accountSettings}</Link>
-                {user.role === "admin" && <Link href="/admin" onClick={closeMenu}>{t.nav.admin}</Link>}
+                {user.role === "admin" && <Link href="/samelabs" onClick={closeMenu}>{t.nav.admin}</Link>}
               </div>
               <button type="button" onClick={logout}>{t.nav.logout}</button>
             </div>

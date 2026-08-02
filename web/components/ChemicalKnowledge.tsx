@@ -3,7 +3,7 @@ import t from "@/lib/i18n";
 
 const sections: { key: keyof ChemicalDetails; eyebrow: string; title: string }[] = [
   { key: "physical_properties", eyebrow: "PROPERTIES", title: t.chemical.knowledge.experimental },
-  { key: "«redacted:ghs_…»", eyebrow: "GHS", title: t.chemical.knowledge.ghs },
+  { key: "ghs_classification", eyebrow: "GHS", title: t.chemical.knowledge.ghs },
   { key: "hazards", eyebrow: "HAZARDS", title: t.chemical.knowledge.hazards },
   { key: "safety_measures", eyebrow: "SAFETY", title: t.chemical.knowledge.safety },
   { key: "toxicity", eyebrow: "TOXICITY", title: t.chemical.knowledge.toxicology },

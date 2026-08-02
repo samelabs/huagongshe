@@ -83,7 +83,7 @@ export default async function ChemicalPage({ params, searchParams }: {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href="/">{t.chemical.home}</Link><span>/</span><span>{t.chemical.detail}</span></nav>
       <header className="chemical-identity">
-        <div className="chemical-structure"><Molecule chemicalId={chemical.id} width={360} height={280} /></div>
+        <div className="chemical-structure"><Molecule chemicalId={chemical.id} label={chemical.preferred_name || chemical.iupac_name} width={360} height={280} /></div>
         <div className="chemical-title-block">
           <EntityId kind="chemical" id={chemical.id} />
           <h1>{title}</h1>

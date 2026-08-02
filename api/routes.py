@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
@@ -283,6 +284,30 @@ async def stats(db=Depends(get_db)):
     return data
 
 
+@router.get("/config")
+async def public_config(db=Depends(get_db)):
+    """公开系统配置，供前端 layout 动态渲染。"""
+    cache_key = "config:public:all"
+    cached = await cache_get(cache_key)
+    if cached:
+        return cached
+    rows = (await db.execute(text("""
+        SELECT namespace, key, value FROM community.system_config
+        WHERE namespace IN ('analytics', 'ads', 'site', 'branding')
+        ORDER BY namespace, key
+    """))).fetchall()
+    result: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        ns = r[0]
+        key = r[1]
+        val = r[2]
+        if isinstance(val, str):
+            val = json.loads(val)
+        result.setdefault(ns, {})[key] = val
+    await cache_set(cache_key, result, ttl=300)
+    return result
+
+
 @router.get(
     "/search",
     operation_id="search_chemistry_data",
@@ -435,7 +460,7 @@ async def search(
 )
 async def chemical_detail(
     request: Request,
-    chemical_id: int,
+    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     enrich: str = Query("core", pattern="^(core|full)$"),
     display: bool = Query(False),
     actor: Actor | None = Depends(optional_actor),
@@ -505,7 +530,7 @@ async def chemical_detail(
 
 @router.get("/chemicals/{chemical_id}/synonyms")
 async def chemical_synonyms(
-    chemical_id: int,
+    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(100, ge=1, le=500),
     db=Depends(get_db),

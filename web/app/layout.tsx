@@ -3,8 +3,8 @@ import Link from "next/link";
 import { Inter, Noto_Sans_SC } from "next/font/google";
 import { AccountProvider } from "@/components/AccountContext";
 import { HeaderAccount } from "@/components/HeaderAccount";
+import { apiGet } from "@/lib/api";
 import "./globals.css";
-import Script from "next/script";
 import t from "@/lib/i18n";
 
 const inter = Inter({
@@ -40,24 +40,40 @@ export const metadata: Metadata = {
   twitter: { card: "summary", title: t.brand.seoTitle, description: t.brand.seoDescShort, images: ["/logo.png"] },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+type SiteConfig = {
+  analytics?: { scripts?: { provider?: string; enabled?: boolean; id?: string } };
+  ads?: { adsense?: { enabled?: boolean; client?: string } };
+  branding?: { slogan?: { footer?: string } };
+};
+
+export const revalidate = 300;
+
+async function getSiteConfig(): Promise<SiteConfig> {
+  try { return await apiGet<SiteConfig>("/config", 300); }
+  catch { return {}; }
+}
+
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const config = await getSiteConfig();
+  const analytics = config.analytics?.scripts;
+  const adsense = config.ads?.adsense;
+  const footerSlogan = config.branding?.slogan?.footer || t.brand.slogan;
+
   return (
     <html lang="zh-CN" className={`${inter.variable} ${notoSansSC.variable}`}>
       <head>
         <link rel="llms-txt" href="/llms.txt" />
-        <script charSet="UTF-8" id="LA_COLLECT" src="//sdk.51.la/js-sdk-pro.min.js" />
-        <script dangerouslySetInnerHTML={{ __html: 'LA.init({id:"1vMIAXQLAZjjdeBt",ck:"1vMIAXQLAZjjdeBt"})' }} />
+        {analytics?.enabled && analytics.id && analytics.provider === "51la" && (
+          <>
+            <script charSet="UTF-8" id="LA_COLLECT" src="//sdk.51.la/js-sdk-pro.min.js" />
+            <script dangerouslySetInnerHTML={{ __html: `LA.init({id:"${analytics.id}",ck:"${analytics.id}"})` }} />
+          </>
+        )}
+        {adsense?.enabled && adsense.client && (
+          <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsense.client}`} crossOrigin="anonymous" />
+        )}
       </head>
       <body>
-        {/* AdSense disabled — code preserved for easy re-enabling.
-            To restore: uncomment the <Script> block below and ensure ads.txt is served.
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2925838645350883"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
-        */}
         <AccountProvider>
           <header className="site-header">
             <div className="header-inner">
@@ -74,7 +90,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <main>{children}</main>
         </AccountProvider>
         <footer>
-          <span>{t.brand.slogan}</span>
+          <span>{footerSlogan}</span>
         </footer>
       </body>
     </html>

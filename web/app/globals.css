@@ -493,9 +493,21 @@ footer a:hover { color: var(--blue); }
 
 .admin-console { display: grid; gap: 60px; }
 .admin-table { border-top: 1px solid var(--line); }
-.admin-table article { border-bottom: 1px solid var(--line); padding: 13px 0; display: grid; grid-template-columns: 1fr auto 70px; gap: 15px; align-items: center; }
+.admin-table article { border-bottom: 1px solid var(--line); padding: 13px 0; display: grid; grid-template-columns: 1fr auto auto; gap: 15px; align-items: center; }
 .admin-table article > div { min-width: 0; display: grid; gap: 4px; }
 .admin-table article > div > span { overflow: hidden; color: var(--quiet); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-user-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.admin-user-actions { display: flex; gap: 6px; }
+.status.admin { color: var(--blue-strong); font-weight: 600; }
+
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+.dashboard-card { border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 6px; }
+.dashboard-card-label { font-size: 9px; font-weight: 800; letter-spacing: .14em; color: var(--blue); text-transform: uppercase; }
+.dashboard-card-value { font-size: 28px; font-weight: var(--title-weight); color: var(--heading); line-height: 1.1; }
+.dashboard-card-sub { font-size: 11px; color: var(--muted); }
+
+.notice.success { color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 10px 14px; }
+.button.primary.small { padding: 7px 16px; font-size: 12px; }
 
 .auth-page { width: min(900px, calc(100% - 40px)); margin: 0 auto; padding: 80px 0 100px; display: grid; grid-template-columns: 1fr 390px; gap: 80px; align-items: start; }
 .auth-intro { padding-top: 35px; }
@@ -508,6 +520,10 @@ footer a:hover { color: var(--blue); }
 .tabs button.active { border-color: var(--blue); color: var(--blue); }
 .form-stack { display: grid; gap: 15px; }
 .field-hint { margin: -8px 0 0; color: var(--quiet); font-size: 10px; }
+.field-hint.good { color: #047857; }
+.field-hint.bad { color: #b91c1c; }
+.input-error { border-color: #fca5a5 !important; }
+.input-ok { border-color: #6ee7b7 !important; }
 
 @media (max-width: 900px) {
   .chemical-identity { grid-template-columns: 320px 1fr; gap: 28px; }

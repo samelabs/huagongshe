@@ -37,7 +37,7 @@ export function SynonymExplorer({ chemicalId, initial, total }: {
       <div className="alias-list">{items.map((item) => <span key={item}>{item}</span>)}</div>
       {items.length < total && (
         <button className="text-button" type="button" onClick={loadMore} disabled={busy}>
-          {busy ? t.common.loading : `继续读取（已显示 ${items.length} 条）`}
+          {busy ? t.common.loading : t.chemical.synonyms.loadMore(items.length)}
         </button>
       )}
       {failed && <p className="inline-error">{t.chemical.synonyms.error}</p>}

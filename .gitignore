@@ -26,3 +26,6 @@ out/
 .DS_Store
 .idea/
 .vscode/
+# Local development docs (not for VCS)
+AGENT.md
+DEVLOG.md

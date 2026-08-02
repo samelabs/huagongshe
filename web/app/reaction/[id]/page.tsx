@@ -73,7 +73,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
         <div className="section-heading compact-heading"><div><p>EQUATION</p><h2 id="equation-title">{t.reaction.equation}</h2></div></div>
         {reaction.reaction_smiles ? <div className="reaction-scheme">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={reactionSvgUrl(reaction.id, 1500, 340)} width="1500" height="340" alt={`HRID ${reaction.id} 的结构方程式`} />
+          <img src={reactionSvgUrl(reaction.id, 1500, 340)} width="1500" height="340" alt={`HRID ${reaction.id} 反应方程式`} />
         </div> : <div className="reaction-scheme unavailable">{t.reaction.equationUnavailable}</div>}
       </section>
 
@@ -153,7 +153,7 @@ function ParticipantGroup({ title, eyebrow, items, showRole = false }: {
       <div className="section-heading compact-heading"><div><p>{eyebrow}</p><h2>{title}</h2></div><span>{items.length}</span></div>
       {items.length > 0 ? <div className="participant-grid">{items.map((chemical) => (
         <Link className="participant-card" href={`/chemical/${chemical.id}`} key={`${chemical.role}-${chemical.id}`}>
-          <div className="participant-structure"><Molecule chemicalId={chemical.id} width={220} height={140} /></div>
+          <div className="participant-structure"><Molecule chemicalId={chemical.id} label={chemical.preferred_name || chemical.iupac_name} width={220} height={140} /></div>
           <div>
             {showRole && <span className="role-label">{roleNames[chemical.role || ""] || chemical.role}</span>}
             <EntityId kind="chemical" id={chemical.id} compact />

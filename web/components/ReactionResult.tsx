@@ -4,8 +4,8 @@ import { reactionSvgUrl, type ReactionLookup, type ReactionSummary } from "@/lib
 import t from "@/lib/i18n";
 
 const roleLabels: Record<string, string> = {
-  REACTANT: t.chemical.roles.reactant, PRODUCT: t.chemical.roles.product, REAGENT: t.chemical.roles.reagent,
-  CATALYST: t.chemical.roles.catalyst, SOLVENT: t.chemical.roles.solvent,
+  REACTANT: t.submit.roles.reactant, PRODUCT: t.submit.roles.product, REAGENT: t.submit.roles.reagent,
+  CATALYST: t.submit.roles.catalyst, SOLVENT: t.submit.roles.solvent,
 };
 
 export function ReactionResult({ reaction }: { reaction: ReactionSummary | ReactionLookup }) {
@@ -23,18 +23,18 @@ export function ReactionResult({ reaction }: { reaction: ReactionSummary | React
           {reaction.dataset_name && <p className="reaction-source-name">{reaction.dataset_name}</p>}
         </div>
         <div className="reaction-badges">
-          {roles && <span>{t.search.substructure}</span>}
+          {roles && <span>作为{roles}</span>}
           {lookup?.ord_id && <span>{lookup.ord_id}</span>}
         </div>
       </div>
       {reaction.reaction_smiles ? (
         <Link className="reaction-preview" href={`/reaction/${reaction.id}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={`${reaction.id}`} loading="lazy" />
+          <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={`HRID ${reaction.id} 反应方程式`} loading="lazy" />
         </Link>
       ) : <div className="reaction-preview unavailable">{t.reaction.equationUnavailable}</div>}
       <div className="reaction-result-foot">
-        <p>{source || t.search.noResults}</p>
+        <p>{source || t.reaction.noSource}</p>
         <Link href={`/reaction/${reaction.id}`}>{t.common.view}</Link>
       </div>
     </article>

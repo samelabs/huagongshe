@@ -3,37 +3,38 @@
 import { useState } from "react";
 import { useAccount } from "@/components/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
+import t from "@/lib/i18n";
 
 export function AvatarSettings() {
   const { user, ready, refresh } = useAccount();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  if (!ready) return <p className="context-loading">正在读取账号…</p>;
-  if (!user) return <LoginRequired text="登录后设置头像。" />;
+  if (!ready) return <p className="context-loading">{t.common.loadingAccount}</p>;
+  if (!user) return <LoginRequired text={t.settings.avatar.title} />;
 
   return <section className="form-section">
-    <div className="form-section-head"><span>AVATAR</span><div><h2>头像</h2><p>图片将自动裁切、移除元数据并压缩为 WebP。</p></div></div>
-    <div className="avatar-settings-preview">{user.avatar_url ? <img src={user.avatar_url} alt="当前头像" /> : <span>{user.display_name.slice(0, 1)}</span>}<div><strong>当前头像</strong><small>支持 JPEG、PNG 和 WebP，最大 5 MB。</small></div></div>
+    <div className="form-section-head"><span>{t.settings.avatar.kicker}</span><div><h2>{t.settings.avatar.title}</h2><p>{t.settings.avatar.desc}</p></div></div>
+    <div className="avatar-settings-preview">{user.avatar_url ? <img src={user.avatar_url} alt={t.settings.avatar.current} /> : <span>{user.display_name.slice(0, 1)}</span>}<div><strong>{t.settings.avatar.current}</strong><small>{t.settings.avatar.hint}</small></div></div>
     <form className="avatar-upload" onSubmit={async (event) => {
       event.preventDefault();
       if (busy) return;
       const form = event.currentTarget;
       const file = new FormData(form).get("image");
-      if (!(file instanceof File) || !file.size) { setMessage("请选择头像图片。"); return; }
-      if (file.size > 5 * 1024 * 1024) { setMessage("图片不能超过 5 MB。"); return; }
+      if (!(file instanceof File) || !file.size) { setMessage(t.settings.avatar.selectFile); return; }
+      if (file.size > 5 * 1024 * 1024) { setMessage(t.settings.avatar.tooLarge); return; }
       setBusy(true); setMessage("");
       try {
         const response = await fetch("/api/users/me/avatar", { method: "POST", body: new FormData(form) });
         if (!response.ok) throw new Error();
         await refresh();
         form.reset();
-        setMessage("头像已更新。");
+        setMessage(t.settings.avatar.updated);
       } catch {
-        setMessage("头像上传失败，请检查图片格式或稍后重试。");
+        setMessage(t.settings.avatar.uploadFailed);
       } finally { setBusy(false); }
     }}>
       <input name="image" type="file" accept="image/jpeg,image/png,image/webp" required disabled={busy} />
-      <button type="submit" className="button primary small" disabled={busy}>{busy ? "上传中…" : "上传头像"}</button>
+      <button type="submit" className="button primary small" disabled={busy}>{busy ? t.settings.avatar.uploading : t.settings.avatar.uploadBtn}</button>
     </form>
     {user.avatar_url && (
       <div className="avatar-remove">
@@ -44,13 +45,13 @@ export function AvatarSettings() {
             const response = await fetch("/api/users/me/avatar", { method: "DELETE" });
             if (!response.ok) throw new Error();
             await refresh();
-            setMessage("头像已移除。");
+            setMessage(t.settings.avatar.removed);
           } catch {
-            setMessage("头像移除失败，请稍后重试。");
+            setMessage(t.settings.avatar.removeFailed);
           } finally { setBusy(false); }
-        }}>{busy ? "处理中…" : "移除头像"}</button>
+        }}>{busy ? t.settings.avatar.processing : t.settings.avatar.removeBtn}</button>
       </div>
     )}
-    {message && <p className={message.startsWith("头像已") ? "form-message ok" : "form-message bad"}>{message}</p>}
+    {message && <p className={message === t.settings.avatar.updated || message === t.settings.avatar.removed ? "form-message ok" : "form-message bad"}>{message}</p>}
   </section>;
 }

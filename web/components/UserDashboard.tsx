@@ -165,8 +165,8 @@ function MyReactions({ data, state, visibility, page }: { data: ReactionResponse
   const subtitle: Record<ReactionVisibility, string> = { all: t.me.visAll, private: t.me.visPrivate, public: t.me.visPublic };
   const total = data.counts[visibility];
   return <section>
-    <PanelHeading title={t.me.tabReactions} subtitle={subtitle[visibility]} count={state === "ready" ? total : "—"} unit="条" />
-    <nav className="dashboard-filters" aria-label="反应可见性筛选">{(["all", "private", "public"] as ReactionVisibility[]).map((value) => <Link href={value === "all" ? "/me" : `/me?visibility=${value}`} className={visibility === value ? "active" : ""} key={value}>{labels[value]}</Link>)}</nav>
+    <PanelHeading title={t.me.tabReactions} subtitle={subtitle[visibility]} count={state === "ready" ? total : "—"} unit={t.me.unitReaction} />
+    <nav className="dashboard-filters" aria-label={t.me.filterReactions}>{(["all", "private", "public"] as ReactionVisibility[]).map((value) => <Link href={value === "all" ? "/me" : `/me?visibility=${value}`} className={visibility === value ? "active" : ""} key={value}>{labels[value]}</Link>)}</nav>
     {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}
     {state === "ready" && (data.items.length ? <ReactionCards items={data.items} editable /> : <DashboardEmpty text={visibility === "all" ? t.me.emptyReactions : `${t.me.emptyReactions}`} action />)}
     {state === "ready" && total > data.page_size && <Pagination page={page} pageSize={data.page_size} total={total} href={(value) => {
@@ -179,8 +179,8 @@ function MyReactions({ data, state, visibility, page }: { data: ReactionResponse
 function SavedData({ chemicals, reactions, state, kind, page }: { chemicals: PageResponse<ChemicalFollow>; reactions: PageResponse<Reaction>; state: LoadState; kind: SavedKind; page: number }) {
   const data = kind === "chemicals" ? chemicals : reactions;
   return <section>
-    <PanelHeading title={t.me.tabSaved} subtitle={t.me.savedHint} count={state === "ready" ? data.total : "—"} unit={kind === "chemicals" ? "个" : "条"} />
-    <nav className="dashboard-filters" aria-label="收藏类型筛选"><Link href="/me?tab=saved" className={kind === "chemicals" ? "active" : ""}>{t.search.chemicalResults}</Link><Link href="/me?tab=saved&kind=reactions" className={kind === "reactions" ? "active" : ""}>{t.search.reactionResults}</Link></nav>
+    <PanelHeading title={t.me.tabSaved} subtitle={t.me.savedHint} count={state === "ready" ? data.total : "—"} unit={kind === "chemicals" ? t.me.unitChemical : t.me.unitReaction} />
+    <nav className="dashboard-filters" aria-label={t.me.filterSaved}><Link href="/me?tab=saved" className={kind === "chemicals" ? "active" : ""}>{t.search.chemicalResults}</Link><Link href="/me?tab=saved&kind=reactions" className={kind === "reactions" ? "active" : ""}>{t.search.reactionResults}</Link></nav>
     {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}
     {state === "ready" && kind === "chemicals" && (chemicals.items.length ? <div className="followed-entity-list">{chemicals.items.map((item) => <Link href={`/chemical/${item.id}`} key={item.id}><EntityId kind="chemical" id={item.id} compact /><span><strong>{item.preferred_name || item.iupac_name || t.common.unnamedCompound}</strong>{item.smiles && <small>{item.smiles}</small>}</span><em>{t.common.view}</em></Link>)}</div> : <DashboardEmpty text={t.me.emptyChemicals} />)}
     {state === "ready" && kind === "reactions" && (reactions.items.length ? <ReactionCards items={reactions.items} /> : <DashboardEmpty text={t.me.emptyReactionSaved} />)}
@@ -208,7 +208,7 @@ function Relationships({ data, state, kind, page, onFollowChange }: {
 }) {
   const title = kind === "followers" ? t.me.tabFollowers : t.me.tabFollowing;
   return <section>
-    <PanelHeading title={title} subtitle={kind === "followers" ? t.me.followersHint : t.me.followingHint} count={state === "ready" ? data.total : "—"} unit="人" />
+    <PanelHeading title={title} subtitle={kind === "followers" ? t.me.followersHint : t.me.followingHint} count={state === "ready" ? data.total : "—"} unit={t.me.unitPerson} />
     {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}
     {state === "ready" && <PersonList items={data.items} empty={kind === "followers" ? t.me.emptyFollowers : t.me.emptyFollowing} kind={kind} onFollowChange={onFollowChange} />}
     {state === "ready" && data.total > data.page_size && <Pagination page={page} pageSize={data.page_size} total={data.total} href={(value) => `/me?tab=${kind}${value > 1 ? `&page=${value}` : ""}`} />}

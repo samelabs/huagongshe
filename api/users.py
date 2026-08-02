@@ -28,21 +28,20 @@ from .security import (
 
 auth_router = APIRouter(prefix="/auth", tags=["users"])
 router = APIRouter(prefix="/users", tags=["users"])
-USERNAME_RE = re.compile(r"^[A-Za-z0-9_\-\u4e00-\u9fff]{2,30}$")
-
+USERNAME_RE = re.compile(r"^[a-z0-9_]{4,30}$")
 
 class RegisterBody(BaseModel):
     username: str
     email: str
-    password: str = Field(min_length=10, max_length=128)
-    confirm_password: str = Field(min_length=10, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
+    confirm_password: str = Field(min_length=8, max_length=128)
 
     @field_validator("username")
     @classmethod
     def validate_username(cls, value: str) -> str:
         value = value.strip()
         if not USERNAME_RE.fullmatch(value):
-            raise ValueError("用户名仅支持 2–30 位中文、字母、数字、_ 或 -")
+            raise ValueError("用户名仅支持 4–30 位小写字母、数字或下划线")
         return value
 
     @field_validator("email")
@@ -95,8 +94,8 @@ class TokenBody(BaseModel):
 
 class PasswordBody(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
-    new_password: str = Field(min_length=10, max_length=128)
-    confirm_password: str = Field(min_length=10, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+    confirm_password: str = Field(min_length=8, max_length=128)
 
     @model_validator(mode="after")
     def valid_password(self):
@@ -138,6 +137,17 @@ async def create_session(db, response: Response, user_id: int) -> None:
         settings.session_cookie, token, max_age=settings.session_days * 86400,
         httponly=True, secure=True, samesite="lax", path="/",
     )
+
+
+@auth_router.get("/check-username")
+async def check_username(username: str = Query(min_length=4, max_length=30), db=Depends(get_db)):
+    """注册时实时校验用户名是否可用。"""
+    if not USERNAME_RE.fullmatch(username):
+        return {"available": False, "reason": "用户名仅支持 4–30 位小写字母、数字或下划线"}
+    exists = (await db.execute(text(
+        "SELECT 1 FROM community.users WHERE lower(username)=lower(:u) LIMIT 1"
+    ), {"u": username})).fetchone()
+    return {"available": not exists, "reason": "用户名已被使用" if exists else None}
 
 
 @auth_router.post("/register", status_code=201)
