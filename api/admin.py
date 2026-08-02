@@ -14,7 +14,7 @@ from .cache import cache_delete, cache_get, cache_set
 from .database import get_db
 from .security import Actor, current_session
 
-router = APIRouter(prefix="/admin", tags=["administration"])
+router = APIRouter(prefix="/admin", tags=["administration"], include_in_schema=False)
 
 
 async def admin(actor: Actor = Depends(current_session)) -> Actor:
