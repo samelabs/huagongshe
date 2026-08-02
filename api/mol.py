@@ -72,16 +72,17 @@ async def render_molecule(
     h = min(max(h, 50), 800)
 
     cache_key = f"mol_svg:{smiles}:{w}x{h}"
+    headers = {"Cache-Control": "public, max-age=31536000, immutable"}
     cached = await cache_get(cache_key)
     if cached:
-        return Response(content=cached, media_type="image/svg+xml")
+        return Response(content=cached, media_type="image/svg+xml", headers=headers)
 
     svg = await asyncio.to_thread(smiles_to_svg, smiles, w, h)
     if svg is None:
         raise HTTPException(status_code=400, detail="Invalid SMILES")
 
-    await cache_set(cache_key, svg, ttl=86400)  # Cache 24h
-    return Response(content=svg, media_type="image/svg+xml")
+    await cache_set(cache_key, svg, ttl=86400)
+    return Response(content=svg, media_type="image/svg+xml", headers=headers)
 
 
 @router.get("/reactions/{reaction_id}/svg")
@@ -110,12 +111,13 @@ async def render_reaction(
 
     version = int(row[1].timestamp()) if row[1] else 0
     cache_key = f"reaction_svg:v1:{reaction_id}:{version}:{w}x{h}"
+    is_public = row[2] == "public"
     cached = await cache_get(cache_key)
     if cached:
         return Response(
             content=cached,
             media_type="image/svg+xml",
-            headers={"Cache-Control": "public, max-age=86400" if row[2] == "public" else "private, no-store"},
+            headers={"Cache-Control": "public, max-age=31536000, immutable" if is_public else "private, no-store"},
         )
 
     svg = await asyncio.to_thread(reaction_to_svg, row[0], w, h)
@@ -125,5 +127,5 @@ async def render_reaction(
     return Response(
         content=svg,
         media_type="image/svg+xml",
-        headers={"Cache-Control": "public, max-age=86400" if row[2] == "public" else "private, no-store"},
+        headers={"Cache-Control": "public, max-age=31536000, immutable" if is_public else "private, no-store"},
     )
