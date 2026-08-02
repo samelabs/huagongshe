@@ -21,9 +21,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ReactionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  // Anonymous traffic (no session cookie) gets the cached public rendering.
-  // Logged-in users skip the cache via dynamic rendering to see private
-  // reactions and owner controls.
   const cookieStore = await cookies();
   const hasSession = cookieStore.has("hgs_session");
   const cookie = cookieStore.toString();
