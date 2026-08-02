@@ -97,6 +97,20 @@ async def agent_guide(
                 "purpose": "读取一个 HRID；Token 所属用户也可读取自己的私有记录",
             },
             {
+                "id": "render_molecule_svg",
+                "method": "GET",
+                "path": "/api/mol/{chemical_id}/svg/{w}x{h}.svg",
+                "auth": "public",
+                "purpose": "获取化合物的 2D 结构图（SVG），w/h 指定尺寸",
+            },
+            {
+                "id": "render_reaction_svg",
+                "method": "GET",
+                "path": "/api/reactions/{reaction_id}/svg/{w}x{h}.svg",
+                "auth": "public",
+                "purpose": "获取反应方程式的 2D 结构图（SVG），w/h 指定尺寸",
+            },
+            {
                 "id": "list_my_reactions",
                 "method": "GET",
                 "path": "/api/users/me/reactions",
@@ -170,6 +184,7 @@ async def agent_guide(
         "rate_limits": {
             "queries_per_minute": settings.api_query_limit_per_minute,
             "structure_queries_per_minute": settings.api_structure_limit_per_minute,
+            "svg_renders_per_minute": settings.api_render_limit_per_minute,
             "reaction_writes_per_minute": settings.api_reaction_write_limit_per_minute,
             "reaction_writes_per_day": settings.api_reaction_write_limit_per_day,
         },
