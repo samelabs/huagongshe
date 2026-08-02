@@ -563,6 +563,7 @@ footer a:hover { color: var(--blue); }
   nav[aria-label="主导航"] { gap: 8px; font-size: var(--text); }
   .guide-full { display: none; }
   .guide-short { display: inline; }
+  .nav-guide { width: 38px; height: 38px; padding: 0; justify-content: center; }
   .account-name { display: none; }
   .account-menu > summary { padding-right: 5px; }
   .account-dropdown { position: fixed; top: 66px; right: 14px; width: min(240px, calc(100vw - 28px)); }
