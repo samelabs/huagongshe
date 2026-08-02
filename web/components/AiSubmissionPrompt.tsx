@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import t from "@/lib/i18n";
 
 const prompt = `请作为我的化工社反应整理助手。
 
@@ -24,6 +25,6 @@ export function AiSubmissionPrompt() {
   }
   return <div className="prompt-box">
     <pre>{prompt}</pre>
-    <button type="button" className="button secondary small" onClick={copy}>{copied ? "已复制" : "复制提示词"}</button>
+        <button type="button" className="button secondary small" onClick={copy}>{copied ? t.guide.copyPrompt(true) : t.guide.copyPrompt(false)}</button>
   </div>;
 }

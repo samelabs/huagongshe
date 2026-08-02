@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { EntityId } from "@/components/EntityId";
 import { reactionSvgUrl, type ReactionLookup, type ReactionSummary } from "@/lib/api";
+import t from "@/lib/i18n";
 
 const roleLabels: Record<string, string> = {
-  REACTANT: "反应物", PRODUCT: "生成物", REAGENT: "试剂",
-  CATALYST: "催化剂", SOLVENT: "溶剂",
+  REACTANT: t.chemical.roles.reactant, PRODUCT: t.chemical.roles.product, REAGENT: t.chemical.roles.reagent,
+  CATALYST: t.chemical.roles.catalyst, SOLVENT: t.chemical.roles.solvent,
 };
 
 export function ReactionResult({ reaction }: { reaction: ReactionSummary | ReactionLookup }) {
@@ -22,19 +23,19 @@ export function ReactionResult({ reaction }: { reaction: ReactionSummary | React
           {reaction.dataset_name && <p className="reaction-source-name">{reaction.dataset_name}</p>}
         </div>
         <div className="reaction-badges">
-          {roles && <span>作为{roles}</span>}
+          {roles && <span>{t.search.substructure}</span>}
           {lookup?.ord_id && <span>{lookup.ord_id}</span>}
         </div>
       </div>
       {reaction.reaction_smiles ? (
         <Link className="reaction-preview" href={`/reaction/${reaction.id}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={`HRID ${reaction.id} 方程式`} loading="lazy" />
+          <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={`${reaction.id}`} loading="lazy" />
         </Link>
-      ) : <div className="reaction-preview unavailable">反应物或生成物不完整，无法生成方程式</div>}
+      ) : <div className="reaction-preview unavailable">{t.reaction.equationUnavailable}</div>}
       <div className="reaction-result-foot">
-        <p>{source || "未提供来源信息"}</p>
-        <Link href={`/reaction/${reaction.id}`}>查看条件与参与物</Link>
+        <p>{source || t.search.noResults}</p>
+        <Link href={`/reaction/${reaction.id}`}>{t.common.view}</Link>
       </div>
     </article>
   );

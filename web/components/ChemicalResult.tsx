@@ -2,9 +2,10 @@ import Link from "next/link";
 import { EntityId } from "@/components/EntityId";
 import { Molecule } from "@/components/Molecule";
 import type { Chemical } from "@/lib/api";
+import t from "@/lib/i18n";
 
 export function ChemicalResult({ chemical }: { chemical: Chemical }) {
-  const title = chemical.preferred_name || chemical.iupac_name || "未命名化合物";
+  const title = chemical.preferred_name || chemical.iupac_name || t.common.unnamedCompound;
   const identity = [
     chemical.cas_numbers[0] ? `CAS ${chemical.cas_numbers[0]}` : null,
     chemical.pubchem_cid ? `CID ${chemical.pubchem_cid}` : null,
@@ -13,7 +14,7 @@ export function ChemicalResult({ chemical }: { chemical: Chemical }) {
 
   return (
     <article className="chemical-result">
-      <Link className="chemical-result-structure" href={`/chemical/${chemical.id}`} aria-label={`查看 ${title}`}>
+      <Link className="chemical-result-structure" href={`/chemical/${chemical.id}`} aria-label={title}>
         <Molecule smiles={chemical.smiles} width={176} height={122} />
       </Link>
       <div className="chemical-result-copy">
@@ -23,7 +24,7 @@ export function ChemicalResult({ chemical }: { chemical: Chemical }) {
         {chemical.smiles && <p className="structure-code mono">{chemical.smiles}</p>}
         {chemical.similarity != null && <p className="match-score">结构相似度 {(chemical.similarity * 100).toFixed(1)}%</p>}
       </div>
-      <Link className="record-open" href={`/chemical/${chemical.id}`}>查看</Link>
+      <Link className="record-open" href={`/chemical/${chemical.id}`}>{t.common.view}</Link>
     </article>
   );
 }

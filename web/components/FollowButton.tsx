@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import t from "@/lib/i18n";
 
-export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = "关注", idleText, activeText, onChange }: {
+export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = t.follow.follow, idleText, activeText, onChange }: {
   endpoint: string;
   initial: boolean;
   count?: number;
@@ -38,6 +39,6 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
       setBusy(false);
     }
   }
-  const text = following ? activeText || `已${label}` : idleText || label;
+  const text = following ? activeText || (label === "收藏" ? t.follow.favoring : t.follow.following) : idleText || label;
   return <button type="button" className={`follow-button ${following ? "following" : ""}`} onClick={toggle} disabled={disabled || busy}><span>{text}</span>{showCount && <strong>{followers.toLocaleString("zh-CN")}</strong>}</button>;
 }

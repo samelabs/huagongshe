@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/AccountContext";
 import type { User } from "@/lib/api";
+import t from "@/lib/i18n";
 
 export function HeaderAccount() {
   const router = useRouter();
@@ -42,14 +43,14 @@ export function HeaderAccount() {
   }
 
   return (
-    <nav aria-label="主导航">
-      <Link href="/guide" className="nav-guide" aria-label="AI 指南">
-        <span className="guide-full">AI 指南</span><span className="guide-short">AI</span>
+    <nav aria-label={t.nav.mainNav}>
+      <Link href="/guide" className="nav-guide" aria-label={t.nav.guide}>
+        <span className="guide-full">{t.nav.guide}</span><span className="guide-short">AI</span>
       </Link>
       {user ? (
         <>
           <details className="account-menu" ref={menu}>
-            <summary aria-label="打开用户菜单">
+            <summary aria-label={t.nav.openMenu}>
               <Avatar user={user} />
               <span className="account-name">{user.display_name}</span>
               <span className="account-chevron" aria-hidden="true" />
@@ -60,19 +61,19 @@ export function HeaderAccount() {
                 <span>@{user.username}</span>
               </div>
               <div className="account-menu-links">
-                <Link href="/me" onClick={closeMenu}>个人中心</Link>
-                <Link href="/submit" onClick={closeMenu}>新建反应记录</Link>
-                <Link href="/me/settings/api-tokens" onClick={closeMenu}>AI 授权</Link>
-                <Link href={`/user/${encodeURIComponent(user.username)}`} onClick={closeMenu}>公开主页</Link>
-                <Link href="/me/settings/profile" onClick={closeMenu}>账户设置</Link>
-                {user.role === "admin" && <Link href="/admin" onClick={closeMenu}>平台管理</Link>}
+                <Link href="/me" onClick={closeMenu}>{t.nav.knowledgeBase}</Link>
+                <Link href="/submit" onClick={closeMenu}>{t.nav.newReaction}</Link>
+                <Link href="/me/settings/api-tokens" onClick={closeMenu}>{t.nav.aiAssistant}</Link>
+                <Link href={`/user/${encodeURIComponent(user.username)}`} onClick={closeMenu}>{t.nav.publicProfile}</Link>
+                <Link href="/me/settings/profile" onClick={closeMenu}>{t.nav.accountSettings}</Link>
+                {user.role === "admin" && <Link href="/admin" onClick={closeMenu}>{t.nav.admin}</Link>}
               </div>
-              <button type="button" onClick={logout}>退出登录</button>
+              <button type="button" onClick={logout}>{t.nav.logout}</button>
             </div>
           </details>
         </>
       ) : ready ? (
-        <Link href="/login" className="login-link">登录 / 注册</Link>
+        <Link href="/login" className="login-link">{t.nav.login}</Link>
       ) : <span className="nav-placeholder" aria-hidden="true" />}
     </nav>
   );

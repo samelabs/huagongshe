@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import t from "@/lib/i18n";
 
 export function SynonymExplorer({ chemicalId, initial, total }: {
   chemicalId: number;
@@ -30,16 +31,16 @@ export function SynonymExplorer({ chemicalId, initial, total }: {
   return (
     <section className="aliases-section" aria-labelledby="aliases-title">
       <div className="section-heading compact-heading">
-        <div><p>ALIASES</p><h2 id="aliases-title">名称与别名</h2></div>
-        <span>共 {new Intl.NumberFormat("zh-CN").format(total)} 条</span>
+        <div><p>ALIASES</p><h2 id="aliases-title">{t.chemical.synonyms.title}</h2></div>
+        <span>{t.chemical.synonyms.total(new Intl.NumberFormat("zh-CN").format(total))}</span>
       </div>
       <div className="alias-list">{items.map((item) => <span key={item}>{item}</span>)}</div>
       {items.length < total && (
         <button className="text-button" type="button" onClick={loadMore} disabled={busy}>
-          {busy ? "正在读取…" : `继续读取（已显示 ${items.length} 条）`}
+          {busy ? t.common.loading : `继续读取（已显示 ${items.length} 条）`}
         </button>
       )}
-      {failed && <p className="inline-error">别名暂时无法继续读取。</p>}
+      {failed && <p className="inline-error">{t.chemical.synonyms.error}</p>}
     </section>
   );
 }

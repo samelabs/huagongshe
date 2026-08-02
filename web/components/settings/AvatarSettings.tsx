@@ -35,6 +35,22 @@ export function AvatarSettings() {
       <input name="image" type="file" accept="image/jpeg,image/png,image/webp" required disabled={busy} />
       <button type="submit" className="button primary small" disabled={busy}>{busy ? "上传中…" : "上传头像"}</button>
     </form>
-    {message && <p className={message === "头像已更新。" ? "form-message ok" : "form-message bad"}>{message}</p>}
+    {user.avatar_url && (
+      <div className="avatar-remove">
+        <button type="button" className="button danger small" disabled={busy} onClick={async () => {
+          if (busy) return;
+          setBusy(true); setMessage("");
+          try {
+            const response = await fetch("/api/users/me/avatar", { method: "DELETE" });
+            if (!response.ok) throw new Error();
+            await refresh();
+            setMessage("头像已移除。");
+          } catch {
+            setMessage("头像移除失败，请稍后重试。");
+          } finally { setBusy(false); }
+        }}>{busy ? "处理中…" : "移除头像"}</button>
+      </div>
+    )}
+    {message && <p className={message.startsWith("头像已") ? "form-message ok" : "form-message bad"}>{message}</p>}
   </section>;
 }

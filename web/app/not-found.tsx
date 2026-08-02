@@ -1,2 +1,3 @@
 import Link from "next/link";
-export default function NotFound() { return <div className="empty-state"><p>没有找到这条记录</p><Link className="text-link" href="/">返回搜索</Link></div>; }
+import t from "@/lib/i18n";
+export default function NotFound() { return <div className="empty-state"><p>{t.error.notFoundTitle}</p><Link className="text-link" href="/">{t.error.notFoundAction}</Link></div>; }

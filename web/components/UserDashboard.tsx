@@ -6,6 +6,7 @@ import { useAccount } from "@/components/AccountContext";
 import { EntityId } from "@/components/EntityId";
 import { PersonList, type PersonSummary } from "@/components/PersonList";
 import { reactionSvgUrl } from "@/lib/api";
+import t from "@/lib/i18n";
 
 type LoadState = "loading" | "ready" | "error";
 export type DashboardTab = "mine" | "saved" | "activity" | "followers" | "following";
@@ -101,8 +102,8 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
     return () => { active = false; };
   }, [activeTab, page, savedKind, user, visibility]);
 
-  if (authReady && !user) return <div className="auth-required"><div><strong>请先登录</strong><span>登录后管理自己的反应记录和收藏。</span></div><Link href="/login?next=%2Fme">登录或注册</Link></div>;
-  if (!user) return <p className="context-loading">正在读取账号…</p>;
+  if (authReady && !user) return <div className="auth-required"><div><strong>{t.common.loginRequired}</strong><span>{t.common.loginHint}</span></div><Link href="/login?next=%2Fme">{t.common.loginOrRegister}</Link></div>;
+  if (!user) return <p className="context-loading">{t.common.loadingAccount}</p>;
 
   const counts = summary?.counts;
   const reactionTotal = counts ? counts.public_reactions + counts.private_reactions : null;
@@ -132,24 +133,24 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
       <div className="profile-primary">
         <h1>{summary?.display_name || user.display_name}</h1>
         <p className="profile-username">@{summary?.username || user.username}</p>
-        {summary?.created_at && <p className="profile-joined">加入时间：{new Date(summary.created_at).toLocaleDateString("zh-CN")}</p>}
+        {summary?.created_at && <p className="profile-joined">{t.me.joinedAt(new Date(summary.created_at).toLocaleDateString("zh-CN"))}</p>}
         <div className="profile-counts profile-count-links">
-          <Link className={activeTab === "following" ? "active" : ""} href="/me?tab=following"><strong>{counts?.following ?? "—"}</strong><span>关注</span></Link>
-          <Link className={activeTab === "followers" ? "active" : ""} href="/me?tab=followers"><strong>{counts?.followers ?? "—"}</strong><span>粉丝</span></Link>
+          <Link className={activeTab === "following" ? "active" : ""} href="/me?tab=following"><strong>{counts?.following ?? "—"}</strong><span>{t.me.following}</span></Link>
+          <Link className={activeTab === "followers" ? "active" : ""} href="/me?tab=followers"><strong>{counts?.followers ?? "—"}</strong><span>{t.me.followers}</span></Link>
         </div>
       </div>
-      <div className="profile-center-actions"><Link className="button primary" href="/submit">新建反应记录</Link><Link className="button secondary" href="/me/settings/api-tokens">AI 授权</Link></div>
+      <div className="profile-center-actions"><Link className="button primary" href="/submit">{t.me.newReaction}</Link><Link className="button secondary" href="/me/settings/api-tokens">{t.me.aiAssistant}</Link></div>
     </header>
 
     <div className="dashboard-shell">
-      <nav className="dashboard-nav profile-tabs" aria-label="个人中心内容">
-        <Link href="/me" className={activeTab === "mine" ? "active" : ""}><span>我的反应</span><em>{reactionTotal ?? "—"}</em></Link>
-        <Link href="/me?tab=saved" className={activeTab === "saved" ? "active" : ""}><span>我的收藏</span><em>{savedTotal ?? "—"}</em></Link>
-        <Link href="/me?tab=activity" className={activeTab === "activity" ? "active" : ""}><span>关注动态</span>{Boolean(counts?.unread) && <em className="unread-count">{counts?.unread}</em>}</Link>
+      <nav className="dashboard-nav profile-tabs" aria-label={t.me.title}>
+        <Link href="/me" className={activeTab === "mine" ? "active" : ""}><span>{t.me.tabReactions}</span><em>{reactionTotal ?? "—"}</em></Link>
+        <Link href="/me?tab=saved" className={activeTab === "saved" ? "active" : ""}><span>{t.me.tabSaved}</span><em>{savedTotal ?? "—"}</em></Link>
+        <Link href="/me?tab=activity" className={activeTab === "activity" ? "active" : ""}><span>{t.me.tabActivity}</span>{Boolean(counts?.unread) && <em className="unread-count">{counts?.unread}</em>}</Link>
       </nav>
 
       <main className="dashboard-panel">
-        {summaryState === "error" && <p className="profile-summary-error">数据概况暂时无法读取。</p>}
+        {summaryState === "error" && <p className="profile-summary-error">{t.me.errSummary}</p>}
         {activeTab === "mine" && <MyReactions data={reactionData} state={contentState} visibility={visibility} page={page} />}
         {activeTab === "saved" && <SavedData chemicals={chemicals} reactions={savedReactions} state={contentState} kind={savedKind} page={page} />}
         {activeTab === "activity" && <Activity notices={notices} state={contentState} page={page} />}
@@ -160,14 +161,14 @@ export function UserDashboard({ activeTab, page, visibility, savedKind }: {
 }
 
 function MyReactions({ data, state, visibility, page }: { data: ReactionResponse; state: LoadState; visibility: ReactionVisibility; page: number }) {
-  const labels: Record<ReactionVisibility, string> = { all: "全部", private: "私有", public: "公开" };
-  const subtitle: Record<ReactionVisibility, string> = { all: "你通过网页或 AI 保存的全部反应记录", private: "仅当前账号可以查看", public: "会显示在你的公开主页" };
+  const labels: Record<ReactionVisibility, string> = { all: t.me.filterAll, private: t.common.private, public: t.common.public };
+  const subtitle: Record<ReactionVisibility, string> = { all: t.me.visAll, private: t.me.visPrivate, public: t.me.visPublic };
   const total = data.counts[visibility];
   return <section>
-    <PanelHeading title="我的反应" subtitle={subtitle[visibility]} count={state === "ready" ? total : "—"} unit="条" />
+    <PanelHeading title={t.me.tabReactions} subtitle={subtitle[visibility]} count={state === "ready" ? total : "—"} unit="条" />
     <nav className="dashboard-filters" aria-label="反应可见性筛选">{(["all", "private", "public"] as ReactionVisibility[]).map((value) => <Link href={value === "all" ? "/me" : `/me?visibility=${value}`} className={visibility === value ? "active" : ""} key={value}>{labels[value]}</Link>)}</nav>
     {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}
-    {state === "ready" && (data.items.length ? <ReactionCards items={data.items} editable /> : <DashboardEmpty text={visibility === "all" ? "还没有保存反应记录。" : `还没有${labels[visibility]}反应记录。`} action />)}
+    {state === "ready" && (data.items.length ? <ReactionCards items={data.items} editable /> : <DashboardEmpty text={visibility === "all" ? t.me.emptyReactions : `${t.me.emptyReactions}`} action />)}
     {state === "ready" && total > data.page_size && <Pagination page={page} pageSize={data.page_size} total={total} href={(value) => {
       const filter = visibility === "all" ? "" : `visibility=${visibility}`;
       return `/me?${[filter, value > 1 ? `page=${value}` : ""].filter(Boolean).join("&")}`.replace(/\?$/, "");
@@ -178,11 +179,11 @@ function MyReactions({ data, state, visibility, page }: { data: ReactionResponse
 function SavedData({ chemicals, reactions, state, kind, page }: { chemicals: PageResponse<ChemicalFollow>; reactions: PageResponse<Reaction>; state: LoadState; kind: SavedKind; page: number }) {
   const data = kind === "chemicals" ? chemicals : reactions;
   return <section>
-    <PanelHeading title="我的收藏" subtitle="保存需要继续查阅的公开数据" count={state === "ready" ? data.total : "—"} unit={kind === "chemicals" ? "个" : "条"} />
-    <nav className="dashboard-filters" aria-label="收藏类型筛选"><Link href="/me?tab=saved" className={kind === "chemicals" ? "active" : ""}>化合物</Link><Link href="/me?tab=saved&kind=reactions" className={kind === "reactions" ? "active" : ""}>反应</Link></nav>
+    <PanelHeading title={t.me.tabSaved} subtitle={t.me.savedHint} count={state === "ready" ? data.total : "—"} unit={kind === "chemicals" ? "个" : "条"} />
+    <nav className="dashboard-filters" aria-label="收藏类型筛选"><Link href="/me?tab=saved" className={kind === "chemicals" ? "active" : ""}>{t.search.chemicalResults}</Link><Link href="/me?tab=saved&kind=reactions" className={kind === "reactions" ? "active" : ""}>{t.search.reactionResults}</Link></nav>
     {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}
-    {state === "ready" && kind === "chemicals" && (chemicals.items.length ? <div className="followed-entity-list">{chemicals.items.map((item) => <Link href={`/chemical/${item.id}`} key={item.id}><EntityId kind="chemical" id={item.id} compact /><span><strong>{item.preferred_name || item.iupac_name || "未命名化合物"}</strong>{item.smiles && <small>{item.smiles}</small>}</span><em>查看</em></Link>)}</div> : <DashboardEmpty text="还没有收藏化合物。" />)}
-    {state === "ready" && kind === "reactions" && (reactions.items.length ? <ReactionCards items={reactions.items} /> : <DashboardEmpty text="还没有收藏反应。" />)}
+    {state === "ready" && kind === "chemicals" && (chemicals.items.length ? <div className="followed-entity-list">{chemicals.items.map((item) => <Link href={`/chemical/${item.id}`} key={item.id}><EntityId kind="chemical" id={item.id} compact /><span><strong>{item.preferred_name || item.iupac_name || t.common.unnamedCompound}</strong>{item.smiles && <small>{item.smiles}</small>}</span><em>{t.common.view}</em></Link>)}</div> : <DashboardEmpty text={t.me.emptyChemicals} />)}
+    {state === "ready" && kind === "reactions" && (reactions.items.length ? <ReactionCards items={reactions.items} /> : <DashboardEmpty text={t.me.emptyReactionSaved} />)}
     {state === "ready" && data.total > data.page_size && <Pagination page={page} pageSize={data.page_size} total={data.total} href={(value) => `/me?tab=saved${kind === "reactions" ? "&kind=reactions" : ""}&page=${value}`} />}
   </section>;
 }
@@ -190,11 +191,11 @@ function SavedData({ chemicals, reactions, state, kind, page }: { chemicals: Pag
 function ReactionCards({ items, editable = false }: { items: Reaction[]; editable?: boolean }) { return <div className="repository-grid">{items.map((item) => <article key={item.id}>
   <header><Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link>{item.updated_at && <span>{new Date(item.updated_at).toLocaleDateString("zh-CN")}</span>}</header>
   <Link className="repository-scheme" href={`/reaction/${item.id}`}><img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={`HRID ${item.id}`} /></Link>
-  <footer><span>{item.visibility === "private" ? "仅自己可见" : editable ? `公开记录 · ${item.followers || 0} 人收藏` : "公开记录"}</span>{editable ? <Link href={`/submit?reaction=${item.id}`}>编辑</Link> : <Link href={`/reaction/${item.id}`}>查看</Link>}</footer>
+  <footer><span>{item.visibility === "private" ? t.me.privateVisible : editable ? t.me.publicRecord(item.followers || 0) : t.common.public}</span>{editable ? <Link href={`/submit?reaction=${item.id}`}>{t.common.edit}</Link> : <Link href={`/reaction/${item.id}`}>{t.common.view}</Link>}</footer>
 </article>)}</div>; }
 
-function Activity({ notices, state, page }: { notices: NoticeResponse; state: LoadState; page: number }) { return <section><PanelHeading title="关注动态" subtitle="你关注的用户新建公开反应后显示在这里" />
-  {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}{state === "ready" && (notices.items.length ? <div className="notification-list">{notices.items.map((item) => <Link href={`/reaction/${item.reaction_id}`} key={item.id}><span><strong>{item.actor_display_name || "关注用户"} 新建了公开反应</strong><small>{new Date(item.created_at).toLocaleString("zh-CN")}</small></span><EntityId kind="reaction" id={item.reaction_id} compact /></Link>)}</div> : <DashboardEmpty text="关注的用户新建公开反应后，会显示在这里。" />)}
+function Activity({ notices, state, page }: { notices: NoticeResponse; state: LoadState; page: number }) { return <section><PanelHeading title={t.me.tabActivity} subtitle={t.me.activityHint} />
+  {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}{state === "ready" && (notices.items.length ? <div className="notification-list">{notices.items.map((item) => <Link href={`/reaction/${item.reaction_id}`} key={item.id}><span><strong>{t.me.activityActor(item.actor_display_name || t.me.activityActorFallback)}</strong><small>{new Date(item.created_at).toLocaleString("zh-CN")}</small></span><EntityId kind="reaction" id={item.reaction_id} compact /></Link>)}</div> : <DashboardEmpty text={t.me.emptyActivity} />)}
   {state === "ready" && notices.total > notices.page_size && <Pagination page={page} pageSize={notices.page_size} total={notices.total} href={(value) => `/me?tab=activity${value > 1 ? `&page=${value}` : ""}`} />}
 </section>; }
 
@@ -205,17 +206,17 @@ function Relationships({ data, state, kind, page, onFollowChange }: {
   page: number;
   onFollowChange: (person: PersonSummary, following: boolean) => void;
 }) {
-  const title = kind === "followers" ? "粉丝" : "关注";
+  const title = kind === "followers" ? t.me.tabFollowers : t.me.tabFollowing;
   return <section>
-    <PanelHeading title={title} subtitle={kind === "followers" ? "关注你的人，可以查看主页或回关" : "你正在关注的人，可以查看主页或取消关注"} count={state === "ready" ? data.total : "—"} unit="人" />
+    <PanelHeading title={title} subtitle={kind === "followers" ? t.me.followersHint : t.me.followingHint} count={state === "ready" ? data.total : "—"} unit="人" />
     {state === "loading" && <PanelLoading />}{state === "error" && <PanelError />}
-    {state === "ready" && <PersonList items={data.items} empty={kind === "followers" ? "还没有粉丝。" : "还没有关注用户。"} kind={kind} onFollowChange={onFollowChange} />}
+    {state === "ready" && <PersonList items={data.items} empty={kind === "followers" ? t.me.emptyFollowers : t.me.emptyFollowing} kind={kind} onFollowChange={onFollowChange} />}
     {state === "ready" && data.total > data.page_size && <Pagination page={page} pageSize={data.page_size} total={data.total} href={(value) => `/me?tab=${kind}${value > 1 ? `&page=${value}` : ""}`} />}
   </section>;
 }
 
 function PanelHeading({ title, subtitle, count, unit = "" }: { title: string; subtitle?: string; count?: number | string; unit?: string }) { return <div className="dashboard-panel-heading"><div><h2>{title}</h2>{subtitle && <span>{subtitle}</span>}</div>{count !== undefined && <strong>{count} {unit}</strong>}</div>; }
-function Pagination({ page, pageSize, total, href }: { page: number; pageSize: number; total: number; href: (page: number) => string }) { const pages = Math.ceil(total / pageSize); return <nav className="profile-pagination" aria-label="分页">{page > 1 ? <Link href={href(page - 1)}>上一页</Link> : <span />}<small>{page} / {pages}</small>{page < pages ? <Link href={href(page + 1)}>下一页</Link> : <span />}</nav>; }
-function DashboardEmpty({ text, action = false }: { text: string; action?: boolean }) { return <div className="dashboard-empty"><p>{text}</p>{action && <Link className="button secondary small" href="/submit">新建反应记录</Link>}</div>; }
-function PanelLoading() { return <p className="panel-state">正在读取…</p>; }
-function PanelError() { return <p className="panel-state error">数据读取失败，请刷新后重试。</p>; }
+function Pagination({ page, pageSize, total, href }: { page: number; pageSize: number; total: number; href: (page: number) => string }) { const pages = Math.ceil(total / pageSize); return <nav className="profile-pagination" aria-label={t.common.pageNav}>{page > 1 ? <Link href={href(page - 1)}>{t.common.prev}</Link> : <span />}<small>{page} / {pages}</small>{page < pages ? <Link href={href(page + 1)}>{t.common.next}</Link> : <span />}</nav>; }
+function DashboardEmpty({ text, action = false }: { text: string; action?: boolean }) { return <div className="dashboard-empty"><p>{text}</p>{action && <Link className="button secondary small" href="/submit">{t.nav.newReaction}</Link>}</div>; }
+function PanelLoading() { return <p className="panel-state">{t.common.loading}</p>; }
+function PanelError() { return <p className="panel-state error">{t.me.errPanel}</p>; }

@@ -1,14 +1,15 @@
 import type { ChemicalDetails, EnrichmentState, EvidenceBlock } from "@/lib/api";
+import t from "@/lib/i18n";
 
 const sections: { key: keyof ChemicalDetails; eyebrow: string; title: string }[] = [
-  { key: "physical_properties", eyebrow: "PROPERTIES", title: "实验与物化性质" },
-  { key: "ghs_classification", eyebrow: "GHS", title: "GHS 分类" },
-  { key: "hazards", eyebrow: "HAZARDS", title: "危害信息" },
-  { key: "safety_measures", eyebrow: "SAFETY", title: "安全与防护" },
-  { key: "toxicity", eyebrow: "TOXICITY", title: "毒理信息" },
-  { key: "regulatory", eyebrow: "REGULATORY", title: "法规信息" },
-  { key: "pharmacology", eyebrow: "PHARMACOLOGY", title: "药理信息" },
-  { key: "uses_and_manufacturing", eyebrow: "USES", title: "用途与制造" },
+  { key: "physical_properties", eyebrow: "PROPERTIES", title: t.chemical.knowledge.experimental },
+  { key: "«redacted:ghs_…»", eyebrow: "GHS", title: t.chemical.knowledge.ghs },
+  { key: "hazards", eyebrow: "HAZARDS", title: t.chemical.knowledge.hazards },
+  { key: "safety_measures", eyebrow: "SAFETY", title: t.chemical.knowledge.safety },
+  { key: "toxicity", eyebrow: "TOXICITY", title: t.chemical.knowledge.toxicology },
+  { key: "regulatory", eyebrow: "REGULATORY", title: t.chemical.knowledge.regulatory },
+  { key: "pharmacology", eyebrow: "PHARMACOLOGY", title: t.chemical.knowledge.pharmacology },
+  { key: "uses_and_manufacturing", eyebrow: "USES", title: t.chemical.knowledge.uses },
 ];
 
 export function ChemicalKnowledge({ details, enrichment }: {
@@ -16,38 +17,38 @@ export function ChemicalKnowledge({ details, enrichment }: {
   enrichment: EnrichmentState | null | undefined;
 }) {
   if (!details) {
-    return <div className="enrichment-note">扩展信息尚未完成同步。</div>;
+    return <div className="enrichment-note">{t.chemical.knowledge.enrichError}</div>;
   }
   const available = sections.filter(({ key }) => hasEntries(details[key]));
   return (
     <>
       {details.record_description && <section className="description-panel"><p>{details.record_description}</p></section>}
       <section className="computed-section">
-        <div className="section-heading compact-heading"><div><p>COMPUTED</p><h2>结构计算性质</h2></div><SourceState enrichment={enrichment} /></div>
+        <div className="section-heading compact-heading"><div><p>COMPUTED</p><h2>{t.chemical.knowledge.descriptors}</h2></div><SourceState enrichment={enrichment} /></div>
         <dl className="metric-grid">
           <Metric label="XLogP" value={details.xlogp} />
-          <Metric label="极性表面积" value={details.topological_polar_surface_area} suffix=" Å²" />
-          <Metric label="氢键供体" value={details.hbond_donor_count} />
-          <Metric label="氢键受体" value={details.hbond_acceptor_count} />
-          <Metric label="可旋转键" value={details.rotatable_bond_count} />
-          <Metric label="重原子" value={details.heavy_atom_count} />
-          <Metric label="形式电荷" value={details.formal_charge} />
-          <Metric label="复杂度" value={details.complexity} />
+          <Metric label={t.chemical.knowledge.tpsa} value={details.topological_polar_surface_area} suffix=" Å²" />
+          <Metric label={t.chemical.knowledge.hbd} value={details.hbond_donor_count} />
+          <Metric label={t.chemical.knowledge.hba} value={details.hbond_acceptor_count} />
+          <Metric label={t.chemical.knowledge.rotatable} value={details.rotatable_bond_count} />
+          <Metric label={t.chemical.knowledge.heavyAtoms} value={details.heavy_atom_count} />
+          <Metric label={t.chemical.knowledge.charge} value={details.formal_charge} />
+          <Metric label={t.chemical.knowledge.complexity} value={details.complexity} />
         </dl>
       </section>
       {available.map(({ key, eyebrow, title }) => (
         <EvidenceSection key={key} eyebrow={eyebrow} title={title} block={details[key] as EvidenceBlock} />
       ))}
       {available.length === 0 && enrichment?.status !== "current" && (
-        <div className="enrichment-note">物化、安全与法规信息正在同步。</div>
+        <div className="enrichment-note">{t.chemical.knowledge.enrichPendingMsg}</div>
       )}
     </>
   );
 }
 
 function SourceState({ enrichment }: { enrichment?: EnrichmentState | null }) {
-  if (!enrichment || enrichment.status === "current") return <span>已同步</span>;
-  return <span>{enrichment.status === "queued" ? "扩展信息补全中" : "等待补全"}</span>;
+  if (!enrichment || enrichment.status === "current") return <span>{t.chemical.knowledge.synced}</span>;
+  return <span>{enrichment.status === "queued" ? t.chemical.knowledge.enriching : t.chemical.knowledge.enrichPending}</span>;
 }
 
 function Metric({ label, value, suffix = "" }: { label: string; value: number | null | undefined; suffix?: string }) {
@@ -68,7 +69,7 @@ function EvidenceSection({ eyebrow, title, block }: { eyebrow: string; title: st
   if (!entries.length) return null;
   return (
     <section className="evidence-section">
-      <div className="section-heading compact-heading"><div><p>{eyebrow}</p><h2>{title}</h2></div><span>来源：PubChem</span></div>
+      <div className="section-heading compact-heading"><div><p>{eyebrow}</p><h2>{title}</h2></div><span>{t.chemical.knowledge.source}</span></div>
       <div className="evidence-list">{entries.map(([path, values], index) => (
         <details key={`${path}-${index}`} open={index < 3}>
           <summary>{leafLabel(path)}</summary>

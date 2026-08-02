@@ -26,7 +26,7 @@ export function molSvgUrl(smiles: string, width = 260, height = 180) {
 }
 
 export function reactionSvgUrl(reactionId: number, width = 1100, height = 230) {
-  return `/api/reactions/${reactionId}/svg?w=${width}&h=${height}`;
+  return `/api/reactions/${reactionId}/svg/${width}x${height}.svg`;
 }
 
 export type Chemical = {

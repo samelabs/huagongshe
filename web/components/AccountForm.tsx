@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/AccountContext";
+import t from "@/lib/i18n";
 
 export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
   const router = useRouter();
@@ -13,18 +14,18 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
   return (
     <>
       <div className="tabs">
-        <button type="button" className={kind === "login" ? "active" : ""} disabled={busy} onClick={() => { setKind("login"); setMessage(""); }}>登录</button>
-        <button type="button" className={kind === "register" ? "active" : ""} disabled={busy} onClick={() => { setKind("register"); setMessage(""); }}>注册</button>
+        <button type="button" className={kind === "login" ? "active" : ""} disabled={busy} onClick={() => { setKind("login"); setMessage(""); }}>{t.auth.title}</button>
+        <button type="button" className={kind === "register" ? "active" : ""} disabled={busy} onClick={() => { setKind("register"); setMessage(""); }}>{t.auth.registerTitle}</button>
       </div>
       <form className="form-stack" onSubmit={async (event) => {
         event.preventDefault();
         setBusy(true); setMessage("");
         const values = new FormData(event.currentTarget);
         if (kind === "register" && values.get("password") !== values.get("confirm_password")) {
-          setMessage("两次输入的密码不一致"); setBusy(false); return;
+          setMessage(t.auth.mismatch); setBusy(false); return;
         }
         if (kind === "register" && !/^(?=.*[A-Za-z])(?=.*\d).{10,}$/.test(String(values.get("password") || ""))) {
-          setMessage("密码至少 10 位，并同时包含字母和数字"); setBusy(false); return;
+          setMessage(t.auth.weakPassword); setBusy(false); return;
         }
         const payload = kind === "login"
           ? { account: values.get("account"), password: values.get("password") }
@@ -40,26 +41,26 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
           const error = await response.json().catch(() => null);
           setMessage(apiError(error?.detail));
         } catch {
-          setMessage("网络连接失败，请稍后重试");
+          setMessage(t.auth.networkFailed);
         } finally {
           setBusy(false);
         }
       }}>
         {kind === "register" ? (
           <>
-            <label>用户名<input name="username" required minLength={2} maxLength={30} autoComplete="username" /></label>
-            <label>邮箱<input name="email" type="email" required autoComplete="email" /></label>
+            <label>{t.auth.username}<input name="username" required minLength={2} maxLength={30} autoComplete="username" /></label>
+            <label>{t.auth.email}<input name="email" type="email" required autoComplete="email" /></label>
           </>
-        ) : <label>用户名或邮箱<input name="account" required autoComplete="username" /></label>}
-        <label>密码<input name="password" type="password" required minLength={kind === "register" ? 10 : 1} autoComplete={kind === "login" ? "current-password" : "new-password"} /></label>
+        ) : <label>{t.auth.usernameOrEmail}<input name="account" required autoComplete="username" /></label>}
+        <label>{t.auth.password}<input name="password" type="password" required minLength={kind === "register" ? 10 : 1} autoComplete={kind === "login" ? "current-password" : "new-password"} /></label>
         {kind === "register" && (
           <>
-            <p className="field-hint">至少 10 位，并同时包含字母和数字。</p>
-            <label>确认密码<input name="confirm_password" type="password" required minLength={10} autoComplete="new-password" /></label>
+            <p className="field-hint">{t.auth.passwordHint}</p>
+            <label>{t.auth.confirmPassword}<input name="confirm_password" type="password" required minLength={10} autoComplete="new-password" /></label>
           </>
         )}
         {message && <p className="form-message bad">{message}</p>}
-        <button type="submit" className="button primary" disabled={busy}>{busy ? "处理中…" : kind === "login" ? "登录" : "创建账号"}</button>
+        <button type="submit" className="button primary" disabled={busy}>{busy ? t.auth.submitting : t.auth.submit(kind)}</button>
       </form>
     </>
   );
@@ -68,7 +69,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
 function apiError(detail: unknown) {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
-    return detail.map((item) => typeof item?.msg === "string" ? item.msg.replace(/^Value error,\s*/, "") : null).filter(Boolean).join("；") || "输入内容未通过校验";
+    return detail.map((item) => typeof item?.msg === "string" ? item.msg.replace(/^Value error,\s*/, "") : null).filter(Boolean).join("；") || t.auth.validationError;
   }
-  return "操作失败，请稍后重试";
+  return t.auth.failed;
 }

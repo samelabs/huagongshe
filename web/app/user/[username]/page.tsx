@@ -5,15 +5,23 @@ import Link from "next/link";
 import { EntityId } from "@/components/EntityId";
 import { FollowButton } from "@/components/FollowButton";
 import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
+import t from "@/lib/i18n";
 
-type Profile = { id: number; username: string; display_name: string; bio: string | null; avatar_url: string | null; created_at: string; followers: number; following: number; public_reactions: number; is_following: boolean; is_followed_by: boolean; is_mutual: boolean; is_me: boolean };
+type Profile = {
+  id: number; username: string; display_name: string; bio: string | null;
+  avatar_url: string | null; created_at: string;
+  location: string | null; institution: string | null; title: string | null;
+  website: string | null; orcid: string | null;
+  followers: number; following: number; public_reactions: number;
+  is_following: boolean; is_followed_by: boolean; is_mutual: boolean; is_me: boolean;
+};
 type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
 
 export const revalidate = 3600;
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
-  return { title: `@${username}`, description: "化工社用户主页" };
+  return { title: t.user.title.replace("{username}", username), description: t.user.desc };
 }
 
 export default async function UserPage({ params, searchParams }: { params: Promise<{ username: string }>; searchParams: Promise<{ page?: string | string[] }> }) {
@@ -42,34 +50,44 @@ export default async function UserPage({ params, searchParams }: { params: Promi
       <div className="profile-primary">
         <h1>{profile.display_name}</h1>
         <p className="profile-username">@{profile.username}</p>
+        {(profile.title || profile.institution) && (
+          <p className="profile-title">{[profile.title, profile.institution].filter(Boolean).join(" · ")}</p>
+        )}
         {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+        {(profile.location || profile.website || profile.orcid) && (
+          <div className="profile-meta">
+            {profile.location && <span>📍 {profile.location}</span>}
+            {profile.website && <a href={profile.website} target="_blank" rel="noreferrer">{profile.website.replace(/^https?:\/\//, "")}</a>}
+            {profile.orcid && <a href={`https://orcid.org/${profile.orcid}`} target="_blank" rel="noreferrer">ORCID: {profile.orcid}</a>}
+          </div>
+        )}
         <div className="profile-counts">
-          <span><strong>{profile.following}</strong> 关注</span>
-          <span><strong>{profile.followers}</strong> 粉丝</span>
+          <span><strong>{profile.following}</strong> {t.user.following}</span>
+          <span><strong>{profile.followers}</strong> {t.user.followers}</span>
         </div>
-        <p className="profile-joined">加入时间：{new Date(profile.created_at).toLocaleDateString("zh-CN")}</p>
+        <p className="profile-joined">{t.user.joinedAt(new Date(profile.created_at).toLocaleDateString("zh-CN"))}</p>
       </div>
       <div className="public-profile-action">
         {profile.is_me
-          ? <Link className="button secondary" href="/me">个人中心</Link>
+          ? <Link className="button secondary" href="/me/settings/profile">{t.user.editProfile}</Link>
           : <>
-            {profile.is_followed_by && !profile.is_following && <span className="follow-status-tag">关注了你</span>}
-            {profile.is_mutual && <span className="follow-status-tag mutual">互相关注</span>}
+            {profile.is_followed_by && !profile.is_following && <span className="follow-status-tag">{t.user.followedBy}</span>}
+            {profile.is_mutual && <span className="follow-status-tag mutual">{t.user.mutual}</span>}
             <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />
           </>}
       </div>
     </header>
 
     <section className="dashboard-section public-profile-content">
-      <div className="dashboard-panel-heading"><div><h2>公开反应</h2></div>{!contentUnavailable && <strong>{profile.public_reactions} 条</strong>}</div>
-      {contentUnavailable ? <div className="dashboard-empty"><p>内容暂时无法加载，请稍后重试。</p></div> : reactions.length ? <div className="repository-grid">{reactions.map((item) => <article key={item.id}>
-        <header><Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link><span>{item.followers} 人收藏</span></header>
+      <div className="dashboard-panel-heading"><div><h2>{t.user.publicReactions}</h2></div>{!contentUnavailable && <strong>{t.user.reactionCount(profile.public_reactions)}</strong>}</div>
+      {contentUnavailable ? <div className="dashboard-empty"><p>{t.user.contentError}</p></div> : reactions.length ? <div className="repository-grid">{reactions.map((item) => <article key={item.id}>
+        <header><Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link><span>{t.user.peopleCount(item.followers)}</span></header>
         <Link className="repository-scheme" href={`/reaction/${item.id}`}><img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={`HRID ${item.id}`} /></Link>
-      </article>)}</div> : <div className="dashboard-empty"><p>还没有公开反应。</p></div>}
-      {!contentUnavailable && profile.public_reactions > 20 && <nav className="profile-pagination" aria-label="分页">
-        {page > 1 ? <Link href={page === 2 ? base : `${base}?page=${page - 1}`}>上一页</Link> : <span />}
-        <small>{page} / {Math.ceil(profile.public_reactions / 20)}</small>
-        {page * 20 < profile.public_reactions ? <Link href={`${base}?page=${page + 1}`}>下一页</Link> : <span />}
+      </article>)}</div> : <div className="dashboard-empty"><p>{t.user.noReactions}</p></div>}
+      {!contentUnavailable && profile.public_reactions > 20 && <nav className="profile-pagination" aria-label={t.common.pageNav}>
+        {page > 1 ? <Link href={page === 2 ? base : `${base}?page=${page - 1}`}>{t.common.prev}</Link> : <span />}
+        <small>{t.common.pageOf(page, Math.ceil(profile.public_reactions / 20))}</small>
+        {page * 20 < profile.public_reactions ? <Link href={`${base}?page=${page + 1}`}>{t.common.next}</Link> : <span />}
       </nav>}
     </section>
   </div>;
