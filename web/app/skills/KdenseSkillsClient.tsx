@@ -19,21 +19,56 @@ const GITHUB_RAW_BASE =
 const GITHUB_TREE_BASE =
   "https://github.com/K-Dense-AI/scientific-agent-skills/tree/main";
 
-// 分类中文图标
-const CATEGORY_ICONS: Record<string, string> = {
-  化学信息学: "⚗️",
-  生物信息学: "🧬",
-  临床与医学: "🏥",
-  "机器学习与AI": "🤖",
-  统计分析: "📊",
-  科研写作与文献: "📝",
-  科学可视化: "🎨",
-  数据处理: "🗃️",
-  平台集成: "🔌",
-  地球与物理科学: "🌍",
-  研究方法论: "🔬",
-  通用工具: "🛠️",
+// 每个分类配一个简洁的缩写标签（2字母），用 CSS 渲染色块
+const CATEGORY_TAGS: Record<string, string> = {
+  化学信息学: "CH",
+  生物信息学: "BI",
+  临床与医学: "MD",
+  "机器学习与AI": "AI",
+  统计分析: "ST",
+  科研写作与文献: "WR",
+  科学可视化: "VZ",
+  数据处理: "DA",
+  平台集成: "PL",
+  地球与物理科学: "PH",
+  研究方法论: "RM",
+  通用工具: "UT",
 };
+
+// 每个分类配一个色值（与化工社色系协调）
+const CATEGORY_COLORS: Record<string, string> = {
+  化学信息学: "#1e90ff",
+  生物信息学: "#0f9d58",
+  临床与医学: "#e84393",
+  "机器学习与AI": "#6c5ce7",
+  统计分析: "#fd7e14",
+  科研写作与文献: "#00b894",
+  科学可视化: "#e17055",
+  数据处理: "#0984e3",
+  平台集成: "#a29bfe",
+  地球与物理科学: "#2d3436",
+  研究方法论: "#d63031",
+  通用工具: "#636e72",
+};
+
+function CategoryIcon({ category, size = 28 }: { category: string; size?: number }) {
+  const tag = CATEGORY_TAGS[category] || "SK";
+  const color = CATEGORY_COLORS[category] || "#636e72";
+  return (
+    <span
+      className="cat-icon"
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: color,
+        fontSize: size * 0.36,
+      }}
+      aria-hidden="true"
+    >
+      {tag}
+    </span>
+  );
+}
 
 export function KdenseSkillsClient() {
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -92,49 +127,44 @@ export function KdenseSkillsClient() {
 
   return (
     <div className="kdense-page">
-      {/* 页头 */}
+      {/* Hero */}
       <section className="kdense-hero">
         <div className="kdense-hero-inner">
           <p className="kdense-breadcrumb">
             <a href="/">化工社</a>
             <span className="kdense-sep">/</span>
-            <span>科学 AI 技能库</span>
+            <span>Open Skills</span>
           </p>
-          <h1>K-Dense 科学 AI 技能库</h1>
+          <h1>Scientific AI Skills Library</h1>
           <p className="kdense-subtitle">
-            <strong>{skills.length || 158}</strong> 个科学 AI Agent 技能，覆盖化学、生物、ML、科研写作等 12 个领域
+            {skills.length || 158} open-source AI agent skills for scientific research — chemistry, biology, machine learning, academic writing &amp; more.
           </p>
           <p className="kdense-source">
-            数据来源：<a
-              href={GITHUB_TREE_BASE}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            Source:{" "}
+            <a href={GITHUB_TREE_BASE} target="_blank" rel="noopener noreferrer">
               K-Dense-AI/scientific-agent-skills
             </a>{" "}
-            (⭐ 32.6k) · MIT 协议 · 由化工社整理呈现
+            · MIT License · Curated by huagongshe.com
           </p>
-
-          {/* 搜索框 */}
           <div className="kdense-search-bar">
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索技能名称或关键词…"
-              aria-label="搜索技能"
+              placeholder="Search skills by name or keyword…"
+              aria-label="Search skills"
             />
           </div>
         </div>
       </section>
 
-      {/* 分类导航 */}
-      <nav className="kdense-cats" aria-label="技能分类">
+      {/* Category nav */}
+      <nav className="kdense-cats" aria-label="Skill categories">
         <button
           className={`kdense-cat ${activeCategory === "全部" ? "active" : ""}`}
           onClick={() => setActiveCategory("全部")}
         >
-          全部 <span className="kdense-cat-count">{skills.length}</span>
+          All <span className="kdense-cat-count">{skills.length}</span>
         </button>
         {categories.map(([cat, count]) => (
           <button
@@ -142,29 +172,24 @@ export function KdenseSkillsClient() {
             className={`kdense-cat ${activeCategory === cat ? "active" : ""}`}
             onClick={() => setActiveCategory(cat)}
           >
-            <span className="kdense-cat-icon">
-              {CATEGORY_ICONS[cat] || "📦"}
-            </span>
             {cat} <span className="kdense-cat-count">{count}</span>
           </button>
         ))}
       </nav>
 
-      {/* 技能列表 */}
+      {/* Skills */}
       <div className="kdense-content">
         {loading ? (
-          <p className="kdense-loading">加载中…</p>
+          <p className="kdense-loading">Loading…</p>
         ) : filtered.length === 0 ? (
-          <p className="kdense-empty">未找到匹配的技能</p>
+          <p className="kdense-empty">No matching skills found.</p>
         ) : (
           <div className="kdense-groups">
             {grouped.map(([cat, catSkills]) => (
               <section key={cat} className="kdense-group">
                 <h2 className="kdense-group-title">
-                  <span className="kdense-group-icon">
-                    {CATEGORY_ICONS[cat] || "📦"}
-                  </span>
-                  {cat}
+                  <CategoryIcon category={cat} size={26} />
+                  <span className="kdense-group-name">{cat}</span>
                   <span className="kdense-group-count">{catSkills.length}</span>
                 </h2>
                 <div className="kdense-grid">
@@ -183,49 +208,50 @@ export function KdenseSkillsClient() {
 
 function SkillCard({ skill }: { skill: Skill }) {
   const [expanded, setExpanded] = useState(false);
+  const color = CATEGORY_COLORS[skill.category] || "#636e72";
 
   return (
     <article className={`kdense-card ${expanded ? "expanded" : ""}`}>
-      <div className="kdense-card-head">
-        <h3 className="kdense-card-name">{skill.name}</h3>
-        <span className="kdense-card-license">{skill.license || "MIT"}</span>
-      </div>
-      <p className="kdense-card-desc">
-        {skill.description || "暂无描述"}
-      </p>
-      {expanded && skill.detail && (
-        <div className="kdense-card-detail">
-          <p>{skill.detail}</p>
-          {(skill.ref_count > 0 || skill.file_count > 0) && (
-            <p className="kdense-card-meta">
-              📄 {skill.file_count} 个文件
-              {skill.ref_count > 0 && ` · 📚 ${skill.ref_count} 个参考文档`}
-            </p>
-          )}
+      <div className="kdense-card-accent" style={{ backgroundColor: color }} />
+      <div className="kdense-card-body">
+        <div className="kdense-card-head">
+          <h3 className="kdense-card-name">{skill.name}</h3>
+          <span className="kdense-card-license">{skill.license || "MIT"}</span>
         </div>
-      )}
-      <div className="kdense-card-actions">
-        <button
-          className="kdense-btn kdense-btn-toggle"
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? "收起" : "详情"}
-        </button>
-        <a
-          className="kdense-btn kdense-btn-github"
-          href={`${GITHUB_TREE_BASE}/${skill.github_path}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          源码
-        </a>
-        <a
-          className="kdense-btn kdense-btn-download"
-          href={`${GITHUB_RAW_BASE}/${skill.github_path}/SKILL.md`}
-          download={`${skill.name}-SKILL.md`}
-        >
-          下载 SKILL.md
-        </a>
+        <p className="kdense-card-desc">{skill.description || "No description available."}</p>
+        {expanded && skill.detail && (
+          <div className="kdense-card-detail">
+            <p>{skill.detail}</p>
+            {(skill.ref_count > 0 || skill.file_count > 0) && (
+              <p className="kdense-card-meta">
+                {skill.file_count} files{skill.ref_count > 0 && ` · ${skill.ref_count} references`}
+              </p>
+            )}
+          </div>
+        )}
+        <div className="kdense-card-actions">
+          <button
+            className="kdense-btn kdense-btn-toggle"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? "Collapse" : "Details"}
+          </button>
+          <a
+            className="kdense-btn kdense-btn-github"
+            href={`${GITHUB_TREE_BASE}/${skill.github_path}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Source
+          </a>
+          <a
+            className="kdense-btn kdense-btn-download"
+            href={`${GITHUB_RAW_BASE}/${skill.github_path}/SKILL.md`}
+            download={`${skill.name}-SKILL.md`}
+          >
+            Download
+          </a>
+        </div>
       </div>
     </article>
   );

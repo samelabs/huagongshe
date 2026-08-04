@@ -725,36 +725,43 @@ footer a:hover { color: var(--blue); }
   .admin-table article { gap: 9px; }
 }
 
-/* ── K-Dense Skills 专页 ────────────────────────────────────── */
+
+/* ── Open Skills 专页 ───────────────────────────────────────── */
 
 .kdense-page { max-width: 100%; }
 
+/* Hero */
 .kdense-hero {
   background: linear-gradient(135deg, var(--blue-tint), var(--blue-pale));
   border-bottom: 1px solid var(--blue-border);
-  padding: 32px 20px 28px;
+  padding: 36px 20px 32px;
 }
 .kdense-hero-inner { max-width: 960px; margin: 0 auto; }
 .kdense-breadcrumb {
-  font-size: var(--text-sm); color: var(--muted); margin-bottom: 12px;
+  font-size: var(--text-sm); color: var(--muted);
+  margin-bottom: 14px;
 }
 .kdense-breadcrumb a { color: var(--blue); text-decoration: none; }
 .kdense-breadcrumb a:hover { text-decoration: underline; }
 .kdense-sep { margin: 0 6px; color: var(--quiet); }
+
 .kdense-hero h1 {
-  font-size: 28px; font-weight: 800; color: var(--heading);
-  margin: 0 0 8px; letter-spacing: -0.02em;
+  font-size: 26px; font-weight: 800; color: var(--heading);
+  margin: 0 0 10px; letter-spacing: -0.02em; line-height: 1.3;
 }
+
+/* 副标题与来源:统一字号,避免大小不一 */
 .kdense-subtitle {
-  font-size: var(--text-lg); color: var(--heading-soft);
-  margin: 0 0 6px;
+  font-size: var(--text-base); color: var(--heading-soft);
+  margin: 0 0 6px; line-height: 1.6; max-width: 680px;
 }
-.kdense-subtitle strong { color: var(--blue-deep); }
 .kdense-source {
-  font-size: var(--text-sm); color: var(--muted); margin: 0 0 16px;
+  font-size: var(--text-base); color: var(--muted);
+  margin: 0 0 18px; line-height: 1.6;
 }
 .kdense-source a { color: var(--blue); }
 
+/* 搜索框 */
 .kdense-search-bar { max-width: 480px; }
 .kdense-search-bar input {
   width: 100%; padding: 10px 14px;
@@ -767,15 +774,15 @@ footer a:hover { color: var(--blue); }
   box-shadow: 0 0 0 3px var(--blue-glow);
 }
 
-/* 分类导航条 */
+/* 分类导航 */
 .kdense-cats {
   display: flex; flex-wrap: wrap; gap: 8px;
   padding: 16px 20px; max-width: 960px; margin: 0 auto;
   border-bottom: 1px solid var(--line);
 }
 .kdense-cat {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 6px 12px; border: 1px solid var(--line-strong);
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 13px; border: 1px solid var(--line-strong);
   border-radius: 20px; background: var(--paper);
   font-size: var(--text-sm); color: var(--heading-soft);
   cursor: pointer; transition: all .15s;
@@ -785,10 +792,9 @@ footer a:hover { color: var(--blue); }
   background: var(--blue); border-color: var(--blue);
   color: #fff; font-weight: 600;
 }
-.kdense-cat-icon { font-size: 14px; }
 .kdense-cat-count {
-  font-size: 12px; opacity: .7;
-  background: rgba(0,0,0,.06); padding: 1px 6px; border-radius: 10px;
+  font-size: 12px; opacity: .65;
+  background: rgba(0,0,0,.06); padding: 1px 7px; border-radius: 10px;
 }
 .kdense-cat.active .kdense-cat-count {
   background: rgba(255,255,255,.25); opacity: 1;
@@ -803,50 +809,72 @@ footer a:hover { color: var(--blue); }
 /* 分组 */
 .kdense-group { margin-bottom: 36px; }
 .kdense-group-title {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 18px; font-weight: 700; color: var(--heading);
-  margin: 0 0 14px; padding-bottom: 8px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 17px; font-weight: 700; color: var(--heading);
+  margin: 0 0 16px; padding-bottom: 10px;
   border-bottom: 2px solid var(--blue-pale);
 }
-.kdense-group-icon { font-size: 20px; }
+.kdense-group-name { line-height: 1; }
 .kdense-group-count {
   font-size: 13px; font-weight: 500; color: var(--muted);
-  background: var(--wash); padding: 2px 8px; border-radius: 10px;
+  background: var(--wash); padding: 2px 9px; border-radius: 10px;
 }
 
-/* 技能卡片网格 */
+/* 色块图标 — 替代 emoji */
+.cat-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px; color: #fff;
+  font-weight: 700; font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+  letter-spacing: 0.5px; flex-shrink: 0;
+  line-height: 1;
+}
+
+/* 卡片网格 */
 .kdense-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 14px;
 }
 
 .kdense-card {
+  position: relative;
   border: 1px solid var(--line); border-radius: 10px;
-  background: var(--paper); padding: 16px;
-  display: flex; flex-direction: column; gap: 8px;
+  background: var(--paper);
   transition: box-shadow .15s, border-color .15s;
+  overflow: hidden;
 }
-.kdense-card:hover { border-color: var(--blue-border); box-shadow: 0 2px 12px rgba(0,0,0,.05); }
+.kdense-card:hover {
+  border-color: var(--blue-border);
+  box-shadow: 0 2px 12px rgba(0,0,0,.05);
+}
 .kdense-card.expanded { box-shadow: 0 4px 16px rgba(0,0,0,.07); }
 
+/* 左侧色条装饰 */
+.kdense-card-accent {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+
+.kdense-card-body { padding: 14px 16px 14px 18px; }
+
 .kdense-card-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 6px;
 }
 .kdense-card-name {
-  font-size: 15px; font-weight: 700; color: var(--heading);
-  margin: 0; font-family: 'SF Mono', 'Fira Code', monospace;
-  overflow-wrap: anywhere;
+  font-size: 14px; font-weight: 700; color: var(--heading);
+  margin: 0; font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+  overflow-wrap: anywhere; line-height: 1.4;
 }
 .kdense-card-license {
   font-size: 11px; color: var(--quiet);
   border: 1px solid var(--line); border-radius: 4px;
-  padding: 1px 6px; white-space: nowrap;
+  padding: 1px 6px; white-space: nowrap; flex-shrink: 0;
 }
 
 .kdense-card-desc {
   font-size: var(--text-sm); color: var(--muted);
-  margin: 0; line-height: 1.5;
+  margin: 0; line-height: 1.55;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -854,13 +882,15 @@ footer a:hover { color: var(--blue); }
 
 .kdense-card-detail {
   font-size: var(--text-sm); color: var(--heading-soft);
-  background: var(--wash); border-radius: 6px; padding: 10px 12px;
+  background: var(--wash); border-radius: 6px;
+  padding: 10px 12px; margin: 8px 0;
   line-height: 1.6;
 }
 .kdense-card-meta { margin: 6px 0 0; font-size: 12px; color: var(--quiet); }
 
+/* 操作按钮 */
 .kdense-card-actions {
-  display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto;
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;
 }
 .kdense-btn {
   display: inline-flex; align-items: center; gap: 4px;
@@ -881,11 +911,12 @@ footer a:hover { color: var(--blue); }
 /* 手机端 */
 @media (max-width: 640px) {
   .kdense-hero { padding: 24px 16px 20px; }
-  .kdense-hero h1 { font-size: 22px; }
-  .kdense-subtitle { font-size: var(--text-base); }
+  .kdense-hero h1 { font-size: 21px; }
+  .kdense-subtitle { font-size: var(--text-sm); }
+  .kdense-source { font-size: var(--text-sm); }
   .kdense-cats { padding: 12px 16px; gap: 6px; }
   .kdense-cat { padding: 5px 10px; font-size: 12px; }
   .kdense-content { padding: 16px 12px 32px; }
   .kdense-grid { grid-template-columns: 1fr; gap: 10px; }
-  .kdense-card { padding: 14px; }
+  .kdense-card-body { padding: 12px 14px 12px 16px; }
 }
