@@ -31,6 +31,11 @@ export default async function Home() {
         <span>{t.home.ctaBody}</span>
         <span className="home-contribute-link">{t.home.ctaLink}</span>
       </Link>
+      <Link className="home-skills-entry" href="/skills">
+        <span><span className="home-skills-kicker">开源资源</span><strong>科学 AI 技能库</strong></span>
+        <span>158 个科学 AI Agent 技能，覆盖化学、生物、ML、科研写作等 12 个领域，来自 K-Dense-AI 开源项目</span>
+        <span className="home-skills-link">浏览技能库 →</span>
+      </Link>
     </div>
   );
 }
