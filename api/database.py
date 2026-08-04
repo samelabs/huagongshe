@@ -1,6 +1,6 @@
 """Database connection management."""
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy import event
+
 from .config import settings
 
 engine = create_async_engine(

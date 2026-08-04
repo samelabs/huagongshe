@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from .cache import cache_delete, cache_get, cache_set
+from .cache import cache_delete
 from .database import get_db
 from .security import Actor, current_session
 
@@ -216,7 +216,7 @@ async def update_config(
     """写入单条配置。"""
     if namespace not in CONFIG_SCHEMA or key not in CONFIG_SCHEMA[namespace]:
         raise HTTPException(400, f"不支持的配置项: {namespace}/{key}")
-    result = await db.execute(text("""
+    await db.execute(text("""
         INSERT INTO community.system_config (namespace, key, value, updated_at)
         VALUES (:ns, :key, CAST(:value AS jsonb), now())
         ON CONFLICT (namespace, key) DO UPDATE SET value = CAST(:value AS jsonb), updated_at = now()

@@ -23,6 +23,25 @@ from .rate_limit import enforce, is_loopback_host, request_identity
 
 router = APIRouter(tags=["chemistry"])
 
+
+def clean_float(value: Any, round_digits: int | None = None) -> float | None:
+    """Convert to float, mapping NaN/Infinity to None.
+
+    Postgres float8 columns can hold NaN (e.g. ord.temperature.value).
+    FastAPI's JSONResponse uses allow_nan=False, so a NaN reaching the
+    serializer raises ValueError → HTTP 500.  This function sanitizes
+    database values before they enter the response dict.
+    """
+    if value is None:
+        return None
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f in (float("inf"), float("-inf")):  # NaN / ±Inf
+        return None
+    return round(f, round_digits) if round_digits is not None else f
+
 IDENTIFIER_ARRAYS = {
     "cas": "cas_numbers",
     "nikkaji": "nikkaji_numbers",
@@ -67,8 +86,8 @@ def chemical_dict(row: Any, score: float | None = None) -> dict[str, Any]:
         "preferred_name": row[4],
         "iupac_name": row[5],
         "molecular_formula": row[6],
-        "average_mass": float(row[7]) if row[7] is not None else None,
-        "monoisotopic_mass": float(row[8]) if row[8] is not None else None,
+        "average_mass": clean_float(row[7]),
+        "monoisotopic_mass": clean_float(row[8]),
         "inchikey": row[9],
         "dtxsid": row[10],
         "cas_numbers": row[11] or [],
@@ -77,7 +96,7 @@ def chemical_dict(row: Any, score: float | None = None) -> dict[str, Any]:
         "ec_numbers": row[14] or [],
         "unii_codes": row[15] or [],
         "chebi_ids": row[16] or [],
-        "similarity": round(float(score), 4) if score is not None else None,
+        "similarity": clean_float(score, round_digits=4),
     }
 
 
@@ -692,7 +711,7 @@ async def reaction_detail(
         item.update(
             role=row[17],occurrence_count=row[18],amount_value=row[19],amount_unit=row[20],
             equivalents=row[21],concentration_value=row[22],concentration_unit=row[23],
-            yield_percent=float(row[24]) if row[24] is not None else None,
+            yield_percent=clean_float(row[24]),
         )
         compounds.append(item)
 
@@ -720,7 +739,7 @@ async def reaction_detail(
         WHERE lm.reaction_id=:id AND pc.chemical_id IS NOT NULL
         GROUP BY pc.chemical_id
     """), {"id": reaction_id})).fetchall()
-    yield_map = {row[0]: round(float(row[1]), 3) for row in yields}
+    yield_map = {row[0]: clean_float(row[1], round_digits=3) for row in yields}
     for item in compounds:
         if item["role"] == "PRODUCT" and item["yield_percent"] is None:
             item["yield_percent"] = yield_map.get(item["id"])
@@ -728,6 +747,17 @@ async def reaction_detail(
     conditions_detail = base[10]
     if conditions_detail and conditions_detail.strip().lower().startswith("see reaction.notes"):
         conditions_detail = None
+
+    temp_value = clean_float(base[11])
+    temp_unit = base[12]
+    if temp_value is None and temperature:
+        temp_value = clean_float(temperature[0])
+        temp_unit = temperature[1]
+    temperature_out = (
+        {"value": temp_value, "unit": temp_unit}
+        if temp_value is not None
+        else None
+    )
 
     return {
         "id": base[0], "reaction_smiles": base[1], "visibility": base[2],
@@ -737,10 +767,7 @@ async def reaction_detail(
         "publication_url": base[22], "source_citation": base[23],
         "procedure_details": base[7], "safety_notes": base[8],
         "reflux": base[27], "ph": base[9], "conditions_detail": conditions_detail,
-        "temperature": (
-            {"value": base[11], "unit": base[12]} if base[11] is not None
-            else ({"value": temperature[0], "unit": temperature[1]} if temperature else None)
-        ),
+        "temperature": temperature_out,
         "duration": ({"value": base[13], "unit": base[14]} if base[13] is not None else None),
         "atmosphere": base[15],
         "pressure": ({"value": base[16], "unit": base[17]} if base[16] is not None else None),

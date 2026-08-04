@@ -19,7 +19,6 @@ from sqlalchemy import text
 from .cache import cache_delete, get_cache
 from .config import settings
 from .database import get_db
-from .chemistry import canonicalize_smiles
 from .pubchem_core import chemical_core_values, number_or_none, validate_synonyms
 
 router = APIRouter(prefix="/workapi/v1", tags=["workapi"])
