@@ -209,17 +209,20 @@ function SkillCard({ skill }: { skill: Skill }) {
       <div className="kdense-card-body">
         <div className="kdense-card-head">
           <h3 className="kdense-card-name">{skill.name}</h3>
-          <span className="kdense-card-license">{skill.license || "MIT"}</span>
+          <span className="kdense-card-license" title="开源协议">
+            {skill.license || "MIT"}
+          </span>
         </div>
         <p className="kdense-card-desc">{skill.description || "暂无描述"}</p>
+        <div className="kdense-card-stats">
+          <span className="kdense-stat">{skill.file_count} 文件</span>
+          {skill.ref_count > 0 && (
+            <span className="kdense-stat">{skill.ref_count} 参考文档</span>
+          )}
+        </div>
         {expanded && skill.detail && (
           <div className="kdense-card-detail">
             <p>{skill.detail}</p>
-            {(skill.ref_count > 0 || skill.file_count > 0) && (
-              <p className="kdense-card-meta">
-                {skill.file_count} 个文件{skill.ref_count > 0 && ` · ${skill.ref_count} 个参考文档`}
-              </p>
-            )}
           </div>
         )}
         <div className="kdense-card-actions">
@@ -230,19 +233,11 @@ function SkillCard({ skill }: { skill: Skill }) {
             {expanded ? "收起" : "详情"}
           </button>
           <a
-            className="kdense-btn kdense-btn-github"
-            href={`${SKILLS_BASE}/${skill.name}/SKILL.md`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            查看源码
-          </a>
-          <a
             className="kdense-btn kdense-btn-download"
-            href={`${SKILLS_BASE}/${skill.name}/SKILL.md`}
-            download={`${skill.name}-SKILL.md`}
+            href={`${SKILLS_BASE}/${skill.name}.zip`}
+            download={`${skill.name}.zip`}
           >
-            下载
+            下载技能包
           </a>
         </div>
       </div>

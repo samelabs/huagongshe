@@ -888,6 +888,16 @@ footer a:hover { color: var(--blue); }
 }
 .kdense-card-meta { margin: 6px 0 0; font-size: 12px; color: var(--quiet); }
 
+/* 卡片统计信息 */
+.kdense-card-stats {
+  display: flex; gap: 8px; margin-top: 6px;
+}
+.kdense-stat {
+  font-size: 11px; color: var(--quiet);
+  background: var(--wash); padding: 2px 7px;
+  border-radius: 4px; white-space: nowrap;
+}
+
 /* 操作按钮 */
 .kdense-card-actions {
   display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;
