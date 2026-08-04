@@ -2,15 +2,14 @@ import type { Metadata } from "next";
 import { KdenseSkillsClient } from "./KdenseSkillsClient";
 
 export const metadata: Metadata = {
-  title: "Open Skills",
+  title: "开放技能库",
   description:
-    "158 open-source AI agent skills for scientific research — chemistry, biology, machine learning, academic writing and more. From K-Dense-AI/scientific-agent-skills.",
+    "158 个开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等 12 个领域。数据来自 K-Dense-AI/scientific-agent-skills 开源项目。",
   alternates: { canonical: "https://huagongshe.com/skills" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Open Skills｜化工社",
-    description:
-      "158 open-source scientific AI agent skills across 12 domains.",
+    title: "科学 AI 开放技能库｜化工社",
+    description: "158 个开源科学 AI Agent 技能，覆盖 12 个研究领域。",
     url: "/skills",
     siteName: "化工社",
     locale: "zh_CN",

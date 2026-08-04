@@ -133,38 +133,34 @@ export function KdenseSkillsClient() {
           <p className="kdense-breadcrumb">
             <a href="/">化工社</a>
             <span className="kdense-sep">/</span>
-            <span>Open Skills</span>
+            <span>开放技能库</span>
           </p>
-          <h1>Scientific AI Skills Library</h1>
+          <h1>科学 AI 开放技能库</h1>
           <p className="kdense-subtitle">
-            {skills.length || 158} open-source AI agent skills for scientific research — chemistry, biology, machine learning, academic writing &amp; more.
+            {skills.length || 158} 个开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域，可按需下载使用。
           </p>
           <p className="kdense-source">
-            Source:{" "}
-            <a href={GITHUB_TREE_BASE} target="_blank" rel="noopener noreferrer">
-              K-Dense-AI/scientific-agent-skills
-            </a>{" "}
-            · MIT License · Curated by huagongshe.com
+            数据来源：<a href={GITHUB_TREE_BASE} target="_blank" rel="noopener noreferrer">K-Dense-AI/scientific-agent-skills</a> · MIT 协议 · 由化工社整理呈现
           </p>
           <div className="kdense-search-bar">
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search skills by name or keyword…"
-              aria-label="Search skills"
+              placeholder="搜索技能名称或关键词…"
+              aria-label="搜索技能"
             />
           </div>
         </div>
       </section>
 
       {/* Category nav */}
-      <nav className="kdense-cats" aria-label="Skill categories">
+      <nav className="kdense-cats" aria-label="技能分类">
         <button
           className={`kdense-cat ${activeCategory === "全部" ? "active" : ""}`}
           onClick={() => setActiveCategory("全部")}
         >
-          All <span className="kdense-cat-count">{skills.length}</span>
+          全部 <span className="kdense-cat-count">{skills.length}</span>
         </button>
         {categories.map(([cat, count]) => (
           <button
@@ -180,9 +176,9 @@ export function KdenseSkillsClient() {
       {/* Skills */}
       <div className="kdense-content">
         {loading ? (
-          <p className="kdense-loading">Loading…</p>
+          <p className="kdense-loading">加载中…</p>
         ) : filtered.length === 0 ? (
-          <p className="kdense-empty">No matching skills found.</p>
+          <p className="kdense-empty">未找到匹配的技能</p>
         ) : (
           <div className="kdense-groups">
             {grouped.map(([cat, catSkills]) => (
@@ -218,13 +214,13 @@ function SkillCard({ skill }: { skill: Skill }) {
           <h3 className="kdense-card-name">{skill.name}</h3>
           <span className="kdense-card-license">{skill.license || "MIT"}</span>
         </div>
-        <p className="kdense-card-desc">{skill.description || "No description available."}</p>
+        <p className="kdense-card-desc">{skill.description || "暂无描述"}</p>
         {expanded && skill.detail && (
           <div className="kdense-card-detail">
             <p>{skill.detail}</p>
             {(skill.ref_count > 0 || skill.file_count > 0) && (
               <p className="kdense-card-meta">
-                {skill.file_count} files{skill.ref_count > 0 && ` · ${skill.ref_count} references`}
+                {skill.file_count} 个文件{skill.ref_count > 0 && ` · ${skill.ref_count} 个参考文档`}
               </p>
             )}
           </div>
@@ -234,7 +230,7 @@ function SkillCard({ skill }: { skill: Skill }) {
             className="kdense-btn kdense-btn-toggle"
             onClick={() => setExpanded(!expanded)}
           >
-            {expanded ? "Collapse" : "Details"}
+            {expanded ? "收起" : "详情"}
           </button>
           <a
             className="kdense-btn kdense-btn-github"
@@ -242,14 +238,14 @@ function SkillCard({ skill }: { skill: Skill }) {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Source
+            源码
           </a>
           <a
             className="kdense-btn kdense-btn-download"
             href={`${GITHUB_RAW_BASE}/${skill.github_path}/SKILL.md`}
             download={`${skill.name}-SKILL.md`}
           >
-            Download
+            下载
           </a>
         </div>
       </div>
