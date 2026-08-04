@@ -14,10 +14,7 @@ type Skill = {
   github_path: string;
 };
 
-const GITHUB_RAW_BASE =
-  "https://raw.githubusercontent.com/K-Dense-AI/scientific-agent-skills/main";
-const GITHUB_TREE_BASE =
-  "https://github.com/K-Dense-AI/scientific-agent-skills/tree/main";
+const SKILLS_BASE = "/kdense-skills";
 
 // 每个分类配一个简洁的缩写标签（2字母），用 CSS 渲染色块
 const CATEGORY_TAGS: Record<string, string> = {
@@ -140,7 +137,7 @@ export function KdenseSkillsClient() {
             {skills.length || 158} 个开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域，可按需下载使用。
           </p>
           <p className="kdense-source">
-            数据来源：<a href={GITHUB_TREE_BASE} target="_blank" rel="noopener noreferrer">K-Dense-AI/scientific-agent-skills</a> · MIT 协议 · 由化工社整理呈现
+            数据来源：K-Dense-AI/scientific-agent-skills (MIT) · 由化工社整理并本地化呈现
           </p>
           <div className="kdense-search-bar">
             <input
@@ -234,15 +231,15 @@ function SkillCard({ skill }: { skill: Skill }) {
           </button>
           <a
             className="kdense-btn kdense-btn-github"
-            href={`${GITHUB_TREE_BASE}/${skill.github_path}`}
+            href={`${SKILLS_BASE}/${skill.name}/SKILL.md`}
             target="_blank"
             rel="noopener noreferrer"
           >
-            源码
+            查看源码
           </a>
           <a
             className="kdense-btn kdense-btn-download"
-            href={`${GITHUB_RAW_BASE}/${skill.github_path}/SKILL.md`}
+            href={`${SKILLS_BASE}/${skill.name}/SKILL.md`}
             download={`${skill.name}-SKILL.md`}
           >
             下载
