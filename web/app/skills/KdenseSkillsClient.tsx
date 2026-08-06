@@ -199,9 +199,32 @@ export function KdenseSkillsClient() {
   );
 }
 
+/** Extract a short license tag (≤20 chars) from raw license text. */
+function normalizeLicense(raw: string | undefined): string {
+  if (!raw) return "MIT";
+  const s = raw.trim();
+  // URL → domain tag
+  if (s.startsWith("http")) {
+    if (/creativecommons/i.test(s)) return "CC-BY-4.0";
+    return "查看协议";
+  }
+  // Long sentence → extract known keywords
+  if (s.length > 30) {
+    if (/proprietary/i.test(s)) return "专有";
+    if (/MIT/i.test(s)) return "MIT";
+    if (/Apache/i.test(s)) return "Apache-2.0";
+    if (/BSD/i.test(s)) return "BSD";
+    if (/GPL/i.test(s)) return "GPL";
+    return "查看协议";
+  }
+  // Already short
+  return s.replace(/\s*license\s*$/i, "").replace(/\s+/g, "-");
+}
+
 function SkillCard({ skill }: { skill: Skill }) {
   const [expanded, setExpanded] = useState(false);
   const color = CATEGORY_COLORS[skill.category] || "#636e72";
+  const licenseTag = normalizeLicense(skill.license);
 
   return (
     <article className={`kdense-card ${expanded ? "expanded" : ""}`}>
@@ -209,8 +232,8 @@ function SkillCard({ skill }: { skill: Skill }) {
       <div className="kdense-card-body">
         <div className="kdense-card-head">
           <h3 className="kdense-card-name">{skill.name}</h3>
-          <span className="kdense-card-license" title="开源协议">
-            {skill.license || "MIT"}
+          <span className="kdense-card-license" title={skill.license || "MIT"}>
+            {licenseTag}
           </span>
         </div>
         <p className="kdense-card-desc">{skill.description || "暂无描述"}</p>
