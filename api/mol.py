@@ -8,7 +8,6 @@ from rdkit import Chem
 from rdkit.Chem import Draw, AllChem, rdChemReactions
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import text
-from .cache import cache_get, cache_set
 from .database import get_db
 from .security import Actor, optional_actor
 
@@ -68,7 +67,11 @@ async def render_molecule(
     h: int = 300,
     db=Depends(get_db),
 ):
-    """Render a chemical structure to SVG by HCID. Cached in Redis."""
+    """Render a chemical structure to SVG by HCID.
+
+    Caching is handled entirely by Cloudflare (immutable) — no Redis layer
+    to avoid write-only keys from crawler traffic hitting unique URLs.
+    """
     w = min(max(w, 50), 800)
     h = min(max(h, 50), 800)
 
@@ -79,17 +82,11 @@ async def render_molecule(
         raise HTTPException(status_code=404, detail="化合物没有可渲染的结构表达")
 
     smiles = row[0]
-    cache_key = f"mol_svg:{chemical_id}:{w}x{h}"
     headers = {"Cache-Control": "public, max-age=31536000, immutable"}
-    cached = await cache_get(cache_key)
-    if cached:
-        return Response(content=cached, media_type="image/svg+xml", headers=headers)
-
     svg = await asyncio.to_thread(smiles_to_svg, smiles, w, h)
     if svg is None:
         raise HTTPException(status_code=400, detail="Invalid SMILES")
 
-    await cache_set(cache_key, svg, ttl=86400)
     return Response(content=svg, media_type="image/svg+xml", headers=headers)
 
 
@@ -101,7 +98,11 @@ async def render_reaction(
     actor: Actor | None = Depends(optional_actor),
     db=Depends(get_db),
 ):
-    """Render the stored reaction expression by stable reaction ID."""
+    """Render the stored reaction expression by stable reaction ID.
+
+    Caching is handled entirely by Cloudflare (immutable for public) — no Redis
+    layer to avoid write-only keys from crawler traffic hitting unique URLs.
+    """
     w = min(max(w, 600), 1800)
     h = min(max(h, 180), 600)
     row = (await db.execute(text("""
@@ -117,21 +118,10 @@ async def render_reaction(
     if not row:
         raise HTTPException(status_code=404, detail="反应没有可渲染的结构表达")
 
-    version = int(row[1].timestamp()) if row[1] else 0
-    cache_key = f"reaction_svg:v1:{reaction_id}:{version}:{w}x{h}"
     is_public = row[2] == "public"
-    cached = await cache_get(cache_key)
-    if cached:
-        return Response(
-            content=cached,
-            media_type="image/svg+xml",
-            headers={"Cache-Control": "public, max-age=31536000, immutable" if is_public else "private, no-store"},
-        )
-
     svg = await asyncio.to_thread(reaction_to_svg, row[0], w, h)
     if svg is None:
         raise HTTPException(status_code=422, detail="反应结构无法渲染")
-    await cache_set(cache_key, svg, ttl=86400)
     return Response(
         content=svg,
         media_type="image/svg+xml",
