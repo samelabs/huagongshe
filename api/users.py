@@ -74,6 +74,12 @@ class LoginBody(BaseModel):
 class ProfileBody(BaseModel):
     display_name: str = Field(min_length=1, max_length=80)
     bio: str | None = Field(default=None, max_length=500)
+    email: str = Field(min_length=3, max_length=200)
+    location: str | None = Field(default=None, max_length=100)
+    institution: str | None = Field(default=None, max_length=200)
+    title: str | None = Field(default=None, max_length=200)
+    website: str | None = Field(default=None, max_length=500)
+    orcid: str | None = Field(default=None, max_length=19)
 
     @field_validator("display_name")
     @classmethod
@@ -83,8 +89,22 @@ class ProfileBody(BaseModel):
     @field_validator("bio")
     @classmethod
     def clean_bio(cls, value: str | None) -> str | None:
-        result = (value or "").strip()
-        return result or None
+        return (value or "").strip() or None
+
+    @field_validator("orcid")
+    @classmethod
+    def clean_orcid(cls, value: str | None) -> str | None:
+        if not value:
+            return None
+        cleaned = re.sub(r"[^\dXx]", "", value)
+        return cleaned if cleaned else None
+
+    @field_validator("website")
+    @classmethod
+    def clean_website(cls, value: str | None) -> str | None:
+        if not value:
+            return None
+        return value.strip() or None
 
 
 class TokenBody(BaseModel):
@@ -255,11 +275,20 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
 @router.patch("/me")
 async def update_profile(body: ProfileBody, actor: Actor = Depends(current_session), db=Depends(get_db)):
     await db.execute(text("""
-        UPDATE community.users SET display_name=:display_name,bio=:bio,updated_at=now()
+        UPDATE community.users
+        SET display_name=:display_name,
+            bio=:bio,
+            email=:email,
+            location=:location,
+            institution=:institution,
+            title=:title,
+            website=:website,
+            orcid=:orcid,
+            updated_at=now()
         WHERE id=:id
     """), {"id": actor.id, **body.model_dump()})
     await db.commit()
-    return {"display_name": body.display_name, "bio": body.bio}
+    return body.model_dump()
 
 
 @router.post("/me/password", status_code=204)
@@ -390,6 +419,7 @@ async def public_profile(username: str, actor: Actor | None = Depends(optional_a
     viewer_id = actor.id if actor else 0
     row = (await db.execute(text("""
         SELECT u.id,u.username,u.display_name,u.bio,u.avatar_path,u.created_at,
+          u.location,u.institution,u.title,u.website,u.orcid,
           (SELECT count(*) FROM community.user_follows WHERE followed_user_id=u.id),
           (SELECT count(*) FROM community.user_follows WHERE follower_user_id=u.id),
           (SELECT count(*) FROM chemistry.reactions
@@ -404,11 +434,13 @@ async def public_profile(username: str, actor: Actor | None = Depends(optional_a
         raise HTTPException(404, "用户不存在")
     return {
         "id": row[0], "username": row[1], "display_name": row[2], "bio": row[3],
-        "avatar_url": row[4], "created_at": row[5], "followers": row[6],
-        "following": row[7], "public_reactions": row[8],
-        "is_following": row[9],
-        "is_followed_by": bool(row[10]) if viewer_id else False,
-        "is_mutual": bool(row[9] and row[10]) if viewer_id else False,
+        "avatar_url": row[4], "created_at": row[5],
+        "location": row[6], "institution": row[7], "title": row[8],
+        "website": row[9], "orcid": row[10],
+        "followers": row[11], "following": row[12], "public_reactions": row[13],
+        "is_following": row[14],
+        "is_followed_by": bool(row[15]) if viewer_id else False,
+        "is_mutual": bool(row[14] and row[15]) if viewer_id else False,
         "is_me": bool(actor and row[0] == actor.id),
     }
 

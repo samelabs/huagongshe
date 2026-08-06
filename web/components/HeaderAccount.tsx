@@ -82,7 +82,10 @@ export function HeaderAccount() {
 function Avatar({ user }: { user: User }) {
   const [err, setErr] = useState(false);
   if (user.avatar_url && !err) {
-    return <img className="header-avatar" src={user.avatar_url.replace(".webp", "-128.webp")} alt="" onError={() => setErr(true)} />;
+    const src = user.avatar_url.endsWith(".webp")
+      ? user.avatar_url.replace(".webp", "-128.webp")
+      : user.avatar_url;
+    return <img className="header-avatar" src={src} alt="" onError={() => setErr(true)} />;
   }
   return <span className="avatar-fallback">{user.display_name.slice(0, 1)}</span>;
 }

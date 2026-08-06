@@ -56,8 +56,11 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
         if (kind === "register" && !/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(String(values.get("password") || ""))) {
           setMessage(t.auth.weakPassword); setBusy(false); return;
         }
-        if (kind === "register" && usernameCheck.status !== "ok") {
-          setMessage("请先输入可用的用户名"); setBusy(false); return;
+        if (kind === "register" && usernameCheck.status === "taken") {
+          setMessage("用户名已被使用"); setBusy(false); return;
+        }
+        if (kind === "register" && usernameCheck.status === "invalid") {
+          setMessage(usernameCheck.msg || "用户名不可用"); setBusy(false); return;
         }
         const payload = kind === "login"
           ? { account: values.get("account"), password: values.get("password") }
