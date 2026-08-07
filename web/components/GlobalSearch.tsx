@@ -15,32 +15,48 @@ export function GlobalSearch({ initial = "", compact = false }: {
   const [notice, setNotice] = useState("");
 
   return (
-    <div className="global-search-wrap">
-      <form className={`global-search${compact ? " compact" : ""}`} onSubmit={(event) => {
-        event.preventDefault();
-        const value = query.trim();
-        if (!value) return;
-        if (CJK_RE.test(value)) {
-          setNotice(t.search.cjkInline);
-          return;
-        }
-        setNotice("");
-        router.push(`/search?q=${encodeURIComponent(value)}`);
-      }}>
-        <svg className="search-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.5" y2="16.5" /></svg>
-        <label className="sr-only" htmlFor={compact ? "site-query-compact" : "site-query"}>{t.search.title}</label>
+    <div className="search-wrap">
+      <form
+        className={`search-bar${compact ? " search-bar--compact" : ""}`}
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const value = query.trim();
+          if (!value) return;
+          if (CJK_RE.test(value)) {
+            setNotice(t.search.cjkInline);
+            return;
+          }
+          setNotice("");
+          router.push(`/search?q=${encodeURIComponent(value)}`);
+        }}
+      >
+        <span className="search-bar__icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.5" y2="16.5" />
+          </svg>
+        </span>
+        <label className="sr-only" htmlFor={compact ? "q-compact" : "q"}>
+          {t.search.title}
+        </label>
         <input
-          id={compact ? "site-query-compact" : "site-query"}
+          id={compact ? "q-compact" : "q"}
           name="q"
-          type="search"
+          type="text"
+          inputMode="search"
+          enterKeyHint="search"
           value={query}
           onChange={(event) => { setQuery(event.target.value); setNotice(""); }}
           placeholder={t.home.searchPlaceholder}
           autoComplete="off"
-          enterKeyHint="search"
+          spellCheck={false}
           maxLength={4000}
+          className="search-bar__input"
         />
-        <button type="submit">{t.home.searchButton}</button>
+        <button type="submit" className="search-bar__btn">
+          {t.home.searchButton}
+        </button>
       </form>
       {notice && <p className="search-notice">{notice}</p>}
     </div>

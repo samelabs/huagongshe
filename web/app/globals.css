@@ -137,59 +137,82 @@ footer a:hover { color: var(--blue); }
 .home { width: min(820px, calc(100% - 40px)); margin: auto; padding-bottom: 48px; }
 .hero { text-align: center; padding: clamp(56px, 10vh, 100px) 0 48px; }
 .hero h1 { margin: 0; font-size: clamp(26px, 3.2vw, 34px); font-weight: var(--title-weight); line-height: 1.35; letter-spacing: -.01em; color: var(--heading); }
-.hero h1 + .global-search, .hero h1 + .global-search-wrap { margin-top: 36px; }
-.global-search-wrap { width: min(620px, 100%); margin: auto; }
-.global-search {
-  width: 100%; max-width: 100%; min-width: 0; margin: auto;
+.hero h1 + .search-wrap { margin-top: 36px; }
+
+/* ── 搜索查询入口 ────────────────────────────────── */
+.search-wrap { width: min(620px, 100%); margin: auto; }
+.search-bar {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
   border: 2px solid var(--blue-border);
   border-radius: 14px;
-  display: flex; flex-wrap: nowrap; align-items: center;
   background: var(--blue-tint);
-  box-shadow: 0 4px 24px rgba(30,144,255,.06);
-  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(30,144,255,.05);
+  transition: border-color .2s, box-shadow .2s, background .2s;
 }
-.global-search:focus-within {
+.search-bar:focus-within {
   border-color: var(--blue);
-  background: white;
-  box-shadow: 0 0 0 4px var(--blue-glow), 0 6px 30px rgba(30,144,255,.12);
+  background: #fff;
+  box-shadow: 0 0 0 4px var(--blue-glow);
 }
-.global-search .search-icon {
-  flex: 0 0 auto;
-  width: 22px; height: 22px;
-  margin-left: 16px;
+.search-bar__icon {
+  display: flex;
+  align-items: center;
+  padding-left: 15px;
   color: var(--blue);
-  opacity: .55;
-  transition: opacity .2s ease;
+  opacity: .5;
+  transition: opacity .2s;
 }
-.global-search:focus-within .search-icon { opacity: 1; }
-.global-search input {
-  min-width: 0; flex: 1; height: 52px; margin: 0;
-  border: 0; outline: 0;
-  padding: 0 14px;
-  background: none; color: var(--ink);
-  font-size: var(--text-lg); font-weight: 500;
+.search-bar:focus-within .search-bar__icon { opacity: 1; }
+.search-bar__input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 52px;
+  border: 0;
+  outline: 0;
+  margin: 0;
+  padding: 0 12px;
+  background: none;
+  color: var(--ink);
+  font: 500 15px/1.4 var(--font-ui);
+  -webkit-appearance: none;
+  appearance: none;
 }
-.global-search input::placeholder { color: var(--quiet); font-weight: 400; }
-.global-search button {
-  flex: 0 0 auto; height: 52px; margin: 0; padding: 0 32px;
-  border: 0; border-radius: 0 12px 12px 0;
-  background: var(--blue); color: white;
-  font-size: var(--text-lg); font-weight: 700; letter-spacing: .02em;
+.search-bar__input::placeholder { color: var(--quiet); font-weight: 400; }
+.search-bar__btn {
+  flex: 0 0 auto;
+  height: 52px;
+  border: 0;
+  border-radius: 0 12px 12px 0;
+  padding: 0 28px;
+  margin: 0;
+  background: var(--blue);
+  color: #fff;
+  font: 700 15px/1 var(--font-ui);
+  letter-spacing: .03em;
   cursor: pointer;
-  transition: background .18s ease;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background .15s;
 }
-.global-search button:hover { background: var(--blue-deep); }
-.global-search button:active { background: var(--blue-strong); }
-.global-search.compact {
+.search-bar__btn:hover { background: var(--blue-deep); }
+.search-bar__btn:active { background: var(--blue-strong); }
+
+/* compact 模式（搜索结果页） */
+.search-bar--compact {
   border-radius: 12px;
   background: var(--wash);
   border-color: var(--line-strong);
   box-shadow: none;
 }
-.global-search.compact:focus-within {
-  border-color: var(--blue); background: white;
+.search-bar--compact:focus-within {
+  border-color: var(--blue);
+  background: #fff;
   box-shadow: 0 0 0 3px var(--blue-glow);
 }
+
 .search-examples { margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 10px; color: var(--quiet); font-size: var(--text-sm); }
 .search-examples a { color: var(--muted); padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; transition: border-color .15s, color .15s; }
 .search-examples a:hover { border-color: var(--blue-border); color: var(--blue-deep); }
@@ -643,11 +666,12 @@ footer a:hover { color: var(--blue); }
   footer { padding: 18px 14px; }
   .hero { padding: 36px 0 28px; }
   .hero h1 { font-size: clamp(22px, 6vw, 26px); }
-  .hero h1 + .global-search, .hero h1 + .global-search-wrap { margin-top: 24px; }
-  .global-search { width: 100%; border-radius: 12px; }
-  .global-search .search-icon { margin-left: 14px; width: 20px; height: 20px; }
-  .global-search input { padding: 0 10px; font-size: 16px; height: 48px; }
-  .global-search button { padding: 0 20px; font-size: var(--text); height: 48px; border-radius: 0 10px 10px 0; }
+  .hero h1 + .search-wrap { margin-top: 24px; }
+  .search-bar { border-radius: 12px; }
+  .search-bar__icon { padding-left: 12px; }
+  .search-bar__icon svg { width: 18px; height: 18px; }
+  .search-bar__input { height: 48px; font-size: 16px; }
+  .search-bar__btn { height: 48px; padding: 0 20px; font-size: 14px; border-radius: 0 10px 10px 0; }
   .home-meta { padding-top: 20px; }
   .home-contribute { margin-top: 24px; padding: 18px; }
   .content-page { padding-top: 28px; }
@@ -746,8 +770,8 @@ footer a:hover { color: var(--blue); }
   .login-link { padding-left: 8px; padding-right: 8px; }
   .content-page, .home, .auth-page { width: calc(100% - 24px); }
   .hero h1 { font-size: 24px; }
-  .global-search input { padding-left: 10px; padding-right: 8px; }
-  .global-search button { padding: 0 14px; }
+  .search-bar__input { padding-left: 8px; padding-right: 8px; }
+  .search-bar__btn { padding: 0 14px; }
   .page-title h1, .search-head h1, .reaction-title h1 { font-size: 27px; overflow-wrap: anywhere; }
   .chemical-result { grid-template-columns: 82px minmax(0,1fr); gap: 10px; }
   .chemical-result-structure { height: 82px; }
