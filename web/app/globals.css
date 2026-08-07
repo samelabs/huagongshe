@@ -1047,8 +1047,8 @@ footer a:hover { color: var(--blue); }
     padding-bottom: 0 !important;
   }
 
-  /* footer跟随main滚动 */
-  footer { flex-shrink: 0; padding-bottom: 0 !important; }
+  /* 移动端不显示footer，用TabBar替代 */
+  footer { display: none; }
 
   /* TabBar固定底部，不在滚动流中 */
   .mobile-tab-bar {
