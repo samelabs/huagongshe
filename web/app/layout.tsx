@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { AccountProvider } from "@/components/AccountContext";
@@ -7,6 +7,12 @@ import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import "./globals.css";
 import t from "@/lib/i18n";
+export const viewport: Viewport = {
+  themeColor: "#1e90ff",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 export const metadata: Metadata = {
   metadataBase: new URL("https://huagongshe.com"),
   title: { default: t.brand.seoTitle, template: `%s｜${t.brand.name}` },
