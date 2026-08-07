@@ -57,7 +57,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const config = await getSiteConfig();
   const analytics = config.analytics?.scripts;
   const adsense = config.ads?.adsense;
-  const footerSlogan = config.branding?.slogan?.footer || t.brand.slogan;
   const h = await headers();
   const cookieHeader = h.get("cookie");
   const initialUser = await getSSRUser(cookieHeader);
@@ -92,6 +91,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             </div>
           </header>
           <main>{children}</main>
+          <footer>
+            <span>AIchem开放计划：<a href="mailto:mail@huagongshe.com" className="footer-link">mail@huagongshe.com</a></span>
+          </footer>
         </AccountProvider>
         <MobileTabBar />
         </div>
