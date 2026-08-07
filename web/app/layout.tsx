@@ -3,6 +3,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { AccountProvider } from "@/components/AccountContext";
 import { HeaderAccount } from "@/components/HeaderAccount";
+import { MobileTabBar } from "@/components/MobileTabBar";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import "./globals.css";
@@ -15,6 +16,8 @@ export const viewport: Viewport = {
 };
 export const metadata: Metadata = {
   metadataBase: new URL("https://huagongshe.com"),
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "化工社", statusBarStyle: "default" },
   title: { default: t.brand.seoTitle, template: `%s｜${t.brand.name}` },
   description: t.brand.seoDesc,
   keywords: [...t.brand.keywords, "AI Chemistry Workspace", "Chemical Knowledge Base", "Reaction Library"],
@@ -89,9 +92,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </header>
           <main>{children}</main>
         </AccountProvider>
+        <MobileTabBar />
         <footer>
           <span>AIchem开放计划：<a href="mailto:mail@huagongshe.com" className="footer-link">mail@huagongshe.com</a></span>
         </footer>
+        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}` }} />
       </body>
     </html>
   );
