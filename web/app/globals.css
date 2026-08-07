@@ -938,9 +938,43 @@ footer a:hover { color: var(--blue); }
 }
 
 @media (max-width: 680px) {
-  .mobile-tab-bar {
+  /* 稳定容器：body不滚动，app-container撑满视口 */
+  html, body { height: 100%; overflow: hidden; }
+  .app-container {
+    height: 100dvh;
     display: flex;
-    position: fixed;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* header固定顶部，不滚动 */
+  .site-header { flex-shrink: 0; }
+
+  /* main独立滚动，填满header和tabbar之间 */
+  main {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: clip;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0 !important;
+  }
+
+  /* footer进入main滚动区内 */
+  footer { flex-shrink: 0; padding-bottom: 0 !important; display: none; }
+  .app-footer {
+    min-height: 64px;
+    padding: 20px 14px;
+    display: flex; justify-content: center; align-items: center;
+    color: var(--quiet); font-size: var(--text); text-align: center;
+  }
+
+  /* TabBar固定底部，不在滚动流中 */
+  .mobile-tab-bar {
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
     bottom: 0;
     left: 0;
     right: 0;
@@ -968,10 +1002,6 @@ footer a:hover { color: var(--blue); }
   .mobile-tab-bar .tab-item.active { color: var(--blue); }
   .mobile-tab-bar .tab-icon { display: flex; align-items: center; justify-content: center; height: 24px; }
   .mobile-tab-bar .tab-label { font-size: 10px; }
-
-  /* 给main和footer留出底部Tab Bar高度 */
-  main { padding-bottom: calc(50px + env(safe-area-inset-bottom)); }
-  footer { padding-bottom: calc(50px + env(safe-area-inset-bottom)); }
 }
 
 @media (min-width: 681px) {

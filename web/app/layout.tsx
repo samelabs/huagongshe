@@ -77,25 +77,24 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         )}
       </head>
       <body>
+        <div className="app-container">
+        <header className="site-header">
+          <div className="header-inner">
+            <Link href="/" className="brand" aria-label={t.nav.home}>
+              <span className="brand-domain">
+                <span>huagongshe</span>
+                <span className="brand-dot">.</span>
+                <span>com</span>
+              </span>
+            </Link>
+            <HeaderAccount />
+          </div>
+        </header>
         <AccountProvider initialUser={initialUser}>
-          <header className="site-header">
-            <div className="header-inner">
-              <Link href="/" className="brand" aria-label={t.nav.home}>
-                <span className="brand-domain">
-                  <span>huagongshe</span>
-                  <span className="brand-dot">.</span>
-                  <span>com</span>
-                </span>
-              </Link>
-              <HeaderAccount />
-            </div>
-          </header>
           <main>{children}</main>
         </AccountProvider>
         <MobileTabBar />
-        <footer>
-          <span>AIchem开放计划：<a href="mailto:mail@huagongshe.com" className="footer-link">mail@huagongshe.com</a></span>
-        </footer>
+        </div>
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}` }} />
       </body>
     </html>

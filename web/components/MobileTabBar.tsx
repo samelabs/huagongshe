@@ -7,7 +7,7 @@ export function MobileTabBar() {
   const pathname = usePathname();
 
   const tabs = [
-    { href: "/", label: "发现", icon: discoverIcon, match: (p: string) => p === "/" || p.startsWith("/search") || p.startsWith("/chemical") || p.startsWith("/reaction") },
+    { href: "/search", label: "检索", icon: searchIcon, match: (p: string) => p === "/" || p.startsWith("/search") || p.startsWith("/chemical") || p.startsWith("/reaction") },
     { href: "/me", label: "知识库", icon: libraryIcon, match: (p: string) => p.startsWith("/me") },
     { href: "/me/settings/profile", label: "我的", icon: userIcon, match: (p: string) => p.startsWith("/me/settings") || p.startsWith("/user/") },
   ];
@@ -27,7 +27,7 @@ export function MobileTabBar() {
   );
 }
 
-function discoverIcon(active: boolean) {
+function searchIcon(active: boolean) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "#1e90ff" : "#829ab1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="7" />
