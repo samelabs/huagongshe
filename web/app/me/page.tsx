@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { UserDashboard, type DashboardTab, type ReactionVisibility, type SavedKind } from "@/components/UserDashboard";
+import { apiGet } from "@/lib/api";
+import type { User } from "@/lib/api";
 import t from "@/lib/i18n";
 
 export const metadata: Metadata = { title: t.me.title, robots: { index: false, follow: false } };
@@ -7,7 +11,18 @@ const tabs = new Set<DashboardTab>(["mine", "saved", "activity", "followers", "f
 const visibilities = new Set<ReactionVisibility>(["all", "public", "private"]);
 const savedKinds = new Set<SavedKind>(["chemicals", "reactions"]);
 
+async function getUser(cookieHeader: string | null): Promise<User | null> {
+  try {
+    if (!cookieHeader) return null;
+    return await apiGet<User>("/users/me", { cookie: cookieHeader });
+  } catch { return null; }
+}
+
 export default async function MePage({ searchParams }: { searchParams: Promise<{ tab?: string | string[]; visibility?: string | string[]; kind?: string | string[]; page?: string | string[] }> }) {
+  const h = await headers();
+  const user = await getUser(h.get("cookie"));
+  if (!user) redirect("/login?next=/me");
+
   const query = await searchParams;
   const requested = query.tab;
   const activeTab = typeof requested === "string" && tabs.has(requested as DashboardTab)
