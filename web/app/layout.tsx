@@ -38,7 +38,6 @@ export const metadata: Metadata = {
 type SiteConfig = {
   analytics?: { scripts?: { provider?: string; enabled?: boolean; id?: string } };
   ads?: { adsense?: { enabled?: boolean; client?: string } };
-  branding?: { slogan?: { footer?: string } };
 };
 
 async function getSiteConfig(): Promise<SiteConfig> {
