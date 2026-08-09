@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAccount } from "@/components/AccountContext";
 import { PersonList, type PersonSummary } from "@/components/PersonList";
@@ -9,7 +8,6 @@ import { ActivityPanel } from "./panels/ActivityPanel";
 import { RelationshipsPanel } from "./panels/RelationshipsPanel";
 import { ReactionsPanel } from "./panels/ReactionsPanel";
 import { SavedPanel } from "./panels/SavedPanel";
-import { WorkbenchNav } from "./WorkbenchNav";
 import type {
   ChemicalFollow,
   DashboardTab,
@@ -105,10 +103,7 @@ export function DashboardLayout({ activeTab, page, visibility, savedKind, initia
     return () => { active = false; };
   }, [activeTab, page, savedKind, user, visibility]);
 
-  if (authReady && !user) return <div className="wb-auth-required"><div><strong>{t.common.loginRequired}</strong><span>{t.common.loginHint}</span></div><Link href="/login?next=%2Faichem">{t.common.loginOrRegister}</Link></div>;
-  if (!user) return <p className="wb-loading">{t.common.loadingAccount}</p>;
-
-  const counts = summary?.counts;
+  if (authReady && !user) return <div className="wb-auth-required"><div><strong>{t.common.loginRequired}</strong><span>{t.common.loginHint}</span></div></div>;
 
   function relationshipChanged(person: PersonSummary, following: boolean) {
     if (person.is_following === following) return;
@@ -129,37 +124,12 @@ export function DashboardLayout({ activeTab, page, visibility, savedKind, initia
   }
 
   return (
-    <div className="wb">
-      {/* 用户信息条 */}
-      <div className="wb-bar">
-        <div className="wb-bar-avatar">
-          {(summary?.avatar_url || user.avatar_url)
-            ? <img src={summary?.avatar_url || user.avatar_url || ""} alt="" />
-            : <span>{(summary?.display_name || user.display_name).slice(0, 1)}</span>}
-        </div>
-        <div className="wb-bar-info">
-          <strong>{summary?.display_name || user.display_name}</strong>
-          <span>@{summary?.username || user.username}</span>
-        </div>
-        <div className="wb-bar-actions">
-          <Link className="wb-btn wb-btn-primary" href="/submit">{t.me.newReaction}</Link>
-          <Link className="wb-btn wb-btn-ghost" href="/me/settings/api-tokens">{t.me.aiAssistant}</Link>
-        </div>
-      </div>
-
-      {/* 主体：导航 + 内容 */}
-      <div className="wb-body">
-        <WorkbenchNav counts={counts} activeTab={activeTab} />
-
-        {/* 右侧内容 */}
-        <main className="wb-main">
-          {summaryState === "error" && <p className="wb-error">{t.me.errSummary}</p>}
-          {activeTab === "mine" && <ReactionsPanel data={reactionData} state={contentState} visibility={visibility} page={page} />}
-          {activeTab === "saved" && <SavedPanel chemicals={chemicals} reactions={savedReactions} state={contentState} kind={savedKind} page={page} />}
-          {activeTab === "activity" && <ActivityPanel notices={notices} state={contentState} page={page} />}
-          {(activeTab === "followers" || activeTab === "following") && <RelationshipsPanel data={people} state={contentState} kind={activeTab} page={page} onFollowChange={relationshipChanged} />}
-        </main>
-      </div>
-    </div>
+    <>
+      {summaryState === "error" && <p className="wb-error">{t.me.errSummary}</p>}
+      {activeTab === "mine" && <ReactionsPanel data={reactionData} state={contentState} visibility={visibility} page={page} />}
+      {activeTab === "saved" && <SavedPanel chemicals={chemicals} reactions={savedReactions} state={contentState} kind={savedKind} page={page} />}
+      {activeTab === "activity" && <ActivityPanel notices={notices} state={contentState} page={page} />}
+      {(activeTab === "followers" || activeTab === "following") && <RelationshipsPanel data={people} state={contentState} kind={activeTab} page={page} onFollowChange={relationshipChanged} />}
+    </>
   );
 }

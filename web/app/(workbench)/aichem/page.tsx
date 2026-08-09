@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import type { DashboardTab, ReactionVisibility, SavedKind, Summary } from "@/components/dashboard/types";
 import { apiGet } from "@/lib/api";
@@ -12,13 +11,6 @@ const tabs = new Set<DashboardTab>(["mine", "saved", "activity", "followers", "f
 const visibilities = new Set<ReactionVisibility>(["all", "public", "private"]);
 const savedKinds = new Set<SavedKind>(["chemicals", "reactions"]);
 
-async function getUser(cookieHeader: string | null): Promise<User | null> {
-  try {
-    if (!cookieHeader) return null;
-    return await apiGet<User>("/users/me", { cookie: cookieHeader });
-  } catch { return null; }
-}
-
 async function getSummary(cookieHeader: string): Promise<Summary | null> {
   try {
     return await apiGet<Summary>("/users/me/dashboard", { cookie: cookieHeader });
@@ -28,8 +20,6 @@ async function getSummary(cookieHeader: string): Promise<Summary | null> {
 export default async function AichemPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[]; visibility?: string | string[]; kind?: string | string[]; page?: string | string[] }> }) {
   const h = await headers();
   const cookieHeader = h.get("cookie");
-  const user = await getUser(cookieHeader);
-  if (!user) redirect("/login?next=/aichem");
   const summary = cookieHeader ? await getSummary(cookieHeader) : null;
 
   const query = await searchParams;
@@ -47,5 +37,5 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
     : requested === "reactions" ? "reactions" : "chemicals";
   const requestedPage = typeof query.page === "string" ? Number.parseInt(query.page, 10) : 1;
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  return <div className="content-page wb-page"><DashboardLayout activeTab={activeTab} page={page} visibility={visibility} savedKind={savedKind} initialSummary={summary} /></div>;
+  return <DashboardLayout activeTab={activeTab} page={page} visibility={visibility} savedKind={savedKind} initialSummary={summary} />;
 }

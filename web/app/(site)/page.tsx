@@ -22,9 +22,9 @@ export default async function Home() {
         </div>
       </section>
       <section className="home-meta" aria-label={t.home.dataLabel}>
-        {stats && (
-          <p className="home-meta-line">{t.home.dataLine(formatCount(stats.chemicals), formatCount(stats.reactions))}</p>
-        )}
+        <p className="home-meta-line">
+          {stats ? t.home.dataLine(formatCount(stats.chemicals), formatCount(stats.reactions)) : "\u00A0"}
+        </p>
       </section>
       <Link className="home-contribute" href="/guide">
         <span><span className="home-contribute-kicker">{t.home.ctaKicker}</span><strong>{t.home.ctaTitle}</strong></span>
