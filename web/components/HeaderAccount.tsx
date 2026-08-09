@@ -61,7 +61,7 @@ export function HeaderAccount() {
                 <span>@{user.username}</span>
               </div>
               <div className="account-menu-links">
-                <Link href="/me" onClick={closeMenu}>{t.nav.knowledgeBase}</Link>
+                <Link href="/aichem" onClick={closeMenu}>{t.nav.knowledgeBase}</Link>
                 <Link href="/submit" onClick={closeMenu}>{t.nav.newReaction}</Link>
                 <Link href="/me/settings/api-tokens" onClick={closeMenu}>{t.nav.aiAssistant}</Link>
                 <Link href={`/user/${encodeURIComponent(user.username)}`} onClick={closeMenu}>{t.nav.publicProfile}</Link>

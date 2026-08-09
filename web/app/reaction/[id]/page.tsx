@@ -55,7 +55,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
   return (
     <div className="content-page reaction-page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href={reaction.is_owner ? "/me" : "/"}>{reaction.is_owner ? t.reaction.ownerSelf : t.reaction.ownerOther}</Link><span>/</span><span>{t.reaction.detail}</span></nav>
+      <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href={reaction.is_owner ? "/aichem" : "/"}>{reaction.is_owner ? t.reaction.ownerSelf : t.reaction.ownerOther}</Link><span>/</span><span>{t.reaction.detail}</span></nav>
       <header className="reaction-title">
         <div>
           <EntityId kind="reaction" id={reaction.id} />

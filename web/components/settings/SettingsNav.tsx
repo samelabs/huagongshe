@@ -2,21 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import t from "@/lib/i18n";
 
 const items = [
-  { href: "/me/settings/api-tokens", label: t.settings.nav.ai },
-  { href: "/me/settings/profile", label: t.settings.nav.profile },
-  { href: "/me/settings/avatar", label: t.settings.nav.avatar },
-  { href: "/me/settings/security", label: t.settings.nav.security },
+  { label: "个人资料", href: "/me/settings/profile" },
+  { label: "头像", href: "/me/settings/avatar" },
+  { label: "账户安全", href: "/me/settings/security" },
+  { label: "API Token", href: "/me/settings/api-tokens" },
 ];
 
 export function SettingsNav() {
   const pathname = usePathname();
-  return <nav className="settings-nav" aria-label={t.settings.title}>
-    {items.map((item) => {
-      const active = pathname.startsWith(item.href);
-      return <Link className={active ? "active" : ""} href={item.href} key={item.href}>{item.label}</Link>;
-    })}
-  </nav>;
+  return (
+    <nav className="wb-nav" aria-label="设置导航">
+      <div className="wb-nav-group">
+        <p className="wb-nav-label">设置</p>
+        {items.map((item) => {
+          const active = pathname.startsWith(item.href);
+          return <Link key={item.href} href={item.href} className={`wb-nav-link${active ? " active" : ""}`}><span>{item.label}</span></Link>;
+        })}
+      </div>
+    </nav>
+  );
 }

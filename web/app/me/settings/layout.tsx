@@ -17,11 +17,31 @@ async function getUser(cookieHeader: string | null): Promise<User | null> {
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   const h = await headers();
-  const user = await getUser(h.get("cookie"));
+  const cookieHeader = h.get("cookie");
+  const user = await getUser(cookieHeader);
   if (!user) redirect("/login?next=/me/settings");
 
-  return <div className="content-page settings-page">
-    <header className="page-title settings-title"><p className="page-kicker">{t.settings.titleKicker}</p><h1>{t.settings.title}</h1><p>{t.settings.subtitle}</p></header>
-    <div className="settings-layout"><SettingsNav /><div className="settings-content">{children}</div></div>
+  return <div className="content-page wb-page">
+    <div className="wb">
+      <div className="wb-bar">
+        <div className="wb-bar-avatar">
+          {user.avatar_url
+            ? <img src={user.avatar_url} alt="" />
+            : <span>{user.display_name.slice(0, 1)}</span>}
+        </div>
+        <div className="wb-bar-info">
+          <strong>{user.display_name}</strong>
+          <span>@{user.username}</span>
+        </div>
+        <div className="wb-bar-actions">
+          <a className="wb-btn wb-btn-primary" href="/submit">{t.me.newReaction}</a>
+          <a className="wb-btn wb-btn-ghost" href="/aichem">{t.me.title}</a>
+        </div>
+      </div>
+      <div className="wb-body">
+        <SettingsNav />
+        <main className="wb-main">{children}</main>
+      </div>
+    </div>
   </div>;
 }

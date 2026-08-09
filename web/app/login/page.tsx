@@ -10,5 +10,5 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 }
 
 function safeNextPath(value: string | null) {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/me";
+  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/aichem";
 }
