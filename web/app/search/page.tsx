@@ -87,8 +87,16 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       )}
       {!error && !cjkBlocked && !q && !chemicalId && (
         <div className="search-guide">
-          <section><strong>{t.search.locateChemical}</strong><p>{t.search.hintName}</p></section>
-          <section><strong>{t.search.locateReaction}</strong><p>{t.search.hintReaction}</p></section>
+          <section>
+            <span className="search-guide-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9L12 3z" /><path d="M12 9l4 2.3v4.4L12 18l-4-2.3v-4.4L12 9z" /></svg></span>
+            <strong>{t.search.locateChemical}</strong>
+            <p>{t.search.hintName}</p>
+          </section>
+          <section>
+            <span className="search-guide-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12h14" /><path d="M13 6l6 6-6 6" /></svg></span>
+            <strong>{t.search.locateReaction}</strong>
+            <p>{t.search.hintReaction}</p>
+          </section>
         </div>
       )}
       {chemicals.length > 0 && (
@@ -114,7 +122,12 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         </section>
       )}
       {!error && !cjkBlocked && (q || chemicalId) && chemicals.length === 0 && reactions.length === 0 && (
-        <div className="empty-state"><strong>{t.search.noResults}</strong><p>{t.search.noResultsHint}</p></div>
+        <div className="empty-state empty-state--search">
+          <span className="empty-state-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.5" y2="16.5" /></svg></span>
+          <strong>{t.search.noResults}</strong>
+          <p>{t.search.noResultsHint}</p>
+          <Link className="button secondary" href="/search">{t.search.clearQuery}</Link>
+        </div>
       )}
     </div>
   );
