@@ -7,20 +7,23 @@ import { cookies } from "next/headers";
 import { apiGet, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import t from "@/lib/i18n";
 
-type SearchParams = { q?: string; mode?: string; chemical_id?: string };
+type SearchParams = { q?: string; mode?: string; chemical_id?: string; page?: string };
 
 const CJK_RE = /[\u4e00-\u9fff\u3400-\u4dbf]/;
+const PAGE_SIZE = 30;
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const q = (params.q || "").trim();
   const mode = ["exact", "substructure", "similarity"].includes(params.mode || "") ? params.mode! : "exact";
   const chemicalId = /^\d+$/.test(params.chemical_id || "") ? Number(params.chemical_id) : null;
+  const page = Math.max(1, Math.min(20, Number.parseInt(params.page || "1", 10) || 1));
   const cjkBlocked = CJK_RE.test(q);
   const hasSession = (await cookies()).has("hgs_session");
   const authHeaders = hasSession ? { Cookie: (await cookies()).toString() } : undefined;
   let chemicals: Chemical[] = [];
   let reactions: ReactionLookup[] = [];
+  let total: number | null = null;
   let error = "";
 
   try {
@@ -31,13 +34,19 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       if (!hasSession) {
         error = t.search.substructureLogin;
       } else {
-        const related = await apiGet<{ chemicals: Chemical[] }>(`/chemicals/${chemicalId}/${mode}?limit=20`, authHeaders);
+        const related = await apiGet<{ chemicals: Chemical[]; total: number | null }>(
+          `/chemicals/${chemicalId}/${mode}?page=${page}&page_size=${PAGE_SIZE}`, authHeaders
+        );
         chemicals = related.chemicals;
+        total = related.total ?? null;
       }
     } else if (q) {
-      const data = await apiGet<SearchResponse>(`/search?q=${encodeURIComponent(q)}&mode=${mode}&page_size=20`);
+      const data = await apiGet<SearchResponse>(
+        `/search?q=${encodeURIComponent(q)}&mode=${mode}&page=${page}&page_size=${PAGE_SIZE}`
+      );
       chemicals = data.chemicals;
       reactions = data.reactions || [];
+      total = data.total ?? null;
     }
   } catch (err) {
     if (err instanceof ApiError) {
@@ -60,6 +69,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   }
 
   const relationLabel = mode === "substructure" ? t.search.substructure : t.search.similarity;
+  const hasMore = total === null ? chemicals.length === PAGE_SIZE : page * PAGE_SIZE < total;
+  const start = (page - 1) * PAGE_SIZE + 1;
+  const shown = start + chemicals.length - 1;
+
   return (
     <div className="content-page search-page">
       <header className="search-head">
@@ -80,8 +93,18 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       )}
       {chemicals.length > 0 && (
         <section className="results-section">
-          <div className="section-heading"><div><p>CHEMICALS</p><h2>{chemicalId ? relationLabel : t.search.chemicalResults}</h2></div><span>{t.search.showingResults(chemicals.length)}</span></div>
+          <div className="section-heading">
+            <div><p>CHEMICALS</p><h2>{chemicalId ? relationLabel : t.search.chemicalResults}</h2></div>
+            <span>{total !== null ? t.search.showingRange(start, shown, total) : t.search.showingResults(chemicals.length)}</span>
+          </div>
           <div className="chemical-results">{chemicals.map((chemical) => <ChemicalResult chemical={chemical} key={chemical.id} />)}</div>
+          {hasMore && (
+            <div className="load-more">
+              <Link className="load-more-btn" href={`/search?${chemicalId ? `chemical_id=${chemicalId}&mode=${mode}` : `q=${encodeURIComponent(q)}`}&page=${page + 1}`}>
+                {t.search.loadMore}
+              </Link>
+            </div>
+          )}
         </section>
       )}
       {reactions.length > 0 && (

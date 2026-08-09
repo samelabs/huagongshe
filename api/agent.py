@@ -80,7 +80,7 @@ async def agent_guide(
                 "path": "/api/search",
                 "auth": "public_or_bearer",
                 "purpose": "按名称、CAS、HCID、CID、InChIKey、DOI、SMILES 或结构查询化合物和反应",
-                "input": "q 必填；mode 为 exact、substructure 或 similarity；page_size 最大 50",
+                "input": "q 必填；mode 为 exact、substructure 或 similarity；page 默认1最大20；page_size 默认30最大100；返回 total 总数和分页结果",
             },
             {
                 "id": "get_chemical",

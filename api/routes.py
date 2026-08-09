@@ -176,7 +176,7 @@ async def reaction_summaries(
 async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any]]:
     """Resolve stable reaction identities; chemical structures are searched as chemicals."""
     clauses: list[str] = []
-    params: dict[str, Any] = {"limit": min(limit, 20)}
+    params: dict[str, Any] = {"limit": min(limit, 100)}
     prefix, sep, raw_value = query.partition(":")
     value = raw_value.strip() if sep else query
     normalized_prefix = prefix.strip().lower() if sep else ""
@@ -336,11 +336,18 @@ async def search(
     request: Request,
     q: str = Query(..., min_length=1, max_length=4000),
     mode: str = Query("exact", pattern="^(exact|substructure|similarity)$"),
-    page_size: int = Query(20, ge=1, le=50),
+    page: int = Query(1, ge=1, le=20),
+    page_size: int = Query(30, ge=1, le=100),
     db=Depends(get_db),
 ):
     """One entry point for names, external identifiers, SMILES and structures."""
     query = q.strip()
+    offset = (page - 1) * page_size
+    cache_key = f"v2:unified-search:{mode}:{page}:{page_size}:{query}"
+    if mode != "exact":
+        cached = await cache_get(cache_key)
+        if cached:
+            return cached
     if mode in {"substructure", "similarity"} and not is_loopback_host(
         request.client.host if request.client else None
     ):
@@ -351,15 +358,12 @@ async def search(
     # Exact searches can include user-created reactions. Keep them live so a
     # create, edit or delete is reflected immediately. Only expensive
     # structure searches use the short-lived shared cache.
-    cache_key = f"v1:unified-search:{mode}:{page_size}:{query}"
-    if mode != "exact":
-        cached = await cache_get(cache_key)
-        if cached:
-            return cached
 
     canonical = canonicalize_smiles(query)
     chemicals: list[dict[str, Any]] = []
-    limit = min(page_size, 30)
+    total: int | None = None
+    clauses: list[str] = []
+    params: dict[str, Any] = {}
     try:
         if mode == "exact":
             await db.execute(text("SET LOCAL statement_timeout = '5s'"))
@@ -372,11 +376,9 @@ async def search(
                 SELECT {CHEMICAL_SELECT}
                 FROM chemistry.chemicals c
                 WHERE c.mol @> mol_from_smiles(:smiles)
-                LIMIT :limit
-            """, {"smiles": canonical, "limit": limit})
-            # A database-side ORDER BY id makes PostgreSQL scan the 124M-row
-            # primary key and apply the RDKit predicate row by row. Keep the
-            # GiST index scan bounded, then order the small response in memory.
+                ORDER BY c.id
+                LIMIT :limit OFFSET :offset
+            """, {"smiles": canonical, "limit": page_size, "offset": offset})
             chemicals.sort(key=lambda item: item["id"])
         elif mode == "similarity":
             if not canonical:
@@ -388,12 +390,12 @@ async def search(
                 FROM chemistry.chemicals c
                 WHERE c.mol IS NOT NULL
                 ORDER BY c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles))
-                LIMIT :limit
-            """, {"smiles": canonical, "limit": limit})
+                LIMIT :limit OFFSET :offset
+            """, {"smiles": canonical, "limit": page_size, "offset": offset})
             chemicals.sort(key=lambda item: item.get("similarity") or 0, reverse=True)
         else:
-            clauses: list[str] = []
-            params: dict[str, Any] = {"q": query, "uq": query.upper(), "limit": limit}
+            clauses = []
+            params = {"q": query, "uq": query.upper(), "limit": page_size, "offset": offset}
             prefix, sep, raw_value = query.partition(":")
             if sep and prefix.lower() in IDENTIFIER_ARRAYS:
                 clauses.append(f"c.{IDENTIFIER_ARRAYS[prefix.lower()]} @> ARRAY[:qv]")
@@ -432,7 +434,7 @@ async def search(
                     SELECT {CHEMICAL_SELECT}
                     FROM chemistry.chemicals c
                     WHERE {' OR '.join(clauses)}
-                    ORDER BY c.id LIMIT :limit
+                    ORDER BY c.id LIMIT :limit OFFSET :offset
                 """, params)
             if not chemicals and not canonical and len(query) >= MIN_FUZZY_NAME_LENGTH:
                 # Keep the two trigram indexes independent. A cross-column OR on
@@ -441,22 +443,55 @@ async def search(
                     SELECT {CHEMICAL_SELECT}
                     FROM chemistry.chemicals c
                     WHERE c.preferred_name ILIKE '%' || :q || '%'
-                    LIMIT :limit
-                """, {"q": query, "limit": limit})
-                if len(chemicals) < limit:
+                    ORDER BY c.id LIMIT :limit OFFSET :offset
+                """, {"q": query, "limit": page_size, "offset": offset})
+                if len(chemicals) < page_size:
                     secondary = await fetch_chemicals(db, f"""
                         SELECT {CHEMICAL_SELECT}
                         FROM chemistry.chemicals c
                         WHERE c.iupac_name ILIKE '%' || :q || '%'
-                        LIMIT :limit
-                    """, {"q": query, "limit": limit})
+                        ORDER BY c.id LIMIT :limit OFFSET :offset
+                    """, {"q": query, "limit": page_size, "offset": offset})
                     seen = {item["id"] for item in chemicals}
                     chemicals.extend(item for item in secondary if item["id"] not in seen)
-                    chemicals = chemicals[:limit]
+                    chemicals.sort(key=lambda item: item["id"])
+                    chemicals = chemicals[:page_size]
             elif not chemicals and not canonical and len(query) < MIN_FUZZY_NAME_LENGTH:
                 raise HTTPException(422, "名称查询至少需要 3 个字符")
 
-        reactions = await reaction_lookup(db, query, page_size) if mode == "exact" else []
+        # Count total matches with a 3s timeout guard.
+        # On timeout or error, total stays None so the UI shows "更多结果"
+        # instead of a precise count — the result list itself is unaffected.
+        try:
+            if mode == "substructure" and canonical:
+                await db.execute(text("SET LOCAL statement_timeout = '3s'"))
+                total = (await db.execute(text("""
+                    SELECT count(*) FROM chemistry.chemicals c
+                    WHERE c.mol @> mol_from_smiles(:smiles)
+                """), {"smiles": canonical})).scalar()
+            elif mode == "similarity" and canonical:
+                await db.execute(text("SET LOCAL statement_timeout = '3s'"))
+                total = (await db.execute(text("""
+                    SELECT count(*) FROM chemistry.chemicals c
+                    WHERE c.mol IS NOT NULL
+                """))).scalar()
+            elif mode == "exact" and not canonical and len(query) >= MIN_FUZZY_NAME_LENGTH:
+                if clauses:
+                    total = (await db.execute(text(f"""
+                        SELECT count(*) FROM chemistry.chemicals c
+                        WHERE {' OR '.join(clauses)}
+                    """), params)).scalar()
+                else:
+                    await db.execute(text("SET LOCAL statement_timeout = '3s'"))
+                    total = (await db.execute(text("""
+                        SELECT count(*) FROM chemistry.chemicals c
+                        WHERE c.preferred_name ILIKE '%' || :q || '%'
+                           OR c.iupac_name ILIKE '%' || :q || '%'
+                    """), {"q": query})).scalar()
+        except Exception:
+            total = None
+
+        reactions = await reaction_lookup(db, query, page_size) if mode == "exact" and page == 1 else []
     except HTTPException:
         raise
     except Exception as exc:
@@ -465,10 +500,11 @@ async def search(
 
     data: dict[str, Any] = {
         "query": query, "mode": mode, "canonical_smiles": canonical,
-        "chemicals": chemicals, "reactions": reactions, "page_size": page_size,
+        "page": page, "page_size": page_size, "total": total,
+        "chemicals": chemicals, "reactions": reactions,
     }
     if mode != "exact":
-        await cache_set(cache_key, data, ttl=600)
+        await cache_set(cache_key, data, ttl=300)
     return data
 
 
@@ -597,10 +633,16 @@ async def chemical_reactions(
 
 @router.get("/chemicals/{chemical_id}/substructure")
 async def chemical_substructure(
-    request: Request, chemical_id: int = Path(..., ge=1, le=2_147_483_647), limit: int = Query(20, ge=1, le=50),
+    request: Request, chemical_id: int = Path(..., ge=1, le=2_147_483_647),
+    page: int = Query(1, ge=1, le=20),
+    page_size: int = Query(30, ge=1, le=100),
     actor: Actor = Depends(current_actor),
     db=Depends(get_db)
 ):
+    cache_key = f"v2:substructure:{chemical_id}:{page}:{page_size}"
+    cached = await cache_get(cache_key)
+    if cached:
+        return cached
     if not is_loopback_host(request.client.host if request.client else None):
         await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
     smiles = (await db.execute(text(
@@ -609,16 +651,29 @@ async def chemical_substructure(
     if not smiles:
         raise HTTPException(404, "化合物没有可检索结构")
     smiles = bounded_substructure_smiles(smiles)
+    offset = (page - 1) * page_size
     await db.execute(text("SET LOCAL statement_timeout = '8s'"))
     items = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT}
         FROM chemistry.chemicals c
         WHERE c.mol @> mol_from_smiles(:smiles) AND c.id<>:id
-        LIMIT :limit
-    """, {"id": chemical_id, "smiles": smiles, "limit": limit})
+        ORDER BY c.id
+        LIMIT :limit OFFSET :offset
+    """, {"id": chemical_id, "smiles": smiles, "limit": page_size, "offset": offset})
     # Preserve the RDKit GiST plan; see the same rule in the public search.
     items.sort(key=lambda item: item["id"])
-    return {"chemicals": items}
+    total: int | None = None
+    try:
+        await db.execute(text("SET LOCAL statement_timeout = '3s'"))
+        total = (await db.execute(text("""
+            SELECT count(*) FROM chemistry.chemicals c
+            WHERE c.mol @> mol_from_smiles(:smiles) AND c.id<>:id
+        """), {"id": chemical_id, "smiles": smiles})).scalar()
+    except Exception:
+        total = None
+    data = {"page": page, "page_size": page_size, "total": total, "chemicals": items}
+    await cache_set(cache_key, data, ttl=300)
+    return data
 
 
 @router.get("/chemicals/{chemical_id}/similarity")
@@ -626,10 +681,15 @@ async def chemical_similarity(
     request: Request,
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     threshold: float = Query(0.7, ge=0.4, le=1.0),
-    limit: int = Query(20, ge=1, le=50),
+    page: int = Query(1, ge=1, le=20),
+    page_size: int = Query(30, ge=1, le=100),
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):
+    cache_key = f"v2:similarity:{chemical_id}:{threshold}:{page}:{page_size}"
+    cached = await cache_get(cache_key)
+    if cached:
+        return cached
     if not is_loopback_host(request.client.host if request.client else None):
         await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
     smiles = (await db.execute(text(
@@ -637,6 +697,7 @@ async def chemical_similarity(
     ), {"id": chemical_id})).scalar()
     if not smiles:
         raise HTTPException(404, "化合物没有可检索结构")
+    offset = (page - 1) * page_size
     await db.execute(text("SET LOCAL statement_timeout = '8s'"))
     items = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT},
@@ -644,10 +705,12 @@ async def chemical_similarity(
         FROM chemistry.chemicals c
         WHERE c.mol IS NOT NULL AND c.id<>:id
         ORDER BY c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles))
-        LIMIT :limit
-    """, {"id": chemical_id, "smiles": smiles, "limit": limit})
+        LIMIT :limit OFFSET :offset
+    """, {"id": chemical_id, "smiles": smiles, "limit": page_size, "offset": offset})
     items = [item for item in items if (item.get("similarity") or 0) >= threshold]
-    return {"threshold": threshold, "chemicals": items}
+    data = {"threshold": threshold, "page": page, "page_size": page_size, "total": len(items), "chemicals": items}
+    await cache_set(cache_key, data, ttl=300)
+    return data
 
 
 @router.get(

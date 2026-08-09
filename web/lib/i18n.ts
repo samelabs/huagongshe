@@ -101,6 +101,8 @@ const t = {
     noResults: '没有匹配结果',
     noResultsHint: '请核对查询内容或更换标识符。',
     showingResults: (n: number) => `显示 ${n} 条匹配记录`,
+    showingRange: (start: number, end: number, total: number) => `第 ${start}-${end} 条，共 ${total} 条`,
+    loadMore: '加载更多',
     chemicalResults: '化合物',
     reactionResults: '反应记录',
     resultSuffix: '结果',

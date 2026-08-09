@@ -122,6 +122,9 @@ export type SearchResponse = {
   query: string;
   mode: string;
   canonical_smiles: string | null;
+  page: number;
+  page_size: number;
+  total: number | null;
   chemicals: Chemical[];
   reactions: ReactionLookup[];
 };

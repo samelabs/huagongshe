@@ -278,6 +278,11 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .search-guide strong { font-size: var(--text-lg); }
 .search-guide p { margin: 9px 0 0; color: var(--muted); font-size: var(--text); line-height: 1.7; }
 .results-section + .results-section { margin-top: 58px; }
+.load-more { text-align: center; margin-top: 32px; }
+.load-more-btn { display: inline-block; padding: 12px 32px; border: 1px solid var(--blue-border); border-radius: 10px; color: var(--blue-deep); font-size: var(--text); font-weight: 600; transition: background .15s, border-color .15s; }
+@media (hover:hover){
+  .load-more-btn:hover { background: var(--blue-tint); border-color: var(--blue); }
+}
 .chemical-results { border-top: 1px solid var(--line); }
 .chemical-result { position: relative; min-height: 160px; border-bottom: 1px solid var(--line); padding: 18px 76px 18px 0; display: grid; grid-template-columns: 190px 1fr; gap: 24px; align-items: center; }
 .chemical-result-structure { height: 124px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
