@@ -14,7 +14,9 @@ const AccountContext = createContext<AccountContextValue | null>(null);
 
 export function AccountProvider({ children, initialUser }: { children: React.ReactNode; initialUser: User | null }) {
   const [user, setUser] = useState<User | null>(initialUser);
-  const [ready, setReady] = useState(!!initialUser);
+  // SSR already resolved the user authoritatively. ready is true from first paint
+  // so the header never flashes a placeholder before settling on its final state.
+  const [ready, setReady] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
@@ -27,6 +29,8 @@ export function AccountProvider({ children, initialUser }: { children: React.Rea
     }
   }, []);
 
+  // Only re-check when SSR had no user (e.g. stale SW cache served the HTML).
+  // The SSR result is already authoritative for normal browsing.
   useEffect(() => { if (!initialUser) void refresh(); }, [refresh, initialUser]);
   const value = useMemo(() => ({ user, ready, refresh, clear: () => setUser(null) }), [user, ready, refresh]);
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;

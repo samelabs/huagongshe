@@ -10,7 +10,7 @@ import t from "@/lib/i18n";
 export function HeaderAccount() {
   const router = useRouter();
   const menu = useRef<HTMLDetailsElement>(null);
-  const { user, ready, clear } = useAccount();
+  const { user, clear } = useAccount();
 
   useEffect(() => {
     function closeOnOutside(event: PointerEvent) {
@@ -72,9 +72,9 @@ export function HeaderAccount() {
             </div>
           </details>
         </>
-      ) : ready ? (
+      ) : (
         <Link href="/login" className="login-link">{t.nav.login}</Link>
-      ) : <span className="nav-placeholder" aria-hidden="true" />}
+      )}
     </nav>
   );
 }
