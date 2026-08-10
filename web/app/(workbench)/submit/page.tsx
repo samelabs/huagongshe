@@ -26,9 +26,15 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   const query = await searchParams;
   const editing = typeof query.reaction === "string" && /^\d+$/.test(query.reaction);
   return (
-    <>
-      <header className="page-head"><p className="page-kicker">{t.submit.kicker}</p><h1>{editing ? t.submit.editTitle : t.submit.newTitle}</h1><p>{editing ? t.submit.editDesc : t.submit.newDesc}</p><Link className="text-button" href="/guide">{t.submit.guideLink}</Link></header>
+    <section>
+      <div className="wb-panel-head">
+        <div>
+          <h2>{editing ? t.submit.editTitle : t.submit.newTitle}</h2>
+          <span>{editing ? t.submit.editDesc : t.submit.newDesc}</span>
+        </div>
+        <Link className="text-button" href="/guide">{t.submit.guideLink}</Link>
+      </div>
       <Suspense><SubmissionForm /></Suspense>
-    </>
+    </section>
   );
 }

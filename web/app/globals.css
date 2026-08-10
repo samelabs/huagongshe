@@ -379,9 +379,9 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .pagination a, .pagination-link { color: var(--blue); }
 .pagination-link { background: none; border: 0; cursor: pointer; font: inherit; }
 .section-intro { margin: -8px 0 18px; color: var(--muted); font-size: var(--text); line-height: 1.7; }
-.structured-form label, .form-stack label, .settings-main label { display: grid; gap: 7px; color: var(--muted); font-size: var(--text); }
-.structured-form input, .structured-form textarea, .structured-form select, .form-stack input, .settings-main input, .settings-main textarea, .settings-main select { width: 100%; min-width: 0; max-width: 100%; border: 1px solid var(--line-strong); border-radius: 6px; outline: 0; padding: 10px 11px; color: var(--ink); background: white; }
-.structured-form input:focus, .structured-form textarea:focus, .structured-form select:focus, .form-stack input:focus, .settings-main input:focus, .settings-main textarea:focus, .settings-main select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
+.structured-form label, .form-stack label, .wb-settings-main label { display: grid; gap: 7px; color: var(--muted); font-size: var(--text); }
+.structured-form input, .structured-form textarea, .structured-form select, .form-stack input, .wb-settings-main input, .wb-settings-main textarea, .wb-settings-main select { width: 100%; min-width: 0; max-width: 100%; border: 1px solid var(--line-strong); border-radius: 6px; outline: 0; padding: 10px 11px; color: var(--ink); background: white; }
+.structured-form input:focus, .structured-form textarea:focus, .structured-form select:focus, .form-stack input:focus, .wb-settings-main input:focus, .wb-settings-main textarea:focus, .wb-settings-main select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
 .inline-error { margin: 0; color: var(--danger); font-size: var(--text); }
 .inline-error a { text-decoration: underline; }
 
@@ -475,17 +475,10 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .participant-measure-summary { margin-top: 5px; font-size: var(--text-xs); }
 
 .dashboard-page { max-width: 1120px; }
-.public-profile-page, .settings-page { max-width: 1060px; }
+.public-profile-page { max-width: 1060px; }
 .dashboard-shell { min-width: 0; }
 
-/* ── 设置页（/me/settings）— 独立于工作台 ── */
-.settings-head { max-width: 760px; margin-bottom: 36px; }
-.settings-body { display: grid; grid-template-columns: 180px minmax(0,1fr); gap: 38px; align-items: start; }
-.settings-main { min-width: 0; max-width: 760px; }
-.settings-main .form-section { width: 100%; }
-.settings-nav { position: sticky; top: 92px; display: grid; gap: 3px; }
-.settings-nav-link { min-height: 39px; border-radius: 6px; padding: 0 11px; display: flex; align-items: center; color: var(--muted); font-size: var(--text); }
-.settings-nav-link.active { color: var(--blue-deep); background: var(--blue-pale); font-weight: 700; }
+/* ── 设置页 /me/settings 已迁入工作台 shell ── */
 
 .profile-tabs { margin-bottom: 30px; border-bottom: 1px solid var(--line); display: flex; align-items: end; gap: 5px; overflow-x: auto; scrollbar-width: none; }
 .profile-tabs::-webkit-scrollbar { display: none; }
@@ -776,7 +769,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .token-secret > div { align-items: stretch; flex-direction: column; }
   .token-list article { align-items: flex-start; gap: 12px; }
   .avatar-upload { align-items: stretch; flex-direction: column; }
-  .settings-body { grid-template-columns: 1fr; gap: 24px; }
+  .wb-settings { grid-template-columns: 1fr; gap: 16px; }
   .settings-nav { position: static; margin: 0 -14px; padding: 0 14px 7px; display: flex; overflow-x: auto; scrollbar-width: none; }
   .settings-nav::-webkit-scrollbar { display: none; }
   .settings-nav-link { flex: 0 0 auto; }
@@ -784,7 +777,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .admin-table article > button { grid-column: 2; }
   .auth-panel { padding: 21px; }
   .structured-form input, .structured-form textarea, .structured-form select,
-  .form-stack input, .settings-main input, .settings-main textarea, .settings-main select { min-width: 0; font-size: 16px; }
+  .form-stack input, .wb-settings-main input, .wb-settings-main textarea, .wb-settings-main select { min-width: 0; font-size: 16px; }
 
   /* 手机端内容可读性：禁止截断，允许换行 */
   .structure-code { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
@@ -1183,6 +1176,18 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 
 /* — 右侧内容区 — */
 .wb-main { min-width: 0; max-width: 760px; }
+
+/* — 设置页（/me/settings）— 工作台内分栏 — */
+.wb-settings {
+  display: grid; grid-template-columns: 160px 1fr; gap: 28px; align-items: start;
+  width: 100%; max-width: 760px;
+}
+.wb-settings-main { min-width: 0; }
+.wb-settings-main .form-section { width: 100%; }
+.settings-nav { position: sticky; top: 72px; display: flex; flex-direction: column; gap: 1px; }
+.settings-nav-link { padding: 6px 10px; border-radius: 6px; margin-bottom: 1px; font-size: var(--text); color: var(--muted); }
+.settings-nav-link:hover { background: var(--wash); color: var(--ink); }
+.settings-nav-link.active { background: var(--blue-tint); color: var(--blue-deep); font-weight: var(--section-weight); }
 .wb-error { color: var(--danger); font-size: var(--text); }
 .wb-auth-required { text-align: center; padding: 48px 0; }
 .wb-auth-required strong { display: block; color: var(--heading); margin-bottom: 6px; }

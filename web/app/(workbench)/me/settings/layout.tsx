@@ -21,15 +21,10 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   const user = await getUser(cookieHeader);
   if (!user) redirect("/login?next=/me/settings");
 
-  return <div className="content-page settings-page">
-    <header className="page-head">
-      <p className="page-kicker">{t.settings.titleKicker}</p>
-      <h1>{t.settings.title}</h1>
-      <p>{t.settings.subtitle}</p>
-    </header>
-    <div className="settings-body">
+  return (
+    <div className="wb-settings">
       <SettingsNav />
-      <main className="settings-main">{children}</main>
+      <main className="wb-settings-main">{children}</main>
     </div>
-  </div>;
+  );
 }
