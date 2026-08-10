@@ -57,17 +57,17 @@ export default async function UserPage({ params, searchParams }: { params: Promi
           </div>
         )}
         <div className="profile-social">
-          {profile.is_me
-            ? <Link className="profile-edit-link" href="/me/settings/profile">{t.user.editProfile}</Link>
-            : <>
-              <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />
-              {profile.is_followed_by && !profile.is_following && <span className="follow-status-tag">{t.user.followedBy}</span>}
-              {profile.is_mutual && <span className="follow-status-tag mutual">{t.user.mutual}</span>}
-            </>}
           <span className="profile-counts-inline">
             <strong>{profile.following}</strong> {t.user.following}
             <strong>{profile.followers}</strong> {t.user.followers}
           </span>
+          {profile.is_me
+            ? <Link className="profile-edit-link" href="/me/settings/profile">{t.user.editProfile}</Link>
+            : <>
+              {profile.is_followed_by && !profile.is_following && <span className="follow-status-tag">{t.user.followedBy}</span>}
+              {profile.is_mutual && <span className="follow-status-tag mutual">{t.user.mutual}</span>}
+              <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />
+            </>}
         </div>
         <p className="profile-joined">{t.user.joinedAt(new Date(profile.created_at).toLocaleDateString("zh-CN"))}</p>
       </div>
