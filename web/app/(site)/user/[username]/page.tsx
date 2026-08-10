@@ -56,20 +56,20 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             {profile.orcid && <a href={`https://orcid.org/${profile.orcid}`} target="_blank" rel="noreferrer">ORCID: {profile.orcid}</a>}
           </div>
         )}
-        <div className="profile-counts">
-          <span><strong>{profile.following}</strong> {t.user.following}</span>
-          <span><strong>{profile.followers}</strong> {t.user.followers}</span>
+        <div className="profile-social">
+          {profile.is_me
+            ? <Link className="profile-edit-link" href="/me/settings/profile">{t.user.editProfile}</Link>
+            : <>
+              <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />
+              {profile.is_followed_by && !profile.is_following && <span className="follow-status-tag">{t.user.followedBy}</span>}
+              {profile.is_mutual && <span className="follow-status-tag mutual">{t.user.mutual}</span>}
+            </>}
+          <span className="profile-counts-inline">
+            <strong>{profile.following}</strong> {t.user.following}
+            <strong>{profile.followers}</strong> {t.user.followers}
+          </span>
         </div>
         <p className="profile-joined">{t.user.joinedAt(new Date(profile.created_at).toLocaleDateString("zh-CN"))}</p>
-      </div>
-      <div className="public-profile-action">
-        {profile.is_me
-          ? <Link className="button secondary" href="/me/settings/profile">{t.user.editProfile}</Link>
-          : <>
-            {profile.is_followed_by && !profile.is_following && <span className="follow-status-tag">{t.user.followedBy}</span>}
-            {profile.is_mutual && <span className="follow-status-tag mutual">{t.user.mutual}</span>}
-            <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />
-          </>}
       </div>
     </header>
 
