@@ -263,9 +263,9 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .page-title > p:not(.page-kicker), .settings-head > p:not(.page-kicker), .guide-hero > p:not(.page-kicker), .search-head > p:not(.page-kicker) { margin: 14px 0 0; color: var(--muted); font-size: var(--text-lg); line-height: 1.75; }
 .page-title > .text-button, .guide-hero > .text-button { margin-top: 12px; display: inline-block; }
 .section-heading { margin-bottom: 20px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
-.section-heading h2 { margin: 0; font-size: clamp(19px, 2vw, 23px); font-weight: var(--section-weight); letter-spacing: -.008em; }
+.section-heading h2 { margin: 0; font-size: var(--text-lg); font-weight: var(--section-weight); letter-spacing: -.008em; }
 .section-heading > span { color: var(--muted); font-size: var(--text); }
-.compact-heading h2 { font-size: 21px; }
+.compact-heading h2 { font-size: var(--text-lg); }
 .notice { border-radius: 8px; padding: 14px 16px; font-size: var(--text); }
 .notice.error { border: 1px solid var(--danger-border); color: var(--danger); background: var(--danger-bg); }
 .notice p { margin: 4px 0 0; color: var(--muted); }
@@ -430,7 +430,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .form-section { border: 1px solid var(--line); padding: 26px; }
 .form-section-head { margin-bottom: 24px; display: grid; grid-template-columns: 100px 1fr; gap: 18px; }
 .form-section-head > span { color: var(--blue); font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; }
-.form-section-head h2 { margin: 0; font-size: 19px; font-weight: var(--section-weight); }
+.form-section-head h2 { margin: 0; font-size: var(--text-lg); font-weight: var(--section-weight); }
 .form-section-head h2 .entity-id { transform: translateY(-1px); }
 .heading-action { margin-right: 4px; }
 .form-section-head p { margin: 7px 0 0; color: var(--muted); font-size: var(--text); line-height: 1.65; }
@@ -495,7 +495,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .dashboard-nav .unread-count { min-width: 20px; border-radius: 999px; padding: 2px 6px; color: white; background: var(--blue); text-align: center; }
 .dashboard-panel { min-width: 0; min-height: 520px; }
 .dashboard-panel-heading { min-height: 54px; margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 15px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
-.dashboard-panel-heading h2 { margin: 0; font-size: 24px; font-weight: var(--section-weight); letter-spacing: -.012em; }
+.dashboard-panel-heading h2 { margin: 0; font-size: var(--text-lg); font-weight: var(--section-weight); letter-spacing: -.012em; }
 .dashboard-panel-heading div > span { margin-top: 5px; display: block; color: var(--quiet); font-size: var(--text-sm); }
 .dashboard-panel-heading > a { color: var(--blue); font-size: var(--text); }
 .dashboard-panel-heading > strong { color: var(--muted); font-size: var(--text); }
@@ -506,7 +506,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .public-profile-header, .center-profile-header { grid-template-columns: 112px minmax(0,1fr); }
 .profile-avatar { width: 104px; height: 104px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; color: white; background: var(--blue); font-size: 32px; font-weight: 750; }
 .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.profile-header h1 { margin: 0; font-size: 31px; font-weight: var(--title-weight); letter-spacing: -.008em; }
+.profile-header h1 { margin: 0; font-size: clamp(24px, 3vw, 31px); font-weight: var(--title-weight); letter-spacing: -.008em; }
 .profile-username { margin: 6px 0 0; color: var(--quiet); font-size: var(--text); }
 .profile-title { margin: 4px 0 0; color: var(--heading-soft); font-size: var(--text); font-weight: 500; }
 .profile-meta { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: var(--text); }
@@ -745,7 +745,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .dashboard-panel { min-height: 420px; }
   .dashboard-panel-heading { min-width: 0; align-items: flex-start; gap: 12px; }
   .dashboard-panel-heading > div { min-width: 0; }
-  .dashboard-panel-heading h2 { font-size: 21px; overflow-wrap: anywhere; }
+  .dashboard-panel-heading h2 { overflow-wrap: anywhere; }
   .dashboard-panel-heading > strong { flex: 0 0 auto; }
   .guide-hero { padding-top: 10px; }
   .guide-cards, .guide-paths { grid-template-columns: 1fr; }
@@ -800,9 +800,9 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   nav[aria-label="主导航"] { gap: 6px; }
   .login-link { padding-left: 8px; padding-right: 8px; }
   .content-page, .home, .auth-page { width: calc(100% - 24px); }
-  .hero h1 { font-size: 24px; }
+  .hero h1 { font-size: var(--text-lg); }
   .search-submit-btn { padding: 0 16px; }
-  .page-title h1, .search-head h1, .reaction-title h1 { font-size: 27px; overflow-wrap: anywhere; }
+  .page-title h1, .search-head h1, .reaction-title h1 { font-size: clamp(22px, 5.5vw, 27px); overflow-wrap: anywhere; }
   .chemical-result { grid-template-columns: 82px minmax(0,1fr); gap: 10px; }
   .chemical-result-structure { height: 82px; }
   .structure-code { max-width: 100%; }
@@ -820,7 +820,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .profile-tabs { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; }
   .profile-header, .public-profile-header, .center-profile-header { grid-template-columns: 56px minmax(0,1fr); gap: 12px; }
   .profile-avatar { width: 54px; height: 54px; font-size: 19px; }
-  .profile-header h1 { font-size: 24px; }
+  .profile-header h1 { font-size: var(--text-lg); }
   .form-section { padding: 15px; }
   .auth-panel { padding: 18px 15px; }
   .guide-actions .button { width: 100%; }
@@ -1015,7 +1015,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 /* 手机端 */
 @media (max-width: 640px) {
   .kdense-hero { padding: 24px 16px 20px; }
-  .kdense-hero h1 { font-size: 21px; }
+  .kdense-hero h1 { font-size: var(--text-lg); }
   .kdense-subtitle { font-size: var(--text-sm); }
   .kdense-source { font-size: var(--text-sm); }
   .kdense-cats { padding: 12px 16px; gap: 6px; }
