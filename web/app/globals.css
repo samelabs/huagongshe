@@ -537,8 +537,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .repository-grid footer a { color: var(--blue); }
 
 /* ── 工作台人员列表 (关注/粉丝) ─────────────────────── */
-.wb-person-list { border-top: 1px solid var(--line); }
-.wb-person-row { border-bottom: 1px solid var(--line); padding: 12px 4px; display: grid; grid-template-columns: 40px minmax(0,1fr) auto; gap: 12px; align-items: center; }
+.wb-person-list { display: grid; gap: 8px; }
+.wb-person-row { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; display: grid; grid-template-columns: 40px minmax(0,1fr) auto; gap: 12px; align-items: center; background: var(--paper); }
 .wb-person-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; color: white; background: var(--blue); font-size: var(--text); font-weight: 700; flex-shrink: 0; }
 .wb-person-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .wb-person-info { min-width: 0; }
@@ -551,8 +551,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .wb-person-actions .follow-button span { padding: 0 12px; font-size: var(--text-sm); }
 
 /* ── 工作台通知列表 ────────────────────────────────── */
-.wb-notice-list { border-top: 1px solid var(--line); }
-.wb-notice-list > a { border-bottom: 1px solid var(--line); padding: 10px 4px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: var(--text); }
+.wb-notice-list { display: grid; gap: 8px; }
+.wb-notice-list > a { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: var(--text); background: var(--paper); }
 .wb-notice-list > a > span { min-width: 0; display: grid; gap: 2px; }
 .wb-notice-list strong { overflow: hidden; color: var(--ink); font-weight: var(--section-weight); text-overflow: ellipsis; white-space: nowrap; }
 .wb-notice-list small { color: var(--quiet); font-size: var(--text-xs); }
@@ -749,7 +749,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .repository-grid { grid-template-columns: 1fr; }
   .repository-scheme { height: 138px; }
   .repository-scheme img { min-width: 0; }
-  .wb-person-row { grid-template-columns: 36px minmax(0,1fr); padding: 10px 0; }
+  .wb-person-row { grid-template-columns: 36px minmax(0,1fr); padding: 10px 12px; }
   .wb-person-avatar { width: 36px; height: 36px; }
   .wb-person-actions { grid-column: 2; justify-self: end; }
   .wb-person-info > a { min-width: 0; flex-wrap: wrap; gap: 2px 6px; }
@@ -1205,10 +1205,10 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .wb-skeleton-card-bar { height: 28px; border-bottom: 1px solid var(--line); }
 .wb-skeleton-card-img { height: 120px; background: var(--wash); animation: wb-pulse 1.4s ease-in-out infinite; }
 .wb-skeleton-card-foot { height: 28px; border-top: 1px solid var(--line); }
-.wb-skeleton-list { border-top: 1px solid var(--line); }
+.wb-skeleton-list { display: grid; gap: 8px; }
 .wb-skeleton-row {
   display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: center;
-  padding: 12px 4px; border-bottom: 1px solid var(--line);
+  padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px;
 }
 .wb-skeleton-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--wash); animation: wb-pulse 1.4s ease-in-out infinite; }
 .wb-skeleton-line { height: 14px; border-radius: 4px; background: var(--wash); animation: wb-pulse 1.4s ease-in-out infinite; }
@@ -1251,12 +1251,13 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .wb-grid > article > footer a { color: var(--blue); }
 
 /* — 收藏化合物列表 — */
-.wb-followed-list { display: flex; flex-direction: column; gap: 1px; }
+.wb-followed-list { display: grid; gap: 8px; }
 .wb-followed-list > a {
   display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; border-radius: 6px; font-size: var(--text);
+  padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px;
+  font-size: var(--text); background: var(--paper);
 }
-.wb-followed-list > a:hover { background: var(--wash); }
+.wb-followed-list > a:hover { border-color: var(--blue-border); background: var(--blue-tint); }
 .wb-followed-list > a > .entity-id { flex-shrink: 0; padding: 2px 5px; }
 .wb-followed-list > a > .entity-id > span { font-size: var(--text-xs); }
 .wb-followed-list > a > .entity-id > strong { font-size: var(--text-sm); }
@@ -1361,8 +1362,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .profile-tabs > a:hover { color: var(--ink); }
   .dashboard-filters a:hover { color: var(--blue-deep); }
   .profile-count-links a:hover span { color: var(--blue-deep); }
-  .wb-person-row:hover { background: var(--wash); }
-  .wb-followed-list > a:hover { background: var(--wash); }
+  .wb-person-row:hover { border-color: var(--blue-border); background: var(--blue-tint); }
+  .wb-followed-list > a:hover { border-color: var(--blue-border); background: var(--blue-tint); }
   .kdense-card:hover { border-color: var(--blue-border); box-shadow: 0 2px 12px rgba(0,0,0,.05); }
   .kdense-breadcrumb a:hover { text-decoration: underline; }
   .kdense-cat:hover { border-color: var(--blue-border); background: var(--blue-tint); }
