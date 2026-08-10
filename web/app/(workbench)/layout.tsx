@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { WorkbenchNav } from "@/components/dashboard/WorkbenchNav";
 import { WbMobileNav } from "@/components/dashboard/WbMobileNav";
-import { WbMobileTopnav } from "@/components/dashboard/WbMobileTopnav";
+import { WbTopnav } from "@/components/dashboard/WbTopnav";
 import { MobileTabBar } from "@/components/MobileTabBar";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
@@ -37,17 +37,8 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
       <header className="wb-topbar">
         <Link href="/" className="wb-logo">AIchem</Link>
 
-        {/* 桌面文字导航 */}
-        <nav className="wb-topnav" aria-label="主导航">
-          <Link href="/">{t.me.navHome}</Link>
-          <Link href="/submit">{t.me.navNewReaction}</Link>
-          <Link href="/guide">{t.me.navGuide}</Link>
-        </nav>
+        <WbTopnav />
 
-        {/* 手机图标导航 */}
-        <WbMobileTopnav />
-
-        {/* 用户信息 */}
         <div className="wb-topbar-user">
           <Link href={`/user/${encodeURIComponent(user.username)}`} className="wb-topbar-avatar">
             {(summary?.avatar_url || user.avatar_url)
@@ -60,7 +51,6 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
           </div>
         </div>
 
-        {/* 手机抽屉触发 */}
         <WbMobileNav counts={counts} />
       </header>
 
