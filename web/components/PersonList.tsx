@@ -19,21 +19,20 @@ export function PersonList({ items, empty, kind, onFollowChange }: {
   kind: "followers" | "following";
   onFollowChange: (person: PersonSummary, following: boolean) => void;
 }) {
-  if (!items.length) return <div className="dashboard-empty"><p>{empty}</p></div>;
-  return <div className="people-list">{items.map((person) => (
-    <article className="person-row" key={person.username}>
-      <Link className="person-avatar" href={`/user/${encodeURIComponent(person.username)}`} aria-label={t.follow.viewProfile + " " + person.display_name}>
+  if (!items.length) return <div className="wb-empty"><p>{empty}</p></div>;
+  return <div className="wb-person-list">{items.map((person) => (
+    <article className="wb-person-row" key={person.username}>
+      <Link className="wb-person-avatar" href={`/user/${encodeURIComponent(person.username)}`} aria-label={t.follow.viewProfile + " " + person.display_name}>
         {person.avatar_url ? <img src={person.avatar_url} alt="" /> : person.display_name.slice(0, 1)}
       </Link>
-      <div className="person-summary">
+      <div className="wb-person-info">
         <Link href={`/user/${encodeURIComponent(person.username)}`}>
           <strong>{person.display_name}</strong>
           <span>@{person.username}</span>
         </Link>
         {person.bio && <p>{person.bio}</p>}
       </div>
-      <div className="person-actions">
-        <Link className="person-open" href={`/user/${encodeURIComponent(person.username)}`}>{t.follow.viewProfile}</Link>
+      <div className="wb-person-actions">
         {!person.is_me && <FollowButton
           endpoint={`/api/users/${encodeURIComponent(person.username)}/follow`}
           initial={person.is_following}

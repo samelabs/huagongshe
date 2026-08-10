@@ -527,6 +527,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .follow-status-tag.mutual { color: var(--blue); border-color: var(--blue-border); background: var(--blue-pale); }
 .profile-center-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
 .public-profile-content { min-height: 360px; }
+.wb-section + .wb-section { margin-top: 40px; }
 .dashboard-section + .dashboard-section { margin-top: 55px; }
 .repository-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; }
 .repository-grid article { min-width: 0; border: 1px solid var(--line); background: white; }
@@ -534,35 +535,27 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .repository-scheme { height: 155px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: block; overflow-x: auto; }
 .repository-scheme img { width: 100%; min-width: 560px; height: 100%; object-fit: contain; }
 .repository-grid footer a { color: var(--blue); }
-.people-list { border-top: 1px solid var(--line); }
-.person-row { min-height: 94px; border-bottom: 1px solid var(--line); padding: 15px 8px; display: grid; grid-template-columns: 48px minmax(0,1fr) auto; gap: 14px; align-items: center; }
-.person-avatar { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; color: white; background: var(--blue); font-weight: 750; }
-.person-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.person-summary { min-width: 0; }
-.person-summary > a { display: flex; align-items: baseline; gap: 8px; }
-.person-summary strong { color: var(--ink); font-size: var(--text); }
-.person-summary span { color: var(--quiet); font-size: var(--text-xs); }
-.person-summary p { margin: 5px 0 0; overflow: hidden; color: var(--muted); font-size: var(--text-sm); line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
-.person-open { color: var(--blue); font-size: var(--text-sm); }
-.person-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-.person-actions .follow-button { min-height: 34px; }
-.person-actions .follow-button span { padding: 0 11px; font-size: var(--text-sm); }
-.followed-entity-list { border-top: 1px solid var(--line); }
-.followed-entity-list > a { min-height: 78px; border-bottom: 1px solid var(--line); padding: 13px 8px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 14px; align-items: center; }
-.followed-entity-list > a > span { min-width: 0; display: grid; gap: 5px; }
-.followed-entity-list strong { overflow: hidden; color: var(--ink); font-size: var(--text); text-overflow: ellipsis; white-space: nowrap; }
-.followed-entity-list small { overflow: hidden; color: var(--quiet); font-family: var(--font-mono); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
-.followed-entity-list em { color: var(--blue); font-size: var(--text-sm); font-style: normal; }
-.notification-list { border-top: 1px solid var(--line); }
-.notification-list a { border-bottom: 1px solid var(--line); padding: 12px 0; display: flex; align-items: center; justify-content: space-between; gap: 15px; color: var(--muted); font-size: var(--text); }
-.notification-list a > span { min-width: 0; display: grid; gap: 4px; }
-.notification-list strong { overflow: hidden; color: var(--ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.notification-list small { color: var(--quiet); font-size: var(--text-xs); }
-.dashboard-empty { min-height: 180px; border: 1px dashed var(--line-strong); border-radius: 7px; padding: 30px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; color: var(--quiet); text-align: center; }
-.dashboard-empty p { margin: 0 0 10px; }
-.panel-state { min-height: 180px; display: flex; align-items: center; justify-content: center; color: var(--quiet); }
-.panel-state.error { color: var(--danger); }
-.profile-summary-error { margin: -12px 0 20px; color: var(--danger); font-size: var(--text-sm); }
+
+/* ── 工作台人员列表 (关注/粉丝) ─────────────────────── */
+.wb-person-list { border-top: 1px solid var(--line); }
+.wb-person-row { border-bottom: 1px solid var(--line); padding: 12px 4px; display: grid; grid-template-columns: 40px minmax(0,1fr) auto; gap: 12px; align-items: center; }
+.wb-person-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; color: white; background: var(--blue); font-size: var(--text); font-weight: 700; flex-shrink: 0; }
+.wb-person-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.wb-person-info { min-width: 0; }
+.wb-person-info > a { display: flex; align-items: baseline; gap: 6px; }
+.wb-person-info strong { color: var(--ink); font-size: var(--text); font-weight: var(--section-weight); }
+.wb-person-info span { color: var(--quiet); font-size: var(--text-xs); }
+.wb-person-info p { margin: 4px 0 0; overflow: hidden; color: var(--muted); font-size: var(--text-sm); line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+.wb-person-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+.wb-person-actions .follow-button { min-height: 32px; }
+.wb-person-actions .follow-button span { padding: 0 12px; font-size: var(--text-sm); }
+
+/* ── 工作台通知列表 ────────────────────────────────── */
+.wb-notice-list { border-top: 1px solid var(--line); }
+.wb-notice-list > a { border-bottom: 1px solid var(--line); padding: 10px 4px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: var(--text); }
+.wb-notice-list > a > span { min-width: 0; display: grid; gap: 2px; }
+.wb-notice-list strong { overflow: hidden; color: var(--ink); font-weight: var(--section-weight); text-overflow: ellipsis; white-space: nowrap; }
+.wb-notice-list small { color: var(--quiet); font-size: var(--text-xs); }
 .profile-pagination { min-height: 52px; padding-top: 18px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 18px; }
 .profile-pagination a { color: var(--blue); font-size: var(--text-sm); }
 .profile-pagination a:last-child { justify-self: end; }
@@ -756,15 +749,13 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .repository-grid { grid-template-columns: 1fr; }
   .repository-scheme { height: 138px; }
   .repository-scheme img { min-width: 0; }
-  .person-row { grid-template-columns: 42px minmax(0,1fr); padding-left: 0; padding-right: 0; }
-  .person-avatar { width: 40px; height: 40px; }
-  .person-actions { grid-column: 2; justify-content: flex-start; }
-  .person-summary > a { min-width: 0; flex-wrap: wrap; gap: 2px 7px; }
-  .person-summary strong, .person-summary span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-  .followed-entity-list > a { grid-template-columns: auto minmax(0,1fr); gap: 9px; padding-left: 0; padding-right: 0; }
-  .followed-entity-list em { display: none; }
-  .notification-list a { align-items: flex-start; }
-  .notification-list .entity-id { flex: 0 0 auto; }
+  .wb-person-row { grid-template-columns: 36px minmax(0,1fr); padding: 10px 0; }
+  .wb-person-avatar { width: 36px; height: 36px; }
+  .wb-person-actions { grid-column: 2; justify-self: end; }
+  .wb-person-info > a { min-width: 0; flex-wrap: wrap; gap: 2px 6px; }
+  .wb-person-info strong, .wb-person-info span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .wb-followed-list > a > .entity-id > span { font-size: var(--text-xs); }
+  .wb-followed-list > a > .entity-id > strong { font-size: var(--text-sm); }
   .token-create { grid-template-columns: 1fr; }
   .token-secret > div { align-items: stretch; flex-direction: column; }
   .token-list article { align-items: flex-start; gap: 12px; }
@@ -783,7 +774,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .identity-table dd { overflow-wrap: anywhere; }
   .participant-card { overflow: visible; }
   .reaction-result-foot p { white-space: normal; overflow: visible; }
-  .followed-entity-list strong, .followed-entity-list small { overflow: visible; white-space: normal; }
+  .wb-followed-list strong, .wb-followed-list small { overflow: visible; white-space: normal; }
 
 }
 @media (max-width: 420px) {
@@ -1363,8 +1354,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .profile-tabs > a:hover { color: var(--ink); }
   .dashboard-filters a:hover { color: var(--blue-deep); }
   .profile-count-links a:hover span { color: var(--blue-deep); }
-  .person-row:hover { background: var(--wash); }
-  .followed-entity-list > a:hover { background: var(--wash); }
+  .wb-person-row:hover { background: var(--wash); }
+  .wb-followed-list > a:hover { background: var(--wash); }
   .kdense-card:hover { border-color: var(--blue-border); box-shadow: 0 2px 12px rgba(0,0,0,.05); }
   .kdense-breadcrumb a:hover { text-decoration: underline; }
   .kdense-cat:hover { border-color: var(--blue-border); background: var(--blue-tint); }
