@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { WorkbenchNav } from "@/components/dashboard/WorkbenchNav";
 import { WbMobileNav } from "@/components/dashboard/WbMobileNav";
+import { WbMobileTopnav } from "@/components/dashboard/WbMobileTopnav";
 import { MobileTabBar } from "@/components/MobileTabBar";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
@@ -33,14 +34,18 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
 
   return (
     <div className="wb-shell">
-      {/* 顶部导航栏：logo + 主导航 + 用户 */}
       <header className="wb-topbar">
         <Link href="/" className="wb-logo">AIchem</Link>
-        <nav className="wb-topnav">
-          <Link href="/">{t.nav.home}</Link>
-          <Link href="/submit">{t.me.newReaction}</Link>
-          <Link href="/guide">{t.nav.guide}</Link>
+
+        {/* 桌面文字导航 */}
+        <nav className="wb-topnav" aria-label="主导航">
+          <Link href="/">{t.me.navHome}</Link>
+          <Link href="/submit">{t.me.navNewReaction}</Link>
+          <Link href="/guide">{t.me.navGuide}</Link>
         </nav>
+
+        {/* 手机图标导航 */}
+        <WbMobileTopnav />
 
         {/* 用户信息 */}
         <div className="wb-topbar-user">
@@ -55,11 +60,10 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
           </div>
         </div>
 
-        {/* 手机汉堡 */}
+        {/* 手机抽屉触发 */}
         <WbMobileNav counts={counts} />
       </header>
 
-      {/* 主体：桌面左右分栏，手机单列 */}
       <div className="wb-content">
         <div className="wb-content-inner">
           <Suspense><WorkbenchNav counts={counts} variant="sidebar" /></Suspense>

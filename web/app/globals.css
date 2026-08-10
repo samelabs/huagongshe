@@ -1122,7 +1122,17 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   border-radius: 8px; background: transparent; color: var(--ink);
   display: none; align-items: center; justify-content: center; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
+
+/* 手机图标导航：默认隐藏 */
+.wb-mobnav { display: none; }
+.wb-mobnav-btn {
+  width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent;
+  color: var(--muted); display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.wb-mobnav-btn.active { color: var(--blue); }
 
 /* — 主体 — */
 .wb-content { flex: 1; min-height: 0; overflow-y: auto; }
@@ -1248,10 +1258,13 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 50;
 }
 .wb-drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; width: min(320px, 85vw); z-index: 51;
+  position: fixed; top: 0; right: 0;
+  bottom: calc(50px + env(safe-area-inset-bottom));
+  width: min(320px, 85vw); z-index: 51;
   background: var(--paper); display: flex; flex-direction: column;
   box-shadow: -4px 0 24px rgba(0,0,0,.12);
   animation: wb-drawer-in .2s ease;
+  border-radius: 0 0 0 12px;
 }
 @keyframes wb-drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .wb-drawer-head {
@@ -1286,6 +1299,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
     padding-top: env(safe-area-inset-top);
   }
   .wb-topnav { display: none; }
+  .wb-mobnav { display: flex; gap: 2px; }
   .wb-topbar-info { display: none; }
   .wb-burger { display: flex; }
   .wb-content { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }

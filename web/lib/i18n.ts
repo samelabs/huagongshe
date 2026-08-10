@@ -248,6 +248,9 @@ const t = {
   /* ── 我的工作台 ──────────────────────────────────────── */
   me: {
     title: '我的工作台',
+    navHome: '首页',
+    navNewReaction: '新建反应',
+    navGuide: 'AI指南',
     tabReactions: '我的反应',
     tabSaved: '我的收藏',
     tabActivity: '关注动态',
