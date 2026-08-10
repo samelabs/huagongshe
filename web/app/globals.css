@@ -762,7 +762,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .avatar-upload { align-items: stretch; flex-direction: column; }
   .wb-settings-main { max-width: 100%; width: 100%; }
   .wb-settings-main .form-section { padding: 15px; }
-  .wb-settings-main .form-section-head { grid-template-columns: 1fr; gap: 6px; }
   .admin-table article { grid-template-columns: 1fr auto; }
   .admin-table article > button { grid-column: 2; }
   .auth-panel { padding: 21px; }
@@ -1168,7 +1167,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .wb-main { min-width: 0; max-width: 760px; width: 100%; }
 .wb-settings-main { min-width: 0; max-width: 560px; }
 .wb-settings-main .form-section { width: 100%; border-radius: 8px; }
-.wb-settings-main .form-section-head { grid-template-columns: 80px 1fr; gap: 14px; }
+.wb-settings-main .form-section-head { grid-template-columns: 1fr; gap: 0; }
+.wb-settings-main .form-section-head > span { display: none; }
 .wb-error { color: var(--danger); font-size: var(--text); }
 .wb-auth-required { text-align: center; padding: 48px 0; }
 .wb-auth-required strong { display: block; color: var(--heading); margin-bottom: 6px; }
