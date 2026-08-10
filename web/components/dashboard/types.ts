@@ -1,5 +1,5 @@
 export type LoadState = "loading" | "ready" | "error";
-export type DashboardTab = "mine" | "saved" | "activity" | "followers" | "following" | "settings";
+export type DashboardTab = "mine" | "saved" | "activity" | "followers" | "following" | "profile" | "avatar" | "security" | "api-tokens";
 export type ReactionVisibility = "all" | "public" | "private";
 export type SavedKind = "chemicals" | "reactions";
 

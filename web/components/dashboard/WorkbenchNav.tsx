@@ -17,8 +17,9 @@ export function WorkbenchNav({ counts, activeTab, variant = "sidebar" }: {
   const wrapperClass = variant === "drawer" ? "wb-nav wb-drawer-nav" : "wb-nav";
 
   function isItemActive(id: string, href: string): boolean {
-    if (id === "settings") return pathname.startsWith("/me/settings") || pathname === "/me";
-    if (id === "mine") return currentTab === "mine";
+    if (id.startsWith("/me")) return pathname === href;
+    if (href.startsWith("/me")) return pathname === href;
+    if (id === "mine") return currentTab === "mine" && !pathname.startsWith("/me");
     return currentTab === id;
   }
 

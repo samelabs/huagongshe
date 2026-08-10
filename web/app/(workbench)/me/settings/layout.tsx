@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { SettingsNav } from "@/components/settings/SettingsNav";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import t from "@/lib/i18n";
@@ -21,10 +20,5 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   const user = await getUser(cookieHeader);
   if (!user) redirect("/login?next=/me/settings");
 
-  return (
-    <div className="wb-settings">
-      <SettingsNav />
-      <main className="wb-settings-main">{children}</main>
-    </div>
-  );
+  return <main className="wb-settings-main">{children}</main>;
 }

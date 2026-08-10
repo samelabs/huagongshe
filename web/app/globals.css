@@ -769,10 +769,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .token-secret > div { align-items: stretch; flex-direction: column; }
   .token-list article { align-items: flex-start; gap: 12px; }
   .avatar-upload { align-items: stretch; flex-direction: column; }
-  .wb-settings { grid-template-columns: 1fr; gap: 16px; }
-  .settings-nav { position: static; margin: 0 -14px; padding: 0 14px 7px; display: flex; overflow-x: auto; scrollbar-width: none; }
-  .settings-nav::-webkit-scrollbar { display: none; }
-  .settings-nav-link { flex: 0 0 auto; }
+  .wb-settings-main .form-section { padding: 15px; }
   .admin-table article { grid-template-columns: 1fr auto; }
   .admin-table article > button { grid-column: 2; }
   .auth-panel { padding: 21px; }
@@ -1176,18 +1173,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 
 /* — 右侧内容区 — */
 .wb-main { min-width: 0; max-width: 760px; }
-
-/* — 设置页（/me/settings）— 工作台内分栏 — */
-.wb-settings {
-  display: grid; grid-template-columns: 160px 1fr; gap: 28px; align-items: start;
-  width: 100%; max-width: 760px;
-}
 .wb-settings-main { min-width: 0; }
 .wb-settings-main .form-section { width: 100%; }
-.settings-nav { position: sticky; top: 72px; display: flex; flex-direction: column; gap: 1px; }
-.settings-nav-link { padding: 6px 10px; border-radius: 6px; margin-bottom: 1px; font-size: var(--text); color: var(--muted); }
-.settings-nav-link:hover { background: var(--wash); color: var(--ink); }
-.settings-nav-link.active { background: var(--blue-tint); color: var(--blue-deep); font-weight: var(--section-weight); }
 .wb-error { color: var(--danger); font-size: var(--text); }
 .wb-auth-required { text-align: center; padding: 48px 0; }
 .wb-auth-required strong { display: block; color: var(--heading); margin-bottom: 6px; }

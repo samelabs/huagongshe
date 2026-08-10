@@ -299,6 +299,7 @@ const t = {
       profile: '个人资料',
       avatar: '头像',
       security: '密码安全',
+      tokens: 'API Token',
     },
     ai: {
       title: 'AI助手',
