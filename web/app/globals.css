@@ -1251,13 +1251,12 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .wb-grid > article > footer a { color: var(--blue); }
 
 /* — 收藏化合物列表 — */
-.wb-followed-list { display: grid; gap: 8px; }
+.wb-followed-list { display: flex; flex-direction: column; gap: 1px; }
 .wb-followed-list > a {
   display: flex; align-items: center; gap: 12px;
-  padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px;
-  font-size: var(--text); background: var(--paper);
+  padding: 10px 12px; border-radius: 6px; font-size: var(--text);
 }
-.wb-followed-list > a:hover { border-color: var(--blue-border); background: var(--blue-tint); }
+.wb-followed-list > a:hover { background: var(--wash); }
 .wb-followed-list > a > .entity-id { flex-shrink: 0; padding: 2px 5px; }
 .wb-followed-list > a > .entity-id > span { font-size: var(--text-xs); }
 .wb-followed-list > a > .entity-id > strong { font-size: var(--text-sm); }
@@ -1363,7 +1362,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .dashboard-filters a:hover { color: var(--blue-deep); }
   .profile-count-links a:hover span { color: var(--blue-deep); }
   .wb-person-row:hover { border-color: var(--blue-border); background: var(--blue-tint); }
-  .wb-followed-list > a:hover { border-color: var(--blue-border); background: var(--blue-tint); }
+  .wb-followed-list > a:hover { background: var(--wash); }
   .kdense-card:hover { border-color: var(--blue-border); box-shadow: 0 2px 12px rgba(0,0,0,.05); }
   .kdense-breadcrumb a:hover { text-decoration: underline; }
   .kdense-cat:hover { border-color: var(--blue-border); background: var(--blue-tint); }
