@@ -48,8 +48,19 @@ export function DashboardEmpty({ text, action = false }: { text: string; action?
   );
 }
 
-export function PanelLoading() {
-  return <p className="wb-state">{t.common.loading}</p>;
+/** 骨架占位 — 保持与最终内容相同高度，消除加载抖动 */
+export function PanelLoading({ cards = 3 }: { cards?: number }) {
+  return (
+    <div className="wb-skeleton-grid">
+      {Array.from({ length: cards }, (_, i) => (
+        <div className="wb-skeleton-card" key={i}>
+          <div className="wb-skeleton-card-bar" />
+          <div className="wb-skeleton-card-img" />
+          <div className="wb-skeleton-card-foot" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function PanelError() {
