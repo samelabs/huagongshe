@@ -760,7 +760,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .token-secret > div { align-items: stretch; flex-direction: column; }
   .token-list article { align-items: flex-start; gap: 12px; }
   .avatar-upload { align-items: stretch; flex-direction: column; }
-  .wb-settings-main { max-width: 100%; }
+  .wb-settings-main { max-width: 100%; width: 100%; }
   .wb-settings-main .form-section { padding: 15px; }
   .wb-settings-main .form-section-head { grid-template-columns: 1fr; gap: 6px; }
   .admin-table article { grid-template-columns: 1fr auto; }
@@ -1165,7 +1165,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .wb-nav-link.active em { color: var(--blue); }
 
 /* — 右侧内容区 — */
-.wb-main { min-width: 0; max-width: 760px; }
+.wb-main { min-width: 0; max-width: 760px; width: 100%; }
 .wb-settings-main { min-width: 0; max-width: 560px; }
 .wb-settings-main .form-section { width: 100%; }
 .wb-settings-main .form-section-head { grid-template-columns: 80px 1fr; gap: 14px; }
@@ -1333,7 +1333,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   }
   /* 手机隐藏桌面侧栏 */
   .wb-content-inner > .wb-nav { display: none; }
-  .wb-main { max-width: 100%; }
+  .wb-main { max-width: 100%; width: 100%; }
+  .wb-main > section { width: 100%; }
 }
 
 /* 桌面 ≥681px：隐藏汉堡、隐藏底部 tab */
