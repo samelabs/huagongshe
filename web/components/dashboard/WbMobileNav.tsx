@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { WorkbenchNav } from "./WorkbenchNav";
+import type { Counts } from "./types";
 
-export function WbMobileNav({ children }: { children: React.ReactNode }) {
+export function WbMobileNav({ counts }: { counts?: Counts | null }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -45,7 +46,7 @@ export function WbMobileNav({ children }: { children: React.ReactNode }) {
               </button>
             </div>
             <div className="wb-drawer-body">
-              {children}
+              <WorkbenchNav counts={counts} variant="drawer" />
             </div>
           </aside>
         </>

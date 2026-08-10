@@ -1089,13 +1089,24 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   display: flex; flex-direction: column; min-height: 100dvh;
 }
 
-/* — 顶部 bar — */
+/* — 顶部 bar：logo + 导航 + 用户 — */
 .wb-topbar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 0; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 20px;
+  padding: 0 20px; height: 56px;
+  border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 20; background: var(--paper);
 }
-.wb-topbar-user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.wb-logo {
+  font-size: 18px; font-weight: 800; letter-spacing: -.02em;
+  color: var(--blue-strong); white-space: nowrap;
+}
+.wb-topnav {
+  display: flex; align-items: center; gap: 16px;
+  font-size: var(--text); color: var(--muted); white-space: nowrap;
+}
+.wb-topnav a:hover { color: var(--blue); }
+
+.wb-topbar-user { margin-left: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .wb-topbar-avatar {
   width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -1107,7 +1118,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .wb-topbar-info span { font-size: var(--text-sm); color: var(--quiet); }
 .wb-topbar-actions { margin-left: auto; display: flex; gap: 8px; }
 .wb-burger {
-  margin-left: auto; width: 38px; height: 38px; border: 1px solid var(--line-strong);
+  width: 38px; height: 38px; border: 1px solid var(--line-strong);
   border-radius: 8px; background: transparent; color: var(--ink);
   display: none; align-items: center; justify-content: center; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -1270,14 +1281,13 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
     display: flex; flex-direction: column; overflow: hidden;
   }
   .wb-topbar {
-    flex-shrink: 0; padding: 0 16px; height: calc(56px + env(safe-area-inset-top));
+    flex-shrink: 0; padding: 0 16px;
+    height: calc(56px + env(safe-area-inset-top));
     padding-top: env(safe-area-inset-top);
   }
-  .wb-topbar-actions { display: none; }
+  .wb-topnav { display: none; }
+  .wb-topbar-info { display: none; }
   .wb-burger { display: flex; }
-  .wb-topbar-info strong, .wb-topbar-info span {
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
   .wb-content { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   .wb-content-inner {
     display: flex; flex-direction: column; gap: 0;

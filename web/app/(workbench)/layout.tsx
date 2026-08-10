@@ -30,41 +30,33 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
   if (!user) redirect("/login?next=/aichem");
   const summary = cookieHeader ? await getSummary(cookieHeader) : null;
   const counts = summary?.counts ?? null;
-  const name = summary?.display_name || user.display_name;
-  const username = summary?.username || user.username;
-  const avatar = summary?.avatar_url || user.avatar_url;
 
   return (
     <div className="wb-shell">
-      {/* 顶部 bar：纯个人信息（桌面右侧有操作按钮，手机有汉堡） */}
+      {/* 顶部导航栏：logo + 主导航 + 用户 */}
       <header className="wb-topbar">
+        <Link href="/" className="wb-logo">AIchem</Link>
+        <nav className="wb-topnav">
+          <Link href="/">{t.nav.home}</Link>
+          <Link href="/submit">{t.me.newReaction}</Link>
+          <Link href="/guide">{t.nav.guide}</Link>
+        </nav>
+
+        {/* 用户信息 */}
         <div className="wb-topbar-user">
-          <Link href={`/user/${encodeURIComponent(username)}`} className="wb-topbar-avatar">
-            {avatar
-              ? <img src={avatar} alt="" />
-              : <span>{name.slice(0, 1)}</span>}
+          <Link href={`/user/${encodeURIComponent(user.username)}`} className="wb-topbar-avatar">
+            {(summary?.avatar_url || user.avatar_url)
+              ? <img src={summary?.avatar_url || user.avatar_url || ""} alt="" />
+              : <span>{(summary?.display_name || user.display_name).slice(0, 1)}</span>}
           </Link>
           <div className="wb-topbar-info">
-            <strong>{name}</strong>
-            <span>@{username}</span>
+            <strong>{summary?.display_name || user.display_name}</strong>
+            <span>@{summary?.username || user.username}</span>
           </div>
         </div>
 
-        {/* 桌面操作按钮 */}
-        <div className="wb-topbar-actions">
-          <Link className="wb-btn wb-btn-primary" href="/submit">{t.me.newReaction}</Link>
-          <Link className="wb-btn wb-btn-ghost" href="/me/settings/api-tokens">{t.me.aiAssistant}</Link>
-          <Link className="wb-btn wb-btn-ghost" href="/">{t.nav.home}</Link>
-        </div>
-
         {/* 手机汉堡 */}
-        <WbMobileNav>
-          <Link className="wb-drawer-link wb-btn wb-btn-primary" href="/submit">{t.me.newReaction}</Link>
-          <Link className="wb-drawer-link wb-btn wb-btn-ghost" href="/me/settings/api-tokens">{t.me.aiAssistant}</Link>
-          <Link className="wb-drawer-link wb-btn wb-btn-ghost" href="/">{t.nav.home}</Link>
-          <div className="wb-drawer-divider" />
-          <Suspense><WorkbenchNav counts={counts} variant="drawer" /></Suspense>
-        </WbMobileNav>
+        <WbMobileNav counts={counts} />
       </header>
 
       {/* 主体：桌面左右分栏，手机单列 */}
