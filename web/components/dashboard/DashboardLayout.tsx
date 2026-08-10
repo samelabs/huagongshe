@@ -58,7 +58,15 @@ export function DashboardLayout({ activeTab, page, visibility, savedKind, initia
     if (!user) return;
     const username = user.username;
     let active = true;
-    setContentState("loading");
+    // 只在首次加载或无数据时显示骨架，切 tab 时保留旧数据避免闪烁
+    const hasData = (() => {
+      if (activeTab === "mine") return reactionData.items.length > 0;
+      if (activeTab === "saved" && savedKind === "chemicals") return chemicals.items.length > 0;
+      if (activeTab === "saved") return savedReactions.items.length > 0;
+      if (activeTab === "activity") return notices.items.length > 0;
+      return people.items.length > 0;
+    })();
+    if (!hasData) setContentState("loading");
     async function load() {
       let response: Response;
       if (activeTab === "mine") {

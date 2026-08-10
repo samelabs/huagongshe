@@ -35,23 +35,25 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
   return (
     <div className="wb-shell">
       <header className="wb-topbar">
-        <Link href="/" className="wb-logo">AIchem</Link>
+        <div className="wb-topbar-inner">
+          <Link href="/" className="wb-logo">AIchem</Link>
 
-        <WbTopnav />
+          <WbTopnav />
 
-        <div className="wb-topbar-user">
-          <Link href={`/user/${encodeURIComponent(user.username)}`} className="wb-topbar-avatar">
-            {(summary?.avatar_url || user.avatar_url)
-              ? <img src={summary?.avatar_url || user.avatar_url || ""} alt="" />
-              : <span>{(summary?.display_name || user.display_name).slice(0, 1)}</span>}
-          </Link>
-          <div className="wb-topbar-info">
-            <strong>{summary?.display_name || user.display_name}</strong>
-            <span>@{summary?.username || user.username}</span>
+          <div className="wb-topbar-user">
+            <Link href={`/user/${encodeURIComponent(user.username)}`} className="wb-topbar-avatar">
+              {(summary?.avatar_url || user.avatar_url)
+                ? <img src={summary?.avatar_url || user.avatar_url || ""} alt="" />
+                : <span>{(summary?.display_name || user.display_name).slice(0, 1)}</span>}
+            </Link>
+            <div className="wb-topbar-info">
+              <strong>{summary?.display_name || user.display_name}</strong>
+              <span>@{summary?.username || user.username}</span>
+            </div>
           </div>
-        </div>
 
-        <WbMobileNav counts={counts} />
+          <WbMobileNav counts={counts} />
+        </div>
       </header>
 
       <div className="wb-content">

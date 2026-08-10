@@ -1,7 +1,5 @@
-import type { ReactNode } from "react";
-
 export type LoadState = "loading" | "ready" | "error";
-export type DashboardTab = "mine" | "saved" | "activity" | "followers" | "following";
+export type DashboardTab = "mine" | "saved" | "activity" | "followers" | "following" | "settings";
 export type ReactionVisibility = "all" | "public" | "private";
 export type SavedKind = "chemicals" | "reactions";
 
@@ -69,9 +67,11 @@ export type NoticeResponse = {
   page_size: number;
 };
 
-/* ── Panel 注册接口 ─────────────────────────────────── */
-
-export type PanelSection = "work" | "social" | "settings";
+/* ── Panel 注册接口 ───────────────────────────────────
+ * 加新能力 = 新建 panel 组件 + registry.ts 加一行。
+ * 不改 WorkbenchNav、不改路由、不改 CSS。
+ */
+export type PanelSection = "work" | "social" | "account";
 
 export interface DashboardPanelConfig {
   id: DashboardTab;
