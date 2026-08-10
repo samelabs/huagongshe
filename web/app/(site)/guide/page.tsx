@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function GuidePage() {
   return <div className="content-page guide-page">
-    <header className="guide-hero">
+    <header className="page-head guide-hero">
       <div className="guide-hero-top">
         <p className="page-kicker">GUIDE</p>
         <ShareButton />

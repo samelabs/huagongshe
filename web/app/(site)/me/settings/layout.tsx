@@ -22,7 +22,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   if (!user) redirect("/login?next=/me/settings");
 
   return <div className="content-page settings-page">
-    <header className="settings-head">
+    <header className="page-head">
       <p className="page-kicker">{t.settings.titleKicker}</p>
       <h1>{t.settings.title}</h1>
       <p>{t.settings.subtitle}</p>

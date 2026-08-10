@@ -27,7 +27,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   const editing = typeof query.reaction === "string" && /^\d+$/.test(query.reaction);
   return (
     <>
-      <header className="page-title"><p className="page-kicker">{t.submit.kicker}</p><h1>{editing ? t.submit.editTitle : t.submit.newTitle}</h1><p>{editing ? t.submit.editDesc : t.submit.newDesc}</p><Link className="text-button" href="/guide">{t.submit.guideLink}</Link></header>
+      <header className="page-head"><p className="page-kicker">{t.submit.kicker}</p><h1>{editing ? t.submit.editTitle : t.submit.newTitle}</h1><p>{editing ? t.submit.editDesc : t.submit.newDesc}</p><Link className="text-button" href="/guide">{t.submit.guideLink}</Link></header>
       <Suspense><SubmissionForm /></Suspense>
     </>
   );
