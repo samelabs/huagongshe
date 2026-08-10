@@ -575,8 +575,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .token-secret > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .token-connection { width: 100%; min-height: 190px; border: 1px solid var(--warning-border); border-radius: 6px; padding: 11px; resize: vertical; color: var(--ink); background: white; font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.65; }
 .token-secret > span { color: var(--muted); font-size: var(--text-xs); }
-.token-list { margin-top: 18px; border-top: 1px solid var(--line); }
-.token-list article { border-bottom: 1px solid var(--line); padding: 11px 0; display: flex; align-items: center; justify-content: space-between; }
+.wb-settings-main .token-list { margin-top: 18px; display: grid; gap: 8px; }
+.wb-settings-main .token-list article { border: 1px solid var(--line); border-radius: 8px; padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; background: var(--paper); }
 .token-list article > div { min-width: 0; display: grid; gap: 4px; }
 .token-list strong { overflow-wrap: anywhere; }
 .token-list span { color: var(--quiet); font-size: var(--text-xs); }
@@ -1167,7 +1167,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 /* — 右侧内容区 — */
 .wb-main { min-width: 0; max-width: 760px; width: 100%; }
 .wb-settings-main { min-width: 0; max-width: 560px; }
-.wb-settings-main .form-section { width: 100%; }
+.wb-settings-main .form-section { width: 100%; border-radius: 8px; }
 .wb-settings-main .form-section-head { grid-template-columns: 80px 1fr; gap: 14px; }
 .wb-error { color: var(--danger); font-size: var(--text); }
 .wb-auth-required { text-align: center; padding: 48px 0; }
