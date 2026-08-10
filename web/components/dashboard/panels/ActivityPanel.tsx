@@ -14,7 +14,7 @@ export function ActivityPanel({ notices, state, page }: {
   return (
     <section>
       <PanelHeading title={t.me.tabActivity} subtitle={t.me.activityHint} />
-      {state === "loading" && <PanelLoading />}
+      {state === "loading" && <PanelLoading variant="list" />}
       {state === "error" && <PanelError />}
       {state === "ready" && (notices.items.length
         ? <div className="wb-notice-list">

@@ -16,7 +16,7 @@ export function RelationshipsPanel({ data, state, kind, page, onFollowChange }: 
   return (
     <section>
       <PanelHeading title={title} subtitle={kind === "followers" ? t.me.followersHint : t.me.followingHint} count={state === "ready" ? data.total : "—"} unit={t.me.unitPerson} />
-      {state === "loading" && <PanelLoading />}
+      {state === "loading" && <PanelLoading variant="list" />}
       {state === "error" && <PanelError />}
       {state === "ready" && (
         <PersonList items={data.items} empty={kind === "followers" ? t.me.emptyFollowers : t.me.emptyFollowing} kind={kind} onFollowChange={onFollowChange} />

@@ -1205,6 +1205,13 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .wb-skeleton-card-bar { height: 28px; border-bottom: 1px solid var(--line); }
 .wb-skeleton-card-img { height: 120px; background: var(--wash); animation: wb-pulse 1.4s ease-in-out infinite; }
 .wb-skeleton-card-foot { height: 28px; border-top: 1px solid var(--line); }
+.wb-skeleton-list { border-top: 1px solid var(--line); }
+.wb-skeleton-row {
+  display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: center;
+  padding: 12px 4px; border-bottom: 1px solid var(--line);
+}
+.wb-skeleton-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--wash); animation: wb-pulse 1.4s ease-in-out infinite; }
+.wb-skeleton-line { height: 14px; border-radius: 4px; background: var(--wash); animation: wb-pulse 1.4s ease-in-out infinite; }
 @keyframes wb-pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* — 空状态 — */

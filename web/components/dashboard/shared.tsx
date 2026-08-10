@@ -48,11 +48,23 @@ export function DashboardEmpty({ text, action = false }: { text: string; action?
   );
 }
 
-/** 骨架占位 — 保持与最终内容相同高度，消除加载抖动 */
-export function PanelLoading({ cards = 3 }: { cards?: number }) {
+/** 骨架占位 — variant 匹配最终内容形态，消除加载抖动和宽度跳变 */
+export function PanelLoading({ variant = "grid", rows = 4 }: { variant?: "grid" | "list"; rows?: number }) {
+  if (variant === "list") {
+    return (
+      <div className="wb-skeleton-list">
+        {Array.from({ length: rows }, (_, i) => (
+          <div className="wb-skeleton-row" key={i}>
+            <div className="wb-skeleton-avatar" />
+            <div className="wb-skeleton-line" />
+          </div>
+        ))}
+      </div>
+    );
+  }
   return (
     <div className="wb-skeleton-grid">
-      {Array.from({ length: cards }, (_, i) => (
+      {Array.from({ length: rows }, (_, i) => (
         <div className="wb-skeleton-card" key={i}>
           <div className="wb-skeleton-card-bar" />
           <div className="wb-skeleton-card-img" />

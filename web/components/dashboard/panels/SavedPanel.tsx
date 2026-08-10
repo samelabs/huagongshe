@@ -21,7 +21,7 @@ export function SavedPanel({ chemicals, reactions, state, kind, page }: {
         <Link href="/aichem?tab=saved" className={kind === "chemicals" ? "active" : ""}>{t.search.chemicalResults}</Link>
         <Link href="/aichem?tab=saved&kind=reactions" className={kind === "reactions" ? "active" : ""}>{t.search.reactionResults}</Link>
       </nav>
-      {state === "loading" && <PanelLoading />}
+      {state === "loading" && <PanelLoading variant={kind === "chemicals" ? "list" : "grid"} />}
       {state === "error" && <PanelError />}
       {state === "ready" && kind === "chemicals" && (chemicals.items.length
         ? <div className="wb-followed-list">
