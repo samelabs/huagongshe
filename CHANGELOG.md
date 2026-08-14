@@ -3,6 +3,19 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [1.2.1] — 2026-08-14
+
+- 修复 rate_limit 伪造 Bearer token 无限绕过：有效 token 按所属用户独立预算，无效/伪造/DB 故障回落 IP 预算
+- 反应编辑路径补 moderation_status 守卫，隐藏反应不再计入补偿统计，与 admin/delete 语义对齐
+- public_profile 仅本人返回 email；新增 DELETE /users/me/avatar 镜像清理 512 原图与 -128 变体
+- 工作台重组为注册表模式（components/workbench）+ 跨端共享组件（components/shared）
+- aichem 面板样式自包含（aichem-tokens.css + aichem.css，--wb-* token 零依赖 globals）
+- 工作台面板手机端满宽修复；设置页卡片圆角收口、kicker 占位隐藏；用户列表卡片化
+- 修复 --success-bg 自引用（恢复 #ecfdf5 并补 --success-border）；--text-base 未定义引用归位；硬编码字号归 4 级 token
+- SearchPanel / AccountForm 竞态守卫，过期响应丢弃；ReactionList 计数改用 SSR 权威 reactionTotal
+- i18n 收口约 30 处硬编码文案；FollowButton label 语义化（follow/favor）
+- 工作台顶栏头像对齐 -128 变体
+
 ## [1.2.0] — 2026-08-03
 
 - SSR 用户态：layout 通过 headers() 读取 cookie，SSR 阶段获取用户信息，消除头像布局抖动
