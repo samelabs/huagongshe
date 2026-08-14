@@ -47,7 +47,7 @@ def chemical_core_values(
             if cid_val > 0:
                 pubchem_cid = cid_val
         except (TypeError, ValueError):
-            pass
+            pass  # CID 解析失败则忽略，保持 None
     return {
         "preferred_name": text_or_none(
             properties.get("Title") or record_title, max_length=1000

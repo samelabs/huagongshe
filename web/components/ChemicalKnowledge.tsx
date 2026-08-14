@@ -69,7 +69,7 @@ function EvidenceSection({ eyebrow, title, block }: { eyebrow: string; title: st
   if (!entries.length) return null;
   return (
     <section className="evidence-section">
-      <div className="section-heading compact-heading"><div><p>{eyebrow}</p><h2>{title}</h2></div><span>{t.chemical.knowledge.source}</span></div>
+      <div className="section-heading compact-heading"><div><p>{eyebrow}</p><h2>{title}</h2></div></div>
       <div className="evidence-list">{entries.map(([path, values], index) => (
         <details key={`${path}-${index}`} open={index < 3}>
           <summary>{leafLabel(path)}</summary>

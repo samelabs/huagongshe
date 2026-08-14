@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SamelabsNav } from "@/components/SamelabsNav";
+import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type UserRow = { id: number; username: string; display_name: string; email: string; role: string; status: "active" | "disabled"; created_at: string; last_login_at: string | null };
@@ -11,39 +12,42 @@ export function SamelabsUsers() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  async function load() {
-    const res = await fetch("/api/admin/users?limit=100", { cache: "no-store" });
-    if (res.status === 401 || res.status === 403) { setError(t.admin.noPermission); return; }
-    if (res.ok) setUsers(await res.json());
+  async function reload() {
+    try {
+      const data = await apiGet<UserRow[]>(`/admin/users?limit=100`);
+      setUsers(data);
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
+    }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let active = true;
+    apiGet<UserRow[]>(`/admin/users?limit=100`).then((data) => {
+      if (active) setUsers(data);
+    }).catch((err) => {
+      if (!active) return;
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setError(t.admin.noPermission);
+    });
+    return () => { active = false; };
+  }, []);
 
   async function toggle(id: number, status: "active" | "disabled") {
     setError(""); setBusyId(id);
     try {
-      const res = await fetch(`/api/admin/users/${id}/status`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: status === "active" ? "disabled" : "active" }),
-      });
-      if (!res.ok) throw new Error();
-      await load();
+      await apiPatch(`/admin/users/${id}/status`, JSON.stringify({ status: status === "active" ? "disabled" : "active" }));
+      await reload();
     } catch { setError(t.admin.errOperation); } finally { setBusyId(null); }
   }
 
   async function toggleRole(id: number, role: string) {
     setError(""); setBusyId(id);
     try {
-      const res = await fetch(`/api/admin/users/${id}/role`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: role === "admin" ? "member" : "admin" }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        setError(err?.detail || t.admin.errOperation); return;
-      }
-      await load();
-    } catch { setError(t.admin.errOperation); } finally { setBusyId(null); }
+      await apiPatch(`/admin/users/${id}/role`, JSON.stringify({ role: role === "admin" ? "member" : "admin" }));
+      await reload();
+    } catch {
+      setError(t.admin.errOperation);
+    } finally { setBusyId(null); }
   }
 
   if (error && users.length === 0) return <div className="notice error">{error}</div>;

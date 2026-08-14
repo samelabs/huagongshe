@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { EntityId } from "@/components/EntityId";
+import { EntityId } from "@/components/shared/EntityId";
 import { reactionSvgUrl, type ReactionLookup, type ReactionSummary } from "@/lib/api";
 import t from "@/lib/i18n";
 

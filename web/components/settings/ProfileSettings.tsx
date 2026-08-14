@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount } from "@/components/AccountContext";
+import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
+import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type Profile = {
@@ -30,9 +31,9 @@ export function ProfileSettings() {
 
   useEffect(() => {
     if (!user) return;
-    fetch(`/api/users/${encodeURIComponent(user.username)}`, { cache: "no-store" }).then(async (response) => {
-      if (!response.ok) return;
-      const value = await response.json();
+    let active = true;
+    apiGet<Record<string, string>>(`/users/${encodeURIComponent(user.username)}`).then((value) => {
+      if (!active) return;
       setProfile({
         display_name: value.display_name || "",
         bio: value.bio || "",
@@ -43,7 +44,8 @@ export function ProfileSettings() {
         website: value.website || "",
         orcid: value.orcid || "",
       });
-    });
+    }).catch(() => {});
+    return () => { active = false; };
   }, [user]);
 
   if (!ready) return <p className="context-loading">{t.common.loadingAccount}</p>;
@@ -61,19 +63,16 @@ export function ProfileSettings() {
       if (busy) return;
       setBusy(true); setMessage("");
       try {
-        const response = await fetch("/api/users/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(profile) });
-        if (!response.ok) {
-          const body = await response.json().catch(() => null);
-          setMessageKind("bad"); setMessage(body?.detail || t.settings.profile.saveFailed);
-          return;
-        }
+        await apiPatch(`/users/me`, JSON.stringify(profile));
         await refresh();
         setMessageKind("ok"); setMessage(t.settings.profile.saved);
-      } catch {
-        setMessageKind("bad"); setMessage(t.common.networkError);
+      } catch (err) {
+        setMessageKind("bad");
+        setMessage(err instanceof ApiError && err.status === 400 ? t.settings.profile.saveFailed : t.common.networkError);
       } finally { setBusy(false); }
     }}>
       <label>{t.settings.profile.username}<span className="field-hint">@{user.username}（{t.settings.profile.usernameHint}）</span></label>
+      <a className="settings-preview-link" href={`/user/${encodeURIComponent(user.username)}`} target="_blank" rel="noopener noreferrer">{t.settings.profile.previewProfile}</a>
 
       <div className="form-fields two-columns">
         <label>{t.settings.profile.displayName}<input value={profile.display_name} onChange={(e) => update("display_name", e.target.value)} maxLength={80} required /></label>

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { AccountProvider } from "@/components/AccountContext";
+import { AccountProvider } from "@/components/shared/AccountContext";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import "./globals.css";

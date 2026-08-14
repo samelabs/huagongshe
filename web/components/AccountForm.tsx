@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount } from "@/components/AccountContext";
+import { useAccount } from "@/components/shared/AccountContext";
 import t from "@/lib/i18n";
 
 export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
@@ -14,21 +14,27 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
 
   // 用户名实时校验
   const [username, setUsername] = useState("");
+  const latestCheck = useRef(0);
   const [usernameCheck, setUsernameCheck] = useState<{ status: "idle" | "checking" | "ok" | "taken" | "invalid"; msg: string }>({ status: "idle", msg: "" });
 
   const checkUsername = useCallback(async (value: string) => {
     const v = value.trim();
     if (v.length < 4) { setUsernameCheck({ status: "idle", msg: "" }); return; }
-    setUsernameCheck({ status: "checking", msg: "检查中…" });
+    const requestId = ++latestCheck.current;
+    setUsernameCheck({ status: "checking", msg: t.auth.checking });
     try {
       const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(v)}`);
       const data = await res.json();
+      // A slower earlier probe must not overwrite the verdict for the
+      // username currently typed.
+      if (requestId !== latestCheck.current) return;
       if (!data.available) {
-        setUsernameCheck({ status: data.reason === "用户名已被使用" ? "taken" : "invalid", msg: data.reason || "不可用" });
+        setUsernameCheck({ status: data.reason === t.auth.usernameTaken ? "taken" : "invalid", msg: data.reason || t.auth.usernameUnavailable });
       } else {
-        setUsernameCheck({ status: "ok", msg: "可用的用户名" });
+        setUsernameCheck({ status: "ok", msg: t.auth.usernameAvailable });
       }
     } catch {
+      if (requestId !== latestCheck.current) return;
       setUsernameCheck({ status: "idle", msg: "" });
     }
   }, []);
@@ -57,10 +63,10 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
           setMessage(t.auth.weakPassword); setBusy(false); return;
         }
         if (kind === "register" && usernameCheck.status === "taken") {
-          setMessage("用户名已被使用"); setBusy(false); return;
+          setMessage(t.auth.usernameTaken); setBusy(false); return;
         }
         if (kind === "register" && usernameCheck.status === "invalid") {
-          setMessage(usernameCheck.msg || "用户名不可用"); setBusy(false); return;
+          setMessage(usernameCheck.msg || t.auth.usernameUnavailable); setBusy(false); return;
         }
         const payload = kind === "login"
           ? { account: values.get("account"), password: values.get("password") }
@@ -88,7 +94,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
                 name="username"
                 required minLength={4} maxLength={30}
                 pattern="[a-z0-9_]{4,30}"
-                title="4–30 位小写字母、数字或下划线"
+                title={t.auth.usernameRule}
                 autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -96,7 +102,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
               />
             </label>
             <p className={`field-hint ${usernameCheck.status === "ok" ? "good" : usernameCheck.status === "taken" || usernameCheck.status === "invalid" ? "bad" : ""}`}>
-              {usernameCheck.msg || "4–30 位小写字母、数字或下划线"}
+              {usernameCheck.msg || t.auth.usernameRule}
             </p>
             <label>{t.auth.email}<input name="email" type="email" required autoComplete="email" /></label>
           </>

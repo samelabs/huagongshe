@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
-import { SubmissionForm } from "@/components/SubmissionForm";
+import { SubmissionForm } from "@/components/workbench/SubmissionForm";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import t from "@/lib/i18n";

@@ -67,7 +67,7 @@ async def public_api_rate_limit(request, call_next):
     limit = settings.api_render_limit_per_minute if is_render else settings.api_query_limit_per_minute
     try:
         remaining, reset, allowed = await consume(
-            bucket, request_identity(request), limit, 60
+            bucket, await request_identity(request), limit, 60
         )
     except Exception:
         return await call_next(request)

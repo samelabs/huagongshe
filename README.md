@@ -72,9 +72,8 @@
 - `api/social.py`：三类关注与通知；
 - `api/admin.py`：账号和可见度治理；
 - `api/workapi.py`：PubChem worker 维护接口；
-- `web/`：Next.js 用户界面；
-- `migrations/`：可审计数据库迁移；
-- `archive/`：已经结束的一次性数据迁移程序，不参与线上运行。
+- `web/`：Next.js 用户界面。产品对象只有化合物与反应；PubChem、DSSTox、ORD 和 RDKit 均是数据来源或能力，不作为前端并列产品域。主色化工社蓝 `#1677ff`，字体使用系统无衬线栈，不引入外部字体下载。前端不直连数据库；
+- `migrations/`：可审计数据库迁移。
 
 ## 线上运行
 

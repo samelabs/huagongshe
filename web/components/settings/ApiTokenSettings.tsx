@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useAccount } from "@/components/AccountContext";
+import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type Token = { id: number; name: string; token_prefix: string; created_at: string; expires_at: string | null; last_used_at: string | null; revoked_at: string | null };
@@ -20,9 +21,8 @@ export function ApiTokenSettings() {
 
   async function loadTokens() {
     try {
-      const response = await fetch("/api/users/me/tokens", { cache: "no-store" });
-      if (!response.ok) throw new Error();
-      setTokens(await response.json());
+      const data = await apiGet<Token[]>(`/users/me/tokens`);
+      setTokens(data);
     } catch {
       setMessage(t.settings.ai.loadFailed);
     }
@@ -37,7 +37,14 @@ export function ApiTokenSettings() {
       setMessage(t.settings.ai.copyFailed);
     }
   }
-  useEffect(() => { if (user) void loadTokens(); }, [user]);
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    apiGet<Token[]>(`/users/me/tokens`).then((data) => {
+      if (active) setTokens(data);
+    }).catch(() => { if (active) setMessage(t.settings.ai.loadFailed); });
+    return () => { active = false; };
+  }, [user]);
 
   if (!ready) return <p className="context-loading">{t.common.loadingAccount}</p>;
   if (!user) return <LoginRequired text={t.settings.ai.loginHint} />;
@@ -54,10 +61,12 @@ export function ApiTokenSettings() {
       setCreating(true);
       try {
         const values = new FormData(form);
-        const response = await fetch("/api/users/me/tokens", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: values.get("name"), expires_in_days: Number(values.get("days")) || null }) });
-        const body = await response.json().catch(() => null);
-        if (!response.ok || !body?.token || !body?.agent_connection_text) {
-          setMessage(apiError(body?.detail, t.settings.ai.createFailed));
+        const body = await apiPost<{ token?: string; agent_connection_text?: string; detail?: unknown }>(
+          `/users/me/tokens`,
+          JSON.stringify({ name: values.get("name"), expires_in_days: Number(values.get("days")) || null })
+        );
+        if (!body?.token || !body?.agent_connection_text) {
+          setMessage(t.settings.ai.createFailed);
           return;
         }
         setCreatedToken({ agent_connection_text: body.agent_connection_text });
@@ -80,8 +89,7 @@ export function ApiTokenSettings() {
       return <article key={token.id}><div><strong>{token.name}</strong><span>{token.token_prefix}… · {status}</span><small>{token.last_used_at ? t.settings.ai.lastUsed(new Date(token.last_used_at).toLocaleString("zh-CN")) : t.settings.ai.neverUsed} · {expires}</small></div>{!token.revoked_at && !expired && <button type="button" className="text-button" disabled={revokingId !== null} onClick={async () => {
         setRevokingId(token.id); setMessage("");
         try {
-          const response = await fetch(`/api/users/me/tokens/${token.id}`, { method: "DELETE" });
-          if (!response.ok) throw new Error();
+          await apiDelete(`/users/me/tokens/${token.id}`);
           await loadTokens();
         } catch { setMessage(t.settings.ai.revokeFailed); }
         finally { setRevokingId(null); }
@@ -91,8 +99,3 @@ export function ApiTokenSettings() {
   </section>;
 }
 
-function apiError(detail: unknown, fallback: string) {
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail.map((item) => item?.msg).filter(Boolean).join("；") || fallback;
-  return fallback;
-}

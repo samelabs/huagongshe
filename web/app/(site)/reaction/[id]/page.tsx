@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { EntityId } from "@/components/EntityId";
-import { FollowButton } from "@/components/FollowButton";
+import { EntityId } from "@/components/shared/EntityId";
+import { FollowButton } from "@/components/shared/FollowButton";
 import { Molecule } from "@/components/Molecule";
 import { ReactionOwnerActions } from "@/components/ReactionOwnerActions";
 import { apiGet, isApiNotFound, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
@@ -11,7 +11,7 @@ import t from "@/lib/i18n";
 
 const roleNames: Record<string, string> = {
   REACTANT: t.submit.roles.reactant, REAGENT: t.submit.roles.reagent, CATALYST: t.submit.roles.catalyst, SOLVENT: t.submit.roles.solvent,
-  PRODUCT: t.submit.roles.product, WORKUP: t.reaction.workup, INTERNAL_STANDARD: "内标", UNKNOWN: "其他",
+  PRODUCT: t.submit.roles.product, WORKUP: t.reaction.workup, INTERNAL_STANDARD: t.reaction.internalStandard, UNKNOWN: t.reaction.otherRole,
 };
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -38,13 +38,13 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
     reaction.atmosphere ? [t.reaction.conditionFields.atmosphere, reaction.atmosphere] : null,
     reaction.pressure ? [t.reaction.conditionFields.pressure, `${reaction.pressure.value} ${reaction.pressure.unit}`] : null,
     reaction.ph != null ? ["pH", String(reaction.ph)] : null,
-    reaction.reflux ? [t.reaction.conditionFields.reflux, "是"] : null,
+    reaction.reflux ? [t.reaction.conditionFields.reflux, t.common.yes] : null,
   ].filter(Boolean) as string[][];
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ChemicalReaction",
-    name: `反应 HRID ${reaction.id}`,
+    name: t.reaction.jsonLdName(reaction.id),
     url: `https://huagongshe.com/reaction/${reaction.id}`,
     ...(reaction.reaction_smiles ? { reactionSmiles: reaction.reaction_smiles } : {}),
     ...(reaction.doi ? { citation: { "@type": "CreativeWork", identifier: reaction.doi } } : {}),
@@ -61,14 +61,14 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
           <EntityId kind="reaction" id={reaction.id} />
           <h1>{t.reaction.detail}</h1>
         </div>
-        {reaction.is_owner ? <ReactionOwnerActions reactionId={reaction.id} /> : <FollowButton endpoint={`/api/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label={t.reaction.favor} />}
+        {reaction.is_owner ? <ReactionOwnerActions reactionId={reaction.id} /> : <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" />}
       </header>
 
       <section className="reaction-equation" aria-labelledby="equation-title">
         <div className="section-heading compact-heading"><div><p>EQUATION</p><h2 id="equation-title">{t.reaction.equation}</h2></div></div>
         {reaction.reaction_smiles ? <div className="reaction-scheme">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={reactionSvgUrl(reaction.id, 1500, 340)} width="1500" height="340" alt={`HRID ${reaction.id} 反应方程式`} />
+          <img src={reactionSvgUrl(reaction.id, 1500, 340)} width="1500" height="340" alt={t.reaction.equationAlt(reaction.id)} />
         </div> : <div className="reaction-scheme unavailable">{t.reaction.equationUnavailable}</div>}
       </section>
 
@@ -98,7 +98,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
               <div className="section-heading compact-heading"><div><p>WORKUP</p><h2>{t.reaction.workup}</h2></div></div>
               {reaction.workup_details && <p className="document-text">{reaction.workup_details}</p>}
               {reaction.workup.length > 0 && <ol className="workup-list">{reaction.workup.map((step, index) => (
-                <li key={index}><strong>{step.type ? unitName(step.type) : `步骤 ${index + 1}`}</strong><span>{[step.details, step.keep_phase ? `保留 ${step.keep_phase}` : null, step.target_ph != null ? `目标 pH ${step.target_ph}` : null].filter(Boolean).join(" · ") || t.reaction.errProcedure}</span></li>
+                <li key={index}><strong>{step.type ? unitName(step.type) : t.reaction.stepLabel(index + 1)}</strong><span>{[step.details, step.keep_phase ? t.reaction.keepPhase(step.keep_phase) : null, step.target_ph != null ? t.reaction.targetPh(step.target_ph) : null].filter(Boolean).join(" · ") || t.reaction.errProcedure}</span></li>
               ))}</ol>}
             </section>
           )}

@@ -2,14 +2,17 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { WorkbenchNav } from "@/components/dashboard/WorkbenchNav";
-import { WbMobileNav } from "@/components/dashboard/WbMobileNav";
-import { WbTopnav } from "@/components/dashboard/WbTopnav";
-import { MobileTabBar } from "@/components/MobileTabBar";
+import { WorkbenchNav } from "@/components/workbench/WorkbenchNav";
+import { WbMobileNav } from "@/components/workbench/WbMobileNav";
+import { WbTopnav } from "@/components/workbench/WbTopnav";
+import { WorkbenchCountsProvider } from "@/components/workbench/WorkbenchCountsContext";
+import { MobileTabBar } from "@/components/shared/MobileTabBar";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
-import type { Summary } from "@/components/dashboard/types";
+import type { Summary } from "@/components/workbench/types";
 import t from "@/lib/i18n";
+import "./aichem-tokens.css";
+import "./aichem.css";
 
 async function getUser(cookieHeader: string | null): Promise<User | null> {
   try {
@@ -43,7 +46,7 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
           <div className="wb-topbar-user">
             <Link href={`/user/${encodeURIComponent(user.username)}`} className="wb-topbar-avatar">
               {(summary?.avatar_url || user.avatar_url)
-                ? <img src={summary?.avatar_url || user.avatar_url || ""} alt="" />
+                ? <img src={(summary?.avatar_url || user.avatar_url || "").replace(".webp", "-128.webp")} alt="" />
                 : <span>{(summary?.display_name || user.display_name).slice(0, 1)}</span>}
             </Link>
             <div className="wb-topbar-info">
@@ -52,16 +55,23 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
             </div>
           </div>
 
-          <WbMobileNav counts={counts} />
+          <WbMobileNav
+            counts={counts}
+            username={summary?.username || user.username}
+            displayName={summary?.display_name || user.display_name}
+            avatarUrl={summary?.avatar_url || user.avatar_url}
+          />
         </div>
       </header>
 
-      <div className="wb-content">
-        <div className="wb-content-inner">
-          <Suspense><WorkbenchNav counts={counts} variant="sidebar" /></Suspense>
+      <WorkbenchCountsProvider counts={counts}>
+        <div className="wb-body">
+          <aside className="wb-aside">
+            <Suspense><WorkbenchNav counts={counts} variant="sidebar" /></Suspense>
+          </aside>
           <main className="wb-main">{children}</main>
         </div>
-      </div>
+      </WorkbenchCountsProvider>
 
       <MobileTabBar />
     </div>

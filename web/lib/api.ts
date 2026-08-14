@@ -1,4 +1,6 @@
 const SERVER_API = process.env.API_BASE || process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000/api";
+const CLIENT_API = "/api";
+const BASE = typeof window !== "undefined" ? CLIENT_API : SERVER_API;
 
 export class ApiError extends Error {
   constructor(public status: number, path: string) {
@@ -12,12 +14,55 @@ export function isApiNotFound(error: unknown): error is ApiError {
 }
 
 export async function apiGet<T>(path: string, headers?: HeadersInit): Promise<T> {
-  const response = await fetch(`${SERVER_API}${path}`, {
+  const response = await fetch(`${BASE}${path}`, {
     headers,
     cache: "no-store",
   });
   if (!response.ok) throw new ApiError(response.status, path);
   return response.json() as Promise<T>;
+}
+
+export async function apiPost<T>(path: string, body?: BodyInit, headers?: HeadersInit): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: body instanceof FormData ? headers : { "Content-Type": "application/json", ...headers },
+    body,
+    cache: "no-store",
+  });
+  if (!response.ok) throw new ApiError(response.status, path);
+  return response.status === 204 ? undefined as T : await response.json() as T;
+}
+
+export async function apiPatch<T>(path: string, body?: BodyInit, headers?: HeadersInit): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: "PATCH",
+    headers: body instanceof FormData ? headers : { "Content-Type": "application/json", ...headers },
+    body,
+    cache: "no-store",
+  });
+  if (!response.ok) throw new ApiError(response.status, path);
+  return response.status === 204 ? undefined as T : await response.json() as T;
+}
+
+export async function apiDelete<T>(path: string, headers?: HeadersInit): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: "DELETE",
+    headers,
+    cache: "no-store",
+  });
+  if (!response.ok) throw new ApiError(response.status, path);
+  return response.status === 204 ? undefined as T : await response.json() as T;
+}
+
+export async function apiPut<T>(path: string, body?: BodyInit, headers?: HeadersInit): Promise<T> {
+  const response = await fetch(`${BASE}${path}`, {
+    method: "PUT",
+    headers: body instanceof FormData ? headers : { "Content-Type": "application/json", ...headers },
+    body,
+    cache: "no-store",
+  });
+  if (!response.ok) throw new ApiError(response.status, path);
+  return response.status === 204 ? undefined as T : await response.json() as T;
 }
 
 export function molSvgUrl(chemicalId: number, width = 260, height = 180) {

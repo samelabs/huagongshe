@@ -1,0 +1,126 @@
+/* ═══════════════════════════════════════════════════════════════
+   aichem-tokens.css — AI化学工作台 设计 Token
+   ═══════════════════════════════════════════════════════════════
+   设计原则：
+   - Operate surface — 操作效率优先，非营销页
+   - 8px 网格系统 — 所有间距是 4 的倍数
+   - 字号 6 级阶梯 — 严格递减，层级靠字号+字重双维度区分
+   - 零外部依赖 — 不引用 globals.css 的任何变量
+   ═══════════════════════════════════════════════════════════════ */
+
+:where(.wb-shell) {
+
+  /* ═══ 色阶 ════════════════════════════════════════════════════ */
+
+  /* 品牌 · Dodger Blue */
+  --wb-blue:        #1e90ff;
+  --wb-blue-deep:   #1577e0;
+  --wb-blue-strong: #0f5fba;
+  --wb-blue-pale:   #e8f2ff;
+  --wb-blue-tint:   #f5f9ff;
+  --wb-blue-border: #b8dbff;
+
+  /* 中性 · 墨蓝灰 */
+  --wb-ink:         #1a2b3c;
+  --wb-heading:     #243b53;
+  --wb-muted:       #5e7d99;
+  --wb-quiet:       #829ab1;
+  --wb-faint:       #a8b8c8;
+  --wb-line:        #dfe5ee;
+  --wb-line-strong: #cbd4e2;
+  --wb-wash:        #f6f8fb;
+  --wb-paper:       #fff;
+
+  /* 反应色（实体标识） */
+  --wb-reaction:      #6b8aab;
+  --wb-reaction-ink:  #3d5878;
+  --wb-reaction-bg:   #eef2f6;
+
+  /* 语义色 */
+  --wb-danger:        #c0392b;
+  --wb-success:       #1a7a4c;
+  --wb-warning:       #d48806;
+  --wb-warning-border:#f5d98a;
+
+  /* 交互反馈 */
+  --wb-glow:   rgba(30, 144, 255, .10);
+  --wb-hover:  rgba(0, 0, 0, .02);
+  --wb-active: rgba(0, 0, 0, .04);
+  --wb-overlay:rgba(0, 0, 0, .40);
+
+  /* ═══ 字体族 ══════════════════════════════════════════════════ */
+  --wb-font-ui: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --wb-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* ═══ 字号阶梯 — 6 级，严格递减 ══════════════════════════════ */
+  /*
+     用法对照表：
+     --wb-fs-xl  (18px) → 首页问候语（唯一的大字）
+     --wb-fs-lg  (15px) → 面板标题 / 抽屉标题
+     --wb-fs     (14px) → 正文 / 菜单项 / 分类标题（同号不同粗）
+     --wb-fs-sm  (12px) → 副标题 / badge / 元数据
+     --wb-fs-xs  (11px) → HRID / 时间戳 / 微标签
+     --wb-fs-stat(24px) → 统计数字（首页统计卡片）
+  */
+  --wb-fs-xl:   18px;
+  --wb-fs-lg:   15px;
+  --wb-fs:      14px;
+  --wb-fs-sm:   12px;
+  --wb-fs-xs:   11px;
+  --wb-fs-stat: 24px;
+
+  /* iOS 输入框防缩放 */
+  --wb-fs-input: 16px;
+
+  /* ═══ 字重 ════════════════════════════════════════════════════ */
+  --wb-w-regular:  400;
+  --wb-w-medium:   500;
+  --wb-w-semibold: 600;
+  --wb-w-bold:     700;
+
+  /* ═══ 间距阶梯 — 8px 网格，4px 微调 ═══════════════════════════ */
+  /*
+     --wb-sp-1  (4px)  → 微间距（badge padding, 图标间距）
+     --wb-sp-2  (8px)  → 小间距（列表项间距, 搜索框内间距）
+     --wb-sp-3  (12px) → 标准间距（卡片内边距, nav-link padding-x）
+     --wb-sp-4  (16px) → section 间距, 面板内 gap
+     --wb-sp-5  (20px) → 内容区内边距, form-section padding
+     --wb-sp-6  (24px) → 空状态 padding
+     --wb-sp-7  (32px) → 大间距（空状态 padding, section 分隔）
+     --wb-sp-8  (40px) → section 分隔
+     --wb-sp-9  (48px) → 鉴权提示 padding
+  */
+  --wb-sp-1: 4px;
+  --wb-sp-2: 8px;
+  --wb-sp-3: 12px;
+  --wb-sp-4: 16px;
+  --wb-sp-5: 20px;
+  --wb-sp-6: 24px;
+  --wb-sp-7: 32px;
+  --wb-sp-8: 40px;
+  --wb-sp-9: 48px;
+
+  /* ═══ 尺寸 ════════════════════════════════════════════════════ */
+  --wb-sidebar:    200px;
+  --wb-topbar-h:   56px;
+  --wb-tabbar-h:   50px;
+  --wb-btn-h:      38px;
+  --wb-avatar-sm:  36px;
+  --wb-avatar-md:  40px;
+  --wb-content-max: 760px;
+
+  /* ═══ 圆角阶梯 ════════════════════════════════════════════════ */
+  --wb-r-xs:   3px;    /* entity-id */
+  --wb-r-sm:   6px;    /* 按钮, 输入框, 筛选条 */
+  --wb-r-md:   8px;    /* 卡片, 面板 */
+  --wb-r-lg:   10px;   /* 统计卡片 */
+  --wb-r-pill: 999px;  /* follow-button, badge */
+
+  /* ═══ 动画 ════════════════════════════════════════════════════ */
+  --wb-transition: .15s ease;
+
+  /* ═══ 行高 ════════════════════════════════════════════════════ */
+  --wb-lh-tight:   1.2;
+  --wb-lh-normal:  1.5;
+  --wb-lh-relaxed: 1.65;
+}

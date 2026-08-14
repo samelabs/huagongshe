@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { EntityId } from "@/components/EntityId";
+import { EntityId } from "@/components/shared/EntityId";
 import { SamelabsNav } from "@/components/SamelabsNav";
+import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type ReactionRow = { id: number; reaction_smiles: string; visibility: string; moderation_status: "visible" | "hidden"; username: string; display_name: string; created_at: string };
@@ -13,23 +14,31 @@ export function SamelabsReactions() {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  async function load() {
-    const res = await fetch("/api/admin/reactions?limit=100", { cache: "no-store" });
-    if (res.status === 401 || res.status === 403) { setError(t.admin.noPermission); return; }
-    if (res.ok) setReactions(await res.json());
+  async function reload() {
+    try {
+      const data = await apiGet<ReactionRow[]>(`/admin/reactions?limit=100`);
+      setReactions(data);
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
+    }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let active = true;
+    apiGet<ReactionRow[]>(`/admin/reactions?limit=100`).then((data) => {
+      if (active) setReactions(data);
+    }).catch((err) => {
+      if (!active) return;
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setError(t.admin.noPermission);
+    });
+    return () => { active = false; };
+  }, []);
 
   async function toggle(id: number, status: "visible" | "hidden") {
     setError(""); setBusyId(id);
     try {
-      const res = await fetch(`/api/admin/reactions/${id}/moderation`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: status === "visible" ? "hidden" : "visible" }),
-      });
-      if (!res.ok) throw new Error();
-      await load();
+      await apiPatch(`/admin/reactions/${id}/moderation`, JSON.stringify({ status: status === "visible" ? "hidden" : "visible" }));
+      await reload();
     } catch { setError(t.admin.errOperation); } finally { setBusyId(null); }
   }
 

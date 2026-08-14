@@ -8,8 +8,10 @@ import time
 
 import redis.asyncio as redis
 from fastapi import HTTPException, Request
+from sqlalchemy import text
 
 from .cache import pool
+from .database import async_session
 
 
 def is_loopback_host(host: str | None) -> bool:
@@ -48,13 +50,36 @@ async def enforce(bucket: str, identity: str, limit: int, window_seconds: int) -
         )
 
 
-def request_identity(request: Request) -> str:
+async def _bearer_token_owner(token: str) -> int | None:
+    """Return the user id owning a live API token, or None for anything else."""
+    if len(token) < 32:
+        return None
+    digest = hashlib.sha256(token.encode()).digest()
+    try:
+        async with async_session() as db:
+            return (await db.execute(text("""
+                SELECT u.id
+                FROM community.user_api_tokens t
+                JOIN community.users u ON u.id=t.user_id
+                WHERE t.token_hash=:digest AND t.revoked_at IS NULL
+                  AND (t.expires_at IS NULL OR t.expires_at>now()) AND u.status='active'
+            """), {"digest": digest})).scalar()
+    except Exception:
+        # Identity lookup is best-effort: a DB hiccup must not fail the request
+        # here — the endpoint's own queries surface real outages.
+        return None
+
+
+async def request_identity(request: Request) -> str:
     authorization = request.headers.get("authorization", "")
-    # Bearer tokens get their own budget. Browser and anonymous traffic are
-    # keyed by address: arbitrary Cookie headers must not create new budgets.
-    raw = (
-        authorization
-        if authorization.lower().startswith("bearer ")
-        else (request.client.host if request.client else "unknown")
-    )
+    if authorization.lower().startswith("bearer "):
+        owner = await _bearer_token_owner(authorization[7:].strip())
+        # Only verified tokens get their own per-person budget; forged or
+        # unknown strings fall through to the address budget so rotating
+        # headers cannot mint fresh limits.
+        if owner is not None:
+            return hashlib.sha256(f"api-token:{owner}".encode()).hexdigest()[:24]
+    # Browser and anonymous traffic are keyed by address: arbitrary Cookie
+    # headers must not create new budgets.
+    raw = request.client.host if request.client else "unknown"
     return hashlib.sha256(raw.encode()).hexdigest()[:24]

@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { SamelabsNav } from "@/components/SamelabsNav";
+import { apiGet, apiPut, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type ConfigEntry = { namespace: string; key: string; value: Record<string, unknown> };
 
 const FIELD_LABELS: Record<string, string> = {
-  provider: "服务商", id: "ID", enabled: "状态",
-  client: "客户号",
-  public_base_url: "站点 URL", api_title: "API 标题",
-  footer: "底部文案",
+  provider: t.admin.configProvider, id: "ID", enabled: t.admin.configEnabled,
+  client: t.admin.configClient,
+  public_base_url: t.admin.configBaseUrl, api_title: t.admin.configApiTitle,
+  footer: t.admin.configFooter,
 };
 
 export function SamelabsConfig() {
@@ -19,15 +20,28 @@ export function SamelabsConfig() {
   const [saved, setSaved] = useState("");
   const [busyKey, setBusyKey] = useState("");
 
-  async function load() {
+  async function reload() {
     setError("");
-    const res = await fetch("/api/admin/config", { cache: "no-store" });
-    if (res.status === 401 || res.status === 403) { setError(t.admin.noPermission); return; }
-    if (!res.ok) { setError(t.admin.errConfigLoad); return; }
-    setEntries(await res.json());
+    try {
+      const data = await apiGet<ConfigEntry[]>(`/admin/config`);
+      setEntries(data);
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
+      else setError(t.admin.errConfigLoad);
+    }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let active = true;
+    apiGet<ConfigEntry[]>(`/admin/config`).then((data) => {
+      if (active) setEntries(data);
+    }).catch((err) => {
+      if (!active) return;
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setError(t.admin.noPermission);
+      else setError(t.admin.errConfigLoad);
+    });
+    return () => { active = false; };
+  }, []);
 
   function updateValue(ns: string, key: string, field: string, value: string | boolean) {
     setEntries((prev) => prev.map((e) =>
@@ -41,16 +55,11 @@ export function SamelabsConfig() {
     const key = `${entry.namespace}/${entry.key}`;
     setBusyKey(key); setSaved("");
     try {
-      const res = await fetch(`/api/admin/config/${entry.namespace}/${entry.key}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry.value),
-      });
-      if (!res.ok) { setError(t.admin.errSaveFailed); return; }
+      await apiPut(`/admin/config/${entry.namespace}/${entry.key}`, JSON.stringify(entry.value));
       setSaved(t.admin.saved(key));
-      await load();
+      await reload();
     } catch {
-      setError(t.admin.errNetwork);
+      setError(t.admin.errSaveFailed);
     } finally {
       setBusyKey("");
     }
@@ -66,8 +75,8 @@ export function SamelabsConfig() {
     return <label key={field}>{label}
       {type === "boolean"
         ? <select value={value ? "true" : "false"} onChange={(e) => updateValue(entry.namespace, entry.key, field, e.target.value === "true")}>
-            <option value="true">启用</option>
-            <option value="false">停用</option>
+            <option value="true">{t.admin.optionEnabled}</option>
+            <option value="false">{t.admin.optionDisabled}</option>
           </select>
         : <input value={String(value || "")} onChange={(e) => updateValue(entry.namespace, entry.key, field, e.target.value)} />
       }

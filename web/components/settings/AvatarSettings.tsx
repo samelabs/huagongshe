@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount } from "@/components/AccountContext";
+import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
+import { apiPost, apiDelete } from "@/lib/api";
 import t from "@/lib/i18n";
 
 export function AvatarSettings() {
@@ -24,8 +25,7 @@ export function AvatarSettings() {
       if (file.size > 5 * 1024 * 1024) { setMessage(t.settings.avatar.tooLarge); return; }
       setBusy(true); setMessage("");
       try {
-        const response = await fetch("/api/users/me/avatar", { method: "POST", body: new FormData(form) });
-        if (!response.ok) throw new Error();
+        await apiPost(`/users/me/avatar`, new FormData(form));
         await refresh();
         form.reset();
         setMessage(t.settings.avatar.updated);
@@ -42,8 +42,7 @@ export function AvatarSettings() {
           if (busy) return;
           setBusy(true); setMessage("");
           try {
-            const response = await fetch("/api/users/me/avatar", { method: "DELETE" });
-            if (!response.ok) throw new Error();
+            await apiDelete(`/users/me/avatar`);
             await refresh();
             setMessage(t.settings.avatar.removed);
           } catch {

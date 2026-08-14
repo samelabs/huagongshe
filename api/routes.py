@@ -352,7 +352,7 @@ async def search(
         request.client.host if request.client else None
     ):
         await enforce(
-            "structure-query", request_identity(request),
+            "structure-query", await request_identity(request),
             settings.api_structure_limit_per_minute, 60,
         )
     # Exact searches can include user-created reactions. Keep them live so a
@@ -644,7 +644,7 @@ async def chemical_substructure(
     if cached:
         return cached
     if not is_loopback_host(request.client.host if request.client else None):
-        await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
+        await enforce("structure-query", await request_identity(request), settings.api_structure_limit_per_minute, 60)
     smiles = (await db.execute(text(
         "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
     ), {"id": chemical_id})).scalar()
@@ -691,7 +691,7 @@ async def chemical_similarity(
     if cached:
         return cached
     if not is_loopback_host(request.client.host if request.client else None):
-        await enforce("structure-query", request_identity(request), settings.api_structure_limit_per_minute, 60)
+        await enforce("structure-query", await request_identity(request), settings.api_structure_limit_per_minute, 60)
     smiles = (await db.execute(text(
         "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
     ), {"id": chemical_id})).scalar()

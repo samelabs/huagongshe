@@ -372,7 +372,8 @@ async def update_reaction(
         raise HTTPException(403, "API Token 当前不开放反应编辑，请使用网页登录会话")
     await enforce("reaction-write-minute", str(actor.id), settings.api_reaction_write_limit_per_minute, 60)
     current = (await db.execute(text("""
-        SELECT created_by_user_id,visibility FROM chemistry.reactions WHERE id=:id FOR UPDATE
+        SELECT created_by_user_id,visibility,moderation_status
+        FROM chemistry.reactions WHERE id=:id FOR UPDATE
     """), {"id": reaction_id})).fetchone()
     if not current:
         raise HTTPException(404, "反应不存在")
@@ -398,12 +399,12 @@ async def update_reaction(
     await write_relationships(db, reaction_id, resolved)
     if body.visibility == "private":
         await db.execute(text("DELETE FROM community.reaction_follows WHERE reaction_id=:id"), {"id": reaction_id})
-        if current[1] == "public":
+        if current[1] == "public" and current[2] == "visible":
             await db.execute(text("""
                 UPDATE chemistry.statistics SET exact_count=greatest(exact_count-1,0),calculated_at=now()
                 WHERE metric='reactions'
             """))
-    elif current[1] == "private":
+    elif current[1] == "private" and current[2] == "visible":
         await db.execute(text("""
             UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
             WHERE metric='reactions'

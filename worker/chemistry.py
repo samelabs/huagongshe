@@ -23,7 +23,15 @@ def select_verified_cid(
     expected_cid: int | None,
     expected_smiles: str | None,
 ) -> int | None:
-    """Choose only an explicitly expected or uniquely structure-matched CID."""
+    """Pick the verified CID deterministically.
+
+    Precedence:
+    1. An explicitly expected CID wins when present in candidates and properties.
+    2. A unique structure match (canonical SMILES equality) wins when exactly
+       one candidate matches.
+    3. Same structure filed under multiple records: pick the lowest CID — the
+       oldest standing record — as a deterministic tiebreak, never a guess.
+    """
     property_map = {
         int(item["CID"]): item
         for item in properties

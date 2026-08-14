@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { EntityId } from "@/components/EntityId";
-import { FollowButton } from "@/components/FollowButton";
+import { EntityId } from "@/components/shared/EntityId";
+import { FollowButton } from "@/components/shared/FollowButton";
 import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
 import t from "@/lib/i18n";
 
@@ -66,7 +66,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             : <>
               {profile.is_followed_by && !profile.is_following && <span className="follow-status-tag">{t.user.followedBy}</span>}
               {profile.is_mutual && <span className="follow-status-tag mutual">{t.user.mutual}</span>}
-              <FollowButton endpoint={`/api/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />
+              <FollowButton endpoint={`/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />
             </>}
         </div>
         <p className="profile-joined">{t.user.joinedAt(new Date(profile.created_at).toLocaleDateString("zh-CN"))}</p>

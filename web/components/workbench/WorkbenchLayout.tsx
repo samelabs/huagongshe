@@ -1,0 +1,65 @@
+"use client";
+
+import { useAccount } from "@/components/shared/AccountContext";
+import { useWorkbenchCounts } from "./WorkbenchCountsContext";
+import t from "@/lib/i18n";
+import { ActivityPanel } from "./panels/ActivityPanel";
+import { HomePanel } from "./panels/HomePanel";
+import { RelationshipsPanel } from "./panels/RelationshipsPanel";
+import { ReactionsPanel } from "./panels/ReactionsPanel";
+import { SavedPanel } from "./panels/SavedPanel";
+import { SearchPanel } from "./panels/SearchPanel";
+import type {
+  ChemicalFollow,
+  NoticeResponse,
+  PageResponse,
+  Reaction,
+  ReactionResponse,
+  ReactionVisibility,
+  SavedKind,
+  Summary,
+  WorkbenchTab,
+} from "./types";
+import type { PersonSummary } from "@/components/shared/PersonList";
+
+export function WorkbenchLayout({
+  activeTab,
+  page,
+  visibility,
+  savedKind,
+  summary,
+  initialReactions,
+  initialChemicals,
+  initialSavedReactions,
+  initialNotices,
+  initialPeople,
+  searchQuery,
+}: {
+  activeTab: WorkbenchTab;
+  page: number;
+  visibility: ReactionVisibility;
+  savedKind: SavedKind;
+  summary: Summary | null;
+  initialReactions: ReactionResponse | null;
+  initialChemicals: PageResponse<ChemicalFollow> | null;
+  initialSavedReactions: PageResponse<Reaction> | null;
+  initialNotices: NoticeResponse | null;
+  initialPeople: PageResponse<PersonSummary> | null;
+  searchQuery?: string;
+}) {
+  const { user, ready: authReady } = useAccount();
+  const { counts } = useWorkbenchCounts();
+
+  if (authReady && !user) return <div className="wb-auth-required"><div><strong>{t.common.loginRequired}</strong><span>{t.common.loginHint}</span></div></div>;
+
+  return (
+    <>
+      {activeTab === "home" && <HomePanel counts={counts} initialReactions={initialReactions} />}
+      {activeTab === "search" && <SearchPanel initialQuery={searchQuery} />}
+      {activeTab === "mine" && <ReactionsPanel page={page} visibility={visibility} initialData={initialReactions} />}
+      {activeTab === "saved" && <SavedPanel page={page} kind={savedKind} initialChemicals={initialChemicals} initialReactions={initialSavedReactions} />}
+      {activeTab === "activity" && <ActivityPanel page={page} initialData={initialNotices} />}
+      {(activeTab === "followers" || activeTab === "following") && <RelationshipsPanel page={page} kind={activeTab} initialData={initialPeople} username={summary?.username} />}
+    </>
+  );
+}

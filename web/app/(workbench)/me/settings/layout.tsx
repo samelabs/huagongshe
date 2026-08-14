@@ -20,5 +20,5 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   const user = await getUser(cookieHeader);
   if (!user) redirect("/login?next=/me/settings");
 
-  return <main className="wb-settings-main">{children}</main>;
+  return <div className="wb-panel">{children}</div>;
 }

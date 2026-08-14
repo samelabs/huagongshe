@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChemicalKnowledge } from "@/components/ChemicalKnowledge";
-import { EntityId } from "@/components/EntityId";
-import { FollowButton } from "@/components/FollowButton";
+import { EntityId } from "@/components/shared/EntityId";
+import { FollowButton } from "@/components/shared/FollowButton";
 import { Molecule } from "@/components/Molecule";
 import { ReactionList } from "@/components/ReactionList";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
@@ -70,7 +70,7 @@ export default async function ChemicalPage({ params }: {
             {chemical.cas_numbers[0] && <span>CAS {chemical.cas_numbers[0]}</span>}
           </div>
           <div className="context-actions">
-            <FollowButton endpoint={`/api/chemicals/${chemical.id}/follow`} initial={Boolean(chemical.is_following)} count={chemical.follower_count || 0} label={t.chemical.favor} />
+            <FollowButton endpoint={`/chemicals/${chemical.id}/follow`} initial={Boolean(chemical.is_following)} count={chemical.follower_count || 0} label="favor" />
             <Link className="button primary" href="#reactions">{t.chemical.viewReactions}</Link>
             <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>{t.chemical.substructure}</Link>
             <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>{t.chemical.similarity}</Link>
@@ -99,7 +99,7 @@ export default async function ChemicalPage({ params }: {
               <div><p>REACTIONS</p><h2>{t.chemical.relatedReactions}</h2></div>
               {!reactionsUnavailable && <span>{new Intl.NumberFormat("zh-CN").format(reactionTotal)} 条</span>}
             </div>
-            {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} />}
+            {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
           </section>
 
         </main>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SamelabsNav } from "@/components/SamelabsNav";
+import { apiGet, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type Dashboard = {
@@ -30,15 +31,19 @@ export function SamelabsDashboard() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/admin/dashboard", { cache: "no-store" }).then(async (r) => {
-      if (r.status === 401 || r.status === 403) { setError(t.admin.noPermission); return; }
-      if (!r.ok) throw new Error();
-      setData(await r.json());
-    }).catch(() => setError(t.admin.errLoadFailed));
+    let active = true;
+    apiGet<Dashboard>(`/admin/dashboard`).then((data) => {
+      if (active) setData(data);
+    }).catch((err) => {
+      if (!active) return;
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setError(t.admin.noPermission);
+      else setError(t.admin.errLoadFailed);
+    });
+    return () => { active = false; };
   }, []);
 
   if (error) return <div className="notice error">{error}</div>;
-  if (!data) return <p className="context-loading">正在读取…</p>;
+  if (!data) return <p className="context-loading">{t.common.loading}</p>;
 
   return <>
     <header className="page-title">

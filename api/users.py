@@ -172,7 +172,7 @@ async def check_username(username: str = Query(min_length=4, max_length=30), db=
 
 @auth_router.post("/register", status_code=201)
 async def register(body: RegisterBody, request: Request, response: Response, db=Depends(get_db)):
-    await enforce("register", request_identity(request), 5, 3600)
+    await enforce("register", await request_identity(request), 5, 3600)
     encoded_password = await asyncio.to_thread(password_hash, body.password)
     try:
         row = (await db.execute(text("""
@@ -195,7 +195,7 @@ async def register(body: RegisterBody, request: Request, response: Response, db=
 
 @auth_router.post("/login")
 async def login(body: LoginBody, request: Request, response: Response, db=Depends(get_db)):
-    await enforce("login", request_identity(request), 15, 900)
+    await enforce("login", await request_identity(request), 15, 900)
     account = body.account.strip().lower()
     row = (await db.execute(text("""
         SELECT id,username,display_name,email,role,password_hash,avatar_path
@@ -360,6 +360,26 @@ async def upload_avatar(
     return {"avatar_url": public_path, "thumbnail_url": public_path.replace(".webp", "-128.webp")}
 
 
+@router.delete("/me/avatar", status_code=204)
+async def delete_avatar(actor: Actor = Depends(current_session), db=Depends(get_db)):
+    old_path = (await db.execute(text(
+        "SELECT avatar_path FROM community.users WHERE id=:id"
+    ), {"id": actor.id})).scalar()
+    await db.execute(text("""
+        UPDATE community.users
+        SET avatar_path=NULL,avatar_version=NULL,updated_at=now()
+        WHERE id=:id
+    """), {"id": actor.id})
+    await db.commit()
+    if old_path and old_path.startswith("/uploads/avatars/"):
+        user_dir = os.path.join(settings.avatar_root, str(actor.id))
+        old_name = os.path.basename(old_path)
+        for name in (old_name, old_name.replace(".webp", "-128.webp")):
+            candidate = os.path.join(user_dir, name)
+            if os.path.exists(candidate):
+                os.unlink(candidate)
+
+
 @router.get("/me/tokens")
 async def list_tokens(actor: Actor = Depends(current_session), db=Depends(get_db)):
     rows = (await db.execute(text("""
@@ -419,7 +439,7 @@ async def public_profile(username: str, actor: Actor | None = Depends(optional_a
     viewer_id = actor.id if actor else 0
     row = (await db.execute(text("""
         SELECT u.id,u.username,u.display_name,u.bio,u.avatar_path,u.created_at,
-          u.location,u.institution,u.title,u.website,u.orcid,
+          u.location,u.institution,u.title,u.website,u.orcid,u.email,
           (SELECT count(*) FROM community.user_follows WHERE followed_user_id=u.id),
           (SELECT count(*) FROM community.user_follows WHERE follower_user_id=u.id),
           (SELECT count(*) FROM chemistry.reactions
@@ -437,11 +457,14 @@ async def public_profile(username: str, actor: Actor | None = Depends(optional_a
         "avatar_url": row[4], "created_at": row[5],
         "location": row[6], "institution": row[7], "title": row[8],
         "website": row[9], "orcid": row[10],
-        "followers": row[11], "following": row[12], "public_reactions": row[13],
-        "is_following": row[14],
-        "is_followed_by": bool(row[15]) if viewer_id else False,
-        "is_mutual": bool(row[14] and row[15]) if viewer_id else False,
+        "followers": row[12], "following": row[13], "public_reactions": row[14],
+        "is_following": row[15],
+        "is_followed_by": bool(row[16]) if viewer_id else False,
+        "is_mutual": bool(row[15] and row[16]) if viewer_id else False,
         "is_me": bool(actor and row[0] == actor.id),
+        # Email is private: only the profile owner's own view may read it,
+        # so the settings form can prefill without a separate endpoint.
+        **({"email": row[11]} if actor and row[0] == actor.id else {}),
     }
 
 

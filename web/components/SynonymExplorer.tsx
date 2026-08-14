@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiGet } from "@/lib/api";
 import t from "@/lib/i18n";
 
 export function SynonymExplorer({ chemicalId, initial, total }: {
@@ -16,15 +17,14 @@ export function SynonymExplorer({ chemicalId, initial, total }: {
     setBusy(true);
     setFailed(false);
     const page = Math.floor(items.length / 100) + 1;
-    const response = await fetch(`/api/chemicals/${chemicalId}/synonyms?page=${page}&page_size=100`);
-    if (!response.ok) {
+    try {
+      const data = await apiGet<{ synonyms: string[] }>(`/chemicals/${chemicalId}/synonyms?page=${page}&page_size=100`);
+      setItems((current) => Array.from(new Set([...current, ...data.synonyms])));
+    } catch {
       setFailed(true);
+    } finally {
       setBusy(false);
-      return;
     }
-    const data = await response.json() as { synonyms: string[] };
-    setItems((current) => Array.from(new Set([...current, ...data.synonyms])));
-    setBusy(false);
   }
 
   if (!total) return null;

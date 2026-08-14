@@ -7,7 +7,7 @@ export default function ErrorPage({ error, unstable_retry }: {
   error: Error & { digest?: string };
   unstable_retry: () => void;
 }) {
-  useEffect(() => { console.error(error); }, [error]);
+  useEffect(() => { if (process.env.NODE_ENV !== "production") console.error(error); }, [error]);
   return <main className="content-page error-page">
     <p className="eyebrow">SERVICE TEMPORARILY UNAVAILABLE</p>
     <h1>{t.error.title}</h1>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { HeaderAccount } from "@/components/HeaderAccount";
-import { MobileTabBar } from "@/components/MobileTabBar";
+import { MobileTabBar } from "@/components/shared/MobileTabBar";
 import t from "@/lib/i18n";
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
@@ -20,7 +20,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       </header>
       <main>{children}</main>
       <footer>
-        <span>AIchem开放计划：<a href="mailto:mail@huagongshe.com" className="footer-link">mail@huagongshe.com</a></span>
+        <span>{t.nav.footer}：<a href="mailto:mail@huagongshe.com" className="footer-link">mail@huagongshe.com</a></span>
       </footer>
       <MobileTabBar />
     </div>

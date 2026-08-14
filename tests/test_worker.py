@@ -125,14 +125,17 @@ class IdentitySelectionTests(unittest.TestCase):
         )
         self.assertEqual(selected, 702)
 
-    def test_ambiguous_structure_is_not_guessed(self) -> None:
+    def test_same_structure_multiple_records_picks_oldest_cid(self) -> None:
+        # CCO and OCC canonicalize to the same molecule (mechanism ①): multiple
+        # standing records for one structure must deterministically pick the
+        # lowest CID (oldest record), not fail as ambiguous.
         selected = select_verified_cid(
-            [1, 2],
-            [{"CID": 1, "SMILES": "CCO"}, {"CID": 2, "SMILES": "OCC"}],
+            [2, 1],
+            [{"CID": 2, "SMILES": "OCC"}, {"CID": 1, "SMILES": "CCO"}],
             expected_cid=None,
             expected_smiles="CCO",
         )
-        self.assertIsNone(selected)
+        self.assertEqual(selected, 1)
 
 
 class PugViewNormalizationTests(unittest.TestCase):

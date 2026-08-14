@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChemicalResult } from "@/components/ChemicalResult";
-import { EntityId } from "@/components/EntityId";
+import { EntityId } from "@/components/shared/EntityId";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ReactionResult } from "@/components/ReactionResult";
 import { cookies } from "next/headers";

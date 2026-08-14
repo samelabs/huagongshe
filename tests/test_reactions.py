@@ -120,11 +120,11 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn('"all": sum(counts.values())', source)
 
     def test_public_api_starts_at_version_one(self) -> None:
-        self.assertEqual(settings.api_version, "1.0")
+        self.assertEqual(settings.api_version, "1.0.0")
 
         routes_source = inspect.getsource(__import__("api.routes", fromlist=["unified_search"]))
         self.assertIn('"v1:stats:exact"', routes_source)
-        self.assertIn('f"v1:unified-search', routes_source)
+        self.assertIn('f"v2:unified-search', routes_source)
 
     def test_agent_guide_is_a_bounded_connection_and_operation_surface(self) -> None:
         source = inspect.getsource(agent.agent_guide)
@@ -147,6 +147,7 @@ class ReactionContractTests(unittest.TestCase):
             {item["id"] for item in guide["operations"]},
             {
                 "search_chemistry_data", "get_chemical", "get_reaction",
+                "render_molecule_svg", "render_reaction_svg",
                 "list_my_reactions", "validate_reaction", "create_reaction",
             },
         )

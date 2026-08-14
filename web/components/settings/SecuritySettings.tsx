@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount } from "@/components/AccountContext";
+import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
+import { apiPost } from "@/lib/api";
 import t from "@/lib/i18n";
 
 export function SecuritySettings() {
@@ -23,11 +24,10 @@ export function SecuritySettings() {
       if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(password)) { setMessage(t.settings.security.requirement); return; }
       setBusy(true); setMessage("");
       try {
-        const response = await fetch("/api/users/me/password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ current_password: values.get("current_password"), new_password: password, confirm_password: values.get("confirm_password") }) });
-        if (response.ok) { window.location.assign("/login"); return; }
-        setMessage(t.settings.security.failed);
+        await apiPost(`/users/me/password`, JSON.stringify({ current_password: values.get("current_password"), new_password: password, confirm_password: values.get("confirm_password") }));
+        window.location.assign("/login"); return;
       } catch {
-        setMessage(t.common.networkError);
+        setMessage(t.settings.security.failed);
       } finally { setBusy(false); }
     }}>
       <label>{t.settings.security.current}<input name="current_password" type="password" autoComplete="current-password" required /></label>
