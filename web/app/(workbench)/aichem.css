@@ -1218,8 +1218,8 @@
   right: 0;
   z-index: 40;
   display: none;
-  height: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
+  /* 高度恒定：浏览器模式零 env() 输入，消除 inset 跳变 */
+  height: var(--wb-tabbar-h);
   background: var(--wb-paper);
   border-top: 1px solid var(--wb-line);
 }
@@ -1242,6 +1242,14 @@
   height: var(--wb-sp-6);
 }
 .wb-shell .mobile-tab-bar .tab-label { font-size: var(--wb-fs-xs); }
+
+/* PWA 独立窗口：inset 恒定，恢复安全区让位 */
+@media (display-mode: standalone) {
+  .wb-shell .mobile-tab-bar {
+    height: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════════
    L9 — Mobile
@@ -1362,8 +1370,12 @@
 @media (max-width: 680px) {
   .wb-shell {
     height: 100dvh;
-    /* 底栏已锚定视口(fixed)，内容区让位 */
-    padding-bottom: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom));
+    /* 底栏 fixed 高度恒定，内容让位同高度 */
+    padding-bottom: var(--wb-tabbar-h);
+  }
+  /* PWA 独立窗口：inset 恒定，让位含安全区 */
+  @media (display-mode: standalone) {
+    .wb-shell { padding-bottom: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom)); }
   }
 
   /* 隐藏桌面侧栏，用抽屉替代 */
