@@ -9,6 +9,7 @@ import type { WorkbenchPanelConfig } from "./types";
 export const workbenchRegistry: WorkbenchPanelConfig[] = [
   { id: "home",        label: t.me.tabHome,      section: "work",    href: "/aichem" },
   { id: "search",      label: t.me.tabSearch,    section: "work",    href: "/aichem?tab=search" },
+  { id: "stoich",      label: t.me.tabStoich,    section: "work",    href: "/aichem?tab=stoich" },
   { id: "mine",        label: t.me.tabReactions, section: "work",    href: "/aichem?tab=mine",      badge: (c) => c.public_reactions + c.private_reactions },
   { id: "saved",       label: t.me.tabSaved,     section: "work",    href: "/aichem?tab=saved",     badge: (c) => c.chemicals + c.reactions },
   { id: "activity",    label: t.me.tabActivity,  section: "work",    href: "/aichem?tab=activity",  badge: (c) => c.unread || null },

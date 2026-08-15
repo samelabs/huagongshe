@@ -1452,3 +1452,137 @@
   .wb-main textarea,
   .wb-main select { font-size: var(--wb-fs-input); }
 }
+ 
+/* ── 投料计算 wb-stoich ─────────────────────────────── */
+.wb-stoich-form {
+  display: grid;
+  gap: var(--wb-sp-3);
+}
+.wb-stoich-ref-title {
+  font-size: var(--wb-fs-xs);
+  font-weight: var(--wb-w-medium);
+  color: var(--wb-muted);
+}
+.wb-stoich-thead,
+.wb-stoich-crow {
+  display: grid;
+  grid-template-columns: auto 108px minmax(160px, 1fr) 72px minmax(100px, 140px) auto;
+  gap: var(--wb-sp-2);
+  align-items: center;
+}
+.wb-stoich-thead {
+  font-size: var(--wb-fs-micro);
+  color: var(--wb-muted);
+}
+.wb-stoich-radio {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--wb-blue);
+}
+.wb-stoich-basisbox {
+  display: grid;
+  gap: var(--wb-sp-2);
+  padding: var(--wb-sp-3);
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-r-md);
+  background: var(--wb-paper);
+  margin-top: var(--wb-sp-2);
+}
+.wb-stoich-ref-row {
+  display: flex;
+  gap: var(--wb-sp-2);
+}
+.wb-stoich-ref-row .wb-stoich-ref-amount { width: 130px; flex-shrink: 0; }
+.wb-stoich-ref-row .wb-stoich-select { width: 84px; flex-shrink: 0; }
+.wb-stoich-ref-row .wb-stoich-conc { flex: 1; min-width: 0; max-width: 320px; }
+.wb-stoich-remove,
+.wb-stoich-add,
+.wb-stoich-submit {
+  height: 38px;
+  padding: 0 var(--wb-sp-3);
+}
+.wb-stoich-add,
+.wb-stoich-submit {
+  justify-self: start;
+}
+.wb-stoich-submit { padding: 0 var(--wb-sp-4); }
+.wb-stoich-result {
+  display: grid;
+  gap: var(--wb-sp-3);
+}
+.wb-stoich-table {
+  display: grid;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-r-md);
+  overflow-x: auto;
+  background: var(--wb-paper);
+}
+.wb-stoich-rhead,
+.wb-stoich-rrow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) 72px 64px 90px 100px 90px 90px 84px;
+  gap: var(--wb-sp-2);
+  padding: var(--wb-sp-2) var(--wb-sp-3);
+  align-items: baseline;
+  min-width: 720px;
+}
+.wb-stoich-rhead {
+  font-size: var(--wb-fs-micro);
+  color: var(--wb-muted);
+  border-bottom: 1px solid var(--wb-line);
+}
+.wb-stoich-rrow + .wb-stoich-rrow {
+  border-top: 1px solid var(--wb-line);
+}
+.wb-stoich-rrow span {
+  font-size: var(--wb-fs-xs);
+  color: var(--wb-ink);
+}
+.wb-stoich-tname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--wb-w-medium);
+}
+.wb-stoich-basis-tag {
+  font-style: normal;
+  font-size: var(--wb-fs-micro);
+  color: var(--wb-blue-strong);
+  margin-left: var(--wb-sp-2);
+}
+.wb-stoich-yield {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--wb-sp-3);
+  padding: var(--wb-sp-3) var(--wb-sp-4);
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-r-md);
+  background: var(--wb-paper);
+}
+.wb-stoich-yield span {
+  font-size: var(--wb-fs-xs);
+  color: var(--wb-muted);
+}
+.wb-stoich-yield strong {
+  font-size: var(--wb-fs-stat);
+  font-weight: var(--wb-w-semibold);
+  color: var(--wb-ink);
+  letter-spacing: -.02em;
+}
+
+@media (max-width: 680px) {
+  .wb-stoich-thead,
+  .wb-stoich-crow {
+    grid-template-columns: auto 96px 1fr 64px;
+  }
+  .wb-stoich-thead span:nth-child(5),
+  .wb-stoich-thead span:nth-child(6),
+  .wb-stoich-crow .wb-stoich-rg-label,
+  .wb-stoich-crow .wb-stoich-remove {
+    display: none;
+  }
+  .wb-stoich-rg-label {
+    display: none;
+  }
+}

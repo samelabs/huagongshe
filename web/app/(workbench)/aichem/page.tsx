@@ -17,7 +17,7 @@ import { apiGet } from "@/lib/api";
 import t from "@/lib/i18n";
 
 export const metadata: Metadata = { title: t.me.title, robots: { index: false, follow: false } };
-const tabs = new Set<WorkbenchTab>(["home", "search", "mine", "saved", "activity", "followers", "following"]);
+const tabs = new Set<WorkbenchTab>(["home", "search", "stoich", "mine", "saved", "activity", "followers", "following"]);
 const visibilities = new Set<ReactionVisibility>(["all", "public", "private"]);
 const savedKinds = new Set<SavedKind>(["chemicals", "reactions"]);
 

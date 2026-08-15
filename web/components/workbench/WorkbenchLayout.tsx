@@ -9,6 +9,7 @@ import { RelationshipsPanel } from "./panels/RelationshipsPanel";
 import { ReactionsPanel } from "./panels/ReactionsPanel";
 import { SavedPanel } from "./panels/SavedPanel";
 import { SearchPanel } from "./panels/SearchPanel";
+import { StoichPanel } from "./panels/StoichPanel";
 import type {
   ChemicalFollow,
   NoticeResponse,
@@ -56,6 +57,7 @@ export function WorkbenchLayout({
     <>
       {activeTab === "home" && <HomePanel counts={counts} initialReactions={initialReactions} />}
       {activeTab === "search" && <SearchPanel initialQuery={searchQuery} />}
+      {activeTab === "stoich" && <StoichPanel />}
       {activeTab === "mine" && <ReactionsPanel page={page} visibility={visibility} initialData={initialReactions} />}
       {activeTab === "saved" && <SavedPanel page={page} kind={savedKind} initialChemicals={initialChemicals} initialReactions={initialSavedReactions} />}
       {activeTab === "activity" && <ActivityPanel page={page} initialData={initialNotices} />}

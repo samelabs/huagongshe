@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     api_structure_limit_per_minute: int = 20
     api_reaction_write_limit_per_minute: int = 10
     api_reaction_write_limit_per_day: int = 200
+    api_stoich_limit_per_minute: int = 30
     api_avatar_limit_per_hour: int = 5
     worker_max_body_bytes: int = 10 * 1024 * 1024
     worker_signature_skew_seconds: int = 300

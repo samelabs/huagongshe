@@ -1,5 +1,5 @@
 export type LoadState = "idle" | "loading" | "ready" | "error";
-export type WorkbenchTab = "home" | "search" | "mine" | "saved" | "activity" | "followers" | "following" | "profile" | "avatar" | "security" | "api-tokens";
+export type WorkbenchTab = "home" | "search" | "stoich" | "mine" | "saved" | "activity" | "followers" | "following" | "profile" | "avatar" | "security" | "api-tokens";
 export type ReactionVisibility = "all" | "public" | "private";
 export type SavedKind = "chemicals" | "reactions";
 

@@ -119,6 +119,14 @@ async def agent_guide(
                 "input": "visibility 为 all、private 或 public；支持 page 和 page_size",
             },
             {
+                "id": "calculate_stoichiometry",
+                "method": "POST",
+                "path": "/api/stoichiometry/scale",
+                "auth": "public_or_bearer",
+                "purpose": "投料计算：按角色列出反应全部组分，以任一组分（限量试剂或目标产物）的投料量为摩尔基准，换算整表投料量并给出产物理论收率",
+                "input": "components[{role(REACTANT/REAGENT/CATALYST/SOLVENT/PRODUCT),smiles,eq,label?}]（最多30个，非溶剂 eq 必填）+ basis{index,amount_value,amount_unit(g/mg/mol/mmol)} + 可选 concentration_mol_per_l（溶剂按浓度定容只给体积）",
+            },
+            {
                 "id": "validate_reaction",
                 "method": "POST",
                 "path": "/api/reactions/validate",
@@ -187,5 +195,6 @@ async def agent_guide(
             "svg_renders_per_minute": settings.api_render_limit_per_minute,
             "reaction_writes_per_minute": settings.api_reaction_write_limit_per_minute,
             "reaction_writes_per_day": settings.api_reaction_write_limit_per_day,
+            "stoichiometry_per_minute": settings.api_stoich_limit_per_minute,
         },
     }
