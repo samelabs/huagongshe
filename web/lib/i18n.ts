@@ -84,7 +84,7 @@ const t = {
   home: {
     hero: 'AI化学工作台',
     subtitle: '开启你和AI的化学之旅',
-    heroTagline: 'AIchem个人版永久免费',
+    heroTagline: 'AIchem更多能力接入中，敬请期待',
     searchLabel: '查询化学数据',
     searchPlaceholder: '名称、CAS、SMILES、CID、ORD记录号或DOI',
     searchButton: '查询',
