@@ -92,7 +92,7 @@
   justify-content: center;
   overflow: hidden;
   background: var(--wb-blue);
-  color: #fff;
+  color: var(--wb-inverse);
   font-size: var(--wb-fs-sm);
   font-weight: var(--wb-w-semibold);
 }
@@ -261,7 +261,7 @@
 }
 .wb-filters a.active {
   background: var(--wb-ink);
-  color: #fff;
+  color: var(--wb-inverse);
   border-color: var(--wb-ink);
 }
 
@@ -330,7 +330,7 @@
   border: none;
   border-radius: var(--wb-r-md);
   background: var(--wb-blue);
-  color: #fff;
+  color: var(--wb-inverse);
   font-size: var(--wb-fs);
   font-weight: var(--wb-w-medium);
   cursor: pointer;
@@ -832,7 +832,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  color: #fff;
+  color: var(--wb-inverse);
   background: var(--wb-blue);
   font-size: var(--wb-fs);
   font-weight: var(--wb-w-bold);
@@ -928,7 +928,7 @@
   border-radius: var(--wb-r-sm);
   padding: var(--wb-sp-3) var(--wb-sp-3);
   color: var(--wb-ink);
-  background: white;
+  background: var(--wb-paper);
   font-family: var(--wb-font-ui);
   font-size: var(--wb-fs);
   outline: 0;
@@ -949,7 +949,7 @@
   height: var(--wb-btn-h);
   padding: 0 var(--wb-sp-4);
   background: var(--wb-blue);
-  color: #fff;
+  color: var(--wb-inverse);
   border: none;
   border-radius: var(--wb-r-md);
   font-size: var(--wb-fs);
@@ -1055,7 +1055,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--wb-inverse);
   background: var(--wb-blue);
   font-size: var(--wb-fs-xl);
   font-weight: var(--wb-w-bold);
@@ -1110,7 +1110,7 @@
   padding: var(--wb-sp-3);
   resize: vertical;
   color: var(--wb-ink);
-  background: white;
+  background: var(--wb-paper);
   font-family: var(--wb-font-mono);
   font-size: var(--wb-fs-sm);
   line-height: var(--wb-lh-relaxed);
@@ -1133,7 +1133,7 @@
   font-family: var(--wb-font-mono);
 }
 .wb-shell .entity-id > span {
-  font-size: 7px;
+  font-size: var(--wb-fs-micro);
   font-weight: 850;
   letter-spacing: .09em;
   color: var(--wb-blue-deep);
@@ -1147,7 +1147,7 @@
   gap: var(--wb-sp-1);
   padding: 3px var(--wb-sp-1);
 }
-.wb-shell .entity-id.compact > span { font-size: 7px; }
+.wb-shell .entity-id.compact > span { font-size: var(--wb-fs-micro); }
 .wb-shell .entity-id.compact > strong { font-size: var(--wb-fs-xs); }
 .wb-shell .entity-id.reaction {
   background: var(--wb-reaction-bg);
@@ -1195,7 +1195,7 @@
 }
 .wb-shell .follow-button:hover { background: var(--wb-blue-pale); }
 .wb-shell .follow-button.following {
-  color: #fff;
+  color: var(--wb-inverse);
   background: var(--wb-blue);
   border-color: var(--wb-blue);
 }

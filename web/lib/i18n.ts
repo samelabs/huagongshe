@@ -68,7 +68,7 @@ const t = {
     menu: '导航菜单',
     knowledgeBase: '我的工作台',
     newReaction: '新建反应记录',
-    aiAssistant: 'AI助手',
+    aiAssistant: 'API Token',
     publicProfile: '公开主页',
     accountSettings: '账户设置',
     admin: '平台管理',
@@ -94,8 +94,8 @@ const t = {
     dataLine: (chemicals: string, reactions: string) => `${chemicals} 化合物 · ${reactions} 反应 · 免费查询`,
     ctaKicker: 'AI化学工作台',
     ctaTitle: '让AI参与你的化学工作',
-    ctaBody: '查询只是开始。连接AI后，可以从论文、专利和实验记录中整理反应信息，核对后保存到你的工作台，让每一次工作都能再次复用。',
-    ctaLink: '连接AI助手 →',
+    ctaBody: '查询只是开始。接入AI后，可以从论文、专利和实验记录中整理反应信息，核对后保存到你的工作台，让每一次工作都能再次复用。',
+    ctaLink: '接入 AIchem →',
     skillsKicker: 'OPEN SOURCE',
     skillsTitle: '开放 Skills',
     skillsBody: '158 个科学 AI Agent 技能，覆盖化学、生物、ML、科研写作等 12 个领域，来自 K-Dense-AI 开源项目',
@@ -281,7 +281,7 @@ const t = {
     tabFollowers: '粉丝',
     tabFollowing: '关注',
     newReaction: '新建反应',
-    aiAssistant: 'AI助手',
+    aiAssistant: 'API Token',
     bio: '简介',
     joinedAt: (date: string) => `加入时间：${date}`,
     following: '关注',
@@ -295,7 +295,7 @@ const t = {
     homeShortcutActivity: '关注动态',
     homeRecentReactions: '最近的反应',
     homeViewAll: '查看全部',
-    homeGuideTitle: 'AI 化学工作台',
+    homeGuideTitle: 'AI化学工作台',
     homeGuideDesc: '把文献、专利、实验记录交给AI，自动提取反应、校验结构、保存到工作台',
     homeGuideCta: '查看AI指南',
     searchHint: '在化学数据库中查询化合物和反应',
@@ -345,33 +345,33 @@ const t = {
   settings: {
     title: '账户设置',
     titleKicker: 'SETTINGS',
-    subtitle: '管理AI助手、个人资料与账户安全。',
+    subtitle: '管理API Token、个人资料与账户安全。',
     nav: {
-      ai: 'AI助手',
+      ai: 'API Token',
       profile: '个人资料',
       avatar: '头像',
       security: '密码安全',
       tokens: 'API Token',
     },
     ai: {
-      title: 'AI助手',
-      desc: '允许你的AI助手查询、校验并新建反应记录。修改和删除仍需在网页完成。',
-      loginHint: '登录后连接AI助手。',
+      title: 'API Token',
+      desc: '允许你的AI工具查询、校验并新建反应记录。修改和删除仍需在网页完成。',
+      loginHint: '登录后管理 API Token。',
       placeholder: '例如：文献整理工具',
       days30: '30天',
       days90: '90天',
       days365: '1年',
       noExpiry: '不设到期时间',
-      createBtn: '创建AI连接',
+      createBtn: '创建 API Token',
       creating: '创建中…',
-      created: 'AI连接已创建，仅显示一次',
+      created: 'API Token 已创建，仅显示一次',
       copyToAI: '复制给AI',
       copied: '已复制',
       copyFailed: '复制失败，请手动复制。',
       copyHint: '复制内容已经包含连接入口、操作要求和Token，不需要再单独配置。离开本页后无法再次查看。',
-      connectionLabel: 'AI连接信息',
-      loadFailed: 'AI连接列表读取失败，请稍后重试。',
-      createFailed: 'AI连接创建失败。',
+      connectionLabel: 'API Token 信息',
+      loadFailed: 'API Token 列表读取失败，请稍后重试。',
+      createFailed: 'API Token 创建失败。',
       revokeFailed: '撤销失败，请稍后重试。',
       revoke: '撤销',
       revoking: '撤销中…',
@@ -432,7 +432,7 @@ const t = {
     security: {
       title: '修改密码',
       kicker: 'SECURITY',
-      desc: '修改后将注销全部会话并撤销现有AI连接。',
+      desc: '修改后将注销全部会话并撤销现有 API Token。',
       current: '当前密码',
       new: '新密码',
       confirm: '确认新密码',
@@ -452,11 +452,11 @@ const t = {
     registerTitle: '注册',
     loginTitle: '登录化工社',
     kicker: '我的工作台',
-    intro: '保存个人反应、收藏化学数据，并连接你的AI助手。',
+    intro: '保存个人反应、收藏化学数据，并接入你的AI工具。',
     features: [
       '管理公开或仅自己可见的反应记录',
       '收藏需要继续查阅的化合物与反应',
-      '授权AI查询、校验并新建反应记录',
+      '接入AI后查询、校验并新建反应记录',
     ],
     usernameOrEmail: '用户名或邮箱',
     username: '用户名',
@@ -547,9 +547,9 @@ const t = {
   /* ── AI 指南页 ───────────────────────────────────────── */
   guide: {
     title: 'AI化学工作台',
-    desc: '化工社收录1.2亿化合物和240万反应。连接AI后，可以从文献和实验记录中提取反应，校验结构，保存到你的工作台。',
+    desc: 'AIchem是化工社的AI化学工作台。接入后，把文献、专利和实验记录交给AI，即可提取反应、校验结构、保存到你的工作台。',
     hero: 'AI化学工作台',
-    heroBody: '化工社收录1.2亿化合物和240万反应。连接AI后，可以从文献和实验记录中提取反应，校验结构，保存到你的工作台。',
+    heroBody: 'AIchem是化工社的AI化学工作台。接入后，把文献、专利和实验记录交给AI，即可提取反应、校验结构、保存到你的工作台。',
     /* ── 用AI做什么 ── */
     capabilityKicker: '用AI做什么',
     cap1Title: '查数据',
@@ -568,11 +568,23 @@ const t = {
     path1Title: '复制提示词',
     path1Suit: '适合：任何AI，不想配置',
     path1Desc: '复制提示词，连同文献发给你的AI。AI按格式输出反应草稿，你在化工社网页手动保存。',
-    path2Title: '创建AI连接',
+    path2Title: '创建 API Token',
     path2Suit: '适合：支持工具调用的AI，或愿意配置的用户',
     path2Desc: '在账户设置生成API Token，交给你的AI工具。AI直接对接化工社：查询、校验、保存全自动。',
-    setupCta: '设置AI连接',
+    setupCta: '设置 API Token',
     copyPrompt: (copied: boolean) => copied ? '已复制' : '复制提示词',
+    aiPrompt: `请作为我的化工社反应整理助手。
+
+我会提供网页、文献、专利、实验文档、图片或一段文字。请完成：
+1. 只提取资料中明确存在的反应事实，不猜测 SMILES、条件、用量、收率或来源。
+2. 将参与物整理为反应物、产物、试剂、催化剂和溶剂，并把结构规范为 SMILES。
+3. 保留 DOI、专利号、网址、文献题目或“本人实验”等来源证据。
+4. 未知的可选字段留空；结构或身份有歧义时先问我。
+5. 先给我查看结构化草稿；整理结果保存到我的个人反应库，默认仅自己可见。
+6. 得到我确认后，先调用化工社验证接口，再使用唯一 Idempotency-Key 保存。
+7. 成功后告诉我 HRID、页面链接、新建的 HCID 和可见范围；未经成功响应不要声称已经保存。
+
+如果你暂时不能调用化工社 API，请仍按相同字段输出草稿，并指导我在网页保存。`,
     /* ── 接入文件 ── */
     refKicker: '接入文件',
     refIntro: '化工社已发布标准接入文件，支持的AI工具可自动识别。',
@@ -589,7 +601,7 @@ const t = {
     /* ── 数据与授权 ── */
     trustKicker: '数据与授权',
     trust1: '反应记录默认私有，公开需要你明确确认',
-    trust2: 'API Token仅显示一次，授权随时可撤销',
+    trust2: 'API Token仅显示一次，随时可撤销',
     trust3: 'Token只发送给huagongshe.com',
     /* ── 分享 ── */
     share: '分享',
@@ -702,13 +714,6 @@ const t = {
     retry: '重新加载',
     notFoundTitle: '没有找到这条记录',
     notFoundAction: '返回搜索',
-  },
-
-  /* ── llms.txt ────────────────────────────────────────── */
-  llms: {
-    intro: '化工社（huagongshe.com）是一款面向化学研发人员的AI化学工作台。',
-    detail: '用户可以查询化合物和反应数据，建立个人反应库，并连接AI助手整理文献、专利和实验记录，逐步构建自己的化学工作台。',
-    scale: '收录1.2亿化合物和240万反应，搜索无需注册。',
   },
 
 } as const

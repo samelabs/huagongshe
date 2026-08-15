@@ -4,7 +4,7 @@
    设计原则：
    - Operate surface — 操作效率优先，非营销页
    - 8px 网格系统 — 所有间距是 4 的倍数
-   - 字号 6 级阶梯 — 严格递减，层级靠字号+字重双维度区分
+   - 字号 7 级阶梯 — 严格递减，层级靠字号+字重双维度区分
    - 零外部依赖 — 不引用 globals.css 的任何变量
    ═══════════════════════════════════════════════════════════════ */
 
@@ -30,6 +30,7 @@
   --wb-line-strong: #cbd4e2;
   --wb-wash:        #f6f8fb;
   --wb-paper:       #fff;
+  --wb-inverse:     #fff;  /* 反色文本：品牌蓝/墨色底上的文字 */
 
   /* 反应色（实体标识） */
   --wb-reaction:      #6b8aab;
@@ -52,7 +53,7 @@
   --wb-font-ui: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --wb-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 
-  /* ═══ 字号阶梯 — 6 级，严格递减 ══════════════════════════════ */
+  /* ═══ 字号阶梯 — 7 级，严格递减 ══════════════════════════════ */
   /*
      用法对照表：
      --wb-fs-xl  (18px) → 首页问候语（唯一的大字）
@@ -60,6 +61,7 @@
      --wb-fs     (14px) → 正文 / 菜单项 / 分类标题（同号不同粗）
      --wb-fs-sm  (12px) → 副标题 / badge / 元数据
      --wb-fs-xs  (11px) → HRID / 时间戳 / 微标签
+     --wb-fs-micro(7px) → 实体ID前缀字标（HCID/HRID 徽标小字）
      --wb-fs-stat(24px) → 统计数字（首页统计卡片）
   */
   --wb-fs-xl:   18px;
@@ -67,6 +69,7 @@
   --wb-fs:      14px;
   --wb-fs-sm:   12px;
   --wb-fs-xs:   11px;
+  --wb-fs-micro: 7px;
   --wb-fs-stat: 24px;
 
   /* iOS 输入框防缩放 */
