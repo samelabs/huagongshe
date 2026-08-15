@@ -1212,7 +1212,11 @@
 
 /* ── MobileTabBar ── */
 .wb-shell .mobile-tab-bar {
-  flex-shrink: 0;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
   display: none;
   height: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
@@ -1356,7 +1360,11 @@
 
 /* ── 手机 ≤680px ── */
 @media (max-width: 680px) {
-  .wb-shell { height: 100dvh; }
+  .wb-shell {
+    height: 100dvh;
+    /* 底栏已锚定视口(fixed)，内容区让位 */
+    padding-bottom: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom));
+  }
 
   /* 隐藏桌面侧栏，用抽屉替代 */
   .wb-aside { display: none; }
