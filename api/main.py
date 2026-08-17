@@ -15,6 +15,7 @@ from .mol import router as molecule_router
 from .rate_limit import consume, is_loopback_host, request_identity
 from .reactions import router as reaction_write_router
 from .routes import router as chemistry_router
+from .skills import router as skills_router
 from .social import router as social_router
 from .stoichiometry import router as stoichiometry_router
 from .users import auth_router, router as users_router
@@ -50,6 +51,7 @@ app.include_router(users_router, prefix="/api")
 app.include_router(reaction_write_router, prefix="/api")
 app.include_router(social_router, prefix="/api")
 app.include_router(stoichiometry_router, prefix="/api")
+app.include_router(skills_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(workapi_router, include_in_schema=False)
 

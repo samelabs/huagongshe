@@ -12,6 +12,7 @@ export const workbenchRegistry: WorkbenchPanelConfig[] = [
   { id: "stoich",      label: t.me.tabStoich,    section: "work",    href: "/aichem?tab=stoich" },
   { id: "mine",        label: t.me.tabReactions, section: "work",    href: "/aichem?tab=mine",      badge: (c) => c.public_reactions + c.private_reactions },
   { id: "saved",       label: t.me.tabSaved,     section: "work",    href: "/aichem?tab=saved",     badge: (c) => c.chemicals + c.reactions },
+  { id: "skills",      label: t.me.tabSkills,    section: "work",    href: "/aichem?tab=skills" },
   { id: "activity",    label: t.me.tabActivity,  section: "work",    href: "/aichem?tab=activity",  badge: (c) => c.unread || null },
   { id: "following",   label: t.me.tabFollowing, section: "social",  href: "/aichem?tab=following", badge: (c) => c.following },
   { id: "followers",   label: t.me.tabFollowers, section: "social",  href: "/aichem?tab=followers", badge: (c) => c.followers },

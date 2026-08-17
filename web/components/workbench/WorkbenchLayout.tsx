@@ -9,6 +9,7 @@ import { RelationshipsPanel } from "./panels/RelationshipsPanel";
 import { ReactionsPanel } from "./panels/ReactionsPanel";
 import { SavedPanel } from "./panels/SavedPanel";
 import { SearchPanel } from "./panels/SearchPanel";
+import { SkillsPanel } from "./panels/SkillsPanel";
 import { StoichPanel } from "./panels/StoichPanel";
 import type {
   ChemicalFollow,
@@ -18,6 +19,7 @@ import type {
   ReactionResponse,
   ReactionVisibility,
   SavedKind,
+  SkillItem,
   Summary,
   WorkbenchTab,
 } from "./types";
@@ -34,6 +36,7 @@ export function WorkbenchLayout({
   initialSavedReactions,
   initialNotices,
   initialPeople,
+  initialSkills,
   searchQuery,
 }: {
   activeTab: WorkbenchTab;
@@ -46,6 +49,7 @@ export function WorkbenchLayout({
   initialSavedReactions: PageResponse<Reaction> | null;
   initialNotices: NoticeResponse | null;
   initialPeople: PageResponse<PersonSummary> | null;
+  initialSkills: PageResponse<SkillItem> | null;
   searchQuery?: string;
 }) {
   const { user, ready: authReady } = useAccount();
@@ -61,6 +65,7 @@ export function WorkbenchLayout({
       {activeTab === "mine" && <ReactionsPanel page={page} visibility={visibility} initialData={initialReactions} />}
       {activeTab === "saved" && <SavedPanel page={page} kind={savedKind} initialChemicals={initialChemicals} initialReactions={initialSavedReactions} />}
       {activeTab === "activity" && <ActivityPanel page={page} initialData={initialNotices} />}
+      {activeTab === "skills" && <SkillsPanel page={page} initialData={initialSkills} />}
       {(activeTab === "followers" || activeTab === "following") && <RelationshipsPanel page={page} kind={activeTab} initialData={initialPeople} username={summary?.username} />}
     </>
   );

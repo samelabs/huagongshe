@@ -1,20 +1,19 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { apiGet } from "@/lib/api";
 
 type Skill = {
-  name: string;
-  category: string;
-  category_order: number;
+  id: number;
+  slug: string;
+  title: string;
   description: string;
-  detail: string;
-  license: string;
+  category: string | null;
+  origin: string;
+  has_scripts: boolean;
   file_count: number;
-  ref_count: number;
-  github_path: string;
+  size_bytes: number;
 };
-
-const SKILLS_BASE = "/kdense-skills";
 
 // 每个分类配一个简洁的缩写标签（2字母），用 CSS 渲染色块
 const CATEGORY_TAGS: Record<string, string> = {
@@ -30,6 +29,7 @@ const CATEGORY_TAGS: Record<string, string> = {
   地球与物理科学: "PH",
   研究方法论: "RM",
   通用工具: "UT",
+  化学反应记录: "RX",
 };
 
 // 每个分类配一个色值（与化工社色系协调）
@@ -46,6 +46,24 @@ const CATEGORY_COLORS: Record<string, string> = {
   地球与物理科学: "#2d3436",
   研究方法论: "#d63031",
   通用工具: "#636e72",
+  化学反应记录: "#0f5fba",
+};
+
+// 分类展示顺序（kdense 12 分类 + 化工社官方），未列出的排最后
+const CATEGORY_ORDER: Record<string, number> = {
+  化学反应记录: 0,
+  化学信息学: 1,
+  生物信息学: 2,
+  临床与医学: 3,
+  "机器学习与AI": 4,
+  统计分析: 5,
+  科研写作与文献: 6,
+  科学可视化: 7,
+  数据处理: 8,
+  平台集成: 9,
+  地球与物理科学: 10,
+  研究方法论: 11,
+  通用工具: 12,
 };
 
 function CategoryIcon({ category, size = 28 }: { category: string; size?: number }) {
@@ -70,41 +88,65 @@ function CategoryIcon({ category, size = 28 }: { category: string; size?: number
 export function KdenseSkillsClient() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("全部");
 
   useEffect(() => {
-    fetch("/kdense-skills.json")
-      .then((r) => r.json())
-      .then((data: Skill[]) => {
-        setSkills(data);
+    let active = true;
+    async function load() {
+      try {
+        const all: Skill[] = [];
+        let page = 1;
+        for (;;) {
+          const data = await apiGet<{ total: number; items: Skill[] }>(
+            `/skills?scope=public&page=${page}&page_size=100`
+          );
+          if (!active) return;
+          all.push(...data.items);
+          if (all.length >= data.total || data.items.length === 0) break;
+          page += 1;
+        }
+        if (!active) return;
+        setSkills(all);
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      } catch {
+        if (active) {
+          setError(true);
+          setLoading(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const categories = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of skills) {
-      map.set(s.category, (map.get(s.category) || 0) + 1);
+      const cat = s.category || "通用工具";
+      map.set(cat, (map.get(cat) || 0) + 1);
     }
     return Array.from(map.entries()).sort((a, b) => {
-      const sa = skills.find((s) => s.category === a[0]);
-      const sb = skills.find((s) => s.category === b[0]);
-      return (sa?.category_order ?? 99) - (sb?.category_order ?? 99);
+      const oa = CATEGORY_ORDER[a[0]] ?? 99;
+      const ob = CATEGORY_ORDER[b[0]] ?? 99;
+      return oa - ob;
     });
   }, [skills]);
 
   const filtered = useMemo(() => {
     return skills.filter((s) => {
       const matchCategory =
-        activeCategory === "全部" || s.category === activeCategory;
+        activeCategory === "全部" || (s.category || "通用工具") === activeCategory;
       const q = query.toLowerCase().trim();
       const matchQuery =
         !q ||
-        s.name.toLowerCase().includes(q) ||
+        s.slug.toLowerCase().includes(q) ||
+        s.title.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q) ||
-        s.category.toLowerCase().includes(q);
+        (s.category || "").toLowerCase().includes(q);
       return matchCategory && matchQuery;
     });
   }, [skills, query, activeCategory]);
@@ -112,13 +154,14 @@ export function KdenseSkillsClient() {
   const grouped = useMemo(() => {
     const map = new Map<string, Skill[]>();
     for (const s of filtered) {
-      if (!map.has(s.category)) map.set(s.category, []);
-      map.get(s.category)!.push(s);
+      const cat = s.category || "通用工具";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(s);
     }
     return Array.from(map.entries()).sort((a, b) => {
-      const sa = a[1][0];
-      const sb = b[1][0];
-      return (sa?.category_order ?? 99) - (sb?.category_order ?? 99);
+      const oa = CATEGORY_ORDER[a[0]] ?? 99;
+      const ob = CATEGORY_ORDER[b[0]] ?? 99;
+      return oa - ob;
     });
   }, [filtered]);
 
@@ -134,10 +177,10 @@ export function KdenseSkillsClient() {
           </p>
           <h1>科学 AI 开放技能库</h1>
           <p className="kdense-subtitle">
-            {skills.length || 158} 个开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域，可按需下载使用。
+            {skills.length} 个开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域，可按需下载使用。
           </p>
           <p className="kdense-source">
-            数据来源：K-Dense-AI/scientific-agent-skills (MIT) · 由化工社整理并本地化呈现
+            数据来源：K-Dense-AI/scientific-agent-skills (MIT) 与化工社官方技能 · 由化工社整理提供
           </p>
           <div className="kdense-search-bar">
             <input
@@ -174,6 +217,8 @@ export function KdenseSkillsClient() {
       <div className="kdense-content">
         {loading ? (
           <p className="kdense-loading">加载中…</p>
+        ) : error ? (
+          <p className="kdense-empty">数据读取失败，请刷新后重试。</p>
         ) : filtered.length === 0 ? (
           <p className="kdense-empty">未找到匹配的技能</p>
         ) : (
@@ -187,7 +232,7 @@ export function KdenseSkillsClient() {
                 </h2>
                 <div className="kdense-grid">
                   {catSkills.map((s) => (
-                    <SkillCard key={s.name} skill={s} />
+                    <SkillCard key={s.id} skill={s} />
                   ))}
                 </div>
               </section>
@@ -199,53 +244,32 @@ export function KdenseSkillsClient() {
   );
 }
 
-/** Extract a short license tag (≤20 chars) from raw license text. */
-function normalizeLicense(raw: string | undefined): string {
-  if (!raw) return "MIT";
-  const s = raw.trim();
-  // URL → domain tag
-  if (s.startsWith("http")) {
-    if (/creativecommons/i.test(s)) return "CC-BY-4.0";
-    return "查看协议";
-  }
-  // Long sentence → extract known keywords
-  if (s.length > 30) {
-    if (/proprietary/i.test(s)) return "专有";
-    if (/MIT/i.test(s)) return "MIT";
-    if (/Apache/i.test(s)) return "Apache-2.0";
-    if (/BSD/i.test(s)) return "BSD";
-    if (/GPL/i.test(s)) return "GPL";
-    return "查看协议";
-  }
-  // Already short
-  return s.replace(/\s*license\s*$/i, "").replace(/\s+/g, "-");
-}
-
 function SkillCard({ skill }: { skill: Skill }) {
   const [expanded, setExpanded] = useState(false);
-  const color = CATEGORY_COLORS[skill.category] || "#636e72";
-  const licenseTag = normalizeLicense(skill.license);
+  const color = CATEGORY_COLORS[skill.category || "通用工具"] || "#636e72";
 
   return (
     <article className={`kdense-card ${expanded ? "expanded" : ""}`}>
       <div className="kdense-card-accent" style={{ backgroundColor: color }} />
       <div className="kdense-card-body">
         <div className="kdense-card-head">
-          <h3 className="kdense-card-name">{skill.name}</h3>
-          <span className="kdense-card-license" title={skill.license || "MIT"}>
-            {licenseTag}
-          </span>
+          <h3 className="kdense-card-name">{skill.slug}</h3>
+          {skill.origin === "official" && (
+            <span className="kdense-card-license">官方</span>
+          )}
+          {skill.has_scripts && (
+            <span className="kdense-card-license" title="该技能包含脚本文件，使用前请人工审阅">
+              含脚本
+            </span>
+          )}
         </div>
         <p className="kdense-card-desc">{skill.description || "暂无描述"}</p>
         <div className="kdense-card-stats">
           <span className="kdense-stat">{skill.file_count} 文件</span>
-          {skill.ref_count > 0 && (
-            <span className="kdense-stat">{skill.ref_count} 参考文档</span>
-          )}
         </div>
-        {expanded && skill.detail && (
+        {expanded && (
           <div className="kdense-card-detail">
-            <p>{skill.detail}</p>
+            <p>{skill.description}</p>
           </div>
         )}
         <div className="kdense-card-actions">
@@ -257,8 +281,8 @@ function SkillCard({ skill }: { skill: Skill }) {
           </button>
           <a
             className="kdense-btn kdense-btn-download"
-            href={`${SKILLS_BASE}/${skill.name}.zip`}
-            download={`${skill.name}.zip`}
+            href={`/api/skills/${skill.id}/archive`}
+            download={`${skill.slug}.zip`}
           >
             下载技能包
           </a>

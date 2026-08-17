@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from sqlalchemy import text
 
 from .config import settings
+from .database import get_db
 from .security import Actor, optional_actor
 
 
@@ -33,6 +35,7 @@ def agent_connection_text(token: str) -> str:
 async def agent_guide(
     authorization: str | None = Header(default=None),
     actor: Actor | None = Depends(optional_actor),
+    db=Depends(get_db),
 ):
     """Return the complete, bounded operation guide; a Bearer token also confirms its owner."""
     bearer_supplied = bool(authorization and authorization.lower().startswith("bearer "))
@@ -42,6 +45,15 @@ async def agent_guide(
     agent = actor if actor and actor.auth_kind == "agent" else None
     origin = settings.public_base_url.rstrip("/")
     api_base = f"{origin}/api"
+    publisher_skill_id = await db.execute(text(
+        "SELECT id FROM community.skills WHERE slug='huagongshe-reaction-publisher' LIMIT 1"
+    ))
+    publisher_skill_id = publisher_skill_id.scalar()
+    skill_url = (
+        f"{origin}/api/skills/{publisher_skill_id}"
+        if publisher_skill_id is not None
+        else f"{api_base}/skills?scope=public&q=reaction-publisher"
+    )
     return {
         "api_version": settings.api_version,
         "api_base_url": api_base,
@@ -64,13 +76,13 @@ async def agent_guide(
         "authentication": {
             "type": "bearer",
             "header": "Authorization: Bearer <用户创建的 API Token>",
-            "scopes": list(agent.scopes) if agent else ["read", "reaction:write"],
+            "scopes": list(agent.scopes) if agent else ["read", "reaction:write", "skill:write"],
             "token_handling": "Token 仅发送给 huagongshe.com，不写入公开提示词、代码、文件或日志。",
         },
         "discovery": {
             "openapi_url": f"{api_base}/openapi.json",
             "help_url": f"{origin}/guide",
-            "optional_skill_url": f"{origin}/skills/huagongshe-reaction-publisher/SKILL.md",
+            "optional_skill_url": skill_url,
             "instruction": "先从 operations 选择操作；只有需要精确请求或响应结构时才读取 OpenAPI。",
         },
         "operations": [
@@ -119,6 +131,28 @@ async def agent_guide(
                 "input": "visibility 为 all、private 或 public；支持 page 和 page_size",
             },
             {
+                "id": "list_skills",
+                "method": "GET",
+                "path": "/api/skills",
+                "auth": "public_or_bearer",
+                "purpose": "列出技能：scope=public 浏览平台公开技能池（含官方与开源社区技能），scope=mine 读取 Token 所属用户自己的技能",
+                "input": "scope 为 public 或 mine（mine 需 Bearer）；q 关键词搜索；category 分类过滤；支持 page 和 page_size",
+            },
+            {
+                "id": "get_skill",
+                "method": "GET",
+                "path": "/api/skills/{skill_id}",
+                "auth": "public_or_bearer",
+                "purpose": "读取一个技能的 manifest、文件树和 SKILL.md 全文；Token 所属用户也可读取自己的私有技能",
+            },
+            {
+                "id": "download_skill_archive",
+                "method": "GET",
+                "path": "/api/skills/{skill_id}/archive",
+                "auth": "public_or_bearer",
+                "purpose": "下载技能完整 zip 包，用于在用户本地 AI 环境装载；含脚本的技能执行前必须人工审阅",
+            },
+            {
                 "id": "calculate_stoichiometry",
                 "method": "POST",
                 "path": "/api/stoichiometry/scale",
@@ -131,7 +165,23 @@ async def agent_guide(
                 "method": "POST",
                 "path": "/api/reactions/validate",
                 "auth": "bearer:reaction:write",
-                "purpose": "校验草稿并返回 RDKit 标准化后的 reaction SMILES 和参与物",
+                "purpose": "校验反应草稿并返回 RDKit 标准化后的 reaction SMILES 和参与物",
+            },
+            {
+                "id": "validate_skill",
+                "method": "POST",
+                "path": "/api/skills/validate",
+                "auth": "public_or_bearer",
+                "purpose": "校验技能 zip 草稿（不保存）：结构、配额、文件数、frontmatter、脚本语法与危险调用警告",
+                "input": "multipart 字段 file=<技能 zip>",
+            },
+            {
+                "id": "create_skill",
+                "method": "POST",
+                "path": "/api/skills",
+                "auth": "bearer:skill:write",
+                "purpose": "把用户确认后的技能 zip 保存到该用户的技能容器；个人技能恒为 private",
+                "required_header": "Idempotency-Key；同一次保存的重试复用，其他技能不得复用",
             },
             {
                 "id": "create_reaction",
@@ -196,5 +246,6 @@ async def agent_guide(
             "reaction_writes_per_minute": settings.api_reaction_write_limit_per_minute,
             "reaction_writes_per_day": settings.api_reaction_write_limit_per_day,
             "stoichiometry_per_minute": settings.api_stoich_limit_per_minute,
+            "skill_writes_per_hour": settings.api_skill_write_limit_per_hour,
         },
     }

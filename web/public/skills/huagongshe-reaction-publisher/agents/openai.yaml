@@ -1,4 +1,0 @@
-interface:
-  display_name: "化工社反应整理"
-  short_description: "从网页、文档或对话中整理反应并保存到个人反应库"
-  default_prompt: "使用 $huagongshe-reaction-publisher 从这份资料中提取反应，先让我确认，再保存到我的化工社反应库。"

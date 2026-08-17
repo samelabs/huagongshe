@@ -1,7 +1,22 @@
 export type LoadState = "idle" | "loading" | "ready" | "error";
-export type WorkbenchTab = "home" | "search" | "stoich" | "mine" | "saved" | "activity" | "followers" | "following" | "profile" | "avatar" | "security" | "api-tokens";
+export type WorkbenchTab = "home" | "search" | "stoich" | "mine" | "saved" | "activity" | "followers" | "following" | "skills" | "profile" | "avatar" | "security" | "api-tokens";
 export type ReactionVisibility = "all" | "public" | "private";
 export type SavedKind = "chemicals" | "reactions";
+
+export type SkillItem = {
+  id: number;
+  slug: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  origin: string;
+  visibility: "private" | "public";
+  has_scripts: boolean;
+  file_count: number;
+  size_bytes: number;
+  updated_at: string;
+  owner: { username: string; display_name: string | null };
+};
 
 export type Counts = {
   public_reactions: number;

@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     api_reaction_write_limit_per_day: int = 200
     api_stoich_limit_per_minute: int = 30
     api_avatar_limit_per_hour: int = 5
+    skill_root: str = "/var/lib/huagongshe/skills"
+    skill_zip_max_bytes: int = 12 * 1024 * 1024
+    skill_file_max_bytes: int = 2 * 1024 * 1024
+    skill_total_max_bytes: int = 10 * 1024 * 1024
+    skill_max_files: int = 128
+    api_skill_write_limit_per_hour: int = 20
     worker_max_body_bytes: int = 10 * 1024 * 1024
     worker_signature_skew_seconds: int = 300
     worker_job_lease_seconds: int = 180

@@ -77,4 +77,4 @@
 - [API Connection Guide](https://huagongshe.com/api/agent-guide)
 - [OpenAPI Schema](https://huagongshe.com/api/openapi.json)
 - [API Docs (Swagger UI)](https://huagongshe.com/api/docs)
-- [Reaction Publisher Skill](https://huagongshe.com/skills/huagongshe-reaction-publisher/SKILL.md)
+- [Skills Registry](https://huagongshe.com/api/skills?scope=public)（含 Reaction Publisher Skill，可经 /api/skills/{id}/archive 下载）

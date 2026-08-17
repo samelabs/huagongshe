@@ -9,6 +9,7 @@ import type {
   ReactionVisibility,
   Reaction,
   SavedKind,
+  SkillItem,
   Summary,
   WorkbenchTab,
 } from "@/components/workbench/types";
@@ -17,7 +18,7 @@ import { apiGet } from "@/lib/api";
 import t from "@/lib/i18n";
 
 export const metadata: Metadata = { title: t.me.title, robots: { index: false, follow: false } };
-const tabs = new Set<WorkbenchTab>(["home", "search", "stoich", "mine", "saved", "activity", "followers", "following"]);
+const tabs = new Set<WorkbenchTab>(["home", "search", "stoich", "mine", "saved", "skills", "activity", "followers", "following"]);
 const visibilities = new Set<ReactionVisibility>(["all", "public", "private"]);
 const savedKinds = new Set<SavedKind>(["chemicals", "reactions"]);
 
@@ -72,14 +73,18 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
   const initialPeople = (activeTab === "followers" || activeTab === "following") && summary?.username
     ? ssrGet<PageResponse<PersonSummary>>(cookieHeader, `/users/${encodeURIComponent(summary.username)}/${activeTab}?page=${page}&page_size=40`)
     : null;
+  const initialSkills = activeTab === "skills"
+    ? ssrGet<PageResponse<SkillItem>>(cookieHeader, `/skills?scope=mine&page=${page}&page_size=20`)
+    : null;
 
   // 等待并行请求完成
-  const [reactions, chemicals, savedReactions, notices, people] = await Promise.all([
+  const [reactions, chemicals, savedReactions, notices, people, skills] = await Promise.all([
     initialReactions,
     initialChemicals,
     initialSavedReactions,
     initialNotices,
     initialPeople,
+    initialSkills,
   ]);
 
   return (
@@ -94,6 +99,7 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
       initialSavedReactions={savedReactions}
       initialNotices={notices}
       initialPeople={people}
+      initialSkills={skills}
       searchQuery={searchQuery}
     />
   );
