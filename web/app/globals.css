@@ -1096,3 +1096,10 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .admin-nav { position: static; display: flex; gap: 4px; overflow-x: auto; }
   .admin-nav a { white-space: nowrap; }
 }
+
+/* ── 全站滚动条基线 — 细 6px 圆角，line-strong 滑块，透明轨道 ── */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+*::-webkit-scrollbar-track { background: transparent; }

@@ -1517,6 +1517,13 @@
   overflow-x: auto;
   background: var(--wb-paper);
 }
+
+/* ── wb 域滚动条 — 自包含，不依赖站点域 token ── */
+.wb-shell * { scrollbar-width: thin; scrollbar-color: var(--wb-line-strong) transparent; }
+.wb-shell *::-webkit-scrollbar { width: 6px; height: 6px; }
+.wb-shell *::-webkit-scrollbar-thumb { background: var(--wb-line-strong); border-radius: 3px; }
+.wb-shell *::-webkit-scrollbar-thumb:hover { background: var(--wb-muted); }
+.wb-shell *::-webkit-scrollbar-track { background: transparent; }
 .wb-stoich-rhead,
 .wb-stoich-rrow {
   display: grid;
