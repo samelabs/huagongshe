@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SamelabsNav } from "@/components/SamelabsNav";
 import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
@@ -57,9 +56,6 @@ export function SamelabsUsers() {
       <p className="page-kicker">{t.admin.usersKicker}</p>
       <h1>{t.admin.usersTitle}</h1>
     </header>
-    <div className="settings-layout">
-      <SamelabsNav />
-      <div className="settings-content">
         {error && <div className="notice error">{error}</div>}
         <section className="dashboard-section">
           <div className="section-heading">
@@ -87,7 +83,5 @@ export function SamelabsUsers() {
             </article>)}
           </div>
         </section>
-      </div>
-    </div>
   </>;
 }

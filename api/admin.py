@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
+import asyncio
+from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -11,6 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from .cache import cache_delete
+from .config import settings
 from .database import get_db
 from .security import Actor, current_session
 
@@ -145,6 +149,171 @@ async def moderate_reaction(
     if current[1] == "public" and current[0] != body.status:
         await cache_delete("v1:stats:exact")
     return {"id": reaction_id, "moderation_status": body.status}
+
+
+# ── 技能治理 ──────────────────────────────────────────────
+
+class SkillVisibilityBody(BaseModel):
+    visibility: Literal["private", "public"]
+    note: str | None = None
+
+
+@router.get("/skills")
+async def list_all_skills(
+    q: str = Query("", max_length=120),
+    visibility: Literal["all", "public", "private"] = Query("all"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    actor: Actor = Depends(admin), db=Depends(get_db),
+):
+    conditions = []
+    params: dict[str, Any] = {"limit": limit, "offset": offset}
+    if q.strip():
+        conditions.append("(s.slug ILIKE :q OR s.title ILIKE :q OR u.username ILIKE :q)")
+        params["q"] = f"%{q.strip()}%"
+    if visibility != "all":
+        conditions.append("s.visibility=:vis")
+        params["vis"] = visibility
+    where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    total = (await db.execute(text(f"""
+        SELECT count(*) FROM community.skills s JOIN community.users u ON u.id=s.owner_id {where}
+    """), params)).scalar() or 0
+    rows = (await db.execute(text(f"""
+        SELECT s.id,s.slug,s.title,s.description,s.category,s.origin,s.visibility,
+               s.has_scripts,s.file_count,s.size_bytes,s.created_at,s.updated_at,
+               s.published_at,s.publish_note,
+               u.username,u.display_name
+        FROM community.skills s JOIN community.users u ON u.id=s.owner_id
+        {where}
+        ORDER BY s.updated_at DESC, s.id DESC
+        LIMIT :limit OFFSET :offset
+    """), params)).mappings().all()
+    return {"total": int(total), "items": [dict(r) for r in rows]}
+
+
+@router.patch("/skills/{skill_id}/visibility")
+async def set_skill_visibility(
+    skill_id: int, body: SkillVisibilityBody,
+    actor: Actor = Depends(admin), db=Depends(get_db),
+):
+    """公开态唯一入口：受控管理动作，审计字段随动。"""
+    note = (body.note or "").strip() or None
+    if note and len(note) > 200:
+        raise HTTPException(400, "发布备注不能超过 200 字")
+    result = await db.execute(text("""
+        UPDATE community.skills SET
+          visibility=:vis,
+          origin=CASE WHEN :vis='public' AND origin='user' THEN 'official' ELSE origin END,
+          published_by=:actor, published_at=CASE WHEN :vis='public' THEN now() ELSE published_at END,
+          publish_note=:note, updated_at=now()
+        WHERE id=:id
+    """), {"id": skill_id, "vis": body.visibility, "actor": actor.id, "note": note})
+    if result.rowcount == 0:
+        raise HTTPException(404, "技能不存在")
+    await db.commit()
+    return {"id": skill_id, "visibility": body.visibility}
+
+
+@router.delete("/skills/{skill_id}")
+async def admin_delete_skill(
+    skill_id: int, actor: Actor = Depends(admin), db=Depends(get_db),
+):
+    row = (await db.execute(text("""
+        SELECT id FROM community.skills WHERE id=:id
+    """), {"id": skill_id})).fetchone()
+    if row is None:
+        raise HTTPException(404, "技能不存在")
+    await db.execute(text("DELETE FROM community.skills WHERE id=:id"), {"id": skill_id})
+    await db.commit()
+    await asyncio.to_thread(shutil.rmtree, Path(settings.skill_root) / str(skill_id), True)
+    return {"id": skill_id, "deleted": True}
+
+
+class CategoryBody(BaseModel):
+    name: str
+    abbr: str
+    color: str
+    sort_order: int = 100
+    active: bool = True
+
+
+@router.get("/skill-categories")
+async def list_categories(actor: Actor = Depends(admin), db=Depends(get_db)):
+    rows = (await db.execute(text("""
+        SELECT id,name,abbr,color,sort_order,active,
+               (SELECT count(*) FROM community.skills s WHERE s.category=c.name) AS skill_count
+        FROM community.skill_categories c ORDER BY sort_order, id
+    """))).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.post("/skill-categories")
+async def create_category(
+    body: CategoryBody, actor: Actor = Depends(admin), db=Depends(get_db),
+):
+    name = body.name.strip()
+    abbr = body.abbr.strip().upper()
+    color = body.color.strip().lower()
+    if not (1 <= len(name) <= 40):
+        raise HTTPException(400, "分类名长度 1-40")
+    if not re.fullmatch(r"[A-Z]{1,4}", abbr):
+        raise HTTPException(400, "缩写为 1-4 个英文字母")
+    if not re.fullmatch(r"#[0-9a-f]{6}", color):
+        raise HTTPException(400, "色值格式 #rrggbb")
+    dup = (await db.execute(text(
+        "SELECT 1 FROM community.skill_categories WHERE name=:n"
+    ), {"n": name})).scalar()
+    if dup is not None:
+        raise HTTPException(409, "分类已存在")
+    row = (await db.execute(text("""
+        INSERT INTO community.skill_categories (name,abbr,color,sort_order,active)
+        VALUES (:name,:abbr,:color,:sort,:active) RETURNING id
+    """), {"name": name, "abbr": abbr, "color": color, "sort": body.sort_order, "active": body.active})).fetchone()
+    await db.commit()
+    return {"id": int(row[0]), "name": name, "abbr": abbr, "color": color}
+
+
+@router.patch("/skill-categories/{category_id}")
+async def update_category(
+    category_id: int, body: CategoryBody,
+    actor: Actor = Depends(admin), db=Depends(get_db),
+):
+    """改名/改色/排序/停用；停用不物理删，存量引用不悬空。"""
+    name = body.name.strip()
+    abbr = body.abbr.strip().upper()
+    color = body.color.strip().lower()
+    if not (1 <= len(name) <= 40):
+        raise HTTPException(400, "分类名长度 1-40")
+    if not re.fullmatch(r"[A-Z]{1,4}", abbr):
+        raise HTTPException(400, "缩写为 1-4 个英文字母")
+    if not re.fullmatch(r"#[0-9a-f]{6}", color):
+        raise HTTPException(400, "色值格式 #rrggbb")
+    row = await db.execute(text("""
+        SELECT name FROM community.skill_categories WHERE id=:id
+    """), {"id": category_id})
+    old_name = row.scalar_one_or_none()
+    if old_name is None:
+        raise HTTPException(404, "分类不存在")
+    if old_name != name:
+        dup = await db.execute(text("""
+            SELECT 1 FROM community.skill_categories
+            WHERE name=:name AND id<>:id LIMIT 1
+        """), {"id": category_id, "name": name})
+        if dup.scalar_one_or_none() is not None:
+            raise HTTPException(409, "分类名已存在")
+        # 先同步存量技能引用（读旧名），再改字典，两步顺序不可颠倒
+        await db.execute(text("""
+            UPDATE community.skills SET category=:name
+            WHERE category=:old_name
+        """), {"name": name, "old_name": old_name})
+    await db.execute(text("""
+        UPDATE community.skill_categories
+        SET name=:name,abbr=:abbr,color=:color,sort_order=:sort,active=:active
+        WHERE id=:id
+    """), {"id": category_id, "name": name, "abbr": abbr, "color": color,
+           "sort": body.sort_order, "active": body.active})
+    await db.commit()
+    return {"id": category_id, "name": name, "active": body.active}
 
 
 # ── 仪表盘 ──────────────────────────────────────────────

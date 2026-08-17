@@ -1070,3 +1070,29 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .kdense-btn:hover { border-color: var(--blue); color: var(--blue); }
   .kdense-btn-download:hover { background: var(--blue); color: #fff; }
 }
+
+/* ── 后台·技能管理 ───────────────────────────── */
+.admin-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.admin-filters input { min-width: 0; flex: 1; max-width: 280px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: var(--text-sm); color: var(--ink); background: var(--paper); outline: none; }
+.admin-filters input:focus { border-color: var(--blue); }
+.admin-filters button { padding: 7px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--muted); font-size: var(--text-sm); cursor: pointer; }
+.admin-filters button.active { border-color: var(--blue); color: var(--blue); background: var(--blue-tint); }
+.admin-cat-create { display: grid; grid-template-columns: 1fr 90px 52px 90px auto; gap: 8px; margin-top: 14px; align-items: center; }
+.admin-cat-create input { min-width: 0; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: var(--text-sm); color: var(--ink); background: var(--paper); outline: none; }
+.admin-cat-create input:focus { border-color: var(--blue); }
+.admin-cat-create input[type="color"] { padding: 2px; height: 36px; cursor: pointer; }
+.admin-cat-create button { justify-self: start; }
+@media (max-width: 680px) { .admin-cat-create { grid-template-columns: 1fr 1fr; } }
+
+/* ── samelabs 后台壳：布局级侧栏导航（admin-* 语义前缀） ── */
+.admin-shell { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 34px; align-items: start; }
+.admin-nav { position: sticky; top: 84px; display: grid; gap: 2px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+.admin-nav a { padding: 9px 12px; border-radius: 8px; color: var(--muted); font-size: var(--text-sm); line-height: 1.4; text-decoration: none; }
+.admin-nav a:hover { color: var(--ink); background: var(--blue-tint); }
+.admin-nav a.active { color: var(--blue); background: var(--blue-tint); font-weight: 700; }
+.admin-content { min-width: 0; }
+@media (max-width: 900px) {
+  .admin-shell { grid-template-columns: 1fr; gap: 18px; }
+  .admin-nav { position: static; display: flex; gap: 4px; overflow-x: auto; }
+  .admin-nav a { white-space: nowrap; }
+}

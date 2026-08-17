@@ -4,22 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import t from "@/lib/i18n";
 import { Pagination, PanelError, PanelHeading, PanelLoading, WbEmpty } from "../shared";
-import type { LoadState, PageResponse } from "../types";
-
-export type SkillItem = {
-  id: number;
-  slug: string;
-  title: string;
-  description: string | null;
-  category: string | null;
-  origin: string;
-  visibility: "private" | "public";
-  has_scripts: boolean;
-  file_count: number;
-  size_bytes: number;
-  updated_at: string;
-  owner: { username: string; display_name: string | null };
-};
+import type { LoadState, PageResponse, SkillItem } from "../types";
 
 const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, page_size: 20 });
 
@@ -69,7 +54,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
     const form = new FormData();
     form.append("file", file);
     try {
-      const created = await apiPost<SkillItem & { warnings?: string[] }>("/skills?visibility=private", form);
+      const created = await apiPost<SkillItem & { warnings?: string[] }>("/skills", form);
       const warn = created.warnings?.length ? `（${created.warnings.length} 条警告）` : "";
       setUploadNotice(`${created.slug} 已上传${warn}`);
       const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=1&page_size=20`);
@@ -113,7 +98,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
       {state === "loading" && <PanelLoading variant="list" />}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && (skills.items.length ? (
-        <div className="wb-followed-list">
+        <div className="wb-skill-list">
           {skills.items.map((s) => (
             <div key={s.id} className="wb-skill-row">
               <span>

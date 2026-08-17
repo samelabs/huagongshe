@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SamelabsNav } from "@/components/SamelabsNav";
 import { apiGet, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
@@ -50,9 +49,6 @@ export function SamelabsDashboard() {
       <p className="page-kicker">{t.admin.dashboardKicker}</p>
       <h1>{t.admin.dashboardTitle}</h1>
     </header>
-    <div className="settings-layout">
-      <SamelabsNav />
-      <div className="settings-content">
         <div className="dashboard-grid">
           <StatCard label={t.admin.statUsers} value={fmt(data.users.total)} sub={t.admin.statUsersSub(data.users.today, data.users.week)} />
           <StatCard label={t.admin.statSessions} value={fmt(data.sessions)} />
@@ -62,7 +58,5 @@ export function SamelabsDashboard() {
           <StatCard label={t.admin.statChemicals} value={fmt(data.chemicals)} />
           <StatCard label={t.admin.statDisk} value={`${data.system.disk_pct}%`} sub={t.admin.statDiskSub(data.system.disk_free_gb, data.system.disk_total_gb)} />
         </div>
-      </div>
-    </div>
   </>;
 }

@@ -1586,3 +1586,20 @@
     display: none;
   }
 }
+
+/* ── 我的技能面板 ────────────────────────────── */
+.wb-skills-upload{gap:var(--wb-sp-2);align-items:center;border:1px dashed var(--wb-line-strong);border-radius:var(--wb-r-md);background:var(--wb-blue-tint);padding:var(--wb-sp-3) var(--wb-sp-4);display:flex}
+.wb-skills-upload input[type="file"]{min-width:0;flex:1;font-size:var(--wb-fs-sm);color:var(--wb-muted)}
+.wb-skills-upload-hint{margin:0;font-size:var(--wb-fs-xs);color:var(--wb-quiet)}
+.wb-skills-notice{border:1px solid var(--wb-blue-border);border-radius:var(--wb-r-md);background:var(--wb-blue-tint);padding:var(--wb-sp-2) var(--wb-sp-3);font-size:var(--wb-fs-sm);color:var(--wb-blue-deep)}
+.wb-skills-error{border:1px solid var(--wb-danger);border-radius:var(--wb-r-md);background:var(--wb-paper);padding:var(--wb-sp-2) var(--wb-sp-3);font-size:var(--wb-fs-sm);color:var(--wb-danger)}
+.wb-skill-list{gap:var(--wb-sp-2);flex-direction:column;display:flex}
+.wb-skill-row{justify-content:space-between;align-items:center;gap:var(--wb-sp-3);border:1px solid var(--wb-line);border-radius:var(--wb-r-md);background:var(--wb-paper);padding:var(--wb-sp-3) var(--wb-sp-4);display:flex}
+.wb-skill-row:hover{border-color:var(--wb-blue-border)}
+.wb-skill-row>span{min-width:0}
+.wb-skill-row strong{color:var(--wb-heading);font-size:var(--wb-fs);font-weight:var(--wb-w-semibold);text-overflow:ellipsis;white-space:nowrap;display:block;overflow:hidden}
+.wb-skill-row small{color:var(--wb-quiet);font-size:var(--wb-fs-xs);text-overflow:ellipsis;white-space:nowrap;display:block;overflow:hidden}
+.wb-skill-actions{gap:var(--wb-sp-2);align-items:center;flex-shrink:0;display:flex}
+.wb-btn-danger{background:var(--wb-paper);color:var(--wb-danger);border-color:var(--wb-line)}
+.wb-btn-danger:hover{border-color:var(--wb-danger);background:var(--wb-paper)}
+@media (max-width:680px){.wb-skill-row{flex-direction:column;align-items:stretch}.wb-skill-actions{justify-content:flex-end}}

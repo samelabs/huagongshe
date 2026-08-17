@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EntityId } from "@/components/shared/EntityId";
-import { SamelabsNav } from "@/components/SamelabsNav";
 import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
@@ -49,9 +48,6 @@ export function SamelabsReactions() {
       <p className="page-kicker">{t.admin.reactionsKicker}</p>
       <h1>{t.admin.reactionsTitle}</h1>
     </header>
-    <div className="settings-layout">
-      <SamelabsNav />
-      <div className="settings-content">
         {error && <div className="notice error">{error}</div>}
         <section className="dashboard-section">
           <div className="section-heading">
@@ -71,7 +67,5 @@ export function SamelabsReactions() {
             </article>)}
           </div>
         </section>
-      </div>
-    </div>
   </>;
 }

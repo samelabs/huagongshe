@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SamelabsNav } from "@/components/SamelabsNav";
 import t from "@/lib/i18n";
 
 export const metadata: Metadata = {
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function SamelabsLayout({ children }: { children: React.ReactNode }) {
-  return <div className="content-page samelabs-page">{children}</div>;
+  return <div className="content-page samelabs-page">
+    <div className="admin-shell">
+      <SamelabsNav />
+      <div className="admin-content">{children}</div>
+    </div>
+  </div>;
 }

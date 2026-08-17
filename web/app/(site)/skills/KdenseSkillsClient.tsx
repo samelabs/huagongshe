@@ -15,78 +15,29 @@ type Skill = {
   size_bytes: number;
 };
 
-// 每个分类配一个简洁的缩写标签（2字母），用 CSS 渲染色块
-const CATEGORY_TAGS: Record<string, string> = {
-  化学信息学: "CH",
-  生物信息学: "BI",
-  临床与医学: "MD",
-  "机器学习与AI": "AI",
-  统计分析: "ST",
-  科研写作与文献: "WR",
-  科学可视化: "VZ",
-  数据处理: "DA",
-  平台集成: "PL",
-  地球与物理科学: "PH",
-  研究方法论: "RM",
-  通用工具: "UT",
-  化学反应记录: "RX",
-};
+// 分类字典：运行时从 /api/skills/categories 拉取（后台管理的唯一来源）
+type Category = { name: string; abbr: string; color: string; sort_order: number };
 
-// 每个分类配一个色值（与化工社色系协调）
-const CATEGORY_COLORS: Record<string, string> = {
-  化学信息学: "#1e90ff",
-  生物信息学: "#0f9d58",
-  临床与医学: "#e84393",
-  "机器学习与AI": "#6c5ce7",
-  统计分析: "#fd7e14",
-  科研写作与文献: "#00b894",
-  科学可视化: "#e17055",
-  数据处理: "#0984e3",
-  平台集成: "#a29bfe",
-  地球与物理科学: "#2d3436",
-  研究方法论: "#d63031",
-  通用工具: "#636e72",
-  化学反应记录: "#0f5fba",
-};
-
-// 分类展示顺序（kdense 12 分类 + 化工社官方），未列出的排最后
-const CATEGORY_ORDER: Record<string, number> = {
-  化学反应记录: 0,
-  化学信息学: 1,
-  生物信息学: 2,
-  临床与医学: 3,
-  "机器学习与AI": 4,
-  统计分析: 5,
-  科研写作与文献: 6,
-  科学可视化: 7,
-  数据处理: 8,
-  平台集成: 9,
-  地球与物理科学: 10,
-  研究方法论: 11,
-  通用工具: 12,
-};
-
-function CategoryIcon({ category, size = 28 }: { category: string; size?: number }) {
-  const tag = CATEGORY_TAGS[category] || "SK";
-  const color = CATEGORY_COLORS[category] || "#636e72";
+function CategoryIcon({ cat, size = 28 }: { cat: Category | undefined; size?: number }) {
   return (
     <span
       className="cat-icon"
       style={{
         width: size,
         height: size,
-        backgroundColor: color,
+        backgroundColor: cat?.color || "#636e72",
         fontSize: size * 0.36,
       }}
       aria-hidden="true"
     >
-      {tag}
+      {cat?.abbr || "SK"}
     </span>
   );
 }
 
 export function KdenseSkillsClient() {
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [cats, setCats] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
@@ -96,6 +47,9 @@ export function KdenseSkillsClient() {
     let active = true;
     async function load() {
       try {
+        const catData = await apiGet<Category[]>(`/skills/categories`);
+        if (!active) return;
+        setCats(catData);
         const all: Skill[] = [];
         let page = 1;
         for (;;) {
@@ -123,6 +77,8 @@ export function KdenseSkillsClient() {
     };
   }, []);
 
+  const catMap = useMemo(() => new Map(cats.map((c) => [c.name, c])), [cats]);
+
   const categories = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of skills) {
@@ -130,11 +86,11 @@ export function KdenseSkillsClient() {
       map.set(cat, (map.get(cat) || 0) + 1);
     }
     return Array.from(map.entries()).sort((a, b) => {
-      const oa = CATEGORY_ORDER[a[0]] ?? 99;
-      const ob = CATEGORY_ORDER[b[0]] ?? 99;
+      const oa = catMap.get(a[0])?.sort_order ?? 99;
+      const ob = catMap.get(b[0])?.sort_order ?? 99;
       return oa - ob;
     });
-  }, [skills]);
+  }, [skills, catMap]);
 
   const filtered = useMemo(() => {
     return skills.filter((s) => {
@@ -159,11 +115,11 @@ export function KdenseSkillsClient() {
       map.get(cat)!.push(s);
     }
     return Array.from(map.entries()).sort((a, b) => {
-      const oa = CATEGORY_ORDER[a[0]] ?? 99;
-      const ob = CATEGORY_ORDER[b[0]] ?? 99;
+      const oa = catMap.get(a[0])?.sort_order ?? 99;
+      const ob = catMap.get(b[0])?.sort_order ?? 99;
       return oa - ob;
     });
-  }, [filtered]);
+  }, [filtered, catMap]);
 
   return (
     <div className="kdense-page">
@@ -226,13 +182,13 @@ export function KdenseSkillsClient() {
             {grouped.map(([cat, catSkills]) => (
               <section key={cat} className="kdense-group">
                 <h2 className="kdense-group-title">
-                  <CategoryIcon category={cat} size={26} />
+                  <CategoryIcon cat={catMap.get(cat)} size={26} />
                   <span className="kdense-group-name">{cat}</span>
                   <span className="kdense-group-count">{catSkills.length}</span>
                 </h2>
                 <div className="kdense-grid">
                   {catSkills.map((s) => (
-                    <SkillCard key={s.id} skill={s} />
+                    <SkillCard key={s.id} skill={s} cat={catMap.get(s.category || "通用工具")} />
                   ))}
                 </div>
               </section>
@@ -244,9 +200,9 @@ export function KdenseSkillsClient() {
   );
 }
 
-function SkillCard({ skill }: { skill: Skill }) {
+function SkillCard({ skill, cat }: { skill: Skill; cat: Category | undefined }) {
   const [expanded, setExpanded] = useState(false);
-  const color = CATEGORY_COLORS[skill.category || "通用工具"] || "#636e72";
+  const color = cat?.color || "#636e72";
 
   return (
     <article className={`kdense-card ${expanded ? "expanded" : ""}`}>

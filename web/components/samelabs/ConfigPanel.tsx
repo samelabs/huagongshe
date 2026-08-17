@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SamelabsNav } from "@/components/SamelabsNav";
 import { apiGet, apiPut, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
@@ -105,16 +104,11 @@ export function SamelabsConfig() {
       <p className="page-kicker">{t.admin.configKicker}</p>
       <h1>{t.admin.configTitle}</h1>
     </header>
-    <div className="settings-layout">
-      <SamelabsNav />
-      <div className="settings-content">
         {error && <div className="notice error">{error}</div>}
         {saved && <div className="notice success">{saved}</div>}
         {renderSection("analytics", getByNs("analytics"))}
         {renderSection("ads", getByNs("ads"))}
         {renderSection("site", getByNs("site"))}
         {renderSection("branding", getByNs("branding"))}
-      </div>
-    </div>
   </>;
 }

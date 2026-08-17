@@ -206,6 +206,18 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
     }
 
 
+async def validate_category(db, category: str | None) -> str | None:
+    """分类必须来自字典表（active），违例 400；空值放行（未分类）。"""
+    if not category:
+        return None
+    ok = (await db.execute(text("""
+        SELECT 1 FROM community.skill_categories WHERE name=:n AND active
+    """), {"n": category})).scalar()
+    if ok is None:
+        raise HTTPException(400, f"分类不存在或已停用：{category}")
+    return category
+
+
 async def skill_accessible(db, skill_id: int, actor: Actor | None) -> dict[str, Any]:
     row = (await db.execute(text("""
         SELECT s.id,s.owner_id,s.slug,s.title,s.description,s.license,s.category,s.origin,
@@ -240,7 +252,7 @@ def _write_skill_files(skill_id: int, files: list[tuple[str, bytes]]) -> None:
         target.write_bytes(data)
 
 
-async def _create_skill_record(db, actor: Actor, manifest: dict[str, Any], visibility: str, origin: str, category: str | None, idempotency_key: str | None) -> dict[str, Any]:
+async def _create_skill_record(db, actor: Actor, manifest: dict[str, Any], category: str | None, idempotency_key: str | None) -> dict[str, Any]:
     existing_slug = (await db.execute(text("""
         SELECT id FROM community.skills WHERE owner_id=:owner AND slug=:slug
     """), {"owner": actor.id, "slug": manifest["slug"]})).scalar()
@@ -250,13 +262,13 @@ async def _create_skill_record(db, actor: Actor, manifest: dict[str, Any], visib
         INSERT INTO community.skills
           (owner_id,slug,title,description,license,category,origin,visibility,
            has_scripts,file_count,size_bytes,idempotency_key)
-        VALUES (:owner,:slug,:title,:description,:license,:category,:origin,:visibility,
+        VALUES (:owner,:slug,:title,:description,:license,:category,'user','private',
                 :has_scripts,:file_count,:size_bytes,:idem)
         RETURNING id,created_at
     """), {
         "owner": actor.id, "slug": manifest["slug"], "title": manifest["title"],
         "description": manifest["description"], "license": manifest["license"],
-        "category": category, "origin": origin, "visibility": visibility,
+        "category": category,
         "has_scripts": manifest["has_scripts"], "file_count": manifest["file_count"],
         "size_bytes": manifest["size_bytes"], "idem": idempotency_key,
     })).fetchone()
@@ -280,6 +292,19 @@ async def _create_skill_record(db, actor: Actor, manifest: dict[str, Any], visib
         await asyncio.to_thread(shutil.rmtree, _skill_fs_dir(skill_id), True)
         raise
     return await skill_accessible(db, skill_id, actor)
+
+
+@router.get(
+    "/skills/categories",
+    operation_id="list_skill_categories",
+    summary="分类字典（公开；公开页与工作台的分类唯一来源）",
+)
+async def list_skill_categories(db=Depends(get_db)):
+    rows = (await db.execute(text("""
+        SELECT name,abbr,color,sort_order FROM community.skill_categories
+        WHERE active ORDER BY sort_order, id
+    """))).mappings().all()
+    return [dict(r) for r in rows]
 
 
 @router.get(
@@ -465,7 +490,6 @@ async def validate_skill(
 )
 async def create_skill(
     file: UploadFile = File(...),
-    visibility: str = Query("private", pattern="^(private|public)$"),
     category: str | None = Query(None, max_length=40),
     request_idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     actor: Actor = Depends(current_actor),
@@ -474,11 +498,8 @@ async def create_skill(
     require_scope(actor, "skill:write")
     await enforce("skill-write-hour", str(actor.id), settings.api_skill_write_limit_per_hour, 3600)
 
-    if visibility == "public" and actor.role != "admin":
-        raise HTTPException(403, "公开技能由平台统一发布，个人技能恒为私有")
-    origin = "official" if (visibility == "public" and actor.role == "admin") else "user"
-    if category:
-        category = category.strip()[:40] or None
+    # 规范：发布默认私有；公开态仅后台管理动作设置，创建时不存在公开路径
+    category = await validate_category(db, category)
 
     idempotency_key = request_idempotency_key
     if actor.auth_kind == "agent" and not idempotency_key:
@@ -497,7 +518,7 @@ async def create_skill(
     if len(raw) > settings.skill_zip_max_bytes:
         raise HTTPException(400, f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
     manifest = await asyncio.to_thread(extract_skill_zip, raw)
-    created = await _create_skill_record(db, actor, manifest, visibility, origin, category, idempotency_key)
+    created = await _create_skill_record(db, actor, manifest, category, idempotency_key)
     created["warnings"] = manifest["warnings"]
     return created
 
@@ -505,7 +526,7 @@ async def create_skill(
 @router.patch(
     "/skills/{skill_id}",
     operation_id="update_skill",
-    summary="更新技能标题或描述",
+    summary="更新技能标题或描述（分类与公开态由平台管理，不在此路径）",
 )
 async def update_skill(
     body: dict[str, Any],
@@ -522,21 +543,16 @@ async def update_skill(
     description = body.get("description")
     if title is None and description is None:
         raise HTTPException(400, "没有可更新的字段")
-    category = body.get("category")
-    if category is not None:
-        category = str(category).strip()[:40] or None
     await db.execute(text("""
         UPDATE community.skills SET
           title=coalesce(:title,title),
           description=coalesce(:description,description),
-          category=coalesce(:category,category),
           updated_at=now()
         WHERE id=:id
     """), {
         "id": skill_id,
         "title": str(title)[:120] if title is not None else None,
         "description": str(description)[:500] if description is not None else None,
-        "category": category,
     })
     await db.commit()
     return await skill_accessible(db, skill_id, actor)
