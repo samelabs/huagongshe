@@ -1588,8 +1588,11 @@
 }
 
 /* ── 我的技能面板 ────────────────────────────── */
-.wb-skills-upload{gap:var(--wb-sp-2);align-items:center;border:1px dashed var(--wb-line-strong);border-radius:var(--wb-r-md);background:var(--wb-blue-tint);padding:var(--wb-sp-3) var(--wb-sp-4);display:flex}
+.wb-skills-upload{gap:var(--wb-sp-2);border:1px dashed var(--wb-line-strong);border-radius:var(--wb-r-md);background:var(--wb-blue-tint);padding:var(--wb-sp-3) var(--wb-sp-4);display:flex;flex-direction:column}
+.wb-skills-upload-row{gap:var(--wb-sp-2);align-items:center;display:flex}
 .wb-skills-upload input[type="file"]{min-width:0;flex:1;font-size:var(--wb-fs-sm);color:var(--wb-muted)}
+.wb-skills-upload input[type="file"]::file-selector-button{height:var(--wb-btn-h);padding:0 var(--wb-sp-3);margin-right:var(--wb-sp-3);border:1px solid var(--wb-line);border-radius:var(--wb-r-md);background:var(--wb-paper);color:var(--wb-blue);font-family:inherit;font-size:var(--wb-fs-sm);font-weight:var(--wb-w-medium);white-space:nowrap;cursor:pointer;appearance:none;-webkit-appearance:none}
+.wb-skills-upload input[type="file"]::file-selector-button:hover{border-color:var(--wb-blue-border);background:var(--wb-blue-tint);color:var(--wb-blue-deep)}
 .wb-skills-upload-hint{margin:0;font-size:var(--wb-fs-xs);color:var(--wb-quiet)}
 .wb-skills-notice{border:1px solid var(--wb-blue-border);border-radius:var(--wb-r-md);background:var(--wb-blue-tint);padding:var(--wb-sp-2) var(--wb-sp-3);font-size:var(--wb-fs-sm);color:var(--wb-blue-deep)}
 .wb-skills-error{border:1px solid var(--wb-danger);border-radius:var(--wb-r-md);background:var(--wb-paper);padding:var(--wb-sp-2) var(--wb-sp-3);font-size:var(--wb-fs-sm);color:var(--wb-danger)}

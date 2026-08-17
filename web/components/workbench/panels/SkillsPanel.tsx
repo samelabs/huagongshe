@@ -87,10 +87,12 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
     <section className="wb-panel">
       <PanelHeading title={t.me.tabSkills} subtitle={t.me.skillsHint} count={state === "ready" ? skills.total : "—"} unit={t.me.unitSkill} />
       <div className="wb-skills-upload">
-        <input ref={fileRef} type="file" accept=".zip" aria-label={t.me.skillsPickZip} />
-        <button type="button" className="wb-btn" onClick={handleUpload} disabled={uploading}>
-          {uploading ? t.me.skillsUploading : t.me.skillsUpload}
-        </button>
+        <div className="wb-skills-upload-row">
+          <input ref={fileRef} type="file" accept=".zip" aria-label={t.me.skillsPickZip} />
+          <button type="button" className="wb-btn wb-btn-ghost" onClick={handleUpload} disabled={uploading}>
+            {uploading ? t.me.skillsUploading : t.me.skillsUpload}
+          </button>
+        </div>
         <p className="wb-skills-upload-hint">{t.me.skillsUploadHint}</p>
         {uploadNotice && <p className="wb-skills-notice">{uploadNotice}</p>}
         {uploadError && <p className="wb-skills-error">{uploadError}</p>}
@@ -111,7 +113,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
                 </small>
               </span>
               <span className="wb-skill-actions">
-                <a className="wb-btn" href={`/api/skills/${s.id}/archive`} download={`${s.slug}.zip`}>
+                <a className="wb-btn wb-btn-ghost" href={`/api/skills/${s.id}/archive`} download={`${s.slug}.zip`}>
                   {t.me.skillDownload}
                 </a>
                 <button type="button" className="wb-btn wb-btn-danger" onClick={() => handleDelete(s.id, s.slug)}>
