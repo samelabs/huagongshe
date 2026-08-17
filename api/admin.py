@@ -188,7 +188,13 @@ async def list_all_skills(
         ORDER BY s.updated_at DESC, s.id DESC
         LIMIT :limit OFFSET :offset
     """), params)).mappings().all()
-    return {"total": int(total), "items": [dict(r) for r in rows]}
+    # owner 嵌套结构与 /api/skills 全站契约对齐（skills.py _row_to_skill）
+    items = []
+    for r in rows:
+        d = dict(r)
+        d["owner"] = {"username": d.pop("username"), "display_name": d.pop("display_name")}
+        items.append(d)
+    return {"total": int(total), "items": items}
 
 
 @router.patch("/skills/{skill_id}/visibility")
