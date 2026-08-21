@@ -13,10 +13,18 @@ export function isApiNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 404;
 }
 
-export async function apiGet<T>(path: string, headers?: HeadersInit): Promise<T> {
+// SSR服务端数据缓存层（A档）：仅用于低频、无用户态的读（如 /config）。
+// 失效语义：revalidate 秒数内允许过期；admin 改 system_config 后最迟 revalidate 秒生效。
+// 带 headers（cookie等用户态）的请求禁缓存，误用即抛错，不静默降级。
+export async function apiGet<T>(path: string, headers?: HeadersInit, opts?: { revalidate?: number }): Promise<T> {
+  if (opts?.revalidate != null && headers) {
+    throw new Error(`apiGet: refusing cached request with headers (${path})`);
+  }
   const response = await fetch(`${BASE}${path}`, {
     headers,
-    cache: "no-store",
+    ...(opts?.revalidate != null
+      ? { next: { revalidate: opts.revalidate } }
+      : { cache: "no-store" }),
   });
   if (!response.ok) throw new ApiError(response.status, path);
   return response.json() as Promise<T>;

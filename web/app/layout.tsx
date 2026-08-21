@@ -37,8 +37,9 @@ type SiteConfig = {
   ads?: { adsense?: { enabled?: boolean; client?: string } };
 };
 
+// A档缓存：config 低频变更（admin 改 system_config），最迟 300s 生效
 async function getSiteConfig(): Promise<SiteConfig> {
-  try { return await apiGet<SiteConfig>("/config"); }
+  try { return await apiGet<SiteConfig>("/config", undefined, { revalidate: 300 }); }
   catch { return {}; }
 }
 
