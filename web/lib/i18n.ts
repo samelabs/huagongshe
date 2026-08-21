@@ -391,6 +391,7 @@ const t = {
     solventByConc: '按浓度定容',
     empty: '列出组分并选择基准后计算。',
     errInvalid: 'SMILES 无法解析或组分不完整，请核对。',
+    errBasisEmpty: '基准组分未填写 SMILES，请填写或改选基准。',
   },
 
   settings: {

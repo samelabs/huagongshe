@@ -51,19 +51,24 @@ export function StoichPanel() {
   async function calculate() {
     setState("loading");
     setError(null);
-    const components = rows
-      .filter((r) => r.smiles.trim() !== "")
-      .map((r) => ({
-        role: r.role,
-        smiles: r.smiles.trim(),
-        ...(r.role === "SOLVENT" && r.eq.trim() === "" ? {} : { eq: Number(r.eq) }),
-        ...(r.label.trim() ? { label: r.label.trim() } : {}),
-      }));
+    const kept = rows.map((r, i) => ({ r, i })).filter((x) => x.r.smiles.trim() !== "");
+    const basisKept = kept.findIndex((x) => x.i === basisIndex);
+    if (basisKept < 0) {
+      setError(new ApiError(400, t.stoich.errBasisEmpty));
+      setState("error");
+      return;
+    }
+    const components = kept.map(({ r }) => ({
+      role: r.role,
+      smiles: r.smiles.trim(),
+      ...(r.role === "SOLVENT" && r.eq.trim() === "" ? {} : { eq: Number(r.eq) }),
+      ...(r.label.trim() ? { label: r.label.trim() } : {}),
+    }));
     try {
       const data = await apiPost<ScaleResult>("/stoichiometry/scale", JSON.stringify({
         components,
         basis: {
-          index: basisIndex,
+          index: basisKept,
           amount_value: Number(basisAmount),
           amount_unit: basisUnit,
         },
@@ -97,7 +102,10 @@ export function StoichPanel() {
               name="wb-stoich-basis"
               className="wb-stoich-radio"
               checked={basisIndex === i}
-              onChange={() => setBasisIndex(i)}
+              onChange={() => {
+                setBasisIndex(i);
+                setRow(i, { eq: "1.0" });
+              }}
               aria-label={`${t.stoich.colBasis} ${i + 1}`}
             />
             <select
@@ -136,7 +144,7 @@ export function StoichPanel() {
             {rows.length > 2 && (
               <button
                 type="button"
-                className="wb-btn wb-stoich-remove"
+                className="wb-btn wb-btn-ghost wb-stoich-remove"
                 onClick={() => {
                   setRows((rs) => rs.filter((_, j) => j !== i));
                   setBasisIndex((b) => (i < b ? b - 1 : Math.min(b, rows.length - 2)));
@@ -149,7 +157,7 @@ export function StoichPanel() {
         ))}
         <button
           type="button"
-          className="wb-btn wb-stoich-add"
+          className="wb-btn wb-btn-ghost wb-stoich-add"
           onClick={() => setRows((rs) => [...rs, emptyRow()])}
         >
           {t.stoich.addComponent}
@@ -195,7 +203,7 @@ export function StoichPanel() {
 
         <button
           type="button"
-          className="wb-btn wb-stoich-submit"
+          className="wb-btn wb-btn-primary wb-stoich-submit"
           disabled={state === "loading"}
           onClick={calculate}
         >

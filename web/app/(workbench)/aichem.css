@@ -208,6 +208,7 @@
   flex-direction: column;
   gap: var(--wb-sp-4);
   max-width: var(--wb-content-max);
+  margin-inline: auto;
 }
 
 .wb-panel-head {
@@ -282,6 +283,14 @@
   text-decoration: none;
   transition: background var(--wb-transition), border-color var(--wb-transition), color var(--wb-transition);
 }
+
+/* 主按钮变体 — 对齐 .wb-panel .button.primary 的既有视觉配方（蓝底反白），收口两套并行 */
+.wb-btn-primary {
+  background: var(--wb-blue);
+  color: var(--wb-inverse);
+}
+.wb-btn-primary:hover { background: var(--wb-blue-deep); }
+.wb-btn-primary:disabled { opacity: .55; cursor: default; }
 
 .wb-btn-ghost {
   background: var(--wb-paper);
@@ -1477,7 +1486,17 @@
 .wb-stoich-radio {
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
+  justify-self: center;
   accent-color: var(--wb-blue);
+}
+/* 控件覆盖基线：脱离 .wb-panel input 的 width:100%+边框体系 */
+.wb-stoich-form input.wb-stoich-radio {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 .wb-stoich-basisbox {
   display: grid;
@@ -1500,6 +1519,16 @@
 .wb-stoich-submit {
   height: 38px;
   padding: 0 var(--wb-sp-3);
+}
+/* 行内输入列宽 — grid 列模板同源（thead/crow 共用列定义） */
+.wb-stoich-input {
+  width: 100%;
+  min-width: 0;
+}
+.wb-stoich-rg-eq {
+  width: 100%;
+  min-width: 0;
+  text-align: right;
 }
 .wb-stoich-add,
 .wb-stoich-submit {
@@ -1585,9 +1614,14 @@
   }
   .wb-stoich-thead span:nth-child(5),
   .wb-stoich-thead span:nth-child(6),
-  .wb-stoich-crow .wb-stoich-rg-label,
-  .wb-stoich-crow .wb-stoich-remove {
+  .wb-stoich-crow .wb-stoich-rg-label {
     display: none;
+  }
+  /* 删行按钮换整行末尾 — 手机端必须可删行，不允许 display:none 吞功能 */
+  .wb-stoich-crow .wb-stoich-remove {
+    grid-column: 1 / -1;
+    justify-self: end;
+    height: var(--wb-btn-h);
   }
   .wb-stoich-rg-label {
     display: none;

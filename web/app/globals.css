@@ -16,6 +16,10 @@
   --quiet:        #829ab1;   /* 最弱文字 */
   --line:         #dfe5ee;   /* 分割线 */
   --line-strong:  #cbd4e2;   /* 强分割线 */
+
+  /* ── 内容宽度规范 — 全站两档，不再随机取值 ── */
+  --content-measure: 760px;   /* 阅读基准：wb-panel / page-head / 表单 */
+  --content-wide: 1040px;     /* 数据宽页：search / profile / guide / admin */
   --wash:         #f6f8fb;   /* 洗白背景 */
   --paper:        #fff;      /* 底色 */
 
@@ -250,7 +254,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 
 .search-notice { margin: 8px 2px 0; font-size: var(--text); color: var(--danger); }
 
-.page-title, .settings-head, .guide-hero { max-width: 760px; margin-bottom: 36px; }
+.page-title, .settings-head, .guide-hero { max-width: var(--content-measure); margin-bottom: 36px; }
 .home-contribute { margin-top: 32px; border: 1px solid var(--green-border); border-radius: 9px; padding: 23px 24px; display: grid; gap: 5px; color: var(--ink); background: linear-gradient(135deg, var(--green-tint) 0%, var(--green-tint) 60%, var(--warm-pale) 100%); transition: border-color .15s, box-shadow .15s; cursor: pointer; }
 .home-contribute > span:first-child { display: grid; gap: 5px; }
 .home-contribute-kicker { color: var(--green-strong); font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; }
@@ -272,13 +276,13 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
  * 所有 h1 共享同一条 font-size / weight / line-height。
  * .page-kicker / 描述 p / .text-button 统一间距。
  */
-.page-head { max-width: 760px; margin-bottom: 36px; }
+.page-head { max-width: var(--content-measure); margin-bottom: 36px; }
 .page-head h1 { margin: 0; font-size: clamp(27px, 3.5vw, 35px); font-weight: var(--title-weight); line-height: 1.28; letter-spacing: -.008em; }
 .page-head > p:not(.page-kicker) { margin: 14px 0 0; color: var(--muted); font-size: var(--text-lg); line-height: 1.75; }
 .page-head > .text-button { margin-top: 12px; display: inline-block; }
 
 /* 兼容旧类名 → 新体系（渐进迁移，后续删除旧类名） */
-.page-title, .settings-head, .guide-hero { max-width: 760px; margin-bottom: 36px; }
+.page-title, .settings-head, .guide-hero { max-width: var(--content-measure); margin-bottom: 36px; }
 .page-title h1, .settings-head h1, .guide-hero h1, .search-head h1 { margin: 0; font-size: clamp(27px, 3.5vw, 35px); font-weight: var(--title-weight); line-height: 1.28; letter-spacing: -.008em; }
 .page-title > p:not(.page-kicker), .settings-head > p:not(.page-kicker), .guide-hero > p:not(.page-kicker), .search-head > p:not(.page-kicker) { margin: 14px 0 0; color: var(--muted); font-size: var(--text-lg); line-height: 1.75; }
 .page-title > .text-button, .guide-hero > .text-button { margin-top: 12px; display: inline-block; }
@@ -304,8 +308,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .error-page > p:not(.eyebrow) { margin-bottom: 24px; color: var(--muted); }
 .context-loading { padding: 35px 0; color: var(--muted); }
 
-.search-page { max-width: 1040px; }
-.search-head { max-width: 820px; margin-bottom: 36px; }
+.search-page { max-width: var(--content-wide); }
+.search-head { max-width: var(--content-measure); margin-bottom: 36px; }
 .search-head .page-kicker { margin-bottom: 6px; }
 .search-head h1 { letter-spacing: -.015em; }
 .search-head h1 + .search-wrap { margin-top: 22px; }
@@ -514,7 +518,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .creator-card > p { margin: 12px 0 0; }
 .participant-measure-summary { margin-top: 5px; font-size: var(--text-xs); }
 
-.public-profile-page { max-width: 1060px; }
+.public-profile-page { max-width: var(--content-wide); }
 .profile-header { margin-bottom: 58px; border-bottom: 1px solid var(--line); padding: 8px 0 36px; display: grid; grid-template-columns: 112px 1fr; gap: 24px; align-items: center; }
 .public-profile-header { grid-template-columns: 112px minmax(0,1fr); }
 .profile-avatar { width: 104px; height: 104px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; color: white; background: var(--blue); font-size: 32px; font-weight: 750; }
@@ -573,10 +577,10 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .token-list small { color: var(--quiet); font-size: var(--text-xs); }
 .api-guide-link { margin-top: 14px; display: inline-block; color: var(--blue); font-size: var(--text); }
 
-.guide-page { max-width: 980px; }
-.guide-hero { max-width: 820px; padding: 30px 0 34px; }
+.guide-page { max-width: var(--content-wide); }
+.guide-hero { max-width: var(--content-measure); padding: 30px 0 34px; }
 .guide-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.guide-hero > p:not(.page-kicker) { max-width: 760px; margin: 18px 0 0; line-height: 1.8; }
+.guide-hero > p:not(.page-kicker) { max-width: var(--content-measure); margin: 18px 0 0; line-height: 1.8; }
 .guide-actions { margin-top: 22px; display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
 .guide-section { border-top: 1px solid var(--line); padding: 48px 0; }
 .section-heading { margin-bottom: 20px; }
@@ -598,7 +602,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .guide-path .guide-actions { margin-top: 0; }
 
 /* ── 接入文件 ── */
-.guide-ref-intro { max-width: 760px; margin: 0 0 16px; color: var(--muted); font-size: var(--text); line-height: 1.7; }
+.guide-ref-intro { max-width: var(--content-measure); margin: 0 0 16px; color: var(--muted); font-size: var(--text); line-height: 1.7; }
 .guide-ref-table { width: 100%; border-collapse: collapse; }
 .guide-ref-table tr { border-top: 1px solid var(--line); }
 .guide-ref-table tr:last-child { border-bottom: 1px solid var(--line); }
@@ -785,7 +789,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   border-bottom: 1px solid var(--blue-border);
   padding: 36px 20px 32px;
 }
-.kdense-hero-inner { max-width: 960px; margin: 0 auto; }
+.kdense-hero-inner { max-width: var(--content-wide); margin: 0 auto; }
 .kdense-breadcrumb {
   font-size: var(--text-sm); color: var(--muted);
   margin-bottom: 14px;
@@ -825,7 +829,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 /* 分类导航 */
 .kdense-cats {
   display: flex; flex-wrap: wrap; gap: 8px;
-  padding: 16px 20px; max-width: 960px; margin: 0 auto;
+  padding: 16px 20px; max-width: var(--content-wide); margin: 0 auto;
   border-bottom: 1px solid var(--line);
 }
 .kdense-cat {
@@ -848,7 +852,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 }
 
 /* 内容区 */
-.kdense-content { max-width: 960px; margin: 0 auto; padding: 24px 20px 48px; }
+.kdense-content { max-width: var(--content-wide); margin: 0 auto; padding: 24px 20px 48px; }
 .kdense-loading, .kdense-empty {
   text-align: center; padding: 48px 0; color: var(--muted);
 }
@@ -1090,7 +1094,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .admin-nav a { padding: 9px 12px; border-radius: 8px; color: var(--muted); font-size: var(--text-sm); line-height: 1.4; text-decoration: none; }
 .admin-nav a:hover { color: var(--ink); background: var(--blue-tint); }
 .admin-nav a.active { color: var(--blue); background: var(--blue-tint); font-weight: 700; }
-.admin-content { min-width: 0; }
+.admin-content { min-width: 0; max-width: var(--content-wide); }
 @media (max-width: 900px) {
   .admin-shell { grid-template-columns: 1fr; gap: 18px; }
   .admin-nav { position: static; display: flex; gap: 4px; overflow-x: auto; }

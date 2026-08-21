@@ -185,12 +185,12 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
         raise HTTPException(400, f"技能名无法转为合法 slug：{name!r}")
 
     warnings: list[str] = []
-    has_scripts = any(Path(name).suffix.lower() in SCRIPT_EXTENSIONS for name, _ in entries)
+    has_scripts = any(Path(n).suffix.lower() in SCRIPT_EXTENSIONS for n, _ in entries)
     if has_scripts:
-        for name, data in entries:
-            if Path(name).suffix.lower() in {".py", ".sh"}:
-                warnings.extend(check_script_syntax(name, data))
-            warnings.extend(scan_danger(name, data))
+        for fname, fdata in entries:
+            if Path(fname).suffix.lower() in {".py", ".sh"}:
+                warnings.extend(check_script_syntax(fname, fdata))
+            warnings.extend(scan_danger(fname, fdata))
         warnings = warnings[:20]
 
     return {

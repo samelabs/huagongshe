@@ -94,6 +94,7 @@ async def calculate_stoichiometry(
     yield_g = None
     for i, c in enumerate(body.components):
         mm = Descriptors.MolWt(mols[i])
+        eq_eff = 1.0 if i == b else c.eq  # 基准行恒 1.00 eq（由 basis 摩尔量定义），与响应 basis.mass_g 自洽
         entry = {
             "role": c.role,
             "smiles": c.smiles,
@@ -101,14 +102,14 @@ async def calculate_stoichiometry(
             "formula": Chem.rdMolDescriptors.CalcMolFormula(mols[i]),
             "molar_mass": round(mm, 4),
             "exact_mass": round(Descriptors.ExactMolWt(mols[i]), 6),
-            "eq": c.eq,
+            "eq": 1.0 if i == b else c.eq,
             "is_basis": i == b,
-            "mmol": round(c.eq * basis_moles * 1e3, 6) if c.eq is not None else None,
-            "mass_g": round(c.eq * basis_moles * mm, 6) if c.eq is not None else None,
+            "mmol": round(eq_eff * basis_moles * 1e3, 6) if eq_eff is not None else None,
+            "mass_g": round(eq_eff * basis_moles * mm, 6) if eq_eff is not None else None,
             "volume_ml": total_volume_ml if (c.role == "SOLVENT" and c.eq is None and total_volume_ml is not None) else None,
         }
-        if c.role == "PRODUCT" and c.eq is not None and yield_g is None:
-            yield_g = round(c.eq * basis_moles * mm, 6)
+        if c.role == "PRODUCT" and eq_eff is not None and yield_g is None:
+            yield_g = round(eq_eff * basis_moles * mm, 6)
         out.append(entry)
 
     return {
