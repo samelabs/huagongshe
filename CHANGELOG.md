@@ -3,6 +3,19 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [1.3.0] — 2026-08-22
+
+- AIchem 新增投料计算工具：角色化组分 + 基准换算（质量/摩尔/当量）+ 理论收率 + 溶剂定容，RDKit 后端（api/stoichiometry.py），agent-guide 与 llms.txt 同步宣告
+- 投料计算基准修复：前端基准索引重映射（删行/空行后不再错指），后端基准行恒归一 1.00 eq 与 basis.mass_g 自洽，基准空行专用报错文案
+- 技能注册表收口：DB+FS 存储、zip 上传/校验/下载/幂等/限流，公开池 159 技能，静态源退役，/skills 公开页改吃 /api/skills
+- 技能分类字典治理：分类唯一来源字典 API，visibility 单一路径（用户恒 private，公开唯一入口 admin），配额校准 128 文件 + 二进制放行 assets/+examples/
+- 后台新增 /samelabs/skills 技能治理（发布/下架/删除 + 分类字典管理），返回 owner 嵌套结构对齐全站契约（修复后台技能页白屏）
+- 工作台新增「我的技能」面板（上传 zip/下载/删除），上传区布局与按钮变体收口
+- 移动端底栏两连修：锚定视口根除 dvh 壳重算竞态；浏览器模式几何零 env() 输入，根除 iOS 工具栏折叠引起的 inset 跳变
+- /config 走 A 档 revalidate 缓存（300s），消除每渲染一次的内部风暴（~85 req/s → 每窗口 1 次）
+- 全站滚动条规范收口：细 6px 圆角两层基线替代 UA 裸默认；全站内容宽度两档 token（760px/1040px），globals 17 种随机 max-width 清零
+- 术语统一收口：产品名 AIchem、凭据统一 API Token、动作统一「接入」；aichem 域色值/字号 token 化清零硬编码
+
 ## [1.2.1] — 2026-08-14
 
 - 修复 rate_limit 伪造 Bearer token 无限绕过：有效 token 按所属用户独立预算，无效/伪造/DB 故障回落 IP 预算
