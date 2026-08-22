@@ -1623,9 +1623,6 @@
     justify-self: end;
     height: var(--wb-btn-h);
   }
-  .wb-stoich-rg-label {
-    display: none;
-  }
 }
 
 /* ── 我的技能面板 ────────────────────────────── */

@@ -54,7 +54,7 @@ export function StoichPanel() {
     const kept = rows.map((r, i) => ({ r, i })).filter((x) => x.r.smiles.trim() !== "");
     const basisKept = kept.findIndex((x) => x.i === basisIndex);
     if (basisKept < 0) {
-      setError(new ApiError(400, t.stoich.errBasisEmpty));
+      setError(t.stoich.errBasisEmpty);
       setState("error");
       return;
     }
@@ -213,9 +213,11 @@ export function StoichPanel() {
 
       {state === "error" && (
         <div className="wb-state wb-state-error">
-          {error instanceof ApiError && error.status === 400
-            ? t.stoich.errInvalid
-            : t.me.errPanel}
+          {typeof error === "string"
+            ? error
+            : error instanceof ApiError && (error.status === 400 || error.status === 422)
+              ? t.stoich.errInvalid
+              : t.me.errPanel}
         </div>
       )}
 
