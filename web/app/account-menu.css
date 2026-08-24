@@ -1,0 +1,135 @@
+/* ═══════════════════════════════════════════════════════════════
+   account-menu.css — 身份菜单（AccountMenu）全站唯一样式
+   ═══════════════════════════════════════════════════════════════
+   规范：
+   - 身份菜单 ≠ 工作台导航：只承载身份与账户级入口
+   - 三个挂载点（站点 header / 工作台顶栏 / 工作台抽屉）共用此文件
+   - token 走 fallback 链：工作台内 .wb-shell 作用域的 wb-* 接管，
+     站点侧回落 globals.css 的同名语义 token —— 不产生跨文件依赖
+   ═══════════════════════════════════════════════════════════════ */
+
+.am-menu { position: relative; }
+
+/* 触发器 — 默认（站点 header）密度 */
+.am-menu > summary {
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 4px 7px 4px 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--wb-ink, var(--ink));
+  cursor: pointer;
+  list-style: none;
+}
+.am-menu > summary::-webkit-details-marker { display: none; }
+
+.am-avatar {
+  width: 29px;
+  height: 29px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.am-avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wb-inverse, #fff);
+  background: var(--wb-blue, var(--blue));
+  font-size: var(--wb-fs-sm, var(--text-sm));
+  font-weight: 700;
+}
+
+.am-name {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--wb-fs, var(--text));
+}
+
+.am-chevron {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--wb-quiet, var(--quiet));
+  border-bottom: 1.5px solid var(--wb-quiet, var(--quiet));
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform .15s ease;
+  flex-shrink: 0;
+}
+.am-menu[open] .am-chevron { transform: translateY(2px) rotate(225deg); }
+
+/* 下拉卡片 — 内容三处挂载点零分叉 */
+.am-dropdown {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 9px);
+  right: 0;
+  width: 220px;
+  border: 1px solid var(--wb-line, var(--line));
+  border-radius: 9px;
+  padding: 8px;
+  color: var(--wb-ink, var(--ink));
+  background: var(--wb-paper, #fff);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .10);
+}
+.am-profile {
+  border-bottom: 1px solid var(--wb-line, var(--line));
+  padding: 9px 10px 11px;
+  display: grid;
+  gap: 3px;
+}
+.am-profile strong { overflow: hidden; text-overflow: ellipsis; }
+.am-profile span { color: var(--wb-quiet, var(--quiet)); font-size: var(--wb-fs-sm, var(--text-sm)); }
+
+.am-links { padding: 6px 0; display: grid; }
+.am-links a,
+.am-dropdown > button {
+  width: 100%;
+  border: 0;
+  border-radius: 5px;
+  padding: 9px 10px;
+  display: block;
+  color: var(--wb-muted, var(--muted));
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--wb-fs, var(--text));
+  text-align: left;
+}
+.am-dropdown > button {
+  border-top: 1px solid var(--wb-line, var(--line));
+  border-radius: 0 0 5px 5px;
+  color: var(--wb-quiet, var(--quiet));
+}
+
+/* ── 挂载点变体：只调布局密度，不动内容 ── */
+
+/* 工作台顶栏 */
+.am-menu--topbar > summary { min-height: 40px; }
+.am-menu--topbar .am-avatar { width: var(--wb-avatar-sm, 36px); height: var(--wb-avatar-sm, 36px); }
+
+/* 工作台抽屉头部 */
+.am-menu--drawer { flex: 1; min-width: 0; }
+.am-menu--drawer .am-avatar { width: var(--wb-avatar-sm, 36px); height: var(--wb-avatar-sm, 36px); }
+.am-menu--drawer .am-dropdown { right: auto; left: 0; width: min(240px, calc(100vw - 28px)); }
+
+/* ── hover（触屏不走） ── */
+@media (hover: hover) {
+  .am-menu > summary:hover,
+  .am-menu[open] > summary { background: var(--wb-wash, var(--wash)); }
+  .am-links a:hover,
+  .am-dropdown > button:hover { color: var(--wb-blue, var(--blue)); background: var(--wb-blue-pale, var(--blue-pale)); }
+}
+
+/* ── 手机 ── */
+@media (max-width: 680px) {
+  .am-menu--header .am-name,
+  .am-menu--topbar .am-name { display: none; }
+  .am-menu--header > summary { padding-right: 5px; }
+  .am-menu--header .am-dropdown {
+    position: fixed;
+    top: 66px;
+    right: 14px;
+    width: min(240px, calc(100vw - 28px));
+  }
+}

@@ -4,6 +4,7 @@ import { AccountProvider } from "@/components/shared/AccountContext";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import "./globals.css";
+import "./account-menu.css";
 import t from "@/lib/i18n";
 export const viewport: Viewport = {
   themeColor: "#1e90ff",

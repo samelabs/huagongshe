@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { WorkbenchNav } from "@/components/workbench/WorkbenchNav";
 import { WbMobileNav } from "@/components/workbench/WbMobileNav";
 import { WbTopnav } from "@/components/workbench/WbTopnav";
+import { AccountMenu } from "@/components/shared/AccountMenu";
 import { WorkbenchCountsProvider } from "@/components/workbench/WorkbenchCountsContext";
 import { MobileTabBar } from "@/components/shared/MobileTabBar";
 import { apiGet } from "@/lib/api";
@@ -44,23 +45,10 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
           <WbTopnav />
 
           <div className="wb-topbar-user">
-            <Link href={`/user/${encodeURIComponent(user.username)}`} className="wb-topbar-avatar">
-              {(summary?.avatar_url || user.avatar_url)
-                ? <img src={(summary?.avatar_url || user.avatar_url || "").replace(".webp", "-128.webp")} alt="" />
-                : <span>{(summary?.display_name || user.display_name).slice(0, 1)}</span>}
-            </Link>
-            <div className="wb-topbar-info">
-              <strong>{summary?.display_name || user.display_name}</strong>
-              <span>@{summary?.username || user.username}</span>
-            </div>
+            <AccountMenu user={user} variant="topbar" />
           </div>
 
-          <WbMobileNav
-            counts={counts}
-            username={summary?.username || user.username}
-            displayName={summary?.display_name || user.display_name}
-            avatarUrl={summary?.avatar_url || user.avatar_url}
-          />
+          <WbMobileNav counts={counts} user={user} />
         </div>
       </header>
 

@@ -43,7 +43,7 @@ export function WbEmpty({ text, action = false }: { text: string; action?: boole
   return (
     <div className="wb-empty">
       <p>{text}</p>
-      {action && <Link className="wb-btn wb-btn-ghost" href="/submit">{t.nav.newReaction}</Link>}
+      {action && <Link className="wb-btn wb-btn-ghost" href="/submit">{t.me.navNewReaction}</Link>}
     </div>
   );
 }

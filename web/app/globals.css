@@ -95,21 +95,8 @@ nav[aria-label="主导航"] { min-width: 0; margin-left: auto; display: flex; al
 .nav-guide { border: 1px solid var(--blue-border); border-radius: 8px; padding: 6px 8px; min-height: 38px; display: inline-flex; align-items: center; color: var(--blue-strong); background: var(--blue-tint); font-weight: 650; white-space: nowrap; }
 .guide-full { display: inline; }
 .guide-short { display: none; }
-.account-menu { position: relative; }
-.account-menu > summary { min-height: 38px; border-radius: 8px; padding: 4px 7px 4px 5px; display: flex; align-items: center; gap: 8px; color: var(--ink); cursor: pointer; list-style: none; }
-.account-menu > summary::-webkit-details-marker { display: none; }
-.header-avatar, .avatar-fallback { width: 29px; height: 29px; border-radius: 50%; object-fit: cover; }
-.avatar-fallback { display: inline-flex; align-items: center; justify-content: center; color: white !important; background: var(--blue); font-size: var(--text-sm); font-weight: 700; }
-.account-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; font-size: var(--text); }
-.account-chevron { width: 6px; height: 6px; border-right: 1.5px solid var(--quiet); border-bottom: 1.5px solid var(--quiet); transform: translateY(-2px) rotate(45deg); transition: transform .15s ease; }
-.account-menu[open] .account-chevron { transform: translateY(2px) rotate(225deg); }
-.account-dropdown { position: absolute; z-index: 50; top: calc(100% + 9px); right: 0; width: 220px; border: 1px solid var(--line); border-radius: 9px; padding: 8px; color: var(--ink); background: white; box-shadow: 0 18px 50px rgba(0,0,0,.10); }
-.account-menu-profile { border-bottom: 1px solid var(--line); padding: 9px 10px 11px; display: grid; gap: 3px; }
-.account-menu-profile strong { overflow: hidden; text-overflow: ellipsis; }
-.account-menu-profile span { color: var(--quiet); font-size: var(--text-sm); }
-.account-menu-links { padding: 6px 0; display: grid; }
-.account-menu-links a, .account-dropdown > button { width: 100%; border: 0; border-radius: 5px; padding: 9px 10px; display: block; color: var(--muted); background: transparent; cursor: pointer; font-size: var(--text); text-align: left; }
-.account-dropdown > button { border-top: 1px solid var(--line); border-radius: 0 0 5px 5px; color: var(--quiet); }
+/* 用户身份菜单样式统一在 app/account-menu.css（AccountMenu 组件专用） */
+
 main { min-height: auto; background: var(--wash); }
 footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2)) env(safe-area-inset-bottom); display: flex; justify-content: center; align-items: center; color: var(--quiet); font-size: var(--text); text-align: center; background: var(--paper); border-top: 1px solid var(--line); }
 .footer-link { color: var(--blue); }
@@ -427,8 +414,12 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .pagination a, .pagination-link { color: var(--blue); }
 .pagination-link { background: none; border: 0; cursor: pointer; font: inherit; }
 .structured-form label, .form-stack label { display: grid; gap: 7px; color: var(--muted); font-size: var(--text); }
-.structured-form input, .structured-form textarea, .structured-form select, .form-stack input, .form-stack textarea, .form-stack select { width: 100%; min-width: 0; max-width: 100%; border: 1px solid var(--line-strong); border-radius: 6px; outline: 0; padding: 10px 11px; color: var(--ink); background: white; }
-.structured-form input:focus, .structured-form textarea:focus, .structured-form select:focus, .form-stack input:focus, .form-stack textarea:focus, .form-stack select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
+/* select 元素层皮肤 — 全站唯一一份（工作台 aichem.css 不再重复定义） */
+select { border: 1px solid var(--line-strong); border-radius: 6px; outline: 0; padding: 10px 11px; color: var(--ink); background: white; }
+select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
+.structured-form input, .structured-form textarea, .form-stack input, .form-stack textarea { width: 100%; min-width: 0; max-width: 100%; border: 1px solid var(--line-strong); border-radius: 6px; outline: 0; padding: 10px 11px; color: var(--ink); background: white; }
+.structured-form input:focus, .structured-form textarea:focus, .form-stack input:focus, .form-stack textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
+.structured-form select, .form-stack select { width: 100%; min-width: 0; max-width: 100%; }
 .inline-error { margin: 0; color: var(--danger); font-size: var(--text); }
 .inline-error a { text-decoration: underline; }
 
@@ -669,9 +660,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .guide-full { display: none; }
   .guide-short { display: inline; }
   .nav-guide { width: 38px; height: 38px; padding: 0; justify-content: center; }
-  .account-name { display: none; }
-  .account-menu > summary { padding-right: 5px; }
-  .account-dropdown { position: fixed; top: 66px; right: 14px; width: min(240px, calc(100vw - 28px)); }
   .login-link { padding: 7px 9px; }
   footer { padding: 18px 14px; }
   .hero { padding: 44px 0 36px; }
@@ -741,8 +729,9 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   .admin-table article { grid-template-columns: 1fr auto; }
   .admin-table article > button { grid-column: 2; }
   .auth-panel { padding: 21px; }
-  .structured-form input, .structured-form textarea, .structured-form select,
-  .form-stack input, .form-stack textarea, .form-stack select { min-width: 0; font-size: 16px; }
+  .structured-form input, .structured-form textarea,
+  .form-stack input, .form-stack textarea { min-width: 0; font-size: 16px; }
+  select { font-size: 16px; }
 
   /* 手机端内容可读性：禁止截断，允许换行 */
   .structure-code { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
@@ -1054,8 +1043,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 @media (hover:hover) {
   nav[aria-label="主导航"] > a:hover { color: var(--blue); }
   .nav-guide:hover { border-color: var(--blue-border); color: var(--blue-deep); background: var(--blue-pale); }
-  .account-menu > summary:hover, .account-menu[open] > summary { background: var(--wash); }
-  .account-menu-links a:hover, .account-dropdown > button:hover { color: var(--blue); background: var(--blue-pale); }
   footer a:hover { color: var(--blue); }
   .button.primary:hover { background: var(--blue-deep); }
   .button.secondary:hover { border-color: var(--blue); color: var(--blue); }

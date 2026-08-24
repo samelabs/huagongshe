@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { WorkbenchNav } from "./WorkbenchNav";
+import { AccountMenu } from "@/components/shared/AccountMenu";
 import type { Counts } from "./types";
+import type { User } from "@/lib/api";
 import t from "@/lib/i18n";
 
 /**
@@ -12,11 +14,9 @@ import t from "@/lib/i18n";
  * - pathname 或 searchParams 变化时自动关闭（解决 tab 切换不收起）
  * - Escape / overlay 点击 / close 按钮均可关闭
  */
-export function WbMobileNav({ counts, username, displayName, avatarUrl }: {
+export function WbMobileNav({ counts, user }: {
   counts?: Counts | null;
-  username?: string;
-  displayName?: string;
-  avatarUrl?: string | null;
+  user: User;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -76,15 +76,7 @@ export function WbMobileNav({ counts, username, displayName, avatarUrl }: {
         aria-hidden={!open}
       >
         <div className="wb-drawer-head">
-          <div className="wb-drawer-avatar">
-            {avatarUrl
-              ? <img src={avatarUrl} alt="" />
-              : <span>{(displayName || "?").slice(0, 1)}</span>}
-          </div>
-          <div className="wb-drawer-user">
-            <strong>{displayName}</strong>
-            <span>@{username}</span>
-          </div>
+          <AccountMenu user={user} variant="drawer" />
           <button className="wb-drawer-close" aria-label={t.common.close} onClick={() => setOpen(false)}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="6" y1="6" x2="18" y2="18" />
