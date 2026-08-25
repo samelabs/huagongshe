@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { CasExternals, type CasExternalsPayload } from "@/components/CasExternals";
 import { ChemicalKnowledge } from "@/components/ChemicalKnowledge";
@@ -24,14 +23,8 @@ export default async function ChemicalPage({ params }: {
 }) {
   const { id } = await params;
 
-  // 透传用户真实 IP：enrich=full 触发的公共入队限流按调用方 IP 计数。
-  // SSR 不传 XFF 时 FastAPI 只见 127.0.0.1，全站用户共享一个限流桶(30/h)，
-  // 任何一小时刷新需求超阈值即全站 rate_limited（曾致详情页长期"正在同步"）。
-  const clientIp = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "";
-  const passthrough = clientIp ? { "X-Forwarded-For": clientIp } : undefined;
-
   const [chemicalResult, reactionsResult, externalsResult] = await Promise.all([
-    apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`, passthrough).catch((error: unknown) => {
+    apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`).catch((error: unknown) => {
       if (isApiNotFound(error)) notFound();
       throw error;
     }),

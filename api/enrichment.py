@@ -204,13 +204,7 @@ async def enqueue_chemical_if_needed(
 
 
 async def allow_public_enqueue(request: Request) -> bool:
-    # 真实客户端 IP 取 X-Forwarded-For 第一跳(最早一跳=用户)。uvicorn --proxy-headers
-    # 默认取最后一跳: 经 nginx(单级)时等于 remote_addr 恰好正确, 但 SSR 透传的多级链
-    # (client, nginx)会把账记到内网跳上, 伪造 XFF 也能嫁祸任意 IP — 故此处显式取第一跳。
     address = request.client.host if request.client else "unknown"
-    xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        address = xff.split(",")[0].strip() or address
     key_hash = hashlib.sha256(address.encode()).hexdigest()[:24]
     client = await get_cache()
     key = f"enrichment:public-hour:{key_hash}"
