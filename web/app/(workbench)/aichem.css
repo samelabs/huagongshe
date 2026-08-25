@@ -8,7 +8,8 @@
    L2 — Shell
    ═══════════════════════════════════════════════════════════════ */
 .wb-shell {
-  height: 100dvh;
+  /* svh 稳定视口：与主站 app-container 同规(见 globals.css 手机段注释) */
+  height: 100svh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1313,7 +1314,8 @@
 /* ── 手机 ≤680px ── */
 @media (max-width: 680px) {
   .wb-shell {
-    height: 100dvh;
+    /* svh 稳定视口：与主站 app-container 同规(见 globals.css 手机段注释) */
+    height: 100svh;
     /* 底栏 fixed 高度恒定，内容让位同高度 */
     padding-bottom: var(--wb-tabbar-h);
   }
