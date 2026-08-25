@@ -583,6 +583,52 @@ async def chemical_detail(
     return result
 
 
+@router.get("/chemicals/{chemical_id}/externals", operation_id="get_chemical_externals",
+            summary="化合物的中文扩展信息与供应商")
+async def chemical_externals(
+    request: Request,
+    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
+    db=Depends(get_db),
+):
+    """CB 扩展读端点: 读库+ensure 驱动(新 CAS 首访同步拉, 超期 worker 刷).
+
+    遵循公开读口径: 无原站标识; 404 = 化合物不存在;
+    entry/suppliers 为空 = 该化合物无 CAS 或源站无数据(非错误)。
+    """
+    from .cas_externals import ensure_externals, sync_fetch_and_store
+
+    row = (await db.execute(text("""
+        SELECT id, cas_numbers[1] AS cas FROM chemistry.chemicals WHERE id=:id
+    """), {"id": chemical_id})).fetchone()
+    if not row:
+        raise HTTPException(404, "化合物不存在")
+    cas_number = row[1]
+    if not cas_number:
+        return {"chemical_id": chemical_id, "state": "no_cas",
+                "entry": None, "suppliers": []}
+    outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
+    if outcome["state"] == "absent":
+        # 首访: 同步拉取(3s 预算); 失败入队,本响应出空
+        sync = await sync_fetch_and_store(db, chemical_id=chemical_id, cas_number=cas_number)
+        if sync and sync["status"] == "ok":
+            outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
+        else:
+            from .cas_externals import enqueue_cas_job
+            job_id = await enqueue_cas_job(
+                db, chemical_id=chemical_id, cas_number=cas_number, priority=80,
+                request_context={"reason": "sync_failed"},
+            )
+            await db.commit()
+            outcome = {"state": "queued", "entry": None, "suppliers": [],
+                       "job_id": job_id}
+    return {
+        "chemical_id": chemical_id,
+        "state": outcome["state"],
+        "entry": outcome.get("entry"),
+        "suppliers": outcome.get("suppliers") or [],
+    }
+
+
 @router.get("/chemicals/{chemical_id}/synonyms")
 async def chemical_synonyms(
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),

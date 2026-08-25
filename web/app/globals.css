@@ -1094,3 +1094,26 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 *::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
 *::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 *::-webkit-scrollbar-track { background: transparent; }
+
+/* ── CB 中文扩展条目/供应商(casext) ───────────────── */
+.casext-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.casext-tag { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: var(--text-xs); color: var(--text-soft, var(--muted)); background: var(--wash, transparent); }
+.casext-tag.en { font-family: var(--mono, monospace); }
+.casext-prose-list p { margin: 0 0 10px; font-size: var(--text); line-height: 1.75; }
+.casext-prose-list strong { display: inline-block; margin-right: 10px; color: var(--heading); font-weight: 650; }
+.casext-updown { display: grid; gap: 18px; }
+.casext-updown h3 { margin: 0 0 8px; font-size: var(--text); color: var(--muted); font-weight: 650; }
+.casext-suppliers { display: grid; gap: 14px; }
+.casext-supplier { border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+.casext-supplier header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.casext-supplier h3 { margin: 0; font-size: 15px; font-weight: 650; color: var(--heading); }
+.casext-supplier-tag { padding: 2px 8px; border-radius: 999px; font-size: var(--text-xs); color: var(--blue); border: 1px solid var(--blue); opacity: .85; }
+.casext-supplier dl { margin: 0; display: grid; gap: 6px; }
+.casext-supplier dl > div { display: grid; grid-template-columns: 96px 1fr; gap: 12px; font-size: var(--text); }
+.casext-supplier dt { color: var(--muted); }
+.casext-supplier dd { margin: 0; word-break: break-word; }
+.casext-supplier a { color: var(--blue); }
+
+@media (max-width: 640px) {
+  .casext-supplier dl > div { grid-template-columns: 84px 1fr; }
+}

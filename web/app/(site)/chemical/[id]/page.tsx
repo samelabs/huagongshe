@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CasExternals, type CasExternalsPayload } from "@/components/CasExternals";
 import { ChemicalKnowledge } from "@/components/ChemicalKnowledge";
 import { EntityId } from "@/components/shared/EntityId";
 import { FollowButton } from "@/components/shared/FollowButton";
@@ -22,7 +23,7 @@ export default async function ChemicalPage({ params }: {
 }) {
   const { id } = await params;
 
-  const [chemicalResult, reactionsResult] = await Promise.all([
+  const [chemicalResult, reactionsResult, externalsResult] = await Promise.all([
     apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`).catch((error: unknown) => {
       if (isApiNotFound(error)) notFound();
       throw error;
@@ -30,8 +31,11 @@ export default async function ChemicalPage({ params }: {
     apiGet<{ total: number; page: number; page_size: number; reactions: ReactionSummary[] }>(
       `/chemicals/${id}/reactions?page=1&page_size=8&role=any`,
     ).catch(() => null),
+    // CB 中文扩展(条目+供应商): 无 CAS 或无数据时整块静默不渲染
+    apiGet<CasExternalsPayload>(`/chemicals/${id}/externals`).catch(() => null),
   ]);
   const chemical = chemicalResult;
+  const externals = externalsResult;
   const reactionsUnavailable = reactionsResult === null;
   const initialReactions = reactionsResult?.reactions ?? [];
   const reactionTotal = reactionsResult?.total ?? 0;
@@ -91,6 +95,7 @@ export default async function ChemicalPage({ params }: {
             </dl>
           </section>
 
+          <CasExternals payload={externals} />
           <ChemicalKnowledge details={details.details} enrichment={details.enrichment} />
           <SynonymExplorer chemicalId={chemical.id} initial={chemical.synonyms || []} total={chemical.synonym_count || 0} />
 
