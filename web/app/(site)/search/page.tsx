@@ -9,7 +9,6 @@ import t from "@/lib/i18n";
 
 type SearchParams = { q?: string; mode?: string; chemical_id?: string; page?: string };
 
-const CJK_RE = /[\u4e00-\u9fff\u3400-\u4dbf]/;
 const PAGE_SIZE = 30;
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -18,7 +17,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const mode = ["exact", "substructure", "similarity"].includes(params.mode || "") ? params.mode! : "exact";
   const chemicalId = /^\d+$/.test(params.chemical_id || "") ? Number(params.chemical_id) : null;
   const page = Math.max(1, Math.min(20, Number.parseInt(params.page || "1", 10) || 1));
-  const cjkBlocked = CJK_RE.test(q);
   const hasSession = (await cookies()).has("hgs_session");
   const authHeaders = hasSession ? { Cookie: (await cookies()).toString() } : undefined;
   let chemicals: Chemical[] = [];
@@ -27,10 +25,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   let error = "";
 
   try {
-    if (cjkBlocked) {
-      // Skip the database entirely; the front-end search box already intercepts CJK input.
-      // This guard exists for direct URL access and page refreshes.
-    } else if (chemicalId && mode !== "exact") {
+    if (chemicalId && mode !== "exact") {
       if (!hasSession) {
         error = t.search.substructureLogin;
       } else {
@@ -82,10 +77,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         {chemicalId && <p className="context-line">{t.search.basedOnStructure}<Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link>{t.search.queryStructure}{relationLabel}{mode === "similarity" ? t.search.similarityThreshold : ""}</p>}
       </header>
       {error && <div className="notice error">{error}</div>}
-      {cjkBlocked && (
-        <div className="notice"><strong>{t.search.cjkNotice}</strong><p>{t.search.cjkHint}</p></div>
-      )}
-      {!error && !cjkBlocked && !q && !chemicalId && (
+      {!error && !q && !chemicalId && (
         <div className="search-guide">
           <section>
             <span className="search-guide-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9L12 3z" /><path d="M12 9l4 2.3v4.4L12 18l-4-2.3v-4.4L12 9z" /></svg></span>
@@ -121,7 +113,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <div className="reaction-results">{reactions.map((reaction) => <ReactionResult reaction={reaction} key={reaction.id} />)}</div>
         </section>
       )}
-      {!error && !cjkBlocked && (q || chemicalId) && chemicals.length === 0 && reactions.length === 0 && (
+      {!error && (q || chemicalId) && chemicals.length === 0 && reactions.length === 0 && (
         <div className="empty-state empty-state--search">
           <span className="empty-state-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.5" y2="16.5" /></svg></span>
           <strong>{t.search.noResults}</strong>

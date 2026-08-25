@@ -239,8 +239,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   padding: 0 20px;
 }
 
-.search-notice { margin: 8px 2px 0; font-size: var(--text); color: var(--danger); }
-
 .page-title, .settings-head, .guide-hero { max-width: var(--content-measure); margin-bottom: 36px; }
 .home-contribute { margin-top: 32px; border: 1px solid var(--green-border); border-radius: 9px; padding: 23px 24px; display: grid; gap: 5px; color: var(--ink); background: linear-gradient(135deg, var(--green-tint) 0%, var(--green-tint) 60%, var(--warm-pale) 100%); transition: border-color .15s, box-shadow .15s; cursor: pointer; }
 .home-contribute > span:first-child { display: grid; gap: 5px; }
@@ -280,7 +278,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .notice { border-radius: 8px; padding: 14px 16px; font-size: var(--text); }
 .notice.error { border: 1px solid var(--danger-border); color: var(--danger); background: var(--danger-bg); }
 .notice p { margin: 4px 0 0; color: var(--muted); }
-.search-notice { margin: 8px 2px 0; font-size: var(--text); color: var(--danger); }
 .empty-state { border: 1px solid var(--line); padding: 56px 20px; text-align: center; }
 .empty-state strong { font-size: 18px; }
 .empty-state strong, .search-guide strong, .auth-required strong { color: var(--heading); font-weight: var(--section-weight); }
