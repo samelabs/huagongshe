@@ -147,7 +147,7 @@ export type EvidenceBlock = {
 };
 
 export type EnrichmentState = {
-  status: "queued" | "rate_limited" | "current";
+  status: "queued" | "stale" | "current";
   job_id?: number | null;
   requested_sections?: string[];
 };

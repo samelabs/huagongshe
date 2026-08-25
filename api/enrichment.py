@@ -1,7 +1,8 @@
 """Public, read-oriented access to sparse chemical enrichment state.
 
-This router is mounted below ``/api``.  It may enqueue a durable cache-fill job,
-but it never accepts PubChem result payloads.  Remote workers use ``/workapi``.
+This router is mounted below ``/api``.  Cache-fill jobs are enqueued only for
+loopback (internal) requests; public reads never trigger processing.  Remote
+workers use ``/workapi``.
 """
 
 from __future__ import annotations
@@ -14,8 +15,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import text
 
-from .cache import get_cache
 from .database import get_db
+from .rate_limit import is_loopback_host
 
 router = APIRouter(tags=["enrichment"])
 
@@ -33,7 +34,6 @@ ALLOWED_SECTIONS = frozenset(
     }
 )
 DEFAULT_SECTIONS = ("computed", "identifiers", "synonyms")
-PUBLIC_ENQUEUE_LIMIT_PER_HOUR = 30
 DISPLAY_EVIDENCE_SECTIONS = (
     "physical_properties", "ghs_classification", "hazards", "safety_measures",
     "toxicity", "regulatory", "pharmacology", "uses_and_manufacturing",
@@ -176,7 +176,9 @@ async def enqueue_chemical_if_needed(
     needed = tuple(section for section in sections if not is_fresh(section))
     if not needed:
         return details, None, False
-    if request is not None and not await allow_public_enqueue(request):
+    # 入队是内部通道(T0)专属: SSR/agent 走 loopback 直连, 公网请求只读不触发处理.
+    # 队列去重(dedupe_key)+worker 速率控制是容量上界, 内部流量无需 API 层限流.
+    if request is not None and not is_loopback_host(request.client.host if request.client else None):
         return details, None, True
     if chemical[0] is not None:
         query_kind, query_value = "cid", str(chemical[0])
@@ -203,20 +205,6 @@ async def enqueue_chemical_if_needed(
     return details, job_id, True
 
 
-async def allow_public_enqueue(request: Request) -> bool:
-    address = request.client.host if request.client else "unknown"
-    key_hash = hashlib.sha256(address.encode()).hexdigest()[:24]
-    client = await get_cache()
-    key = f"enrichment:public-hour:{key_hash}"
-    try:
-        count = await client.incr(key)
-        if count == 1:
-            await client.expire(key, 3600)
-        return count <= PUBLIC_ENQUEUE_LIMIT_PER_HOUR
-    except Exception:
-        return False
-
-
 @router.get("/chemicals/{chemical_id}/details")
 async def chemical_details(
     request: Request,
@@ -234,9 +222,7 @@ async def chemical_details(
         "chemical_id": chemical_id,
         "details": details,
         "enrichment": {
-            "status": "queued" if job_id is not None else (
-                "rate_limited" if needs_refresh else "current"
-            ),
+            "status": "queued" if job_id is not None else ("stale" if needs_refresh else "current"),
             "job_id": job_id,
             "requested_sections": list(requested),
         },

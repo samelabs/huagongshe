@@ -599,9 +599,7 @@ async def chemical_detail(
         await db.commit()
     result["details"] = display_details(details) if display else details
     result["enrichment"] = {
-        "status": "queued" if job_id is not None else (
-            "rate_limited" if needs_refresh else "current"
-        ),
+        "status": "queued" if job_id is not None else ("stale" if needs_refresh else "current"),
         "job_id": job_id,
         "requested_sections": list(
             FULL_DETAILS_SECTIONS if enrich == "full" else DEFAULT_SECTIONS
