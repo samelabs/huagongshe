@@ -13,6 +13,7 @@ from .cache import cache_get, cache_set
 from .chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE, canonicalize_smiles, normalize_doi
 from .config import settings
 from .database import get_db
+from .name_index import normalize_name
 from .enrichment import (
     DEFAULT_SECTIONS,
     display_details,
@@ -396,6 +397,7 @@ async def search(
         else:
             clauses = []
             params = {"q": query, "uq": query.upper(), "limit": page_size, "offset": offset}
+            name_index_hit = False
             prefix, sep, raw_value = query.partition(":")
             if sep and prefix.lower() in IDENTIFIER_ARRAYS:
                 clauses.append(f"c.{IDENTIFIER_ARRAYS[prefix.lower()]} @> ARRAY[:qv]")
@@ -456,6 +458,29 @@ async def search(
                     chemicals.extend(item for item in secondary if item["id"] not in seen)
                     chemicals.sort(key=lambda item: item["id"])
                     chemicals = chemicals[:page_size]
+                # 第三段: name_index(中文名/别名/供应商名/synonyms 的派生镜像)。
+                # 只在前两段不足一页时下探, 前两路零改动。
+                if len(chemicals) < page_size and offset == 0:
+                    tertiary_ids = (await db.execute(text("""
+                        SELECT DISTINCT chemical_id FROM chemistry.name_index
+                        WHERE normalized LIKE '%' || :nq || '%'
+                        ORDER BY chemical_id LIMIT :limit
+                    """), {"nq": normalize_name(query), "limit": page_size})).scalars().all()
+                    if tertiary_ids:
+                        name_index_hit = True
+                        # 合并而非替换: 前两段结果保留, 去重后追加(与第二段同型)
+                        seen = {item["id"] for item in chemicals}
+                        fresh_ids = [i for i in tertiary_ids if i not in seen]
+                        if fresh_ids:
+                            more = await fetch_chemicals(db, f"""
+                                SELECT {CHEMICAL_SELECT}
+                                FROM chemistry.chemicals c
+                                WHERE c.id = ANY(:ids)
+                                ORDER BY c.id
+                            """, {"ids": fresh_ids})
+                            chemicals.extend(more)
+                            chemicals.sort(key=lambda item: item["id"])
+                            chemicals = chemicals[:page_size]
             elif not chemicals and not canonical and len(query) < MIN_FUZZY_NAME_LENGTH:
                 raise HTTPException(422, "名称查询至少需要 3 个字符")
 
@@ -476,7 +501,9 @@ async def search(
                     WHERE c.mol IS NOT NULL
                 """))).scalar()
             elif mode == "exact" and not canonical and len(query) >= MIN_FUZZY_NAME_LENGTH:
-                if clauses:
+                if name_index_hit:
+                    pass  # 第三段贡献结果: 两列 count 不覆盖 name_index, 保持 None(更多结果)
+                elif clauses:
                     total = (await db.execute(text(f"""
                         SELECT count(*) FROM chemistry.chemicals c
                         WHERE {' OR '.join(clauses)}

@@ -20,6 +20,7 @@ from sqlalchemy import text
 
 from .cache import cache_delete, get_cache
 from .database import get_db
+from .name_index import ingest_from_entry_cn
 
 # entry 30d / suppliers 7d: 两周期独立驱动 — cas_externals.expires_at 取
 # entry 周期(30d), cas_suppliers 自带 fetched_at, 刷新任务同趟刷新两者,
@@ -100,6 +101,11 @@ async def upsert_externals(
         "chemical_id": chemical_id, "cas_number": cas_number,
         "entry": entry_json, "status": status, "expires": expires,
     })
+    # name_index 摄入: 与 cas_externals 同事务, 纯镜像
+    await ingest_from_entry_cn(
+        db, chemical_id, entry,
+        [s.get("name") for s in suppliers] if status == "ok" else [],
+    )
     # 供应商: 整组替换(仅 ok 且带列表时; not_found 清空)
     if status == "ok":
         await db.execute(text("""

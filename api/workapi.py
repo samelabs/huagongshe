@@ -19,6 +19,7 @@ from sqlalchemy import text
 from .cache import cache_delete, get_cache
 from .config import settings
 from .database import get_db
+from .name_index import ingest_from_synonyms
 from .pubchem_core import chemical_core_values, number_or_none, validate_synonyms
 
 router = APIRouter(prefix="/workapi/v1", tags=["workapi"])
@@ -304,6 +305,9 @@ async def sync_chemical_core(
         if synonyms is not None else None,
         **values,
     })
+    # name_index 摄入: synonyms 镜像, 与核心列同步同事务
+    if synonyms is not None:
+        await ingest_from_synonyms(db, chemical_id, synonyms)
 
 
 async def reject_completed_job(
