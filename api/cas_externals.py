@@ -62,7 +62,7 @@ async def get_externals_row(db: Any, chemical_id: int) -> dict[str, Any] | None:
 
 async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
     rows = (await db.execute(text("""
-        SELECT ref,name,tag,phone,email,website,purity,pack_price,remark
+        SELECT ref,name,phone,email,website,purity,pack_price,remark
         FROM chemistry.cas_suppliers WHERE chemical_id=:chemical_id ORDER BY ref
     """), {"chemical_id": chemical_id})).fetchall()
     return [dict(r._mapping) for r in rows]
@@ -108,12 +108,12 @@ async def upsert_externals(
         if suppliers:
             await db.execute(text("""
                 INSERT INTO chemistry.cas_suppliers
-                    (chemical_id,ref,name,tag,phone,email,website,purity,pack_price,remark)
+                    (chemical_id,ref,name,phone,email,website,purity,pack_price,remark)
                 SELECT :chemical_id,* FROM unnest(
-                    CAST(:refs AS text[]),CAST(:names AS text[]),CAST(:tags AS text[]),
+                    CAST(:refs AS text[]),CAST(:names AS text[]),
                     CAST(:phones AS text[]),CAST(:emails AS text[]),CAST(:websites AS text[]),
                     CAST(:purities AS text[]),CAST(:packs AS text[]),CAST(:remarks AS text[]))
-                AS t(ref,name,tag,phone,email,website,purity,pack_price,remark)
+                AS t(ref,name,phone,email,website,purity,pack_price,remark)
             """), _suppliers_params(chemical_id, suppliers))
     else:
         await db.execute(text("""
@@ -126,7 +126,7 @@ def _suppliers_params(chemical_id: int, suppliers: list[dict[str, Any]]) -> dict
         return [s.get(key) for s in suppliers]
     return {
         "chemical_id": chemical_id,
-        "refs": col("ref"), "names": col("name"), "tags": col("tag"),
+        "refs": col("ref"), "names": col("name"),
         "phones": col("phone"), "emails": col("email"), "websites": col("website"),
         "purities": col("purity"), "packs": col("pack_price"), "remarks": col("remark"),
     }

@@ -21,7 +21,7 @@
   "updown": {"up": [...], "down": [...]},
   "reagents": [{"vendor","text"}],   # 知名试剂公司产品信息
 }
-supplier 结构: {ref,name,tag,phone,email,website,purity,pack_price,remark}
+supplier 结构: {ref,name,phone,email,website,purity,pack_price,remark}
 """
 from __future__ import annotations
 
@@ -230,7 +230,7 @@ _GSLIST_RE = re.compile(
     r'<div class="gslist">([\s\S]*?)(?=<div class="gslist">|<div class="pagebox"|$)'
 )
 _GSNAME_RE = re.compile(r'<div class="gsname">\s*<a[^>]*>([\s\S]*?)</a>', re.I)
-_GSTAG_RE = re.compile(r'<div class="gsicon">\s*<span[^>]*>([^<]+)</span>', re.I)
+
 _CPJS_ROW_RE = re.compile(r"<div><span>([^<]+)</span>([\s\S]*?)</div>", re.I)
 # 供应商专用页条目
 _SPL_RE = re.compile(
@@ -288,12 +288,11 @@ def _parse_suppliers_cas_page(html: str) -> dict[str, dict[str, Any]]:
         name = text_of(nm.group(1))
         if not name:
             continue
-        tag_m = _GSTAG_RE.search(body)
         f = _gsxx_fields(body)
         sup: dict[str, Any] = {
             "ref": None,  # 专用页合并时回填
             "name": name,
-            "tag": text_of(tag_m.group(1)) if tag_m else None,
+            # tag(黄金产品/现货/大货/新品)为原站付费推广位, 不入库不出解析层
             "phone": f.get("phone"),
             "email": None,
             "website": None,
@@ -327,7 +326,7 @@ def _spl_field(block: str, label: str) -> str | None:
 
 
 def _parse_suppliers_dedicated(html: str) -> dict[str, dict[str, Any]] | None:
-    """供应商专用页 -> {name: {cbsid, email, website, phone, tag}}。仅取联系增强字段。"""
+    """供应商专用页 -> {name: {cbsid, email, website, phone}}。仅取联系增强字段。"""
     out: dict[str, dict[str, Any]] = {}
     for m in _SPL_RE.finditer(html):
         cbsid, body = m.group(1), m.group(2)
@@ -347,9 +346,6 @@ def _parse_suppliers_dedicated(html: str) -> dict[str, dict[str, Any]] | None:
             fields["email"] = email
         if website:
             fields["website"] = website
-        tag_m = re.search(r'<div class="supplier_icon">([^<]+)</div>', body)
-        if tag_m:
-            fields["tag"] = text_of(tag_m.group(1))
         out[name] = fields
     return out if out else None
 
@@ -371,7 +367,6 @@ def merge_suppliers(
             row["phone"] = row["phone"] or extra.get("phone")
             row["email"] = extra.get("email")
             row["website"] = extra.get("website")
-            row["tag"] = row["tag"] or extra.get("tag")
             if extra.get("cbsid"):
                 row["ref"] = supplier_ref(extra["cbsid"])
         if not row["ref"]:
@@ -383,7 +378,6 @@ def merge_suppliers(
             {
                 "ref": supplier_ref(extra["cbsid"]) if extra.get("cbsid") else supplier_ref(f"name:{name}"),
                 "name": name,
-                "tag": extra.get("tag"),
                 "phone": extra.get("phone"),
                 "email": extra.get("email"),
                 "website": extra.get("website"),

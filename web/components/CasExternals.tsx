@@ -20,7 +20,6 @@ export type CasEntry = {
 export type CasSupplier = {
   ref: string;
   name: string;
-  tag: string | null;
   phone: string | null;
   email: string | null;
   website: string | null;
@@ -172,12 +171,11 @@ function CasProseSections({ prose }: { prose: { title: string; text: string }[] 
 }
 
 function SupplierCard({ supplier }: { supplier: CasSupplier }) {
-  const { name, tag, phone, email, website, purity, pack_price, remark } = supplier;
+  const { name, phone, email, website, purity, pack_price, remark } = supplier;
   return (
     <article className="casext-supplier">
       <header>
         <h3>{name}</h3>
-        {tag && <span className="casext-supplier-tag">{tag}</span>}
       </header>
       <dl>
         {purity && <div><dt>{t.chemical.casext.purity}</dt><dd>{purity}</dd></div>}

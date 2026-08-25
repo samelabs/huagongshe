@@ -103,6 +103,10 @@ class SupplierTests(unittest.TestCase):
         int(aladdin["ref"], 16)
         # 电话全量
         self.assertTrue(all(s["phone"] for s in suppliers))
+        # 推广位字段(tag)永不产出("现货"等词作为供应商自述 remark 合法保留)
+        self.assertTrue(all("tag" not in s for s in suppliers))
+        blob = json.dumps(suppliers, ensure_ascii=False)
+        self.assertNotIn("黄金产品", blob)
 
     def test_cb_number_extract(self) -> None:
         if not _have_fixtures():
