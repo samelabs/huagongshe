@@ -58,15 +58,16 @@ class WorkApiClient:
             return json.loads(raw)
 
 
-async def heartbeat(client: WorkApiClient, job: dict[str, Any], stop: asyncio.Event) -> None:
+async def heartbeat(client: WorkApiClient, job: dict[str, Any], stop: asyncio.Event, *, cas: bool = False) -> None:
     interval = max(20, int(job.get("lease_seconds", 180)) // 3)
+    path = "/workapi/v1/cas/jobs/heartbeat" if cas else "/workapi/v1/jobs/heartbeat"
     while not stop.is_set():
         try:
             await asyncio.wait_for(stop.wait(), timeout=interval)
         except asyncio.TimeoutError:
             try:
                 await client.post(
-                    "/workapi/v1/jobs/heartbeat",
+                    path,
                     {"job_id": job["job_id"], "lease_token": job["lease_token"]},
                 )
             except asyncio.CancelledError:
@@ -187,6 +188,63 @@ async def process_job(
         await asyncio.gather(heartbeat_task, return_exceptions=True)
 
 
+async def process_cas_job(
+    session: aiohttp.ClientSession,
+    workapi: WorkApiClient,
+    job: dict[str, Any],
+) -> None:
+    """cas_jobs 处理: caslib 拉取解析 -> /cas/jobs/complete|fail。
+
+    抓取预算放宽(后台路径非用户等待路径), 页间 2s 礼仪间隔。
+    """
+    from caslib.fetch import fetch_cas
+    from caslib.parse import parse_entry, parse_suppliers
+
+    stop = asyncio.Event()
+    heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop, cas=True))
+    try:
+        result = await fetch_cas(
+            job["cas_number"], total_budget_s=20.0, session=session
+        )
+        if result.status == "not_found":
+            payload = {"status": "not_found", "entry": None, "suppliers": []}
+        elif result.status == "error":
+            raise RuntimeError(f"cas fetch error: {result.error}")
+        else:
+            entry = parse_entry(result.cas_html or "")
+            if entry is None:
+                payload = {"status": "not_found", "entry": None, "suppliers": []}
+            else:
+                suppliers = parse_suppliers(result.cas_html or "", result.supplier_html)
+                payload = {"status": "ok", "entry": entry, "suppliers": suppliers}
+        await workapi.post(
+            "/workapi/v1/cas/jobs/complete",
+            {"job_id": job["job_id"], "lease_token": job["lease_token"], "result": payload},
+        )
+        log.info("cas job=%s %s", job["job_id"], payload["status"])
+    except Exception as exc:
+        try:
+            await workapi.post(
+                "/workapi/v1/cas/jobs/fail",
+                {
+                    "job_id": job["job_id"],
+                    "lease_token": job["lease_token"],
+                    "error_code": "cas_fetch_error",
+                    "error_detail": str(exc)[:2000],
+                    "retryable": True,
+                    "retry_after_seconds": 120,
+                },
+            )
+        except Exception:
+            log.exception("could not report cas failure for job=%s", job["job_id"])
+        log.warning("cas job=%s failed: %s", job["job_id"], exc)
+    finally:
+        stop.set()
+        heartbeat_task.cancel()
+        await asyncio.gather(heartbeat_task, return_exceptions=True)
+        await asyncio.sleep(2)  # 抓取礼仪间隔
+
+
 async def run() -> None:
     base_url = os.environ["HGS_WORKAPI_URL"]
     worker_id = os.environ["HGS_WORKER_ID"]
@@ -199,21 +257,36 @@ async def run() -> None:
         rate = PubChemRateController(requests_per_second)
         log.info("worker started id=%s concurrency=%s", worker_id, concurrency)
         idle_seconds = 2.0
+        cas_idle_seconds = 2.0
         while True:
             try:
+                # 双队列: pubchem 优先轮询, cas 每轮附带认领(单并发,礼仪串行)
                 leased = await workapi.post(
                     "/workapi/v1/jobs/lease",
                     {"max_jobs": concurrency, "capabilities": ["pubchem"]},
                 )
                 jobs = leased.get("jobs") or []
-                if not jobs:
+                cas_coros = []
+                if "cas" in os.environ.get("HGS_WORKER_SCOPES", "pubchem,cas").split(","):
+                    cas_leased = await workapi.post(
+                        "/workapi/v1/cas/jobs/lease",
+                        {"max_jobs": 1, "capabilities": ["cas"]},
+                    )
+                    cas_jobs = cas_leased.get("jobs") or []
+                    cas_coros = [process_cas_job(session, workapi, job) for job in cas_jobs]
+                    if not cas_jobs:
+                        cas_idle_seconds = min(30.0, cas_idle_seconds * 1.5)
+                    else:
+                        cas_idle_seconds = 2.0
+                if not jobs and not cas_coros:
                     requested_wait = float(leased.get("retry_after_seconds", 5))
                     idle_seconds = min(30.0, max(requested_wait, idle_seconds * 1.5))
                     await asyncio.sleep(idle_seconds + random.random())
                     continue
                 idle_seconds = 2.0
                 await asyncio.gather(
-                    *(process_job(session, workapi, rate, job) for job in jobs)
+                    *(process_job(session, workapi, rate, job) for job in jobs),
+                    *cas_coros,
                 )
             except Exception:
                 log.exception("worker cycle failed")

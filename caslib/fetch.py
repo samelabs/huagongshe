@@ -28,7 +28,11 @@ class FetchResult:
 
 async def _get(session: aiohttp.ClientSession, url: str, timeout_s: float) -> tuple[int | None, str]:
     try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=timeout_s)) as resp:
+        async with session.get(
+            url,
+            headers={"User-Agent": UA},  # 请求级: 共享 session(api/worker)也必须带 UA
+            timeout=aiohttp.ClientTimeout(total=timeout_s),
+        ) as resp:
             body = await resp.text(errors="replace")
             return resp.status, body
     except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:

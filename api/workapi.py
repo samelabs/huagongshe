@@ -88,12 +88,13 @@ async def authenticated_worker(
         raise HTTPException(401, "invalid worker signature")
 
     token_hash = hashlib.sha256(token.encode()).digest()
-    row = (await db.execute(text("""
+    scope_needed = "cas" if request.url.path.startswith("/workapi/v1/cas/") else "pubchem"
+    row = (await db.execute(text(f"""
         SELECT worker_id,max_lease_jobs
         FROM maintenance.worker_clients
         WHERE worker_id=:worker_id AND token_hash=:token_hash
-          AND enabled AND disabled_at IS NULL AND 'pubchem'=ANY(scopes)
-    """), {"worker_id": x_worker_id, "token_hash": token_hash})).fetchone()
+          AND enabled AND disabled_at IS NULL AND :scope=ANY(scopes)
+    """), {"worker_id": x_worker_id, "token_hash": token_hash, "scope": scope_needed})).fetchone()
     if not row:
         raise HTTPException(401, "unknown or disabled worker")
 
@@ -646,6 +647,234 @@ async def fail_job(
             "job_id": body.job_id, "worker_id": worker.worker_id,
             "event_type": status, "code": body.error_code,
             "retry_after": body.retry_after_seconds,
+        })
+        await db.commit()
+        return {"status": status}
+    except Exception:
+        await db.rollback()
+        raise
+
+
+# ---------------------------------------------------------------- cas jobs
+# 与 pubchem jobs 同协议(HMAC/租约/心跳/nonce), 独立表 maintenance.cas_jobs。
+# worker 认领时声明 capabilities=["cas"]; scopes 检查在 authenticated_worker。
+
+class CasLeaseBody(BaseModel):
+    max_jobs: int = Field(default=2, ge=1, le=20)
+    capabilities: list[str] = Field(default_factory=lambda: ["cas"], max_length=20)
+
+
+class CasResultBody(BaseModel):
+    status: str = Field(pattern="^(ok|not_found)$")
+    entry: dict[str, Any] | None = None
+    suppliers: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class CasCompleteBody(LeaseProof):
+    result: CasResultBody
+
+
+async def verified_cas_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock: bool = True):
+    suffix = " FOR UPDATE" if lock else ""
+    row = (await db.execute(text(f"""
+        SELECT id,chemical_id,cas_number,attempt_count,max_attempts
+        FROM maintenance.cas_jobs
+        WHERE id=:job_id AND status='leased' AND lease_owner=:worker_id
+          AND lease_token_hash=:lease_hash AND lease_expires_at>now(){suffix}
+    """), {
+        "job_id": proof.job_id,
+        "worker_id": worker_id,
+        "lease_hash": lease_hash(proof.lease_token),
+    })).fetchone()
+    if not row:
+        raise HTTPException(409, "lease is missing, expired, or owned by another worker")
+    return row
+
+
+@router.post("/cas/jobs/lease")
+async def cas_lease_jobs(
+    body: CasLeaseBody,
+    db=Depends(get_db),
+    worker: WorkerContext = Depends(authenticated_worker),
+):
+    limit = min(body.max_jobs, worker.max_lease_jobs)
+    if "cas" not in body.capabilities:
+        await db.commit()
+        return {"jobs": [], "retry_after_seconds": 30}
+    try:
+        # 到期自扫(替代 SSR 触发, CF 缓存场景同样生效) + 过期租约回收 + 留存清理
+        from .cas_externals import scan_expired_into_queue
+        await scan_expired_into_queue(db)
+        await db.execute(text("""
+            UPDATE maintenance.cas_jobs
+            SET status=CASE WHEN attempt_count>=max_attempts THEN 'dead' ELSE 'retry' END,
+                lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
+                heartbeat_at=NULL,updated_at=now(),
+                completed_at=CASE WHEN attempt_count>=max_attempts THEN now() ELSE completed_at END,
+                last_error_code='lease_expired'
+            WHERE status='leased' AND lease_expires_at<=now()
+        """))
+        await db.execute(text("""
+            DELETE FROM maintenance.cas_jobs
+            WHERE id IN (
+                SELECT id FROM maintenance.cas_jobs
+                WHERE completed_at IS NOT NULL AND (
+                    (status='succeeded' AND completed_at<now()-interval '30 days') OR
+                    (status IN ('failed','dead') AND completed_at<now()-interval '90 days')
+                )
+                ORDER BY completed_at,id LIMIT 5000
+            )
+        """))
+        rows = (await db.execute(text("""
+            SELECT id,chemical_id,cas_number,attempt_count,max_attempts
+            FROM maintenance.cas_jobs
+            WHERE status IN ('queued','retry') AND not_before<=now()
+              AND attempt_count<max_attempts
+            ORDER BY priority DESC,not_before,id
+            LIMIT :limit FOR UPDATE SKIP LOCKED
+        """), {"limit": limit})).fetchall()
+        leased = []
+        for row in rows:
+            token = secrets.token_urlsafe(32)
+            await db.execute(text("""
+                UPDATE maintenance.cas_jobs
+                SET status='leased',lease_owner=:worker_id,lease_token_hash=:token_hash,
+                    lease_expires_at=now()+make_interval(secs=>:lease_seconds),
+                    heartbeat_at=now(),attempt_count=attempt_count+1,updated_at=now()
+                WHERE id=:job_id
+            """), {
+                "worker_id": worker.worker_id,
+                "token_hash": lease_hash(token),
+                "lease_seconds": settings.worker_job_lease_seconds,
+                "job_id": row[0],
+            })
+            leased.append({
+                "job_id": row[0],
+                "lease_token": token,
+                "chemical_id": row[1],
+                "cas_number": row[2],
+                "attempt": row[3] + 1,
+                "max_attempts": row[4],
+                "lease_seconds": settings.worker_job_lease_seconds,
+            })
+        await db.commit()
+        return {"jobs": leased, "retry_after_seconds": 2 if leased else 10}
+    except Exception:
+        await db.rollback()
+        raise
+
+
+@router.post("/cas/jobs/heartbeat")
+async def cas_heartbeat(
+    body: LeaseProof,
+    db=Depends(get_db),
+    worker: WorkerContext = Depends(authenticated_worker),
+):
+    try:
+        await verified_cas_lease(db, body, worker.worker_id, lock=False)
+        await db.execute(text("""
+            UPDATE maintenance.cas_jobs
+            SET heartbeat_at=now(),lease_expires_at=now()+make_interval(secs=>:seconds),
+                updated_at=now() WHERE id=:job_id
+        """), {"seconds": settings.worker_job_lease_seconds, "job_id": body.job_id})
+        await db.commit()
+        return {"status": "leased", "lease_seconds": settings.worker_job_lease_seconds}
+    except Exception:
+        await db.rollback()
+        raise
+
+
+@router.post("/cas/jobs/complete")
+async def cas_complete_job(
+    body: CasCompleteBody,
+    db=Depends(get_db),
+    worker: WorkerContext = Depends(authenticated_worker),
+):
+    from .cas_externals import CACHE_KEY, upsert_externals
+    try:
+        job = await verified_cas_lease(db, body, worker.worker_id)
+        chemical_id = job[1]
+        cas_number = job[2]
+        if chemical_id is None:
+            await db.execute(text("""
+                UPDATE maintenance.cas_jobs
+                SET status='failed',last_error_code='chemical_missing',
+                    last_error_detail='target chemical no longer exists',
+                    lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
+                    heartbeat_at=NULL,updated_at=now(),completed_at=now()
+                WHERE id=:job_id
+            """), {"job_id": body.job_id})
+            await db.commit()
+            raise HTTPException(422, "target chemical no longer exists")
+        payload = body.result
+        status = payload.status
+        entry = payload.entry if status == "ok" else None
+        suppliers = payload.suppliers if status == "ok" else []
+        try:
+            await upsert_externals(
+                db, chemical_id=chemical_id, cas_number=cas_number,
+                entry=entry, suppliers=suppliers, status=status,
+            )
+        except ValueError as exc:
+            await db.execute(text("""
+                UPDATE maintenance.cas_jobs
+                SET status='failed',last_error_code='payload_invalid',
+                    last_error_detail=:detail,
+                    lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
+                    heartbeat_at=NULL,updated_at=now(),completed_at=now()
+                WHERE id=:job_id
+            """), {"job_id": body.job_id, "detail": str(exc)[:2000]})
+            await db.commit()
+            raise HTTPException(422, str(exc)) from exc
+        summary = {
+            "chemical_id": chemical_id,
+            "status": status,
+            "supplier_count": len(suppliers),
+            "entry_keys": sorted(entry.keys()) if entry else [],
+        }
+        await db.execute(text("""
+            UPDATE maintenance.cas_jobs
+            SET status='succeeded',result_summary=CAST(:summary AS jsonb),
+                last_error_code=NULL,last_error_detail=NULL,
+                lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
+                heartbeat_at=NULL,updated_at=now(),completed_at=now()
+            WHERE id=:job_id
+        """), {
+            "job_id": body.job_id,
+            "summary": json.dumps(summary, ensure_ascii=False, separators=(",", ":")),
+        })
+        await db.commit()
+        await cache_delete(CACHE_KEY.format(chemical_id=chemical_id))
+        return summary
+    except HTTPException:
+        raise
+    except Exception:
+        await db.rollback()
+        raise
+
+
+@router.post("/cas/jobs/fail")
+async def cas_fail_job(
+    body: FailBody,
+    db=Depends(get_db),
+    worker: WorkerContext = Depends(authenticated_worker),
+):
+    try:
+        job = await verified_cas_lease(db, body, worker.worker_id)
+        retry = body.retryable and int(job[3]) < int(job[4])
+        status = "retry" if retry else ("dead" if body.retryable else "failed")
+        await db.execute(text("""
+            UPDATE maintenance.cas_jobs
+            SET status=:status,not_before=CASE WHEN :retry
+                    THEN now()+make_interval(secs=>:retry_after) ELSE not_before END,
+                last_error_code=:code,last_error_detail=:detail,
+                lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
+                heartbeat_at=NULL,updated_at=now(),
+                completed_at=CASE WHEN :retry THEN NULL ELSE now() END
+            WHERE id=:job_id
+        """), {
+            "status": status, "retry": retry, "retry_after": body.retry_after_seconds,
+            "code": body.error_code, "detail": body.error_detail, "job_id": body.job_id,
         })
         await db.commit()
         return {"status": status}
