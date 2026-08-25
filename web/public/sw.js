@@ -1,4 +1,6 @@
-const CACHE_VERSION = 'hgs-pwa-v1';
+// 版本随部署升版: activate 会清掉旧版本全部缓存(含旧导航时代的 HTML)。
+// 不升版 = 旧缓存跨部署永久存活, 网络瞬断时 network-first 兜底会闪现老页面。
+const CACHE_VERSION = 'hgs-pwa-v2';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
