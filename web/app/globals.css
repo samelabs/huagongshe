@@ -86,10 +86,7 @@ h2, h3 { font-weight: var(--section-weight); }
 .site-header { z-index: 30; border-bottom: 1px solid var(--line); background: var(--paper); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
 .header-inner { width: min(var(--max), calc(100% - 40px)); min-width: 0; height: 64px; margin: 0 auto; display: flex; align-items: center; }
 .brand { display: inline-flex; align-items: center; }
-.brand-domain { display: inline-flex; align-items: baseline; color: var(--blue-strong); font-family: var(--font-ui); font-size: 16px; line-height: 1; letter-spacing: -.01em; }
-.brand-domain > span:first-child { font-weight: 700; }
-.brand-dot { color: var(--quiet); font-weight: 400; margin: 0 1px; }
-.brand-domain > span:last-child { color: var(--heading-soft); font-weight: 400; opacity: .8; }
+.brand-domain { display: inline-flex; align-items: baseline; color: var(--blue-strong); font-family: var(--font-ui); font-size: 16px; line-height: 1; letter-spacing: -.01em; font-weight: 700; }
 nav[aria-label="主导航"] { min-width: 0; margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 22px; color: var(--muted); font-size: var(--text); white-space: nowrap; }
 .login-link { border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 13px; min-height: 38px; display: inline-flex; align-items: center; color: var(--ink); }
 .nav-guide { border: 1px solid var(--blue-border); border-radius: 8px; padding: 6px 8px; min-height: 38px; display: inline-flex; align-items: center; color: var(--blue-strong); background: var(--blue-tint); font-weight: 650; white-space: nowrap; }

@@ -1,6 +1,6 @@
 {
-  "name": "化工社 — AI化学工作台",
-  "short_name": "化工社",
+  "name": "化工社AIchem — AI化学工作台",
+  "short_name": "化工社AIchem",
   "description": "查化合物、找反应，构建你的化学知识库",
   "start_url": "/",
   "scope": "/",

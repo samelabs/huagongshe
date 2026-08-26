@@ -1,6 +1,6 @@
-# 化工社
+# 化工社AIchem
 
-化工社是开放、非商业化的化学数据查询与个人反应记录平台，线上域名为 `https://huagongshe.com`。
+化工社AIchem是化工社推出的开放、非商业化的AI化学工作台，线上域名为 `https://huagongshe.com`。
 
 ## 产品主线
 
@@ -40,7 +40,7 @@
 - `/api/agent-guide`：AI 的唯一连接入口；携带 Token 时确认所属账号，并返回真实可用操作、字段要求、安全规则和调用顺序。
 - `/api/openapi.json`：稳定的结构化契约。
 - `/guide`：面向用户的网页记录、AI 对话提示词与 Skill 使用指南。
-- `/skills/huagongshe-reaction-publisher/SKILL.md`：可直接交给 AI 的反应整理与保存 Skill。
+- `/skills/huagongshe-reaction-publisher/SKILL.md`：可直接交给 AI 的反应提取与保存 Skill。
 - `/workapi/*`：只服务受信任 PubChem worker，与用户 Agent 完全无关。
 
 网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 API Token（Bearer Token）；数据库只保存 Token 摘要。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。

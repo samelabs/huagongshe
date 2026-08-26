@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     public_base_url: str = "https://huagongshe.com"
     redis_url: str = "redis://127.0.0.1:6379/1"
     cache_ttl: int = 600
-    api_title: str = "化工社 API"
+    api_title: str = "化工社AIchem API"
     api_version: str = "1.0.0"
     page_size: int = 20
     max_page_size: int = 50

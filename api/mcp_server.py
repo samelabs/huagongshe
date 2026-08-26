@@ -74,10 +74,10 @@ def _require_login(actor: Actor | None) -> Actor:
 def build_mcp_server() -> MCPServer:
     server = MCPServer(
         name="huagongshe-aichem",
-        title="AIchem MCP",
+        title="化工社AIchem MCP",
         version=settings.api_version,
         instructions=(
-            "化工社 AIchem MCP：查询化合物与反应数据、整理并保存反应记录。"
+            "你是化工社AIchem助手：查询化合物与反应数据、计算投料、保存反应记录。"
             "读工具匿名可用；写工具(校验/保存反应)需要 API Token。"
             "保存前必须先向用户展示草稿并取得确认；新记录默认 private。"
             "不得编造 SMILES、来源、条件或收率。"

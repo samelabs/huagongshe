@@ -16,14 +16,14 @@ const t = {
 
   /* ── 品牌 ────────────────────────────────────────────── */
   brand: {
-    name: '化工社',
+    name: '化工社AIchem',
     domain: 'huagongshe.com',
     positioning: '你的AI化学工作台',
     slogan: '化工社 · 化学工作从这里开始，知识在这里留下',
-    seoTitle: '化工社｜你的AI化学工作台',
-    seoDesc: '化工社是你的AI化学工作台。查化合物、找反应，让AI整理论文、专利和实验记录，构建可持续积累的个人化学工作台。',
-    seoDescShort: '查化合物、找反应，让AI整理文献与实验记录，构建你的化学工作台。',
-    ogAlt: '化工社',
+    seoTitle: '化工社AIchem｜你的AI化学工作台',
+    seoDesc: '化工社AIchem是你的AI化学工作台。查化合物、找反应、算投料，构建可持续积累的个人化学工作台。',
+    seoDescShort: '查化合物、找反应、算投料，构建你的化学工作台。',
+    ogAlt: '化工社AIchem',
     keywords: ['AI化学工作台', '化合物查询', '化学反应', '化学工作台', '反应记录', 'CAS号查询', 'SMILES', '化学文献', 'InChIKey'],
   },
 
@@ -75,7 +75,7 @@ const t = {
     tabMe: '我的',
     bottomNav: '底部导航',
     workbenchNav: '工作台导航',
-    footer: 'AIchem开放计划',
+    footer: '化工社AIchem开放计划',
   },
 
   /* ── 首页 ────────────────────────────────────────────── */
@@ -90,14 +90,14 @@ const t = {
     dataLabel: '数据概况',
     dataLine: (chemicals: string, reactions: string) => `${chemicals} 化合物 · ${reactions} 反应 · 免费查询`,
     /* ── 三入口卡片 ── */
-    cardsKicker: 'AIchem',
+    cardsKicker: '化工社AIchem',
     card1Kicker: 'MCP 连接器',
     card1Title: '接入你的 AI 助手',
-    card1Body: '在豆包工作、千问办公、WorkBuddy 等 AI 助手里添加化工社，AI 即可查询化合物与反应、计算投料，整理并保存反应记录。',
+    card1Body: '在豆包工作、千问办公、WorkBuddy 等 AI 助手里添加化工社AIchem，AI 即可查询化合物与反应、计算投料，保存反应记录到你的账户。',
     card1Link: '查看接入方法 →',
     card2Kicker: 'AGENT SKILLS',
     card2Title: 'Agent 技能',
-    card2Body: '面向化学与科研场景的 AI Agent 技能库，浏览、下载并装载到你的 AI 环境，让 Agent 按化工社的规范工作。',
+    card2Body: '面向化学与科研场景的 AI Agent 技能库，浏览、下载并装载到你的 AI 环境，让 Agent 按化工社AIchem的规范工作。',
     card2Link: '浏览技能库 →',
     card3Kicker: 'WORKBENCH',
     card3Title: '网页工作台',
@@ -325,7 +325,7 @@ const t = {
     following: '关注',
     followers: '粉丝',
     homeGreeting: (name: string) => `${name}的工作台`,
-    homeHint: '查化合物、找反应、整理实验记录——你的化学工作都在这里',
+    homeHint: '查化合物、找反应、算投料——你的化学工作都在这里',
     homeSearchPlaceholder: '中英文名称、CAS、SMILES、CID、InChIKey…',
     homeSearchButton: '查询',
     homeShortcutReactions: '我的反应',
@@ -525,7 +525,7 @@ const t = {
   auth: {
     title: '登录',
     registerTitle: '注册',
-    loginTitle: '登录化工社',
+    loginTitle: '登录化工社AIchem',
     kicker: '我的工作台',
     intro: '保存个人反应、收藏化学数据，并接入你的AI工具。',
     features: [
@@ -560,7 +560,7 @@ const t = {
     editTitle: '编辑反应记录',
     newDesc: '保存结构化反应记录，并自动关联相关化合物。新记录默认仅自己可见。',
     editDesc: '修改这条反应的结构、条件、来源或可见范围。',
-    guideLink: '了解如何使用AI整理 →',
+    guideLink: '了解如何接入AI →',
     title: '反应记录',
     loginRequired: '请先登录',
     loginHint: '登录后将反应保存到你的个人反应库。',
@@ -622,14 +622,14 @@ const t = {
   /* ── MCP 连接器页 ─────────────────────────────────────── */
   mcp: {
     title: 'MCP 连接器',
-    desc: '把化工社接入你的 AI 助手（豆包工作、千问办公、腾讯 WorkBuddy 等），AI 即可查询化合物与反应数据、计算投料、整理并保存反应记录。',
-    hero: '把化工社接入你的 AI',
-    heroBody: '化工社提供 MCP（Model Context Protocol）标准接口。在 AI 助手里添加一个 MCP 服务器，AI 就能直接查询化合物和反应、计算投料配比，并在你确认后把反应记录保存到你的账户。',
+    desc: '把化工社AIchem接入你的 AI 助手（豆包工作、千问办公、腾讯 WorkBuddy 等），AI 即可查询化合物与反应数据、计算投料，保存反应记录到你的账户。',
+    hero: '把化工社AIchem接入你的 AI',
+    heroBody: '化工社AIchem提供 MCP（Model Context Protocol）标准接口。在 AI 助手里添加一个 MCP 服务器，AI 就能直接查询化合物和反应、计算投料配比，并在你确认后把反应记录保存到你的账户。',
     /* ── 连接信息 ── */
     connectKicker: '连接信息',
     connectUrlLabel: '服务器地址',
     connectTokenLabel: '认证（可选，写操作需要）',
-    connectTokenDesc: '在 账户设置 → API Token 生成；仅显示一次，随时可撤销。未登录也可查询公开数据。',
+    connectTokenDesc: '在 账户设置 → API Token 生成；仅显示一次，随时可撤销。未登录也可查询公开数据。填空方式：表单有独立的 Token／密钥栏时，只粘贴 Token 本身；走自定义 Header 时才写全 Authorization: Bearer <你的Token>。两种填法发出同一个请求头，选一种即可，不要重复填。',
     connectTokenCta: '生成 API Token',
     /* ── 三大智能体 ── */
     agentsKicker: '主流智能体接入',
@@ -654,8 +654,9 @@ const t = {
     doubaoDesc: '字节 2026-08-25 发布的独立 Agent 产品，连接器支持自定义 MCP（地址 + Headers）。以产品内指引为准。',
     doubaoSteps: [
       '下载豆包工作电脑版（官网 doubao.com/work），或使用最新豆包电脑版',
-      '在连接器中选择自定义 MCP',
-      '填写 MCP Server 地址，Headers 填 Authorization: Bearer <你的Token>',
+      '在连接器中选择自定义 MCP，填写服务器地址',
+      '认证二选一：表单有独立的 Bearer／密钥填空 → 只粘贴 Token 本身；用自定义 Header → 名称填 Authorization、值填 Bearer <你的Token>',
+      '两种填法发出同一个请求头，选一种即可，不要两边都填；表单具体样式以产品内指引为准',
     ],
     /* ── 通用配置 ── */
     commonKicker: '通用配置 JSON',
@@ -673,7 +674,7 @@ const t = {
 }`,
     /* ── 工具清单 ── */
     toolsKicker: 'AI 可用的工具',
-    toolsIntro: '共 14 个工具：公开查询无需登录；整理与保存需要 API Token（reaction:write / skill:write 权限）。',
+    toolsIntro: '共 14 个工具：公开查询无需登录；保存类操作需要 API Token（reaction:write / skill:write 权限）。',
     tools: [
       { name: 'search_chemistry_data', auth: '公开', desc: '按名称、CAS、SMILES、DOI 等统一检索化合物与反应' },
       { name: 'get_chemical', auth: '公开', desc: '读取化合物结构、标识符、性质与关联反应' },
@@ -702,14 +703,14 @@ const t = {
   /* ── AI 指南页 ───────────────────────────────────────── */
   guide: {
     title: 'AI化学工作台',
-    desc: 'AIchem是化工社的AI化学工作台。接入后，把文献、专利和实验记录交给AI，即可提取反应、校验结构、保存到你的工作台。',
+    desc: '化工社AIchem是你的AI化学工作台。接入后，把文献、专利和实验记录交给AI，即可提取反应、校验结构、保存到你的工作台。',
     hero: 'AI化学工作台',
-    heroBody: 'AIchem是化工社的AI化学工作台。接入后，把文献、专利和实验记录交给AI，即可提取反应、校验结构、保存到你的工作台。',
+    heroBody: '化工社AIchem是你的AI化学工作台。接入后，把文献、专利和实验记录交给AI，即可提取反应、校验结构、保存到你的工作台。',
     /* ── 用AI做什么 ── */
     capabilityKicker: '用AI做什么',
     cap1Title: '查数据',
     cap1Desc: '输入名称、CAS、SMILES或DOI，AI返回化合物结构、性质和关联反应。公开可用，无需登录。',
-    cap2Title: '整理反应',
+    cap2Title: '提取反应',
     cap2Desc: '把文献、专利、实验记录或截图交给AI。AI提取反应物、产物、试剂和溶剂，结构转成SMILES，保留来源。',
     cap2Badge: '需API Token',
     cap3Title: '校验结构',
@@ -723,13 +724,13 @@ const t = {
     mcpCta: '查看 MCP 接入方法 →',
     path1Title: '连接 MCP',
     path1Suit: '适合：豆包工作、千问办公、WorkBuddy 等 AI 助手',
-    path1Desc: '在你的 AI 助手里添加化工社 MCP 服务器。AI 直接查询化合物与反应、计算投料，整理并保存反应记录。',
+    path1Desc: '在你的 AI 助手里添加化工社AIchem MCP 服务器。AI 直接查询化合物与反应、计算投料，保存反应记录到你的账户。',
     path2Title: '复制提示词',
     path2Suit: '适合：任何AI，不想配置',
-    path2Desc: '复制提示词，连同文献发给你的AI。AI按格式输出反应草稿，你在化工社网页手动保存。',
+    path2Desc: '复制提示词，连同文献发给你的AI。AI按格式输出反应草稿，你在化工社AIchem网页手动保存。',
     setupCta: '设置 API Token',
     copyPrompt: (copied: boolean) => copied ? '已复制' : '复制提示词',
-    aiPrompt: `请作为我的化工社反应整理助手。
+    aiPrompt: `请作为我的化工社AIchem助手。
 
 我会提供网页、文献、专利、实验文档、图片或一段文字。请完成：
 1. 只提取资料中明确存在的反应事实，不猜测 SMILES、条件、用量、收率或来源。
@@ -737,13 +738,13 @@ const t = {
 3. 保留 DOI、专利号、网址、文献题目或“本人实验”等来源证据。
 4. 未知的可选字段留空；结构或身份有歧义时先问我。
 5. 先给我查看结构化草稿；整理结果保存到我的个人反应库，默认仅自己可见。
-6. 得到我确认后，先调用化工社验证接口，再使用唯一 Idempotency-Key 保存。
+6. 得到我确认后，先调用化工社AIchem验证接口，再使用唯一 Idempotency-Key 保存。
 7. 成功后告诉我 HRID、页面链接、新建的 HCID 和可见范围；未经成功响应不要声称已经保存。
 
-如果你暂时不能调用化工社 API，请仍按相同字段输出草稿，并指导我在网页保存。`,
+如果你暂时不能调用化工社AIchem API，请仍按相同字段输出草稿，并指导我在网页保存。`,
     /* ── 接入文件 ── */
     refKicker: '接入文件',
-    refIntro: '化工社已发布标准接入文件，支持的AI工具可自动识别。',
+    refIntro: '化工社AIchem已发布标准接入文件，支持的AI工具可自动识别。',
     refLlmsTxt: 'llms.txt',
     refLlmsTxtDesc: 'AI行业标准的网站发现入口',
     refAgentGuide: 'agent-guide',
@@ -765,7 +766,7 @@ const t = {
   /* ── 用户主页 ────────────────────────────────────────── */
   user: {
     title: '@{username}',
-    desc: '化工社用户主页',
+    desc: '化工社AIchem用户主页',
     followers: '粉丝',
     following: '关注',
     publicReactions: '公开反应',

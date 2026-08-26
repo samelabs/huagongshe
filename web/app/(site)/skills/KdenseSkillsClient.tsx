@@ -94,7 +94,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
       <section className="kdense-hero">
         <div className="kdense-hero-inner">
           <p className="kdense-breadcrumb">
-            <a href="/">化工社</a>
+            <a href="/">化工社AIchem</a>
             <span className="kdense-sep">/</span>
             <span>开放技能库</span>
           </p>
@@ -103,7 +103,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
             {skills.length} 个开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域，可按需下载使用。
           </p>
           <p className="kdense-source">
-            数据来源：K-Dense-AI/scientific-agent-skills (MIT) 与化工社官方技能 · 由化工社整理提供
+            数据来源：K-Dense-AI/scientific-agent-skills (MIT) 与化工社AIchem官方技能 · 由化工社整理提供
           </p>
           <div className="kdense-search-bar">
             <input
