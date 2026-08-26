@@ -10,6 +10,7 @@ const items = [
   { href: "/samelabs/reactions", label: t.admin.navReactions },
   { href: "/samelabs/skills", label: t.admin.navSkills },
   { href: "/samelabs/config", label: t.admin.navConfig },
+  { href: "/samelabs/workers", label: t.admin.navWorkers },
 ];
 
 export function SamelabsNav() {

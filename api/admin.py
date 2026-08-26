@@ -6,12 +6,15 @@ import json
 import re
 import shutil
 import asyncio
+import hashlib
+import secrets
 from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from .cache import cache_delete
 from .config import settings
@@ -37,6 +40,119 @@ class UserRoleBody(BaseModel):
 
 class ModerationBody(BaseModel):
     status: Literal["visible", "hidden"]
+
+
+# ---------------------------------------------------------------- workers
+# Worker 凭据治理: 签发/停权/scopes 编辑. scopes 是一等自由数组(受已知任务族校验),
+# 未来内部负载 worker 化时此处零改动 — 认证协议(HMAC/租约)与任务族解耦.
+
+WORKER_SCOPES = ("pubchem", "cas")
+
+
+class WorkerCreateBody(BaseModel):
+    worker_id: str = Field(min_length=3, max_length=64, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    display_name: str = Field(min_length=1, max_length=80)
+    scopes: list[str] = Field(min_length=1, max_length=10)
+    max_lease_jobs: int = Field(default=4, ge=1, le=20)
+
+
+class WorkerPatchBody(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    scopes: list[str] | None = Field(default=None, min_length=1, max_length=10)
+    max_lease_jobs: int | None = Field(default=None, ge=1, le=20)
+    enabled: bool | None = None
+
+
+def _validated_scopes(scopes: list[str]) -> list[str]:
+    unknown = [s for s in scopes if s not in WORKER_SCOPES]
+    if unknown:
+        raise HTTPException(400, f"未知的任务族: {', '.join(unknown)}(可用: {', '.join(WORKER_SCOPES)})")
+    return sorted(set(scopes))
+
+
+@router.get("/workers")
+async def list_workers(
+    actor: Actor = Depends(admin), db=Depends(get_db),
+):
+    """Worker 客户端清单(不含 token hash)。"""
+    rows = (await db.execute(text("""
+        SELECT worker_id,display_name,scopes,max_lease_jobs,enabled,
+               created_at,last_seen_at,disabled_at
+        FROM maintenance.worker_clients ORDER BY worker_id
+    """))).mappings().all()
+    return [dict(row) for row in rows]
+
+
+@router.post("/workers", status_code=201)
+async def create_worker(
+    body: WorkerCreateBody,
+    actor: Actor = Depends(admin), db=Depends(get_db),
+):
+    """签发新 Worker 凭据. 明文 token 仅本响应返回一次, 库内只存 hash. """
+    scopes = _validated_scopes(body.scopes)
+    token = secrets.token_urlsafe(48)
+    digest = hashlib.sha256(token.encode()).hexdigest()
+    try:
+        await db.execute(text("""
+            INSERT INTO maintenance.worker_clients
+            (worker_id,display_name,token_hash,token_prefix,scopes,max_lease_jobs)
+            VALUES (:worker_id,:display_name,decode(:digest,'hex'),:prefix,
+                    CAST(:scopes AS text[]),:max_lease_jobs)
+        """), {
+            "worker_id": body.worker_id,
+            "display_name": body.display_name,
+            "digest": digest,
+            "prefix": token[:8],
+            "scopes": scopes,
+            "max_lease_jobs": body.max_lease_jobs,
+        })
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, f"worker_id 已存在: {body.worker_id}")
+    return {
+        "worker_id": body.worker_id,
+        "display_name": body.display_name,
+        "scopes": scopes,
+        "max_lease_jobs": body.max_lease_jobs,
+        "token": token,  # 一次性明文, 之后不可再取
+        "env": {
+            "HGS_WORKAPI_URL": "http://127.0.0.1:8000",
+            "HGS_WORKER_ID": body.worker_id,
+            "HGS_WORKER_TOKEN": token,
+        },
+    }
+
+
+@router.patch("/workers/{worker_id}")
+async def patch_worker(
+    worker_id: str,
+    body: WorkerPatchBody,
+    actor: Actor = Depends(admin), db=Depends(get_db),
+):
+    """编辑 Worker 元数据/停权. 停权后 worker 下次 lease 即 401; 不提供 DELETE(保留审计轨迹)."""
+    scopes = _validated_scopes(body.scopes) if body.scopes is not None else None
+    result = (await db.execute(text("""
+        UPDATE maintenance.worker_clients
+        SET display_name=coalesce(:display_name,display_name),
+            scopes=coalesce(CAST(:scopes AS text[]),scopes),
+            max_lease_jobs=coalesce(:max_lease_jobs,max_lease_jobs),
+            enabled=coalesce(:enabled,enabled),
+            disabled_at=CASE WHEN coalesce(:enabled,enabled)=false AND disabled_at IS NULL
+                        THEN now() ELSE disabled_at END
+        WHERE worker_id=:worker_id
+        RETURNING worker_id,display_name,scopes,max_lease_jobs,enabled,created_at,last_seen_at,disabled_at
+    """), {
+        "worker_id": worker_id,
+        "display_name": body.display_name,
+        "scopes": scopes,
+        "max_lease_jobs": body.max_lease_jobs,
+        "enabled": body.enabled,
+    })).mappings().fetchone()
+    if not result:
+        raise HTTPException(404, f"worker 不存在: {worker_id}")
+    await db.commit()
+    return dict(result)
 
 
 @router.get("/users")
