@@ -20,7 +20,6 @@ from .enrichment import (
     enqueue_chemical_if_needed,
 )
 from .security import Actor, current_actor, internal_or_actor, optional_actor
-from .rate_limit import enforce, is_loopback_host, request_identity
 
 router = APIRouter(tags=["chemistry"])
 
@@ -334,7 +333,6 @@ async def public_config(actor: Actor | None = Depends(internal_or_actor), db=Dep
     summary="统一查询化合物和反应",
 )
 async def search(
-    request: Request,
     actor: Actor | None = Depends(internal_or_actor),
     q: str = Query(..., min_length=1, max_length=4000),
     mode: str = Query("exact", pattern="^(exact|substructure|similarity)$"),
@@ -350,13 +348,10 @@ async def search(
         cached = await cache_get(cache_key)
         if cached:
             return cached
-    if mode in {"substructure", "similarity"} and not is_loopback_host(
-        request.client.host if request.client else None
-    ):
-        await enforce(
-            "structure-query", await request_identity(request),
-            settings.api_structure_limit_per_minute, 60,
-        )
+    if mode in {"substructure", "similarity"} and actor is None:
+        # 结构重查询与姊妹端点(/chemicals/{id}/substructure|similarity=current_actor)同门.
+        # SSR 检索页结构模式走姊妹端点不走此处; loopback 裸调用同受此门, 与 MCP 直连语义一致.
+        raise HTTPException(401, "请先登录或提供有效的 API Token")
     # Exact searches can include user-created reactions. Keep them live so a
     # create, edit or delete is reflected immediately. Only expensive
     # structure searches use the short-lived shared cache.
@@ -708,7 +703,7 @@ async def chemical_reactions(
 
 @router.get("/chemicals/{chemical_id}/substructure")
 async def chemical_substructure(
-    request: Request, chemical_id: int = Path(..., ge=1, le=2_147_483_647),
+    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     page: int = Query(1, ge=1, le=20),
     page_size: int = Query(30, ge=1, le=100),
     actor: Actor = Depends(current_actor),
@@ -718,8 +713,7 @@ async def chemical_substructure(
     cached = await cache_get(cache_key)
     if cached:
         return cached
-    if not is_loopback_host(request.client.host if request.client else None):
-        await enforce("structure-query", await request_identity(request), settings.api_structure_limit_per_minute, 60)
+
     smiles = (await db.execute(text(
         "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
     ), {"id": chemical_id})).scalar()
@@ -753,7 +747,6 @@ async def chemical_substructure(
 
 @router.get("/chemicals/{chemical_id}/similarity")
 async def chemical_similarity(
-    request: Request,
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     threshold: float = Query(0.7, ge=0.4, le=1.0),
     page: int = Query(1, ge=1, le=20),
@@ -765,8 +758,7 @@ async def chemical_similarity(
     cached = await cache_get(cache_key)
     if cached:
         return cached
-    if not is_loopback_host(request.client.host if request.client else None):
-        await enforce("structure-query", await request_identity(request), settings.api_structure_limit_per_minute, 60)
+
     smiles = (await db.execute(text(
         "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
     ), {"id": chemical_id})).scalar()

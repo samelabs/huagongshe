@@ -56,10 +56,11 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertFalse(is_loopback_host("127.0.0.1.example.com"))
         self.assertFalse(is_loopback_host("203.0.113.8"))
 
-    def test_arbitrary_cookies_cannot_create_fresh_rate_limit_budgets(self) -> None:
-        source = inspect.getsource(__import__("api.rate_limit", fromlist=["request_identity"]).request_identity)
-        self.assertNotIn('request.headers.get("cookie"', source)
-        self.assertIn("request.client.host", source)
+    def test_structure_modes_require_login(self) -> None:
+        """结构重查询与姊妹端点同门: 匿名(actor=None)一律 401, 不再依赖 per-IP 限流(已删)."""
+        source = inspect.getsource(routes.search)
+        self.assertIn('mode in {"substructure", "similarity"} and actor is None', source)
+        self.assertIn("HTTPException(401", source)
 
     def test_chemical_reaction_counts_avoid_visible_reaction_point_lookups(self) -> None:
         summary_source = inspect.getsource(routes.reaction_summaries)

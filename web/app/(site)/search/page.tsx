@@ -45,7 +45,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     }
   } catch (err) {
     if (err instanceof ApiError) {
-      if (err.status === 429) {
+      if (err.status === 401) {
+        error = t.search.substructureLogin;
+      } else if (err.status === 429) {
         error = t.search.errRateLimit;
       } else if (err.status === 503) {
         error = t.search.errTimeout;

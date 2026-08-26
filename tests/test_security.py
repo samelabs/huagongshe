@@ -46,6 +46,17 @@ class SessionBoundaryTests(unittest.TestCase):
         ):
             self.assertIn("Depends(internal_or_actor)", inspect.getsource(endpoint))
 
+    def test_auth_budgets_are_account_and_global_not_address(self) -> None:
+        """限流键与地址脱钩: login=账号桶(代理池换IP无效), register=全局宽松桶; request_identity 已删."""
+        import api.users as users
+        import api.rate_limit as rate_limit
+        login_source = inspect.getsource(users.login)
+        self.assertIn('enforce("login"', login_source)
+        self.assertIn("sha256(account", login_source)
+        self.assertNotIn("request_identity", login_source)
+        self.assertIn('enforce("register", "global", 60, 3600)', inspect.getsource(users.register))
+        self.assertFalse(hasattr(rate_limit, "request_identity"))
+
 
 if __name__ == "__main__":
     unittest.main()

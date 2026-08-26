@@ -11,7 +11,7 @@ import secrets
 import tempfile
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Response, UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import text
@@ -20,7 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from .agent import agent_connection_text
 from .config import settings
 from .database import get_db
-from .rate_limit import enforce, request_identity
+from .rate_limit import enforce
 from .security import (
     Actor, actor_payload, current_actor, current_session, internal_or_actor, optional_actor,
     password_hash, password_matches,
@@ -171,8 +171,10 @@ async def check_username(username: str = Query(min_length=4, max_length=30), db=
 
 
 @auth_router.post("/register", status_code=201)
-async def register(body: RegisterBody, request: Request, response: Response, db=Depends(get_db)):
-    await enforce("register", await request_identity(request), 5, 3600)
+async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
+    # 注册界=全局宽松上限: 只防批量灌号; 真实流量(个位数/天)永远不可见.
+    # per-IP 对代理池无效(B2 后应用层也拿不到真实 IP), 不做地址维度.
+    await enforce("register", "global", 60, 3600)
     encoded_password = await asyncio.to_thread(password_hash, body.password)
     try:
         row = (await db.execute(text("""
@@ -194,9 +196,11 @@ async def register(body: RegisterBody, request: Request, response: Response, db=
 
 
 @auth_router.post("/login")
-async def login(body: LoginBody, request: Request, response: Response, db=Depends(get_db)):
-    await enforce("login", await request_identity(request), 15, 900)
+async def login(body: LoginBody, response: Response, db=Depends(get_db)):
     account = body.account.strip().lower()
+    # 限流键=账号本身: 换 IP(代理池)无效; 换账号打的是廉价未命中查询, 不触发 scrypt.
+    # 真实账号的猜解被账号桶封死 → scrypt(~50ms/次) CPU 消耗有界.
+    await enforce("login", hashlib.sha256(account.encode()).hexdigest()[:24], 15, 900)
     row = (await db.execute(text("""
         SELECT id,username,display_name,email,role,password_hash,avatar_path
         FROM community.users
