@@ -476,23 +476,13 @@ async def search(
             elif not chemicals and not canonical and len(query) < MIN_FUZZY_NAME_LENGTH:
                 raise HTTPException(422, "名称查询至少需要 3 个字符")
 
-        # Count total matches with a 3s timeout guard.
-        # On timeout or error, total stays None so the UI shows "更多结果"
-        # instead of a precise count — the result list itself is unaffected.
+        # 结构模式不跑全量 count: similarity 的 count 与查询词无关(count mol 行),
+        # substructure 巨命中 count 在 143 万 mol 行上必超时 — 两者都是注定 3s 白烧.
+        # total 语义: 结果不足一页 = 免费精确值(offset+len); 满一页 = None("更多结果").
+        if mode in {"substructure", "similarity"}:
+            total = offset + len(chemicals) if len(chemicals) < page_size else None
         try:
-            if mode == "substructure" and canonical:
-                await db.execute(text("SET LOCAL statement_timeout = '3s'"))
-                total = (await db.execute(text("""
-                    SELECT count(*) FROM chemistry.chemicals c
-                    WHERE c.mol @> mol_from_smiles(:smiles)
-                """), {"smiles": canonical})).scalar()
-            elif mode == "similarity" and canonical:
-                await db.execute(text("SET LOCAL statement_timeout = '3s'"))
-                total = (await db.execute(text("""
-                    SELECT count(*) FROM chemistry.chemicals c
-                    WHERE c.mol IS NOT NULL
-                """))).scalar()
-            elif mode == "exact" and not canonical and len(query) >= MIN_FUZZY_NAME_LENGTH:
+            if mode == "exact" and not canonical and len(query) >= MIN_FUZZY_NAME_LENGTH:
                 if name_index_hit:
                     pass  # 第三段贡献结果: 两列 count 不覆盖 name_index, 保持 None(更多结果)
                 elif clauses:
@@ -727,15 +717,8 @@ async def chemical_substructure(
     """, {"id": chemical_id, "smiles": smiles, "limit": page_size, "offset": offset})
     # Preserve the RDKit GiST plan; see the same rule in the public search.
     items.sort(key=lambda item: item["id"])
-    total: int | None = None
-    try:
-        await db.execute(text("SET LOCAL statement_timeout = '3s'"))
-        total = (await db.execute(text("""
-            SELECT count(*) FROM chemistry.chemicals c
-            WHERE c.mol @> mol_from_smiles(:smiles) AND c.id<>:id
-        """), {"id": chemical_id, "smiles": smiles})).scalar()
-    except Exception:
-        total = None
+    # 不跑全量 count(143 万 mol 行上巨命中必超时白烧): 不足一页=免费精确值, 满页=None("更多结果").
+    total = offset + len(items) if len(items) < page_size else None
     data = {"page": page, "page_size": page_size, "total": total, "chemicals": items}
     await cache_set(cache_key, data, ttl=300)
     return data
