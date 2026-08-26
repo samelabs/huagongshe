@@ -9,7 +9,7 @@ from rdkit.Chem import Draw, AllChem, rdChemReactions
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import text
 from .database import get_db
-from .security import Actor, optional_actor
+from .security import Actor, internal_or_actor, optional_actor
 
 router = APIRouter(tags=["molecule"])
 
@@ -65,6 +65,7 @@ async def render_molecule(
     chemical_id: int,
     w: int = 400,
     h: int = 300,
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     """Render a chemical structure to SVG by HCID.
@@ -95,7 +96,7 @@ async def render_reaction(
     reaction_id: int,
     w: int = 1200,
     h: int = 300,
-    actor: Actor | None = Depends(optional_actor),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     """Render the stored reaction expression by stable reaction ID.

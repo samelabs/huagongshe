@@ -3,7 +3,6 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from .admin import router as admin_router
@@ -12,7 +11,6 @@ from .config import settings
 from .database import engine
 from .enrichment import router as enrichment_router
 from .mol import router as molecule_router
-from .rate_limit import consume, is_loopback_host, request_identity
 from .reactions import router as reaction_write_router
 from .routes import router as chemistry_router
 from .skills import router as skills_router
@@ -32,8 +30,9 @@ app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
     lifespan=lifespan,
-    docs_url="/api/docs",
-    openapi_url="/api/openapi.json",
+    # MCP 发现机制是 /api/agent-guide 自描述文档; OpenAPI/文档不对公网暴露(B2 通道规范)
+    docs_url=None,
+    openapi_url=None,
 )
 app.add_middleware(
     CORSMiddleware,
@@ -56,35 +55,9 @@ app.include_router(admin_router, prefix="/api")
 app.include_router(workapi_router, include_in_schema=False)
 
 
-@app.middleware("http")
-async def public_api_rate_limit(request, call_next):
-    if not request.url.path.startswith("/api") or request.url.path in {
-        "/api/health", "/api/openapi.json", "/api/docs", "/api/redoc",
-    } or is_loopback_host(request.client.host if request.client else None):
-        return await call_next(request)
-    is_render = (
-        request.url.path.startswith("/api/mol/") and request.url.path.endswith("/svg")
-    ) or (
-        request.url.path.startswith("/api/reactions/") and request.url.path.endswith("/svg")
-    )
-    bucket = "api-render" if is_render else "api"
-    limit = settings.api_render_limit_per_minute if is_render else settings.api_query_limit_per_minute
-    try:
-        remaining, reset, allowed = await consume(
-            bucket, await request_identity(request), limit, 60
-        )
-    except Exception:
-        return await call_next(request)
-    if not allowed:
-        return JSONResponse(
-            {"detail": "请求过于频繁，请稍后重试"}, status_code=429,
-            headers={"Retry-After": str(max(reset - int(__import__('time').time()), 1))},
-        )
-    response = await call_next(request)
-    response.headers["X-RateLimit-Limit"] = str(limit)
-    response.headers["X-RateLimit-Remaining"] = str(remaining)
-    response.headers["X-RateLimit-Reset"] = str(reset)
-    return response
+# B2 通道规范: 公网入口统一为 Next BFF, FastAPI 只接受 loopback 与 MCP 透传流量.
+# 原 per-IP 公共限流中间件随直连面一同消亡(全流量 loopback 必跳过=死代码);
+# 按身份的 enforce(rate_limit.py)在各端点继续生效.
 
 
 @app.get("/api/health")

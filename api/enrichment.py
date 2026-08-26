@@ -17,6 +17,7 @@ from sqlalchemy import text
 
 from .database import get_db
 from .rate_limit import is_loopback_host
+from .security import internal_or_actor
 
 router = APIRouter(tags=["enrichment"])
 
@@ -210,6 +211,7 @@ async def chemical_details(
     request: Request,
     chemical_id: int,
     sections: str = Query("computed,identifiers", max_length=200),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     requested = normalize_sections(sections)
@@ -230,7 +232,11 @@ async def chemical_details(
 
 
 @router.get("/enrichment/jobs/{job_id}")
-async def enrichment_job(job_id: int, db=Depends(get_db)):
+async def enrichment_job(
+    job_id: int,
+    actor: Actor | None = Depends(internal_or_actor),
+    db=Depends(get_db),
+):
     row = (await db.execute(text("""
         SELECT id,chemical_id,status,sections,resolved_pubchem_cid,result_summary,
                created_at,updated_at,completed_at

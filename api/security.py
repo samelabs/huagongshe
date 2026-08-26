@@ -7,11 +7,12 @@ import hmac
 import os
 from dataclasses import dataclass
 
-from fastapi import Cookie, Depends, Header, HTTPException
+from fastapi import Cookie, Depends, Header, HTTPException, Request
 from sqlalchemy import text
 
 from .config import settings
 from .database import get_db
+from .rate_limit import is_loopback_host
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,21 @@ async def current_actor(actor: Actor | None = Depends(optional_actor)) -> Actor:
     if actor is None:
         raise HTTPException(401, "请先登录或提供有效的 API Token")
     return actor
+
+
+async def internal_or_actor(
+    request: Request,
+    actor: Actor | None = Depends(optional_actor),
+) -> Actor | None:
+    """公开数据读取的通道判定: 内部(loopback=SSR) 或 已鉴权用户(会话/API Token).
+
+    匿名公网请求不得直接调用 API —— 匿名浏览体验由 SSR 页面承担.
+    """
+    if actor is not None:
+        return actor
+    if is_loopback_host(request.client.host if request.client else None):
+        return None
+    raise HTTPException(401, "请先登录或提供有效的 API Token")
 
 
 async def current_session(actor: Actor = Depends(current_actor)) -> Actor:

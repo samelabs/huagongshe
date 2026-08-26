@@ -36,11 +36,15 @@ class SessionBoundaryTests(unittest.TestCase):
         ):
             self.assertIn("Depends(current_session)", inspect.getsource(endpoint))
 
-    def test_rendering_has_an_independent_bounded_rate_budget(self) -> None:
-        middleware = __import__("api.main", fromlist=["public_api_rate_limit"]).public_api_rate_limit
-        source = inspect.getsource(middleware)
-        self.assertIn('bucket = "api-render" if is_render else "api"', source)
-        self.assertIn("api_render_limit_per_minute", source)
+    def test_public_reads_are_gated_by_internal_or_actor(self) -> None:
+        """B2 通道规范: 公开读端点一律 internal_or_actor(loopback=SSR 或已鉴权; 匿名公网 401)."""
+        import api.routes as routes
+        for endpoint in (
+            routes.search, routes.chemical_detail, routes.chemical_externals,
+            routes.chemical_synonyms, routes.chemical_reactions, routes.reaction_detail,
+            routes.stats, routes.datasets,
+        ):
+            self.assertIn("Depends(internal_or_actor)", inspect.getsource(endpoint))
 
 
 if __name__ == "__main__":

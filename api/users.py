@@ -22,7 +22,7 @@ from .config import settings
 from .database import get_db
 from .rate_limit import enforce, request_identity
 from .security import (
-    Actor, actor_payload, current_actor, current_session, optional_actor,
+    Actor, actor_payload, current_actor, current_session, internal_or_actor, optional_actor,
     password_hash, password_matches,
 )
 
@@ -435,7 +435,7 @@ async def revoke_token(token_id: int, actor: Actor = Depends(current_session), d
 
 
 @router.get("/{username}")
-async def public_profile(username: str, actor: Actor | None = Depends(optional_actor), db=Depends(get_db)):
+async def public_profile(username: str, actor: Actor | None = Depends(internal_or_actor), db=Depends(get_db)):
     viewer_id = actor.id if actor else 0
     row = (await db.execute(text("""
         SELECT u.id,u.username,u.display_name,u.bio,u.avatar_path,u.created_at,
@@ -529,7 +529,7 @@ async def public_followers(
     username: str,
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(40, ge=1, le=100),
-    actor: Actor | None = Depends(optional_actor),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     return await relationship_page(username, "followers", page, page_size, actor, db)
@@ -540,7 +540,7 @@ async def public_following(
     username: str,
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(40, ge=1, le=100),
-    actor: Actor | None = Depends(optional_actor),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     return await relationship_page(username, "following", page, page_size, actor, db)

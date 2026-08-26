@@ -19,7 +19,7 @@ from .enrichment import (
     display_details,
     enqueue_chemical_if_needed,
 )
-from .security import Actor, current_actor, optional_actor
+from .security import Actor, current_actor, internal_or_actor, optional_actor
 from .rate_limit import enforce, is_loopback_host, request_identity
 
 router = APIRouter(tags=["chemistry"])
@@ -285,7 +285,7 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
 
 
 @router.get("/stats")
-async def stats(db=Depends(get_db)):
+async def stats(actor: Actor | None = Depends(internal_or_actor), db=Depends(get_db)):
     cached = await cache_get("v1:stats:exact")
     if cached:
         return cached
@@ -305,7 +305,7 @@ async def stats(db=Depends(get_db)):
 
 
 @router.get("/config")
-async def public_config(db=Depends(get_db)):
+async def public_config(actor: Actor | None = Depends(internal_or_actor), db=Depends(get_db)):
     """公开系统配置，供前端 layout 动态渲染。"""
     cache_key = "config:public:all"
     cached = await cache_get(cache_key)
@@ -335,6 +335,7 @@ async def public_config(db=Depends(get_db)):
 )
 async def search(
     request: Request,
+    actor: Actor | None = Depends(internal_or_actor),
     q: str = Query(..., min_length=1, max_length=4000),
     mode: str = Query("exact", pattern="^(exact|substructure|similarity)$"),
     page: int = Query(1, ge=1, le=20),
@@ -545,7 +546,7 @@ async def chemical_detail(
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     enrich: str = Query("core", pattern="^(core|full)$"),
     display: bool = Query(False),
-    actor: Actor | None = Depends(optional_actor),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     rows = await fetch_chemicals(db, f"""
@@ -613,6 +614,7 @@ async def chemical_detail(
 async def chemical_externals(
     request: Request,
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     """CB 扩展读端点: 读库+ensure 驱动(新 CAS 首访同步拉, 超期 worker 刷).
@@ -657,6 +659,7 @@ async def chemical_externals(
 @router.get("/chemicals/{chemical_id}/synonyms")
 async def chemical_synonyms(
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
+    actor: Actor | None = Depends(internal_or_actor),
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(100, ge=1, le=500),
     db=Depends(get_db),
@@ -693,6 +696,7 @@ async def chemical_synonyms(
 @router.get("/chemicals/{chemical_id}/reactions")
 async def chemical_reactions(
     chemical_id: int,
+    actor: Actor | None = Depends(internal_or_actor),
     role: str = Query("any", pattern="^(any|reactant|reagent|solvent|catalyst|product)$"),
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(20, ge=1, le=50),
@@ -791,7 +795,7 @@ async def chemical_similarity(
 )
 async def reaction_detail(
     reaction_id: int,
-    actor: Actor | None = Depends(optional_actor),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     viewer_id = actor.id if actor else 0
@@ -920,6 +924,7 @@ async def reaction_detail(
 
 @router.get("/datasets")
 async def datasets(
+    actor: Actor | None = Depends(internal_or_actor),
     page: int = Query(1, ge=1, le=500), page_size: int = Query(20, ge=1, le=50), db=Depends(get_db)
 ):
     rows = (await db.execute(text("""
@@ -935,6 +940,7 @@ async def datasets(
 
 @router.get("/sitemap/reactions")
 async def sitemap_reactions(
+    actor: Actor | None = Depends(internal_or_actor),
     after_id: int = Query(0, ge=0), limit: int = Query(50000, ge=1, le=50000), db=Depends(get_db)
 ):
     """Keyset-paginated public reaction IDs for sitemap generation."""

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { apiGet } from "@/lib/api";
+import { useState, useMemo } from "react";
 
 type Skill = {
   id: number;
@@ -35,47 +34,15 @@ function CategoryIcon({ cat, size = 28 }: { cat: Category | undefined; size?: nu
   );
 }
 
-export function KdenseSkillsClient() {
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [cats, setCats] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+export function KdenseSkillsClient({ skills, cats, loadError }: {
+  skills: Skill[];
+  cats: Category[];
+  loadError: boolean;
+}) {
+  const error = loadError;
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("全部");
 
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const catData = await apiGet<Category[]>(`/skills/categories`);
-        if (!active) return;
-        setCats(catData);
-        const all: Skill[] = [];
-        let page = 1;
-        for (;;) {
-          const data = await apiGet<{ total: number; items: Skill[] }>(
-            `/skills?scope=public&page=${page}&page_size=100`
-          );
-          if (!active) return;
-          all.push(...data.items);
-          if (all.length >= data.total || data.items.length === 0) break;
-          page += 1;
-        }
-        if (!active) return;
-        setSkills(all);
-        setLoading(false);
-      } catch {
-        if (active) {
-          setError(true);
-          setLoading(false);
-        }
-      }
-    }
-    load();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const catMap = useMemo(() => new Map(cats.map((c) => [c.name, c])), [cats]);
 
@@ -171,9 +138,7 @@ export function KdenseSkillsClient() {
 
       {/* Skills */}
       <div className="kdense-content">
-        {loading ? (
-          <p className="kdense-loading">加载中…</p>
-        ) : error ? (
+        {error ? (
           <p className="kdense-empty">数据读取失败，请刷新后重试。</p>
         ) : filtered.length === 0 ? (
           <p className="kdense-empty">未找到匹配的技能</p>

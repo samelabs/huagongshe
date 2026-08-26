@@ -19,7 +19,7 @@ from .chemistry import canonicalize_smiles, normalize_doi
 from .config import settings
 from .database import get_db
 from .rate_limit import enforce
-from .security import Actor, current_actor, require_scope
+from .security import Actor, current_actor, internal_or_actor, require_scope
 
 router = APIRouter(tags=["reactions"])
 logger = logging.getLogger(__name__)
@@ -504,6 +504,7 @@ async def my_reactions(
 @router.get("/users/{username}/reactions")
 async def user_reactions(
     username: str, page: int = Query(1, ge=1, le=500), page_size: int = Query(20, ge=1, le=50),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     rows = (await db.execute(text("""

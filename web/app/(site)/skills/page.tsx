@@ -1,5 +1,13 @@
 import type { Metadata } from "next";
+import { apiGet } from "@/lib/api";
 import { KdenseSkillsClient } from "./KdenseSkillsClient";
+
+type Skill = {
+  id: number; slug: string; title: string; description: string;
+  category: string | null; origin: string; has_scripts: boolean;
+  file_count: number; size_bytes: number;
+};
+type Category = { name: string; abbr: string; color: string; sort_order: number };
 
 export const metadata: Metadata = {
   title: "开放技能库",
@@ -17,6 +25,27 @@ export const metadata: Metadata = {
   },
 };
 
-export default function SkillsPage() {
-  return <KdenseSkillsClient />;
+export const dynamic = "force-dynamic";
+
+async function loadSkills(): Promise<{ skills: Skill[]; cats: Category[] }> {
+  // SSR(loopback=内部通道)拉全量公开池; 失败降级为空集+错误标记
+  try {
+    const cats = await apiGet<Category[]>("/skills/categories");
+    const all: Skill[] = [];
+    for (let page = 1; ; page += 1) {
+      const data = await apiGet<{ total: number; items: Skill[] }>(
+        `/skills?scope=public&page=${page}&page_size=100`,
+      );
+      all.push(...data.items);
+      if (all.length >= data.total || data.items.length === 0) break;
+    }
+    return { skills: all, cats };
+  } catch {
+    return { skills: [], cats: [] };
+  }
+}
+
+export default async function SkillsPage() {
+  const { skills, cats } = await loadSkills();
+  return <KdenseSkillsClient skills={skills} cats={cats} loadError={skills.length === 0} />;
 }

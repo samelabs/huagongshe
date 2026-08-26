@@ -23,7 +23,7 @@ from sqlalchemy import text
 from .config import settings
 from .database import get_db
 from .rate_limit import enforce
-from .security import Actor, current_actor, optional_actor, require_scope
+from .security import Actor, current_actor, internal_or_actor, optional_actor, require_scope
 
 router = APIRouter(tags=["skills"])
 
@@ -299,7 +299,10 @@ async def _create_skill_record(db, actor: Actor, manifest: dict[str, Any], categ
     operation_id="list_skill_categories",
     summary="分类字典（公开；公开页与工作台的分类唯一来源）",
 )
-async def list_skill_categories(db=Depends(get_db)):
+async def list_skill_categories(
+    actor: Actor | None = Depends(internal_or_actor),
+    db=Depends(get_db),
+):
     rows = (await db.execute(text("""
         SELECT name,abbr,color,sort_order FROM community.skill_categories
         WHERE active ORDER BY sort_order, id
@@ -318,7 +321,7 @@ async def list_skills(
     category: str = Query("", max_length=40),
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(30, ge=1, le=100),
-    actor: Actor | None = Depends(optional_actor),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     if scope == "mine":
@@ -375,7 +378,7 @@ async def list_skills(
 )
 async def get_skill(
     skill_id: int = PathParam(..., ge=1),
-    actor: Actor | None = Depends(optional_actor),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     manifest = await skill_accessible(db, skill_id, actor)
@@ -406,7 +409,7 @@ async def get_skill(
 async def get_skill_file(
     skill_id: int = PathParam(..., ge=1),
     file_path: str = PathParam(...),
-    actor: Actor | None = Depends(optional_actor),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     await skill_accessible(db, skill_id, actor)
@@ -431,7 +434,7 @@ async def get_skill_file(
 )
 async def download_skill_archive(
     skill_id: int = PathParam(..., ge=1),
-    actor: Actor | None = Depends(optional_actor),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     manifest = await skill_accessible(db, skill_id, actor)
