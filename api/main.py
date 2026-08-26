@@ -10,6 +10,7 @@ from .agent import router as agent_router
 from .config import settings
 from .database import engine
 from .enrichment import router as enrichment_router
+from .mcp_server import mcp_session_lifespan, mount_mcp
 from .mol import router as molecule_router
 from .reactions import router as reaction_write_router
 from .routes import router as chemistry_router
@@ -22,7 +23,8 @@ from .workapi import router as workapi_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
+    async with mcp_session_lifespan():
+        yield
     await engine.dispose()
 
 
@@ -53,6 +55,9 @@ app.include_router(stoichiometry_router, prefix="/api")
 app.include_router(skills_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(workapi_router, include_in_schema=False)
+
+# MCP 面(M1): /api/mcp — Agent 连接器入口, stateless streamable-http.
+mount_mcp(app)
 
 
 # B2 通道规范: 公网入口统一为 Next BFF, FastAPI 只接受 loopback 与 MCP 透传流量.
