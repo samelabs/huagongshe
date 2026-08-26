@@ -41,8 +41,9 @@ class SessionBoundaryTests(unittest.TestCase):
         import api.routes as routes
         for endpoint in (
             routes.search, routes.chemical_detail, routes.chemical_externals,
-            routes.chemical_synonyms, routes.chemical_reactions, routes.reaction_detail,
-            routes.stats, routes.datasets,
+            routes.chemical_synonyms, routes.chemical_reactions,
+            routes.chemical_substructure, routes.chemical_similarity,
+            routes.reaction_detail, routes.stats, routes.datasets,
         ):
             self.assertIn("Depends(internal_or_actor)", inspect.getsource(endpoint))
 

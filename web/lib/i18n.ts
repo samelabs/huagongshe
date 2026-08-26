@@ -123,7 +123,6 @@ const t = {
     substructure: '子结构匹配',
     similarity: '相似结构',
     similarityScore: (v: number) => `结构相似度 ${v.toFixed(1)}%`,
-    substructureLogin: '结构检索（子结构 / 相似性）需要登录后使用。',
     errRateLimit: '请求过于频繁，请稍后重试。',
     errTimeout: '查询超时，请使用更精确的名称、标识符或结构。',
     errIncomplete: '查询条件不完整，请提供更多信息（如更完整的名称或更大的结构）。',

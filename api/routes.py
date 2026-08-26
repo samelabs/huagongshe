@@ -19,7 +19,7 @@ from .enrichment import (
     display_details,
     enqueue_chemical_if_needed,
 )
-from .security import Actor, current_actor, internal_or_actor, optional_actor
+from .security import Actor, internal_or_actor
 
 router = APIRouter(tags=["chemistry"])
 
@@ -348,10 +348,6 @@ async def search(
         cached = await cache_get(cache_key)
         if cached:
             return cached
-    if mode in {"substructure", "similarity"} and actor is None:
-        # 结构重查询与姊妹端点(/chemicals/{id}/substructure|similarity=current_actor)同门.
-        # SSR 检索页结构模式走姊妹端点不走此处; loopback 裸调用同受此门, 与 MCP 直连语义一致.
-        raise HTTPException(401, "请先登录或提供有效的 API Token")
     # Exact searches can include user-created reactions. Keep them live so a
     # create, edit or delete is reflected immediately. Only expensive
     # structure searches use the short-lived shared cache.
@@ -706,8 +702,8 @@ async def chemical_substructure(
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     page: int = Query(1, ge=1, le=20),
     page_size: int = Query(30, ge=1, le=100),
-    actor: Actor = Depends(current_actor),
-    db=Depends(get_db)
+    actor: Actor | None = Depends(internal_or_actor),
+    db=Depends(get_db),
 ):
     cache_key = f"v2:substructure:{chemical_id}:{page}:{page_size}"
     cached = await cache_get(cache_key)
@@ -751,7 +747,7 @@ async def chemical_similarity(
     threshold: float = Query(0.7, ge=0.4, le=1.0),
     page: int = Query(1, ge=1, le=20),
     page_size: int = Query(30, ge=1, le=100),
-    actor: Actor = Depends(current_actor),
+    actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
     cache_key = f"v2:similarity:{chemical_id}:{threshold}:{page}:{page_size}"

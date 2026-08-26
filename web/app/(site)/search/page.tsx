@@ -3,7 +3,6 @@ import { ChemicalResult } from "@/components/ChemicalResult";
 import { EntityId } from "@/components/shared/EntityId";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ReactionResult } from "@/components/ReactionResult";
-import { cookies } from "next/headers";
 import { apiGet, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import t from "@/lib/i18n";
 
@@ -17,8 +16,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const mode = ["exact", "substructure", "similarity"].includes(params.mode || "") ? params.mode! : "exact";
   const chemicalId = /^\d+$/.test(params.chemical_id || "") ? Number(params.chemical_id) : null;
   const page = Math.max(1, Math.min(20, Number.parseInt(params.page || "1", 10) || 1));
-  const hasSession = (await cookies()).has("hgs_session");
-  const authHeaders = hasSession ? { Cookie: (await cookies()).toString() } : undefined;
   let chemicals: Chemical[] = [];
   let reactions: ReactionLookup[] = [];
   let total: number | null = null;
@@ -26,15 +23,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   try {
     if (chemicalId && mode !== "exact") {
-      if (!hasSession) {
-        error = t.search.substructureLogin;
-      } else {
-        const related = await apiGet<{ chemicals: Chemical[]; total: number | null }>(
-          `/chemicals/${chemicalId}/${mode}?page=${page}&page_size=${PAGE_SIZE}`, authHeaders
-        );
-        chemicals = related.chemicals;
-        total = related.total ?? null;
-      }
+      const related = await apiGet<{ chemicals: Chemical[]; total: number | null }>(
+        `/chemicals/${chemicalId}/${mode}?page=${page}&page_size=${PAGE_SIZE}`
+      );
+      chemicals = related.chemicals;
+      total = related.total ?? null;
     } else if (q) {
       const data = await apiGet<SearchResponse>(
         `/search?q=${encodeURIComponent(q)}&mode=${mode}&page=${page}&page_size=${PAGE_SIZE}`
@@ -45,9 +38,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     }
   } catch (err) {
     if (err instanceof ApiError) {
-      if (err.status === 401) {
-        error = t.search.substructureLogin;
-      } else if (err.status === 429) {
+      if (err.status === 429) {
         error = t.search.errRateLimit;
       } else if (err.status === 503) {
         error = t.search.errTimeout;

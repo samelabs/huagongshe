@@ -56,11 +56,16 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertFalse(is_loopback_host("127.0.0.1.example.com"))
         self.assertFalse(is_loopback_host("203.0.113.8"))
 
-    def test_structure_modes_require_login(self) -> None:
-        """结构重查询与姊妹端点同门: 匿名(actor=None)一律 401, 不再依赖 per-IP 限流(已删)."""
+    def test_structure_modes_share_the_public_read_gate(self) -> None:
+        """结构模式与 exact 同门(internal_or_actor), 无额外登录墙.
+
+        c75424c 登录墙前提已消失: 当年 30s 无界扫描 regime 不存在(现行 8s 超时+GIST
+        KNN 300-425ms 实测+300s 缓存), 病态子结构查询对登录用户同样 503, 墙不构成保护.
+        """
         source = inspect.getsource(routes.search)
-        self.assertIn('mode in {"substructure", "similarity"} and actor is None', source)
-        self.assertIn("HTTPException(401", source)
+        self.assertNotIn("actor is None", source)
+        for endpoint in (routes.chemical_substructure, routes.chemical_similarity):
+            self.assertIn("Depends(internal_or_actor)", inspect.getsource(endpoint))
 
     def test_chemical_reaction_counts_avoid_visible_reaction_point_lookups(self) -> None:
         summary_source = inspect.getsource(routes.reaction_summaries)
