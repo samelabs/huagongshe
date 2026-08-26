@@ -1123,3 +1123,17 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 @media (max-width: 640px) {
   .casext-supplier dl > div { grid-template-columns: 84px 1fr; }
 }
+
+
+/* ── MCP 连接器页(自包含, 仅 mcp-* 新类) ────────────────── */
+.mcp-connect { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: var(--wash); display: flex; flex-direction: column; gap: 10px; }
+.mcp-connect-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.mcp-connect-label { color: var(--ink-soft); font-size: var(--text-sm); white-space: nowrap; }
+.mcp-connect-value { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--ink); word-break: break-all; }
+.mcp-connect-desc { color: var(--ink-soft); font-size: var(--text-sm); margin: 0; }
+.mcp-agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.mcp-agent-card { display: flex; flex-direction: column; }
+.mcp-agent-steps { margin: 8px 0 0; padding-left: 20px; color: var(--ink); font-size: var(--text-sm); line-height: 1.8; }
+.mcp-agent-steps li { word-break: break-word; }
+.mcp-tools-table td { vertical-align: top; }
+.mcp-tool-auth { color: var(--ink-soft); font-size: var(--text-sm); white-space: nowrap; }

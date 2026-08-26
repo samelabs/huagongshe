@@ -613,6 +613,86 @@ const t = {
     },
   },
 
+  /* ── MCP 连接器页 ─────────────────────────────────────── */
+  mcp: {
+    title: 'MCP 连接器',
+    desc: '把化工社接入你的 AI 助手（豆包工作、千问办公、腾讯 WorkBuddy 等），AI 即可查询化合物与反应数据、计算投料、整理并保存反应记录。',
+    hero: '把化工社接入你的 AI',
+    heroBody: '化工社提供 MCP（Model Context Protocol）标准接口。在 AI 助手里添加一个 MCP 服务器，AI 就能直接查询化合物和反应、计算投料配比，并在你确认后把反应记录保存到你的账户。',
+    /* ── 连接信息 ── */
+    connectKicker: '连接信息',
+    connectUrlLabel: '服务器地址',
+    connectTokenLabel: '认证（可选，写操作需要）',
+    connectTokenDesc: '在 账户设置 → API Token 生成；仅显示一次，随时可撤销。未登录也可查询公开数据。',
+    connectTokenCta: '生成 API Token',
+    /* ── 三大智能体 ── */
+    agentsKicker: '主流智能体接入',
+    qwenTitle: '千问办公 QwenWork',
+    qwenDesc: '阿里官方支持 Streamable HTTP 远程 MCP。',
+    qwenSteps: [
+      '打开千问办公桌面客户端',
+      '左侧导航「扩展」→「连接器」',
+      '点右上角「+ 添加」，选择手动填写配置',
+      '服务器类型选 Streamable HTTP，粘贴服务器地址',
+      '点「+ 添加 Header」：Authorization = Bearer <你的Token>',
+    ],
+    workbuddyTitle: '腾讯 WorkBuddy',
+    workbuddyDesc: '官方支持自定义 MCP 连接器。',
+    workbuddySteps: [
+      '打开 WorkBuddy',
+      '左侧菜单「专家 · 技能 · 连接器」→ 选「连接器」',
+      '点「自定义连接器」→「配置 MCP」',
+      '粘贴服务器地址，添加认证 Header：Authorization = Bearer <你的Token>',
+    ],
+    doubaoTitle: '豆包工作',
+    doubaoDesc: '字节 2026-08-25 发布的独立 Agent 产品，连接器支持自定义 MCP（地址 + Headers）。以产品内指引为准。',
+    doubaoSteps: [
+      '下载豆包工作电脑版（官网 doubao.com/work），或使用最新豆包电脑版',
+      '在连接器中选择自定义 MCP',
+      '填写 MCP Server 地址，Headers 填 Authorization: Bearer <你的Token>',
+    ],
+    /* ── 通用配置 ── */
+    commonKicker: '通用配置 JSON',
+    commonDesc: '支持粘贴 JSON 的客户端（QwenWork「粘贴 JSON 配置」、WorkBuddy mcp.json 等）可直接使用：',
+    commonJson: `{
+  "mcpServers": {
+    "huagongshe": {
+      "type": "streamable-http",
+      "url": "https://huagongshe.com/api/mcp/mcp",
+      "headers": {
+        "Authorization": "Bearer <你的API Token>"
+      }
+    }
+  }
+}`,
+    /* ── 工具清单 ── */
+    toolsKicker: 'AI 可用的工具',
+    toolsIntro: '共 14 个工具：公开查询无需登录；整理与保存需要 API Token（reaction:write / skill:write 权限）。',
+    tools: [
+      { name: 'search_chemistry_data', auth: '公开', desc: '按名称、CAS、SMILES、DOI 等统一检索化合物与反应' },
+      { name: 'get_chemical', auth: '公开', desc: '读取化合物结构、标识符、性质与关联反应' },
+      { name: 'get_chemical_externals', auth: '公开', desc: '中文扩展条目（物化性质/安全/制备/上下游）与供应商' },
+      { name: 'get_reaction', auth: '公开', desc: '读取反应记录（带 Token 可读自己的私有记录）' },
+      { name: 'render_molecule_svg', auth: '公开', desc: '分子 2D 结构图（SVG）' },
+      { name: 'render_reaction_svg', auth: '公开', desc: '反应方程式图（SVG）' },
+      { name: 'list_skills', auth: '公开', desc: '浏览技能库（mine 需登录）' },
+      { name: 'get_skill', auth: '公开', desc: '技能 manifest、文件清单与 SKILL.md' },
+      { name: 'calculate_stoichiometry', auth: '公开', desc: '投料计算：摩尔基准换算整表投料量与理论收率' },
+      { name: 'list_my_reactions', auth: '需登录', desc: '列出自己的反应记录' },
+      { name: 'validate_reaction', auth: 'Token', desc: 'RDKit 校验反应草稿（不保存）' },
+      { name: 'create_reaction', auth: 'Token', desc: '保存确认后的反应记录（幂等，默认私有）' },
+      { name: 'validate_skill', auth: 'Token', desc: '校验技能 zip 草稿（不保存）' },
+      { name: 'create_skill', auth: 'Token', desc: '保存技能到你的容器（恒为私有）' },
+    ],
+    /* ── 安全规则 ── */
+    trustKicker: '数据与授权',
+    trust1: '反应记录默认私有，公开需要你明确确认',
+    trust2: '保存前 AI 必须向你展示草稿并取得确认',
+    trust3: 'API Token 仅显示一次，随时可撤销，只发送给 huagongshe.com',
+    trust4: '每次保存使用唯一 Idempotency-Key，重试不会产生重复记录',
+    copyJson: (copied: boolean) => copied ? '已复制' : '复制 JSON',
+  },
+
   /* ── AI 指南页 ───────────────────────────────────────── */
   guide: {
     title: 'AI化学工作台',
