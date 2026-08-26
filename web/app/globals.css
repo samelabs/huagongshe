@@ -240,18 +240,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 }
 
 .page-title, .settings-head, .guide-hero { max-width: var(--content-measure); margin-bottom: 36px; }
-.home-contribute { margin-top: 32px; border: 1px solid var(--green-border); border-radius: 9px; padding: 23px 24px; display: grid; gap: 5px; color: var(--ink); background: linear-gradient(135deg, var(--green-tint) 0%, var(--green-tint) 60%, var(--warm-pale) 100%); transition: border-color .15s, box-shadow .15s; cursor: pointer; }
-.home-contribute > span:first-child { display: grid; gap: 5px; }
-.home-contribute-kicker { color: var(--green-strong); font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; }
-.home-contribute strong { color: var(--warm-deep); font-size: 17px; font-weight: var(--section-weight); }
-.home-skills-entry { margin-top: 14px; border: 1px solid var(--blue-border); border-radius: 9px; padding: 20px 24px; display: grid; gap: 5px; color: var(--ink); background: linear-gradient(135deg, var(--blue-tint) 0%, var(--blue-pale) 100%); transition: border-color .15s, box-shadow .15s; cursor: pointer; }
-.home-skills-entry > span:first-child { display: grid; gap: 5px; }
-.home-skills-kicker { color: var(--blue-strong); font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; }
-.home-skills-entry strong { color: var(--blue-deep); font-size: 17px; font-weight: var(--section-weight); }
-.home-skills-link { color: var(--blue); font-weight: 600; font-size: var(--text-sm); }
-.home-skills-entry > span:nth-child(2) { max-width: 620px; color: var(--heading-soft); font-size: var(--text); line-height: 1.75; }
-.home-contribute > span:nth-child(2) { max-width: 620px; color: var(--green-ink); font-size: var(--text); line-height: 1.75; }
-.home-contribute-link { margin-top: 8px; color: var(--green-deep); font-size: var(--text); font-weight: 650; }
 
 .content-page { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; padding: 42px 0 90px; }
 .breadcrumbs { margin-bottom: 30px; display: flex; gap: 9px; color: var(--quiet); font-size: var(--text); }
@@ -677,7 +665,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .search-input-box { height: 48px; border-radius: 12px; }
   .search-input-box input { font-size: 16px; }
   .search-submit-btn { height: 48px; border-radius: 12px; padding: 0 20px; }
-  .home-contribute { margin-top: 24px; padding: 18px; }
   .content-page { padding-top: 28px; }
   .section-heading { align-items: flex-start; gap: 12px; }
   .section-heading > span { flex: 0 0 auto; }
@@ -1055,10 +1042,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .button.secondary:hover { border-color: var(--blue); color: var(--blue); }
   .search-input-box__clear:hover { background: var(--quiet); }
   .search-submit-btn:hover { background: var(--blue-deep); }
-  .home-contribute:hover { border-color: var(--green); box-shadow: 0 4px 20px rgba(7,193,96,.12); }
-  .home-skills-entry:hover { border-color: var(--blue); box-shadow: 0 4px 20px var(--blue-glow); }
-  .home-skills-entry:hover .home-skills-link { color: var(--blue-deep); }
-  .home-contribute:hover .home-contribute-link { color: var(--green-strong); }
   .breadcrumbs a:hover { color: var(--blue); }
   .chemical-result h3 a:hover, .reaction-result h3 a:hover { color: var(--blue); }
   .participant-card:hover { border-color: var(--blue-border); }
