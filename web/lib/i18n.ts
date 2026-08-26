@@ -81,8 +81,7 @@ const t = {
   /* ── 首页 ────────────────────────────────────────────── */
   home: {
     hero: 'AI化学工作台',
-    subtitle: '开启你和AI的化学之旅',
-    heroTagline: 'AIchem更多能力接入中，敬请期待',
+    subtitle: '从这里开始你的AI化学',
     searchLabel: '查询化学数据',
     searchPlaceholder: '中英文名称、CAS、SMILES、CID、ORD记录号或DOI',
     searchButton: '查询',
@@ -90,14 +89,20 @@ const t = {
     searchExampleLabel: '试试',
     dataLabel: '数据概况',
     dataLine: (chemicals: string, reactions: string) => `${chemicals} 化合物 · ${reactions} 反应 · 免费查询`,
-    ctaKicker: 'AI化学工作台',
-    ctaTitle: '让AI参与你的化学工作',
-    ctaBody: '查询只是开始。接入AI后，可以从论文、专利和实验记录中整理反应信息，核对后保存到你的工作台，让每一次工作都能再次复用。',
-    ctaLink: '接入 AIchem →',
-    skillsKicker: 'OPEN SOURCE',
-    skillsTitle: '开放 Skills',
-    skillsBody: '158 个科学 AI Agent 技能，覆盖化学、生物、ML、科研写作等 12 个领域，来自 K-Dense-AI 开源项目',
-    skillsLink: '浏览技能库 →',
+    /* ── 三入口卡片 ── */
+    cardsKicker: 'AIchem',
+    card1Kicker: 'MCP 连接器',
+    card1Title: '接入你的 AI 助手',
+    card1Body: '在豆包工作、千问办公、WorkBuddy 等 AI 助手里添加化工社，AI 即可查询化合物与反应、计算投料，整理并保存反应记录。',
+    card1Link: '查看接入方法 →',
+    card2Kicker: 'AGENT SKILLS',
+    card2Title: 'Agent 技能',
+    card2Body: '面向化学与科研场景的 AI Agent 技能库，浏览、下载并装载到你的 AI 环境，让 Agent 按化工社的规范工作。',
+    card2Link: '浏览技能库 →',
+    card3Kicker: 'WORKBENCH',
+    card3Title: '网页工作台',
+    card3Body: '全部化学能力都在网页工作台：检索、投料计算、反应记录与收藏，登录即可使用，持续丰富中。',
+    card3Link: '进入工作台 →',
   },
 
   /* ── 搜索 ────────────────────────────────────────────── */

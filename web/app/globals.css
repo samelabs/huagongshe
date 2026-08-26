@@ -1137,3 +1137,20 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .mcp-agent-steps li { word-break: break-word; }
 .mcp-tools-table td { vertical-align: top; }
 .mcp-tool-auth { color: var(--ink-soft); font-size: var(--text-sm); white-space: nowrap; }
+
+
+/* ── 首页三入口卡片(M2, 自包含 home-card-*) ─────────────── */
+.home-cards-kicker { margin: 8px 0 10px; color: var(--muted); font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; }
+.home-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.home-card { border: 1px solid var(--line); border-radius: 9px; padding: 20px 22px 18px; display: grid; gap: 6px; align-content: start; color: var(--ink); background: var(--paper); transition: border-color .15s, box-shadow .15s; cursor: pointer; }
+.home-card:hover { border-color: var(--blue); box-shadow: 0 2px 10px rgb(30 144 255 / .10); }
+.home-card-kicker { font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; }
+.home-card strong { font-size: 17px; font-weight: var(--section-weight); }
+.home-card > span:nth-of-type(2) { color: var(--heading-soft); font-size: var(--text-sm); line-height: 1.7; }
+.home-card-link { margin-top: 6px; color: var(--blue); font-weight: 600; font-size: var(--text-sm); }
+.home-card-mcp .home-card-kicker { color: var(--blue); }
+.home-card-skills .home-card-kicker { color: var(--green-strong); }
+.home-card-work .home-card-kicker { color: var(--warm); }
+@media (max-width: 720px) {
+  .home-cards { grid-template-columns: 1fr; }
+}
