@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { ChemicalResult } from "@/components/ChemicalResult";
 import { EntityId } from "@/components/shared/EntityId";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -20,17 +21,21 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   let reactions: ReactionLookup[] = [];
   let total: number | null = null;
   let error = "";
+  // 结构检索登录墙: mode!=exact 需要会话, SSR 转发浏览器 cookie 供 API 鉴权
+  const sessionHeaders = mode !== "exact"
+    ? { cookie: (await headers()).get("cookie") || "" }
+    : undefined;
 
   try {
     if (chemicalId && mode !== "exact") {
       const related = await apiGet<{ chemicals: Chemical[]; total: number | null }>(
-        `/chemicals/${chemicalId}/${mode}?page=${page}&page_size=${PAGE_SIZE}`
+        `/chemicals/${chemicalId}/${mode}?page=${page}&page_size=${PAGE_SIZE}`, sessionHeaders
       );
       chemicals = related.chemicals;
       total = related.total ?? null;
     } else if (q) {
       const data = await apiGet<SearchResponse>(
-        `/search?q=${encodeURIComponent(q)}&mode=${mode}&page=${page}&page_size=${PAGE_SIZE}`
+        `/search?q=${encodeURIComponent(q)}&mode=${mode}&page=${page}&page_size=${PAGE_SIZE}`, sessionHeaders
       );
       chemicals = data.chemicals;
       reactions = data.reactions || [];
@@ -40,6 +45,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     if (err instanceof ApiError) {
       if (err.status === 429) {
         error = t.search.errRateLimit;
+      } else if (err.status === 401) {
+        error = t.search.errLoginRequired;
       } else if (err.status === 503) {
         error = t.search.errTimeout;
       } else if (err.status === 422) {

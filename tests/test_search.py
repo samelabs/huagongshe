@@ -57,15 +57,16 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertFalse(is_loopback_host("203.0.113.8"))
 
     def test_structure_modes_share_the_public_read_gate(self) -> None:
-        """结构模式与 exact 同门(internal_or_actor), 无额外登录墙.
+        """结构模式登录墙: mode!=exact 需已鉴权 actor, exact 匿名照旧(SSR).
 
-        c75424c 登录墙前提已消失: 当年 30s 无界扫描 regime 不存在(现行 8s 超时+GIST
-        KNN 300-425ms 实测+300s 缓存), 病态子结构查询对登录用户同样 503, 墙不构成保护.
+        墙由 c75424c 建立、73f2ab3 拆除、2026-08-26 重建(拆墙评估漏算并发面).
         """
         source = inspect.getsource(routes.search)
-        self.assertNotIn("actor is None", source)
+        self.assertIn('if mode != "exact" and actor is None', source)
         for endpoint in (routes.chemical_substructure, routes.chemical_similarity):
-            self.assertIn("Depends(internal_or_actor)", inspect.getsource(endpoint))
+            src = inspect.getsource(endpoint)
+            self.assertIn("Depends(internal_or_actor)", src)
+            self.assertIn("actor is None", src)
 
     def test_chemical_reaction_counts_avoid_visible_reaction_point_lookups(self) -> None:
         summary_source = inspect.getsource(routes.reaction_summaries)

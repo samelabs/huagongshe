@@ -107,9 +107,16 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("q 必填且不超过 4000 字符")
         page = min(max(page, 1), 20)
         page_size = min(max(page_size, 1), 100)
+        # 结构检索登录墙与 REST 一致: mode!=exact 需 Bearer token, 匿名 ToolError.
+        # exact 保持原样(匿名, 不透传 actor).
+        actor = None
+        if mode != "exact":
+            actor = await _actor_from_headers(ctx.headers if ctx else None)
+            if actor is None:
+                raise ToolError("结构检索（子结构/相似度）需要 API Token；exact 模式可匿名使用")
         async with async_session() as session:
             return await routes_module.search(
-                actor=None, q=q, mode=mode, page=page, page_size=page_size, db=session
+                actor=actor, q=q, mode=mode, page=page, page_size=page_size, db=session
             )
 
     @server.tool(name="get_chemical", title="化合物详情")

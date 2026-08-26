@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { CasExternals, type CasExternalsPayload } from "@/components/CasExternals";
 import { ChemicalKnowledge } from "@/components/ChemicalKnowledge";
@@ -22,6 +23,7 @@ export default async function ChemicalPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const hasSession = (await cookies()).has("hgs_session");
 
   const [chemicalResult, reactionsResult, externalsResult] = await Promise.all([
     apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`).catch((error: unknown) => {
@@ -76,8 +78,12 @@ export default async function ChemicalPage({ params }: {
           <div className="context-actions">
             <FollowButton endpoint={`/chemicals/${chemical.id}/follow`} initial={Boolean(chemical.is_following)} count={chemical.follower_count || 0} label="favor" />
             <Link className="button primary" href="#reactions">{t.chemical.viewReactions}</Link>
-            <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>{t.chemical.substructure}</Link>
-            <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>{t.chemical.similarity}</Link>
+            {hasSession ? (<>
+              <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>{t.chemical.substructure}</Link>
+              <Link className="button secondary" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>{t.chemical.similarity}</Link>
+            </>) : (
+              <Link className="button secondary" href={`/login?next=${encodeURIComponent(`/chemical/${chemical.id}`)}`}>{t.chemical.structureLogin}</Link>
+            )}
           </div>
         </div>
       </header>

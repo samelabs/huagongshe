@@ -342,6 +342,10 @@ async def search(
 ):
     """One entry point for names, external identifiers, SMILES and structures."""
     query = q.strip()
+    # 结构检索登录墙(2026-08-26): GIST 单路 ~400ms 但并发无上限, 爬虫 12 路并发
+    # 曾把机器打进 swap 全站僵死. exact 保持匿名(SSR); 结构模式需已鉴权 actor.
+    if mode != "exact" and actor is None:
+        raise HTTPException(401, "结构检索（子结构/相似度）需要登录或提供 API Token")
     offset = (page - 1) * page_size
     cache_key = f"v2:unified-search:{mode}:{page}:{page_size}:{query}"
     if mode != "exact":
@@ -696,6 +700,9 @@ async def chemical_substructure(
     db=Depends(get_db),
 ):
     cache_key = f"v2:substructure:{chemical_id}:{page}:{page_size}"
+    # 结构检索登录墙: 同 /api/search 的 mode!=exact 分支(见该处注释)
+    if actor is None:
+        raise HTTPException(401, "结构检索（子结构）需要登录或提供 API Token")
     cached = await cache_get(cache_key)
     if cached:
         return cached
@@ -734,6 +741,9 @@ async def chemical_similarity(
     db=Depends(get_db),
 ):
     cache_key = f"v2:similarity:{chemical_id}:{threshold}:{page}:{page_size}"
+    # 结构检索登录墙: 同 /api/search 的 mode!=exact 分支(见该处注释)
+    if actor is None:
+        raise HTTPException(401, "结构检索（相似度）需要登录或提供 API Token")
     cached = await cache_get(cache_key)
     if cached:
         return cached
