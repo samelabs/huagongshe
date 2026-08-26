@@ -129,7 +129,9 @@ class ReactionContractTests(unittest.TestCase):
     def test_agent_guide_is_a_bounded_connection_and_operation_surface(self) -> None:
         source = inspect.getsource(agent.agent_guide)
         self.assertIn("optional_skill_url", source)
-        self.assertIn("openapi_url", source)
+        self.assertIn("mcp_url", source)
+        self.assertIn("mcp_transport", source)
+        self.assertNotIn("openapi_url", source)
         self.assertIn('"operations"', source)
         self.assertIn('"payload_hints"', source)
         self.assertIn("携带唯一 Idempotency-Key", source)

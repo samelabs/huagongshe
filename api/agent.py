@@ -68,7 +68,7 @@ async def agent_guide(
                 if agent else None
             ),
             "instruction": (
-                "连接已确认。只使用下列 operations；需要精确字段时再读取 OpenAPI。"
+                "连接已确认。只使用下列 operations；能力均以本契约为准。"
                 if agent
                 else "创建 AI 授权：登录 huagongshe.com → 账户设置 → AI 授权（/me/settings/api-tokens），生成 Token 后以 Authorization: Bearer *** 再次读取本入口以确认连接。"
             ),
@@ -80,10 +80,12 @@ async def agent_guide(
             "token_handling": "Token 仅发送给 huagongshe.com，不写入公开提示词、代码、文件或日志。",
         },
         "discovery": {
-            "openapi_url": f"{api_base}/openapi.json",
-            "help_url": f"{origin}/guide",
+            "mcp_url": f"{origin}/api/mcp/mcp",
+            "mcp_transport": "streamable-http",
+            "help_url": f"{origin}/mcp",
+            "skill_help_url": f"{origin}/skills",
             "optional_skill_url": skill_url,
-            "instruction": "先从 operations 选择操作；只有需要精确请求或响应结构时才读取 OpenAPI。",
+            "instruction": "先从 operations 选择操作；能力均以本契约为准，不依赖 OpenAPI。MCP 客户端可直接连接 mcp_url。",
         },
         "operations": [
             {

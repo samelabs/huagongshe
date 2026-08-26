@@ -6,21 +6,29 @@
 
 ## For AI Agents
 
-化工社支持通过 API Key 接入。以下是接入指南。
+化工社支持两种接入方式：MCP 服务器（推荐）与 REST API。
 
-### 快速开始
+### 接入方式一：MCP 服务器（推荐）
+
+- **地址**: `https://huagongshe.com/api/mcp/mcp`
+- **传输**: Streamable HTTP
+- **认证**: `Authorization: Bearer <API Token>`（公开查询工具可匿名使用）
+- **配置说明**: `https://huagongshe.com/mcp`（含豆包工作、千问办公、WorkBuddy 接入指引）
+
+提供 14 个工具：统一搜索、化合物详情、中文扩展、反应详情、分子/反应 SVG 渲染、
+技能库浏览、投料计算、我的反应、反应校验/保存、技能校验/保存。
+公开查询无需登录；写操作需要 Token（reaction:write / skill:write 权限）。
+
+### 接入方式二：REST API
 
 1. **读取连接指南**: `GET https://huagongshe.com/api/agent-guide`
    返回完整的 agent 操作契约：可用操作、字段要求、安全规则、速率限制。
    无需认证即可读取；携带 Bearer token 可同时确认账号身份。
 
-2. **查阅 API Schema**: `GET https://huagongshe.com/api/openapi.json`
-   完整的 OpenAPI 3.0 schema，所有端点的请求/响应结构。
-
-3. **查询数据**: `GET https://huagongshe.com/api/search?q=...`
+2. **查询数据**: `GET https://huagongshe.com/api/search?q=...`
    统一入口，支持名称、CAS号、InChIKey、SMILES、DOI、HCID 等多种标识符。
 
-4. **管理反应记录**: 携带用户授权的 Bearer token，可校验和创建结构化反应记录。
+3. **管理反应记录**: 携带用户授权的 Bearer token，可校验和创建结构化反应记录。
 
 ### 核心能力
 
@@ -48,7 +56,7 @@
 - **公开数据**（搜索、化合物、反应读取）: 无需认证，直接调用。
 - **Agent 操作**（读取/创建用户反应记录）: 需要 Bearer token。
   - 用户在网页端 `https://huagongshe.com` 登录后，于个人设置创建 API Token。
-  - 格式: `Authorization: Bearer ***`
+  - 格式: `Authorization: Bearer <token>`
   - Token 仅发送给 `huagongshe.com`，不写入公开提示词、代码或日志。
   - 创建/校验反应时，先展示草稿给用户确认，再保存。默认 `private`，公开需用户明确确认。
 
@@ -74,7 +82,7 @@
 ## Links
 
 - [Website](https://huagongshe.com)
+- [MCP 接入说明](https://huagongshe.com/mcp)
+- [MCP 服务器](https://huagongshe.com/api/mcp/mcp)
 - [API Connection Guide](https://huagongshe.com/api/agent-guide)
-- [OpenAPI Schema](https://huagongshe.com/api/openapi.json)
-- [API Docs (Swagger UI)](https://huagongshe.com/api/docs)
 - [Skills Registry](https://huagongshe.com/api/skills?scope=public)（含 Reaction Publisher Skill，可经 /api/skills/{id}/archive 下载）

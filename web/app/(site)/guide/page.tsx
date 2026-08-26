@@ -54,7 +54,9 @@ export default function GuidePage() {
             <span className="guide-path-suit">{t.guide.path1Suit}</span>
           </div>
           <p>{t.guide.path1Desc}</p>
-          <AiSubmissionPrompt />
+          <div className="guide-actions">
+            <Link className="button primary" href="/mcp">{t.guide.mcpCta}</Link>
+          </div>
         </article>
         <article className="guide-path">
           <div className="guide-path-head">
@@ -62,9 +64,7 @@ export default function GuidePage() {
             <span className="guide-path-suit">{t.guide.path2Suit}</span>
           </div>
           <p>{t.guide.path2Desc}</p>
-          <div className="guide-actions">
-            <Link className="button primary" href="/me/settings/api-tokens">{t.guide.setupCta}</Link>
-          </div>
+          <AiSubmissionPrompt />
         </article>
       </div>
     </section>
@@ -83,11 +83,6 @@ export default function GuidePage() {
             <td className="guide-ref-name"><code>{t.guide.refAgentGuide}</code></td>
             <td className="guide-ref-desc">{t.guide.refAgentGuideDesc}</td>
             <td className="guide-ref-link"><a href="/api/agent-guide">{t.guide.refView}</a></td>
-          </tr>
-          <tr>
-            <td className="guide-ref-name"><code>{t.guide.refOpenapi}</code></td>
-            <td className="guide-ref-desc">{t.guide.refOpenapiDesc}</td>
-            <td className="guide-ref-link"><a href="/api/openapi.json">{t.guide.refView}</a></td>
           </tr>
           <tr>
             <td className="guide-ref-name"><code>{t.guide.refSkill}</code></td>
