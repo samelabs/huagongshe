@@ -8,10 +8,12 @@ export default function ErrorPage({ error, unstable_retry }: {
   unstable_retry: () => void;
 }) {
   useEffect(() => { if (process.env.NODE_ENV !== "production") console.error(error); }, [error]);
-  return <main className="content-page error-page">
-    <p className="eyebrow">SERVICE TEMPORARILY UNAVAILABLE</p>
-    <h1>{t.error.title}</h1>
-    <p>{t.error.body}</p>
-    <button className="button primary" type="button" onClick={unstable_retry}>{t.error.retry}</button>
-  </main>;
+  return <div className="app-container">
+    <main className="content-page error-page">
+      <p className="eyebrow">SERVICE TEMPORARILY UNAVAILABLE</p>
+      <h1>{t.error.title}</h1>
+      <p>{t.error.body}</p>
+      <button className="button primary" type="button" onClick={unstable_retry}>{t.error.retry}</button>
+    </main>
+  </div>;
 }

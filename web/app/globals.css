@@ -929,12 +929,13 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 
 }
 @media (max-width: 680px) {
-  /* 稳定容器：body不滚动，app-container撑满视口 */
+  /* 稳定容器：body不滚动，app-container撑满视口
+     规范§2：壳容器高度禁止视口单位(vh/dvh/svh)参与——单位在冷恢复时刻的
+     求值无契约(vh→dvh→svh 三次同位事故)，高度一律由视口锚定解析 */
   html, body { height: 100%; overflow: hidden; }
   .app-container {
-    /* svh 稳定视口：浏览器工具栏恒显(body禁滚永不收起)，dvh 在后台切换后
-       会停在陈旧大值不重算(容器超可视区=底栏沉出/持续变高)；svh 无动态态可停 */
-    height: 100svh;
+    position: fixed;
+    inset: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
