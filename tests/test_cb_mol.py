@@ -138,29 +138,46 @@ class SupplierIdentityTests(unittest.TestCase):
         if not os.path.exists(FIXTURE_HTML):
             raise unittest.SkipTest("fixtures 不在本机")
 
-    def test_merge_keeps_cbsid(self) -> None:
-        """专用页 cbsid 原值保留在 merged 行(DB身份列), ref 仍为哈希。"""
+    def test_caspage_supplier_id_full_coverage(self) -> None:
+        """真实 fixture: CAS 页链接 ID 提取, 供应商 100% 带 cbsid(18/18)。"""
+        from caslib.parse import parse_suppliers
+
+        suppliers = parse_suppliers(
+            open(FIXTURE_HTML, encoding="utf-8", errors="replace").read(), None
+        )
+        self.assertTrue(suppliers)
+        with_id = [s for s in suppliers if s.get("cbsid")]
+        self.assertEqual(len(with_id), len(suppliers))
+        # ref 由 cbsid 派生(不再用名称哈希)
+        for s in with_id:
+            self.assertNotIn("name:", s["ref"])
+        # 阿拉丁实测 cbsid=10287
+        sample = [s for s in suppliers if "阿拉丁" in s["name"]]
+        if sample:
+            self.assertEqual(sample[0]["cbsid"], "10287")
+
+    def test_merge_caspage_id_not_overwritten(self) -> None:
+        """专用页 cbsid 与 CAS 页不一致时不覆盖(CAS 页链接 ID 为主)。"""
         from caslib.parse import merge_suppliers
 
-        cas_page = {"甲公司": {"ref": None, "cbsid": None, "name": "甲公司",
+        cas_page = {"甲公司": {"ref": "r1", "cbsid": "111", "name": "甲公司",
                           "phone": None, "email": None, "website": None,
                           "purity": None, "pack_price": None, "remark": None}}
-        dedicated = {"甲公司": {"cbsid": "12345", "email": "a@b.c"}}
+        dedicated = {"甲公司": {"cbsid": "999", "email": "a@b.c"}}
         merged = merge_suppliers(cas_page, dedicated)
-        self.assertEqual(merged[0]["cbsid"], "12345")
-        self.assertNotEqual(merged[0]["ref"], "12345")  # ref 是哈希不是原值
-        self.assertEqual(len(merged[0]["ref"]), 16)
+        self.assertEqual(merged[0]["cbsid"], "111")  # 主路径不被二跳覆盖
+        self.assertEqual(merged[0]["email"], "a@b.c")  # 增强字段照常合并
 
-    def test_merge_caspage_only_cbsid_none(self) -> None:
-        """无专用页条目: cbsid=None 键存在(统一schema), ref 用名称哈希。"""
+    def test_merge_dedicated_fills_missing(self) -> None:
+        """CAS 页无 ID 时专用页兜底回填。"""
         from caslib.parse import merge_suppliers
 
         cas_page = {"乙公司": {"ref": None, "cbsid": None, "name": "乙公司",
                            "phone": "123", "email": None, "website": None,
                            "purity": None, "pack_price": None, "remark": None}}
-        merged = merge_suppliers(cas_page, None)
-        self.assertIsNone(merged[0]["cbsid"])
-        self.assertEqual(len(merged[0]["ref"]), 16)
+        dedicated = {"乙公司": {"cbsid": "777", "email": "x@y.z"}}
+        merged = merge_suppliers(cas_page, dedicated)
+        self.assertEqual(merged[0]["cbsid"], "777")
 
 
 if __name__ == "__main__":

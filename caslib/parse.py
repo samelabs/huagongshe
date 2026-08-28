@@ -244,7 +244,19 @@ def _parse_aliases(basic_block: str) -> dict[str, list[str]]:
 _GSLIST_RE = re.compile(
     r'<div class="gslist">([\s\S]*?)(?=<div class="gslist">|<div class="pagebox"|$)'
 )
-_GSNAME_RE = re.compile(r'<div class="gsname">\s*<a[^>]*>([\s\S]*?)</a>', re.I)
+_GSNAME_RE = re.compile(
+    r'<div class="gsname">\s*<a href="([^"]+)"[^>]*>([\s\S]*?)</a>', re.I
+)
+
+
+def _gsname_supplier_id(href: str) -> str | None:
+    """CAS 页供应商链接 URL 自带原站供应商ID: /ShowSupplierProductsList{id}/。
+
+    实测与专用页 data-cbsid 同值(65-85-0: 18链接全有ID, 专用页8条为其一致子集)。
+    这是 cbsid 的主取路径 — 专用页只是二跳增强, 覆盖不了 CAS 页全量。
+    """
+    m = re.search(r"/ShowSupplierProductsList(\d+)/", href or "")
+    return m.group(1) if m else None
 
 _CPJS_ROW_RE = re.compile(r"<div><span>([^<]+)</span>([\s\S]*?)</div>", re.I)
 # 供应商专用页条目
@@ -300,13 +312,15 @@ def _parse_suppliers_cas_page(html: str) -> dict[str, dict[str, Any]]:
         nm = _GSNAME_RE.search(body)
         if not nm:
             continue
-        name = text_of(nm.group(1))
+        name = text_of(nm.group(2))
         if not name:
             continue
         f = _gsxx_fields(body)
+        # cbsid 主路径: CAS 页链接 URL 自带供应商ID(实测18/18覆盖)
+        cbsid = _gsname_supplier_id(nm.group(1))
         sup: dict[str, Any] = {
-            "ref": None,  # 专用页合并时回填
-            "cbsid": None,  # CAS页无cbsid, 专用页合并时回填
+            "ref": supplier_ref(cbsid) if cbsid else None,  # 无ID时名称哈希兜底
+            "cbsid": cbsid,
             "name": name,
             # tag(黄金产品/现货/大货/新品)为原站付费推广位, 不入库不出解析层
             "phone": f.get("phone"),
@@ -379,17 +393,19 @@ def merge_suppliers(
     for name, sup in cas_page.items():
         extra = dedicated.pop(name, None)
         row = dict(sup)
-        # cbsid: 原站供应商身份标识(DB身份列), ref: 不透明哈希(公开引用)。
-        # 两者并存 — 边界: cbsid 只落DB, 任何API/DOM输出只用 ref。
+        # cbsid 主路径=CAS页链接ID; 专用页 data-cbsid 同值(实测一致),
+        # 仅在 CAS 页缺失时兜底回填, 不做覆盖(防两页错配时写错身份)。
         if extra:
-            row["cbsid"] = extra.get("cbsid")
+            if not row.get("cbsid") and extra.get("cbsid"):
+                row["cbsid"] = extra.get("cbsid")
+                row["ref"] = supplier_ref(extra["cbsid"])
             row["phone"] = row["phone"] or extra.get("phone")
             row["email"] = extra.get("email")
             row["website"] = extra.get("website")
-            if extra.get("cbsid"):
+            if extra.get("cbsid") and not row.get("ref"):
                 row["ref"] = supplier_ref(extra["cbsid"])
         if not row["ref"]:
-            row["ref"] = supplier_ref(f"name:{name}")
+            row["ref"] = supplier_ref(f"cbsid:{row['cbsid']}") if row.get("cbsid") else supplier_ref(f"name:{name}")
         merged.append(row)
     # 专用页独有条目( CAS 页被截断时兜底 )
     for name, extra in dedicated.items():

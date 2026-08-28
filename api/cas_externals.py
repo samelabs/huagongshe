@@ -113,11 +113,18 @@ async def upsert_externals(
         db, chemical_id, entry,
         [s.get("name") for s in suppliers] if status == "ok" else [],
     )
-    # 供应商: 整组替换(仅 ok 且带列表时; not_found 清空)
+    # 供应商: cbsid 键 upsert(2026-08-28 定案: 有值 UPDATE, 无值 INSERT)。
+    # 仅 ok 时写入; not_found 清空。残留防护: 化合物层面先清掉本轮未出现的行,
+    # 防止 CB 下架供应商后旧行永久驻留(整组语义不变, 行内改为按 cbsid 更新)。
     if status == "ok":
         await db.execute(text("""
-            DELETE FROM chemistry.cas_suppliers WHERE chemical_id=:chemical_id
-        """), {"chemical_id": chemical_id})
+            DELETE FROM chemistry.cas_suppliers a
+            WHERE a.chemical_id=:chemical_id
+              AND (a.cbsid IS NULL OR a.cbsid <> ALL(CAST(:cbsids AS text[])))
+              AND a.ref <> ALL(CAST(:refs AS text[]))
+        """), {"chemical_id": chemical_id,
+               "cbsids": [s.get("cbsid") for s in suppliers if s.get("cbsid")],
+               "refs": [s.get("ref") for s in suppliers]})
         if suppliers:
             await db.execute(text("""
                 INSERT INTO chemistry.cas_suppliers
@@ -128,6 +135,15 @@ async def upsert_externals(
                     CAST(:phones AS text[]),CAST(:emails AS text[]),CAST(:websites AS text[]),
                     CAST(:purities AS text[]),CAST(:packs AS text[]),CAST(:remarks AS text[]))
                 AS t(ref,cbsid,name,phone,email,website,purity,pack_price,remark)
+                ON CONFLICT (chemical_id, ref) DO UPDATE SET
+                    cbsid=coalesce(excluded.cbsid, chemistry.cas_suppliers.cbsid),
+                    name=excluded.name,
+                    phone=coalesce(excluded.phone, chemistry.cas_suppliers.phone),
+                    email=coalesce(excluded.email, chemistry.cas_suppliers.email),
+                    website=coalesce(excluded.website, chemistry.cas_suppliers.website),
+                    purity=excluded.purity,
+                    pack_price=excluded.pack_price,
+                    remark=excluded.remark
             """), _suppliers_params(chemical_id, suppliers))
     else:
         await db.execute(text("""
