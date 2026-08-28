@@ -676,6 +676,8 @@ class CasResultBody(BaseModel):
     mol: str | None = Field(default=None, max_length=1_000_000)
     # CB 条目号(可选, 身份标识): 纯数字字符串, 落 cas_externals.cb_number
     cb_number: str | None = Field(default=None, pattern=r"^\d{1,16}$")
+    # GW 国际供应商(可选, 异步路径附带): 主档+关联表按 cbsid upsert
+    gw_suppliers: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
 
 
 class CasCompleteBody(LeaseProof):
@@ -851,6 +853,13 @@ async def cas_complete_job(
                 entry=entry, suppliers=suppliers, status=status,
                 cb_number=payload.cb_number,
             )
+            if status == "ok" and payload.gw_suppliers:
+                # GW 国际供应商 -> 主档+关联表(source='gw')
+                from .cas_externals import upsert_supplier_registry
+                await upsert_supplier_registry(
+                    db, cas_number=cas_number,
+                    suppliers=payload.gw_suppliers, source="gw",
+                )
         except ValueError as exc:
             await db.execute(text("""
                 UPDATE maintenance.cas_jobs

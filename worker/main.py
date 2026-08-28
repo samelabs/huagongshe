@@ -198,13 +198,14 @@ async def process_cas_job(
     抓取预算放宽(后台路径非用户等待路径), 页间 2s 礼仪间隔。
     """
     from caslib.fetch import fetch_cas, fetch_mol
+    from caslib.gwparse import parse_gw_suppliers
     from caslib.parse import extract_mol_href, parse_entry, parse_suppliers
 
     stop = asyncio.Event()
     heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop, cas=True))
     try:
         result = await fetch_cas(
-            job["cas_number"], total_budget_s=20.0, session=session
+            job["cas_number"], total_budget_s=20.0, session=session, fetch_gw=True
         )
         if result.status == "not_found":
             payload = {"status": "not_found", "entry": None, "suppliers": []}
@@ -224,6 +225,11 @@ async def process_cas_job(
                 mol_href = extract_mol_href(result.cas_html or "")
                 if mol_href:
                     payload["mol"] = await fetch_mol(session, mol_href)
+                # GW 国际供应商: 主档+关联表异步维护(2026-08-28 定案);
+                # 解析失败退化空列表, 不影响 job
+                gw_rows = parse_gw_suppliers(result.gw_html or "")
+                if gw_rows:
+                    payload["gw_suppliers"] = gw_rows
         await workapi.post(
             "/workapi/v1/cas/jobs/complete",
             {"job_id": job["job_id"], "lease_token": job["lease_token"], "result": payload},

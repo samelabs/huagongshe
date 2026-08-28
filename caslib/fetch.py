@@ -31,6 +31,7 @@ class FetchResult:
     cas_html: str | None = None
     supplier_html: str | None = None
     cb_number: str | None = None  # CB条目号(身份标识, 落DB不进API)
+    gw_html: str | None = None  # GW国际供应商页(异步路径附带)
     error: str | None = None
     stats: dict = field(default_factory=dict)
 
@@ -53,11 +54,13 @@ async def fetch_cas(
     *,
     total_budget_s: float = 3.0,
     fetch_suppliers: bool = True,
+    fetch_gw: bool = False,
     session: aiohttp.ClientSession | None = None,
 ) -> FetchResult:
-    """拉取一个 CAS 的中文详情页 + (可选)供应商专用页。
+    """拉取一个 CAS 的中文详情页 + (可选)供应商专用页 + (可选)国际供应商页。
 
-    total_budget_s 覆盖全程(两次请求)。同步路径传 3s; worker 可放宽。
+    total_budget_s 覆盖全程。同步路径传 3s(GN首跳+CAS页); worker 可放宽。
+    fetch_gw 仅异步路径开启(GW页需CAS页Referer, 同趟追加第三请求)。
     """
     from .parse import extract_cb_number, looks_like_not_found
 
@@ -86,13 +89,36 @@ async def fetch_cas(
         status2, body2 = await _get(session, f"{BASE}/ProdSupplierGNCB{cb}.htm", per)
         stats["supplier_status"] = status2
         supplier_html = body2 if status2 == 200 else None
+        gw_html = None
+        if fetch_gw:
+            # GW(国际供应商)页: 裸拉 500, 必须带 CAS 页 Referer(实测)
+            gw_status, gw_body = await _get_gw(session, cb, cas, per)
+            stats["gw_status"] = gw_status
+            gw_html = gw_body if gw_status == 200 else None
         return FetchResult(
             "ok", cas_html=body, supplier_html=supplier_html,
-            cb_number=cb, stats=stats,
+            cb_number=cb, gw_html=gw_html, stats=stats,
         )
     finally:
         if own_session:
             await session.close()
+
+
+async def _get_gw(
+    session: aiohttp.ClientSession, cb: str, cas: str, timeout_s: float
+) -> tuple[int | None, str]:
+    """GW 页专用请求: Referer 指 CAS 详情页(缺此头实测 500)。"""
+    try:
+        async with session.get(
+            f"{BASE}/ProdSupplierGWCB{cb}.htm",
+            headers={**BROWSER_HEADERS,
+                     "Referer": f"{BASE}/CAS_{cas}.htm"},
+            timeout=aiohttp.ClientTimeout(total=timeout_s),
+        ) as resp:
+            body = await resp.text(errors="replace")
+            return resp.status, body
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
+        return None, f"{type(exc).__name__}: {exc}"
 
 
 # ---------------------------------------------------------------- mol 文件

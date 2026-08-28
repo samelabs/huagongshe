@@ -180,5 +180,50 @@ class SupplierIdentityTests(unittest.TestCase):
         self.assertEqual(merged[0]["cbsid"], "777")
 
 
+class GwParseTests(unittest.TestCase):
+    """GW 国际供应商页解析(fixture: 2026-08-28 实拉 65-85-0, 5家)。"""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        path = "/tmp/gw_fixture.htm"
+        import shutil
+        if os.path.exists("/tmp/gw2.htm"):
+            shutil.copy("/tmp/gw2.htm", path)
+        if not os.path.exists(path):
+            raise unittest.SkipTest("GW fixture 不在本机")
+        cls.html = open(path, encoding="utf-8", errors="replace").read()
+
+    def test_gw_five_international(self) -> None:
+        from caslib.gwparse import parse_gw_suppliers
+
+        rows = parse_gw_suppliers(self.html)
+        self.assertEqual(len(rows), 5)
+        by_nat = {r["nationality"]: r for r in rows}
+        self.assertIn("德国", by_nat)
+        self.assertIn("美国", by_nat)
+        # Connect Chemicals(德国): 全字段
+        de = by_nat["德国"]
+        self.assertEqual(de["name"], "Connect Chemicals GmbH")
+        self.assertEqual(de["email"], "Martin.Klapper@connectchemicals.com")
+        self.assertEqual(de["website"], "www.connectchemicals.com")
+        self.assertEqual(de["cb_index"], 62)
+        self.assertEqual(de["product_name_en"], "Benzoic acid")
+        self.assertEqual(de["remark"], "S")
+        # TCI 日本: 纯度/包装/备注
+        jp = by_nat["日本"]
+        self.assertEqual(jp["purity"], ">=99%")
+        self.assertEqual(jp["pack_price"], "25 g,500 g")
+        self.assertIn("Zone Refined", jp["remark"])
+        # 身份键全部存在
+        for r in rows:
+            self.assertRegex(r["cbsid"], r"^\d+$")
+
+    def test_gw_empty_or_garbage(self) -> None:
+        from caslib.gwparse import parse_gw_suppliers
+
+        self.assertEqual(parse_gw_suppliers(""), [])
+        self.assertEqual(parse_gw_suppliers("<html>无关页面</html>"), [])
+
+
 if __name__ == "__main__":
     unittest.main()

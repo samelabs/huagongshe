@@ -113,6 +113,11 @@ async def upsert_externals(
         db, chemical_id, entry,
         [s.get("name") for s in suppliers] if status == "ok" else [],
     )
+    # 主档+关联表: GN 供应商(含 CAS 页与专用页合并产物)按 cbsid 入注册表
+    if status == "ok" and suppliers:
+        await upsert_supplier_registry(
+            db, cas_number=cas_number, suppliers=suppliers, source="gn",
+        )
     # 供应商: cbsid 键 upsert(2026-08-28 定案: 有值 UPDATE, 无值 INSERT)。
     # 仅 ok 时写入; not_found 清空。残留防护: 化合物层面先清掉本轮未出现的行,
     # 防止 CB 下架供应商后旧行永久驻留(整组语义不变, 行内改为按 cbsid 更新)。
@@ -160,6 +165,75 @@ def _suppliers_params(chemical_id: int, suppliers: list[dict[str, Any]]) -> dict
         "phones": col("phone"), "emails": col("email"), "websites": col("website"),
         "purities": col("purity"), "packs": col("pack_price"), "remarks": col("remark"),
     }
+
+
+# ---- 供应商主档 + 品目关联(2026-08-28 定案: 专表+关联表) ---------------------
+
+async def upsert_supplier_registry(
+    db: Any,
+    *,
+    cas_number: str,
+    suppliers: list[dict[str, Any]],
+    source: str,
+) -> None:
+    """GN/GW 供应商 -> cb_suppliers 主档(键 cbsid) + cb_product_suppliers 关联(键 cas↔cbsid)。
+
+    主档字段随供应商(coalesce 保守), 品级字段随品目(关联行); nationality/cb_index
+    仅 GW 有, GN 行不覆盖已有国际主档信息。无 cbsid 行不入(无身份键)。
+    """
+    rows = [s for s in suppliers if s.get("cbsid")]
+    if not rows:
+        return
+    await db.execute(text("""
+        INSERT INTO chemistry.cb_suppliers
+            (cbsid, name, nationality, phone, email, website, cb_index)
+        SELECT * FROM unnest(
+            CAST(:cbsids AS text[]), CAST(:names AS text[]),
+            CAST(:nationalities AS text[]), CAST(:phones AS text[]),
+            CAST(:emails AS text[]), CAST(:websites AS text[]),
+            CAST(:cb_indexes AS integer[]))
+        AS t(cbsid, name, nationality, phone, email, website, cb_index)
+        ON CONFLICT (cbsid) DO UPDATE SET
+            name=excluded.name,
+            nationality=coalesce(excluded.nationality, chemistry.cb_suppliers.nationality),
+            phone=coalesce(excluded.phone, chemistry.cb_suppliers.phone),
+            email=coalesce(excluded.email, chemistry.cb_suppliers.email),
+            website=coalesce(excluded.website, chemistry.cb_suppliers.website),
+            cb_index=coalesce(excluded.cb_index, chemistry.cb_suppliers.cb_index),
+            last_seen_at=now()
+    """), {
+        "cbsids": [s["cbsid"] for s in rows],
+        "names": [s.get("name") for s in rows],
+        "nationalities": [s.get("nationality") for s in rows],
+        "phones": [s.get("phone") for s in rows],
+        "emails": [s.get("email") for s in rows],
+        "websites": [s.get("website") for s in rows],
+        "cb_indexes": [s.get("cb_index") for s in rows],
+    })
+    await db.execute(text("""
+        INSERT INTO chemistry.cb_product_suppliers
+            (cas_number, cbsid, source, product_name_en, purity, pack_price, remark)
+        SELECT * FROM unnest(
+            CAST(:cas AS text[]), CAST(:cbsids AS text[]), CAST(:sources AS text[]),
+            CAST(:pnens AS text[]), CAST(:purities AS text[]),
+            CAST(:packs AS text[]), CAST(:remarks AS text[]))
+        AS t(cas_number, cbsid, source, product_name_en, purity, pack_price, remark)
+        ON CONFLICT (cas_number, cbsid) DO UPDATE SET
+            source=excluded.source,
+            product_name_en=coalesce(excluded.product_name_en, chemistry.cb_product_suppliers.product_name_en),
+            purity=coalesce(excluded.purity, chemistry.cb_product_suppliers.purity),
+            pack_price=coalesce(excluded.pack_price, chemistry.cb_product_suppliers.pack_price),
+            remark=coalesce(excluded.remark, chemistry.cb_product_suppliers.remark),
+            last_seen_at=now()
+    """), {
+        "cas": [cas_number] * len(rows),
+        "cbsids": [s["cbsid"] for s in rows],
+        "sources": [source] * len(rows),
+        "pnens": [s.get("product_name_en") for s in rows],
+        "purities": [s.get("purity") for s in rows],
+        "packs": [s.get("pack_price") for s in rows],
+        "remarks": [s.get("remark") for s in rows],
+    })
 
 
 def _dedupe_key(chemical_id: int, cas_number: str) -> str:
