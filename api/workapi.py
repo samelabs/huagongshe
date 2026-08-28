@@ -672,6 +672,8 @@ class CasResultBody(BaseModel):
     status: str = Field(pattern="^(ok|not_found)$")
     entry: dict[str, Any] | None = None
     suppliers: list[dict[str, Any]] = Field(default_factory=list)
+    # CB molfile 原文(可选): 详情页有 MOL 外链时 worker 附带; 服务端只补空不覆盖
+    mol: str | None = Field(default=None, max_length=1_000_000)
 
 
 class CasCompleteBody(LeaseProof):
@@ -794,26 +796,53 @@ async def cas_complete_job(
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
-    from .cas_externals import CACHE_KEY, upsert_externals
+    from .cas_externals import CACHE_KEY, apply_structure_fill, resolve_structure, upsert_externals
     try:
         job = await verified_cas_lease(db, body, worker.worker_id)
         chemical_id = job[1]
         cas_number = job[2]
         if chemical_id is None:
-            await db.execute(text("""
-                UPDATE maintenance.cas_jobs
-                SET status='failed',last_error_code='chemical_missing',
-                    last_error_detail='target chemical no longer exists',
-                    lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                    heartbeat_at=NULL,updated_at=now(),completed_at=now()
-                WHERE id=:job_id
-            """), {"job_id": body.job_id})
-            await db.commit()
-            raise HTTPException(422, "target chemical no longer exists")
+            # standalone 任务(搜索miss入队): CB ok -> 建最小行; not_found -> 负缓存。
+            # 建行含同CAS查重(已存在则复用id); 不做跨行比对(2026-08-27定案)。
+            payload = body.result
+            entry = payload.entry if payload.status == "ok" else None
+            if entry is not None:
+                from .cas_externals import create_chemical_from_cb_entry
+                chemical_id = await create_chemical_from_cb_entry(
+                    db, cas_number=cas_number, entry=entry
+                )
+                # 结构三件只补空: cid 在的行 PubChem 早填过(coalesce no-op),
+                # 真正受益者是 pubchem_cid=NULL 的 CB 行
+                await apply_structure_fill(
+                    db, chemical_id,
+                    resolve_structure(entry, payload.mol),
+                )
+                await db.commit()
+            else:
+                await db.execute(text("""
+                    UPDATE maintenance.cas_jobs
+                    SET status='succeeded',result_summary=CAST(:summary AS jsonb),
+                        lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
+                        heartbeat_at=NULL,updated_at=now(),completed_at=now()
+                    WHERE id=:job_id
+                """), {
+                    "job_id": body.job_id,
+                    "summary": json.dumps(
+                        {"status": payload.status, "standalone": True},
+                        ensure_ascii=False, separators=(",", ":"),
+                    ),
+                })
+                await db.commit()
+                return {"status": payload.status, "standalone": True}
         payload = body.result
         status = payload.status
         entry = payload.entry if status == "ok" else None
         suppliers = payload.suppliers if status == "ok" else []
+        if status == "ok":
+            # 既有行刷新: 结构三件同样只补空(stale 刷新趟补历史欠账)
+            await apply_structure_fill(
+                db, chemical_id, resolve_structure(entry, payload.mol)
+            )
         try:
             await upsert_externals(
                 db, chemical_id=chemical_id, cas_number=cas_number,

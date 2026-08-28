@@ -197,8 +197,8 @@ async def process_cas_job(
 
     抓取预算放宽(后台路径非用户等待路径), 页间 2s 礼仪间隔。
     """
-    from caslib.fetch import fetch_cas
-    from caslib.parse import parse_entry, parse_suppliers
+    from caslib.fetch import fetch_cas, fetch_mol
+    from caslib.parse import extract_mol_href, parse_entry, parse_suppliers
 
     stop = asyncio.Event()
     heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop, cas=True))
@@ -217,6 +217,10 @@ async def process_cas_job(
             else:
                 suppliers = parse_suppliers(result.cas_html or "", result.supplier_html)
                 payload = {"status": "ok", "entry": entry, "suppliers": suppliers}
+                # mol 文件: 详情页有外链才拉(无外链=零请求); 失败退化 None 不影响 job
+                mol_href = extract_mol_href(result.cas_html or "")
+                if mol_href:
+                    payload["mol"] = await fetch_mol(session, mol_href)
         await workapi.post(
             "/workapi/v1/cas/jobs/complete",
             {"job_id": job["job_id"], "lease_token": job["lease_token"], "result": payload},
@@ -257,7 +261,10 @@ async def run() -> None:
         rate = PubChemRateController(requests_per_second)
         log.info("worker started id=%s concurrency=%s", worker_id, concurrency)
         idle_seconds = 2.0
+        # cas 空闲退避上限收紧: 30s->10s。lease 是本地 workapi 轮询(不打外部源),
+        # 换搜索miss用户重搜等待上限 40s->~20s(2026-08-28 体感收口)
         cas_idle_seconds = 2.0
+        cas_idle_cap = 10.0
         while True:
             try:
                 # 双队列: pubchem 优先轮询, cas 每轮附带认领(单并发,礼仪串行)
@@ -275,7 +282,7 @@ async def run() -> None:
                     cas_jobs = cas_leased.get("jobs") or []
                     cas_coros = [process_cas_job(session, workapi, job) for job in cas_jobs]
                     if not cas_jobs:
-                        cas_idle_seconds = min(30.0, cas_idle_seconds * 1.5)
+                        cas_idle_seconds = min(cas_idle_cap, cas_idle_seconds * 1.5)
                     else:
                         cas_idle_seconds = 2.0
                 if not jobs and not cas_coros:

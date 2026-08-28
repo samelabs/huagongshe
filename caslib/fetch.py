@@ -15,6 +15,14 @@ UA = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 )
+# 浏览器指纹补齐: 真实 Chrome 的配套请求头, 与 UA 同源.
+# _get() 请求级合并; session 级仅兜底 UA(共享 session 由 _get 覆盖).
+BROWSER_HEADERS = {
+    "User-Agent": UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Referer": f"{BASE}/ProductIndex.aspx",
+}
 
 
 @dataclass
@@ -30,7 +38,7 @@ async def _get(session: aiohttp.ClientSession, url: str, timeout_s: float) -> tu
     try:
         async with session.get(
             url,
-            headers={"User-Agent": UA},  # 请求级: 共享 session(api/worker)也必须带 UA
+            headers=BROWSER_HEADERS,  # 请求级: 指纹头全集(共享 session(api/worker)统一走这套)
             timeout=aiohttp.ClientTimeout(total=timeout_s),
         ) as resp:
             body = await resp.text(errors="replace")
@@ -81,3 +89,42 @@ async def fetch_cas(
     finally:
         if own_session:
             await session.close()
+
+
+# ---------------------------------------------------------------- mol 文件
+
+# CB 详情页 mol 外链存在才拉; 404/HTML错误页/非molfile 一律 None, 三态退化不报错。
+_MAX_MOL_BYTES = 1_000_000  # molfile 尺寸上限(超大=异常载荷, 直接丢)
+
+
+def normalize_molblock(body: str) -> str:
+    """BOM/前置空白/CRLF 清洗。不改内容, 只修传输杂质。"""
+    return body.lstrip("\ufeff \t\r\n").replace("\r\n", "\n")
+
+
+def looks_like_molfile(body: str) -> bool:
+    """真 molfile 判据: ≥4行(表头3行+计数行) + 以 'M  END' 收尾(V2000/V3000 通用)。"""
+    if not body or len(body) > _MAX_MOL_BYTES:
+        return False
+    lines = [ln.strip() for ln in body.strip().splitlines() if ln.strip()]
+    return len(lines) >= 4 and lines[-1].upper() == "M  END"
+
+
+async def fetch_mol(
+    session: aiohttp.ClientSession,
+    mol_href: str,
+    *,
+    timeout_s: float = 10.0,
+) -> str | None:
+    """拉一个 mol 文件(站内绝对路径)。任何失败返回 None, 不抛。"""
+    if not mol_href.startswith("/CAS/mol/") or not mol_href.endswith(".mol"):
+        return None
+    try:
+        status, body = await _get(session, f"{BASE}{mol_href}", timeout_s)
+        if status != 200 or not body:
+            return None
+        if not looks_like_molfile(body):
+            return None
+        return normalize_molblock(body)
+    except Exception:
+        return None

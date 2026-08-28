@@ -86,6 +86,21 @@ _BASIC_ROW_RE = re.compile(
 _MOL_ROW_KEY = "MOL 文件"
 # 安全特性/知名试剂等区块里的链接外链丢弃, 文本保留 → text_of 已做
 
+# mol 外链(2026-08-28 实测锚点): Basicsl 内 <span>MOL 文件</span><a title="..MolFile" href="/CAS/mol/{cas}.mol">
+# 只在"MOL 文件"行上下文内取站内绝对路径, 拒绝外域/散页误配
+_MOL_HREF_RE = re.compile(
+    r"<span>\s*MOL\s*文件\s*</span>\s*<a[^>]*href=[\"'](/CAS/mol/[^\"'?]+\.mol)[\"']",
+    re.I,
+)
+
+
+def extract_mol_href(cas_html: str) -> str | None:
+    """详情页 MOL 文件外链(站内路径), 无则 None。管制品/无结构条目无此前提。"""
+    if not cas_html:
+        return None
+    m = _MOL_HREF_RE.search(cas_html)
+    return m.group(1) if m else None
+
 
 def _parse_basic(block: str) -> list[list[str]]:
     rows: list[list[str]] = []
