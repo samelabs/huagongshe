@@ -72,13 +72,20 @@ async def fetch_cas(
     stats: dict = {}
     try:
         cb = cb_number
-        if cb:
+        if cb and not cpp_circuit_open():
             # 已知 CB 号: 直跳 CPP(1请求); CPP 失败再退 CAS 页探测
             status, body = await _get(session, f"{BASE}/ChemicalProductProperty_CN_CB{cb}.htm", total_budget_s)
             stats["cpp_status"] = status
             if status == 200:
-                return FetchResult("ok", cas_html=None, cpp_html=body,
-                                   cb_number=cb, stats=stats)
+                from .parse import cpp_page_state
+
+                state = cpp_page_state(body)
+                if state == "ok":
+                    cpp_report_ok()
+                    return FetchResult("ok", cas_html=None, cpp_html=body,
+                                       cb_number=cb, stats=stats)
+                if state in ("busy", "empty"):
+                    cpp_report_busy()
         per = max(1.0, total_budget_s / (2 if cb is None else 1))
         status, body = await _get(session, f"{BASE}/CAS_{cas}.htm", per)
         stats["cas_status"] = status
@@ -93,10 +100,20 @@ async def fetch_cas(
         if not cb:
             # 详情页正常但无任何自身CB链接: 条目本身 ok, 供应商空
             return FetchResult("ok", cas_html=body, cb_number=None, stats=stats)
-        status2, body2 = await _get(
-            session, f"{BASE}/ChemicalProductProperty_CN_CB{cb}.htm", per)
-        stats["cpp_status"] = status2
-        cpp_html = body2 if status2 == 200 else None
+        cpp_html = None
+        if not cpp_circuit_open():
+            status2, body2 = await _get(
+                session, f"{BASE}/ChemicalProductProperty_CN_CB{cb}.htm", per)
+            stats["cpp_status"] = status2
+            if status2 == 200:
+                from .parse import cpp_page_state
+
+                state2 = cpp_page_state(body2)
+                if state2 == "ok":
+                    cpp_report_ok()
+                    cpp_html = body2
+                elif state2 in ("busy", "empty"):
+                    cpp_report_busy()
         return FetchResult(
             "ok", cas_html=body, cpp_html=cpp_html,
             cb_number=cb, stats=stats,
@@ -104,6 +121,55 @@ async def fetch_cas(
     finally:
         if own_session:
             await session.close()
+
+
+# ---------------------------------------------------------------- 会话热身
+
+async def warm_session(session: aiohttp.ClientSession) -> int:
+    """首页一换 cookie(ASP.NET_SessionId + _ancsi_ 防爬令牌), 返回 cookie 数。
+
+    浏览器式会话: 热身后进程内所有请求自动携带。任何失败返回 -1, 调用方降级继续。
+    """
+    try:
+        status, _ = await _get(session, f"{BASE}/", 15)
+        if status != 200:
+            return -1
+        return len(session.cookie_jar)
+    except Exception:
+        return -1
+
+
+# ---------------------------------------------------------------- CPP 熔断
+
+# 上游 CB{N} 动态页系(CPP/价格页)限流时返回 14 字节"系统忙"。
+# 熔断: 连续 BUSY_THRESHOLD 次 busy 后暂停 CPP 路径 BUSY_COOLDOWN_S 秒,
+# 期间 CAS 页兜底继续供数; 冷却后半开(放 1 个探测请求探恢复)。
+import time as _time
+
+BUSY_THRESHOLD = 5
+BUSY_COOLDOWN_S = 600
+_busy_streak = 0
+_busy_until = 0.0
+
+
+def cpp_circuit_open() -> bool:
+    """CPP 路径是否处于熔断暂停。半开: 冷却期满放行(下个请求当探测)。"""
+    return _time.monotonic() < _busy_until
+
+
+def cpp_report_busy() -> None:
+    """上报一次 busy; 连续达阈值 → 进入冷却。"""
+    global _busy_streak, _busy_until
+    _busy_streak += 1
+    if _busy_streak >= BUSY_THRESHOLD:
+        _busy_until = _time.monotonic() + BUSY_COOLDOWN_S
+        _busy_streak = 0
+
+
+def cpp_report_ok() -> None:
+    """上报 CPP 正常(半开探测成功/正常响应) — 清零连击。"""
+    global _busy_streak
+    _busy_streak = 0
 
 
 # ---------------------------------------------------------------- CPP 语言页

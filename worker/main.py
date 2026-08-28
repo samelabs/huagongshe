@@ -220,10 +220,9 @@ async def process_cas_job(
                 payload = {"status": "not_found", "entry": None, "suppliers": []}
             elif result.status == "error":
                 raise RuntimeError(f"cas fetch error: {result.error}")
-            elif result.cpp_html and cpp_page_state(result.cpp_html) in ("busy", "empty"):
-                # 上游"系统忙"限流 = error 语义, 走 fail/retry, 不落负缓存
-                raise RuntimeError("cpp page busy (upstream throttled)")
             else:
+                # CPP busy 已由 fetch 层熔断计数; 这里走 CAS 页兜底出 entry,
+                # job 照常成功(数据可用, CPP 增量段待上游恢复后刷新趟补)
                 entry = (
                     parse_cpp_entry(result.cpp_html) if result.cpp_html else None
                 ) or (parse_entry(result.cas_html) if result.cas_html else None)
@@ -244,9 +243,12 @@ async def process_cas_job(
                     if mol_href:
                         payload["mol"] = await fetch_mol(session, mol_href)
         else:
-            # 语言行: 主表 cb_number 直拉 CPP 语言页, 只写 entry
+            # 语言行: 主表 cb_number 直拉 CPP 语言页, 只写 entry。
+            # CPP 熔断期直接 not_found 短路 — 不发请求, 不空转重试打上游。
+            from caslib.fetch import cpp_circuit_open
+
             cb_number = job.get("cb_number")
-            if not cb_number:
+            if not cb_number or cpp_circuit_open():
                 payload = {"status": "not_found", "entry": None, "suppliers": [],
                            "locale": locale}
             else:
@@ -292,6 +294,15 @@ async def run() -> None:
     requests_per_second = float(os.environ.get("HGS_PUBCHEM_REQUESTS_PER_SECOND", "4"))
     connector = aiohttp.TCPConnector(limit=concurrency + 4, ttl_dns_cache=300)
     async with aiohttp.ClientSession(connector=connector) as session:
+        # 会话热身(2026-08-28): 首页一换取 ASP.NET_SessionId + _ancsi_ 防爬令牌,
+        # 之后整进程自动携带(浏览器式会话)。失败不阻塞启动 — cookie 缺席仅降级不致命。
+        try:
+            from caslib.fetch import warm_session
+
+            got = await warm_session(session)
+            log.info("session warmup: %s cookies", got)
+        except Exception as exc:
+            log.warning("session warmup failed (continuing): %s", exc)
         workapi = WorkApiClient(session, base_url, worker_id, token)
         rate = PubChemRateController(requests_per_second)
         log.info("worker started id=%s concurrency=%s", worker_id, concurrency)
