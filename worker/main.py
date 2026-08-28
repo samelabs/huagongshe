@@ -244,20 +244,37 @@ async def process_cas_job(
                         payload["mol"] = await fetch_mol(session, mol_href)
         else:
             # 语言行: 主表 cb_number 直拉 CPP 语言页, 只写 entry。
-            # CPP 熔断期直接 not_found 短路 — 不发请求, 不空转重试打上游。
             from caslib.fetch import cpp_circuit_open
 
             cb_number = job.get("cb_number")
             if not cb_number or cpp_circuit_open():
-                payload = {"status": "not_found", "entry": None, "suppliers": [],
-                           "locale": locale}
-            else:
-                cpp_html = await fetch_cpp_locale(session, cb_number, locale)
-                entry = parse_cpp_entry_en(cpp_html) if cpp_html else None
-                if entry is None:
-                    raise RuntimeError(f"cpp locale fetch empty: {locale} CB{cb_number}")
-                payload = {"status": "ok", "entry": entry, "suppliers": [],
-                           "locale": locale}
+                # 熔断期/无 cb_number = "没查", 不是 "查了没有"。
+                # 不 complete(否则落 not_found 负缓存抹 entry, 且 en 行
+                # 无 expiry_scan 自动刷新路径, 数据会静默丢失) —
+                # 回队延迟重试, retry_after 盖过 10 分钟熔断窗。
+                await workapi.post(
+                    "/workapi/v1/cas/jobs/fail",
+                    {
+                        "job_id": job["job_id"],
+                        "lease_token": job["lease_token"],
+                        "error_code": "cpp_circuit_defer",
+                        "error_detail": (
+                            f"locale={locale} deferred: "
+                            f"circuit_open={cpp_circuit_open()} "
+                            f"cb_number={'present' if cb_number else 'missing'}"
+                        )[:2000],
+                        "retryable": True,
+                        "retry_after_seconds": 600,
+                    },
+                )
+                log.info("cas job=%s deferred %s (circuit/cb_number)", job["job_id"], locale)
+                return
+            cpp_html = await fetch_cpp_locale(session, cb_number, locale)
+            entry = parse_cpp_entry_en(cpp_html) if cpp_html else None
+            if entry is None:
+                raise RuntimeError(f"cpp locale fetch empty: {locale} CB{cb_number}")
+            payload = {"status": "ok", "entry": entry, "suppliers": [],
+                       "locale": locale}
         await workapi.post(
             "/workapi/v1/cas/jobs/complete",
             {"job_id": job["job_id"], "lease_token": job["lease_token"], "result": payload},
@@ -313,14 +330,21 @@ async def run() -> None:
         cas_idle_cap = 10.0
         while True:
             try:
-                # 双队列: pubchem 优先轮询, cas 每轮附带认领(单并发,礼仪串行)
-                leased = await workapi.post(
-                    "/workapi/v1/jobs/lease",
-                    {"max_jobs": concurrency, "capabilities": ["pubchem"]},
-                )
-                jobs = leased.get("jobs") or []
+                # 双队列: pubchem 优先轮询, cas 每轮附带认领(单并发,礼仪串行)。
+                # scopes 门控对两条链对称: 不含 pubchem 就跳过 PB 轮询(PB 封禁期
+                # 单停 PB 不伤 CAS, 8-28 事故后补的对称性, 原先只门控 cas 侧)。
+                _scopes = [
+                    s.strip() for s in os.environ.get("HGS_WORKER_SCOPES", "pubchem,cas").split(",")
+                ]
+                jobs: list = []
+                if "pubchem" in _scopes:
+                    leased = await workapi.post(
+                        "/workapi/v1/jobs/lease",
+                        {"max_jobs": concurrency, "capabilities": ["pubchem"]},
+                    )
+                    jobs = leased.get("jobs") or []
                 cas_coros = []
-                if "cas" in os.environ.get("HGS_WORKER_SCOPES", "pubchem,cas").split(","):
+                if "cas" in _scopes:
                     cas_leased = await workapi.post(
                         "/workapi/v1/cas/jobs/lease",
                         {"max_jobs": 1, "capabilities": ["cas"]},
@@ -332,7 +356,7 @@ async def run() -> None:
                     else:
                         cas_idle_seconds = 2.0
                 if not jobs and not cas_coros:
-                    requested_wait = float(leased.get("retry_after_seconds", 5))
+                    requested_wait = float(leased.get("retry_after_seconds", 5)) if "pubchem" in _scopes else 5
                     idle_seconds = min(30.0, max(requested_wait, idle_seconds * 1.5))
                     await asyncio.sleep(idle_seconds + random.random())
                     continue

@@ -151,6 +151,11 @@ async def lease_jobs(
         return {"jobs": [], "retry_after_seconds": 30}
     try:
         redis = await get_cache()
+        # PB 熔断闸门(2026-08-28): NCBI 封禁(Access Denied)期间停发新租约,
+        # 避免 5 万 retry 队列对封禁端点持续加害。手动解除: DEL pubchem:circuit_blocked。
+        if await redis.exists("pubchem:circuit_blocked"):
+            await db.commit()
+            return {"jobs": [], "retry_after_seconds": 300}
         if await redis.set("pubchem:jobs:prune", "1", ex=3600, nx=True):
             # Bounded retention keeps the durable queue auditable without
             # allowing successful task/event history to grow forever.

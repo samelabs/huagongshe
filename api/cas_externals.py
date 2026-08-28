@@ -175,9 +175,11 @@ def _suppliers_params(chemical_id: int, suppliers: list[dict[str, Any]]) -> dict
     }
 
 
-def _dedupe_key(chemical_id: int, cas_number: str) -> str:
+def _dedupe_key(chemical_id: int, cas_number: str, locale: str = "zh-CN") -> str:
     digest = hashlib.sha256(cas_number.strip().encode()).hexdigest()[:16]
-    return f"cas:{chemical_id}:{digest}"
+    # locale 后缀: 语言行与主行各自独立去重(否则 en 任务会被 zh 活跃窗口吞掉)
+    suffix = "" if locale == "zh-CN" else f":{locale}"
+    return f"cas:{chemical_id}:{digest}{suffix}"
 
 
 async def enqueue_cas_job(
@@ -186,9 +188,15 @@ async def enqueue_cas_job(
     chemical_id: int,
     cas_number: str,
     priority: int = 50,
+    locale: str = "zh-CN",
     request_context: dict[str, Any] | None = None,
 ) -> int | None:
-    """活跃窗口去重入队; 已有活跃任务时返回 None。"""
+    """活跃窗口去重入队; 已有活跃任务时返回 None。
+
+    locale>zh-CN 为语言行任务: 租约端从 request_context->>'locale' 寻址。
+    """
+    context = dict(request_context or {})
+    context["locale"] = locale
     row = (await db.execute(text("""
         INSERT INTO maintenance.cas_jobs
             (chemical_id,cas_number,priority,dedupe_key,request_context)
@@ -201,8 +209,8 @@ async def enqueue_cas_job(
         RETURNING id
     """), {
         "chemical_id": chemical_id, "cas_number": cas_number.strip(),
-        "priority": priority, "dedupe_key": _dedupe_key(chemical_id, cas_number),
-        "context": json.dumps(request_context or {}, ensure_ascii=False),
+        "priority": priority, "dedupe_key": _dedupe_key(chemical_id, cas_number, locale),
+        "context": json.dumps(context, ensure_ascii=False),
     })).fetchone()
     return int(row[0]) if row else None
 
@@ -574,6 +582,30 @@ async def scan_expired_into_queue(db: Any, batch: int = 200) -> int:
         job_id = await enqueue_cas_job(
             db, chemical_id=r[0], cas_number=r[1], priority=30,
             request_context={"reason": "expiry_scan"},
+        )
+        if job_id:
+            enqueued += 1
+    # en 语言行扫描(2026-08-28 接入): zh 主行已有 CB 数据(cb_number 非空)但缺 en 行
+    # 的补拉 + en 行到期刷新。低优先级小批量 — 不与 zh 主链抢吞吐, 不放大上游压力。
+    # 寻址键 cb_number 取主表; 熔断期 worker 侧延迟重试(cpp_circuit_defer), 不打上游。
+    en_rows = (await db.execute(text("""
+        SELECT c.id, c.cas_numbers, c.cb_number, en.expires_at
+        FROM chemistry.chemicals c
+        JOIN chemistry.chemical_cb cb ON cb.chemical_id = c.id AND cb.locale = 'zh-CN'
+        LEFT JOIN chemistry.chemical_cb en ON en.chemical_id = c.id AND en.locale = 'en'
+        WHERE c.cb_number IS NOT NULL
+          AND (en.chemical_id IS NULL
+               OR (en.expires_at IS NOT NULL AND en.expires_at < now()))
+        ORDER BY en.expires_at NULLS FIRST
+        LIMIT 50
+    """))).fetchall()
+    for r in en_rows:
+        # cas_numbers 主表为 jsonb 数组; 语言行寻址用 cb_number, cas 仅记录用
+        cas_list = r[1] if isinstance(r[1], list) else []
+        cas_number = next((c for c in cas_list if isinstance(c, str) and c.strip()), "")
+        job_id = await enqueue_cas_job(
+            db, chemical_id=r[0], cas_number=cas_number, priority=10, locale="en",
+            request_context={"reason": "en_backfill" if r[3] is None else "en_expiry_scan"},
         )
         if job_id:
             enqueued += 1
