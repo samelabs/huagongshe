@@ -125,8 +125,8 @@ export function SamelabsSkills() {
               value={q}
               placeholder={t.admin.skillsSearchPlaceholder}
               onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") reload(); }}
             />
+            <button onClick={() => reload()}>{t.admin.skillsFilterApply}</button>
             {(["all", "public", "private"] as const).map((v) => (
               <button key={v} className={visibility === v ? "active" : ""}
                 onClick={() => { setVisibility(v); reload(v); }}>

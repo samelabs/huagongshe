@@ -180,6 +180,8 @@ export type SearchResponse = {
   total: number | null;
   chemicals: Chemical[];
   reactions: ReactionLookup[];
+  /** CAS 未命中且已入队自动获取时为 true（2026-08-27 起后端返回） */
+  cas_fetch_pending?: boolean;
 };
 
 export type ReactionDetail = {

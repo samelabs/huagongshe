@@ -1,7 +1,7 @@
 """name_index 摄入: 唯一写入方, 全量替换语义。
 
 name_index 是纯派生镜像:
-- source='cb'      镜像 cas_externals.entry_cn(中文名称/别名) + cas_suppliers.name
+- source='cb'      镜像 chemical_cb.entry(中文名称/别名) + chemical_supplier.name
 - source='pubchem' 镜像 chemicals.synonyms
 
 每次摄入按 (chemical_id, source) 删旧插新, 无独立状态, 与源表永不漂移。
@@ -88,7 +88,7 @@ async def ingest_from_entry_cn(
     db: Any, chemical_id: int, entry: dict[str, Any] | None,
     supplier_names: list[str | None],
 ) -> None:
-    """CB 挂点: cas_externals 落库同事务调用。
+    """CB 挂点: chemical_cb 落库同事务调用。
 
     中文名称(name_cn) + 中文别名(alias_cn) + 英文别名(alias_en) + 供应商(supplier)。
     entry 为 None(not_found)时清空该 source。

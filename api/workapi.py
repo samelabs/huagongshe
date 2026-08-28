@@ -335,7 +335,7 @@ async def upsert_details(
     result: dict[str, Any],
 ) -> None:
     existing = (await db.execute(text("""
-        SELECT * FROM chemistry.chemical_details WHERE chemical_id=:chemical_id FOR UPDATE
+        SELECT * FROM chemistry.chemical_pubchem WHERE chemical_id=:chemical_id FOR UPDATE
     """), {"chemical_id": chemical_id})).mappings().fetchone()
     current = dict(existing) if existing else {}
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -409,7 +409,7 @@ async def upsert_details(
     for key in json_keys:
         params[key] = json.dumps(values[key], ensure_ascii=False, separators=(",", ":"))
     await db.execute(text("""
-        INSERT INTO chemistry.chemical_details (
+        INSERT INTO chemistry.chemical_pubchem (
             chemical_id,record_title,record_description,xlogp,
             topological_polar_surface_area,complexity,hbond_donor_count,
             hbond_acceptor_count,rotatable_bond_count,heavy_atom_count,formal_charge,
@@ -674,10 +674,10 @@ class CasResultBody(BaseModel):
     suppliers: list[dict[str, Any]] = Field(default_factory=list)
     # CB molfile 原文(可选): 详情页有 MOL 外链时 worker 附带; 服务端只补空不覆盖
     mol: str | None = Field(default=None, max_length=1_000_000)
-    # CB 条目号(可选, 身份标识): 纯数字字符串, 落 cas_externals.cb_number
+    # CB 条目号(可选, 身份标识): 纯数字字符串, 落主表 chemicals.cb_number
     cb_number: str | None = Field(default=None, pattern=r"^\d{1,16}$")
-    # GW 国际供应商(可选, 异步路径附带): 主档+关联表按 cbsid upsert
-    gw_suppliers: list[dict[str, Any]] = Field(default_factory=list, max_length=200)
+    # locale(可选, 默认 zh-CN 主行): en 等语言行只写 entry, suppliers 由主行独占
+    locale: str = Field(default="zh-CN", pattern="^(zh-CN|en|ja|de|ko)$")
 
 
 class CasCompleteBody(LeaseProof):
@@ -735,14 +735,24 @@ async def cas_lease_jobs(
                 ORDER BY completed_at,id LIMIT 5000
             )
         """))
+        # FOR UPDATE 不能落 LEFT JOIN 的 nullable 侧: 先锁 cas_jobs,
+        # cb_number(语言行寻址键)另查补齐
         rows = (await db.execute(text("""
-            SELECT id,chemical_id,cas_number,attempt_count,max_attempts
+            SELECT id,chemical_id,cas_number,attempt_count,max_attempts,
+                   request_context->>'locale'
             FROM maintenance.cas_jobs
             WHERE status IN ('queued','retry') AND not_before<=now()
               AND attempt_count<max_attempts
             ORDER BY priority DESC,not_before,id
             LIMIT :limit FOR UPDATE SKIP LOCKED
         """), {"limit": limit})).fetchall()
+        cb_map: dict[int, str | None] = {}
+        if rows:
+            cb_rows = (await db.execute(text("""
+                SELECT id, cb_number FROM chemistry.chemicals
+                WHERE id = ANY(CAST(:ids AS integer[]))
+            """), {"ids": [r[1] for r in rows if r[1] is not None]})).fetchall()
+            cb_map = {r[0]: r[1] for r in cb_rows}
         leased = []
         for row in rows:
             token = secrets.token_urlsafe(32)
@@ -766,6 +776,8 @@ async def cas_lease_jobs(
                 "attempt": row[3] + 1,
                 "max_attempts": row[4],
                 "lease_seconds": settings.worker_job_lease_seconds,
+                "locale": row[5] or "zh-CN",
+                "cb_number": cb_map.get(row[1]),
             })
         await db.commit()
         return {"jobs": leased, "retry_after_seconds": 2 if leased else 10}
@@ -841,7 +853,8 @@ async def cas_complete_job(
         payload = body.result
         status = payload.status
         entry = payload.entry if status == "ok" else None
-        suppliers = payload.suppliers if status == "ok" else []
+        locale = payload.locale
+        suppliers = payload.suppliers if status == "ok" and locale == "zh-CN" else []
         if status == "ok":
             # 既有行刷新: 结构三件同样只补空(stale 刷新趟补历史欠账)
             await apply_structure_fill(
@@ -851,15 +864,8 @@ async def cas_complete_job(
             await upsert_externals(
                 db, chemical_id=chemical_id, cas_number=cas_number,
                 entry=entry, suppliers=suppliers, status=status,
-                cb_number=payload.cb_number,
+                cb_number=payload.cb_number, locale=locale,
             )
-            if status == "ok" and payload.gw_suppliers:
-                # GW 国际供应商 -> 主档+关联表(source='gw')
-                from .cas_externals import upsert_supplier_registry
-                await upsert_supplier_registry(
-                    db, cas_number=cas_number,
-                    suppliers=payload.gw_suppliers, source="gw",
-                )
         except ValueError as exc:
             await db.execute(text("""
                 UPDATE maintenance.cas_jobs

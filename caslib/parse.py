@@ -509,6 +509,260 @@ def parse_suppliers(cas_html: str, dedicated_html: str | None) -> list[dict[str,
 
 
 def extract_cb_number(html: str) -> str | None:
-    """从 CAS 页提取供应商专用页所需的 CB 编号 (ProdSupplierGNCB{N}.htm)。"""
-    m = re.search(r'/ProdSupplierGNCB(\d+)\.htm', html)
-    return m.group(1) if m else None
+    """CAS 页提取自身 CB 编号。
+
+    主路径: GN 供应商链接 (ProdSupplierGNCB{N}.htm)。
+    兜底(2026-08-28): 无供应商品目 GN 链接缺失时, MSDS/PriceInfo 链接同号
+    (69-72-7 实测三链接同号 1680010)。
+    """
+    for pat in (r"/ProdSupplierGNCB(\d+)\.htm",
+                r"/ProductMSDSDetailCB(\d+)\.htm",
+                r"/PriceInfoall_CB(\d+)\.htm"):
+        m = re.search(pat, html)
+        if m:
+            return m.group(1)
+    return None
+
+
+# ---------------------------------------------------------------- CPP 页解析
+# ChemicalProductProperty_{L}_CB{cb}.htm (2026-08-28 实测, NBS CB2234049 fixture):
+# CN页: 供应商一页全量100家表 + 试剂级价格表 + 全球分布统计 + 与CAS页同源entry区块
+# EN页: th/td 属性表(含 InChI/SMILES/LogP 等英文独有字段)
+
+_CPP_SUP_ROW_RE = re.compile(
+    r'<tr align="center"[^>]*>\s*<td>\s*<a\s+href=[\'"]https?://www\.chemicalbook\.com'
+    r"/ShowSupplierProductsList(\d+)/0\.htm[\'\"][^>]*>([\s\S]*?)</a>\s*</td>([\s\S]*?)</tr>",
+    re.I,
+)
+
+
+def parse_cpp_suppliers(html: str) -> list[dict[str, Any]]:
+    """CPP-CN 页供应商表(一页全量, 热门品目100家封顶) -> [{cbsid,ref,name,phone,email,locale}]。
+
+    六列: 供应商/联系电话/电子邮件/国家/产品数/优势度。
+    locale=国家列原文(中国/德国/美国/日本/印度/欧洲/美洲...)。
+    产品数/优势度(原站推广指标)不采。
+    """
+    out: list[dict[str, Any]] = []
+    for m in _CPP_SUP_ROW_RE.finditer(html):
+        cbsid, name_raw, rest = m.group(1), m.group(2), m.group(3)
+        name = text_of(name_raw)
+        if not name or not cbsid:
+            continue
+        cells = [
+            text_of(c) for c in re.findall(r"<td[^>]*>([\s\S]*?)</td>", rest, re.I)
+        ]
+        phone = cells[0] if len(cells) > 0 else ""
+        email = cells[1] if len(cells) > 1 else ""
+        locale = cells[2] if len(cells) > 2 else ""
+        out.append(
+            {
+                "cbsid": cbsid,
+                "ref": supplier_ref(cbsid),
+                "name": name,
+                "phone": phone or None,
+                "email": email or None,
+                "locale": locale or None,
+            }
+        )
+    return out
+
+
+_CPP_TR_RE = re.compile(r"<tr[^>]*>([\s\S]*?)</tr>", re.I)
+
+
+def parse_cpp_reagent_prices(html: str) -> list[dict[str, str]]:
+    """CN 页"试剂级价格"表 -> [{updated, code, name, package, price}]。
+
+    表列: 更新日期/产品编号/产品名称/CAS编号/包装/价格。CAS编号恒为本品目,不存。
+    行判据: 首列含日期斜杠。整行取td后按位取列。
+    """
+    i = html.find("产品编号")
+    if i < 0:
+        return []
+    seg = html[i : i + 25000]
+    out: list[dict[str, str]] = []
+    for m in _CPP_TR_RE.finditer(seg):
+        tds = [text_of(c) for c in re.findall(r"<td[^>]*>([\s\S]*?)</td>", m.group(1), re.I)]
+        if len(tds) >= 6 and "/" in tds[0] and tds[1]:
+            out.append(
+                {
+                    "updated": tds[0],
+                    "code": tds[1],
+                    "name": tds[2],
+                    "package": tds[4],
+                    "price": tds[5],
+                }
+            )
+    return out
+
+
+_CPP_GLOBAL_RE = re.compile(r"全球有\s*(\d+)家供应商")
+
+
+def parse_cpp_global_distribution(html: str) -> dict[str, Any] | None:
+    """CN 页生产厂家区全球分布 -> {"total": N, "countries": {国家: 数量}}。缺失 None。"""
+    m = _CPP_GLOBAL_RE.search(html)
+    if not m:
+        return None
+    seg = html[m.start() : m.start() + 1500]
+    text = text_of(re.sub(r"<[^>]+>", " ", seg))
+    pairs = re.findall(r"([\u4e00-\u9fff]{2,4})\s*(\d+)", text)
+    countries: dict[str, int] = {}
+    for k, v in pairs:
+        if k in ("全球有",):
+            continue
+        countries[k] = int(v)
+    return {"total": int(m.group(1)), "countries": countries} if countries else None
+
+
+_CPP_KV_RE = re.compile(
+    r"<th[^>]*>([\s\S]*?)</th>\s*<td[^>]*>([\s\S]*?)</td>", re.I
+)
+
+
+def parse_cpp_entry_en(html: str) -> dict[str, Any] | None:
+    """CPP-EN 页属性表 -> {"attributes": [[key, value],...]}(保序去重)。空值自然过滤。"""
+    out: list[list[str]] = []
+    for m in _CPP_KV_RE.finditer(html):
+        key = text_of(m.group(1))
+        val = text_of(m.group(2))
+        if key and val:
+            out.append([key, val])
+    seen: set[str] = set()
+    attrs = [kv for kv in out if not (kv[0] in seen or seen.add(kv[0]))]
+    return {"attributes": attrs} if attrs else None
+
+
+# ---------------------------------------------------------------- CPP-CN entry
+# CPP 页结构与 CAS 页完全不同构(2026-08-28 实测, NBS CB2234049):
+# basic: 页首 <dl><dt>键:</dt><dd>值</dd></dl>(每对独立dl, 值内<dd>未闭合畸形标记)
+# props: <table id="ChemicalProperties"> 内 dt(<span>键:</span>)/dd(<span>值</span>)
+# safety: SafetyInformation 外层表(嵌套内表每行一对 th/td, 14对) — 平衡计数取外层
+# prose: <h3>标题</h3> 区块; updown: 上游原料/下游产品 h3 区
+# 输出与 CAS 页 entry 同构(basic/aliases/props/safety/prose/updown) + 两个增量段
+# (reagent_prices/global_distribution), 前端消费零改。
+
+_CPP_NOT_FOUND_RE = re.compile(r"本站不显示该产品信息")
+_CPP_BUSY_RE = re.compile(r"系统忙")
+
+
+def cpp_page_state(html: str | None) -> str:
+    """CPP 页三态: ok / not_found(真拒绝) / busy(临时限流) / empty。
+
+    "系统忙"是上游限流降级(实测 14 字节页) — 语义=error 走重试,
+    绝不能当 not_found 落负缓存(会 1 天内锁死品目)。
+    """
+    if not html or len(html) < 500:
+        return "empty" if html is not None else "empty"
+    if _CPP_NOT_FOUND_RE.search(html):
+        return "not_found"
+    if _CPP_BUSY_RE.search(html) and len(html) < 1000:
+        return "busy"
+    return "ok"
+_CPP_SKIP_DT = {"CBNumber", "MOL File"}
+
+
+def _cpp_dd_value(rest: str) -> str:
+    """dd 值: 截到 </dd> 或下一块标记(原站 <dd> 未闭合, 防越界吞并后续行)。"""
+    stop = re.search(r"</dd>|<dt|<dl>|</table>|<tr", rest)
+    seg = rest[: stop.start()] if stop else rest
+    return text_of(seg)
+
+
+def _cpp_kv_pairs(html: str) -> list[list[str]]:
+    out: list[list[str]] = []
+    for m in re.finditer(r"<dt[^>]*>([\s\S]*?)</dt>\s*<dd[^>]*>", html, re.I):
+        key = text_of(m.group(1)).rstrip(":：").strip()
+        val = _cpp_dd_value(html[m.end() : m.end() + 2000])
+        if key and val and key not in _CPP_SKIP_DT:
+            out.append([key, val])
+    return out
+
+
+def _balanced_table(html: str, start: int) -> tuple[int, int] | None:
+    """嵌套表平衡计数: 外层 <table> 从 start 到配平 </table> 的区间。"""
+    depth = 0
+    for m in re.finditer(r"<table|</table>", html[start : start + 60000]):
+        if m.group(0) == "<table":
+            depth += 1
+        else:
+            depth -= 1
+            if depth == 0:
+                return start, start + m.end()
+    return None
+
+
+def parse_cpp_entry(html: str) -> dict[str, Any] | None:
+    """CPP-CN 页 -> entry。真拒绝页/空页返回 None。
+
+    上游"系统忙"限流页由 cpp_page_state() 区分, 调用方须先判 busy(error 重试),
+    不进本函数语义。这里 _CPP_NOT_FOUND_RE 只兜真拒绝。
+    """
+    if not html or _CPP_NOT_FOUND_RE.search(html):
+        return None
+    entry: dict[str, Any] = {}
+    m_tbl = re.search(r'<table id="ChemicalProperties"', html, re.I)
+    head = html[: m_tbl.start()] if m_tbl else html[:30000]
+    basic = _cpp_kv_pairs(head)
+    if basic:
+        entry["basic"] = basic
+        aliases: dict[str, list[str]] = {}
+        for k, v in basic:
+            if k in ("中文别名", "英文别名"):
+                parts = [p.strip() for p in re.split(r"[;；]", v) if p.strip()]
+                if parts:
+                    aliases["cn" if k == "中文别名" else "en"] = parts
+        if aliases:
+            entry["aliases"] = aliases
+    if m_tbl:
+        tbl_end = html.find("</table>", m_tbl.start())
+        props = _cpp_kv_pairs(html[m_tbl.start() : tbl_end])
+        if props:
+            entry["props"] = props
+    sm = re.search(r'SafetyInformation[^>]*cellspacing', html)
+    if sm:
+        start = html.rfind("<table", 0, sm.start())
+        span = _balanced_table(html, start) if start >= 0 else None
+        if span:
+            pairs = re.findall(
+                r"<th[^>]*>([\s\S]*?)</th>\s*<td[^>]*>([\s\S]*?)</td>",
+                html[span[0] : span[1]], re.I,
+            )
+            safety = [[text_of(k).rstrip(":：").strip(), text_of(v)] for k, v in pairs]
+            safety = [kv for kv in safety if kv[0] and kv[1]]
+            if safety:
+                entry["safety"] = safety
+    prose: list[dict[str, str]] = []
+    for m3 in re.finditer(r"<h3[^>]*>([\s\S]*?)</h3>", html):
+        title = text_of(m3.group(1))
+        if not title or title in ("上游原料", "下游产品"):
+            continue
+        rest = html[m3.end() : m3.end() + 3000]
+        stop = re.search(r"<h[23][^>]*>|<table|<dl>", rest)
+        seg = rest[: stop.start()] if stop else rest
+        text = text_of(seg)
+        if text and len(text) > 4:
+            prose.append({"title": title, "text": text})
+    if prose:
+        entry["prose"] = prose
+    updown: dict[str, list[str]] = {}
+    for label, key in (("上游原料", "up"), ("下游产品", "down")):
+        lm = re.search(rf"<h3[^>]*>\s*{label}\s*</h3>([\s\S]*?)<(?:h3|table)", html)
+        if lm:
+            names = [
+                text_of(a)
+                for a in re.findall(r"<a[^>]*>([\s\S]*?)</a>", lm.group(1))
+                if text_of(a)
+            ]
+            if names:
+                updown[key] = names
+    if updown:
+        entry["updown"] = updown
+    prices = parse_cpp_reagent_prices(html)
+    if prices:
+        entry["reagent_prices"] = prices
+    gd = parse_cpp_global_distribution(html)
+    if gd:
+        entry["global_distribution"] = gd
+    return entry or None

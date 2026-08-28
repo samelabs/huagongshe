@@ -24,6 +24,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
     setUsernameCheck({ status: "checking", msg: t.auth.checking });
     try {
       const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(v)}`);
+      if (!res.ok) throw new Error(); // 服务端故障不做判定(回 idle), 不误报"不可用"
       const data = await res.json();
       // A slower earlier probe must not overwrite the verdict for the
       // username currently typed.

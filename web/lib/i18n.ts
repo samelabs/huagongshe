@@ -9,7 +9,7 @@
  *   2. 新增文案先在此文件对应 domain 下添加 key
  *   3. key 用 camelCase，按场景 domain 分组
  *   4. 品牌定位文案集中在 brand domain，确保全站一致
- *   5. 函数类型用于含变量的文案：t.chemical.dataLine('1.2亿', '240万')
+ *   5. 函数类型用于含变量的文案：t.skills.heroSubtitle(159)
  */
 
 const t = {
@@ -18,8 +18,6 @@ const t = {
   brand: {
     name: '化工社AIchem',
     domain: 'huagongshe.com',
-    positioning: '你的AI化学工作台',
-    slogan: '化工社 · 化学工作从这里开始，知识在这里留下',
     seoTitle: '化工社AIchem｜你的AI化学工作台',
     seoDesc: '化工社AIchem是你的AI化学工作台。查化合物、找反应、算投料，构建可持续积累的个人化学工作台。',
     seoDescShort: '查化合物、找反应、算投料，构建你的化学工作台。',
@@ -50,7 +48,6 @@ const t = {
     pageNav: '分页',
     pageOf: (cur: number, total: number) => `第 ${cur} / ${total} 页`,
     networkError: '网络连接失败，请稍后重试。',
-    unknownError: '操作失败，请稍后重试。',
     contentUnavailable: '内容暂时无法加载，请稍后重试。',
     unnamedCompound: '未命名化合物',
     breadcrumb: '面包屑',
@@ -82,13 +79,8 @@ const t = {
   home: {
     hero: 'AI化学工作台',
     subtitle: '从这里开始你的AI化学',
-    searchLabel: '查询化学数据',
     searchPlaceholder: '中英文名称、CAS、SMILES、CID、ORD记录号或DOI',
     searchButton: '查询',
-    searchExamples: '查询示例',
-    searchExampleLabel: '试试',
-    dataLabel: '数据概况',
-    dataLine: (chemicals: string, reactions: string) => `${chemicals} 化合物 · ${reactions} 反应 · 免费查询`,
     /* ── 三入口卡片 ── */
     cardsKicker: '化工社AIchem',
     card1Kicker: 'MCP 连接器',
@@ -110,11 +102,11 @@ const t = {
     title: '查询化学数据',
     hintName: '中英文名称、别名、CAS、SMILES、PubChem CID、InChIKey、DTXSID、ChEMBL、ChEBI 等。',
     hintNameShort: '中英文名称、CAS、SMILES、PubChem CID、InChIKey 等',
-    hintReaction: '使用"reaction:编号"、ORD记录号或DOI。结构相关反应从化合物页进入。',
-    locateChemical: '定位化合物',
-    locateReaction: '定位反应',
     noResults: '没有匹配结果',
     noResultsHint: '请核对查询内容或更换标识符。',
+    fetchPendingTitle: '正在获取该 CAS',
+    fetchPendingHint: 'CAS {cas} 暂未收录，已自动向数据源获取，请稍后重搜。',
+    idleHint: '输入中英文名称、CAS 号或 SMILES 开始查询。',
     clearQuery: '清空查询',
     showingResults: (n: number) => `显示 ${n} 条匹配记录`,
     showingRange: (start: number, end: number, total: number) => `第 ${start}-${end} 条，共 ${total} 条`,
@@ -296,7 +288,6 @@ const t = {
     navHome: '概览',
     navSearch: '查询',
     navNewReaction: '新建反应',
-    navGuide: 'AI指南',
     tabHome: '概览',
     tabSearch: '查询',
     tabStoich: '投料计算',
@@ -305,6 +296,10 @@ const t = {
     tabSkills: '我的技能',
     skillsHint: '上传、下载和管理你的 AI 技能包（zip，根目录含 SKILL.md）',
     skillsUpload: '上传技能包',
+    skillUploaded: (slug: string) => `${slug} 已上传`,
+    skillUploadFailed: '上传失败',
+    skillDeleted: (slug: string) => `${slug} 已删除`,
+    skillDeleteFailed: '删除失败',
     skillsUploading: '上传中…',
     skillsPickZip: '选择 zip 技能包',
     skillsUploadHint: '仅支持 zip 格式，SKILL.md 须位于压缩包根目录；个人技能恒为私有',
@@ -319,7 +314,6 @@ const t = {
     tabFollowers: '粉丝',
     tabFollowing: '关注',
     newReaction: '新建反应',
-    aiAssistant: 'API Token',
     bio: '简介',
     joinedAt: (date: string) => `加入时间：${date}`,
     following: '关注',
@@ -328,9 +322,6 @@ const t = {
     homeHint: '查化合物、找反应、算投料——你的化学工作都在这里',
     homeSearchPlaceholder: '中英文名称、CAS、SMILES、CID、InChIKey…',
     homeSearchButton: '查询',
-    homeShortcutReactions: '我的反应',
-    homeShortcutSaved: '我的收藏',
-    homeShortcutActivity: '关注动态',
     homeRecentReactions: '最近的反应',
     homeViewAll: '查看全部',
     homeGuideTitle: 'AI化学工作台',
@@ -344,8 +335,6 @@ const t = {
     searchModeSimilarity: '相似结构',
     searchNoQuery: '输入查询条件后按回车或点击查询',
     searchNoResults: '没有匹配结果',
-    searchLoading: '查询中…',
-    searchError: '查询失败，请稍后重试',
     searchResultCompound: '化合物',
     searchResultReaction: '反应',
     followingHint: '你正在关注的人，可以查看主页或取消关注',
@@ -363,7 +352,6 @@ const t = {
     visPrivate: '仅当前账号可以查看',
     visPublic: '会显示在你的公开主页',
     filterAll: '全部',
-    errSummary: '数据概况暂时无法读取。',
     errPanel: '数据读取失败，请刷新后重试。',
     privateVisible: '仅自己可见',
     publicRecord: (followers: number) => `公开记录 · ${followers} 人收藏`,
@@ -419,7 +407,6 @@ const t = {
 
   settings: {
     title: '账户设置',
-    titleKicker: 'SETTINGS',
     subtitle: '管理API Token、个人资料与账户安全。',
     nav: {
       ai: 'API Token',
@@ -607,7 +594,6 @@ const t = {
     errAmountUnit: '每个参与物的投料数值和单位必须同时填写。',
     errConcUnit: '每个参与物的浓度数值和单位必须同时填写。',
     errSourceMissing: '请填写与来源类型对应的来源信息。',
-    errValidation: '校验失败',
     errSave: '保存失败，请稍后重试',
     errNetwork: '网络连接失败，内容仍保留在本页，请稍后重试。',
     roles: {
@@ -620,6 +606,27 @@ const t = {
   },
 
   /* ── MCP 连接器页 ─────────────────────────────────────── */
+  /* ── 技能公开页(开放技能库) ───────────────────────────── */
+  skills: {
+    openLibrary: '开放技能库',
+    heroTitle: '科学 AI 开放技能库',
+    heroSubtitle: (n: number) => `${n} 个开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域，可按需下载使用。`,
+    heroSource: '数据来源：K-Dense-AI/scientific-agent-skills (MIT) 与化工社AIchem官方技能 · 由化工社整理提供',
+    searchPlaceholder: '搜索技能名称或关键词…',
+    categoriesLabel: '技能分类',
+    allCategories: '全部',
+    defaultCategory: '通用工具',
+    loadFailed: '数据读取失败，请刷新后重试。',
+    noMatch: '未找到匹配的技能',
+    officialBadge: '官方',
+    hasScriptsBadge: '含脚本',
+    hasScriptsHint: '该技能包含脚本文件，使用前请人工审阅',
+    noDescription: '暂无描述',
+    fileCount: (n: number) => `${n} 文件`,
+    sizeBytes: (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)}MB` : n >= 1024 ? `${Math.round(n / 1024)}KB` : `${n}B`),
+    download: '下载技能包',
+  },
+
   mcp: {
     title: 'MCP 连接器',
     desc: '把化工社AIchem接入你的 AI 助手（豆包工作、千问办公、腾讯 WorkBuddy 等），AI 即可查询化合物与反应数据、计算投料，保存反应记录到你的账户。',
@@ -728,7 +735,6 @@ const t = {
     path2Title: '复制提示词',
     path2Suit: '适合：任何AI，不想配置',
     path2Desc: '复制提示词，连同文献发给你的AI。AI按格式输出反应草稿，你在化工社AIchem网页手动保存。',
-    setupCta: '设置 API Token',
     copyPrompt: (copied: boolean) => copied ? '已复制' : '复制提示词',
     aiPrompt: `请作为我的化工社AIchem助手。
 
@@ -865,6 +871,7 @@ const t = {
     skillHasScripts: '含脚本',
     skillUncategorized: '未分类',
     skillsSearchPlaceholder: '搜索 slug / 标题 / 用户名',
+    skillsFilterApply: '应用',
     visAll: '全部',
     skillPublish: '发布',
     skillUnpublish: '下架',
@@ -882,7 +889,6 @@ const t = {
     /* 配置 */
     configTitle: '系统配置',
     configKicker: 'CONFIG',
-    configField: (field: string) => field,
     configProvider: '服务商',
     configEnabled: '状态',
     configClient: '客户号',

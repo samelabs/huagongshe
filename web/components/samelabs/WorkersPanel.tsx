@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiGet, apiPatch, apiPost, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
@@ -34,6 +34,7 @@ export function SamelabsWorkers() {
   const [scopes, setScopes] = useState<string[]>(["pubchem"]);
   const [issued, setIssued] = useState<IssueResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -94,9 +95,12 @@ export function SamelabsWorkers() {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+      resetTimer.current = setTimeout(() => setCopied(false), 2000);
     } catch { /* 剪贴板不可用时用户手动复制 */ }
   }
+
+  useEffect(() => () => { if (resetTimer.current) clearTimeout(resetTimer.current); }, []);
 
   if (error && workers.length === 0) return <div className="notice error">{error}</div>;
 

@@ -56,12 +56,12 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
     try {
       const created = await apiPost<SkillItem & { warnings?: string[] }>("/skills", form);
       const warn = created.warnings?.length ? `（${created.warnings.length} 条警告）` : "";
-      setUploadNotice(`${created.slug} 已上传${warn}`);
+      setUploadNotice(t.me.skillUploaded(created.slug) + warn);
       const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=1&page_size=20`);
       setSkills(value);
       setState("ready");
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "上传失败");
+      setUploadError(err instanceof Error ? err.message : t.me.skillUploadFailed);
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -73,13 +73,13 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
     setUploadError(null);
     try {
       await apiDelete(`/skills/${id}`);
-      setUploadNotice(`${slug} 已删除`);
+      setUploadNotice(t.me.skillDeleted(slug));
       const value = await apiGet<PageResponse<SkillItem>>(
         `/skills?scope=mine&page=${Math.min(page, Math.max(1, Math.ceil((skills.total - 1) / 20)))}&page_size=20`
       );
       setSkills(value);
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "删除失败");
+      setUploadError(err instanceof Error ? err.message : t.me.skillDeleteFailed);
     }
   }
 

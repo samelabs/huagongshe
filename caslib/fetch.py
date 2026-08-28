@@ -29,9 +29,8 @@ BROWSER_HEADERS = {
 class FetchResult:
     status: str  # "ok" | "not_found" | "error"
     cas_html: str | None = None
-    supplier_html: str | None = None
+    cpp_html: str | None = None  # CPP-CN 页(ChemicalProductProperty_CN_CB{cb}.htm)
     cb_number: str | None = None  # CB条目号(身份标识, 落DB不进API)
-    gw_html: str | None = None  # GW国际供应商页(异步路径附带)
     error: str | None = None
     stats: dict = field(default_factory=dict)
 
@@ -53,14 +52,15 @@ async def fetch_cas(
     cas: str,
     *,
     total_budget_s: float = 3.0,
-    fetch_suppliers: bool = True,
-    fetch_gw: bool = False,
+    cb_number: str | None = None,
     session: aiohttp.ClientSession | None = None,
 ) -> FetchResult:
-    """拉取一个 CAS 的中文详情页 + (可选)供应商专用页 + (可选)国际供应商页。
+    """拉取一个 CAS: CAS 详情页(探测/提cb_number) + CPP-CN 页(entry+100家供应商)。
 
-    total_budget_s 覆盖全程。同步路径传 3s(GN首跳+CAS页); worker 可放宽。
-    fetch_gw 仅异步路径开启(GW页需CAS页Referer, 同趟追加第三请求)。
+    total_budget_s 覆盖全程。同步路径传 3s; worker 可放宽。
+    cb_number 已知(主表)时第二跳直接寻址 CPP 页; 未知时从 CAS 页提取。
+    (2026-08-28: GN/GW 专用页链路作废 — CPP-CN 一页含 100 家供应商+国家,
+    GW 国际供应商真包含于 CPP-CN, 实测对账。)
     """
     from .parse import extract_cb_number, looks_like_not_found
 
@@ -71,7 +71,15 @@ async def fetch_cas(
     assert session is not None
     stats: dict = {}
     try:
-        per = max(1.0, total_budget_s / (2 if fetch_suppliers else 1))
+        cb = cb_number
+        if cb:
+            # 已知 CB 号: 直跳 CPP(1请求); CPP 失败再退 CAS 页探测
+            status, body = await _get(session, f"{BASE}/ChemicalProductProperty_CN_CB{cb}.htm", total_budget_s)
+            stats["cpp_status"] = status
+            if status == 200:
+                return FetchResult("ok", cas_html=None, cpp_html=body,
+                                   cb_number=cb, stats=stats)
+        per = max(1.0, total_budget_s / (2 if cb is None else 1))
         status, body = await _get(session, f"{BASE}/CAS_{cas}.htm", per)
         stats["cas_status"] = status
         if status is None:
@@ -80,45 +88,52 @@ async def fetch_cas(
             return FetchResult("error", error=f"http_{status}", stats=stats)
         if looks_like_not_found(body):
             return FetchResult("not_found", cas_html=body, stats=stats)
-        if not fetch_suppliers:
-            return FetchResult("ok", cas_html=body, stats=stats)
-        cb = extract_cb_number(body)
         if not cb:
-            # 详情页正常但无供应商链接: 条目本身 ok, 供应商空
+            cb = extract_cb_number(body)
+        if not cb:
+            # 详情页正常但无任何自身CB链接: 条目本身 ok, 供应商空
             return FetchResult("ok", cas_html=body, cb_number=None, stats=stats)
-        status2, body2 = await _get(session, f"{BASE}/ProdSupplierGNCB{cb}.htm", per)
-        stats["supplier_status"] = status2
-        supplier_html = body2 if status2 == 200 else None
-        gw_html = None
-        if fetch_gw:
-            # GW(国际供应商)页: 裸拉 500, 必须带 CAS 页 Referer(实测)
-            gw_status, gw_body = await _get_gw(session, cb, cas, per)
-            stats["gw_status"] = gw_status
-            gw_html = gw_body if gw_status == 200 else None
+        status2, body2 = await _get(
+            session, f"{BASE}/ChemicalProductProperty_CN_CB{cb}.htm", per)
+        stats["cpp_status"] = status2
+        cpp_html = body2 if status2 == 200 else None
         return FetchResult(
-            "ok", cas_html=body, supplier_html=supplier_html,
-            cb_number=cb, gw_html=gw_html, stats=stats,
+            "ok", cas_html=body, cpp_html=cpp_html,
+            cb_number=cb, stats=stats,
         )
     finally:
         if own_session:
             await session.close()
 
 
-async def _get_gw(
-    session: aiohttp.ClientSession, cb: str, cas: str, timeout_s: float
-) -> tuple[int | None, str]:
-    """GW 页专用请求: Referer 指 CAS 详情页(缺此头实测 500)。"""
+# ---------------------------------------------------------------- CPP 语言页
+
+_CPP_LANG_SUFFIX = {"en": "_EN", "ja": "_JP", "de": "_DE", "ko": "_KR"}
+
+
+async def fetch_cpp_locale(
+    session: aiohttp.ClientSession,
+    cb_number: str,
+    locale: str,
+    *,
+    timeout_s: float = 20.0,
+) -> str | None:
+    """拉 CPP 语言变体页(ChemicalProductProperty_{L}_CB{cb}.htm)。
+
+    locale ∈ en/ja/de/ko(zh-CN 走主链 fetch_cas, 不经此函数)。
+    任何失败返回 None, 不抛。
+    """
+    suffix = _CPP_LANG_SUFFIX.get(locale)
+    if not suffix:
+        return None
     try:
-        async with session.get(
-            f"{BASE}/ProdSupplierGWCB{cb}.htm",
-            headers={**BROWSER_HEADERS,
-                     "Referer": f"{BASE}/CAS_{cas}.htm"},
-            timeout=aiohttp.ClientTimeout(total=timeout_s),
-        ) as resp:
-            body = await resp.text(errors="replace")
-            return resp.status, body
-    except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
-        return None, f"{type(exc).__name__}: {exc}"
+        status, body = await _get(
+            session, f"{BASE}/ChemicalProductProperty{suffix}_CB{cb_number}.htm",
+            timeout_s,
+        )
+        return body if status == 200 and body else None
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------- mol 文件

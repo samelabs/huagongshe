@@ -422,7 +422,8 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
         "token": plain,
         "api_base_url": f"{settings.public_base_url.rstrip('/')}/api",
         "agent_guide_url": f"{settings.public_base_url.rstrip('/')}/api/agent-guide",
-        "openapi_url": f"{settings.public_base_url.rstrip('/')}/api/openapi.json",
+        # B2 通道规范: OpenAPI 不对公网暴露(BFF 404 + main.py docs_url=None),
+        # 原 openapi_url 字段是失效链接, 已移除(前端零引用)。
         "agent_connection_text": agent_connection_text(plain),
     }
 

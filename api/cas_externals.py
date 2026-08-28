@@ -22,14 +22,14 @@ from .cache import cache_delete, get_cache
 from .database import get_db
 from .name_index import ingest_from_entry_cn
 
-# entry 30d / suppliers 7d: 两周期独立驱动 — cas_externals.expires_at 取
-# entry 周期(30d), cas_suppliers 自带 fetched_at, 刷新任务同趟刷新两者,
+# entry 30d / suppliers 7d: 两周期独立驱动 — chemical_cb.expires_at 取
+# entry 周期(30d), chemical_supplier 自带 fetched_at, 刷新任务同趟刷新两者,
 # 任务到期判定 = min(entry 剩余, suppliers 剩余) — 由 ensure 层计算,表结构不感知。
 ENTRY_TTL_DAYS = 30
 SUPPLIERS_TTL_DAYS = 7
 NOT_FOUND_TTL_DAYS = 1  # 负缓存: not_found 行 1 天内不重试
 SYNC_FETCH_BUDGET_S = 3.0
-CACHE_KEY = "v2:cas-ext:{chemical_id}"
+CACHE_KEY = "v3:cas-ext:{chemical_id}"  # v3: 表改名+locale(2026-08-28)
 CACHE_TTL_S = 6 * 3600
 MAX_ENTRY_JSON_BYTES = 2_000_000  # 双保险: workapi 载荷上限内的条目尺寸
 
@@ -55,8 +55,8 @@ def suppliers_fresh(fetched_at: Any) -> bool:
 
 async def get_externals_row(db: Any, chemical_id: int) -> dict[str, Any] | None:
     row = (await db.execute(text("""
-        SELECT chemical_id,cas_number,entry_cn,last_status,fetched_at,expires_at
-        FROM chemistry.cas_externals WHERE chemical_id=:chemical_id
+        SELECT chemical_id,cas_number,entry,last_status,fetched_at,expires_at
+        FROM chemistry.chemical_cb WHERE chemical_id=:chemical_id AND locale='zh-CN'
     """), {"chemical_id": chemical_id})).mappings().fetchone()
     return dict(row) if row else None
 
@@ -64,7 +64,7 @@ async def get_externals_row(db: Any, chemical_id: int) -> dict[str, Any] | None:
 async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
     rows = (await db.execute(text("""
         SELECT ref,name,phone,email,website,purity,pack_price,remark
-        FROM chemistry.cas_suppliers WHERE chemical_id=:chemical_id ORDER BY ref
+        FROM chemistry.chemical_supplier WHERE chemical_id=:chemical_id ORDER BY ref
     """), {"chemical_id": chemical_id})).fetchall()
     return [dict(r._mapping) for r in rows]
 
@@ -78,10 +78,13 @@ async def upsert_externals(
     suppliers: list[dict[str, Any]],
     status: str,
     cb_number: str | None = None,
+    locale: str = "zh-CN",
 ) -> None:
     """worker complete 与同步拉取共用的唯一写入口(事务由调用方管理)。
 
-    cb_number/cbsid 为原站身份标识: 只落DB, 任何API/DOM输出不经手(公开面零标识)。
+    cb_number/cbsid 为原站身份标识: cb_number 落主表 chemicals(2026-08-28 上移,
+    chemical_cb 不存); cbsid 落 chemical_supplier, 任何 API/DOM 输出零标识。
+    locale: zh-CN 为主行(供应商同写); en 等语言行只写 entry, suppliers 恒空。
     """
     entry_json = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) if entry else None
     if entry_json and len(entry_json.encode()) > MAX_ENTRY_JSON_BYTES:
@@ -90,70 +93,74 @@ async def upsert_externals(
         _not_found_expires() if status == "not_found" else None
     )
     await db.execute(text("""
-        INSERT INTO chemistry.cas_externals
-            (chemical_id,cas_number,entry_cn,last_status,fetched_at,expires_at,cb_number)
+        INSERT INTO chemistry.chemical_cb
+            (chemical_id,cas_number,entry,last_status,fetched_at,expires_at,locale)
         VALUES
-            (:chemical_id,:cas_number,CAST(:entry AS jsonb),:status,now(),:expires,
-             NULLIF(:cb_number,''))
-        ON CONFLICT (chemical_id) DO UPDATE SET
+            (:chemical_id,:cas_number,CAST(:entry AS jsonb),:status,now(),:expires,:locale)
+        ON CONFLICT (chemical_id, locale) DO UPDATE SET
             cas_number=excluded.cas_number,
-            entry_cn=excluded.entry_cn,
+            entry=excluded.entry,
             last_status=excluded.last_status,
             fetched_at=excluded.fetched_at,
             expires_at=excluded.expires_at,
-            cb_number=excluded.cb_number,
             updated_at=now()
     """), {
         "chemical_id": chemical_id, "cas_number": cas_number,
         "entry": entry_json, "status": status, "expires": expires,
-        "cb_number": cb_number,
+        "locale": locale,
     })
-    # name_index 摄入: 与 cas_externals 同事务, 纯镜像
-    await ingest_from_entry_cn(
-        db, chemical_id, entry,
-        [s.get("name") for s in suppliers] if status == "ok" else [],
-    )
-    # 主档+关联表: GN 供应商(含 CAS 页与专用页合并产物)按 cbsid 入注册表
-    if status == "ok" and suppliers:
-        await upsert_supplier_registry(
-            db, cas_number=cas_number, suppliers=suppliers, source="gn",
+    # CB 号上移主表: 只补空不覆盖(同号不同品目由 partial unique 兜底)
+    if cb_number:
+        await db.execute(text("""
+            UPDATE chemistry.chemicals
+            SET cb_number=coalesce(cb_number, :cb), updated_at=now()
+            WHERE id=:chemical_id
+        """), {"cb": cb_number, "chemical_id": chemical_id})
+    # name_index 摄入: 仅 zh-CN 主行(镜像)
+    if locale == "zh-CN":
+        await ingest_from_entry_cn(
+            db, chemical_id, entry,
+            [s.get("name") for s in suppliers] if status == "ok" else [],
         )
-    # 供应商: cbsid 键 upsert(2026-08-28 定案: 有值 UPDATE, 无值 INSERT)。
-    # 仅 ok 时写入; not_found 清空。残留防护: 化合物层面先清掉本轮未出现的行,
-    # 防止 CB 下架供应商后旧行永久驻留(整组语义不变, 行内改为按 cbsid 更新)。
-    if status == "ok":
-        await db.execute(text("""
-            DELETE FROM chemistry.cas_suppliers a
-            WHERE a.chemical_id=:chemical_id
-              AND (a.cbsid IS NULL OR a.cbsid <> ALL(CAST(:cbsids AS text[])))
-              AND a.ref <> ALL(CAST(:refs AS text[]))
-        """), {"chemical_id": chemical_id,
-               "cbsids": [s.get("cbsid") for s in suppliers if s.get("cbsid")],
-               "refs": [s.get("ref") for s in suppliers]})
-        if suppliers:
+    # 供应商: cbsid 键 upsert(有值 UPDATE 无值 INSERT)。仅 zh-CN 主行写;
+    # locale(国家)只补空(GW/CPP 数据源合并, 不覆盖既有判定)。
+    # 残留防护: 本轮未出现的行(cbsid/ref 都不在)DELETE, 防 CB 下架供应商驻留。
+    if locale == "zh-CN":
+        if status == "ok":
             await db.execute(text("""
-                INSERT INTO chemistry.cas_suppliers
-                    (chemical_id,ref,cbsid,name,phone,email,website,purity,pack_price,remark)
-                SELECT :chemical_id,* FROM unnest(
-                    CAST(:refs AS text[]),CAST(:cbsids AS text[]),
-                    CAST(:names AS text[]),
-                    CAST(:phones AS text[]),CAST(:emails AS text[]),CAST(:websites AS text[]),
-                    CAST(:purities AS text[]),CAST(:packs AS text[]),CAST(:remarks AS text[]))
-                AS t(ref,cbsid,name,phone,email,website,purity,pack_price,remark)
-                ON CONFLICT (chemical_id, ref) DO UPDATE SET
-                    cbsid=coalesce(excluded.cbsid, chemistry.cas_suppliers.cbsid),
-                    name=excluded.name,
-                    phone=coalesce(excluded.phone, chemistry.cas_suppliers.phone),
-                    email=coalesce(excluded.email, chemistry.cas_suppliers.email),
-                    website=coalesce(excluded.website, chemistry.cas_suppliers.website),
-                    purity=excluded.purity,
-                    pack_price=excluded.pack_price,
-                    remark=excluded.remark
-            """), _suppliers_params(chemical_id, suppliers))
-    else:
-        await db.execute(text("""
-            DELETE FROM chemistry.cas_suppliers WHERE chemical_id=:chemical_id
-        """), {"chemical_id": chemical_id})
+                DELETE FROM chemistry.chemical_supplier a
+                WHERE a.chemical_id=:chemical_id
+                  AND (a.cbsid IS NULL OR a.cbsid <> ALL(CAST(:cbsids AS text[])))
+                  AND a.ref <> ALL(CAST(:refs AS text[]))
+            """), {"chemical_id": chemical_id,
+                   "cbsids": [s.get("cbsid") for s in suppliers if s.get("cbsid")],
+                   "refs": [s.get("ref") for s in suppliers]})
+            if suppliers:
+                await db.execute(text("""
+                    INSERT INTO chemistry.chemical_supplier
+                        (chemical_id,ref,cbsid,name,phone,email,website,purity,pack_price,remark,locale)
+                    SELECT :chemical_id,* FROM unnest(
+                        CAST(:refs AS text[]),CAST(:cbsids AS text[]),
+                        CAST(:names AS text[]),
+                        CAST(:phones AS text[]),CAST(:emails AS text[]),CAST(:websites AS text[]),
+                        CAST(:purities AS text[]),CAST(:packs AS text[]),CAST(:remarks AS text[]),
+                        CAST(:locales AS text[]))
+                    AS t(ref,cbsid,name,phone,email,website,purity,pack_price,remark,locale)
+                    ON CONFLICT (chemical_id, ref) DO UPDATE SET
+                        cbsid=coalesce(excluded.cbsid, chemistry.chemical_supplier.cbsid),
+                        name=excluded.name,
+                        phone=coalesce(excluded.phone, chemistry.chemical_supplier.phone),
+                        email=coalesce(excluded.email, chemistry.chemical_supplier.email),
+                        website=coalesce(excluded.website, chemistry.chemical_supplier.website),
+                        purity=excluded.purity,
+                        pack_price=excluded.pack_price,
+                        remark=excluded.remark,
+                        locale=coalesce(chemistry.chemical_supplier.locale, excluded.locale)
+                """), _suppliers_params(chemical_id, suppliers))
+        else:
+            await db.execute(text("""
+                DELETE FROM chemistry.chemical_supplier WHERE chemical_id=:chemical_id
+            """), {"chemical_id": chemical_id})
 
 
 def _suppliers_params(chemical_id: int, suppliers: list[dict[str, Any]]) -> dict[str, Any]:
@@ -164,76 +171,8 @@ def _suppliers_params(chemical_id: int, suppliers: list[dict[str, Any]]) -> dict
         "refs": col("ref"), "cbsids": col("cbsid"), "names": col("name"),
         "phones": col("phone"), "emails": col("email"), "websites": col("website"),
         "purities": col("purity"), "packs": col("pack_price"), "remarks": col("remark"),
+        "locales": col("locale"),
     }
-
-
-# ---- 供应商主档 + 品目关联(2026-08-28 定案: 专表+关联表) ---------------------
-
-async def upsert_supplier_registry(
-    db: Any,
-    *,
-    cas_number: str,
-    suppliers: list[dict[str, Any]],
-    source: str,
-) -> None:
-    """GN/GW 供应商 -> cb_suppliers 主档(键 cbsid) + cb_product_suppliers 关联(键 cas↔cbsid)。
-
-    主档字段随供应商(coalesce 保守), 品级字段随品目(关联行); nationality/cb_index
-    仅 GW 有, GN 行不覆盖已有国际主档信息。无 cbsid 行不入(无身份键)。
-    """
-    rows = [s for s in suppliers if s.get("cbsid")]
-    if not rows:
-        return
-    await db.execute(text("""
-        INSERT INTO chemistry.cb_suppliers
-            (cbsid, name, nationality, phone, email, website, cb_index)
-        SELECT * FROM unnest(
-            CAST(:cbsids AS text[]), CAST(:names AS text[]),
-            CAST(:nationalities AS text[]), CAST(:phones AS text[]),
-            CAST(:emails AS text[]), CAST(:websites AS text[]),
-            CAST(:cb_indexes AS integer[]))
-        AS t(cbsid, name, nationality, phone, email, website, cb_index)
-        ON CONFLICT (cbsid) DO UPDATE SET
-            name=excluded.name,
-            nationality=coalesce(excluded.nationality, chemistry.cb_suppliers.nationality),
-            phone=coalesce(excluded.phone, chemistry.cb_suppliers.phone),
-            email=coalesce(excluded.email, chemistry.cb_suppliers.email),
-            website=coalesce(excluded.website, chemistry.cb_suppliers.website),
-            cb_index=coalesce(excluded.cb_index, chemistry.cb_suppliers.cb_index),
-            last_seen_at=now()
-    """), {
-        "cbsids": [s["cbsid"] for s in rows],
-        "names": [s.get("name") for s in rows],
-        "nationalities": [s.get("nationality") for s in rows],
-        "phones": [s.get("phone") for s in rows],
-        "emails": [s.get("email") for s in rows],
-        "websites": [s.get("website") for s in rows],
-        "cb_indexes": [s.get("cb_index") for s in rows],
-    })
-    await db.execute(text("""
-        INSERT INTO chemistry.cb_product_suppliers
-            (cas_number, cbsid, source, product_name_en, purity, pack_price, remark)
-        SELECT * FROM unnest(
-            CAST(:cas AS text[]), CAST(:cbsids AS text[]), CAST(:sources AS text[]),
-            CAST(:pnens AS text[]), CAST(:purities AS text[]),
-            CAST(:packs AS text[]), CAST(:remarks AS text[]))
-        AS t(cas_number, cbsid, source, product_name_en, purity, pack_price, remark)
-        ON CONFLICT (cas_number, cbsid) DO UPDATE SET
-            source=excluded.source,
-            product_name_en=coalesce(excluded.product_name_en, chemistry.cb_product_suppliers.product_name_en),
-            purity=coalesce(excluded.purity, chemistry.cb_product_suppliers.purity),
-            pack_price=coalesce(excluded.pack_price, chemistry.cb_product_suppliers.pack_price),
-            remark=coalesce(excluded.remark, chemistry.cb_product_suppliers.remark),
-            last_seen_at=now()
-    """), {
-        "cas": [cas_number] * len(rows),
-        "cbsids": [s["cbsid"] for s in rows],
-        "sources": [source] * len(rows),
-        "pnens": [s.get("product_name_en") for s in rows],
-        "purities": [s.get("purity") for s in rows],
-        "packs": [s.get("pack_price") for s in rows],
-        "remarks": [s.get("remark") for s in rows],
-    })
 
 
 def _dedupe_key(chemical_id: int, cas_number: str) -> str:
@@ -500,7 +439,10 @@ async def sync_fetch_and_store(
     返回 ensure 状态字典; 网络失败/超时不落 error 行(留给 worker 重试)。
     """
     from caslib.fetch import fetch_cas
-    from caslib.parse import parse_entry, parse_suppliers
+    from caslib.parse import (
+        cpp_page_state, parse_cpp_entry, parse_cpp_suppliers, parse_entry,
+        parse_suppliers,
+    )
 
     async def _fetch() -> tuple[str, dict | None, list, str | None]:
         result = await fetch_cas(cas_number, total_budget_s=SYNC_FETCH_BUDGET_S)
@@ -508,8 +450,16 @@ async def sync_fetch_and_store(
             return "error", None, [], None
         if result.status == "not_found":
             return "not_found", None, [], None
-        entry = parse_entry(result.cas_html or "")
-        suppliers = parse_suppliers(result.cas_html or "", result.supplier_html)
+        # 上游"系统忙"限流: 语义=error, 同步路径不落行走入队
+        if result.cpp_html and cpp_page_state(result.cpp_html) in ("busy", "empty"):
+            return "error", None, [], None
+        # CPP-CN 页为主(信息更全+100家供应商+国家); 缺席退 CAS 页旧链
+        entry = parse_cpp_entry(result.cpp_html) if result.cpp_html else None
+        suppliers = parse_cpp_suppliers(result.cpp_html or "") if result.cpp_html else []
+        if entry is None and result.cas_html:
+            entry = parse_entry(result.cas_html)
+        if not suppliers and result.cas_html:
+            suppliers = parse_suppliers(result.cas_html, None)
         if entry is None:
             return "not_found", None, [], None
         return "ok", entry, suppliers, result.cb_number
@@ -551,7 +501,7 @@ async def ensure_externals(
             # 防止行被刷新/外部置过期后缓存继续兜售旧判定
             if payload.get("state") == "fresh":
                 probe = (await db.execute(text(
-                    "SELECT expires_at,fetched_at FROM chemistry.cas_externals "
+                    "SELECT expires_at,fetched_at FROM chemistry.chemical_cb "
                     "WHERE chemical_id=:i"
                 ), {"i": chemical_id})).fetchone()
                 row_fresh = bool(
@@ -593,7 +543,7 @@ async def ensure_externals(
     sup_fresh = suppliers_fresh(row["fetched_at"])
     payload: dict[str, Any]
     if entry_fresh and sup_fresh:
-        payload = {"state": "fresh", "entry": row["entry_cn"], "suppliers": suppliers,
+        payload = {"state": "fresh", "entry": row["entry"], "suppliers": suppliers,
                    "job_id": None}
     else:
         job_id = await enqueue_cas_job(
@@ -601,7 +551,7 @@ async def ensure_externals(
             request_context={"reason": "stale_refresh"},
         )
         await db.commit()
-        payload = {"state": "stale", "entry": row["entry_cn"], "suppliers": suppliers,
+        payload = {"state": "stale", "entry": row["entry"], "suppliers": suppliers,
                    "job_id": job_id}
     try:
         if payload["state"] == "fresh":
@@ -615,8 +565,8 @@ async def ensure_externals(
 async def scan_expired_into_queue(db: Any, batch: int = 200) -> int:
     """worker 自扫: expires_at 超期(含 not_found 负缓存到期)分批入队。"""
     rows = (await db.execute(text("""
-        SELECT chemical_id,cas_number FROM chemistry.cas_externals
-        WHERE expires_at IS NOT NULL AND expires_at<now()
+        SELECT chemical_id,cas_number FROM chemistry.chemical_cb
+        WHERE locale='zh-CN' AND expires_at IS NOT NULL AND expires_at<now()
         ORDER BY expires_at LIMIT :batch
     """), {"batch": batch})).fetchall()
     enqueued = 0

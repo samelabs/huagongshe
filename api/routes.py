@@ -14,6 +14,7 @@ from .chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE, canonicalize_smiles, norm
 from .config import settings
 from .database import get_db
 from .name_index import normalize_name
+from .rate_limit import enforce
 from .enrichment import (
     DEFAULT_SECTIONS,
     display_details,
@@ -64,6 +65,10 @@ CHEMICAL_SELECT = """
 # Smaller motifs match too much of the 124M-compound corpus and can remain inside
 # RDKit's PostgreSQL extension after the client-side statement timeout expires.
 MIN_SUBSTRUCTURE_HEAVY_ATOMS = 10
+# 名称最短长度按"字符数"计（Python len=str 数字符），中文 1 字 = 1 字符。
+# 纯 1-2 字符对 124M 行的 ILIKE 模糊扫描过宽，3 字符起查；
+# 例外：完整 CAS 号/标识符走精确分支，不受此限。两字中文名（如"甲苯"）
+# 需经 name_index 别名镜像命中 —— normalize 后仍 <3 时提示用户补全名称。
 MIN_FUZZY_NAME_LENGTH = 3
 
 
@@ -342,6 +347,7 @@ async def search(
 ):
     """One entry point for names, external identifiers, SMILES and structures."""
     query = q.strip()
+    cas_fetch_pending = False  # CAS miss 已入队CB获取(standalone任务)
     # 结构检索登录墙(2026-08-26): GIST 单路 ~400ms 但并发无上限, 爬虫 12 路并发
     # 曾把机器打进 swap 全站僵死. exact 保持匿名(SSR); 结构模式需已鉴权 actor.
     if mode != "exact" and actor is None:
@@ -434,6 +440,42 @@ async def search(
                     WHERE {' OR '.join(clauses)}
                     ORDER BY c.id LIMIT :limit OFFSET :offset
                 """, params)
+                # CAS miss -> standalone CB 任务(2026-08-27): 只入队不同步拉。
+                # 三态: pending=在途 / miss=CB负缓存 / 新入队也返回 pending。
+                # 鉴权用户按 actor.id 限流; 匿名(BFF/SSR=loopback)共享全局桶
+                # 30/min(BFF 后无真实IP可用, 靠 dedupe+深度闸门兜底)。
+                # 限流/入队失败一律降级为不入队, 绝不阻塞搜索响应。
+                if (
+                    not chemicals and page == 1 and CAS_RE.fullmatch(query)
+                ):
+                    try:
+                        from .cas_externals import (
+                            cas_search_state, enqueue_cas_search_fetch,
+                        )
+                        state = await cas_search_state(db, query)
+                        if state == "new":
+                            try:
+                                identity = (
+                                    str(actor.id) if actor is not None
+                                    else "anon-shared"
+                                )
+                                limit = 10 if actor is not None else 30
+                                await enforce(
+                                    "cas-search-fetch", identity, limit, 60,
+                                )
+                            except HTTPException:
+                                state = "new"  # 限流中: 本次不入队
+                            else:
+                                enqueued = await enqueue_cas_search_fetch(
+                                    db, cas_number=query,
+                                )
+                                await db.commit()
+                                state = "pending" if enqueued else "miss"
+                    except Exception:
+                        await db.rollback()  # 入队失败不阻塞搜索响应
+                        state = "new"
+                    if state == "pending":
+                        cas_fetch_pending = True
             if not chemicals and not canonical and len(query) >= MIN_FUZZY_NAME_LENGTH:
                 # Keep the two trigram indexes independent. A cross-column OR on
                 # 124M rows is both slower and less predictable than two bounded scans.
@@ -451,8 +493,9 @@ async def search(
                         ORDER BY c.id LIMIT :limit OFFSET :offset
                     """, {"q": query, "limit": page_size, "offset": offset})
                     seen = {item["id"] for item in chemicals}
+                    # 相关性排序: preferred_name 命中段排在前, iupac 段追加在后.
+                    # 不再按 id 归并排序(id 排序会让低段位命中挤掉精确名匹配).
                     chemicals.extend(item for item in secondary if item["id"] not in seen)
-                    chemicals.sort(key=lambda item: item["id"])
                     chemicals = chemicals[:page_size]
                 # 第三段: name_index(中文名/别名/供应商名/synonyms 的派生镜像)。
                 # 只在前两段不足一页时下探, 前两路零改动。
@@ -464,7 +507,9 @@ async def search(
                     """), {"nq": normalize_name(query), "limit": page_size})).scalars().all()
                     if tertiary_ids:
                         name_index_hit = True
-                        # 合并而非替换: 前两段结果保留, 去重后追加(与第二段同型)
+                        # 合并而非替换: 前两段结果保留, 去重后追加(与第二段同型).
+                        # 相关性排序: 段位顺序 = preferred_name > iupac > name_index;
+                        # 同义词层(如"Aspirin Impurity C")不得越过精确名命中.
                         seen = {item["id"] for item in chemicals}
                         fresh_ids = [i for i in tertiary_ids if i not in seen]
                         if fresh_ids:
@@ -475,7 +520,6 @@ async def search(
                                 ORDER BY c.id
                             """, {"ids": fresh_ids})
                             chemicals.extend(more)
-                            chemicals.sort(key=lambda item: item["id"])
                             chemicals = chemicals[:page_size]
             elif not chemicals and not canonical and len(query) < MIN_FUZZY_NAME_LENGTH:
                 raise HTTPException(422, "名称查询至少需要 3 个字符")
@@ -516,6 +560,8 @@ async def search(
         "page": page, "page_size": page_size, "total": total,
         "chemicals": chemicals, "reactions": reactions,
     }
+    if cas_fetch_pending:
+        data["cas_fetch_pending"] = True  # 前端提示: 正在获取该CAS数据
     if mode != "exact":
         await cache_set(cache_key, data, ttl=300)
     return data
@@ -578,8 +624,11 @@ async def chemical_detail(
         db,
         chemical_id,
         sections=FULL_DETAILS_SECTIONS if enrich == "full" else DEFAULT_SECTIONS,
-        priority=80,
+        # 优先级对齐 CB 定论: 80=用户(登录) / 50=后台. 匿名 SSR(爬虫翻页)
+        # 不是用户, 不占用户位(2026-08-27 血案: 匿名流量曾以 80 插队灌队列).
+        priority=80 if actor is not None else 50,
         request=request,
+        actor=actor,
     )
     if job_id is not None:
         await db.commit()

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import t from "@/lib/i18n";
 
 type Skill = {
   id: number;
@@ -21,12 +22,7 @@ function CategoryIcon({ cat, size = 28 }: { cat: Category | undefined; size?: nu
   return (
     <span
       className="cat-icon"
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: cat?.color || "#636e72",
-        fontSize: size * 0.36,
-      }}
+      style={{ width: size, height: size, backgroundColor: cat?.color || "#636e72" }}
       aria-hidden="true"
     >
       {cat?.abbr || "SK"}
@@ -41,7 +37,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
 }) {
   const error = loadError;
   const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string>("全部");
+  const [activeCategory, setActiveCategory] = useState<string>(t.skills.allCategories);
 
 
   const catMap = useMemo(() => new Map(cats.map((c) => [c.name, c])), [cats]);
@@ -49,7 +45,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
   const categories = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of skills) {
-      const cat = s.category || "通用工具";
+      const cat = s.category || t.skills.defaultCategory;
       map.set(cat, (map.get(cat) || 0) + 1);
     }
     return Array.from(map.entries()).sort((a, b) => {
@@ -62,7 +58,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
   const filtered = useMemo(() => {
     return skills.filter((s) => {
       const matchCategory =
-        activeCategory === "全部" || (s.category || "通用工具") === activeCategory;
+        activeCategory === t.skills.allCategories || (s.category || t.skills.defaultCategory) === activeCategory;
       const q = query.toLowerCase().trim();
       const matchQuery =
         !q ||
@@ -77,7 +73,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
   const grouped = useMemo(() => {
     const map = new Map<string, Skill[]>();
     for (const s of filtered) {
-      const cat = s.category || "通用工具";
+      const cat = s.category || t.skills.defaultCategory;
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(s);
     }
@@ -94,36 +90,36 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
       <section className="kdense-hero">
         <div className="kdense-hero-inner">
           <p className="kdense-breadcrumb">
-            <a href="/">化工社AIchem</a>
+            <a href="/">{t.brand.name}</a>
             <span className="kdense-sep">/</span>
-            <span>开放技能库</span>
+            <span>{t.skills.openLibrary}</span>
           </p>
-          <h1>科学 AI 开放技能库</h1>
+          <h1>{t.skills.heroTitle}</h1>
           <p className="kdense-subtitle">
-            {skills.length} 个开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域，可按需下载使用。
+            {t.skills.heroSubtitle(skills.length)}
           </p>
           <p className="kdense-source">
-            数据来源：K-Dense-AI/scientific-agent-skills (MIT) 与化工社AIchem官方技能 · 由化工社整理提供
+            {t.skills.heroSource}
           </p>
           <div className="kdense-search-bar">
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索技能名称或关键词…"
-              aria-label="搜索技能"
+              placeholder={t.skills.searchPlaceholder}
+              aria-label={t.skills.searchPlaceholder}
             />
           </div>
         </div>
       </section>
 
       {/* Category nav */}
-      <nav className="kdense-cats" aria-label="技能分类">
+      <nav className="kdense-cats" aria-label={t.skills.categoriesLabel}>
         <button
-          className={`kdense-cat ${activeCategory === "全部" ? "active" : ""}`}
-          onClick={() => setActiveCategory("全部")}
+          className={`kdense-cat ${activeCategory === t.skills.allCategories ? "active" : ""}`}
+          onClick={() => setActiveCategory(t.skills.allCategories)}
         >
-          全部 <span className="kdense-cat-count">{skills.length}</span>
+          {t.skills.allCategories} <span className="kdense-cat-count">{skills.length}</span>
         </button>
         {categories.map(([cat, count]) => (
           <button
@@ -139,9 +135,9 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
       {/* Skills */}
       <div className="kdense-content">
         {error ? (
-          <p className="kdense-empty">数据读取失败，请刷新后重试。</p>
+          <p className="kdense-empty">{t.skills.loadFailed}</p>
         ) : filtered.length === 0 ? (
-          <p className="kdense-empty">未找到匹配的技能</p>
+          <p className="kdense-empty">{t.skills.noMatch}</p>
         ) : (
           <div className="kdense-groups">
             {grouped.map(([cat, catSkills]) => (
@@ -153,7 +149,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
                 </h2>
                 <div className="kdense-grid">
                   {catSkills.map((s) => (
-                    <SkillCard key={s.id} skill={s} cat={catMap.get(s.category || "通用工具")} />
+                    <SkillCard key={s.id} skill={s} cat={catMap.get(s.category || t.skills.defaultCategory)} />
                   ))}
                 </div>
               </section>
@@ -166,46 +162,33 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
 }
 
 function SkillCard({ skill, cat }: { skill: Skill; cat: Category | undefined }) {
-  const [expanded, setExpanded] = useState(false);
-  const color = cat?.color || "#636e72";
-
   return (
-    <article className={`kdense-card ${expanded ? "expanded" : ""}`}>
-      <div className="kdense-card-accent" style={{ backgroundColor: color }} />
+    <article className="kdense-card">
+      <div className="kdense-card-accent" style={{ backgroundColor: cat?.color || "#636e72" }} />
       <div className="kdense-card-body">
         <div className="kdense-card-head">
           <h3 className="kdense-card-name">{skill.slug}</h3>
           {skill.origin === "official" && (
-            <span className="kdense-card-license">官方</span>
+            <span className="kdense-card-license">{t.skills.officialBadge}</span>
           )}
           {skill.has_scripts && (
-            <span className="kdense-card-license" title="该技能包含脚本文件，使用前请人工审阅">
-              含脚本
+            <span className="kdense-card-license" title={t.skills.hasScriptsHint}>
+              {t.skills.hasScriptsBadge}
             </span>
           )}
         </div>
-        <p className="kdense-card-desc">{skill.description || "暂无描述"}</p>
+        <p className="kdense-card-desc">{skill.description || t.skills.noDescription}</p>
         <div className="kdense-card-stats">
-          <span className="kdense-stat">{skill.file_count} 文件</span>
+          <span className="kdense-stat">{t.skills.fileCount(skill.file_count)}</span>
+          <span className="kdense-stat">{t.skills.sizeBytes(skill.size_bytes)}</span>
         </div>
-        {expanded && (
-          <div className="kdense-card-detail">
-            <p>{skill.description}</p>
-          </div>
-        )}
         <div className="kdense-card-actions">
-          <button
-            className="kdense-btn kdense-btn-toggle"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? "收起" : "详情"}
-          </button>
           <a
             className="kdense-btn kdense-btn-download"
             href={`/api/skills/${skill.id}/archive`}
             download={`${skill.slug}.zip`}
           >
-            下载技能包
+            {t.skills.download}
           </a>
         </div>
       </div>

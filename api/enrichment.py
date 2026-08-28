@@ -71,7 +71,7 @@ async def fetch_details(db: Any, chemical_id: int) -> dict[str, Any] | None:
                section_source_hashes,
                pubchem_created_on,pubchem_modified_on,schema_version,
                fetched_at,expires_at,updated_at
-        FROM chemistry.chemical_details WHERE chemical_id=:chemical_id
+        FROM chemistry.chemical_pubchem WHERE chemical_id=:chemical_id
     """), {"chemical_id": chemical_id})).mappings().fetchone()
     return dict(row) if row else None
 
@@ -152,6 +152,7 @@ async def enqueue_chemical_if_needed(
     sections: tuple[str, ...] = DEFAULT_SECTIONS,
     priority: int = 70,
     request: Request | None = None,
+    actor: Any = None,
 ) -> tuple[dict[str, Any] | None, int | None, bool]:
     chemical = (await db.execute(text("""
         SELECT pubchem_cid,smiles,inchikey FROM chemistry.chemicals WHERE id=:chemical_id
@@ -181,6 +182,16 @@ async def enqueue_chemical_if_needed(
     # 队列去重(dedupe_key)+worker 速率控制是容量上界, 内部流量无需 API 层限流.
     if request is not None and not is_loopback_host(request.client.host if request.client else None):
         return details, None, True
+    # 水位闸门(2026-08-27): 匿名 SSR(爬虫翻页)可在一天内灌 5 万+ 任务.
+    # 活跃积压超阈值时, 无 actor 的入队直接降级不入队(返回 stale);
+    # 有 actor 的用户请求不受限. 阈值=2万(worker 4rps 约 1.5 天存量上限).
+    if actor is None:
+        active = (await db.execute(text("""
+            SELECT count(*) FROM maintenance.pubchem_jobs
+            WHERE status IN ('queued','retry')
+        """))).scalar() or 0
+        if active >= 20000:
+            return details, None, True
     if chemical[0] is not None:
         query_kind, query_value = "cid", str(chemical[0])
     elif chemical[2]:
@@ -216,7 +227,8 @@ async def chemical_details(
 ):
     requested = normalize_sections(sections)
     details, job_id, needs_refresh = await enqueue_chemical_if_needed(
-        db, chemical_id, sections=requested, priority=80, request=request
+        db, chemical_id, sections=requested,
+        priority=80 if actor is not None else 50, request=request, actor=actor,
     )
     if job_id is not None:
         await db.commit()

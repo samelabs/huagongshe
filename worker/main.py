@@ -196,45 +196,71 @@ async def process_cas_job(
     """cas_jobs 处理: caslib 拉取解析 -> /cas/jobs/complete|fail。
 
     抓取预算放宽(后台路径非用户等待路径), 页间 2s 礼仪间隔。
+    locale: zh-CN 主行走 fetch_cas 主链(CPP-CN 一页全量);
+    en 等语言行用主表 cb_number 直拉 CPP 语言页, 只写 entry。
     """
-    from caslib.fetch import fetch_cas, fetch_mol
-    from caslib.gwparse import parse_gw_suppliers
-    from caslib.parse import extract_mol_href, parse_entry, parse_suppliers
+    from caslib.fetch import fetch_cas, fetch_cpp_locale, fetch_mol
+    from caslib.parse import (
+        cpp_page_state, extract_mol_href, parse_cpp_entry, parse_cpp_entry_en,
+        parse_cpp_suppliers, parse_entry, parse_suppliers,
+    )
 
+    locale = job.get("locale") or "zh-CN"
     stop = asyncio.Event()
     heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop, cas=True))
     try:
-        result = await fetch_cas(
-            job["cas_number"], total_budget_s=20.0, session=session, fetch_gw=True
-        )
-        if result.status == "not_found":
-            payload = {"status": "not_found", "entry": None, "suppliers": []}
-        elif result.status == "error":
-            raise RuntimeError(f"cas fetch error: {result.error}")
-        else:
-            entry = parse_entry(result.cas_html or "")
-            if entry is None:
+        payload: dict[str, Any]
+        if locale == "zh-CN":
+            cb_hint = job.get("cb_number")
+            result = await fetch_cas(
+                job["cas_number"], total_budget_s=20.0, session=session,
+                cb_number=cb_hint,
+            )
+            if result.status == "not_found":
                 payload = {"status": "not_found", "entry": None, "suppliers": []}
+            elif result.status == "error":
+                raise RuntimeError(f"cas fetch error: {result.error}")
+            elif result.cpp_html and cpp_page_state(result.cpp_html) in ("busy", "empty"):
+                # 上游"系统忙"限流 = error 语义, 走 fail/retry, 不落负缓存
+                raise RuntimeError("cpp page busy (upstream throttled)")
             else:
-                suppliers = parse_suppliers(result.cas_html or "", result.supplier_html)
-                payload = {"status": "ok", "entry": entry, "suppliers": suppliers}
-                # CB条目号: 身份标识随载荷回传(落DB, 不进API输出)
-                if result.cb_number:
-                    payload["cb_number"] = result.cb_number
-                # mol 文件: 详情页有外链才拉(无外链=零请求); 失败退化 None 不影响 job
-                mol_href = extract_mol_href(result.cas_html or "")
-                if mol_href:
-                    payload["mol"] = await fetch_mol(session, mol_href)
-                # GW 国际供应商: 主档+关联表异步维护(2026-08-28 定案);
-                # 解析失败退化空列表, 不影响 job
-                gw_rows = parse_gw_suppliers(result.gw_html or "")
-                if gw_rows:
-                    payload["gw_suppliers"] = gw_rows
+                entry = (
+                    parse_cpp_entry(result.cpp_html) if result.cpp_html else None
+                ) or (parse_entry(result.cas_html) if result.cas_html else None)
+                if entry is None:
+                    payload = {"status": "not_found", "entry": None, "suppliers": []}
+                else:
+                    suppliers = (
+                        parse_cpp_suppliers(result.cpp_html) if result.cpp_html else []
+                    )
+                    if not suppliers and result.cas_html:
+                        suppliers = parse_suppliers(result.cas_html, None)
+                    payload = {"status": "ok", "entry": entry, "suppliers": suppliers}
+                    # CB条目号: 身份标识随载荷回传(落主表, 不进API输出)
+                    if result.cb_number:
+                        payload["cb_number"] = result.cb_number
+                    # mol 文件: 详情页有外链才拉(无外链=零请求); 失败退化 None
+                    mol_href = extract_mol_href(result.cas_html or "")
+                    if mol_href:
+                        payload["mol"] = await fetch_mol(session, mol_href)
+        else:
+            # 语言行: 主表 cb_number 直拉 CPP 语言页, 只写 entry
+            cb_number = job.get("cb_number")
+            if not cb_number:
+                payload = {"status": "not_found", "entry": None, "suppliers": [],
+                           "locale": locale}
+            else:
+                cpp_html = await fetch_cpp_locale(session, cb_number, locale)
+                entry = parse_cpp_entry_en(cpp_html) if cpp_html else None
+                if entry is None:
+                    raise RuntimeError(f"cpp locale fetch empty: {locale} CB{cb_number}")
+                payload = {"status": "ok", "entry": entry, "suppliers": [],
+                           "locale": locale}
         await workapi.post(
             "/workapi/v1/cas/jobs/complete",
             {"job_id": job["job_id"], "lease_token": job["lease_token"], "result": payload},
         )
-        log.info("cas job=%s %s", job["job_id"], payload["status"])
+        log.info("cas job=%s %s %s", job["job_id"], payload["status"], locale)
     except Exception as exc:
         try:
             await workapi.post(

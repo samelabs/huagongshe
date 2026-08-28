@@ -180,49 +180,81 @@ class SupplierIdentityTests(unittest.TestCase):
         self.assertEqual(merged[0]["cbsid"], "777")
 
 
-class GwParseTests(unittest.TestCase):
-    """GW 国际供应商页解析(fixture: 2026-08-28 实拉 65-85-0, 5家)。"""
+class CppParseTests(unittest.TestCase):
+    """CPP 页解析(fixture: 2026-08-28 实拉 NBS CB2234049, 100家供应商)。"""
 
     @classmethod
     def setUpClass(cls) -> None:
-        path = "/tmp/gw_fixture.htm"
-        import shutil
-        if os.path.exists("/tmp/gw2.htm"):
-            shutil.copy("/tmp/gw2.htm", path)
+        path = "/tmp/cpp_CN.htm"
         if not os.path.exists(path):
-            raise unittest.SkipTest("GW fixture 不在本机")
+            raise unittest.SkipTest("CPP fixture 不在本机")
         cls.html = open(path, encoding="utf-8", errors="replace").read()
+        cls.html_en = open("/tmp/cpp_EN.htm", encoding="utf-8",
+                           errors="replace").read() if os.path.exists("/tmp/cpp_EN.htm") else ""
 
-    def test_gw_five_international(self) -> None:
-        from caslib.gwparse import parse_gw_suppliers
+    def test_cpp_suppliers_hundred_rows(self) -> None:
+        from caslib.parse import parse_cpp_suppliers
 
-        rows = parse_gw_suppliers(self.html)
-        self.assertEqual(len(rows), 5)
-        by_nat = {r["nationality"]: r for r in rows}
-        self.assertIn("德国", by_nat)
-        self.assertIn("美国", by_nat)
-        # Connect Chemicals(德国): 全字段
-        de = by_nat["德国"]
-        self.assertEqual(de["name"], "Connect Chemicals GmbH")
-        self.assertEqual(de["email"], "Martin.Klapper@connectchemicals.com")
-        self.assertEqual(de["website"], "www.connectchemicals.com")
-        self.assertEqual(de["cb_index"], 62)
-        self.assertEqual(de["product_name_en"], "Benzoic acid")
-        self.assertEqual(de["remark"], "S")
-        # TCI 日本: 纯度/包装/备注
-        jp = by_nat["日本"]
-        self.assertEqual(jp["purity"], ">=99%")
-        self.assertEqual(jp["pack_price"], "25 g,500 g")
-        self.assertIn("Zone Refined", jp["remark"])
-        # 身份键全部存在
+        rows = parse_cpp_suppliers(self.html)
+        self.assertEqual(len(rows), 100)
+        by_locale = {}
         for r in rows:
-            self.assertRegex(r["cbsid"], r"^\d+$")
+            by_locale[r["locale"]] = by_locale.get(r["locale"], 0) + 1
+        self.assertEqual(by_locale.get("中国"), 93)
+        self.assertIn("德国", by_locale)
+        # 首行字段齐全
+        first = rows[0]
+        self.assertEqual(first["name"], "南京苏如化工有限公司")
+        self.assertEqual(first["email"], "sales@suruchem.com")
+        self.assertRegex(first["cbsid"], r"^\d+$")
+        self.assertEqual(len(first["ref"]), 16)
 
-    def test_gw_empty_or_garbage(self) -> None:
-        from caslib.gwparse import parse_gw_suppliers
+    def test_cpp_suppliers_empty_or_garbage(self) -> None:
+        from caslib.parse import parse_cpp_suppliers
 
-        self.assertEqual(parse_gw_suppliers(""), [])
-        self.assertEqual(parse_gw_suppliers("<html>无关页面</html>"), [])
+        self.assertEqual(parse_cpp_suppliers(""), [])
+        self.assertEqual(parse_cpp_suppliers("<html>无关页面</html>"), [])
+        # EN 语言页供应商链接形态不同(/0_EN.htm), 不误配
+        if self.html_en:
+            self.assertEqual(parse_cpp_suppliers(self.html_en), [])
+
+    def test_cpp_entry_full(self) -> None:
+        from caslib.parse import parse_cpp_entry
+
+        entry = parse_cpp_entry(self.html)
+        self.assertIsNotNone(entry)
+        keys = set(entry.keys())
+        self.assertIn("basic", keys)
+        self.assertIn("props", keys)
+        self.assertIn("safety", keys)
+        self.assertIn("prose", keys)
+        self.assertIn("updown", keys)
+        self.assertIn("reagent_prices", keys)
+        self.assertIn("global_distribution", keys)
+        # basic 键值抽查
+        basic = dict(entry["basic"])
+        self.assertEqual(basic.get("CAS号"), "128-08-5")
+        self.assertEqual(basic.get("英文名"), "N-Bromosuccinimide")
+        # props: 熔点
+        props = dict(entry["props"])
+        self.assertIn("175-180", props.get("熔点", ""))
+        # safety: 14 对
+        self.assertEqual(len(entry["safety"]), 14)
+        # 全球分布
+        gd = entry["global_distribution"]
+        self.assertEqual(gd["total"], 1050)
+        self.assertEqual(gd["countries"].get("中国"), 781)
+
+    def test_cpp_entry_en(self) -> None:
+        if not self.html_en:
+            self.skipTest("EN fixture 不在本机")
+        from caslib.parse import parse_cpp_entry_en
+
+        entry = parse_cpp_entry_en(self.html_en)
+        self.assertIsNotNone(entry)
+        attrs = dict(entry["attributes"])
+        self.assertIn("SMILES", attrs)
+        self.assertIn("InChI", attrs)
 
 
 if __name__ == "__main__":
