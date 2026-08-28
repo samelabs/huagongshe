@@ -77,8 +77,12 @@ async def upsert_externals(
     entry: dict[str, Any] | None,
     suppliers: list[dict[str, Any]],
     status: str,
+    cb_number: str | None = None,
 ) -> None:
-    """worker complete 与同步拉取共用的唯一写入口(事务由调用方管理)。"""
+    """worker complete 与同步拉取共用的唯一写入口(事务由调用方管理)。
+
+    cb_number/cbsid 为原站身份标识: 只落DB, 任何API/DOM输出不经手(公开面零标识)。
+    """
     entry_json = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) if entry else None
     if entry_json and len(entry_json.encode()) > MAX_ENTRY_JSON_BYTES:
         raise ValueError("cas entry payload exceeds safety limit")
@@ -87,19 +91,22 @@ async def upsert_externals(
     )
     await db.execute(text("""
         INSERT INTO chemistry.cas_externals
-            (chemical_id,cas_number,entry_cn,last_status,fetched_at,expires_at)
+            (chemical_id,cas_number,entry_cn,last_status,fetched_at,expires_at,cb_number)
         VALUES
-            (:chemical_id,:cas_number,CAST(:entry AS jsonb),:status,now(),:expires)
+            (:chemical_id,:cas_number,CAST(:entry AS jsonb),:status,now(),:expires,
+             NULLIF(:cb_number,''))
         ON CONFLICT (chemical_id) DO UPDATE SET
             cas_number=excluded.cas_number,
             entry_cn=excluded.entry_cn,
             last_status=excluded.last_status,
             fetched_at=excluded.fetched_at,
             expires_at=excluded.expires_at,
+            cb_number=excluded.cb_number,
             updated_at=now()
     """), {
         "chemical_id": chemical_id, "cas_number": cas_number,
         "entry": entry_json, "status": status, "expires": expires,
+        "cb_number": cb_number,
     })
     # name_index 摄入: 与 cas_externals 同事务, 纯镜像
     await ingest_from_entry_cn(
@@ -114,12 +121,13 @@ async def upsert_externals(
         if suppliers:
             await db.execute(text("""
                 INSERT INTO chemistry.cas_suppliers
-                    (chemical_id,ref,name,phone,email,website,purity,pack_price,remark)
+                    (chemical_id,ref,cbsid,name,phone,email,website,purity,pack_price,remark)
                 SELECT :chemical_id,* FROM unnest(
-                    CAST(:refs AS text[]),CAST(:names AS text[]),
+                    CAST(:refs AS text[]),CAST(:cbsids AS text[]),
+                    CAST(:names AS text[]),
                     CAST(:phones AS text[]),CAST(:emails AS text[]),CAST(:websites AS text[]),
                     CAST(:purities AS text[]),CAST(:packs AS text[]),CAST(:remarks AS text[]))
-                AS t(ref,name,phone,email,website,purity,pack_price,remark)
+                AS t(ref,cbsid,name,phone,email,website,purity,pack_price,remark)
             """), _suppliers_params(chemical_id, suppliers))
     else:
         await db.execute(text("""
@@ -132,7 +140,7 @@ def _suppliers_params(chemical_id: int, suppliers: list[dict[str, Any]]) -> dict
         return [s.get(key) for s in suppliers]
     return {
         "chemical_id": chemical_id,
-        "refs": col("ref"), "names": col("name"),
+        "refs": col("ref"), "cbsids": col("cbsid"), "names": col("name"),
         "phones": col("phone"), "emails": col("email"), "websites": col("website"),
         "purities": col("purity"), "packs": col("pack_price"), "remarks": col("remark"),
     }
@@ -404,20 +412,20 @@ async def sync_fetch_and_store(
     from caslib.fetch import fetch_cas
     from caslib.parse import parse_entry, parse_suppliers
 
-    async def _fetch() -> tuple[str, dict | None, list]:
+    async def _fetch() -> tuple[str, dict | None, list, str | None]:
         result = await fetch_cas(cas_number, total_budget_s=SYNC_FETCH_BUDGET_S)
         if result.status == "error":
-            return "error", None, []
+            return "error", None, [], None
         if result.status == "not_found":
-            return "not_found", None, []
+            return "not_found", None, [], None
         entry = parse_entry(result.cas_html or "")
         suppliers = parse_suppliers(result.cas_html or "", result.supplier_html)
         if entry is None:
-            return "not_found", None, []
-        return "ok", entry, suppliers
+            return "not_found", None, [], None
+        return "ok", entry, suppliers, result.cb_number
 
     try:
-        status, entry, suppliers = await asyncio.wait_for(
+        status, entry, suppliers, cb_number = await asyncio.wait_for(
             _fetch(), timeout=SYNC_FETCH_BUDGET_S + 1.5,
         )
     except Exception:
@@ -427,6 +435,7 @@ async def sync_fetch_and_store(
     await upsert_externals(
         db, chemical_id=chemical_id, cas_number=cas_number.strip(),
         entry=entry, suppliers=suppliers, status=status,
+        cb_number=cb_number,
     )
     await db.commit()
     await cache_delete(CACHE_KEY.format(chemical_id=chemical_id))

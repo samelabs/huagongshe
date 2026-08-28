@@ -217,6 +217,9 @@ async def process_cas_job(
             else:
                 suppliers = parse_suppliers(result.cas_html or "", result.supplier_html)
                 payload = {"status": "ok", "entry": entry, "suppliers": suppliers}
+                # CB条目号: 身份标识随载荷回传(落DB, 不进API输出)
+                if result.cb_number:
+                    payload["cb_number"] = result.cb_number
                 # mol 文件: 详情页有外链才拉(无外链=零请求); 失败退化 None 不影响 job
                 mol_href = extract_mol_href(result.cas_html or "")
                 if mol_href:

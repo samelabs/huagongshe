@@ -306,6 +306,7 @@ def _parse_suppliers_cas_page(html: str) -> dict[str, dict[str, Any]]:
         f = _gsxx_fields(body)
         sup: dict[str, Any] = {
             "ref": None,  # 专用页合并时回填
+            "cbsid": None,  # CAS页无cbsid, 专用页合并时回填
             "name": name,
             # tag(黄金产品/现货/大货/新品)为原站付费推广位, 不入库不出解析层
             "phone": f.get("phone"),
@@ -378,7 +379,10 @@ def merge_suppliers(
     for name, sup in cas_page.items():
         extra = dedicated.pop(name, None)
         row = dict(sup)
+        # cbsid: 原站供应商身份标识(DB身份列), ref: 不透明哈希(公开引用)。
+        # 两者并存 — 边界: cbsid 只落DB, 任何API/DOM输出只用 ref。
         if extra:
+            row["cbsid"] = extra.get("cbsid")
             row["phone"] = row["phone"] or extra.get("phone")
             row["email"] = extra.get("email")
             row["website"] = extra.get("website")
@@ -391,6 +395,7 @@ def merge_suppliers(
     for name, extra in dedicated.items():
         merged.append(
             {
+                "cbsid": extra.get("cbsid"),
                 "ref": supplier_ref(extra["cbsid"]) if extra.get("cbsid") else supplier_ref(f"name:{name}"),
                 "name": name,
                 "phone": extra.get("phone"),

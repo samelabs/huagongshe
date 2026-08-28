@@ -674,6 +674,8 @@ class CasResultBody(BaseModel):
     suppliers: list[dict[str, Any]] = Field(default_factory=list)
     # CB molfile 原文(可选): 详情页有 MOL 外链时 worker 附带; 服务端只补空不覆盖
     mol: str | None = Field(default=None, max_length=1_000_000)
+    # CB 条目号(可选, 身份标识): 纯数字字符串, 落 cas_externals.cb_number
+    cb_number: str | None = Field(default=None, pattern=r"^\d{1,16}$")
 
 
 class CasCompleteBody(LeaseProof):
@@ -847,6 +849,7 @@ async def cas_complete_job(
             await upsert_externals(
                 db, chemical_id=chemical_id, cas_number=cas_number,
                 entry=entry, suppliers=suppliers, status=status,
+                cb_number=payload.cb_number,
             )
         except ValueError as exc:
             await db.execute(text("""

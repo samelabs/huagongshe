@@ -30,6 +30,7 @@ class FetchResult:
     status: str  # "ok" | "not_found" | "error"
     cas_html: str | None = None
     supplier_html: str | None = None
+    cb_number: str | None = None  # CB条目号(身份标识, 落DB不进API)
     error: str | None = None
     stats: dict = field(default_factory=dict)
 
@@ -81,11 +82,14 @@ async def fetch_cas(
         cb = extract_cb_number(body)
         if not cb:
             # 详情页正常但无供应商链接: 条目本身 ok, 供应商空
-            return FetchResult("ok", cas_html=body, stats=stats)
+            return FetchResult("ok", cas_html=body, cb_number=None, stats=stats)
         status2, body2 = await _get(session, f"{BASE}/ProdSupplierGNCB{cb}.htm", per)
         stats["supplier_status"] = status2
         supplier_html = body2 if status2 == 200 else None
-        return FetchResult("ok", cas_html=body, supplier_html=supplier_html, stats=stats)
+        return FetchResult(
+            "ok", cas_html=body, supplier_html=supplier_html,
+            cb_number=cb, stats=stats,
+        )
     finally:
         if own_session:
             await session.close()
