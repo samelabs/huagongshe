@@ -349,9 +349,6 @@ class PubChemClient:
         if kind == "cas":
             url = f"{PUG_REST}/compound/name/{quote(value, safe='')}/cids/JSON"
             payload = await self.request_json("GET", url)
-        elif kind == "inchikey":
-            url = f"{PUG_REST}/compound/inchikey/{quote(value, safe='')}/cids/JSON"
-            payload = await self.request_json("GET", url)
         elif kind == "smiles":
             url = f"{PUG_REST}/compound/fastidentity/smiles/cids/JSON"
             payload = await self.request_json(
