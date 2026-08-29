@@ -482,6 +482,25 @@ async def search(
                         state = "new"
                     if state == "pending":
                         cas_fetch_pending = True
+            # SMILES miss -> 建行入库(2026-08-29): canonical 校验通过但库内无行时,
+            # 复用反应侧 resolve_or_create_chemical 同套逻辑(本地 RDKit 算结构三件),
+            # 本次响应即返回该行. 结构行与反应创建同形态, 不新增入队/限流(结构合法
+            # 即行合法, 延伸字段留 PB/CB 自然演进). 建行失败降级为空结果, 不阻塞.
+            if not chemicals and page == 1 and canonical and len(query) <= 4000:
+                try:
+                    from .reactions import resolve_or_create_chemical
+                    chemical_id, _created = await resolve_or_create_chemical(db, canonical)
+                    created = await fetch_chemicals(db, f"""
+                        SELECT {CHEMICAL_SELECT}
+                        FROM chemistry.chemicals c WHERE c.id = :id
+                    """, {"id": chemical_id})
+                    if created:
+                        await db.commit()
+                        chemicals = created
+                    else:
+                        await db.rollback()
+                except Exception:
+                    await db.rollback()  # 建行失败不阻塞搜索响应
             if not chemicals and not canonical and name_query_width(query) >= MIN_FUZZY_NAME_LENGTH:
                 # Keep the two trigram indexes independent. A cross-column OR on
                 # 124M rows is both slower and less predictable than two bounded scans.

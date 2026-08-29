@@ -132,8 +132,11 @@ def chemical_properties(smiles: str) -> dict[str, Any]:
 
 
 async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
-    await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:smiles,0))"), {"smiles": smiles})
-    props = await asyncio.to_thread(chemical_properties, smiles)
+    # 锁键用 canonical 形式: 同一分子的不同写法(CCO/OCC)必须落在同一把锁上,
+    # 否则并发双写可各建一行(缝只开一次, 但没必要留). 入参已是 canonical 时零开销.
+    canonical = canonicalize_smiles(smiles) or smiles
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:smiles,0))"), {"smiles": canonical})
+    props = await asyncio.to_thread(chemical_properties, canonical)
     inchikey = props.get("inchikey")
     chemical_id = None
     if inchikey:
@@ -145,7 +148,7 @@ async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
         chemical_id = (await db.execute(text("""
             SELECT id FROM chemistry.chemicals
             WHERE smiles=:smiles AND mol IS NOT NULL ORDER BY id LIMIT 1
-        """), {"smiles": smiles})).scalar()
+        """), {"smiles": canonical})).scalar()
     if chemical_id is not None:
         return int(chemical_id), False
     chemical_id = int((await db.execute(text("""
@@ -157,7 +160,7 @@ async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
            mol_from_smiles(:smiles),morganbv_fp(mol_from_smiles(:smiles)),
            morgan_fp(mol_from_smiles(:smiles)),now(),now())
         RETURNING id
-    """), {"smiles": smiles, **props})).scalar_one())
+    """), {"smiles": canonical, **props})).scalar_one())
     await db.execute(text("""
         UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
         WHERE metric='chemicals'

@@ -51,7 +51,11 @@ module.exports = {
         HGS_WORKER_TOKEN: secrets.HGS_WORKER_TOKEN,
         HGS_WORKER_CONCURRENCY: "2",
         LOG_LEVEL: "INFO",
-        HGS_PUBCHEM_REQUESTS_PER_SECOND: "4",
+        // 2026-08-29: 3 rps 缓放 + PB 专用 socks 出口(本机直连 IP 被封).
+        // 双链全开(此前 pm2 set 事故残留 HGS_WORKER_SCOPES=cas 脏值导致 PB 单链缺席).
+        HGS_PUBCHEM_REQUESTS_PER_SECOND: "3",
+        HGS_PUBCHEM_PROXY: "socks5://127.0.0.1:12345",
+        HGS_WORKER_SCOPES: "pubchem,cas",
       },
     },
   ],
