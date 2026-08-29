@@ -182,16 +182,10 @@ async def enqueue_chemical_if_needed(
     # 队列去重(dedupe_key)+worker 速率控制是容量上界, 内部流量无需 API 层限流.
     if request is not None and not is_loopback_host(request.client.host if request.client else None):
         return details, None, True
-    # 水位闸门(2026-08-27): 匿名 SSR(爬虫翻页)可在一天内灌 5 万+ 任务.
-    # 活跃积压超阈值时, 无 actor 的入队直接降级不入队(返回 stale);
-    # 有 actor 的用户请求不受限. 阈值=2万(worker 4rps 约 1.5 天存量上限).
-    if actor is None:
-        active = (await db.execute(text("""
-            SELECT count(*) FROM maintenance.pubchem_jobs
-            WHERE status IN ('queued','retry')
-        """))).scalar() or 0
-        if active >= 20000:
-            return details, None, True
+    # 水位闸门拆除(2026-08-30): 当年防的是 inchikey 兜底必 miss 灌队列
+    # (8/26-27 详情页访问灌 4290 个)。inchikey 通道已退役(9e8adbb),
+    # PB 仅 cid 维护: 任务有 dedupe 去重且 cid 查询必命中不堆积,
+    # 闸门只剩误伤 cid 维护入队一个作用, 拆。
     if chemical[0] is not None:
         query_kind, query_value = "cid", str(chemical[0])
     else:
