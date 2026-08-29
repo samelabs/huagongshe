@@ -318,17 +318,12 @@ async def apply_structure_fill(
     })
 
 
-def _basic_field(entry: dict[str, Any], label: str) -> str | None:
-    """CB basic 块取字段: [[标签,值],...] -> 值。"""
-    for item in entry.get("basic") or []:
-        if isinstance(item, (list, tuple)) and len(item) >= 2 and item[0] == label:
-            value = str(item[1]).strip()
-            return value or None
-    return None
-
-
 async def cas_search_state(db: Any, cas_number: str) -> str:
-    """搜索miss三态: pending(活跃任务在途) / miss(负缓存命中) / new(可入队)。"""
+    """搜索miss三态: pending(活跃任务在途) / miss(主表行存在=终态登记) / new(可占行)。
+
+    miss 判定查主表 cas_numbers(GIN, 2026-08-29定): 行在=处理过(CB ok 已建
+    或 not_found 已落 cb 行终态), 永不再问。任务表负缓存窗口作废。
+    """
     row = (await db.execute(text("""
         SELECT 1 FROM maintenance.cas_jobs
         WHERE cas_number=:cas AND status IN ('queued','leased','retry')
@@ -337,10 +332,8 @@ async def cas_search_state(db: Any, cas_number: str) -> str:
     if row:
         return "pending"
     row = (await db.execute(text("""
-        SELECT 1 FROM maintenance.cas_jobs
-        WHERE cas_number=:cas AND status='succeeded'
-          AND result_summary->>'status'='not_found'
-          AND completed_at > now()-interval '30 days'
+        SELECT 1 FROM chemistry.chemicals
+        WHERE cas_numbers @> ARRAY[:cas]
         LIMIT 1
     """), {"cas": cas_number})).first()
     if row:
@@ -349,64 +342,56 @@ async def cas_search_state(db: Any, cas_number: str) -> str:
 
 
 async def enqueue_cas_search_fetch(db: Any, *, cas_number: str) -> bool:
-    """搜索miss入队(standalone, chemical_id=NULL)。深度超闸门返回 False。"""
+    """搜索miss: 占主表行(CAS登记, 只落 cas_numbers) + 入队(带行id)。
+
+    占位行=标准化合物, 不区分对待(2026-08-29定)。INSERT 原子防并发重复
+    (NOT EXISTS), 竞态败者回查取既有行 id。深度超闸门返回 False(不占行)。
+    """
     depth = (await db.execute(text("""
         SELECT count(*) FROM maintenance.cas_jobs
         WHERE status IN ('queued','retry')
     """))).scalar()
     if depth is not None and int(depth) > SEARCH_MISS_MAX_QUEUE:
         return False
-    digest = hashlib.sha256(cas_number.strip().encode()).hexdigest()[:16]
+    cas = cas_number.strip()
+    chemical_id = (await db.execute(text("""
+        INSERT INTO chemistry.chemicals (cas_numbers,created_at,updated_at)
+        SELECT ARRAY[:cas],now(),now()
+        WHERE NOT EXISTS (
+            SELECT 1 FROM chemistry.chemicals WHERE cas_numbers @> ARRAY[:cas]
+        )
+        RETURNING id
+    """), {"cas": cas})).scalar()
+    if chemical_id is not None:
+        # 仅真建行时计数(竞态败者回查复用既有行, 不重复+1)
+        await db.execute(text("""
+            UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
+            WHERE metric='chemicals'
+        """))
+    else:
+        chemical_id = (await db.execute(text("""
+            SELECT id FROM chemistry.chemicals
+            WHERE cas_numbers @> ARRAY[:cas] LIMIT 1
+        """), {"cas": cas})).scalar()
+    if chemical_id is None:
+        return False
+    digest = hashlib.sha256(cas.encode()).hexdigest()[:16]
     await db.execute(text("""
         INSERT INTO maintenance.cas_jobs
             (chemical_id,cas_number,priority,dedupe_key,request_context)
         VALUES
-            (NULL,:cas_number,:priority,:dedupe_key,
+            (:chemical_id,:cas_number,:priority,:dedupe_key,
              CAST(:context AS jsonb))
         ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','retry')
         DO UPDATE SET priority=greatest(maintenance.cas_jobs.priority,excluded.priority),
                       updated_at=now()
     """), {
-        "cas_number": cas_number.strip(), "priority": SEARCH_MISS_PRIORITY,
+        "chemical_id": int(chemical_id), "cas_number": cas,
+        "priority": SEARCH_MISS_PRIORITY,
         "dedupe_key": f"cas:new:{digest}",
         "context": json.dumps({"reason": "search_miss"}, ensure_ascii=False),
     })
     return True
-
-
-async def create_chemical_from_cb_entry(
-    db: Any, *, cas_number: str, entry: dict[str, Any]
-) -> int:
-    """CB entry -> chemicals 最小行(无结构, mol=NULL)。
-
-    入口(搜索miss入队)已确认本地无此CAS, 此处不再查重(2026-08-29定,
-    冗余二次动作)。名称归属: 中文名/别名随 chemical_cb 语言行(entry.basic/
-    aliases), 不抄主表; 主表只落 preferred_name(英文名,缺则CAS号) +
-    式/量。statistics.exact_count 同步+1 (镜像 reactions.py 建行口径)。
-    """
-    name_en = _basic_field(entry, "英文名称") or cas_number
-    formula = _basic_field(entry, "分子式")
-    mass_raw = _basic_field(entry, "分子量")
-    try:
-        mass = float(mass_raw) if mass_raw else None
-    except ValueError:
-        mass = None
-    chemical_id = int((await db.execute(text("""
-        INSERT INTO chemistry.chemicals
-            (preferred_name,synonyms,molecular_formula,average_mass,cas_numbers,
-             created_at,updated_at)
-        VALUES
-            (:name,'[]'::jsonb,:formula,:mass,ARRAY[:cas],now(),now())
-        RETURNING id
-    """), {
-        "name": name_en,
-        "formula": formula, "mass": mass, "cas": cas_number,
-    })).scalar_one())
-    await db.execute(text("""
-        UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
-        WHERE metric='chemicals'
-    """))
-    return chemical_id
 
 
 async def sync_fetch_and_store(

@@ -13,9 +13,11 @@ import aiohttp
 BASE = "https://www.chemicalbook.com"
 UA = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    "(KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
 )
 # 浏览器指纹补齐: 真实 Chrome 的配套请求头, 与 UA 同源.
+# Chrome 大版本随官方 stable 走(2026-08: 153), 三位后归零是真实
+# Chrome UA 的形态(只带主版本); 完整版本号反而不像浏览器.
 # _get() 请求级合并; session 级仅兜底 UA(共享 session 由 _get 覆盖).
 BROWSER_HEADERS = {
     "User-Agent": UA,

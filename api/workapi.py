@@ -853,46 +853,35 @@ async def cas_complete_job(
         job = await verified_cas_lease(db, body, worker.worker_id)
         chemical_id = job[1]
         cas_number = job[2]
+        # 占位行机制(2026-08-29定): 搜索miss入队时已占主表行, 任务必有
+        # chemical_id。无主行建行分支已删除 — complete 落 cb 表数据 +
+        # 结构三件回填(占位行靠这个出图)。
         if chemical_id is None:
-            # standalone 任务(搜索miss入队): CB ok -> 建最小行; not_found -> 负缓存。
-            # 建行含同CAS查重(已存在则复用id); 不做跨行比对(2026-08-27定案)。
+            # 兼容残量: 老无主行任务(存量10条跑完即绝迹) — 不建行, 只记终态。
             payload = body.result
-            entry = payload.entry if payload.status == "ok" else None
-            if entry is not None:
-                from .cas_externals import create_chemical_from_cb_entry
-                chemical_id = await create_chemical_from_cb_entry(
-                    db, cas_number=cas_number, entry=entry
-                )
-                # 结构三件只补空: cid 在的行 PubChem 早填过(coalesce no-op),
-                # 真正受益者是 pubchem_cid=NULL 的 CB 行
-                await apply_structure_fill(
-                    db, chemical_id,
-                    resolve_structure(entry, payload.mol),
-                )
-                await db.commit()
-            else:
-                await db.execute(text("""
-                    UPDATE maintenance.cas_jobs
-                    SET status='succeeded',result_summary=CAST(:summary AS jsonb),
-                        lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                        heartbeat_at=NULL,updated_at=now(),completed_at=now()
-                    WHERE id=:job_id
-                """), {
-                    "job_id": body.job_id,
-                    "summary": json.dumps(
-                        {"status": payload.status, "standalone": True},
-                        ensure_ascii=False, separators=(",", ":"),
-                    ),
-                })
-                await db.commit()
-                return {"status": payload.status, "standalone": True}
+            await db.execute(text("""
+                UPDATE maintenance.cas_jobs
+                SET status='succeeded',result_summary=CAST(:summary AS jsonb),
+                    lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
+                    heartbeat_at=NULL,updated_at=now(),completed_at=now()
+                WHERE id=:job_id
+            """), {
+                "job_id": body.job_id,
+                "summary": json.dumps(
+                    {"status": payload.status, "standalone": True},
+                    ensure_ascii=False, separators=(",", ":"),
+                ),
+            })
+            await db.commit()
+            return {"status": payload.status, "standalone": True}
         payload = body.result
         status = payload.status
         entry = payload.entry if status == "ok" else None
         locale = payload.locale
         suppliers = payload.suppliers if status == "ok" and locale == "zh-CN" else []
         if status == "ok":
-            # 既有行刷新: 结构三件同样只补空(stale 刷新趟补历史欠账)
+            # 结构三件只补空: 占位行/无结构行靠 CB mol 回填出图;
+            # cid 在的行 PubChem 早填过(coalesce no-op)。
             await apply_structure_fill(
                 db, chemical_id, resolve_structure(entry, payload.mol)
             )

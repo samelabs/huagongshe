@@ -294,7 +294,13 @@ class PubChemClient:
                 data=data,
                 params=params,
                 timeout=aiohttp.ClientTimeout(total=28),
-                headers={"User-Agent": "huagongshe-pubchem-worker/1.0"},
+                # NCBI 政策: 程序访问应自标识并留联系方式 — 这比伪装更抗封.
+                # 仅 PB 链; CB 链(caslib/fetch.py)是浏览器头, 性质不同, 不动.
+                # 速率说明: 3 req/s 持续采集, 详见站点.
+                headers={
+                    "User-Agent": "Huagongshe-AIchem-Chemical-Update/1.1 "
+                    "(https://huagongshe.com; mail@huagongshe.com; 3 req/s)"
+                },
                 allow_redirects=False,
             ) as response:
                 raw = await response.read()

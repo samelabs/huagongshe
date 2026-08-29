@@ -296,7 +296,8 @@ async def process_cas_job(
                     # CB条目号: 身份标识随载荷回传(落主表, 不进API输出)
                     if result.cb_number:
                         payload["cb_number"] = result.cb_number
-                    # mol 文件: 详情页有外链才拉(无外链=零请求); 失败退化 None
+                    # mol 文件: 详情页有外链才拉(无外链=零请求); 失败退化 None。
+                    # 占位行靠这个回填结构三件, 否则smiles展示无图。
                     mol_href = extract_mol_href(result.cas_html or "")
                     if mol_href:
                         payload["mol"] = await fetch_mol(session, mol_href)
@@ -379,64 +380,84 @@ async def run() -> None:
     concurrency = min(max(int(os.environ.get("HGS_WORKER_CONCURRENCY", "2")), 1), 8)
     requests_per_second = float(os.environ.get("HGS_PUBCHEM_REQUESTS_PER_SECOND", "4"))
     connector = aiohttp.TCPConnector(limit=concurrency + 4, ttl_dns_cache=300)
-    async with aiohttp.ClientSession(connector=connector) as session:
-        # 会话热身(2026-08-28): 首页一换取 ASP.NET_SessionId + _ancsi_ 防爬令牌,
-        # 之后整进程自动携带(浏览器式会话)。失败不阻塞启动 — cookie 缺席仅降级不致命。
-        try:
-            from caslib.fetch import warm_session
+    # PB 专用出口(2026-08-29): 本机直连 IP 被 PubChem 封禁(abuse 302),
+    # 经本机 socks(127.0.0.1) 走远端出口, 仅 PubChem 流量使用。
+    # CB/工作API等其余流量仍走直连 session, 两链出口互不影响。
+    pb_proxy_url = os.environ.get("HGS_PUBCHEM_PROXY", "")
+    if pb_proxy_url:
+        from aiohttp_socks import ProxyConnector
 
-            got = await warm_session(session)
-            log.info("session warmup: %s cookies", got)
-        except Exception as exc:
-            log.warning("session warmup failed (continuing): %s", exc)
-        workapi = WorkApiClient(session, base_url, worker_id, token)
-        rate = PubChemRateController(requests_per_second)
-        log.info("worker started id=%s concurrency=%s", worker_id, concurrency)
-        idle_seconds = 2.0
-        # cas 空闲退避上限收紧: 30s->10s。lease 是本地 workapi 轮询(不打外部源),
-        # 换搜索miss用户重搜等待上限 40s->~20s(2026-08-28 体感收口)
-        cas_idle_seconds = 2.0
-        cas_idle_cap = 10.0
-        while True:
+        pb_connector = ProxyConnector.from_url(pb_proxy_url, ttl_dns_cache=300)
+    else:
+        pb_connector = None
+    async with aiohttp.ClientSession(connector=connector) as session:
+        # PB 代理 session 与直连 session 并存: 代理缺席时退化为直连(变量留空)。
+        pb_session_ctx = (
+            aiohttp.ClientSession(connector=pb_connector)
+            if pb_connector
+            else aiohttp.nullcontext(session)
+        )
+        async with pb_session_ctx as pb_session:
+            # 会话热身(2026-08-28): 首页一换取 ASP.NET_SessionId + _ancsi_ 防爬令牌,
+            # 之后整进程自动携带(浏览器式会话)。失败不阻塞启动 — cookie 缺席仅降级不致命。
             try:
-                # 双队列: pubchem 优先轮询, cas 每轮附带认领(单并发,礼仪串行)。
-                # scopes 门控对两条链对称: 不含 pubchem 就跳过 PB 轮询(PB 封禁期
-                # 单停 PB 不伤 CAS, 8-28 事故后补的对称性, 原先只门控 cas 侧)。
-                _scopes = [
-                    s.strip() for s in os.environ.get("HGS_WORKER_SCOPES", "pubchem,cas").split(",")
-                ]
-                jobs: list = []
-                if "pubchem" in _scopes:
-                    leased = await workapi.post(
-                        "/workapi/v1/jobs/lease",
-                        {"max_jobs": concurrency, "capabilities": ["pubchem"]},
+                from caslib.fetch import warm_session
+
+                got = await warm_session(session)
+                log.info("session warmup: %s cookies", got)
+            except Exception as exc:
+                log.warning("session warmup failed (continuing): %s", exc)
+            workapi = WorkApiClient(session, base_url, worker_id, token)
+            rate = PubChemRateController(requests_per_second)
+            log.info(
+                "worker started id=%s concurrency=%s pb_proxy=%s",
+                worker_id, concurrency, pb_proxy_url or "direct",
+            )
+            idle_seconds = 2.0
+            # cas 空闲退避上限收紧: 30s->10s。lease 是本地 workapi 轮询(不打外部源),
+            # 换搜索miss用户重搜等待上限 40s->~20s(2026-08-28 体感收口)
+            cas_idle_seconds = 2.0
+            cas_idle_cap = 10.0
+            while True:
+                try:
+                    # 双队列: pubchem 优先轮询, cas 每轮附带认领(单并发,礼仪串行)。
+                    # scopes 门控对两条链对称: 不含 pubchem 就跳过 PB 轮询(PB 封禁期
+                    # 单停 PB 不伤 CAS, 8-28 事故后补的对称性, 原先只门控 cas 侧)。
+                    _scopes = [
+                        s.strip() for s in os.environ.get("HGS_WORKER_SCOPES", "pubchem,cas").split(",")
+                    ]
+                    jobs: list = []
+                    if "pubchem" in _scopes:
+                        leased = await workapi.post(
+                            "/workapi/v1/jobs/lease",
+                            {"max_jobs": concurrency, "capabilities": ["pubchem"]},
+                        )
+                        jobs = leased.get("jobs") or []
+                    cas_coros = []
+                    if "cas" in _scopes:
+                        cas_leased = await workapi.post(
+                            "/workapi/v1/cas/jobs/lease",
+                            {"max_jobs": 1, "capabilities": ["cas"]},
+                        )
+                        cas_jobs = cas_leased.get("jobs") or []
+                        cas_coros = [process_cas_job(session, workapi, job) for job in cas_jobs]
+                        if not cas_jobs:
+                            cas_idle_seconds = min(cas_idle_cap, cas_idle_seconds * 1.5)
+                        else:
+                            cas_idle_seconds = 2.0
+                    if not jobs and not cas_coros:
+                        requested_wait = float(leased.get("retry_after_seconds", 5)) if "pubchem" in _scopes else 5
+                        idle_seconds = min(30.0, max(requested_wait, idle_seconds * 1.5))
+                        await asyncio.sleep(idle_seconds + random.random())
+                        continue
+                    idle_seconds = 2.0
+                    await asyncio.gather(
+                        *(process_job(pb_session, workapi, rate, job) for job in jobs),
+                        *cas_coros,
                     )
-                    jobs = leased.get("jobs") or []
-                cas_coros = []
-                if "cas" in _scopes:
-                    cas_leased = await workapi.post(
-                        "/workapi/v1/cas/jobs/lease",
-                        {"max_jobs": 1, "capabilities": ["cas"]},
-                    )
-                    cas_jobs = cas_leased.get("jobs") or []
-                    cas_coros = [process_cas_job(session, workapi, job) for job in cas_jobs]
-                    if not cas_jobs:
-                        cas_idle_seconds = min(cas_idle_cap, cas_idle_seconds * 1.5)
-                    else:
-                        cas_idle_seconds = 2.0
-                if not jobs and not cas_coros:
-                    requested_wait = float(leased.get("retry_after_seconds", 5)) if "pubchem" in _scopes else 5
-                    idle_seconds = min(30.0, max(requested_wait, idle_seconds * 1.5))
-                    await asyncio.sleep(idle_seconds + random.random())
-                    continue
-                idle_seconds = 2.0
-                await asyncio.gather(
-                    *(process_job(session, workapi, rate, job) for job in jobs),
-                    *cas_coros,
-                )
-            except Exception:
-                log.exception("worker cycle failed")
-                await asyncio.sleep(5)
+                except Exception:
+                    log.exception("worker cycle failed")
+                    await asyncio.sleep(5)
 
 
 def main() -> None:

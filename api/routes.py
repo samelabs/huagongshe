@@ -65,11 +65,17 @@ CHEMICAL_SELECT = """
 # Smaller motifs match too much of the 124M-compound corpus and can remain inside
 # RDKit's PostgreSQL extension after the client-side statement timeout expires.
 MIN_SUBSTRUCTURE_HEAVY_ATOMS = 10
-# 名称最短长度按"字符数"计（Python len=str 数字符），中文 1 字 = 1 字符。
-# 纯 1-2 字符对 124M 行的 ILIKE 模糊扫描过宽，3 字符起查；
-# 例外：完整 CAS 号/标识符走精确分支，不受此限。两字中文名（如"甲苯"）
-# 需经 name_index 别名镜像命中 —— normalize 后仍 <3 时提示用户补全名称。
+# 名称最短长度按"宽度单位"计: CJK 字符(中日韩)每个算 2 单位, 其余 1 单位。
+# 拉丁 1-2 字符对 124M 行的 ILIKE 模糊扫描过宽, 3 单位起查; 中文 2 字完整词
+# (乙醇=4 单位)选择性极高, 不再误拦; 单字"醇"(2 单位)仍拦。
+# 例外：完整 CAS 号/标识符走精确分支，不受此限。
 MIN_FUZZY_NAME_LENGTH = 3
+
+
+def name_query_width(query: str) -> int:
+    """名称查询宽度: CJK 计 2, 其余计 1。用于最短长度判定。"""
+    return sum(2 if '\u4e00' <= ch <= '\u9fff' or '\u3040' <= ch <= '\u30ff'
+               or '\uac00' <= ch <= '\ud7af' else 1 for ch in query)
 
 
 def bounded_substructure_smiles(smiles: str) -> str:
@@ -476,30 +482,34 @@ async def search(
                         state = "new"
                     if state == "pending":
                         cas_fetch_pending = True
-            if not chemicals and not canonical and len(query) >= MIN_FUZZY_NAME_LENGTH:
+            if not chemicals and not canonical and name_query_width(query) >= MIN_FUZZY_NAME_LENGTH:
                 # Keep the two trigram indexes independent. A cross-column OR on
                 # 124M rows is both slower and less predictable than two bounded scans.
-                chemicals = await fetch_chemicals(db, f"""
-                    SELECT {CHEMICAL_SELECT}
-                    FROM chemistry.chemicals c
-                    WHERE c.preferred_name ILIKE '%' || :q || '%'
-                    ORDER BY c.id LIMIT :limit OFFSET :offset
-                """, {"q": query, "limit": page_size, "offset": offset})
-                if len(chemicals) < page_size:
-                    secondary = await fetch_chemicals(db, f"""
+                # CJK 短语跳过前两段: preferred_name/iupac 全英文, 2 字中文的 trigram
+                # 索引选择性崩塌(乙醇 bitmap 吐 42 万候选 91s); 中文名只活在这段。
+                has_cjk = name_query_width(query) > len(query)
+                if not has_cjk:
+                    chemicals = await fetch_chemicals(db, f"""
                         SELECT {CHEMICAL_SELECT}
                         FROM chemistry.chemicals c
-                        WHERE c.iupac_name ILIKE '%' || :q || '%'
+                        WHERE c.preferred_name ILIKE '%' || :q || '%'
                         ORDER BY c.id LIMIT :limit OFFSET :offset
                     """, {"q": query, "limit": page_size, "offset": offset})
-                    seen = {item["id"] for item in chemicals}
-                    # 相关性排序: preferred_name 命中段排在前, iupac 段追加在后.
-                    # 不再按 id 归并排序(id 排序会让低段位命中挤掉精确名匹配).
-                    chemicals.extend(item for item in secondary if item["id"] not in seen)
-                    chemicals = chemicals[:page_size]
+                    if len(chemicals) < page_size:
+                        secondary = await fetch_chemicals(db, f"""
+                            SELECT {CHEMICAL_SELECT}
+                            FROM chemistry.chemicals c
+                            WHERE c.iupac_name ILIKE '%' || :q || '%'
+                            ORDER BY c.id LIMIT :limit OFFSET :offset
+                        """, {"q": query, "limit": page_size, "offset": offset})
+                        seen = {item["id"] for item in chemicals}
+                        # 相关性排序: preferred_name 命中段排在前, iupac 段追加在后.
+                        # 不再按 id 归并排序(id 排序会让低段位命中挤掉精确名匹配).
+                        chemicals.extend(item for item in secondary if item["id"] not in seen)
+                        chemicals = chemicals[:page_size]
                 # 第三段: name_index(中文名/别名/供应商名/synonyms 的派生镜像)。
                 # 只在前两段不足一页时下探, 前两路零改动。
-                if len(chemicals) < page_size and offset == 0:
+                if (has_cjk or len(chemicals) < page_size) and offset == 0:
                     tertiary_ids = (await db.execute(text("""
                         SELECT DISTINCT chemical_id FROM chemistry.name_index
                         WHERE normalized LIKE '%' || :nq || '%'
@@ -521,8 +531,8 @@ async def search(
                             """, {"ids": fresh_ids})
                             chemicals.extend(more)
                             chemicals = chemicals[:page_size]
-            elif not chemicals and not canonical and len(query) < MIN_FUZZY_NAME_LENGTH:
-                raise HTTPException(422, "名称查询至少需要 3 个字符")
+            elif not chemicals and not canonical and name_query_width(query) < MIN_FUZZY_NAME_LENGTH:
+                raise HTTPException(422, "名称查询至少需要 3 个字符（中文至少 2 个字）")
 
         # 结构模式不跑全量 count: similarity 的 count 与查询词无关(count mol 行),
         # substructure 巨命中 count 在 143 万 mol 行上必超时 — 两者都是注定 3s 白烧.
@@ -530,7 +540,7 @@ async def search(
         if mode in {"substructure", "similarity"}:
             total = offset + len(chemicals) if len(chemicals) < page_size else None
         try:
-            if mode == "exact" and not canonical and len(query) >= MIN_FUZZY_NAME_LENGTH:
+            if mode == "exact" and not canonical and name_query_width(query) >= MIN_FUZZY_NAME_LENGTH:
                 if name_index_hit:
                     pass  # 第三段贡献结果: 两列 count 不覆盖 name_index, 保持 None(更多结果)
                 elif clauses:
