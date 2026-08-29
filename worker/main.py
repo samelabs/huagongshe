@@ -18,8 +18,12 @@ import aiohttp
 
 from .pubchem import PubChemClient, PubChemError, PubChemRateController
 from .chemistry import select_verified_cid
+from caslib.governor import Governor
 
 log = logging.getLogger("huagongshe-worker")
+
+# 数据源治理器(8-29 规范): run() 里初始化, 进程级单例。
+governor: Governor | None = None
 
 
 class WorkApiClient:
@@ -211,11 +215,36 @@ async def process_cas_job(
     try:
         payload: dict[str, Any]
         if locale == "zh-CN":
+            # 治理闸门(8-29 规范): 熔断/日预算停链期不发请求, 按没查 defer。
+            allowed, why = governor.allow("cb")
+            governor.maybe_summary("cb", log)
+            if not allowed:
+                await workapi.post(
+                    "/workapi/v1/cas/jobs/fail",
+                    {
+                        "job_id": job["job_id"],
+                        "lease_token": job["lease_token"],
+                        "error_code": f"cb_governor_{why}",
+                        "error_detail": f"locale=zh-CN deferred: governor={why}",
+                        "retryable": True,
+                        "retry_after_seconds": 1800,
+                    },
+                )
+                log.info("cas job=%s deferred (governor=%s)", job["job_id"], why)
+                return
             cb_hint = job.get("cb_number")
             result = await fetch_cas(
                 job["cas_number"], total_budget_s=20.0, session=session,
                 cb_number=cb_hint,
             )
+            # 结果上报治理器: hit/miss/neterr(refuse 形态 CB 表现为熔断页,
+            # 由 fetch 层 cpp_report_busy 承担, 这里不重复计)
+            if result.status == "ok":
+                governor.record("cb", "hit")
+            elif result.status == "not_found":
+                governor.record("cb", "miss")
+            else:
+                governor.record("cb", "neterr")
             if result.status == "not_found":
                 payload = {"status": "not_found", "entry": None, "suppliers": []}
             elif result.status == "error":
@@ -250,8 +279,10 @@ async def process_cas_job(
             from caslib.fetch import cpp_circuit_open
 
             cb_number = job.get("cb_number")
-            if not cb_number or cpp_circuit_open():
-                # 熔断期/无 cb_number = "没查", 不是 "查了没有"。
+            allowed, why = governor.allow("cb")
+            governor.maybe_summary("cb", log)
+            if not allowed or not cb_number or cpp_circuit_open():
+                # 熔断期/治理停链/无 cb_number = "没查", 不是 "查了没有"。
                 # 不 complete(否则落 not_found 负缓存抹 entry, 且 en 行
                 # 无 expiry_scan 自动刷新路径, 数据会静默丢失) —
                 # 回队延迟重试, retry_after 盖过 10 分钟熔断窗。
@@ -274,6 +305,8 @@ async def process_cas_job(
                 return
             cpp_html = await fetch_cpp_locale(session, cb_number, locale)
             entry = parse_cpp_entry_en(cpp_html) if cpp_html else None
+            # 语言页结果上报治理器: 拿到 entry=hit, 空=miss(CB 大量条目无语言变体)
+            governor.record("cb", "hit" if entry is not None else "miss")
             if entry is None:
                 # 语言页第一发没拿到 = 终态"查了没有", 不再 fail/retry(8-29 定论):
                 # 大量条目 CB 本就没有 EN 变体, retry 只产无效请求(已实测死 3.4k
@@ -312,6 +345,8 @@ async def process_cas_job(
 
 
 async def run() -> None:
+    global governor
+    governor = Governor()
     base_url = os.environ["HGS_WORKAPI_URL"]
     worker_id = os.environ["HGS_WORKER_ID"]
     token = os.environ["HGS_WORKER_TOKEN"]
