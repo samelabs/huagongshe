@@ -52,7 +52,9 @@ MAX_NORMALIZED_REFERENCES = 100
 
 
 class PubChemError(RuntimeError):
-    def __init__(self, code: str, detail: str, *, retryable: bool = True):
+    # 8-29 规范: PB 任务单趟制 — 所有错误形态都是终态(retryable=False)。
+    # 秒级 retry 无合法场景; lease 过期回队是 attempt 的唯一合法用途。
+    def __init__(self, code: str, detail: str, *, retryable: bool = False):
         super().__init__(detail)
         self.code = code
         self.retryable = retryable
@@ -83,8 +85,12 @@ class PubChemRateController:
     async def feedback(self, status: str, http_status: int) -> None:
         loop = asyncio.get_running_loop()
         async with self.lock:
+            # 8-29 规范: 头缺失(unknown) ≠ green — 不收缩间距, 维持现值。
+            # 封禁页恰好无 throttle 头, 最该保守的时刻不能回满速。
             if status == "green":
                 self.spacing = max(self.base_spacing, self.spacing * 0.8)
+            elif status == "unknown":
+                pass
             elif status == "yellow":
                 self.spacing = max(self.spacing, 0.5)
             elif status == "red":
@@ -96,7 +102,12 @@ class PubChemRateController:
 
 
 def throttle_status(header: str | None) -> str:
-    states = [value.lower() for value in STATUS_RE.findall(header or "")]
+    # 8-29 规范: 头缺失/解析不出任何状态 = unknown, 调用方按"不收缩"处理。
+    if not header:
+        return "unknown"
+    states = [value.lower() for value in STATUS_RE.findall(header)]
+    if not states:
+        return "unknown"
     worst = max((STATUS_RANK.get(value, 0) for value in states), default=0)
     return ("green", "yellow", "red", "black")[worst]
 
@@ -272,52 +283,59 @@ class PubChemClient:
         data: dict[str, str] | None = None,
         params: dict[str, str] | None = None,
     ) -> dict[str, Any] | None:
-        for attempt in range(4):
-            await self.rate.acquire()
-            try:
-                async with self.session.request(
-                    method,
-                    url,
-                    data=data,
-                    params=params,
-                    timeout=aiohttp.ClientTimeout(total=28),
-                    headers={"User-Agent": "huagongshe-pubchem-worker/1.0"},
-                ) as response:
-                    raw = await response.read()
-                    status = throttle_status(response.headers.get("X-Throttling-Control"))
-                    await self.rate.feedback(status, response.status)
-                    if len(raw) > 8 * 1024 * 1024:
-                        raise PubChemError("response_too_large", "PubChem response exceeded 8 MiB", retryable=False)
-                    if response.status == 404:
-                        return None
-                    if response.status == 503 or response.status >= 500:
-                        if attempt < 3:
-                            await asyncio.sleep(2 ** attempt)
-                            continue
-                        raise PubChemError("pubchem_unavailable", f"PubChem HTTP {response.status}")
-                    if response.status >= 400:
-                        detail = raw.decode("utf-8", "replace")[:500]
-                        raise PubChemError("pubchem_rejected", f"PubChem HTTP {response.status}: {detail}", retryable=False)
-                    if "json" not in response.headers.get("Content-Type", "").lower():
-                        raw_text = raw.decode("utf-8", "replace")
-                        # NCBI 封禁页(200+text/html+"Access Denied"): 触发全队列熔断
-                        if "Access Denied" in raw_text[:2000] and "ncbi" in raw_text.lower():
-                            try:
-                                from api.cache import get_cache
+        # 8-29 规范: 单趟制 — 无内部重试循环。任何失败形态一次定型:
+        # miss(404)=None / 拒绝(403|302跳转|封禁页|4xx)=refused 终态 /
+        # 上游5xx|网络错=终态。lease 过期回队是任务级唯一合法重试路径。
+        await self.rate.acquire()
+        try:
+            async with self.session.request(
+                method,
+                url,
+                data=data,
+                params=params,
+                timeout=aiohttp.ClientTimeout(total=28),
+                headers={"User-Agent": "huagongshe-pubchem-worker/1.0"},
+                allow_redirects=False,
+            ) as response:
+                raw = await response.read()
+                # 302 → misuse/abuse 页 = NCBI 封禁形态之一(2026-08-28 实测
+                # 解封探测口径), 不跟随重定向, 直接按拒绝终态。
+                if response.status in (301, 302, 303, 307, 308):
+                    location = response.headers.get("Location", "")
+                    raise PubChemError(
+                        "pubchem_refused",
+                        f"PubChem redirect {response.status} -> {location[:200]}",
+                    )
+                status = throttle_status(response.headers.get("X-Throttling-Control"))
+                await self.rate.feedback(status, response.status)
+                if len(raw) > 8 * 1024 * 1024:
+                    raise PubChemError("response_too_large", "PubChem response exceeded 8 MiB")
+                if response.status == 404:
+                    return None
+                if response.status == 503 or response.status >= 500:
+                    raise PubChemError("pubchem_unavailable", f"PubChem HTTP {response.status}")
+                if response.status >= 400:
+                    detail = raw.decode("utf-8", "replace")[:500]
+                    raise PubChemError("pubchem_refused", f"PubChem HTTP {response.status}: {detail}")
+                if "json" not in response.headers.get("Content-Type", "").lower():
+                    raw_text = raw.decode("utf-8", "replace")
+                    # NCBI 封禁页(200+text/html+"Access Denied"): 置 redis 熔断
+                    # key(server lease 闸门认它) + refused 终态
+                    if "Access Denied" in raw_text[:2000] and "ncbi" in raw_text.lower():
+                        try:
+                            from api.cache import get_cache
 
-                                redis = await get_cache()
-                                if redis is not None:
-                                    await redis.set("pubchem:circuit_blocked", "1", ex=6 * 3600)
-                            except Exception:
-                                pass
-                        raise PubChemError("unexpected_content_type", "PubChem did not return JSON")
-                    self.response_hashes.append(hashlib.sha256(raw).hexdigest())
-                    return json.loads(raw)
-            except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-                if attempt == 3:
-                    raise PubChemError("network_error", str(exc)) from exc
-                await asyncio.sleep(2 ** attempt)
-        raise PubChemError("request_failed", "PubChem request failed")
+                            redis = await get_cache()
+                            if redis is not None:
+                                await redis.set("pubchem:circuit_blocked", "1", ex=6 * 3600)
+                        except Exception:
+                            pass
+                        raise PubChemError("pubchem_refused", "PubChem ban page (Access Denied)")
+                    raise PubChemError("unexpected_content_type", "PubChem did not return JSON")
+                self.response_hashes.append(hashlib.sha256(raw).hexdigest())
+                return json.loads(raw)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            raise PubChemError("network_error", str(exc)) from exc
 
     async def resolve(self, kind: str, value: str) -> list[int]:
         if kind == "cid":

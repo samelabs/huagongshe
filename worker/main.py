@@ -92,7 +92,25 @@ async def process_job(
     heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop))
     try:
         pubchem = PubChemClient(session, rate)
+        # 治理闸门(8-29 规范): 停链期不发请求, 按没查 defer 回队。
+        allowed, why = governor.allow("pubchem")
+        governor.maybe_summary("pubchem", log)
+        if not allowed:
+            await workapi.post(
+                "/workapi/v1/jobs/fail",
+                {
+                    "job_id": job["job_id"],
+                    "lease_token": job["lease_token"],
+                    "error_code": f"pb_governor_{why}",
+                    "error_detail": f"deferred: governor={why}",
+                    "retryable": True,
+                    "retry_after_seconds": 1800,
+                },
+            )
+            log.info("PubChem job=%s deferred (governor=%s)", job["job_id"], why)
+            return
         candidates = await pubchem.resolve(job["query_kind"], str(job["query_value"]))
+        governor.record("pubchem", "hit" if candidates else "miss")
         properties = await pubchem.properties(candidates)
         expected_cid = job.get("expected_pubchem_cid")
         property_map = {int(item.get("CID")): item for item in properties if item.get("CID")}
@@ -158,6 +176,14 @@ async def process_job(
         )
         log.info("completed job=%s cid=%s", job["job_id"], selected_cid)
     except PubChemError as exc:
+        # 8-29 规范: 交互结果上报治理器 — refused=停链(半开探测恢复),
+        # unavailable/network=上游过载信号, 其余按任务终态落 failed。
+        outcome = (
+            "refuse" if exc.code == "pubchem_refused"
+            else "neterr" if exc.code in ("pubchem_unavailable", "network_error")
+            else "miss"
+        )
+        governor.record("pubchem", outcome)
         await workapi.post(
             "/workapi/v1/jobs/fail",
             {
@@ -169,7 +195,7 @@ async def process_job(
                 "retry_after_seconds": 60,
             },
         )
-        log.warning("PubChem job=%s failed: %s", job["job_id"], exc)
+        log.warning("PubChem job=%s terminal: %s", job["job_id"], exc)
     except Exception as exc:
         try:
             await workapi.post(
@@ -179,8 +205,8 @@ async def process_job(
                     "lease_token": job["lease_token"],
                     "error_code": "worker_error",
                     "error_detail": str(exc)[:2000],
-                    "retryable": True,
-                    "retry_after_seconds": 60,
+                    # 8-29 规范: 兜底也终态 — lease 过期回队是唯一合法重试路径
+                    "retryable": False,
                 },
             )
         except Exception:
