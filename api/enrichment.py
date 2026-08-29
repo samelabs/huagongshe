@@ -161,7 +161,10 @@ async def enqueue_chemical_if_needed(
         raise HTTPException(404, "化合物不存在")
     details = await fetch_details(db, chemical_id)
     section_times = (details or {}).get("section_fetched_at") or {}
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    # 新鲜窗口30→100天(2026-08-30): 1.24亿行×全section, worker 4rps消化力下
+    # 30天周期客观无法巡完一圈, 任务会永远积压。100天=可完成周期; worker
+    # 扩容(外置上线)后再收紧。
+    cutoff = datetime.now(timezone.utc) - timedelta(days=100)
 
     def is_fresh(section: str) -> bool:
         raw = section_times.get(section)

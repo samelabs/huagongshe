@@ -372,7 +372,8 @@ async def upsert_details(
         except ValueError:
             continue
         parsed_times.append(value if value.tzinfo else value.replace(tzinfo=timezone.utc))
-    expires_at = min(parsed_times) + timedelta(days=30) if parsed_times else None
+    # 与enrichment新鲜窗口同步30→100天(2026-08-30): 详情页按此字段判陈旧。
+    expires_at = min(parsed_times) + timedelta(days=100) if parsed_times else None
 
     values = {
         "chemical_id": chemical_id,
