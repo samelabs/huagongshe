@@ -393,18 +393,11 @@ async def create_chemical_from_cb_entry(
 ) -> int:
     """CB entry -> chemicals 最小行(无结构, mol=NULL)。
 
-    同CAS查重必须保留: 搜索负缓存窗(1天)过后用户重搜同CAS会再入队,
-    无查重则建重复行(8/27实测同CAS跨天两次ok)。查重命中直接返回id。
-    名称归属(2026-08-29定): 中文名/别名随 chemical_cb 语言行(entry.basic/
+    入口(搜索miss入队)已确认本地无此CAS, 此处不再查重(2026-08-29定,
+    冗余二次动作)。名称归属: 中文名/别名随 chemical_cb 语言行(entry.basic/
     aliases), 不抄主表; 主表只落 preferred_name(英文名,缺则CAS号) +
     式/量。statistics.exact_count 同步+1 (镜像 reactions.py 建行口径)。
     """
-    existing = (await db.execute(text("""
-        SELECT id FROM chemistry.chemicals
-        WHERE cas_numbers @> ARRAY[:cas] ORDER BY id LIMIT 1
-    """), {"cas": cas_number})).scalar()
-    if existing is not None:
-        return int(existing)
     name_en = _basic_field(entry, "英文名称") or cas_number
     formula = _basic_field(entry, "分子式")
     mass_raw = _basic_field(entry, "分子量")
