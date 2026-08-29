@@ -25,7 +25,9 @@ from dataclasses import dataclass, field
 
 # ── 参数(按源) ──────────────────────────────────────────────────────────────
 SOURCE_POLICY: dict[str, dict[str, float]] = {
-    "cb": {"miss_streak": 10, "cooldown_s": 1800},
+    # CB 是网页抓取, 上游无信号; 过载信号只有"系统忙"页, 由 fetch 层
+    # cpp 熔断(连续5次busy→600s)承担。governor 对 cb 不设策略 —
+    # not_found 是"对方没有"的答案, 不是过载信号, 不得据此停链。
     "pubchem": {"miss_streak": 10, "cooldown_s": 1800},
 }
 
