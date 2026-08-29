@@ -27,7 +27,8 @@ from .name_index import ingest_from_entry_cn
 # 任务到期判定 = min(entry 剩余, suppliers 剩余) — 由 ensure 层计算,表结构不感知。
 ENTRY_TTL_DAYS = 30
 SUPPLIERS_TTL_DAYS = 7
-NOT_FOUND_TTL_DAYS = 1  # 负缓存: not_found 行 1 天内不重试
+# not_found 无TTL=终态(2026-08-29定): CB源更新严重滞后, 1天回看无意义,
+# 短期内都没意义 — 不回炉不重扫, fetched_at 即"何时确认没有"。
 SYNC_FETCH_BUDGET_S = 3.0
 CACHE_KEY = "v3:cas-ext:{chemical_id}"  # v3: 表改名+locale(2026-08-28)
 CACHE_TTL_S = 6 * 3600
@@ -40,10 +41,6 @@ def _now() -> datetime:
 
 def _entry_expires() -> datetime:
     return _now() + timedelta(days=ENTRY_TTL_DAYS)
-
-
-def _not_found_expires() -> datetime:
-    return _now() + timedelta(days=NOT_FOUND_TTL_DAYS)
 
 
 def suppliers_fresh(fetched_at: Any) -> bool:
@@ -89,9 +86,10 @@ async def upsert_externals(
     entry_json = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) if entry else None
     if entry_json and len(entry_json.encode()) > MAX_ENTRY_JSON_BYTES:
         raise ValueError("cas entry payload exceeds safety limit")
-    expires = _entry_expires() if status == "ok" else (
-        _not_found_expires() if status == "not_found" else None
-    )
+    # not_found = 终态(2026-08-29定): CB源更新滞后, 1天回看无意义, 不设TTL
+    # 不回炉。fetched_at 即"何时确认没有"的时间标记。只有 ok 行有维护性
+    # (entry 30d / suppliers 7d 双周期)。
+    expires = _entry_expires() if status == "ok" else None
     await db.execute(text("""
         INSERT INTO chemistry.chemical_cb
             (chemical_id,cas_number,entry,last_status,fetched_at,expires_at,locale)
@@ -356,7 +354,7 @@ async def cas_search_state(db: Any, cas_number: str) -> str:
         SELECT 1 FROM maintenance.cas_jobs
         WHERE cas_number=:cas AND status='succeeded'
           AND result_summary->>'status'='not_found'
-          AND completed_at > now()-interval '1 day'
+          AND completed_at > now()-interval '30 days'
         LIMIT 1
     """), {"cas": cas_number})).first()
     if row:
@@ -519,16 +517,9 @@ async def ensure_externals(
     if row is None:
         return {"state": "absent", "entry": None, "suppliers": [], "job_id": None}
     if row["last_status"] == "not_found":
-        if row["expires_at"] and row["expires_at"] > _now():
-            return {"state": "fresh", "entry": None, "suppliers": [], "job_id": None,
-                    "negative": True}
-        # 负缓存过期: 入队重试
-        job_id = await enqueue_cas_job(
-            db, chemical_id=chemical_id, cas_number=row["cas_number"],
-            request_context={"reason": "negative_expiry"},
-        )
-        await db.commit()
-        return {"state": "fresh", "entry": None, "suppliers": [], "job_id": job_id,
+        # 终态(2026-08-29定): CB源更新滞后, 重问无意义 — 恒"确认没有",
+        # 永不入队。翻案靠人工或远期复核, 不靠机器轮回。fetched_at=确认时间。
+        return {"state": "fresh", "entry": None, "suppliers": [], "job_id": None,
                 "negative": True}
     if row["last_status"] == "error":
         job_id = await enqueue_cas_job(
@@ -564,10 +555,11 @@ async def ensure_externals(
 
 
 async def scan_expired_into_queue(db: Any, batch: int = 200) -> int:
-    """worker 自扫: expires_at 超期(含 not_found 负缓存到期)分批入队。"""
+    """worker 自扫: 仅 ok 行到期入队(not_found 终态不回炉, 2026-08-29定)。"""
     rows = (await db.execute(text("""
         SELECT chemical_id,cas_number FROM chemistry.chemical_cb
-        WHERE locale='zh-CN' AND expires_at IS NOT NULL AND expires_at<now()
+        WHERE locale='zh-CN' AND last_status='ok'
+          AND expires_at IS NOT NULL AND expires_at<now()
         ORDER BY expires_at LIMIT :batch
     """), {"batch": batch})).fetchall()
     enqueued = 0

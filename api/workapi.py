@@ -758,6 +758,39 @@ async def cas_lease_jobs(
                 WHERE id = ANY(CAST(:ids AS integer[]))
             """), {"ids": [r[1] for r in rows if r[1] is not None]})).fetchall()
             cb_map = {r[0]: r[1] for r in cb_rows}
+        # 终态拦截(2026-08-29定): 目标语言行已是 not_found 的任务不分发
+        # (零上游流量), 直接标 succeeded 记录拦截时间。按任务 locale 匹配
+        # 目标行 — zh 没有不代表 en 没有, 语言行各自终态各自拦。
+        # standalone(chemical_id=NULL)不适用。
+        target_ids = [r[1] for r in rows if r[1] is not None]
+        nf_ids: set[int] = set()
+        if target_ids:
+            # (chemical_id, locale) 对 → 该行是否终态
+            pairs: dict[int, str] = {r[1]: (r[5] or "zh-CN") for r in rows}
+            nf_rows = (await db.execute(text("""
+                SELECT chemical_id, locale FROM chemistry.chemical_cb
+                WHERE chemical_id = ANY(CAST(:ids AS integer[]))
+                  AND last_status='not_found'
+            """), {"ids": sorted(set(target_ids))})).fetchall()
+            nf_ids = {r[0] for r in nf_rows if pairs.get(r[0]) == r[1]}
+        if nf_ids:
+            for r in rows:
+                if r[1] is not None and r[1] in nf_ids:
+                    await db.execute(text("""
+                        UPDATE maintenance.cas_jobs
+                        SET status='succeeded',
+                            result_summary=CAST(:summary AS jsonb),
+                            lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
+                            heartbeat_at=NULL,updated_at=now(),completed_at=now()
+                        WHERE id=:job_id
+                    """), {
+                        "job_id": r[0],
+                        "summary": json.dumps(
+                            {"status": "not_found", "intercepted": True,
+                             "negative_cached": True},
+                            ensure_ascii=False, separators=(",", ":")),
+                    })
+            rows = [r for r in rows if not (r[1] is not None and r[1] in nf_ids)]
         leased = []
         for row in rows:
             token = secrets.token_urlsafe(32)
