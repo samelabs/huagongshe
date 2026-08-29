@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
@@ -22,13 +22,10 @@ from .cache import cache_delete, get_cache
 from .database import get_db
 from .name_index import ingest_from_entry_cn
 
-# entry 30d / suppliers 7d: 两周期独立驱动 — chemical_cb.expires_at 取
-# entry 周期(30d), chemical_supplier 自带 fetched_at, 刷新任务同趟刷新两者,
-# 任务到期判定 = min(entry 剩余, suppliers 剩余) — 由 ensure 层计算,表结构不感知。
-ENTRY_TTL_DAYS = 30
-SUPPLIERS_TTL_DAYS = 7
-# not_found 无TTL=终态(2026-08-29定): CB源更新严重滞后, 1天回看无意义,
-# 短期内都没意义 — 不回炉不重扫, fetched_at 即"何时确认没有"。
+# 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环拆除。
+# chemical_cb.expires_at 恒 NULL(建表列保留, 兼容); fetched_at 即
+# "何时取到 / 何时确认没有"。ok 与 not_found 同为终态;
+# 回补 = 未来手动脚本, 不进自动机制。
 SYNC_FETCH_BUDGET_S = 3.0
 CACHE_KEY = "v3:cas-ext:{chemical_id}"  # v3: 表改名+locale(2026-08-28)
 CACHE_TTL_S = 6 * 3600
@@ -39,20 +36,9 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _entry_expires() -> datetime:
-    return _now() + timedelta(days=ENTRY_TTL_DAYS)
-
-
-def suppliers_fresh(fetched_at: Any) -> bool:
-    if not isinstance(fetched_at, datetime):
-        return False
-    value = fetched_at if fetched_at.tzinfo else fetched_at.replace(tzinfo=timezone.utc)
-    return value >= _now() - timedelta(days=SUPPLIERS_TTL_DAYS)
-
-
 async def get_externals_row(db: Any, chemical_id: int) -> dict[str, Any] | None:
     row = (await db.execute(text("""
-        SELECT chemical_id,cas_number,entry,last_status,fetched_at,expires_at
+        SELECT chemical_id,cas_number,entry,last_status,fetched_at
         FROM chemistry.chemical_cb WHERE chemical_id=:chemical_id AND locale='zh-CN'
     """), {"chemical_id": chemical_id})).mappings().fetchone()
     return dict(row) if row else None
@@ -86,10 +72,10 @@ async def upsert_externals(
     entry_json = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) if entry else None
     if entry_json and len(entry_json.encode()) > MAX_ENTRY_JSON_BYTES:
         raise ValueError("cas entry payload exceeds safety limit")
-    # not_found = 终态(2026-08-29定): CB源更新滞后, 1天回看无意义, 不设TTL
-    # 不回炉。fetched_at 即"何时确认没有"的时间标记。只有 ok 行有维护性
-    # (entry 30d / suppliers 7d 双周期)。
-    expires = _entry_expires() if status == "ok" else None
+    # 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环
+    # 拆除 — expires_at 恒 NULL, fetched_at 即"何时取到/何时确认没有"。
+    # ok 与 not_found 同为终态; 回补是未来手动脚本的事, 不进自动机制。
+    expires = None
     await db.execute(text("""
         INSERT INTO chemistry.chemical_cb
             (chemical_id,cas_number,entry,last_status,fetched_at,expires_at,locale)
@@ -478,10 +464,10 @@ async def ensure_externals(
     db: Any, chemical_id: int, *, cas_number: str
 ) -> dict[str, Any]:
     """ensure 链入口。返回:
-    {state: fresh|stale|queued|absent, entry, suppliers, job_id}
-    - fresh: 直接出
-    - stale: 出旧数据 + 入队刷新
-    - absent: 无数据(首访) — 调用方(sync路径)决定同步拉或入队
+    {state: fresh|queued|absent, entry, suppliers, job_id}
+    - fresh: ok 行直接出 / not_found 行出空(negative)
+    - absent: 无 cb 行(首访) — 调用方(sync路径)决定同步拉或入队
+    时间只记录不驱动(2026-08-29定): 无TTL无stale环, error终态不自动重试。
     """
     redis = await get_cache()
     cache_key = CACHE_KEY.format(chemical_id=chemical_id)
@@ -489,20 +475,8 @@ async def ensure_externals(
         cached = await redis.get(cache_key)
         if cached:
             payload = json.loads(cached)
-            # 缓存只信任"行仍在有效期内": 轻量校验行 expires_at,
-            # 防止行被刷新/外部置过期后缓存继续兜售旧判定
             if payload.get("state") == "fresh":
-                probe = (await db.execute(text(
-                    "SELECT expires_at,fetched_at FROM chemistry.chemical_cb "
-                    "WHERE chemical_id=:i"
-                ), {"i": chemical_id})).fetchone()
-                row_fresh = bool(
-                    probe and probe[0] and probe[0] > _now()
-                    and suppliers_fresh(probe[1])
-                )
-                if row_fresh:
-                    return payload
-                await redis.delete(cache_key)
+                return payload
     except Exception:
         pass
 
@@ -510,83 +484,28 @@ async def ensure_externals(
     if row is None:
         return {"state": "absent", "entry": None, "suppliers": [], "job_id": None}
     if row["last_status"] == "not_found":
-        # 终态(2026-08-29定): CB源更新滞后, 重问无意义 — 恒"确认没有",
-        # 永不入队。翻案靠人工或远期复核, 不靠机器轮回。fetched_at=确认时间。
+        # 终态: 恒"确认没有", 永不入队。fetched_at=确认时间。
         return {"state": "fresh", "entry": None, "suppliers": [], "job_id": None,
                 "negative": True}
     if row["last_status"] == "error":
-        job_id = await enqueue_cas_job(
-            db, chemical_id=chemical_id, cas_number=row["cas_number"],
-            request_context={"reason": "error_retry"},
-        )
-        await db.commit()
-        return {"state": "queued", "entry": None, "suppliers": [], "job_id": job_id}
-    # ok 行: 新鲜度 = entry expires_at(30d) 与 suppliers 组时间(7d)双周期;
-    # 供应商整组替换, 组时间=条目行 fetched_at
+        # 拉取异常终态: 不自动重试(回补是未来手动脚本的事)。
+        return {"state": "fresh", "entry": None, "suppliers": [], "job_id": None,
+                "error": True}
+    # ok 行: 终态直出。suppliers 同行取。
     suppliers = await get_suppliers(db, chemical_id)
-    entry_fresh = bool(row["expires_at"] and row["expires_at"] > _now())
-    sup_fresh = suppliers_fresh(row["fetched_at"])
-    payload: dict[str, Any]
-    if entry_fresh and sup_fresh:
-        payload = {"state": "fresh", "entry": row["entry"], "suppliers": suppliers,
-                   "job_id": None}
-    else:
-        job_id = await enqueue_cas_job(
-            db, chemical_id=chemical_id, cas_number=row["cas_number"], priority=60,
-            request_context={"reason": "stale_refresh"},
-        )
-        await db.commit()
-        payload = {"state": "stale", "entry": row["entry"], "suppliers": suppliers,
-                   "job_id": job_id}
+    payload = {"state": "fresh", "entry": row["entry"], "suppliers": suppliers,
+               "job_id": None}
     try:
-        if payload["state"] == "fresh":
-            await redis.set(cache_key, json.dumps(payload, ensure_ascii=False,
-                                                  default=str), ex=CACHE_TTL_S)
+        await redis.set(cache_key, json.dumps(payload, ensure_ascii=False,
+                                              default=str), ex=CACHE_TTL_S)
     except Exception:
         pass
     return payload
 
 
 async def scan_expired_into_queue(db: Any, batch: int = 200) -> int:
-    """worker 自扫: 仅 ok 行到期入队(not_found 终态不回炉, 2026-08-29定)。"""
-    rows = (await db.execute(text("""
-        SELECT chemical_id,cas_number FROM chemistry.chemical_cb
-        WHERE locale='zh-CN' AND last_status='ok'
-          AND expires_at IS NOT NULL AND expires_at<now()
-        ORDER BY expires_at LIMIT :batch
-    """), {"batch": batch})).fetchall()
-    enqueued = 0
-    for r in rows:
-        job_id = await enqueue_cas_job(
-            db, chemical_id=r[0], cas_number=r[1], priority=30,
-            request_context={"reason": "expiry_scan"},
-        )
-        if job_id:
-            enqueued += 1
-    # en 语言行扫描(2026-08-28 接入): zh 主行已有 CB 数据(cb_number 非空)但缺 en 行
-    # 的补拉 + en 行到期刷新。低优先级小批量 — 不与 zh 主链抢吞吐, 不放大上游压力。
-    # 寻址键 cb_number 取主表; 熔断期 worker 侧延迟重试(cpp_circuit_defer), 不打上游。
-    en_rows = (await db.execute(text("""
-        SELECT c.id, c.cas_numbers, c.cb_number, en.expires_at
-        FROM chemistry.chemicals c
-        JOIN chemistry.chemical_cb cb ON cb.chemical_id = c.id AND cb.locale = 'zh-CN'
-        LEFT JOIN chemistry.chemical_cb en ON en.chemical_id = c.id AND en.locale = 'en'
-        WHERE c.cb_number IS NOT NULL
-          AND (en.chemical_id IS NULL
-               OR (en.expires_at IS NOT NULL AND en.expires_at < now()))
-        ORDER BY en.expires_at NULLS FIRST
-        LIMIT 50
-    """))).fetchall()
-    for r in en_rows:
-        # cas_numbers 主表为 jsonb 数组; 语言行寻址用 cb_number, cas 仅记录用
-        cas_list = r[1] if isinstance(r[1], list) else []
-        cas_number = next((c for c in cas_list if isinstance(c, str) and c.strip()), "")
-        job_id = await enqueue_cas_job(
-            db, chemical_id=r[0], cas_number=cas_number, priority=10, locale="en",
-            request_context={"reason": "en_backfill" if r[3] is None else "en_expiry_scan"},
-        )
-        if job_id:
-            enqueued += 1
-    if enqueued:
-        await db.commit()
-    return enqueued
+    """已退役(2026-08-29定): TTL回补环全拆 — 时间只记录不驱动。
+    ok/not_found 同为终态, 无到期无回炉。回补=未来手动脚本。
+    保留空壳防外部调用报错; 返回 0。
+    """
+    return 0
