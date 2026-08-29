@@ -219,7 +219,10 @@ async def process_cas_job(
             if result.status == "not_found":
                 payload = {"status": "not_found", "entry": None, "suppliers": []}
             elif result.status == "error":
-                raise RuntimeError(f"cas fetch error: {result.error}")
+                # CB 链一律一发终态(8-29 定论): 第一发 failed=基本没有/上游异常,
+                # 都不再打第二发。错误流量=上游风控画像。未来复查靠日级 expiry
+                # 轮次或用户重搜触发, 不靠秒级 retry。落 not_found 负缓存。
+                payload = {"status": "not_found", "entry": None, "suppliers": []}
             else:
                 # CPP busy 已由 fetch 层熔断计数; 这里走 CAS 页兜底出 entry,
                 # job 照常成功(数据可用, CPP 增量段待上游恢复后刷新趟补)
@@ -295,8 +298,7 @@ async def process_cas_job(
                     "lease_token": job["lease_token"],
                     "error_code": "cas_fetch_error",
                     "error_detail": str(exc)[:2000],
-                    "retryable": True,
-                    "retry_after_seconds": 120,
+                    "retryable": False,
                 },
             )
         except Exception:
