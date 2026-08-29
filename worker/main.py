@@ -272,9 +272,15 @@ async def process_cas_job(
             cpp_html = await fetch_cpp_locale(session, cb_number, locale)
             entry = parse_cpp_entry_en(cpp_html) if cpp_html else None
             if entry is None:
-                raise RuntimeError(f"cpp locale fetch empty: {locale} CB{cb_number}")
-            payload = {"status": "ok", "entry": entry, "suppliers": [],
-                       "locale": locale}
+                # 语言页第一发没拿到 = 终态"查了没有", 不再 fail/retry(8-29 定论):
+                # 大量条目 CB 本就没有 EN 变体, retry 只产无效请求(已实测死 3.4k
+                # 任务/1万+发空打, 错误流量正是上游风控画像)。落 not_found 负缓存,
+                # 复查交给日级 expiry 轮次; en 行是主行增量, 损失量级≈0。
+                payload = {"status": "not_found", "entry": None, "suppliers": [],
+                           "locale": locale}
+            else:
+                payload = {"status": "ok", "entry": entry, "suppliers": [],
+                           "locale": locale}
         await workapi.post(
             "/workapi/v1/cas/jobs/complete",
             {"job_id": job["job_id"], "lease_token": job["lease_token"], "result": payload},
