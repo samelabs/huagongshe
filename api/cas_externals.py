@@ -395,9 +395,11 @@ async def create_chemical_from_cb_entry(
 ) -> int:
     """CB entry -> chemicals 最小行(无结构, mol=NULL)。
 
-    已有同CAS行则直接返回其id(不建行); 否则序列取号:
-    preferred_name=英文名, synonyms=中英别名, 式/量来自basic, cas_numbers单元素。
-    statistics.exact_count 同步+1 (镜像 reactions.py 建行口径)。
+    同CAS查重必须保留: 搜索负缓存窗(1天)过后用户重搜同CAS会再入队,
+    无查重则建重复行(8/27实测同CAS跨天两次ok)。查重命中直接返回id。
+    名称归属(2026-08-29定): 中文名/别名随 chemical_cb 语言行(entry.basic/
+    aliases), 不抄主表; 主表只落 preferred_name(英文名,缺则CAS号) +
+    式/量。statistics.exact_count 同步+1 (镜像 reactions.py 建行口径)。
     """
     existing = (await db.execute(text("""
         SELECT id FROM chemistry.chemicals
@@ -406,30 +408,21 @@ async def create_chemical_from_cb_entry(
     if existing is not None:
         return int(existing)
     name_en = _basic_field(entry, "英文名称") or cas_number
-    name_cn = _basic_field(entry, "中文名称")
     formula = _basic_field(entry, "分子式")
     mass_raw = _basic_field(entry, "分子量")
     try:
         mass = float(mass_raw) if mass_raw else None
     except ValueError:
         mass = None
-    synonyms: list[str] = []
-    if name_cn:
-        synonyms.append(name_cn)
-    aliases = entry.get("aliases") or {}
-    for group in (aliases.get("cn"), aliases.get("en")):
-        for name in group or []:
-            if name and name not in synonyms:
-                synonyms.append(name)
     chemical_id = int((await db.execute(text("""
         INSERT INTO chemistry.chemicals
             (preferred_name,synonyms,molecular_formula,average_mass,cas_numbers,
              created_at,updated_at)
         VALUES
-            (:name,CAST(:synonyms AS jsonb),:formula,:mass,ARRAY[:cas],now(),now())
+            (:name,'[]'::jsonb,:formula,:mass,ARRAY[:cas],now(),now())
         RETURNING id
     """), {
-        "name": name_en, "synonyms": json.dumps(synonyms[:50], ensure_ascii=False),
+        "name": name_en,
         "formula": formula, "mass": mass, "cas": cas_number,
     })).scalar_one())
     await db.execute(text("""
