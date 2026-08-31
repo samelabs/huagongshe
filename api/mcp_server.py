@@ -472,7 +472,7 @@ _mcp_server: MCPServer | None = None
 
 
 def mount_mcp(app: FastAPI) -> None:
-    """Build the MCP server and mount its streamable-http app under /api/mcp."""
+    """Build the MCP server and mount its streamable-http app at /mcp."""
     global _mcp_server
     _mcp_server = build_mcp_server()
     starlette_app = _mcp_server.streamable_http_app(
@@ -483,7 +483,10 @@ def mount_mcp(app: FastAPI) -> None:
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
         host="0.0.0.0",
     )
-    app.mount("/api/mcp", starlette_app)
+    # 2026-08-31 终局: 挂根 + 子路径 /mcp → MCP 端点 = /mcp(规范路径, 关键路由锁死)。
+    # 说明页让位至 /mcp-guide(Next)。原 /api/mcp 与 /api/mcp/mcp 由 nginx 308 兜底,
+    # 已接入客户端不断连。挂根不影响 REST: 子应用只响应 /mcp, 其余路径穿透回父 404。
+    app.mount("/", starlette_app)
 
 
 def mcp_session_lifespan():

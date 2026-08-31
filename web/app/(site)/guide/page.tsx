@@ -55,7 +55,7 @@ export default function GuidePage() {
           </div>
           <p>{t.guide.path1Desc}</p>
           <div className="guide-actions">
-            <Link className="button primary" href="/mcp">{t.guide.mcpCta}</Link>
+            <Link className="button primary" href="/mcp-guide">{t.guide.mcpCta}</Link>
           </div>
         </article>
         <article className="guide-path">

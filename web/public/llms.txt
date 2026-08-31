@@ -10,10 +10,10 @@
 
 ### 接入方式一：MCP 服务器（推荐）
 
-- **地址**: `https://huagongshe.com/api/mcp/mcp`
+- **地址**: `https://huagongshe.com/mcp`
 - **传输**: Streamable HTTP
 - **认证**: `Authorization: Bearer <API Token>`（公开查询工具可匿名使用）
-- **配置说明**: `https://huagongshe.com/mcp`（含豆包工作、千问办公、WorkBuddy 接入指引）
+- **配置说明**: `https://huagongshe.com/mcp-guide`（含豆包工作、千问办公、WorkBuddy 接入指引）
 
 提供 14 个工具：统一搜索、化合物详情、中文扩展、反应详情、分子/反应 SVG 渲染、
 技能库浏览、投料计算、我的反应、反应校验/保存、技能校验/保存。
@@ -82,7 +82,7 @@
 ## Links
 
 - [Website](https://huagongshe.com)
-- [MCP 接入说明](https://huagongshe.com/mcp)
-- [MCP 服务器](https://huagongshe.com/api/mcp/mcp)
+- [MCP 接入说明](https://huagongshe.com/mcp-guide)
+- [MCP 服务器](https://huagongshe.com/mcp)
 - [API Connection Guide](https://huagongshe.com/api/agent-guide)
 - [Skills Registry](https://huagongshe.com/api/skills?scope=public)（含 Reaction Publisher Skill，可经 /api/skills/{id}/archive 下载）

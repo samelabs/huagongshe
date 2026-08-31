@@ -80,9 +80,9 @@ async def agent_guide(
             "token_handling": "Token 仅发送给 huagongshe.com，不写入公开提示词、代码、文件或日志。",
         },
         "discovery": {
-            "mcp_url": f"{origin}/api/mcp/mcp",
+            "mcp_url": f"{origin}/mcp",
             "mcp_transport": "streamable-http",
-            "help_url": f"{origin}/mcp",
+            "help_url": f"{origin}/mcp-guide",
             "skill_help_url": f"{origin}/skills",
             "optional_skill_url": skill_url,
             "instruction": "先从 operations 选择操作；能力均以本契约为准，不依赖 OpenAPI。MCP 客户端可直接连接 mcp_url。",

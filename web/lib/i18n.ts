@@ -672,7 +672,7 @@ const t = {
   "mcpServers": {
     "huagongshe": {
       "type": "streamable-http",
-      "url": "https://huagongshe.com/api/mcp/mcp",
+      "url": "https://huagongshe.com/mcp",
       "headers": {
         "Authorization": "Bearer <你的API Token>"
       }
@@ -692,7 +692,7 @@ const t = {
       { name: 'list_skills', auth: '公开', desc: '浏览技能库（mine 需登录）' },
       { name: 'get_skill', auth: '公开', desc: '技能 manifest、文件清单与 SKILL.md' },
       { name: 'calculate_stoichiometry', auth: '公开', desc: '投料计算：摩尔基准换算整表投料量与理论收率' },
-      { name: 'list_my_reactions', auth: '需登录', desc: '列出自己的反应记录' },
+      { name: 'list_my_reactions', auth: 'Token', desc: '列出自己的反应记录（需 API Token）' },
       { name: 'validate_reaction', auth: 'Token', desc: 'RDKit 校验反应草稿（不保存）' },
       { name: 'create_reaction', auth: 'Token', desc: '保存确认后的反应记录（幂等，默认私有）' },
       { name: 'validate_skill', auth: 'Token', desc: '校验技能 zip 草稿（不保存）' },

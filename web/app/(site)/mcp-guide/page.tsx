@@ -46,7 +46,7 @@ export default function McpPage() {
       <div className="mcp-connect">
         <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.mcp.connectUrlLabel}</span>
-          <code className="mcp-connect-value">https://huagongshe.com/api/mcp/mcp</code>
+          <code className="mcp-connect-value">https://huagongshe.com/mcp</code>
         </div>
         <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.mcp.connectTokenLabel}</span>

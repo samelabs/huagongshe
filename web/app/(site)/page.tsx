@@ -12,7 +12,7 @@ export default async function Home() {
       </section>
       <div className="home-cards-kicker">{t.home.cardsKicker}</div>
       <div className="home-cards">
-        <Link className="home-card home-card-mcp" href="/mcp">
+        <Link className="home-card home-card-mcp" href="/mcp-guide">
           <span className="home-card-kicker">{t.home.card1Kicker}</span>
           <strong>{t.home.card1Title}</strong>
           <span>{t.home.card1Body}</span>

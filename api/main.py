@@ -56,7 +56,7 @@ app.include_router(skills_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(workapi_router, include_in_schema=False)
 
-# MCP 面(M1): /api/mcp — Agent 连接器入口, stateless streamable-http.
+# MCP 面(M1): /mcp — Agent 连接器入口, stateless streamable-http.
 mount_mcp(app)
 
 
