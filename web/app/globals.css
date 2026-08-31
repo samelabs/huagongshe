@@ -1073,8 +1073,11 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .admin-content { min-width: 0; max-width: var(--content-wide); }
 @media (max-width: 900px) {
   .admin-shell { grid-template-columns: 1fr; gap: 18px; }
-  .admin-nav { position: static; display: flex; gap: 4px; overflow-x: auto; }
-  .admin-nav a { white-space: nowrap; }
+  .admin-nav { position: static; flex-direction: row; overflow-x: auto; padding: 6px; border-radius: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .admin-nav::-webkit-scrollbar { display: none; }
+  .admin-nav::before { display: none; }
+  .admin-nav a { white-space: nowrap; padding: 8px 14px; }
+  .admin-nav a.active { box-shadow: none; }
 }
 
 /* ── 全站滚动条基线 — 细 6px 圆角，line-strong 滑块，透明轨道 ── */
