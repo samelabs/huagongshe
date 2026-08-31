@@ -19,7 +19,7 @@ from sqlalchemy import text
 from .core.cache import cache_delete, get_cache
 from .core.config import settings
 from .core.database import get_db
-from .name_index import ingest_from_synonyms
+from .services.name_index import ingest_from_synonyms
 from .pubchem_core import chemical_core_values, number_or_none, validate_synonyms
 from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, FailBody, CasLeaseBody, CasResultBody, CasCompleteBody
 
@@ -690,7 +690,7 @@ async def cas_lease_jobs(
         return {"jobs": [], "retry_after_seconds": 30}
     try:
         # 到期自扫(替代 SSR 触发, CF 缓存场景同样生效) + 过期租约回收 + 留存清理
-        from .cas_externals import scan_expired_into_queue
+        from .services.cb import scan_expired_into_queue
         await scan_expired_into_queue(db)
         await db.execute(text("""
             UPDATE maintenance.cas_jobs
@@ -824,7 +824,7 @@ async def cas_complete_job(
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
-    from .cas_externals import CACHE_KEY, apply_structure_fill, resolve_structure, upsert_externals
+    from .services.cb import CACHE_KEY, apply_structure_fill, resolve_structure, upsert_externals
     try:
         job = await verified_cas_lease(db, body, worker.worker_id)
         chemical_id = job[1]
@@ -889,7 +889,7 @@ async def cas_complete_job(
         # 语言页靠 cb_number 寻址; 语言任务 complete 不再派生(单点派发)。
         # dedupe :locale 后缀独立去重; 终态拦截在 lease 端已有时限窗。
         if status == "ok" and locale == "zh-CN" and payload.cb_number:
-            from .cas_externals import cb_decide, enqueue_cas_job
+            from .services.cb import cb_decide, enqueue_cas_job
             for lang in ("en", "ja", "de", "ko", "ru"):
                 decision = await cb_decide(
                     db, chemical_id, lang, has_cb_number=True,

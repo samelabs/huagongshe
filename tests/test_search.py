@@ -10,7 +10,7 @@ os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.
 
 from api.core.rate_limit import is_loopback_host
 from api import routes
-from api.enrichment import display_details
+from api.services.enrichment import display_details
 from api.chemistry import normalize_doi
 from api.routes import bounded_substructure_smiles
 

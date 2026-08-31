@@ -13,7 +13,7 @@ import unittest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from api.name_index import (
+from api.services.name_index import (
     ingest_chemical_names,
     ingest_from_entry_cn,
     ingest_from_synonyms,

@@ -78,7 +78,7 @@ class StructureResolveTests(unittest.TestCase):
 
     def test_page_trio_present_in_props(self) -> None:
         """页面三件套被 props 捕获(物理化学性质区 xztr)。"""
-        from api.cas_externals import _props_field
+        from api.services.cb import _props_field
 
         self.assertEqual(_props_field(self.entry, "SMILES"), "OC(=O)c1ccccc1")
         self.assertEqual(
@@ -87,7 +87,7 @@ class StructureResolveTests(unittest.TestCase):
 
     def test_resolve_structure_full(self) -> None:
         """真实 fixture: smiles 取页面值(规范化), inchikey 页面, mol 原文。"""
-        from api.cas_externals import resolve_structure
+        from api.services.cb import resolve_structure
 
         s = resolve_structure(self.entry, self.molblock)
         self.assertEqual(s["smiles"], "O=C(O)c1ccccc1")
@@ -96,7 +96,7 @@ class StructureResolveTests(unittest.TestCase):
 
     def test_resolve_structure_mol_fallback(self) -> None:
         """页面无三件(如 mol 404 条目): smiles/inchikey 从 mol 派生。"""
-        from api.cas_externals import resolve_structure
+        from api.services.cb import resolve_structure
 
         entry = {"props": [["LogP", "1.87"]]}  # 无三件
         s = resolve_structure(entry, self.molblock)
@@ -106,7 +106,7 @@ class StructureResolveTests(unittest.TestCase):
 
     def test_resolve_structure_garbage_smiles_dropped(self) -> None:
         """页面 SMILES 非标(RDKit 解析不过): 整字段丢弃, 从 mol 兜底, 不写脏值。"""
-        from api.cas_externals import resolve_structure
+        from api.services.cb import resolve_structure
 
         entry = {"props": [["SMILES", "这不是smiles%%"], ["InChIKey", "BAD-KEY"]]}
         s = resolve_structure(entry, self.molblock)
@@ -115,14 +115,14 @@ class StructureResolveTests(unittest.TestCase):
 
     def test_resolve_structure_all_absent(self) -> None:
         """三源全无: 全 None, 建行照常(无结构行, 不炸)。"""
-        from api.cas_externals import resolve_structure
+        from api.services.cb import resolve_structure
 
         s = resolve_structure({"props": []}, None)
         self.assertEqual(s, {"smiles": None, "inchikey": None, "mol": None})
 
     def test_resolve_structure_garbage_mol_dropped(self) -> None:
         """mol 文件畸形: mol 原文丢弃, 派生兜底为 None, 页面三件不受影响。"""
-        from api.cas_externals import resolve_structure
+        from api.services.cb import resolve_structure
 
         entry = {"props": [["SMILES", "OC(=O)c1ccccc1"]]}
         s = resolve_structure(entry, "garbage not a molfile")

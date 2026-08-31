@@ -13,7 +13,7 @@ from .core.cache import cache_get, cache_set
 from .chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE, canonicalize_smiles, normalize_doi
 from .core.config import settings
 from .core.database import get_db
-from .name_index import normalize_name
+from .services.name_index import normalize_name
 from .enrichment import (
     DEFAULT_SECTIONS,
     display_details,
@@ -454,7 +454,7 @@ async def search(
                     not chemicals and page == 1 and CAS_RE.fullmatch(query)
                 ):
                     try:
-                        from .cas_externals import (
+                        from .services.cb import (
                             cas_search_state, enqueue_cas_search_fetch,
                         )
                         state = await cas_search_state(db, query)
@@ -549,7 +549,7 @@ async def search(
                 chemicals and page == 1 and CAS_RE.fullmatch(query)
             ):
                 try:
-                    from .cas_externals import cb_decide, enqueue_cas_job
+                    from .services.cb import cb_decide, enqueue_cas_job
                     hit_id = chemicals[0]["id"]
                     decision = await cb_decide(db, hit_id)
                     if decision.startswith("enqueue") and decision != "enqueue_first":
@@ -693,7 +693,7 @@ async def chemical_externals(
     遵循公开读口径: 无原站标识; 404 = 化合物不存在;
     entry/suppliers 为空 = 该化合物无 CAS 或源站无数据(非错误)。
     """
-    from .cas_externals import ensure_externals, sync_fetch_and_store
+    from .services.cb import ensure_externals, sync_fetch_and_store
 
     row = (await db.execute(text("""
         SELECT id, cas_numbers[1] AS cas FROM chemistry.chemicals WHERE id=:id
@@ -707,7 +707,7 @@ async def chemical_externals(
     outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
     if outcome["state"] == "stale":
         # 六态判定需再问(超窗刷新/超窗重问/error): 出旧数据同时入列
-        from .cas_externals import enqueue_cas_job
+        from .services.cb import enqueue_cas_job
         job_id = await enqueue_cas_job(
             db, chemical_id=chemical_id, cas_number=cas_number, priority=40,
             request_context={"reason": "stale_refresh"},
@@ -721,7 +721,7 @@ async def chemical_externals(
         if sync and sync["status"] == "ok":
             outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
         else:
-            from .cas_externals import enqueue_cas_job
+            from .services.cb import enqueue_cas_job
             job_id = await enqueue_cas_job(
                 db, chemical_id=chemical_id, cas_number=cas_number, priority=80,
                 request_context={"reason": "sync_failed"},
