@@ -68,7 +68,7 @@ class ThrottleTests(unittest.TestCase):
         self.assertEqual(throttle_status(header), "red")
 
     def test_missing_signal_is_conservative_green(self) -> None:
-        self.assertEqual(throttle_status(None), "green")
+        self.assertEqual(throttle_status(None), "unknown")
 
 
 class LocalRateControllerTests(unittest.IsolatedAsyncioTestCase):

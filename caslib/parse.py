@@ -136,15 +136,6 @@ _CWB_RE = re.compile(
     re.I | re.S,
 )
 
-# 纳入 prose 的锚点名(页面原生分区名, 保序)
-_PROSE_SECTIONS = [
-    "应用领域",
-    "制备方法",
-    "常见问题列表",
-    "毒性防护",
-    "包装储运",
-    "安全特性毒性储运",
-]
 # 安全特性锚点名实际形态: "65-85-0(安全特性,毒性,储运)" — 按 data-upper 锚点集动态匹配
 _PROSE_PAT = re.compile(
     r"^(应用领域|制备方法|常见问题列表|毒性防护|包装储运)|"
@@ -173,11 +164,6 @@ def _parse_updown(block: str) -> dict[str, list[str]]:
 
 
 # ---------------------------------------------------------------- 知名试剂
-
-_CWB_ALL_RE = re.compile(
-    r'<div class="cwb">\s*<div class="tbt">(.*?)</div>\s*<span>([\s\S]*?)</span>\s*</div>',
-    re.I,
-)
 
 
 def _extract_balanced_div(body: str, start_marker: str) -> str:

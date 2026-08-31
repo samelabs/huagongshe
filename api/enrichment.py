@@ -53,12 +53,6 @@ def normalize_sections(raw: str | list[str] | tuple[str, ...] | None) -> tuple[s
     return sections
 
 
-def details_dict(row: Any | None) -> dict[str, Any] | None:
-    if row is None:
-        return None
-    return dict(row._mapping if hasattr(row, "_mapping") else row)
-
-
 async def fetch_details(db: Any, chemical_id: int) -> dict[str, Any] | None:
     row = (await db.execute(text("""
         SELECT chemical_id,record_title,record_description,xlogp,

@@ -10,16 +10,11 @@ class Settings(BaseSettings):
     cache_ttl: int = 600
     api_title: str = "化工社AIchem API"
     api_version: str = "1.0.0"
-    page_size: int = 20
-    max_page_size: int = 50
     cors_origins: list[str] = ["https://huagongshe.com", "https://www.huagongshe.com"]
     session_cookie: str = "hgs_session"
     session_days: int = 30
     avatar_root: str = "/var/lib/huagongshe/uploads/avatars"
     avatar_max_bytes: int = 5 * 1024 * 1024
-    api_query_limit_per_minute: int = 60
-    api_render_limit_per_minute: int = 120
-    api_structure_limit_per_minute: int = 20
     api_reaction_write_limit_per_minute: int = 10
     api_reaction_write_limit_per_day: int = 200
     api_stoich_limit_per_minute: int = 30

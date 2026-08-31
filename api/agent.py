@@ -120,14 +120,14 @@ async def agent_guide(
             {
                 "id": "render_molecule_svg",
                 "method": "GET",
-                "path": "/api/mol/{chemical_id}/svg/{w}x{h}.svg",
+                "path": "/api/mol/{chemical_id}/svg?w=&h=",
                 "auth": "public",
                 "purpose": "获取化合物的 2D 结构图（SVG），w/h 指定尺寸",
             },
             {
                 "id": "render_reaction_svg",
                 "method": "GET",
-                "path": "/api/reactions/{reaction_id}/svg/{w}x{h}.svg",
+                "path": "/api/reactions/{reaction_id}/svg?w=&h=",
                 "auth": "public",
                 "purpose": "获取反应方程式的 2D 结构图（SVG），w/h 指定尺寸",
             },
@@ -249,9 +249,6 @@ async def agent_guide(
             "429": "遵循 Retry-After，降低请求频率",
         },
         "rate_limits": {
-            "queries_per_minute": settings.api_query_limit_per_minute,
-            "structure_queries_per_minute": settings.api_structure_limit_per_minute,
-            "svg_renders_per_minute": settings.api_render_limit_per_minute,
             "reaction_writes_per_minute": settings.api_reaction_write_limit_per_minute,
             "reaction_writes_per_day": settings.api_reaction_write_limit_per_day,
             "stoichiometry_per_minute": settings.api_stoich_limit_per_minute,

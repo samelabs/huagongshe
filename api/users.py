@@ -91,12 +91,22 @@ class ProfileBody(BaseModel):
     def clean_bio(cls, value: str | None) -> str | None:
         return (value or "").strip() or None
 
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        value = value.strip().lower()
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
+            raise ValueError("邮箱格式不正确")
+        return value
+
     @field_validator("orcid")
     @classmethod
     def clean_orcid(cls, value: str | None) -> str | None:
         if not value:
             return None
         cleaned = re.sub(r"[^\dXx]", "", value)
+        if cleaned and not re.fullmatch(r"\d{15}[\dX]", cleaned):
+            raise ValueError("ORCID 须为 16 位数字(末位可为X)")
         return cleaned if cleaned else None
 
     @field_validator("website")
@@ -104,7 +114,10 @@ class ProfileBody(BaseModel):
     def clean_website(cls, value: str | None) -> str | None:
         if not value:
             return None
-        return value.strip() or None
+        value = value.strip()
+        if value and not value.startswith(("http://", "https://")):
+            raise ValueError("个人主页必须以 http:// 或 https:// 开头")
+        return value or None
 
 
 class TokenBody(BaseModel):

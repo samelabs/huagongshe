@@ -35,7 +35,7 @@ ON CONFLICT (id) DO UPDATE SET preferred_name='测试乙醇哨兵', iupac_name='
 
 
 def _engine():
-    url = os.environ.get("DATABASE_URL", "")
+    url = os.environ.get("HGS_DATABASE_URL", "")
     if url.startswith("postgresql://"):
         url = "postgresql+asyncpg://" + url.split("://", 1)[1]
     return create_async_engine(url)

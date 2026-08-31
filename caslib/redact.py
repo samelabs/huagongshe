@@ -17,16 +17,3 @@ def supplier_ref(cbsid: str | int) -> str:
     return hashlib.sha256(f"hgs-cas-supplier:{cbsid}".encode()).hexdigest()[:16]
 
 
-def scrub_text(text: str) -> str:
-    """通用文本清洗: 实体解码由 parse 做, 这里只做防御性品牌词剔除。
-
-    目前解析层已按字段白名单提取, 不从整页文本中捞内容,
-    故此函数仅用于显式剥离可能混入字段值的原站 URL。
-    """
-    if not text:
-        return text
-    # 任何 chemicalbook 域名残留(字段值里几乎不可能有, 防御性兜底)
-    for token in ("chemicalbook.com", "www.chemicalbook"):
-        if token in text.lower():
-            return ""
-    return text

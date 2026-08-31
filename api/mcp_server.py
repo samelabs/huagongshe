@@ -213,12 +213,20 @@ def build_mcp_server() -> MCPServer:
         """获取反应方程式的 2D 结构图(SVG 文本)。"""
         from . import mol as mol_module
 
+        actor = await _actor_from_headers(ctx.headers if ctx else None)
         width = min(max(width, 50), 800)
         height = min(max(height, 50), 800)
         async with async_session() as session:
-            row = (await session.execute(text(
-                "SELECT reaction_smiles FROM chemistry.reactions WHERE id=:id"
-            ), {"id": reaction_id})).fetchone()
+            row = (await session.execute(text("""
+                SELECT reaction_smiles FROM chemistry.reactions
+                WHERE id=:id AND reaction_smiles IS NOT NULL
+                  AND (:is_admin OR created_by_user_id=:viewer_id
+                       OR (visibility='public' AND moderation_status='visible'))
+            """), {
+                "id": reaction_id,
+                "viewer_id": actor.id if actor else 0,
+                "is_admin": bool(actor and actor.role == "admin"),
+            })).fetchone()
         if not row or not row[0]:
             raise ToolError("反应不存在或没有可渲染的表达")
         import asyncio as _asyncio

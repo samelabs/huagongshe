@@ -5,6 +5,7 @@ import asyncio
 import inspect
 import unittest
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -142,15 +143,20 @@ class ReactionContractTests(unittest.TestCase):
             7, "chemist", "Chemist", "chemist@example.test", "member", None,
             "agent", scopes=("read", "reaction:write"),
         )
-        guide = asyncio.run(agent.agent_guide("Bearer hgs_test_token", actor))
+        db_mock = AsyncMock()
+        db_mock.execute.return_value.scalar.return_value = None
+        guide = asyncio.run(agent.agent_guide("Bearer hgs_test_token", actor, db=db_mock))
         self.assertEqual(guide["connection"]["status"], "ready")
         self.assertEqual(guide["connection"]["account"]["username"], "chemist")
         self.assertEqual(
             {item["id"] for item in guide["operations"]},
             {
-                "search_chemistry_data", "get_chemical", "get_reaction",
-                "render_molecule_svg", "render_reaction_svg",
-                "list_my_reactions", "validate_reaction", "create_reaction",
+                "search_chemistry_data", "get_chemical", "get_chemical_externals",
+                "get_reaction", "render_molecule_svg", "render_reaction_svg",
+                "list_my_reactions", "list_skills", "get_skill",
+                "download_skill_archive", "calculate_stoichiometry",
+                "validate_reaction", "validate_skill", "create_skill",
+                "create_reaction",
             },
         )
 
