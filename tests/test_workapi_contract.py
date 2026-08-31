@@ -65,6 +65,33 @@ class WorkApiContractTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        # 测试凭据自清: 不在生产库留 it-contract-test-worker(2026-08-31 污染事故)
+        try:
+            # 独立临时 engine(避免与 TestClient portal 的 app engine 跨 loop)
+            import asyncio as _aio, os as _os
+            from sqlalchemy.ext.asyncio import create_async_engine as _ce
+            from sqlalchemy import text as _t
+            async def _cleanup():
+                tmp = _ce(_os.environ["HGS_DATABASE_URL"])
+                # 先归还测试名下租约(否则 lease_shape CHECK 挡 DELETE), 再删凭据
+                async with tmp.begin() as c:
+                    await c.execute(_t("""
+                        UPDATE maintenance.pubchem_jobs
+                        SET status='queued', lease_owner=NULL,
+                            lease_token_hash=NULL, lease_expires_at=NULL
+                        WHERE lease_owner=:w AND status='leased'"""), {"w": WORKER_ID})
+                    await c.execute(_t("""
+                        UPDATE maintenance.cas_jobs
+                        SET status='queued', lease_owner=NULL,
+                            lease_token_hash=NULL, lease_expires_at=NULL
+                        WHERE lease_owner=:w AND status='leased'"""), {"w": WORKER_ID})
+                    await c.execute(_t(
+                        "DELETE FROM maintenance.worker_clients WHERE worker_id = :w"),
+                        {"w": WORKER_ID})
+                await tmp.dispose()
+            _aio.new_event_loop().run_until_complete(_cleanup())
+        except Exception as exc:  # noqa: BLE001
+            print(f"[contract-test] 凭据清理失败(需手工删 {WORKER_ID}): {exc}")
         cls._cm.__exit__(None, None, None)
 
     def setUp(self):
