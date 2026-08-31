@@ -1,5 +1,9 @@
 """Pydantic 请求模型 — 自各路由文件集中, 逻辑零改动(批次2)。"""
+import re
+
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+USERNAME_RE = re.compile(r"^[a-z0-9_]{4,30}$")
 
 class RegisterBody(BaseModel):
     username: str
