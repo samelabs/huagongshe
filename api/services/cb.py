@@ -19,7 +19,6 @@ from typing import Any
 from sqlalchemy import text
 
 from ..core.cache import cache_delete, get_cache
-from ..core.database import get_db
 from .name_index import ingest_from_entry_cn
 
 # 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环拆除。
@@ -45,9 +44,8 @@ async def get_externals_row(db: Any, chemical_id: int) -> dict[str, Any] | None:
 
 
 async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
-    # 2026-08-30 准线§4 + 审计修复②: 新表为完整来源前(迁移未完成, 存量 59%
-    # 行无 cbsid 进不了新表), 以旧表行数为准 — 新表行数 >= 旧表才用新表,
-    # 否则回退旧表, 防止混合行场景数据缩水。Step 6 迁移完成后删回退。
+    # 2026-08-31 收口: 老表迁移完成(profile 6,417/listing 449k), 双读回退桥拆除,
+    # 只读两新表。旧表 chemical_supplier 已摘除。
     rows = (await db.execute(text("""
         SELECT p.ref, p.name, p.phone, p.email, p.website,
                l.purity, l.pack_price, l.remark
@@ -55,16 +53,6 @@ async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
         JOIN chemistry.chemical_supplier_profile p ON p.cbsid=l.cbsid
         WHERE l.chemical_id=:chemical_id
         ORDER BY p.ref
-    """), {"chemical_id": chemical_id})).fetchall()
-    old_count = (await db.execute(text("""
-        SELECT count(*) FROM chemistry.chemical_supplier
-        WHERE chemical_id=:chemical_id
-    """), {"chemical_id": chemical_id})).scalar()
-    if rows and len(rows) >= int(old_count or 0):
-        return [dict(r._mapping) for r in rows]
-    rows = (await db.execute(text("""
-        SELECT ref,name,phone,email,website,purity,pack_price,remark
-        FROM chemistry.chemical_supplier WHERE chemical_id=:chemical_id ORDER BY ref
     """), {"chemical_id": chemical_id})).fetchall()
     return [dict(r._mapping) for r in rows]
 
@@ -83,7 +71,7 @@ async def upsert_externals(
     """worker complete 与同步拉取共用的唯一写入口(事务由调用方管理)。
 
     cb_number/cbsid 为原站身份标识: cb_number 落主表 chemicals(2026-08-28 上移,
-    chemical_cb 不存); cbsid 落 chemical_supplier, 任何 API/DOM 输出零标识。
+    chemical_cb 不存); cbsid 落 supplier profile/listing 两表, 任何 API/DOM 输出零标识。
     locale: zh-CN 为主行(供应商同写); en 等语言行只写 entry, suppliers 恒空。
     """
     entry_json = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) if entry else None
@@ -211,42 +199,8 @@ async def upsert_externals(
                 DELETE FROM chemistry.chemical_supplier_listing
                 WHERE chemical_id=:chemical_id
             """), {"chemical_id": chemical_id})
-        # 旧表双写(迁移期, Step 6 退役): 原 upsert 逻辑不动
-        if status == "ok":
-            await db.execute(text("""
-                DELETE FROM chemistry.chemical_supplier a
-                WHERE a.chemical_id=:chemical_id
-                  AND (a.cbsid IS NULL OR a.cbsid <> ALL(CAST(:cbsids AS text[])))
-                  AND a.ref <> ALL(CAST(:refs AS text[]))
-            """), {"chemical_id": chemical_id,
-                   "cbsids": [s.get("cbsid") for s in suppliers if s.get("cbsid")],
-                   "refs": [s.get("ref") for s in suppliers]})
-            if suppliers:
-                await db.execute(text("""
-                    INSERT INTO chemistry.chemical_supplier
-                        (chemical_id,ref,cbsid,name,phone,email,website,purity,pack_price,remark,locale)
-                    SELECT :chemical_id,* FROM unnest(
-                        CAST(:refs AS text[]),CAST(:cbsids AS text[]),
-                        CAST(:names AS text[]),
-                        CAST(:phones AS text[]),CAST(:emails AS text[]),CAST(:websites AS text[]),
-                        CAST(:purities AS text[]),CAST(:packs AS text[]),CAST(:remarks AS text[]),
-                        CAST(:locales AS text[]))
-                    AS t(ref,cbsid,name,phone,email,website,purity,pack_price,remark,locale)
-                    ON CONFLICT (chemical_id, ref) DO UPDATE SET
-                        cbsid=coalesce(excluded.cbsid, chemistry.chemical_supplier.cbsid),
-                        name=excluded.name,
-                        phone=coalesce(excluded.phone, chemistry.chemical_supplier.phone),
-                        email=coalesce(excluded.email, chemistry.chemical_supplier.email),
-                        website=coalesce(excluded.website, chemistry.chemical_supplier.website),
-                        purity=excluded.purity,
-                        pack_price=excluded.pack_price,
-                        remark=excluded.remark,
-                        locale=coalesce(chemistry.chemical_supplier.locale, excluded.locale)
-                """), _suppliers_params(chemical_id, suppliers))
-        else:
-            await db.execute(text("""
-                DELETE FROM chemistry.chemical_supplier WHERE chemical_id=:chemical_id
-            """), {"chemical_id": chemical_id})
+        # 2026-08-31 收口: 旧表双写拆除(迁移完成, chemical_supplier 已摘除),
+        # zh 成功路径只写 profile/listing 两新表(上方已写)。
 
 
 _COUNTRY_CODE_MAP = {
@@ -278,18 +232,6 @@ def _norm_country_code(raw: str | None) -> str | None:
     if len(s) == 2 and s.isalpha() and s.isupper():
         return s
     return _COUNTRY_CODE_MAP.get(s, s)
-
-
-def _suppliers_params(chemical_id: int, suppliers: list[dict[str, Any]]) -> dict[str, Any]:
-    def col(key: str) -> list[str | None]:
-        return [s.get(key) for s in suppliers]
-    return {
-        "chemical_id": chemical_id,
-        "refs": col("ref"), "cbsids": col("cbsid"), "names": col("name"),
-        "phones": col("phone"), "emails": col("email"), "websites": col("website"),
-        "purities": col("purity"), "packs": col("pack_price"), "remarks": col("remark"),
-        "locales": col("locale"),
-    }
 
 
 def _dedupe_key(chemical_id: int, cas_number: str, locale: str = "zh-CN") -> str:
