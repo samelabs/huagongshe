@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import HTTPException
@@ -283,3 +284,166 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
     ]
 
 
+
+
+async def load_stats(db: Any) -> dict[str, Any]:
+    """站点统计(counts)。自 routes.stats 下沉, 逻辑零改动(批次5a)。"""
+    row = (await db.execute(text("""
+        SELECT
+          (SELECT exact_count FROM chemistry.statistics WHERE metric='chemicals'),
+          (SELECT exact_count FROM chemistry.statistics WHERE metric='reactions'),
+          (SELECT count(*) FROM ord.dataset),
+          (SELECT count(*) FROM ingest.reaction_rdkit_failures)
+    """))).one()
+    return {
+        "chemicals": max(row[0], 0), "reactions": max(row[1], 0),
+        "datasets": row[2], "rdkit_failures": row[3],
+    }
+
+
+async def load_public_config(db: Any) -> dict[str, dict[str, Any]]:
+    """公开系统配置(analytics/ads/site/branding)。自 routes.public_config 下沉, 逻辑零改动(批次5a)。"""
+    rows = (await db.execute(text("""
+        SELECT namespace, key, value FROM community.system_config
+        WHERE namespace IN ('analytics', 'ads', 'site', 'branding')
+        ORDER BY namespace, key
+    """))).fetchall()
+    result: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        ns = r[0]
+        key = r[1]
+        val = r[2]
+        if isinstance(val, str):
+            val = json.loads(val)
+        result.setdefault(ns, {})[key] = val
+    return result
+
+async def load_datasets(db: Any, page: int, page_size: int) -> list[dict[str, Any]]:
+    """ORD 数据集分页。自 routes.datasets 下沉, 逻辑零改动(批次5a)。"""
+    rows = (await db.execute(text("""
+        SELECT id, dataset_id, name, description, num_reactions, submitted_at
+        FROM ord.dataset ORDER BY num_reactions DESC NULLS LAST, id
+        LIMIT :limit OFFSET :offset
+    """), {"limit": page_size, "offset": (page - 1) * page_size})).fetchall()
+    return [{
+        "id": row[0], "dataset_id": row[1], "name": row[2], "description": row[3],
+        "reaction_count": row[4], "submitted_at": row[5],
+    } for row in rows]
+
+async def load_sitemap_reactions(db: Any, after_id: int, limit: int) -> dict[str, Any]:
+    """站点地图用公开反应ID keyset 分页。自 routes.sitemap_reactions 下沉, 逻辑零改动(批次5a)。"""
+    rows = (await db.execute(text("""
+        SELECT id, updated_at FROM chemistry.reactions
+        WHERE id > :after_id AND visibility='public' AND moderation_status='visible'
+        ORDER BY id LIMIT :limit
+    """), {"after_id": after_id, "limit": limit})).fetchall()
+    return {
+        "reactions": [{"id": row[0], "updated_at": row[1]} for row in rows],
+        "last_id": rows[-1][0] if rows else None,
+    }
+
+
+async def load_synonyms_page(db: Any, chemical_id: int, offset: int, page_size: int) -> tuple[int | None, Any]:
+    """同义词分页(total, values)。自 routes.chemical_synonyms 下沉, 逻辑零改动(批次5a)。"""
+    row = (await db.execute(text("""
+        WITH source AS (
+            SELECT CASE WHEN jsonb_typeof(synonyms)='array'
+                THEN synonyms ELSE '[]'::jsonb END AS values
+            FROM chemistry.chemicals WHERE id=:chemical_id
+        )
+        SELECT jsonb_array_length(values),coalesce((
+            SELECT jsonb_agg(value ORDER BY ordinality)
+            FROM jsonb_array_elements_text(values) WITH ORDINALITY AS alias(value,ordinality)
+            WHERE ordinality>:offset AND ordinality<=:offset+:page_size
+        ),'[]'::jsonb)
+        FROM source
+    """), {
+        "chemical_id": chemical_id,
+        "offset": offset,
+        "page_size": page_size,
+    })).fetchone()
+    if not row:
+        return None, None
+    return int(row[0]), row[1]
+
+
+async def substructure_page(db: Any, chemical_id: int, page: int, page_size: int) -> tuple[int, list[dict[str, Any]]]:
+    """子结构检索分页; total=-1 表示无结构(调用方转 404)。自 routes.chemical_substructure 下沉, 逻辑零改动(批次5a)。"""
+    smiles = (await db.execute(text(
+        "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
+    ), {"id": chemical_id})).scalar()
+    if not smiles:
+        return -1, []
+    smiles = bounded_substructure_smiles(smiles)
+    offset = (page - 1) * page_size
+    await db.execute(text("SET LOCAL statement_timeout = '8s'"))
+    items = await fetch_chemicals(db, f"""
+        SELECT {CHEMICAL_SELECT}
+        FROM chemistry.chemicals c
+        WHERE c.mol @> mol_from_smiles(:smiles) AND c.id<>:id
+        ORDER BY c.id
+        LIMIT :limit OFFSET :offset
+    """, {"id": chemical_id, "smiles": smiles, "limit": page_size, "offset": offset})
+    # Preserve the RDKit GiST plan; see the same rule in the public search.
+    items.sort(key=lambda item: item["id"])
+    # 不跑全量 count(143 万 mol 行上巨命中必超时白烧): 不足一页=免费精确值, 满页=None("更多结果").
+    total = offset + len(items) if len(items) < page_size else None
+    return total, items
+
+
+async def similarity_page(db: Any, chemical_id: int, threshold: float, page: int, page_size: int) -> list[dict[str, Any]] | None:
+    """相似度检索分页; None=无结构(调用方转 404)。自 routes.chemical_similarity 下沉, 逻辑零改动(批次5a)。"""
+    smiles = (await db.execute(text(
+        "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
+    ), {"id": chemical_id})).scalar()
+    if not smiles:
+        return None
+    offset = (page - 1) * page_size
+    await db.execute(text("SET LOCAL statement_timeout = '8s'"))
+    items = await fetch_chemicals(db, f"""
+        SELECT {CHEMICAL_SELECT},
+               1 - (c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles)))
+        FROM chemistry.chemicals c
+        WHERE c.mol IS NOT NULL AND c.id<>:id
+        ORDER BY c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles))
+        LIMIT :limit OFFSET :offset
+    """, {"id": chemical_id, "smiles": smiles, "limit": page_size, "offset": offset})
+    return [item for item in items if (item.get("similarity") or 0) >= threshold]
+
+
+async def fill_detail_context(db: Any, result: dict[str, Any], chemical_id: int, user_id: int) -> None:
+    """详情页上下文填充(synonyms/reaction_count/follows)。自 routes.chemical_detail 下沉, 逻辑零改动(批次5a)。"""
+    synonym_row = (await db.execute(text("""
+        WITH source AS (
+            SELECT CASE WHEN jsonb_typeof(synonyms)='array'
+                THEN synonyms ELSE '[]'::jsonb END AS items
+            FROM chemistry.chemicals WHERE id=:id
+        )
+        SELECT jsonb_array_length(items),coalesce((
+            SELECT jsonb_agg(value ORDER BY ordinality)
+            FROM jsonb_array_elements_text(items) WITH ORDINALITY AS alias(value,ordinality)
+            WHERE ordinality<=20
+        ),'[]'::jsonb)
+        FROM source
+    """), {"id": chemical_id})).fetchone()
+    result["synonym_count"] = int(synonym_row[0]) if synonym_row else 0
+    result["synonyms"] = list(synonym_row[1] or []) if synonym_row else []
+    total_reactions = int((await db.execute(text("""
+        SELECT count(DISTINCT rc.reaction_id) FROM chemistry.reaction_chemicals rc
+        WHERE rc.chemical_id=:id
+    """), {"id": chemical_id})).scalar() or 0)
+    excluded_reactions = int((await db.execute(text("""
+        SELECT count(DISTINCT rc.reaction_id)
+        FROM chemistry.reactions rx
+        JOIN chemistry.reaction_chemicals rc ON rc.reaction_id=rx.id
+        WHERE (rx.visibility<>'public' OR rx.moderation_status<>'visible')
+          AND rc.chemical_id=:id
+    """), {"id": chemical_id})).scalar() or 0)
+    result["reaction_count"] = max(total_reactions - excluded_reactions, 0)
+    follow_row = (await db.execute(text("""
+        SELECT count(*),EXISTS(
+          SELECT 1 FROM community.chemical_follows WHERE chemical_id=:id AND user_id=:user_id
+        ) FROM community.chemical_follows WHERE chemical_id=:id
+    """), {"id": chemical_id, "user_id": user_id})).fetchone()
+    result["follower_count"] = int(follow_row[0])
+    result["is_following"] = bool(follow_row[1])

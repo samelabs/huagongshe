@@ -12,7 +12,8 @@ from api.core.rate_limit import is_loopback_host
 from api import routes
 from api.services.enrichment import display_details
 from api.chemistry import normalize_doi
-from api.routes import bounded_substructure_smiles
+from api.services import chemicals as chemicals_service
+from api.services.chemicals import bounded_substructure_smiles
 
 
 class StructureSearchContractTests(unittest.TestCase):
@@ -21,7 +22,8 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertEqual(source.count('if mode != "exact":'), 2)
 
     def test_doi_lookup_uses_separate_indexable_sources(self) -> None:
-        source = inspect.getsource(routes.reaction_lookup)
+        from api.services.chemicals import reaction_lookup
+        source = inspect.getsource(reaction_lookup)
         self.assertIn("lower(rx.doi)=:doi", source)
         self.assertIn("WHERE lower(doi)=:doi", source)
         self.assertNotIn("COALESCE(rx.doi,rp.doi)=:doi", source)
@@ -36,7 +38,8 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertIsNone(normalize_doi("not-a-doi"))
 
     def test_exact_search_uses_indexable_dtxsid_and_bounded_names(self) -> None:
-        source = inspect.getsource(routes.search)
+        from api.services import search as search_service
+        source = inspect.getsource(search_service.run_search_query)
         self.assertIn("c.dtxsid = :uq", source)
         self.assertNotIn("upper(c.dtxsid)", source)
         self.assertIn("MIN_FUZZY_NAME_LENGTH", source)
@@ -70,7 +73,7 @@ class StructureSearchContractTests(unittest.TestCase):
 
     def test_chemical_reaction_counts_avoid_visible_reaction_point_lookups(self) -> None:
         summary_source = inspect.getsource(routes.reaction_summaries)
-        detail_source = inspect.getsource(routes.chemical_detail)
+        detail_source = inspect.getsource(chemicals_service.fill_detail_context)
         self.assertIn("total_all", summary_source)
         self.assertIn("excluded", summary_source)
         self.assertIn("NOT EXISTS", summary_source)
