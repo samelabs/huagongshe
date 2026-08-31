@@ -20,6 +20,7 @@ from .core.cache import cache_delete
 from .core.config import settings
 from .core.database import get_db
 from .core.security import Actor, current_session
+from .schemas.admin import UserStatusBody, UserRoleBody, ModerationBody, WorkerCreateBody, WorkerPatchBody, SkillVisibilityBody, CategoryBody, WORKER_SCOPES
 
 router = APIRouter(prefix="/admin", tags=["administration"], include_in_schema=False)
 
@@ -28,39 +29,6 @@ async def admin(actor: Actor = Depends(current_session)) -> Actor:
     if actor.role != "admin":
         raise HTTPException(403, "没有平台管理权限")
     return actor
-
-
-class UserStatusBody(BaseModel):
-    status: Literal["active", "disabled"]
-
-
-class UserRoleBody(BaseModel):
-    role: Literal["member", "admin"]
-
-
-class ModerationBody(BaseModel):
-    status: Literal["visible", "hidden"]
-
-
-# ---------------------------------------------------------------- workers
-# Worker 凭据治理: 签发/停权/scopes 编辑. scopes 是一等自由数组(受已知任务族校验),
-# 未来内部负载 worker 化时此处零改动 — 认证协议(HMAC/租约)与任务族解耦.
-
-WORKER_SCOPES = ("pubchem", "cas")
-
-
-class WorkerCreateBody(BaseModel):
-    worker_id: str = Field(min_length=3, max_length=64, pattern=r"^[a-z0-9][a-z0-9-]*$")
-    display_name: str = Field(min_length=1, max_length=80)
-    scopes: list[str] = Field(min_length=1, max_length=10)
-    max_lease_jobs: int = Field(default=4, ge=1, le=20)
-
-
-class WorkerPatchBody(BaseModel):
-    display_name: str | None = Field(default=None, min_length=1, max_length=80)
-    scopes: list[str] | None = Field(default=None, min_length=1, max_length=10)
-    max_lease_jobs: int | None = Field(default=None, ge=1, le=20)
-    enabled: bool | None = None
 
 
 def _validated_scopes(scopes: list[str]) -> list[str]:
@@ -269,11 +237,6 @@ async def moderate_reaction(
 
 # ── 技能治理 ──────────────────────────────────────────────
 
-class SkillVisibilityBody(BaseModel):
-    visibility: Literal["private", "public"]
-    note: str | None = None
-
-
 @router.get("/skills")
 async def list_all_skills(
     q: str = Query("", max_length=120),
@@ -349,14 +312,6 @@ async def admin_delete_skill(
     await db.commit()
     await asyncio.to_thread(shutil.rmtree, Path(settings.skill_root) / str(skill_id), True)
     return {"id": skill_id, "deleted": True}
-
-
-class CategoryBody(BaseModel):
-    name: str
-    abbr: str
-    color: str
-    sort_order: int = 100
-    active: bool = True
 
 
 @router.get("/skill-categories")

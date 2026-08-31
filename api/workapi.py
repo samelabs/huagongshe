@@ -21,6 +21,7 @@ from .core.config import settings
 from .core.database import get_db
 from .name_index import ingest_from_synonyms
 from .pubchem_core import chemical_core_values, number_or_none, validate_synonyms
+from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, FailBody, CasLeaseBody, CasResultBody, CasCompleteBody
 
 router = APIRouter(prefix="/workapi/v1", tags=["workapi"])
 
@@ -31,27 +32,6 @@ NONCE_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 class WorkerContext:
     worker_id: str
     max_lease_jobs: int
-
-
-class LeaseBody(BaseModel):
-    max_jobs: int = Field(default=2, ge=1, le=20)
-    capabilities: list[str] = Field(default_factory=lambda: ["pubchem"], max_length=20)
-
-
-class LeaseProof(BaseModel):
-    job_id: int = Field(gt=0)
-    lease_token: str = Field(min_length=32, max_length=256)
-
-
-class CompleteBody(LeaseProof):
-    result: dict[str, Any]
-
-
-class FailBody(LeaseProof):
-    error_code: str = Field(min_length=1, max_length=100)
-    error_detail: str = Field(default="", max_length=2000)
-    retryable: bool = True
-    retry_after_seconds: int = Field(default=30, ge=1, le=3600)
 
 
 async def authenticated_worker(
@@ -668,29 +648,6 @@ async def fail_job(
 # ---------------------------------------------------------------- cas jobs
 # 与 pubchem jobs 同协议(HMAC/租约/心跳/nonce), 独立表 maintenance.cas_jobs。
 # worker 认领时声明 capabilities=["cas"]; scopes 检查在 authenticated_worker。
-
-class CasLeaseBody(BaseModel):
-    max_jobs: int = Field(default=2, ge=1, le=20)
-    capabilities: list[str] = Field(default_factory=lambda: ["cas"], max_length=20)
-
-
-class CasResultBody(BaseModel):
-    # 2026-08-30 CB链重构(准线§3): error 载荷 = 拿不到状态, 只刷 last_status+
-    # fetched_at, 不写 entry/供应商/name_index, 不冒充 not_found。
-    status: str = Field(pattern="^(ok|not_found|error)$")
-    entry: dict[str, Any] | None = None
-    suppliers: list[dict[str, Any]] = Field(default_factory=list)
-    # CB molfile 原文(可选): 详情页有 MOL 外链时 worker 附带; 服务端只补空不覆盖
-    mol: str | None = Field(default=None, max_length=1_000_000)
-    # CB 条目号(可选, 身份标识): 纯数字字符串, 落主表 chemicals.cb_number
-    cb_number: str | None = Field(default=None, pattern=r"^\d{1,16}$")
-    # locale(可选, 默认 zh-CN 主行): en 等语言行只写 entry, suppliers 由主行独占
-    locale: str = Field(default="zh-CN", pattern="^(zh-CN|en|ja|de|ko|ru)$")
-
-
-class CasCompleteBody(LeaseProof):
-    result: CasResultBody
-
 
 async def verified_cas_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock: bool = True):
     suffix = " FOR UPDATE" if lock else ""

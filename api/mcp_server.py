@@ -26,9 +26,9 @@ from sqlalchemy import text
 
 from .core.config import settings
 from .core.database import async_session
-from .reactions import ReactionBody
+from .schemas.reactions import ReactionBody
 from .core.security import Actor, resolve_actor
-from .stoichiometry import ScaleInput
+from .schemas.stoichiometry import ScaleInput
 
 # ---------------------------------------------------------------------------
 # 工具实现

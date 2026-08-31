@@ -19,31 +19,11 @@ from rdkit.Chem import Descriptors
 from .core.config import settings
 from .core.rate_limit import enforce
 from .core.security import Actor, internal_or_actor, optional_actor
+from .schemas.stoichiometry import Component, Basis, ScaleInput, Role, Unit
 
 router = APIRouter(tags=["stoichiometry"])
 
 _PER_MOL = {"g": 1.0, "mg": 1e-3, "mol": 1.0, "mmol": 1e-3}
-Unit = Literal["g", "mg", "mol", "mmol"]
-Role = Literal["REACTANT", "REAGENT", "CATALYST", "SOLVENT", "PRODUCT"]
-
-
-class Component(BaseModel):
-    role: Role
-    smiles: str = Field(min_length=1, max_length=20000)
-    eq: float | None = Field(default=None, gt=0, le=1000)
-    label: str | None = Field(default=None, max_length=80)
-
-
-class Basis(BaseModel):
-    index: int = Field(ge=0)
-    amount_value: float = Field(gt=0, le=1e9)
-    amount_unit: Unit = "g"
-
-
-class ScaleInput(BaseModel):
-    components: list[Component] = Field(min_length=1, max_length=30)
-    basis: Basis
-    concentration_mol_per_l: float | None = Field(default=None, gt=0, le=50)
 
 
 def _parse(smiles: str, role: str):
