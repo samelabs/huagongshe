@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import hmac
 import json
@@ -191,8 +192,8 @@ async def process_job(
                 "lease_token": job["lease_token"],
                 "error_code": exc.code,
                 "error_detail": str(exc),
-                "retryable": exc.retryable,
-                "retry_after_seconds": 60,
+                # 2026-08-30 准线§3: PB 全形态终态(不盲打), retry_after 死参数删除
+                "retryable": False,
             },
         )
         log.warning("PubChem job=%s terminal: %s", job["job_id"], exc)
@@ -274,10 +275,10 @@ async def process_cas_job(
             if result.status == "not_found":
                 payload = {"status": "not_found", "entry": None, "suppliers": []}
             elif result.status == "error":
-                # CB 链一律一发终态(8-29 定论): 第一发 failed=基本没有/上游异常,
-                # 都不再打第二发。错误流量=上游风控画像。未来复查靠日级 expiry
-                # 轮次或用户重搜触发, 不靠秒级 retry。落 not_found 负缓存。
-                payload = {"status": "not_found", "entry": None, "suppliers": []}
+                # 2026-08-30 CB链重构(准线§3): error=拿不到状态, 不冒充
+                # not_found, 落 error 态(entry 空, 服务端只刷 status+fetched_at)。
+                # 不回队不重试, 下次触发按六态规则再问。
+                payload = {"status": "error", "entry": None, "suppliers": []}
             else:
                 # CPP busy 已由 fetch 层熔断计数; 这里走 CAS 页兜底出 entry,
                 # job 照常成功(数据可用, CPP 增量段待上游恢复后刷新趟补)
@@ -286,6 +287,11 @@ async def process_cas_job(
                 ) or (parse_entry(result.cas_html) if result.cas_html else None)
                 if entry is None:
                     payload = {"status": "not_found", "entry": None, "suppliers": []}
+                elif set(entry.keys()) == {"basic"}:
+                    # 2026-08-30 准线§5: 除 basic 外零节 = 解析判定过松的空壳
+                    # (0.7% 空 entry 问题), 不判 ok — 按不盲打纪律落 error,
+                    # 不冒充 not_found, 下次触发再问。
+                    payload = {"status": "error", "entry": None, "suppliers": []}
                 else:
                     suppliers = (
                         parse_cpp_suppliers(result.cpp_html) if result.cpp_html else []
@@ -330,12 +336,34 @@ async def process_cas_job(
                 )
                 log.info("cas job=%s deferred %s (circuit/cb_number)", job["job_id"], locale)
                 return
-            cpp_html = await fetch_cpp_locale(session, cb_number, locale)
+            cpp_state, cpp_html = await fetch_cpp_locale(session, cb_number, locale)
+            if cpp_state in ("busy", "error"):
+                # 2026-08-31 收口: 限流/网络错 = "没查", 不是"查了没有"。
+                # 不落 not_found 终态(语言行无 expiry 自动刷新, 会静默丢数据),
+                # 回队延迟重试; busy 已由 fetch 层计入 CPP 熔断器。
+                await workapi.post(
+                    "/workapi/v1/cas/jobs/fail",
+                    {
+                        "job_id": job["job_id"],
+                        "lease_token": job["lease_token"],
+                        "error_code": (
+                            "cpp_busy_defer" if cpp_state == "busy" else "cpp_fetch_defer"
+                        ),
+                        "error_detail": (
+                            f"locale={locale} {cpp_state}: 拿不到状态不落终态"
+                        )[:2000],
+                        "retryable": True,
+                        "retry_after_seconds": 600,
+                    },
+                )
+                log.info("cas job=%s deferred %s (cpp %s)", job["job_id"], locale, cpp_state)
+                return
             entry = parse_cpp_entry_en(cpp_html) if cpp_html else None
-            # 语言页结果上报治理器: 拿到 entry=hit, 空=miss(CB 大量条目无语言变体)
+            # 语言页结果上报治理器: 拿到 entry=hit, 空=miss(CB 大量条目无语言变体;
+            # 走到这里的空=真判定"无变体"(not_found 页), 非网络错)。
             governor.record("cb", "hit" if entry is not None else "miss")
             if entry is None:
-                # 语言页第一发没拿到 = 终态"查了没有", 不再 fail/retry(8-29 定论):
+                # 200 正常判定无 entry = 终态"查了没有", 不再 fail/retry(8-29 定论):
                 # 大量条目 CB 本就没有 EN 变体, retry 只产无效请求(已实测死 3.4k
                 # 任务/1万+发空打, 错误流量正是上游风控画像)。落 not_found 负缓存,
                 # 复查交给日级 expiry 轮次; en 行是主行增量, 损失量级≈0。
@@ -395,7 +423,7 @@ async def run() -> None:
         pb_session_ctx = (
             aiohttp.ClientSession(connector=pb_connector)
             if pb_connector
-            else aiohttp.nullcontext(session)
+            else contextlib.nullcontext(session)
         )
         async with pb_session_ctx as pb_session:
             # 会话热身(2026-08-28): 首页一换取 ASP.NET_SessionId + _ancsi_ 防爬令牌,
@@ -418,6 +446,7 @@ async def run() -> None:
             # 换搜索miss用户重搜等待上限 40s->~20s(2026-08-28 体感收口)
             cas_idle_seconds = 2.0
             cas_idle_cap = 10.0
+            cb_proxy_sessions: dict[str, aiohttp.ClientSession] = {}
             while True:
                 try:
                     # 双队列: pubchem 优先轮询, cas 每轮附带认领(单并发,礼仪串行)。
@@ -434,6 +463,10 @@ async def run() -> None:
                         )
                         jobs = leased.get("jobs") or []
                     cas_coros = []
+                    # CB 双入口并行(2026-08-30): 直连链恒在, HGS_CB_PROXY 设置时
+                    # 加一条独立代理 session 链(VLESS 出口 IP), 两条链各自 lease
+                    # 各自单发串行, 对 CB 呈两个独立出口各一恒定节奏。
+                    cb_proxy_url = os.environ.get("HGS_CB_PROXY", "")
                     if "cas" in _scopes:
                         cas_leased = await workapi.post(
                             "/workapi/v1/cas/jobs/lease",
@@ -441,10 +474,20 @@ async def run() -> None:
                         )
                         cas_jobs = cas_leased.get("jobs") or []
                         cas_coros = [process_cas_job(session, workapi, job) for job in cas_jobs]
-                        if not cas_jobs:
-                            cas_idle_seconds = min(cas_idle_cap, cas_idle_seconds * 1.5)
-                        else:
+                        if cas_jobs:
                             cas_idle_seconds = 2.0
+                        else:
+                            cas_idle_seconds = min(cas_idle_cap, cas_idle_seconds * 1.5)
+                        if cb_proxy_url:
+                            cb_leased = await workapi.post(
+                                "/workapi/v1/cas/jobs/lease",
+                                {"max_jobs": 1, "capabilities": ["cas"]},
+                            )
+                            cb_jobs = cb_leased.get("jobs") or []
+                            if cb_proxy_url not in cb_proxy_sessions:
+                                cb_conn = ProxyConnector.from_url(cb_proxy_url, ttl_dns_cache=300)
+                                cb_proxy_sessions[cb_proxy_url] = aiohttp.ClientSession(connector=cb_conn)
+                            cas_coros += [process_cas_job(cb_proxy_sessions[cb_proxy_url], workapi, job) for job in cb_jobs]
                     if not jobs and not cas_coros:
                         requested_wait = float(leased.get("retry_after_seconds", 5)) if "pubchem" in _scopes else 5
                         idle_seconds = min(30.0, max(requested_wait, idle_seconds * 1.5))

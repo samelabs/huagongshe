@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import text
@@ -45,6 +45,23 @@ async def get_externals_row(db: Any, chemical_id: int) -> dict[str, Any] | None:
 
 
 async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
+    # 2026-08-30 准线§4 + 审计修复②: 新表为完整来源前(迁移未完成, 存量 59%
+    # 行无 cbsid 进不了新表), 以旧表行数为准 — 新表行数 >= 旧表才用新表,
+    # 否则回退旧表, 防止混合行场景数据缩水。Step 6 迁移完成后删回退。
+    rows = (await db.execute(text("""
+        SELECT p.ref, p.name, p.phone, p.email, p.website,
+               l.purity, l.pack_price, l.remark
+        FROM chemistry.chemical_supplier_listing l
+        JOIN chemistry.chemical_supplier_profile p ON p.cbsid=l.cbsid
+        WHERE l.chemical_id=:chemical_id
+        ORDER BY p.ref
+    """), {"chemical_id": chemical_id})).fetchall()
+    old_count = (await db.execute(text("""
+        SELECT count(*) FROM chemistry.chemical_supplier
+        WHERE chemical_id=:chemical_id
+    """), {"chemical_id": chemical_id})).scalar()
+    if rows and len(rows) >= int(old_count or 0):
+        return [dict(r._mapping) for r in rows]
     rows = (await db.execute(text("""
         SELECT ref,name,phone,email,website,purity,pack_price,remark
         FROM chemistry.chemical_supplier WHERE chemical_id=:chemical_id ORDER BY ref
@@ -72,6 +89,23 @@ async def upsert_externals(
     entry_json = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) if entry else None
     if entry_json and len(entry_json.encode()) > MAX_ENTRY_JSON_BYTES:
         raise ValueError("cas entry payload exceeds safety limit")
+    # 2026-08-30 CB链重构(准线§3): error = 拿不到状态 — 只刷 last_status+
+    # fetched_at, 不抹既有 entry(旧数据仍可服务), 不写供应商/name_index。
+    if status == "error":
+        await db.execute(text("""
+            INSERT INTO chemistry.chemical_cb
+                (chemical_id,cas_number,entry,last_status,fetched_at,expires_at,locale)
+            VALUES
+                (:chemical_id,:cas_number,NULL,'error',now(),NULL,:locale)
+            ON CONFLICT (chemical_id, locale) DO UPDATE SET
+                last_status='error',
+                fetched_at=now(),
+                updated_at=now()
+        """), {
+            "chemical_id": chemical_id, "cas_number": cas_number,
+            "locale": locale,
+        })
+        return
     # 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环
     # 拆除 — expires_at 恒 NULL, fetched_at 即"何时取到/何时确认没有"。
     # ok 与 not_found 同为终态; 回补是未来手动脚本的事, 不进自动机制。
@@ -93,7 +127,8 @@ async def upsert_externals(
         "entry": entry_json, "status": status, "expires": expires,
         "locale": locale,
     })
-    # CB 号上移主表: 只补空不覆盖(同号不同品目由 partial unique 兜底)
+    # CB 号上移主表: 只补空不覆盖。同 CAS 多 CID 行合法共享同一 cb_number
+    # (CB 按 CAS 建页, CID 才是真区分键; 唯一索引已于 20260830 迁移改为普通索引)。
     if cb_number:
         await db.execute(text("""
             UPDATE chemistry.chemicals
@@ -106,10 +141,77 @@ async def upsert_externals(
             db, chemical_id, entry,
             [s.get("name") for s in suppliers] if status == "ok" else [],
         )
-    # 供应商: cbsid 键 upsert(有值 UPDATE 无值 INSERT)。仅 zh-CN 主行写;
-    # locale(国家)只补空(GW/CPP 数据源合并, 不覆盖既有判定)。
-    # 残留防护: 本轮未出现的行(cbsid/ref 都不在)DELETE, 防 CB 下架供应商驻留。
+    # 供应商两表写入(2026-08-30 准线§4): 档表(cbsid主键,过期才重拉)+映射表
+    # (chemical_id+cbsid 全量替换)。仅 zh-CN 主行写。旧表同步写(迁移期双写,
+    # Step 6 迁移校验后退役)。locale 规范化(ISO 3166-1 alpha-2)。
     if locale == "zh-CN":
+        if status == "ok":
+            norm_locales = [_norm_country_code(s.get("locale")) for s in suppliers]
+            with_profile = [i for i, s in enumerate(suppliers) if s.get("cbsid")]
+            # 1) 档表: cbsid 缺失或过期才 upsert(同 cbsid 一家一档)
+            if with_profile:
+                await db.execute(text("""
+                    INSERT INTO chemistry.chemical_supplier_profile
+                        (cbsid,name,ref,phone,email,website,locale,fetched_at,expires_at)
+                    SELECT cbsid,name,ref,phone,email,website,locale,now(),
+                           now()+(:expiry_days||' days')::interval
+                    FROM unnest(
+                        CAST(:cbsids AS text[]),CAST(:names AS text[]),CAST(:refs AS text[]),
+                        CAST(:phones AS text[]),CAST(:emails AS text[]),CAST(:websites AS text[]),
+                        CAST(:locales AS text[])) AS t(cbsid,name,ref,phone,email,website,locale)
+                    ON CONFLICT (cbsid) DO UPDATE SET
+                        name=excluded.name,
+                        ref=coalesce(excluded.ref, chemistry.chemical_supplier_profile.ref),
+                        phone=coalesce(excluded.phone, chemistry.chemical_supplier_profile.phone),
+                        email=coalesce(excluded.email, chemistry.chemical_supplier_profile.email),
+                        website=coalesce(excluded.website, chemistry.chemical_supplier_profile.website),
+                        locale=coalesce(excluded.locale, chemistry.chemical_supplier_profile.locale),
+                        fetched_at=now(),
+                        expires_at=now()+(:expiry_days||' days')::interval
+                    WHERE chemistry.chemical_supplier_profile.expires_at < now()
+                       OR chemistry.chemical_supplier_profile.phone IS NULL
+                """), {
+                    "expiry_days": "180",
+                    "cbsids": [suppliers[i].get("cbsid") for i in with_profile],
+                    "names": [suppliers[i].get("name") for i in with_profile],
+                    "refs": [suppliers[i].get("ref") for i in with_profile],
+                    "phones": [suppliers[i].get("phone") for i in with_profile],
+                    "emails": [suppliers[i].get("email") for i in with_profile],
+                    "websites": [suppliers[i].get("website") for i in with_profile],
+                    "locales": [norm_locales[i] for i in with_profile],
+                })
+            # 2) 映射表: 化合物粒度全量替换(报价纯度属化合物, 档案不随行)
+            await db.execute(text("""
+                DELETE FROM chemistry.chemical_supplier_listing
+                WHERE chemical_id=:chemical_id
+            """), {"chemical_id": chemical_id})
+            if with_profile:
+                await db.execute(text("""
+                    INSERT INTO chemistry.chemical_supplier_listing
+                        (chemical_id,cbsid,purity,pack_price,remark,fetched_at)
+                    SELECT :chemical_id,cbsid,purity,pack_price,remark,now()
+                    FROM unnest(
+                        CAST(:cbsids AS text[]),
+                        CAST(:purities AS text[]),CAST(:packs AS text[]),CAST(:remarks AS text[]))
+                    AS t(cbsid,purity,pack_price,remark)
+                    ON CONFLICT (chemical_id, cbsid) DO UPDATE SET
+                        purity=excluded.purity,
+                        pack_price=excluded.pack_price,
+                        remark=excluded.remark,
+                        fetched_at=now()
+                """), {
+                    "chemical_id": chemical_id,
+                    "cbsids": [suppliers[i].get("cbsid") for i in with_profile],
+                    "purities": [suppliers[i].get("purity") for i in with_profile],
+                    "packs": [suppliers[i].get("pack_price") for i in with_profile],
+                    "remarks": [suppliers[i].get("remark") for i in with_profile],
+                })
+        else:
+            await db.execute(text("""
+                DELETE FROM chemistry.chemical_supplier_listing
+                WHERE chemical_id=:chemical_id
+            """), {"chemical_id": chemical_id})
+        # 旧表双写(迁移期, Step 6 退役): 原 upsert 逻辑不动
         if status == "ok":
             await db.execute(text("""
                 DELETE FROM chemistry.chemical_supplier a
@@ -145,6 +247,37 @@ async def upsert_externals(
             await db.execute(text("""
                 DELETE FROM chemistry.chemical_supplier WHERE chemical_id=:chemical_id
             """), {"chemical_id": chemical_id})
+
+
+_COUNTRY_CODE_MAP = {
+    "中国": "CN", "中国香港": "HK", "中国台湾": "TW", "台湾": "TW", "中国澳门": "MO",
+    "日本": "JP", "韩国": "KR", "朝鲜": "KP", "美国": "US", "英国": "GB", "德国": "DE",
+    "法国": "FR", "印度": "IN", "俄罗斯": "RU", "乌克兰": "UA", "加拿大": "CA",
+    "匈牙利": "HU", "南非": "ZA", "巴西": "BR", "澳大利亚": "AU", "新西兰": "NZ",
+    "意大利": "IT", "西班牙": "ES", "葡萄牙": "PT", "荷兰": "NL", "比利时": "BE",
+    "瑞士": "CH", "奥地利": "AT", "瑞典": "SE", "挪威": "NO", "丹麦": "DK",
+    "芬兰": "FI", "波兰": "PL", "捷克": "CZ", "斯洛伐克": "SK",
+    "罗马尼亚": "RO", "保加利亚": "BG", "希腊": "GR", "土耳其": "TR", "以色列": "IL",
+    "沙特": "SA", "阿联酋": "AE", "伊朗": "IR", "巴基斯坦": "PK", "孟加拉": "BD",
+    "泰国": "TH", "越南": "VN", "马来西亚": "MY", "印度尼西亚": "ID", "印尼": "ID",
+    "菲律宾": "PH", "新加坡": "SG", "墨西哥": "MX", "阿根廷": "AR", "智利": "CL",
+    "哥伦比亚": "CO", "秘鲁": "PE", "埃及": "EG", "尼日利亚": "NG", "肯尼亚": "KE",
+    "摩洛哥": "MA", "爱尔兰": "IE", "冰岛": "IS", "卢森堡": "LU", "马耳他": "MT",
+    "爱沙尼亚": "EE", "拉脱维亚": "LV", "立陶宛": "LT", "斯洛文尼亚": "SI",
+    "克罗地亚": "HR", "塞尔维亚": "RS", "白俄罗斯": "BY", "哈萨克斯坦": "KZ",
+    "乌兹别克斯坦": "UZ", "蒙古": "MN",
+}
+
+
+def _norm_country_code(raw: str | None) -> str | None:
+    """中文国名 → ISO 3166-1 alpha-2(2026-08-30 用户定: 供应商 locale 用国家简称
+    英文字符)。已是两位大写字母原样通过; 未识别保留原值待补映射。"""
+    if not raw:
+        return None
+    s = raw.strip()
+    if len(s) == 2 and s.isalpha() and s.isupper():
+        return s
+    return _COUNTRY_CODE_MAP.get(s, s)
 
 
 def _suppliers_params(chemical_id: int, suppliers: list[dict[str, Any]]) -> dict[str, Any]:
@@ -204,7 +337,8 @@ async def enqueue_cas_job(
 # PubChem侧只update不insert(sync_chemical_core coalesce), 天然补全无重复。
 
 SEARCH_MISS_PRIORITY = 80       # 用户触发 > 后台刷新(30/50)
-SEARCH_MISS_MAX_QUEUE = 1000    # 活跃队列深度闸门: 超过则不再入队(爆灌降级)
+# 2026-08-30: SEARCH_MISS_MAX_QUEUE 深度闸门拆除(用户裁定: 治理交互不治理
+# 总量, 队列深度无害, 消化靠 worker 水平扩)。入队无水位上限。
 
 
 # ---- CB 结构三件写入(smiles/inchikey/mol, 只补空不覆盖) ---------------------
@@ -318,11 +452,65 @@ async def apply_structure_fill(
     })
 
 
-async def cas_search_state(db: Any, cas_number: str) -> str:
-    """搜索miss三态: pending(活跃任务在途) / miss(主表行存在=终态登记) / new(可占行)。
+# ---- 六态判定(2026-08-30 CB链重构, 准线: CB_CHAIN_REBUILD_PLAN.md §1) ------
+# 锚 = chemical_cb 行 (chemical_id, locale)。时间窗口配置化, 可调。
 
-    miss 判定查主表 cas_numbers(GIN, 2026-08-29定): 行在=处理过(CB ok 已建
-    或 not_found 已落 cb 行终态), 永不再问。任务表负缓存窗口作废。
+CB_LOCALES = ("zh-CN", "en", "ja", "de", "ko", "ru")  # IETF/BCP47 对齐
+
+
+async def _cb_window_days(db: Any) -> tuple[int, int]:
+    """system_config: cb 命名空间两键, 缺省 180/60。"""
+    try:
+        rows = (await db.execute(text("""
+            SELECT key, value FROM community.system_config WHERE namespace='cb'
+        """))).fetchall()
+        cfg = {k: v for k, v in rows}
+        requery = int(cfg.get("not_found_requery_days", {}).get("days", 180))
+        refresh = int(cfg.get("ok_refresh_days", {}).get("days", 60))
+        return requery, refresh
+    except Exception:
+        return 180, 60
+
+
+async def cb_decide(
+    db: Any, chemical_id: int, locale: str = "zh-CN",
+    *, has_cb_number: bool | None = None,
+) -> str:
+    """六态判定(统一入口, 准线§1)。返回:
+    - serve_fresh      ok 且未超刷新窗 → 直接出 entry
+    - serve_negative   not_found 且未超重问窗 → 出空(负缓存)
+    - enqueue_first    无行(首问)
+    - enqueue_requery  not_found 超重问窗 → 重问(CB 可能新增收录)
+    - enqueue_refresh  ok 超刷新窗 → 刷新(有 cb_number 直跳 CPP)
+    - enqueue_error    error → error 不是答案, 再问
+    - skip             多语言前置 cb_number 缺失, 不可寻址不入列
+    """
+    if locale not in CB_LOCALES:
+        return "skip"
+    if locale != "zh-CN" and has_cb_number is False:
+        return "skip"  # 语言页靠 cb_number 寻址, 无号不可执行
+    row = (await db.execute(text("""
+        SELECT last_status, fetched_at FROM chemistry.chemical_cb
+        WHERE chemical_id=:id AND locale=:loc
+    """), {"id": chemical_id, "loc": locale})).first()
+    if row is None:
+        return "enqueue_first"
+    status, fetched_at = row[0], row[1]
+    requery_days, refresh_days = await _cb_window_days(db)
+    if status == "not_found":
+        age = (await db.execute(text("SELECT now()-:ft"), {"ft": fetched_at})).scalar()
+        return "serve_negative" if age < timedelta(days=requery_days) else "enqueue_requery"
+    if status == "ok":
+        age = (await db.execute(text("SELECT now()-:ft"), {"ft": fetched_at})).scalar()
+        return "serve_fresh" if age < timedelta(days=refresh_days) else "enqueue_refresh"
+    return "enqueue_error"  # error/未知状态一律再问
+
+
+async def cas_search_state(db: Any, cas_number: str) -> str:
+    """搜索miss三态: pending(活跃任务在途或已触发入列) / miss(终态且负缓存内,
+    不再入列) / new(可占行)。六态判定驱动(2026-08-30重构): 行在不再等于
+    "永不再问", not_found 超重问窗/ok 超刷新窗/error 均入列。
+    返回 enqueue 态时调用方须真实入列(与详情路径 stale→enqueue 同逻辑)。
     """
     row = (await db.execute(text("""
         SELECT 1 FROM maintenance.cas_jobs
@@ -337,7 +525,20 @@ async def cas_search_state(db: Any, cas_number: str) -> str:
         LIMIT 1
     """), {"cas": cas_number})).first()
     if row:
-        return "miss"
+        chemical_id = (await db.execute(text("""
+            SELECT id FROM chemistry.chemicals
+            WHERE cas_numbers @> ARRAY[:cas] LIMIT 1
+        """), {"cas": cas_number})).scalar()
+        decision = await cb_decide(db, int(chemical_id))
+        if not decision.startswith("enqueue"):
+            return "miss"
+        # 六态判需再问(首问外的 超窗刷新/超窗重问/error): 真实入列 —
+        # 与详情路径 stale→enqueue 同逻辑(审计修复①, 2026-08-30)
+        enqueued = await enqueue_cas_job(
+            db, chemical_id=int(chemical_id), cas_number=cas_number,
+            priority=40, request_context={"reason": "search_stale"},
+        )
+        return "pending" if enqueued else "miss"
     return "new"
 
 
@@ -345,14 +546,8 @@ async def enqueue_cas_search_fetch(db: Any, *, cas_number: str) -> bool:
     """搜索miss: 占主表行(CAS登记, 只落 cas_numbers) + 入队(带行id)。
 
     占位行=标准化合物, 不区分对待(2026-08-29定)。INSERT 原子防并发重复
-    (NOT EXISTS), 竞态败者回查取既有行 id。深度超闸门返回 False(不占行)。
+    (NOT EXISTS), 竞态败者回查取既有行 id。无深度闸门(2026-08-30拆除)。
     """
-    depth = (await db.execute(text("""
-        SELECT count(*) FROM maintenance.cas_jobs
-        WHERE status IN ('queued','retry')
-    """))).scalar()
-    if depth is not None and int(depth) > SEARCH_MISS_MAX_QUEUE:
-        return False
     cas = cas_number.strip()
     chemical_id = (await db.execute(text("""
         INSERT INTO chemistry.chemicals (cas_numbers,created_at,updated_at)
@@ -468,14 +663,15 @@ async def ensure_externals(
     row = await get_externals_row(db, chemical_id)
     if row is None:
         return {"state": "absent", "entry": None, "suppliers": [], "job_id": None}
-    if row["last_status"] == "not_found":
-        # 终态: 恒"确认没有", 永不入队。fetched_at=确认时间。
+    # 六态判定驱动(2026-08-30重构, 准线§1): not_found 负缓存窗/ok 刷新窗/
+    # error 均不再恒 fresh。
+    decision = await cb_decide(db, chemical_id)
+    if decision == "serve_negative":
         return {"state": "fresh", "entry": None, "suppliers": [], "job_id": None,
                 "negative": True}
-    if row["last_status"] == "error":
-        # 拉取异常终态: 不自动重试(回补是未来手动脚本的事)。
-        return {"state": "fresh", "entry": None, "suppliers": [], "job_id": None,
-                "error": True}
+    if decision == "enqueue_requery" or decision == "enqueue_error" or decision == "enqueue_refresh":
+        # 需再问: 出当前数据但标记 stale, 调用方决定入列
+        return {"state": "stale", "entry": row["entry"], "suppliers": [], "job_id": None}
     # ok 行: 终态直出。suppliers 同行取。
     suppliers = await get_suppliers(db, chemical_id)
     payload = {"state": "fresh", "entry": row["entry"], "suppliers": suppliers,

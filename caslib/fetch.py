@@ -176,7 +176,7 @@ def cpp_report_ok() -> None:
 
 # ---------------------------------------------------------------- CPP 语言页
 
-_CPP_LANG_SUFFIX = {"en": "_EN", "ja": "_JP", "de": "_DE", "ko": "_KR"}
+_CPP_LANG_SUFFIX = {"en": "_EN", "ja": "_JP", "de": "_DE", "ko": "_KR", "ru": "_RU"}
 
 
 async def fetch_cpp_locale(
@@ -185,23 +185,41 @@ async def fetch_cpp_locale(
     locale: str,
     *,
     timeout_s: float = 20.0,
-) -> str | None:
-    """拉 CPP 语言变体页(ChemicalProductProperty_{L}_CB{cb}.htm)。
+) -> tuple[str, str | None]:
+    """拉 CPP 语言变体页(ChemicalProductProperty_{L}_CB{cb}.htm), 返回 (state, html)。
 
-    locale ∈ en/ja/de/ko(zh-CN 走主链 fetch_cas, 不经此函数)。
-    任何失败返回 None, 不抛。
+    locale ∈ en/ja/de/ko/ru(zh-CN 走主链 fetch_cas, 不经此函数)。
+    state 三态对齐主链(2026-08-31 收口: 网络错/限流≠"查了没有"):
+      - "ok":       200 且页面状态 ok/not_found(可判定终态; not_found 时 html=None)
+      - "busy":     200 但"系统忙"限流页 — 已计入 CPP 熔断器(cpp_report_busy)
+      - "error":    网络/超时/非200/未知 locale — 拿不到状态, 调用方须回队不落终态
+    不抛异常。
     """
     suffix = _CPP_LANG_SUFFIX.get(locale)
     if not suffix:
-        return None
+        return "error", None
     try:
         status, body = await _get(
             session, f"{BASE}/ChemicalProductProperty{suffix}_CB{cb_number}.htm",
             timeout_s,
         )
-        return body if status == 200 and body else None
     except Exception:
-        return None
+        return "error", None
+    if status != 200 or not body:
+        return "error", None
+    from .parse import cpp_page_state
+
+    state = cpp_page_state(body)
+    if state == "busy":
+        cpp_report_busy()
+        return "busy", None
+    if state == "empty":
+        # 空壳页(<500B)形态不可判定, 按"拿不到状态"回队, 不冒充终态。
+        return "error", None
+    cpp_report_ok()
+    if state == "not_found":
+        return "ok", None  # 判定成功: 该条目确无此语言变体
+    return "ok", body
 
 
 # ---------------------------------------------------------------- mol 文件

@@ -14,7 +14,6 @@ from .chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE, canonicalize_smiles, norm
 from .config import settings
 from .database import get_db
 from .name_index import normalize_name
-from .rate_limit import enforce
 from .enrichment import (
     DEFAULT_SECTIONS,
     display_details,
@@ -460,23 +459,14 @@ async def search(
                         )
                         state = await cas_search_state(db, query)
                         if state == "new":
-                            try:
-                                identity = (
-                                    str(actor.id) if actor is not None
-                                    else "anon-shared"
-                                )
-                                limit = 10 if actor is not None else 30
-                                await enforce(
-                                    "cas-search-fetch", identity, limit, 60,
-                                )
-                            except HTTPException:
-                                state = "new"  # 限流中: 本次不入队
-                            else:
-                                enqueued = await enqueue_cas_search_fetch(
-                                    db, cas_number=query,
-                                )
-                                await db.commit()
-                                state = "pending" if enqueued else "miss"
+                            # 2026-08-30: cas-search-fetch 限速 + 深度闸门
+                            # 均已剥离(用户裁定: 治理交互不治理总量)。
+                            # 防重复由 dedupe 活跃窗口唯一索引承担。
+                            enqueued = await enqueue_cas_search_fetch(
+                                db, cas_number=query,
+                            )
+                            await db.commit()
+                            state = "pending" if enqueued else "miss"
                     except Exception:
                         await db.rollback()  # 入队失败不阻塞搜索响应
                         state = "new"
@@ -552,6 +542,24 @@ async def search(
                             chemicals = chemicals[:page_size]
             elif not chemicals and not canonical and name_query_width(query) < MIN_FUZZY_NAME_LENGTH:
                 raise HTTPException(422, "名称查询至少需要 3 个字符（中文至少 2 个字）")
+            # 搜索命中卡片 → 同时查 zh 记录态和时间(准线§1 统一触发, 2026-08-30):
+            # 命中行六态判定, enqueue 态真实入列(超窗刷新/超窗重问/error)。
+            # 首问/负缓存内不动作。命中多行只判第一页首行(卡片=代表行)。
+            if (
+                chemicals and page == 1 and CAS_RE.fullmatch(query)
+            ):
+                try:
+                    from .cas_externals import cb_decide, enqueue_cas_job
+                    hit_id = chemicals[0]["id"]
+                    decision = await cb_decide(db, hit_id)
+                    if decision.startswith("enqueue") and decision != "enqueue_first":
+                        await enqueue_cas_job(
+                            db, chemical_id=hit_id, cas_number=query,
+                            priority=40, request_context={"reason": "search_stale"},
+                        )
+                        await db.commit()
+                except Exception:
+                    await db.rollback()  # 判定/入列失败不阻塞搜索响应
 
         # 结构模式不跑全量 count: similarity 的 count 与查询词无关(count mol 行),
         # substructure 巨命中 count 在 143 万 mol 行上必超时 — 两者都是注定 3s 白烧.
@@ -697,6 +705,16 @@ async def chemical_externals(
         return {"chemical_id": chemical_id, "state": "no_cas",
                 "entry": None, "suppliers": []}
     outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
+    if outcome["state"] == "stale":
+        # 六态判定需再问(超窗刷新/超窗重问/error): 出旧数据同时入列
+        from .cas_externals import enqueue_cas_job
+        job_id = await enqueue_cas_job(
+            db, chemical_id=chemical_id, cas_number=cas_number, priority=40,
+            request_context={"reason": "stale_refresh"},
+        )
+        await db.commit()
+        outcome = {"state": "fresh", "entry": outcome.get("entry"),
+                   "suppliers": outcome.get("suppliers") or [], "job_id": job_id}
     if outcome["state"] == "absent":
         # 首访: 同步拉取(3s 预算); 失败入队,本响应出空
         sync = await sync_fetch_and_store(db, chemical_id=chemical_id, cas_number=cas_number)

@@ -675,7 +675,9 @@ class CasLeaseBody(BaseModel):
 
 
 class CasResultBody(BaseModel):
-    status: str = Field(pattern="^(ok|not_found)$")
+    # 2026-08-30 CB链重构(准线§3): error 载荷 = 拿不到状态, 只刷 last_status+
+    # fetched_at, 不写 entry/供应商/name_index, 不冒充 not_found。
+    status: str = Field(pattern="^(ok|not_found|error)$")
     entry: dict[str, Any] | None = None
     suppliers: list[dict[str, Any]] = Field(default_factory=list)
     # CB molfile 原文(可选): 详情页有 MOL 外链时 worker 附带; 服务端只补空不覆盖
@@ -683,7 +685,7 @@ class CasResultBody(BaseModel):
     # CB 条目号(可选, 身份标识): 纯数字字符串, 落主表 chemicals.cb_number
     cb_number: str | None = Field(default=None, pattern=r"^\d{1,16}$")
     # locale(可选, 默认 zh-CN 主行): en 等语言行只写 entry, suppliers 由主行独占
-    locale: str = Field(default="zh-CN", pattern="^(zh-CN|en|ja|de|ko)$")
+    locale: str = Field(default="zh-CN", pattern="^(zh-CN|en|ja|de|ko|ru)$")
 
 
 class CasCompleteBody(LeaseProof):
@@ -705,6 +707,18 @@ async def verified_cas_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock
     if not row:
         raise HTTPException(409, "lease is missing, expired, or owned by another worker")
     return row
+
+
+async def _cb_requery_days(db: Any) -> int:
+    """lease 拦截窗口(读配置, 缺省180)。与 cas_externals._cb_window_days 同源语义。"""
+    try:
+        row = (await db.execute(text("""
+            SELECT value FROM community.system_config
+            WHERE namespace='cb' AND key='not_found_requery_days'
+        """))).first()
+        return int(row[0].get("days", 180)) if row else 180
+    except Exception:
+        return 180
 
 
 @router.post("/cas/jobs/lease")
@@ -770,6 +784,9 @@ async def cas_lease_jobs(
                     JOIN chemistry.chemical_cb cb
                       ON cb.chemical_id=c.chemical_id AND cb.locale=c.locale
                      AND cb.last_status='not_found'
+                     -- 2026-08-30 六态重构(准线§1.5): 拦截仅限重问窗内;
+                     -- 超窗 not_found 放行重问(CB 可能新增收录)。
+                     AND cb.fetched_at > now()-(:requery_days||' days')::interval
                     WHERE c.chemical_id IS NOT NULL
                 )
                 RETURNING j.id
@@ -780,6 +797,7 @@ async def cas_lease_jobs(
             WHERE c.id NOT IN (SELECT id FROM intercepted)
         """), {
             "limit": limit,
+            "requery_days": str(await _cb_requery_days(db)),
             "summary": '{"status":"not_found","intercepted":true,"negative_cached":true}',
         })).fetchall()
         rows = [(r[0], r[1], r[2], r[3], r[4], r[5]) for r in claim]
@@ -909,6 +927,21 @@ async def cas_complete_job(
             "supplier_count": len(suppliers),
             "entry_keys": sorted(entry.keys()) if entry else [],
         }
+        # 多语言派发(2026-08-30 准线§2): zh-CN ok 且拿到 cb_number 时, 对
+        # 五语言逐一六态判定, 满足才入列(事件驱动, 替代已拆除的 TTL定时扫描)。
+        # 语言页靠 cb_number 寻址; 语言任务 complete 不再派生(单点派发)。
+        # dedupe :locale 后缀独立去重; 终态拦截在 lease 端已有时限窗。
+        if status == "ok" and locale == "zh-CN" and payload.cb_number:
+            from .cas_externals import cb_decide, enqueue_cas_job
+            for lang in ("en", "ja", "de", "ko", "ru"):
+                decision = await cb_decide(
+                    db, chemical_id, lang, has_cb_number=True,
+                )
+                if decision.startswith("enqueue"):
+                    await enqueue_cas_job(
+                        db, chemical_id=chemical_id, cas_number=cas_number,
+                        priority=30, locale=lang,
+                    )
         await db.execute(text("""
             UPDATE maintenance.cas_jobs
             SET status='succeeded',result_summary=CAST(:summary AS jsonb),
