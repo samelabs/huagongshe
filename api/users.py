@@ -18,10 +18,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from .agent import agent_connection_text
-from .config import settings
-from .database import get_db
-from .rate_limit import enforce
-from .security import (
+from .core.config import settings
+from .core.database import get_db
+from .core.rate_limit import enforce
+from .core.security import (
     Actor, actor_payload, current_actor, current_session, internal_or_actor, optional_actor,
     password_hash, password_matches,
 )

@@ -18,8 +18,8 @@ from typing import Any
 
 from sqlalchemy import text
 
-from .cache import cache_delete, get_cache
-from .database import get_db
+from .core.cache import cache_delete, get_cache
+from .core.database import get_db
 from .name_index import ingest_from_entry_cn
 
 # 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环拆除。

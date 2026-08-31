@@ -329,7 +329,7 @@ class PubChemClient:
                     # key(server lease 闸门认它) + refused 终态
                     if "Access Denied" in raw_text[:2000] and "ncbi" in raw_text.lower():
                         try:
-                            from api.cache import get_cache
+                            from api.core.cache import get_cache
 
                             redis = await get_cache()
                             if redis is not None:

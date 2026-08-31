@@ -7,8 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .admin import router as admin_router
 from .agent import router as agent_router
-from .config import settings
-from .database import engine
+from .core.config import settings
+from .core.database import engine
 from .enrichment import router as enrichment_router
 from .mcp_server import mcp_session_lifespan, mount_mcp
 from .mol import router as molecule_router

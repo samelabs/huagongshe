@@ -14,12 +14,12 @@ from rdkit.Chem import Descriptors, rdChemReactions, rdMolDescriptors
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from .cache import cache_delete
+from .core.cache import cache_delete
 from .chemistry import canonicalize_smiles, normalize_doi
-from .config import settings
-from .database import get_db
-from .rate_limit import enforce
-from .security import Actor, current_actor, internal_or_actor, require_scope
+from .core.config import settings
+from .core.database import get_db
+from .core.rate_limit import enforce
+from .core.security import Actor, current_actor, internal_or_actor, require_scope
 
 router = APIRouter(tags=["reactions"])
 logger = logging.getLogger(__name__)

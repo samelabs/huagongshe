@@ -16,9 +16,9 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
-from .cache import cache_delete, get_cache
-from .config import settings
-from .database import get_db
+from .core.cache import cache_delete, get_cache
+from .core.config import settings
+from .core.database import get_db
 from .name_index import ingest_from_synonyms
 from .pubchem_core import chemical_core_values, number_or_none, validate_synonyms
 

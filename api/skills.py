@@ -20,10 +20,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Path as PathParam, Query, Response, UploadFile
 from sqlalchemy import text
 
-from .config import settings
-from .database import get_db
-from .rate_limit import enforce
-from .security import Actor, current_actor, internal_or_actor, optional_actor, require_scope
+from .core.config import settings
+from .core.database import get_db
+from .core.rate_limit import enforce
+from .core.security import Actor, current_actor, internal_or_actor, optional_actor, require_scope
 
 router = APIRouter(tags=["skills"])
 

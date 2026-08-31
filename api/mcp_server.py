@@ -24,10 +24,10 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from sqlalchemy import text
 
-from .config import settings
-from .database import async_session
+from .core.config import settings
+from .core.database import async_session
 from .reactions import ReactionBody
-from .security import Actor, resolve_actor
+from .core.security import Actor, resolve_actor
 from .stoichiometry import ScaleInput
 
 # ---------------------------------------------------------------------------
@@ -363,7 +363,7 @@ def build_mcp_server() -> MCPServer:
         from fastapi import HTTPException as _HTTPException
 
         from . import skills as skills_module
-        from .config import settings as _settings
+        from .core.config import settings as _settings
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         _require(actor, "skill:write")

@@ -16,10 +16,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from .cache import cache_delete
-from .config import settings
-from .database import get_db
-from .security import Actor, current_session
+from .core.cache import cache_delete
+from .core.config import settings
+from .core.database import get_db
+from .core.security import Actor, current_session
 
 router = APIRouter(prefix="/admin", tags=["administration"], include_in_schema=False)
 

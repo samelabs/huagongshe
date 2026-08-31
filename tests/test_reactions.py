@@ -13,9 +13,9 @@ from pydantic import ValidationError
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
 from api import agent, reactions, social, users
-from api.config import settings
+from api.core.config import settings
 from api.reactions import ParticipantBody, ReactionBody, canonical_participants
-from api.security import Actor
+from api.core.security import Actor
 
 
 def body(**overrides) -> ReactionBody:

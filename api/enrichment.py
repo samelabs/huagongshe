@@ -15,9 +15,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import text
 
-from .database import get_db
-from .rate_limit import is_loopback_host
-from .security import internal_or_actor
+from .core.database import get_db
+from .core.rate_limit import is_loopback_host
+from .core.security import internal_or_actor
 
 router = APIRouter(tags=["enrichment"])
 

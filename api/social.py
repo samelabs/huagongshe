@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 
-from .database import get_db
-from .security import Actor, current_actor, current_session
+from .core.database import get_db
+from .core.security import Actor, current_actor, current_session
 
 router = APIRouter(tags=["follows"])
 

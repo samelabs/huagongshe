@@ -9,17 +9,17 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from rdkit import Chem
 from sqlalchemy import text
 
-from .cache import cache_get, cache_set
+from .core.cache import cache_get, cache_set
 from .chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE, canonicalize_smiles, normalize_doi
-from .config import settings
-from .database import get_db
+from .core.config import settings
+from .core.database import get_db
 from .name_index import normalize_name
 from .enrichment import (
     DEFAULT_SECTIONS,
     display_details,
     enqueue_chemical_if_needed,
 )
-from .security import Actor, internal_or_actor
+from .core.security import Actor, internal_or_actor
 
 router = APIRouter(tags=["chemistry"])
 

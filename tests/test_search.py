@@ -8,7 +8,7 @@ from fastapi import HTTPException
 
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
-from api.rate_limit import is_loopback_host
+from api.core.rate_limit import is_loopback_host
 from api import routes
 from api.enrichment import display_details
 from api.chemistry import normalize_doi

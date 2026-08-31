@@ -16,9 +16,9 @@ from pydantic import BaseModel, Field
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
-from .config import settings
-from .rate_limit import enforce
-from .security import Actor, internal_or_actor, optional_actor
+from .core.config import settings
+from .core.rate_limit import enforce
+from .core.security import Actor, internal_or_actor, optional_actor
 
 router = APIRouter(tags=["stoichiometry"])
 

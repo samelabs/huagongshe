@@ -8,8 +8,8 @@ from rdkit import Chem
 from rdkit.Chem import Draw, AllChem, rdChemReactions
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import text
-from .database import get_db
-from .security import Actor, internal_or_actor, optional_actor
+from .core.database import get_db
+from .core.security import Actor, internal_or_actor, optional_actor
 
 router = APIRouter(tags=["molecule"])
 

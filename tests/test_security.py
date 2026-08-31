@@ -10,7 +10,7 @@ from fastapi import HTTPException
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
 from api import admin, social, users
-from api.security import Actor, current_session
+from api.core.security import Actor, current_session
 
 
 class SessionBoundaryTests(unittest.TestCase):
@@ -50,7 +50,7 @@ class SessionBoundaryTests(unittest.TestCase):
     def test_auth_budgets_are_account_and_global_not_address(self) -> None:
         """限流键与地址脱钩: login=账号桶(代理池换IP无效), register=全局宽松桶; request_identity 已删."""
         import api.users as users
-        import api.rate_limit as rate_limit
+        import api.core.rate_limit as rate_limit
         login_source = inspect.getsource(users.login)
         self.assertIn('enforce("login"', login_source)
         self.assertIn("sha256(account", login_source)

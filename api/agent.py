@@ -5,9 +5,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import text
 
-from .config import settings
-from .database import get_db
-from .security import Actor, internal_or_actor, optional_actor
+from .core.config import settings
+from .core.database import get_db
+from .core.security import Actor, internal_or_actor, optional_actor
 
 
 router = APIRouter(tags=["agent"])
