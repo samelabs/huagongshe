@@ -402,8 +402,8 @@ async def dashboard(actor: Actor = Depends(admin), db=Depends(get_db)):
         SELECT
           (SELECT count(*) FROM community.users),
           (SELECT count(*) FROM community.users WHERE created_at >= current_date),
-          (SELECT count(*) FROM community.users WHERE created_at >= current_date - interval '7 days'),
-          (SELECT count(*) FROM community.sessions),
+          (SELECT count(*) FROM community.users WHERE created_at >= date_trunc('week', current_date)),
+          (SELECT count(*) FROM community.sessions WHERE expires_at > now()),
           (SELECT count(*) FROM community.user_api_tokens),
           (SELECT count(*) FROM community.user_api_tokens WHERE revoked_at IS NULL),
           (SELECT exact_count FROM chemistry.statistics WHERE metric='reactions'),
@@ -428,6 +428,92 @@ async def dashboard(actor: Actor = Depends(admin), db=Depends(get_db)):
             "disk_free_gb": round(disk.free / 1e9, 1),
             "disk_pct": round(disk.used / disk.total * 100, 1),
         },
+    }
+
+
+# ── 数据管道运行时 ────────────────────────────────────────
+
+@router.get("/pipeline")
+async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
+    """数据 worker 运行时状态: 队列健康 + 今日吞吐 + 最新入库。全部点查, 不扫大表。"""
+    now_iso = (await db.execute(text("SELECT now()"))).scalar().isoformat()
+    # 队列健康(状态计数, 索引点查)
+    cas = dict((await db.execute(text("""
+        SELECT status, count(*) FROM maintenance.cas_jobs
+        WHERE status IN ('queued','retry','leased','dead') GROUP BY status
+    """))).fetchall())
+    pb = dict((await db.execute(text("""
+        SELECT status, count(*) FROM maintenance.pubchem_jobs
+        WHERE status IN ('queued','retry','leased','dead') GROUP BY status
+    """))).fetchall())
+    zombies = (await db.execute(text("""
+        SELECT
+          (SELECT count(*) FROM maintenance.cas_jobs WHERE status='leased' AND lease_expires_at < now()),
+          (SELECT count(*) FROM maintenance.pubchem_jobs WHERE status='leased' AND lease_expires_at < now())
+    """))).fetchone()
+
+    # 今日吞吐: CAS 终态 + PB 终态
+    cas_today = dict((await db.execute(text("""
+        SELECT status, count(*) FROM maintenance.cas_jobs
+        WHERE updated_at >= current_date AND status IN ('succeeded','not_found','failed','dead')
+        GROUP BY status
+    """))).fetchall())
+    pb_today = dict((await db.execute(text("""
+        SELECT status, count(*) FROM maintenance.pubchem_jobs
+        WHERE updated_at >= current_date AND status IN ('succeeded','failed')
+        GROUP BY status
+    """))).fetchall())
+
+    # 今日分语言落库(chemical_cb 索引点查)
+    locale_rows = (await db.execute(text("""
+        SELECT locale, last_status, count(*), max(updated_at)
+        FROM chemistry.chemical_cb
+        WHERE updated_at >= current_date
+        GROUP BY locale, last_status ORDER BY locale, 3 DESC
+    """))).fetchall()
+
+    # 入库动态: 供应商 listing 今日 + 最近1小时 + 总量
+    listing = (await db.execute(text("""
+        SELECT
+          (SELECT count(*) FROM chemistry.chemical_supplier_listing WHERE fetched_at >= current_date),
+          (SELECT count(DISTINCT chemical_id) FROM chemistry.chemical_supplier_listing WHERE fetched_at >= current_date),
+          (SELECT count(*) FROM chemistry.chemical_supplier_listing WHERE fetched_at >= now() - interval '1 hour'),
+          (SELECT count(*) FROM chemistry.chemical_supplier_listing),
+          (SELECT count(DISTINCT chemical_id) FROM chemistry.chemical_supplier_listing),
+          (SELECT count(*) FROM chemistry.chemical_supplier_profile)
+    """))).fetchone()
+
+    # 最新入库滚动样本
+    latest = (await db.execute(text("""
+        SELECT chemical_id, locale, last_status, updated_at
+        FROM chemistry.chemical_cb
+        ORDER BY updated_at DESC LIMIT 8
+    """))).fetchall()
+
+    return {
+        "queues": {
+            "cas": cas, "pb": pb,
+            "zombie_leases": {"cas": zombies[0], "pb": zombies[1]},
+        },
+        "today": {
+            "cas": cas_today, "pb": pb_today,
+            "locales": [
+                {"locale": r[0], "status": r[1], "count": r[2], "last_at": r[3].isoformat() if r[3] else None}
+                for r in locale_rows
+            ],
+        },
+        "listing": {
+            "today_rows": listing[0], "today_chemicals": listing[1],
+            "last_hour_rows": listing[2],
+            "total_rows": listing[3], "total_chemicals": listing[4],
+            "profiles": listing[5],
+        },
+        "latest": [
+            {"chemical_id": r[0], "locale": r[1], "status": r[2],
+             "at": r[3].isoformat() if r[3] else None}
+            for r in latest
+        ],
+        "generated_at": now_iso,
     }
 
 
