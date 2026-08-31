@@ -57,62 +57,13 @@ cd web && npm run dev
 python -m worker.main
 ```
 
-## Architecture
-
-```
-api/          FastAPI backend (Python, async)
-  routes.py     Chemicals CRUD, search, stats
-  reactions.py  Reactions CRUD, participants
-  users.py      Auth, profiles, settings
-  workapi.py    Worker maintenance API (job queue)
-  enrichment.py PubChem data backfill logic
-  mol.py        RDKit SVG rendering
-  social.py     Follows, activity feed
-  cache.py      Redis cache client
-  security.py   Session + API key auth
-web/          Next.js 16 frontend (TypeScript)
-worker/       PubChem enrichment worker (independent process)
-migrations/   PostgreSQL schema migrations
-tests/        Backend pytest tests
-```
-
-### Data Flow
-
-```
-User/Bot → nginx → Next.js SSR → FastAPI API → PostgreSQL
-                                          ↘ Redis (cache)
-                                          ↘ RDKit (SVG render)
-                  Worker ← job queue ← API (enrichment trigger)
-```
-
-## Code Standards
-
-### Backend (Python)
-
-- **Async first**: all endpoints are `async def`. CPU-bound work (RDKit) uses `asyncio.to_thread`.
-- **SQL**: parameterized queries via SQLAlchemy `text()` with named params. Never string interpolation.
-- **Cache failures must not change results**: Redis is best-effort. A cache miss or error returns the database result, never an exception to the user.
-- **Layering**: API routes → enrichment/cache/database. No upward imports.
-
-### Frontend (TypeScript)
-
-- All text inputs ≥ 16px (prevents iOS Safari focus-zoom).
-- `"use client"` components for interactive elements (FollowButton, etc).
-- Design tokens from `globals.css`, not hardcoded colors.
-
-### Database
-
-- Three schemas: `chemistry` (core data), `community` (users/social), `maintenance` (worker queue).
-- `chemistry.chemicals` is the identity backbone. PubChem/DSSTox/ORD/RDKit are sources only.
-- Migrations are sequential SQL files in `migrations/`.
-
 ## Testing
 
 ```bash
 # Backend tests
 cd /var/www/huagongshe
 source venv/bin/activate
-pytest tests/
+./venv/bin/python -m unittest discover -s tests
 ```
 
 Test files: `test_reactions.py`, `test_search.py`, `test_security.py`, `test_worker.py`.
@@ -120,7 +71,7 @@ Test files: `test_reactions.py`, `test_search.py`, `test_security.py`, `test_wor
 ## Pull Request Process
 
 1. **Branch** from `main` (`git checkout -b feature/your-feature`)
-2. **Test**: ensure `pytest tests/` passes
+2. **Test**: ensure `./venv/bin/python -m unittest discover -s tests` passes
 3. **Build**: ensure `cd web && npm run build` succeeds
 4. **Commit**: clear messages with type prefix (`feat:`, `fix:`, `refactor:`, `docs:`)
 5. **PR**: describe what changed and why

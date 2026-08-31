@@ -63,35 +63,4 @@
 
 子结构查询不得按 HCID 在数据库中预排序，否则 PostgreSQL 会放弃 RDKit GiST。API 只对有限结果在内存中排序。
 
-## 代码边界
-
-- `api/routes.py`：公开化学查询；
-- `api/agent.py`：AI 连接信息和与现有能力一致的操作说明；
-- `api/reactions.py`：网页与 Agent 共用的唯一反应写入能力；
-- `api/users.py`、`api/security.py`：用户、头像、会话和 API Token；
-- `api/social.py`：三类关注与通知；
-- `api/admin.py`：账号和可见度治理；
-- `api/workapi.py`：PubChem worker 维护接口；
-- `web/`：Next.js 用户界面。产品对象只有化合物与反应；PubChem、DSSTox、ORD 和 RDKit 均是数据来源或能力，不作为前端并列产品域。主色化工社蓝 `#1677ff`，字体使用系统无衬线栈，不引入外部字体下载。前端不直连数据库；
-- `migrations/`：可审计数据库迁移。
-
-## 线上运行
-
-- `huagongshe-api.service`：`127.0.0.1:8000`
-- `huagongshe-web.service`：`127.0.0.1:3001`
-- `huagongshe-pubchem-worker.service`：本机 PubChem 补全 worker
-- Nginx：HTTPS、同域 `/api`、独立 `/workapi` 与版本化头像静态文件
-
-生产源码固定在 `/var/www/huagongshe`。前端只运行
-`web/.next/standalone`，服务器不保留用于开发构建的完整 `web/node_modules`；
-构建在开发机完成后发布 standalone 产物。Python 依赖固定在项目根目录的 `venv`。
-
-GitHub `samelabs/huagongshe` 是版本中心，本地开发目录与生产目录都跟踪 `main`，
-禁止在服务器保留未提交源码改动。
-
-```bash
-systemctl status huagongshe-api huagongshe-web huagongshe-pubchem-worker nginx postgresql redis-server
-curl -fsS https://huagongshe.com/api/health
-```
-
 数据库凭据、用户 Token 和 worker Token 不写入 Git。
