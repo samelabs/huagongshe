@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
-import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { apiGet, apiPost, apiDelete, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
-type Token = { id: number; name: string; token_prefix: string; created_at: string; expires_at: string | null; last_used_at: string | null; revoked_at: string | null };
+type Token = { id: number; name: string; token_prefix: string; token_plain: string | null; created_at: string; expires_at: string | null; last_used_at: string | null };
 type CreatedToken = { agent_connection_text: string };
 
 export function ApiTokenSettings() {
@@ -15,6 +15,7 @@ export function ApiTokenSettings() {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [createdToken, setCreatedToken] = useState<CreatedToken | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
   const [revokingId, setRevokingId] = useState<number | null>(null);
@@ -84,18 +85,22 @@ export function ApiTokenSettings() {
     {message && <p className="form-message bad">{message}</p>}
     <div className="token-list">{tokens.map((token) => {
       const expired = Boolean(token.expires_at && new Date(token.expires_at).getTime() <= Date.now());
-      const status = token.revoked_at ? t.settings.ai.statusRevoked : expired ? t.settings.ai.statusExpired : t.settings.ai.statusValid;
+      const status = expired ? t.settings.ai.statusExpired : t.settings.ai.statusValid;
       const expires = token.expires_at ? t.settings.ai.expiresAt(new Date(token.expires_at).toLocaleDateString("zh-CN")) : t.settings.ai.longTerm;
-      return <article key={token.id}><div><strong>{token.name}</strong><span>{token.token_prefix}… · {status}</span><small>{token.last_used_at ? t.settings.ai.lastUsed(new Date(token.last_used_at).toLocaleString("zh-CN")) : t.settings.ai.neverUsed} · {expires}</small></div>{!token.revoked_at && !expired && <button type="button" className="text-button" disabled={revokingId !== null} onClick={async () => {
-        setRevokingId(token.id); setMessage("");
-        try {
-          await apiDelete(`/users/me/tokens/${token.id}`);
-          await loadTokens();
-        } catch { setMessage(t.settings.ai.revokeFailed); }
-        finally { setRevokingId(null); }
-      }}>{revokingId === token.id ? t.settings.ai.revoking : t.settings.ai.revoke}</button>}</article>;
-    })}</div>
-    <Link className="api-guide-link" href="/guide">{t.settings.ai.guideLink}</Link>
+      return <article key={token.id}><div><strong>{token.name}</strong><span>{token.token_prefix}… · {status}</span><small>{token.last_used_at ? t.settings.ai.lastUsed(new Date(token.last_used_at).toLocaleString("zh-CN")) : t.settings.ai.neverUsed} · {expires}</small></div><div className="token-actions">
+        {token.token_plain && <button type="button" className="text-button" onClick={async () => {
+          try { await navigator.clipboard.writeText(token.token_plain || ""); setCopiedToken(token.id); window.setTimeout(() => setCopiedToken(null), 1800); } catch { setMessage(t.settings.ai.copyFailed); }
+        }}>{copiedToken === token.id ? t.settings.ai.copiedShort : t.settings.ai.copyToken}</button>}
+        <button type="button" className="text-button" disabled={revokingId !== null} onClick={async () => {
+          setRevokingId(token.id); setMessage("");
+          try {
+            await apiDelete(`/users/me/tokens/${token.id}`);
+            await loadTokens();
+          } catch { setMessage(t.settings.ai.revokeFailed); }
+          finally { setRevokingId(null); }
+        }}>{revokingId === token.id ? t.settings.ai.revoking : t.settings.ai.revoke}</button>
+      </div></article>;
+    })}</div>    <Link className="api-guide-link" href="/guide">{t.settings.ai.guideLink}</Link>
   </section>;
 }
 

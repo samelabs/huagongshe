@@ -292,8 +292,10 @@ async def delete_avatar(actor: Actor = Depends(current_session), db=Depends(get_
 @router.get("/me/tokens")
 async def list_tokens(actor: Actor = Depends(current_session), db=Depends(get_db)):
     rows = (await db.execute(text("""
-        SELECT id,name,token_prefix,scopes,created_at,expires_at,last_used_at,revoked_at
-        FROM community.user_api_tokens WHERE user_id=:id ORDER BY id DESC
+        SELECT id,name,token_prefix,scopes,created_at,expires_at,last_used_at,token_plain
+        FROM community.user_api_tokens
+        WHERE user_id=:id AND revoked_at IS NULL
+        ORDER BY id DESC
     """), {"id": actor.id})).mappings().all()
     return [dict(row) for row in rows]
 
@@ -313,13 +315,13 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
     )
     row = (await db.execute(text("""
         INSERT INTO community.user_api_tokens
-          (user_id,name,token_hash,token_prefix,expires_at)
-        VALUES (:user_id,:name,:token_hash,:prefix,:expires_at)
+          (user_id,name,token_hash,token_prefix,token_plain,expires_at)
+        VALUES (:user_id,:name,:token_hash,:prefix,:plain,:expires_at)
         RETURNING id,name,token_prefix,scopes,created_at,expires_at
     """), {
         "user_id": actor.id, "name": body.name.strip(),
         "token_hash": hashlib.sha256(plain.encode()).digest(), "prefix": plain[:12],
-        "expires_at": expires,
+        "plain": plain, "expires_at": expires,
     })).mappings().one()
     await db.commit()
     return {
@@ -335,9 +337,10 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
 
 @router.delete("/me/tokens/{token_id}", status_code=204)
 async def revoke_token(token_id: int, actor: Actor = Depends(current_session), db=Depends(get_db)):
+    # 2026-08-31 用户裁定: 撤销=物理删除, 留存无意义; 列表也不再展示已撤销
     result = await db.execute(text("""
-        UPDATE community.user_api_tokens SET revoked_at=now()
-        WHERE id=:token_id AND user_id=:user_id AND revoked_at IS NULL
+        DELETE FROM community.user_api_tokens
+        WHERE id=:token_id AND user_id=:user_id
     """), {"token_id": token_id, "user_id": actor.id})
     if result.rowcount == 0:
         raise HTTPException(404, "API Token 不存在")

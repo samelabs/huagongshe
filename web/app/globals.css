@@ -529,6 +529,9 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .token-secret > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .token-connection { width: 100%; min-height: 190px; border: 1px solid var(--warning-border); border-radius: 6px; padding: 11px; resize: vertical; color: var(--ink); background: white; font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.65; }
 .token-secret > span { color: var(--muted); font-size: var(--text-xs); }
+.token-actions { display: flex; gap: 8px; align-items: center; }
+.token-actions .text-button { white-space: nowrap; }
+
 .token-list { margin-top: 18px; display: grid; gap: 8px; }
 .token-list article { border: 1px solid var(--line); border-radius: 8px; padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; background: var(--paper); }
 .token-list article > div { min-width: 0; display: grid; gap: 4px; }
