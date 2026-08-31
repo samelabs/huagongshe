@@ -73,8 +73,11 @@ export function ApiTokenSettings() {
         setCreatedToken({ agent_connection_text: body.agent_connection_text });
         form.reset();
         await loadTokens();
-      } catch {
-        setMessage(t.common.networkError);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) setMessage(t.settings.ai.limitReached);
+        else if (error instanceof ApiError && error.status === 401) setMessage(t.settings.ai.relogin);
+        else if (error instanceof ApiError && error.status === 502) setMessage(t.settings.ai.upstreamDown);
+        else setMessage(t.common.networkError);
       } finally { setCreating(false); }
     }}>
       <input name="name" placeholder={t.settings.ai.placeholder} required maxLength={80} disabled={creating} />
