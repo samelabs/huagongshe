@@ -11,6 +11,7 @@ from sqlalchemy import text
 from ..core.cache import get_cache
 from ..core.config import settings
 from ..core.database import engine
+from ..core.rate_limit import is_loopback_host
 
 
 ALLOWED_SECTIONS = frozenset(
