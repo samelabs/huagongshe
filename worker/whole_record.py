@@ -222,16 +222,22 @@ def parse_whole_record(payload: dict[str, Any]) -> dict[str, Any] | None:
     if desc:
         out["record_description"] = _swm_string(
             ((desc.get("Information") or [{}])[0].get("Value")) or {})
+    from datetime import date as _date
+    def _to_date(raw):
+        try:
+            return _date.fromisoformat(str(raw)[:10])
+        except ValueError:
+            return None
     created = _find_one(record, "Create Date")
     if created:
         dates = ((created.get("Information") or [{}])[0].get("Value") or {}).get("DateISO8601") or []
         if dates:
-            out["pubchem_created_on"] = str(dates[0])
+            out["pubchem_created_on"] = _to_date(dates[0])
     modified = _find_one(record, "Modify Date")
     if modified:
         dates = ((modified.get("Information") or [{}])[0].get("Value") or {}).get("DateISO8601") or []
         if dates:
-            out["pubchem_modified_on"] = str(dates[0])
+            out["pubchem_modified_on"] = _to_date(dates[0])
 
     # ── 数值列 (Computed Properties 子节点) ──
     for heading, (key, cast) in _NUMERICAL.items():
