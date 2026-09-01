@@ -51,10 +51,22 @@ async def sync_chemical_core(
     record_title: Any = None,
     synonyms: list[str] | None = None,
     cas_numbers: list[str] | None = None,
+    main_table_ids: dict[str, list[str]] | None = None,
 ) -> None:
     """Synchronize trusted PubChem core fields without changing identity/structure.
-    cas_numbers(0901 裁定): cb_number 为空才写(并集补空), 有 CB 印记归 CB 链。"""
+    cas_numbers(0901 裁定): cb_number 为空才写(并集补空), 有 CB 印记归 CB 链。
+    main_table_ids: nikkaji/chembl/ec/unii/chebi/dtxsid 主表已有列补空(0901 方案§四)。"""
     values = chemical_core_values(properties, record_title=record_title)
+    id_arrays = {
+        "nikkaji_numbers": (main_table_ids or {}).get("nikkaji_numbers"),
+        "chembl_ids": (main_table_ids or {}).get("chembl_ids"),
+        "ec_numbers": (main_table_ids or {}).get("ec_numbers"),
+        "unii_codes": (main_table_ids or {}).get("unii_codes"),
+        "chebi_ids": (main_table_ids or {}).get("chebi_ids"),
+    }
+    id_sets = {k: sorted(set(v)) for k, v in id_arrays.items() if v}
+    dtxsid_values = sorted(set((main_table_ids or {}).get("dtxsid") or []))
+    dtxsid_in = dtxsid_values[0] if dtxsid_values else None
     await db.execute(text("""
         WITH incoming AS (
             SELECT CAST(:preferred_name AS text) AS preferred_name,
@@ -67,7 +79,13 @@ async def sync_chemical_core(
                    CAST(:pubchem_smiles AS text) AS pubchem_smiles,
                    CAST(:sync_synonyms AS boolean) AS sync_synonyms,
                    CAST(:synonyms AS jsonb) AS synonyms,
-                   CAST(:cas_in AS text[]) AS cas_in
+                   CAST(:cas_in AS text[]) AS cas_in,
+                   CAST(:nikkaji_in AS text[]) AS nikkaji_in,
+                   CAST(:chembl_in AS text[]) AS chembl_in,
+                   CAST(:ec_in AS text[]) AS ec_in,
+                   CAST(:unii_in AS text[]) AS unii_in,
+                   CAST(:chebi_in AS text[]) AS chebi_in,
+                   CAST(:dtxsid_in AS text) AS dtxsid_in
         )
         UPDATE chemistry.chemicals
         SET preferred_name=coalesce(incoming.preferred_name,chemistry.chemicals.preferred_name),
@@ -87,6 +105,22 @@ async def sync_chemical_core(
                      || (SELECT array_agg(DISTINCT c) FROM unnest(incoming.cas_in) c
                          WHERE NOT coalesce(chemistry.chemicals.cas_numbers, ARRAY[]::text[]) @> ARRAY[c])
                 ELSE chemistry.chemicals.cas_numbers END,
+            nikkaji_numbers=CASE WHEN cardinality(incoming.nikkaji_in) > 0
+                THEN coalesce(chemistry.chemicals.nikkaji_numbers, incoming.nikkaji_in)
+                ELSE chemistry.chemicals.nikkaji_numbers END,
+            chembl_ids=CASE WHEN cardinality(incoming.chembl_in) > 0
+                THEN coalesce(chemistry.chemicals.chembl_ids, incoming.chembl_in)
+                ELSE chemistry.chemicals.chembl_ids END,
+            ec_numbers=CASE WHEN cardinality(incoming.ec_in) > 0
+                THEN coalesce(chemistry.chemicals.ec_numbers, incoming.ec_in)
+                ELSE chemistry.chemicals.ec_numbers END,
+            unii_codes=CASE WHEN cardinality(incoming.unii_in) > 0
+                THEN coalesce(chemistry.chemicals.unii_codes, incoming.unii_in)
+                ELSE chemistry.chemicals.unii_codes END,
+            chebi_ids=CASE WHEN cardinality(incoming.chebi_in) > 0
+                THEN coalesce(chemistry.chemicals.chebi_ids, incoming.chebi_in)
+                ELSE chemistry.chemicals.chebi_ids END,
+            dtxsid=coalesce(incoming.dtxsid_in, chemistry.chemicals.dtxsid),
             updated_at=now()
         FROM incoming
         WHERE chemistry.chemicals.id=:chemical_id AND (
@@ -100,7 +134,18 @@ async def sync_chemical_core(
             (incoming.pubchem_smiles IS NOT NULL AND chemistry.chemicals.pubchem_smiles IS DISTINCT FROM incoming.pubchem_smiles) OR
             (incoming.sync_synonyms AND chemistry.chemicals.synonyms IS DISTINCT FROM incoming.synonyms) OR
             (chemistry.chemicals.cb_number IS NULL AND cardinality(incoming.cas_in) > 0
-             AND NOT coalesce(chemistry.chemicals.cas_numbers, ARRAY[]::text[]) @> incoming.cas_in)
+             AND NOT coalesce(chemistry.chemicals.cas_numbers, ARRAY[]::text[]) @> incoming.cas_in) OR
+            (cardinality(incoming.nikkaji_in) > 0
+             AND (chemistry.chemicals.nikkaji_numbers IS NULL OR chemistry.chemicals.nikkaji_numbers <> incoming.nikkaji_in)) OR
+            (cardinality(incoming.chembl_in) > 0
+             AND (chemistry.chemicals.chembl_ids IS NULL OR chemistry.chemicals.chembl_ids <> incoming.chembl_in)) OR
+            (cardinality(incoming.ec_in) > 0
+             AND (chemistry.chemicals.ec_numbers IS NULL OR chemistry.chemicals.ec_numbers <> incoming.ec_in)) OR
+            (cardinality(incoming.unii_in) > 0
+             AND (chemistry.chemicals.unii_codes IS NULL OR chemistry.chemicals.unii_codes <> incoming.unii_in)) OR
+            (cardinality(incoming.chebi_in) > 0
+             AND (chemistry.chemicals.chebi_ids IS NULL OR chemistry.chemicals.chebi_ids <> incoming.chebi_in)) OR
+            (incoming.dtxsid_in IS NOT NULL AND chemistry.chemicals.dtxsid IS DISTINCT FROM incoming.dtxsid_in)
         )
     """), {
         "chemical_id": chemical_id,
@@ -108,6 +153,12 @@ async def sync_chemical_core(
         "synonyms": json.dumps(synonyms, ensure_ascii=False, separators=(",", ":"))
         if synonyms is not None else None,
         "cas_in": cas_numbers or [],
+        "nikkaji_in": id_sets.get("nikkaji_numbers", []),
+        "chembl_in": id_sets.get("chembl_ids", []),
+        "ec_in": id_sets.get("ec_numbers", []),
+        "unii_in": id_sets.get("unii_codes", []),
+        "chebi_in": id_sets.get("chebi_ids", []),
+        "dtxsid_in": dtxsid_in,
         **values,
     })
     # name_index 摄入: synonyms 镜像, 与核心列同步同事务

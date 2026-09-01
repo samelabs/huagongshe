@@ -187,6 +187,7 @@ async def complete_job(
                 record_title=payload.get("record_title"),
                 synonyms=payload.get("synonyms") or None,
                 cas_numbers=payload.get("cas_numbers") or None,
+                main_table_ids=payload.get("main_table_ids") or None,
             )
         # 出表: complete 即 DELETE, job 是纯队列不承载历史。
         await db.execute(text("""

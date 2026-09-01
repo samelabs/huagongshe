@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import re
 from typing import Any
@@ -281,7 +280,6 @@ class PubChemClient:
     def __init__(self, session: aiohttp.ClientSession, rate: PubChemRateController):
         self.session = session
         self.rate = rate
-        self.response_hashes: list[str] = []
 
     async def request_json(
         self,
@@ -343,7 +341,6 @@ class PubChemClient:
                     if "Access Denied" in raw_text[:2000] and "ncbi" in raw_text.lower():
                         raise PubChemError("pubchem_refused", "PubChem ban page (Access Denied)")
                     raise PubChemError("unexpected_content_type", "PubChem did not return JSON")
-                self.response_hashes.append(hashlib.sha256(raw).hexdigest())
                 return json.loads(raw)
         except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
             raise PubChemError("network_error", str(exc)) from exc
