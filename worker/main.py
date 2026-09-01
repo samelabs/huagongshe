@@ -19,12 +19,8 @@ import aiohttp
 
 from .pubchem import PubChemClient, PubChemError, PubChemRateController
 from .chemistry import select_verified_cid
-from caslib.governor import Governor
 
 log = logging.getLogger("huagongshe-worker")
-
-# 数据源治理器(8-29 规范): run() 里初始化, 进程级单例。
-governor: Governor | None = None
 
 
 class WorkApiClient:
@@ -89,29 +85,17 @@ async def process_job(
     rate: PubChemRateController,
     job: dict[str, Any],
 ) -> None:
+    """PB 任务(数据链收口§2/§3): 状态码即真相。
+
+    200 → complete(ok 数据 | not_found 负缓存); 非200/超时/拒服 → error。
+    worker 是哑管道: 不判熔断、不传 retry_after、不报 retryable —
+    闸门阶梯在 lease 派发口(api/workapi), 信号源就是这里的真实请求结果。
+    """
     stop = asyncio.Event()
     heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop))
     try:
         pubchem = PubChemClient(session, rate)
-        # 治理闸门(8-29 规范): 停链期不发请求, 按没查 defer 回队。
-        allowed, why = governor.allow("pubchem")
-        governor.maybe_summary("pubchem", log)
-        if not allowed:
-            await workapi.post(
-                "/workapi/v1/jobs/fail",
-                {
-                    "job_id": job["job_id"],
-                    "lease_token": job["lease_token"],
-                    "error_code": f"pb_governor_{why}",
-                    "error_detail": f"deferred: governor={why}",
-                    "retryable": True,
-                    "retry_after_seconds": 1800,
-                },
-            )
-            log.info("PubChem job=%s deferred (governor=%s)", job["job_id"], why)
-            return
         candidates = await pubchem.resolve(job["query_kind"], str(job["query_value"]))
-        governor.record("pubchem", "hit" if candidates else "miss")
         properties = await pubchem.properties(candidates)
         expected_cid = job.get("expected_pubchem_cid")
         property_map = {int(item.get("CID")): item for item in properties if item.get("CID")}
@@ -122,8 +106,17 @@ async def process_job(
             expected_smiles=job.get("expected_smiles"),
         )
         if selected_cid is None:
-            code = "pubchem_not_found" if not candidates else "ambiguous_pubchem_identity"
-            raise PubChemError(code, "PubChem did not resolve exactly one verified CID", retryable=False)
+            if not candidates:
+                # PB 权威否定(§2): 404/空 resolve — 写数据层负缓存。
+                await workapi.post(
+                    "/workapi/v1/jobs/complete",
+                    {"job_id": job["job_id"], "lease_token": job["lease_token"],
+                     "result": {"status": "not_found"}},
+                )
+                log.info("completed job=%s not_found", job["job_id"])
+                return
+            raise PubChemError("ambiguous_pubchem_identity",
+                               "PubChem did not resolve exactly one verified CID")
         selected_properties = property_map.get(selected_cid, {}) if selected_cid else {}
         if not selected_properties:
             raise PubChemError(
@@ -163,6 +156,7 @@ async def process_job(
             for item in properties[:10]
         ]
         result = {
+            "status": "ok",
             "selected_cid": selected_cid,
             "candidates": candidate_summaries,
             "properties": selected_properties,
@@ -177,42 +171,33 @@ async def process_job(
         )
         log.info("completed job=%s cid=%s", job["job_id"], selected_cid)
     except PubChemError as exc:
-        # 8-29 规范: 交互结果上报治理器 — refused=停链(半开探测恢复),
-        # unavailable/network=上游过载信号, 其余按任务终态落 failed。
-        outcome = (
-            "refuse" if exc.code == "pubchem_refused"
-            else "neterr" if exc.code in ("pubchem_unavailable", "network_error")
-            else "miss"
-        )
-        governor.record("pubchem", outcome)
+        # PB 全部错误形态(5xx/网络/拒服/歧义/缺记录)= 没拿到有效回应 → error,
+        # 通道阶梯判定在 lease 派发口, 这里只报事实。
         await workapi.post(
-            "/workapi/v1/jobs/fail",
+            "/workapi/v1/jobs/error",
             {
                 "job_id": job["job_id"],
                 "lease_token": job["lease_token"],
                 "error_code": exc.code,
-                "error_detail": str(exc),
-                # 2026-08-30 准线§3: PB 全形态终态(不盲打), retry_after 死参数删除
-                "retryable": False,
+                "error_detail": str(exc)[:2000],
             },
         )
-        log.warning("PubChem job=%s terminal: %s", job["job_id"], exc)
+        log.info("PubChem job=%s error: %s", job["job_id"], exc)
     except Exception as exc:
+        # 兜底=没拿到(§3), 不再打死成终态。
         try:
             await workapi.post(
-                "/workapi/v1/jobs/fail",
+                "/workapi/v1/jobs/error",
                 {
                     "job_id": job["job_id"],
                     "lease_token": job["lease_token"],
                     "error_code": "worker_error",
                     "error_detail": str(exc)[:2000],
-                    # 8-29 规范: 兜底也终态 — lease 过期回队是唯一合法重试路径
-                    "retryable": False,
                 },
             )
         except Exception:
-            log.exception("could not report failure for job=%s", job["job_id"])
-        log.exception("worker job=%s failed", job["job_id"])
+            log.exception("could not report error for job=%s", job["job_id"])
+        log.exception("worker job=%s errored", job["job_id"])
     finally:
         stop.set()
         heartbeat_task.cancel()
@@ -224,15 +209,20 @@ async def process_cas_job(
     workapi: WorkApiClient,
     job: dict[str, Any],
 ) -> None:
-    """cas_jobs 处理: caslib 拉取解析 -> /cas/jobs/complete|fail。
+    """cas_jobs 处理(数据链收口§1/§3): fetch 三态直译, 两出口。
 
-    抓取预算放宽(后台路径非用户等待路径), 页间 2s 礼仪间隔。
-    locale: zh-CN 主行走 fetch_cas 主链(CPP-CN 一页全量);
-    en 等语言行用主表 cb_number 直拉 CPP 语言页, 只写 entry。
+    complete(ok|not_found) — 写数据层, 出表;
+    error — 不写数据层, job 留 error 行进阶梯(判定在 lease 派发口)。
+    判定单点在 caslib(fetch 层), worker 不加工: 无空壳改判、无 Governor、
+    无熔断预检、无 retryable/retry_after。判定映射:
+      fetch ok        → complete(ok)   (entry 按页解析, 无号=供应商空)
+      fetch not_found → complete(not_found) (含空壳200, 过渡判定§1)
+      fetch error     → error          (非200/超时/busy)
+    页间 2s 礼仪间隔(finally); 抓取预算放宽(后台路径非用户等待路径)。
     """
     from caslib.fetch import fetch_cas, fetch_cpp_locale, fetch_mol
     from caslib.parse import (
-        cpp_page_state, extract_mol_href, parse_cpp_entry, parse_cpp_entry_en,
+        extract_mol_href, parse_cpp_entry, parse_cpp_entry_en,
         parse_cpp_suppliers, parse_entry, parse_suppliers,
     )
 
@@ -242,56 +232,32 @@ async def process_cas_job(
     try:
         payload: dict[str, Any]
         if locale == "zh-CN":
-            # 治理闸门(8-29 规范): 熔断/日预算停链期不发请求, 按没查 defer。
-            allowed, why = governor.allow("cb")
-            governor.maybe_summary("cb", log)
-            if not allowed:
+            result = await fetch_cas(
+                job["cas_number"], total_budget_s=20.0, session=session,
+                cb_number=job.get("cb_number"),
+            )
+            if result.status == "error":
                 await workapi.post(
-                    "/workapi/v1/cas/jobs/fail",
+                    "/workapi/v1/cas/jobs/error",
                     {
                         "job_id": job["job_id"],
                         "lease_token": job["lease_token"],
-                        "error_code": f"cb_governor_{why}",
-                        "error_detail": f"locale=zh-CN deferred: governor={why}",
-                        "retryable": True,
-                        "retry_after_seconds": 1800,
+                        "error_code": f"cb_{result.error or 'error'}",
+                        "error_detail": str(result.error or "")[:2000],
                     },
                 )
-                log.info("cas job=%s deferred (governor=%s)", job["job_id"], why)
+                log.info("cas job=%s error zh-CN (%s)", job["job_id"], result.error)
                 return
-            cb_hint = job.get("cb_number")
-            result = await fetch_cas(
-                job["cas_number"], total_budget_s=20.0, session=session,
-                cb_number=cb_hint,
-            )
-            # 结果上报治理器: hit/miss/neterr(refuse 形态 CB 表现为熔断页,
-            # 由 fetch 层 cpp_report_busy 承担, 这里不重复计)
-            if result.status == "ok":
-                governor.record("cb", "hit")
-            elif result.status == "not_found":
-                governor.record("cb", "miss")
-            else:
-                governor.record("cb", "neterr")
             if result.status == "not_found":
                 payload = {"status": "not_found", "entry": None, "suppliers": []}
-            elif result.status == "error":
-                # 2026-08-30 CB链重构(准线§3): error=拿不到状态, 不冒充
-                # not_found, 落 error 态(entry 空, 服务端只刷 status+fetched_at)。
-                # 不回队不重试, 下次触发按六态规则再问。
-                payload = {"status": "error", "entry": None, "suppliers": []}
             else:
-                # CPP busy 已由 fetch 层熔断计数; 这里走 CAS 页兜底出 entry,
-                # job 照常成功(数据可用, CPP 增量段待上游恢复后刷新趟补)
+                # ok: entry 按 CPP 优先、CAS 页兜底; 无号=供应商空(定案)。
                 entry = (
                     parse_cpp_entry(result.cpp_html) if result.cpp_html else None
                 ) or (parse_entry(result.cas_html) if result.cas_html else None)
                 if entry is None:
+                    # fetch 判 ok 但双页解析皆空 = 无有效信息(§1: 空壳归 not_found)
                     payload = {"status": "not_found", "entry": None, "suppliers": []}
-                elif set(entry.keys()) == {"basic"}:
-                    # 2026-08-30 准线§5: 除 basic 外零节 = 解析判定过松的空壳
-                    # (0.7% 空 entry 问题), 不判 ok — 按不盲打纪律落 error,
-                    # 不冒充 not_found, 下次触发再问。
-                    payload = {"status": "error", "entry": None, "suppliers": []}
                 else:
                     suppliers = (
                         parse_cpp_suppliers(result.cpp_html) if result.cpp_html else []
@@ -308,65 +274,40 @@ async def process_cas_job(
                     if mol_href:
                         payload["mol"] = await fetch_mol(session, mol_href)
         else:
-            # 语言行: 主表 cb_number 直拉 CPP 语言页, 只写 entry。
-            from caslib.fetch import cpp_circuit_open
-
+            # 语言行: cb_number 直拉 CPP 语言页, 只写 entry。
             cb_number = job.get("cb_number")
-            allowed, why = governor.allow("cb")
-            governor.maybe_summary("cb", log)
-            if not allowed or not cb_number or cpp_circuit_open():
-                # 熔断期/治理停链/无 cb_number = "没查", 不是 "查了没有"。
-                # 不 complete(否则落 not_found 负缓存抹 entry, 且 en 行
-                # 无 expiry_scan 自动刷新路径, 数据会静默丢失) —
-                # 回队延迟重试, retry_after 盖过 10 分钟熔断窗。
+            if not cb_number:
+                # 入列侧 skip 漏网(不可寻址): 留 error 观测, 不发请求。
                 await workapi.post(
-                    "/workapi/v1/cas/jobs/fail",
+                    "/workapi/v1/cas/jobs/error",
                     {
                         "job_id": job["job_id"],
                         "lease_token": job["lease_token"],
-                        "error_code": "cpp_circuit_defer",
-                        "error_detail": (
-                            f"locale={locale} deferred: "
-                            f"circuit_open={cpp_circuit_open()} "
-                            f"cb_number={'present' if cb_number else 'missing'}"
-                        )[:2000],
-                        "retryable": True,
-                        "retry_after_seconds": 600,
+                        "error_code": "cb_number_missing",
+                        "error_detail": f"locale={locale} no cb_number",
                     },
                 )
-                log.info("cas job=%s deferred %s (circuit/cb_number)", job["job_id"], locale)
+                log.info("cas job=%s error %s (no cb_number)", job["job_id"], locale)
                 return
             cpp_state, cpp_html = await fetch_cpp_locale(session, cb_number, locale)
             if cpp_state in ("busy", "error"):
-                # 2026-08-31 收口: 限流/网络错 = "没查", 不是"查了没有"。
-                # 不落 not_found 终态(语言行无 expiry 自动刷新, 会静默丢数据),
-                # 回队延迟重试; busy 已由 fetch 层计入 CPP 熔断器。
                 await workapi.post(
-                    "/workapi/v1/cas/jobs/fail",
+                    "/workapi/v1/cas/jobs/error",
                     {
                         "job_id": job["job_id"],
                         "lease_token": job["lease_token"],
                         "error_code": (
-                            "cpp_busy_defer" if cpp_state == "busy" else "cpp_fetch_defer"
+                            "cpp_busy" if cpp_state == "busy" else "cpp_fetch_error"
                         ),
-                        "error_detail": (
-                            f"locale={locale} {cpp_state}: 拿不到状态不落终态"
-                        )[:2000],
-                        "retryable": True,
-                        "retry_after_seconds": 600,
+                        "error_detail": f"locale={locale} {cpp_state}",
                     },
                 )
-                log.info("cas job=%s deferred %s (cpp %s)", job["job_id"], locale, cpp_state)
+                log.info("cas job=%s error %s (cpp %s)", job["job_id"], locale, cpp_state)
                 return
             entry = parse_cpp_entry_en(cpp_html) if cpp_html else None
-            # 语言页结果上报治理器: 拿到 entry=hit, 空=miss(CB 大量条目无语言变体;
-            # 走到这里的空=真判定"无变体"(not_found 页), 非网络错)。
-            governor.record("cb", "hit" if entry is not None else "miss")
             if entry is None:
-                # 200 正常判定无 entry = 终态"查了没有", 不再 fail/retry(8-29 定论):
-                # 大量条目 CB 本就没有 EN 变体, retry 只产无效请求(已实测死 3.4k
-                # 任务/1万+发空打, 错误流量正是上游风控画像)。落 not_found 负缓存,
-                # 复查交给日级 expiry 轮次; en 行是主行增量, 损失量级≈0。
+                # 判定成功的"无变体"(含空壳200): not_found 负缓存(8-29 定论,
+                # 大量条目无语言变体, retry 只产无效请求喂上游风控画像)。
                 payload = {"status": "not_found", "entry": None, "suppliers": [],
                            "locale": locale}
             else:
@@ -378,20 +319,20 @@ async def process_cas_job(
         )
         log.info("cas job=%s %s %s", job["job_id"], payload["status"], locale)
     except Exception as exc:
+        # 兜底=没拿到(§3), 不再打死成终态。
         try:
             await workapi.post(
-                "/workapi/v1/cas/jobs/fail",
+                "/workapi/v1/cas/jobs/error",
                 {
                     "job_id": job["job_id"],
                     "lease_token": job["lease_token"],
                     "error_code": "cas_fetch_error",
                     "error_detail": str(exc)[:2000],
-                    "retryable": False,
                 },
             )
         except Exception:
-            log.exception("could not report cas failure for job=%s", job["job_id"])
-        log.warning("cas job=%s failed: %s", job["job_id"], exc)
+            log.exception("could not report cas error for job=%s", job["job_id"])
+        log.warning("cas job=%s errored: %s", job["job_id"], exc)
     finally:
         stop.set()
         heartbeat_task.cancel()
@@ -400,8 +341,6 @@ async def process_cas_job(
 
 
 async def run() -> None:
-    global governor
-    governor = Governor()
     base_url = os.environ["HGS_WORKAPI_URL"]
     worker_id = os.environ["HGS_WORKER_ID"]
     token = os.environ["HGS_WORKER_TOKEN"]
