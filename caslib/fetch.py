@@ -6,9 +6,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass, field
 
 import aiohttp
+
+log = logging.getLogger("caslib.fetch")
 
 BASE = "https://www.chemicalbook.com"
 UA = (
@@ -57,12 +60,16 @@ async def fetch_cas(
     cb_number: str | None = None,
     session: aiohttp.ClientSession | None = None,
 ) -> FetchResult:
-    """拉取一个 CAS: CAS 详情页(探测/提cb_number) + CPP-CN 页(entry+100家供应商)。
+    """拉取一个 CAS — 两条单跳路径(2026-09-01 数据链收口, DATA_CHAIN_REFACTOR_PLAN §1)。
 
-    total_budget_s 覆盖全程。同步路径传 3s; worker 可放宽。
-    cb_number 已知(主表)时第二跳直接寻址 CPP 页; 未知时从 CAS 页提取。
-    (2026-08-28: GN/GW 专用页链路作废 — CPP-CN 一页含 100 家供应商+国家,
-    GW 国际供应商真包含于 CPP-CN, 实测对账。)
+    有 cb_number: CPP-CN 一发定乾坤(1请求), CAS 页不再参与(它唯一目的是提号,
+    已知号时无意义; 旧行为 CPP 失败落回 CAS 会把"CPP 没拿到"掩盖成完整 ok)。
+    无 cb_number: CAS 详情页提号; 无号=ok 供应商空(定案), 有号再跳 CPP 拼装。
+
+    过渡判定(§1 三行): 200+busy形态→error / 200其他→ok|not_found / 非200|超时→error。
+    空壳 200(<500B) 归 not_found(CB 给 200 即可达)。
+    cpp 熔断器已并入闸门阶梯, 本层不再有熔断逻辑。
+    每次请求打一行 INFO 日志(status/bytes/state), 作为返回态识别的校准证据流。
     """
     from .parse import extract_cb_number, looks_like_not_found
 
@@ -73,49 +80,58 @@ async def fetch_cas(
     assert session is not None
     stats: dict = {}
     try:
-        cb = cb_number
-        if cb and not cpp_circuit_open():
-            # 已知 CB 号: 直跳 CPP(1请求); CPP 失败再退 CAS 页探测
-            status, body = await _get(session, f"{BASE}/ChemicalProductProperty_CN_CB{cb}.htm", total_budget_s)
+        if cb_number:
+            # 路径A: 已知 CB 号 → 直跳 CPP-CN, 不发 CAS 页
+            status, body = await _get(
+                session, f"{BASE}/ChemicalProductProperty_CN_CB{cb_number}.htm", total_budget_s)
             stats["cpp_status"] = status
-            if status == 200:
-                from .parse import cpp_page_state
-
-                state = cpp_page_state(body)
-                if state == "ok":
-                    cpp_report_ok()
-                    return FetchResult("ok", cas_html=None, cpp_html=body,
-                                       cb_number=cb, stats=stats)
-                if state in ("busy", "empty"):
-                    cpp_report_busy()
-        per = max(1.0, total_budget_s / (2 if cb is None else 1))
-        status, body = await _get(session, f"{BASE}/CAS_{cas}.htm", per)
+            if status != 200:
+                log.info("cpp cb=%s loc=zh status=%s bytes=%s state=error",
+                         cb_number, status, len(body) if body else 0)
+                return FetchResult("error", error=f"http_{status}", cb_number=cb_number,
+                                   stats=stats)
+            from .parse import cpp_page_state
+            state = cpp_page_state(body)
+            log.info("cpp cb=%s loc=zh status=200 bytes=%s state=%s",
+                     cb_number, len(body), state)
+            if state == "busy":
+                return FetchResult("error", error="cpp_busy", cb_number=cb_number,
+                                   stats=stats)
+            if state in ("empty", "not_found"):
+                # 空壳 200 与无条目页同归 not_found: 可达, 无有效信息。
+                return FetchResult("not_found", cpp_html=None, cb_number=cb_number,
+                                   stats=stats)
+            return FetchResult("ok", cpp_html=body, cb_number=cb_number, stats=stats)
+        # 路径B: 无号 → CAS 详情页
+        status, body = await _get(session, f"{BASE}/CAS_{cas}.htm", total_budget_s)
         stats["cas_status"] = status
-        if status is None:
-            return FetchResult("error", error=body, stats=stats)
-        if status != 200:
-            return FetchResult("error", error=f"http_{status}", stats=stats)
+        if status is None or status != 200:
+            log.info("cas %s status=%s state=error", cas, status)
+            return FetchResult("error", error=body if status is None else f"http_{status}",
+                               stats=stats)
         if looks_like_not_found(body):
+            log.info("cas %s status=200 bytes=%s state=not_found", cas, len(body))
             return FetchResult("not_found", cas_html=body, stats=stats)
+        cb = extract_cb_number(body)
         if not cb:
-            cb = extract_cb_number(body)
-        if not cb:
-            # 详情页正常但无任何自身CB链接: 条目本身 ok, 供应商空
+            # 详情页正常但无任何自身CB链接: 条目本身 ok, 供应商空(定案保持)。
+            log.info("cas %s status=200 bytes=%s state=ok(no_cb)", cas, len(body))
             return FetchResult("ok", cas_html=body, cb_number=None, stats=stats)
         cpp_html = None
-        if not cpp_circuit_open():
-            status2, body2 = await _get(
-                session, f"{BASE}/ChemicalProductProperty_CN_CB{cb}.htm", per)
-            stats["cpp_status"] = status2
-            if status2 == 200:
-                from .parse import cpp_page_state
-
-                state2 = cpp_page_state(body2)
-                if state2 == "ok":
-                    cpp_report_ok()
-                    cpp_html = body2
-                elif state2 in ("busy", "empty"):
-                    cpp_report_busy()
+        status2, body2 = await _get(
+            session, f"{BASE}/ChemicalProductProperty_CN_CB{cb}.htm", total_budget_s)
+        stats["cpp_status"] = status2
+        if status2 == 200:
+            from .parse import cpp_page_state
+            state2 = cpp_page_state(body2)
+            stats["cpp_state"] = state2
+            log.info("cpp cb=%s loc=zh status=200 bytes=%s state=%s",
+                     cb, len(body2), state2)
+            if state2 == "ok":
+                cpp_html = body2
+            # busy/empty/not_found: CPP 段缺失, CAS 页 entry 仍完整 → ok 不降级
+        else:
+            log.info("cpp cb=%s loc=zh status=%s state=error", cb, status2)
         return FetchResult(
             "ok", cas_html=body, cpp_html=cpp_html,
             cb_number=cb, stats=stats,
@@ -141,40 +157,8 @@ async def warm_session(session: aiohttp.ClientSession) -> int:
         return -1
 
 
-# ---------------------------------------------------------------- CPP 熔断
-
-# 上游 CB{N} 动态页系(CPP/价格页)限流时返回 14 字节"系统忙"。
-# 熔断: 连续 BUSY_THRESHOLD 次 busy 后暂停 CPP 路径 BUSY_COOLDOWN_S 秒,
-# 期间 CAS 页兜底继续供数; 冷却后半开(放 1 个探测请求探恢复)。
-import time as _time
-
-BUSY_THRESHOLD = 5
-BUSY_COOLDOWN_S = 600
-_busy_streak = 0
-_busy_until = 0.0
-
-
-def cpp_circuit_open() -> bool:
-    """CPP 路径是否处于熔断暂停。半开: 冷却期满放行(下个请求当探测)。"""
-    return _time.monotonic() < _busy_until
-
-
-def cpp_report_busy() -> None:
-    """上报一次 busy; 连续达阈值 → 进入冷却。"""
-    global _busy_streak, _busy_until
-    _busy_streak += 1
-    if _busy_streak >= BUSY_THRESHOLD:
-        _busy_until = _time.monotonic() + BUSY_COOLDOWN_S
-        _busy_streak = 0
-
-
-def cpp_report_ok() -> None:
-    """上报 CPP 正常(半开探测成功/正常响应) — 清零连击。"""
-    global _busy_streak
-    _busy_streak = 0
-
-
 # ---------------------------------------------------------------- CPP 语言页
+# (2026-09-01 收口: CPP 熔断器删除, 上游保护统一由 lease 闸门阶梯承担。)
 
 _CPP_LANG_SUFFIX = {"en": "_EN", "ja": "_JP", "de": "_DE", "ko": "_KR", "ru": "_RU"}
 
@@ -189,10 +173,11 @@ async def fetch_cpp_locale(
     """拉 CPP 语言变体页(ChemicalProductProperty_{L}_CB{cb}.htm), 返回 (state, html)。
 
     locale ∈ en/ja/de/ko/ru(zh-CN 走主链 fetch_cas, 不经此函数)。
-    state 三态对齐主链(2026-08-31 收口: 网络错/限流≠"查了没有"):
-      - "ok":       200 且页面状态 ok/not_found(可判定终态; not_found 时 html=None)
-      - "busy":     200 但"系统忙"限流页 — 已计入 CPP 熔断器(cpp_report_busy)
-      - "error":    网络/超时/非200/未知 locale — 拿不到状态, 调用方须回队不落终态
+    过渡判定对齐主链(§1 三行):
+      - "ok":       200 且页面可判定 — 有效内容返回 html, 无变体返回 (ok, None)
+      - "busy":     200 但"系统忙"限流页 → error 性质(调用方按 error 处理)
+      - "error":    网络/超时/非200/未知 locale — 拿不到有效回应
+    空壳 200(<500B) 归 not_found(可达, 无有效信息)。
     不抛异常。
     """
     suffix = _CPP_LANG_SUFFIX.get(locale)
@@ -204,21 +189,21 @@ async def fetch_cpp_locale(
             timeout_s,
         )
     except Exception:
+        log.info("cpp cb=%s loc=%s status=none state=error", cb_number, locale)
         return "error", None
     if status != 200 or not body:
+        log.info("cpp cb=%s loc=%s status=%s state=error", cb_number, locale, status)
         return "error", None
     from .parse import cpp_page_state
 
     state = cpp_page_state(body)
+    log.info("cpp cb=%s loc=%s status=200 bytes=%s state=%s",
+             cb_number, locale, len(body), state)
     if state == "busy":
-        cpp_report_busy()
         return "busy", None
-    if state == "empty":
-        # 空壳页(<500B)形态不可判定, 按"拿不到状态"回队, 不冒充终态。
-        return "error", None
-    cpp_report_ok()
-    if state == "not_found":
-        return "ok", None  # 判定成功: 该条目确无此语言变体
+    if state in ("empty", "not_found"):
+        # 空壳 200 与无变体页同归判定成功: 该条目无此语言有效信息。
+        return "ok", None
     return "ok", body
 
 
