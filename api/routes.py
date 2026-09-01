@@ -10,16 +10,13 @@ from sqlalchemy import text
 from .core.cache import cache_get, cache_set
 from .chemistry import canonicalize_smiles
 from .core.database import get_db
-from .enrichment import (
-    DEFAULT_SECTIONS,
-    display_details,
-    enqueue_chemical_if_needed,
-)
+from .enrichment import enqueue_chemical_if_needed
+from .services.enrichment import display_details
 from .core.security import Actor, internal_or_actor
 from .services.reactions import load_reaction_detail
 from .services.search import run_search_query
 from .services.chemicals import (
-    CHEMICAL_SELECT, FULL_DETAILS_SECTIONS,
+    CHEMICAL_SELECT,
     fetch_chemicals, reaction_summaries,
     load_stats, load_public_config, load_datasets, load_sitemap_reactions,
     load_synonyms_page, substructure_page, similarity_page, fill_detail_context,
@@ -127,7 +124,6 @@ async def chemical_detail(
     details, job_id, needs_refresh = await enqueue_chemical_if_needed(
         db,
         chemical_id,
-        sections=FULL_DETAILS_SECTIONS if enrich == "full" else DEFAULT_SECTIONS,
         # 优先级对齐 CB 定论: 80=用户(登录) / 50=后台. 匿名 SSR(爬虫翻页)
         # 不是用户, 不占用户位(2026-08-27 血案: 匿名流量曾以 80 插队灌队列).
         priority=80 if actor is not None else 50,
@@ -140,9 +136,6 @@ async def chemical_detail(
     result["enrichment"] = {
         "status": "queued" if job_id is not None else ("stale" if needs_refresh else "current"),
         "job_id": job_id,
-        "requested_sections": list(
-            FULL_DETAILS_SECTIONS if enrich == "full" else DEFAULT_SECTIONS
-        ),
     }
     return result
 

@@ -12,13 +12,11 @@ import os
 import random
 import secrets
 import time
-from datetime import datetime, timezone
 from typing import Any
 
 import aiohttp
 
 from .pubchem import PubChemClient, PubChemError, PubChemRateController
-from .chemistry import select_verified_cid
 
 log = logging.getLogger("huagongshe-worker")
 
@@ -59,9 +57,10 @@ class WorkApiClient:
             return json.loads(raw)
 
 
-async def heartbeat(client: WorkApiClient, job: dict[str, Any], stop: asyncio.Event, *, cas: bool = False) -> None:
+async def heartbeat(client: WorkApiClient, job: dict[str, Any], stop: asyncio.Event) -> None:
+    """CB 租约心跳(PB 已删: 整包单请求 lease_seconds=180 足够, 无续租场景)。"""
     interval = max(20, int(job.get("lease_seconds", 180)) // 3)
-    path = "/workapi/v1/cas/jobs/heartbeat" if cas else "/workapi/v1/jobs/heartbeat"
+    path = "/workapi/v1/cas/jobs/heartbeat"
     while not stop.is_set():
         try:
             await asyncio.wait_for(stop.wait(), timeout=interval)
@@ -85,92 +84,35 @@ async def process_job(
     rate: PubChemRateController,
     job: dict[str, Any],
 ) -> None:
-    """PB 任务(数据链收口终版): API活=结论明确, 正常出表。
+    """PB 任务(0901 整记录化终版): PUG View 整包一个请求 → 解析 → complete。
 
-    200有数据 → complete(ok) → 写库出表;
-    API活但无数据(404/空表) → complete(empty) → 出表留空, 不进error;
-    API不通(5xx/超时/拒服) → error → 留表进阶梯, 重试全在 lease 闸门。
+    有数据 → complete(payload) → 服务端拉到就 update 全字段覆盖;
+    整包无有效内容 → error(pubchem_empty): 留痕不沉底, 不计连击(非通道信号);
+    网络不通(超时/5xx/403/封禁页) → error(事实码) → 连击+1, 闸门在 lease 派发口。
     """
-    stop = asyncio.Event()
-    heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop))
     try:
         pubchem = PubChemClient(session, rate)
-        candidates = await pubchem.resolve(job["query_kind"], str(job["query_value"]))
-        properties = await pubchem.properties(candidates)
-        expected_cid = job.get("expected_pubchem_cid")
-        property_map = {int(item.get("CID")): item for item in properties if item.get("CID")}
-        selected_cid = select_verified_cid(
-            candidates,
-            properties,
-            expected_cid=int(expected_cid) if expected_cid else None,
-            expected_smiles=job.get("expected_smiles"),
-        )
-        if selected_cid is None:
-            # PB 无 not_found(2026-09-01 定案): 不发现、不记否定 —
-            # 空手/歧义 = 没拿到, 一律 error, 通道与重试交给 lease。
-            raise PubChemError("ambiguous_pubchem_identity",
-                               "PubChem did not resolve exactly one verified CID")
-        selected_properties = property_map.get(selected_cid, {}) if selected_cid else {}
-        if not selected_properties:
-            # API活但这个cid没数据(PUG 404→None→空表): 结论明确, 正常出表,
-            # 数据层留空(下次100天窗到期再问)。不进error, 不占通道计数。
+        payload = await pubchem.whole_record(int(job["cid"]))
+        if payload is None:
             await workapi.post(
-                "/workapi/v1/jobs/complete",
-                {"job_id": job["job_id"], "lease_token": job["lease_token"],
-                 "result": {"status": "empty"}},
+                "/workapi/v1/jobs/error",
+                {
+                    "job_id": job["job_id"],
+                    "lease_token": job["lease_token"],
+                    "error_code": "pubchem_empty",
+                    "error_detail": "pug_view returned no parseable record",
+                },
             )
-            log.info("completed job=%s empty (no data for cid)", job["job_id"])
+            log.info("PubChem job=%s empty (no parseable record)", job["job_id"])
             return
-        sections: dict[str, Any] = {}
-        record_title = None
-        requested = set(job.get("sections") or [])
-        if selected_cid is not None:
-            if "computed" in requested:
-                sections["computed"] = {
-                    "values": selected_properties,
-                    "source": "PubChem PUG REST",
-                }
-            if "synonyms" in requested:
-                sections["synonyms"] = {
-                    "values": await pubchem.synonyms(selected_cid),
-                    "source": "PubChem PUG REST",
-                }
-            for section in sorted(requested - {"computed", "synonyms"}):
-                if section not in {"identifiers", "physical", "safety", "toxicity", "regulatory", "pharmacology", "uses"}:
-                    continue
-                title, normalized = await pubchem.view(selected_cid, section)
-                record_title = record_title or title
-                sections[section] = normalized or {
-                    "entries": {},
-                    "references": {},
-                    "unavailable": True,
-                }
-        candidate_summaries = [
-            {
-                key: item[key]
-                for key in ("CID", "MolecularFormula", "MolecularWeight", "SMILES", "InChIKey", "IUPACName")
-                if key in item
-            }
-            for item in properties[:10]
-        ]
-        result = {
-            "status": "ok",
-            "selected_cid": selected_cid,
-            "candidates": candidate_summaries,
-            "properties": selected_properties,
-            "sections": sections,
-            "record_title": record_title,
-            "fetched_at": datetime.now(timezone.utc).isoformat(),
-            "source_hash": pubchem.source_hash(),
-        }
         await workapi.post(
             "/workapi/v1/jobs/complete",
-            {"job_id": job["job_id"], "lease_token": job["lease_token"], "result": result},
+            {"job_id": job["job_id"], "lease_token": job["lease_token"],
+             "result": {"payload": payload}},
         )
-        log.info("completed job=%s cid=%s", job["job_id"], selected_cid)
+        log.info("completed job=%s cid=%s", job["job_id"], job["cid"])
     except PubChemError as exc:
-        # PB 全部错误形态(5xx/网络/拒服/歧义/缺记录)= 没拿到有效回应 → error,
-        # 通道阶梯判定在 lease 派发口, 这里只报事实。
+        # 网络/拒服/封禁页 = 没拿到有效回应 → error 报事实, 判定全在闸门。
         await workapi.post(
             "/workapi/v1/jobs/error",
             {
@@ -182,7 +124,6 @@ async def process_job(
         )
         log.info("PubChem job=%s error: %s", job["job_id"], exc)
     except Exception as exc:
-        # 兜底=没拿到(§3), 不再打死成终态。
         try:
             await workapi.post(
                 "/workapi/v1/jobs/error",
@@ -196,10 +137,6 @@ async def process_job(
         except Exception:
             log.exception("could not report error for job=%s", job["job_id"])
         log.exception("worker job=%s errored", job["job_id"])
-    finally:
-        stop.set()
-        heartbeat_task.cancel()
-        await asyncio.gather(heartbeat_task, return_exceptions=True)
 
 
 async def process_cas_job(
@@ -226,7 +163,7 @@ async def process_cas_job(
 
     locale = job.get("locale") or "zh-CN"
     stop = asyncio.Event()
-    heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop, cas=True))
+    heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop))
     try:
         payload: dict[str, Any]
         if locale == "zh-CN":

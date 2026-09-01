@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import HTTPException
@@ -52,8 +50,10 @@ async def sync_chemical_core(
     *,
     record_title: Any = None,
     synonyms: list[str] | None = None,
+    cas_numbers: list[str] | None = None,
 ) -> None:
-    """Synchronize trusted PubChem core fields without changing identity/structure."""
+    """Synchronize trusted PubChem core fields without changing identity/structure.
+    cas_numbers(0901 裁定): cb_number 为空才写(并集补空), 有 CB 印记归 CB 链。"""
     values = chemical_core_values(properties, record_title=record_title)
     await db.execute(text("""
         WITH incoming AS (
@@ -66,7 +66,8 @@ async def sync_chemical_core(
                    CAST(:pubchem_cid AS integer) AS pubchem_cid,
                    CAST(:pubchem_smiles AS text) AS pubchem_smiles,
                    CAST(:sync_synonyms AS boolean) AS sync_synonyms,
-                   CAST(:synonyms AS jsonb) AS synonyms
+                   CAST(:synonyms AS jsonb) AS synonyms,
+                   CAST(:cas_in AS text[]) AS cas_in
         )
         UPDATE chemistry.chemicals
         SET preferred_name=coalesce(incoming.preferred_name,chemistry.chemicals.preferred_name),
@@ -79,6 +80,13 @@ async def sync_chemical_core(
             pubchem_smiles=coalesce(incoming.pubchem_smiles,chemistry.chemicals.pubchem_smiles),
             synonyms=CASE WHEN incoming.sync_synonyms
                 THEN incoming.synonyms ELSE chemistry.chemicals.synonyms END,
+            cas_numbers=CASE
+                WHEN chemistry.chemicals.cb_number IS NULL
+                 AND cardinality(incoming.cas_in) > 0
+                THEN coalesce(chemistry.chemicals.cas_numbers, ARRAY[]::text[])
+                     || (SELECT array_agg(DISTINCT c) FROM unnest(incoming.cas_in) c
+                         WHERE NOT coalesce(chemistry.chemicals.cas_numbers, ARRAY[]::text[]) @> ARRAY[c])
+                ELSE chemistry.chemicals.cas_numbers END,
             updated_at=now()
         FROM incoming
         WHERE chemistry.chemicals.id=:chemical_id AND (
@@ -90,13 +98,16 @@ async def sync_chemical_core(
             (incoming.inchikey IS NOT NULL AND chemistry.chemicals.inchikey IS DISTINCT FROM incoming.inchikey) OR
             (incoming.pubchem_cid IS NOT NULL AND chemistry.chemicals.pubchem_cid IS DISTINCT FROM incoming.pubchem_cid) OR
             (incoming.pubchem_smiles IS NOT NULL AND chemistry.chemicals.pubchem_smiles IS DISTINCT FROM incoming.pubchem_smiles) OR
-            (incoming.sync_synonyms AND chemistry.chemicals.synonyms IS DISTINCT FROM incoming.synonyms)
+            (incoming.sync_synonyms AND chemistry.chemicals.synonyms IS DISTINCT FROM incoming.synonyms) OR
+            (chemistry.chemicals.cb_number IS NULL AND cardinality(incoming.cas_in) > 0
+             AND NOT coalesce(chemistry.chemicals.cas_numbers, ARRAY[]::text[]) @> incoming.cas_in)
         )
     """), {
         "chemical_id": chemical_id,
         "sync_synonyms": synonyms is not None,
         "synonyms": json.dumps(synonyms, ensure_ascii=False, separators=(",", ":"))
         if synonyms is not None else None,
+        "cas_in": cas_numbers or [],
         **values,
     })
     # name_index 摄入: synonyms 镜像, 与核心列同步同事务
@@ -107,105 +118,56 @@ async def sync_chemical_core(
 async def upsert_details(
     db: Any,
     chemical_id: int,
-    properties: dict[str, Any],
-    sections: dict[str, Any],
-    result: dict[str, Any],
+    payload: dict[str, Any],
 ) -> None:
-    existing = (await db.execute(text("""
-        SELECT * FROM chemistry.chemical_pubchem WHERE chemical_id=:chemical_id FOR UPDATE
-    """), {"chemical_id": chemical_id})).mappings().fetchone()
-    current = dict(existing) if existing else {}
-    now_iso = datetime.now(timezone.utc).isoformat()
-    fetched_sections = set(current.get("fetched_sections") or [])
-    fetched_sections.update(sections)
-    section_times = dict(current.get("section_fetched_at") or {})
-    section_times.update({section: now_iso for section in sections})
-    section_hashes = dict(current.get("section_source_hashes") or {})
-    result_source_hash = str(result.get("source_hash") or "")
-    if not re.fullmatch(r"[0-9a-f]{64}", result_source_hash, re.I):
-        result_source_hash = hashlib.sha256(
-            json.dumps(result, sort_keys=True, ensure_ascii=False).encode()
-        ).hexdigest()
-    section_hashes.update({section: result_source_hash for section in sections})
-    references = dict(current.get("source_references") or {})
-    for section_name, section in sections.items():
-        if isinstance(section, dict):
-            # PUG View reference numbers are scoped to one response.  Keeping
-            # them per section prevents an unrelated response from overwriting
-            # a reference with the same numeric key.
-            references[section_name] = as_json_object(section.get("references"))
+    """整包入库(0901 定案): 拉到就 update 全字段覆盖, fetched_at=now()。
+    payload = worker 整包解析产物(结构化字段), 无 merge 无校验。"""
+    def obj(key: str) -> str:
+        return json.dumps(as_json_object(payload.get(key)), ensure_ascii=False, separators=(",", ":"))
 
-    parsed_times: list[datetime] = []
-    for raw in section_times.values():
-        if not isinstance(raw, str):
-            continue
-        try:
-            value = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        except ValueError:
-            continue
-        parsed_times.append(value if value.tzinfo else value.replace(tzinfo=timezone.utc))
-    # 与enrichment新鲜窗口同步30→100天(2026-08-30): 详情页按此字段判陈旧。
-    expires_at = min(parsed_times) + timedelta(days=100) if parsed_times else None
+    def num(key: str, cast=float):
+        return number_or_none(payload.get(key), cast)
 
-    values = {
+    params = {
         "chemical_id": chemical_id,
-        "record_title": result.get("record_title") or current.get("record_title"),
-        "record_description": result.get("record_description") or current.get("record_description"),
-        "xlogp": number_or_none(properties.get("XLogP")) if "XLogP" in properties else current.get("xlogp"),
-        "tpsa": number_or_none(properties.get("TPSA")) if "TPSA" in properties else current.get("topological_polar_surface_area"),
-        "complexity": number_or_none(properties.get("Complexity")) if "Complexity" in properties else current.get("complexity"),
-        "hbd": number_or_none(properties.get("HBondDonorCount"), int) if "HBondDonorCount" in properties else current.get("hbond_donor_count"),
-        "hba": number_or_none(properties.get("HBondAcceptorCount"), int) if "HBondAcceptorCount" in properties else current.get("hbond_acceptor_count"),
-        "rotatable": number_or_none(properties.get("RotatableBondCount"), int) if "RotatableBondCount" in properties else current.get("rotatable_bond_count"),
-        "heavy": number_or_none(properties.get("HeavyAtomCount"), int) if "HeavyAtomCount" in properties else current.get("heavy_atom_count"),
-        "charge": number_or_none(properties.get("Charge"), int) if "Charge" in properties else current.get("formal_charge"),
-        "computed": as_json_object(sections.get("computed")) or current.get("computed_properties", {}),
-        "physical": as_json_object(sections.get("physical")) or current.get("physical_properties", {}),
-        "ghs": as_json_object(as_json_object(sections.get("safety")).get("ghs")) or current.get("ghs_classification", {}),
-        "hazards": as_json_object(as_json_object(sections.get("safety")).get("hazards")) or current.get("hazards", {}),
-        "measures": as_json_object(as_json_object(sections.get("safety")).get("measures")) or current.get("safety_measures", {}),
-        "toxicity": as_json_object(sections.get("toxicity")) or current.get("toxicity", {}),
-        "regulatory": as_json_object(sections.get("regulatory")) or current.get("regulatory", {}),
-        "pharmacology": as_json_object(sections.get("pharmacology")) or current.get("pharmacology", {}),
-        "uses": as_json_object(sections.get("uses")) or current.get("uses_and_manufacturing", {}),
-        "identifiers": as_json_object(sections.get("identifiers")) or current.get("identifier_evidence", {}),
-        "references": references,
-        "fetched_sections": sorted(fetched_sections),
-        "section_times": section_times,
-        "created_on": result.get("pubchem_created_on") or current.get("pubchem_created_on"),
-        "modified_on": result.get("pubchem_modified_on") or current.get("pubchem_modified_on"),
-        "source_hash": result_source_hash,
-        "section_hashes": section_hashes,
-        "expires_at": expires_at,
+        "record_title": payload.get("record_title"),
+        "record_description": payload.get("record_description"),
+        "xlogp": num("xlogp"), "tpsa": num("tpsa"), "complexity": num("complexity"),
+        "hbd": num("hbd", int), "hba": num("hba", int), "rotatable": num("rotatable", int),
+        "heavy": num("heavy", int), "charge": num("charge", int),
+        "computed": obj("computed"), "physical": obj("physical"),
+        "ghs": obj("ghs"), "hazards": obj("hazards"), "measures": obj("measures"),
+        "toxicity": obj("toxicity"), "regulatory": obj("regulatory"),
+        "pharmacology": obj("pharmacology"), "uses": obj("uses"),
+        "identifiers": obj("identifiers"), "references": obj("references"),
+        "external_ids": obj("external_ids"), "ghs_codes": obj("ghs_codes"),
+        "exp_props": obj("exp_props"), "exp_limits": obj("exp_limits"),
+        "reactivity": obj("reactivity"),
+        "created_on": payload.get("pubchem_created_on"),
+        "modified_on": payload.get("pubchem_modified_on"),
     }
-    json_keys = (
-        "computed", "physical", "ghs", "hazards", "measures", "toxicity",
-        "regulatory", "pharmacology", "uses", "identifiers", "references",
-        "section_times", "section_hashes",
-    )
-    params = dict(values)
-    for key in json_keys:
-        params[key] = json.dumps(values[key], ensure_ascii=False, separators=(",", ":"))
     await db.execute(text("""
         INSERT INTO chemistry.chemical_pubchem (
             chemical_id,record_title,record_description,xlogp,
             topological_polar_surface_area,complexity,hbond_donor_count,
             hbond_acceptor_count,rotatable_bond_count,heavy_atom_count,formal_charge,
-            computed_properties,physical_properties,ghs_classification,hazards,
+            computed_properties,physical_properties,ghs_cl...tion,hazards,
             safety_measures,toxicity,regulatory,pharmacology,uses_and_manufacturing,
-            identifier_evidence,source_references,fetched_sections,section_fetched_at,
-            section_source_hashes,
-            pubchem_created_on,pubchem_modified_on,source_hash,schema_version,
-            fetched_at,expires_at,updated_at
+            identifier_evidence,source_references,
+            external_ids,ghs_codes,exp_props,exp_limits,reactivity,
+            pubchem_created_on,pubchem_modified_on,
+            fetched_at,updated_at
         ) VALUES (
-            :chemical_id,:record_title,:record_description,:xlogp,:tpsa,:complexity,
-            :hbd,:hba,:rotatable,:heavy,:charge,CAST(:computed AS jsonb),
-            CAST(:physical AS jsonb),CAST(:ghs AS jsonb),CAST(:hazards AS jsonb),
-            CAST(:measures AS jsonb),CAST(:toxicity AS jsonb),CAST(:regulatory AS jsonb),
-            CAST(:pharmacology AS jsonb),CAST(:uses AS jsonb),CAST(:identifiers AS jsonb),
-            CAST(:references AS jsonb),:fetched_sections,CAST(:section_times AS jsonb),
-            CAST(:section_hashes AS jsonb),
-            :created_on,:modified_on,:source_hash,1,now(),:expires_at,now()
+            :chemical_id,:record_title,:record_description,:xlogp,
+            :tpsa,:complexity,:hbd,:hba,:rotatable,:heavy,:charge,
+            CAST(:computed AS jsonb),CAST(:physical AS jsonb),CAST(:ghs AS jsonb),
+            CAST(:hazards AS jsonb),CAST(:measures AS jsonb),CAST(:toxicity AS jsonb),
+            CAST(:regulatory AS jsonb),CAST(:pharmacology AS jsonb),CAST(:uses AS jsonb),
+            CAST(:identifiers AS jsonb),CAST(:references AS jsonb),
+            CAST(:external_ids AS jsonb),CAST(:ghs_codes AS jsonb),
+            CAST(:exp_props AS jsonb),CAST(:exp_limits AS jsonb),CAST(:reactivity AS jsonb),
+            :created_on,:modified_on,
+            now(),now()
         )
         ON CONFLICT (chemical_id) DO UPDATE SET
             record_title=excluded.record_title,
@@ -220,7 +182,7 @@ async def upsert_details(
             formal_charge=excluded.formal_charge,
             computed_properties=excluded.computed_properties,
             physical_properties=excluded.physical_properties,
-            ghs_classification=excluded.ghs_classification,
+            ghs_cl...tion=excluded.ghs_cl...tion,
             hazards=excluded.hazards,
             safety_measures=excluded.safety_measures,
             toxicity=excluded.toxicity,
@@ -229,15 +191,14 @@ async def upsert_details(
             uses_and_manufacturing=excluded.uses_and_manufacturing,
             identifier_evidence=excluded.identifier_evidence,
             source_references=excluded.source_references,
-            fetched_sections=excluded.fetched_sections,
-            section_fetched_at=excluded.section_fetched_at,
-            section_source_hashes=excluded.section_source_hashes,
+            external_ids=excluded.external_ids,
+            ghs_codes=excluded.ghs_codes,
+            exp_props=excluded.exp_props,
+            exp_limits=excluded.exp_limits,
+            reactivity=excluded.reactivity,
             pubchem_created_on=excluded.pubchem_created_on,
             pubchem_modified_on=excluded.pubchem_modified_on,
-            source_hash=excluded.source_hash,
-            schema_version=excluded.schema_version,
             fetched_at=excluded.fetched_at,
-            expires_at=excluded.expires_at,
             updated_at=excluded.updated_at
     """), params)
 

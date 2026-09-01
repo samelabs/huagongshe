@@ -7,22 +7,12 @@ workers use ``/workapi``.
 
 from __future__ import annotations
 
-import hashlib
-import json
-from datetime import datetime, timedelta, timezone
-from typing import Any
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import text
 
 from .core.database import get_db
-from .core.rate_limit import is_loopback_host
-from .core.security import internal_or_actor
-from .services.enrichment import (
-    ALLOWED_SECTIONS, DEFAULT_SECTIONS, DISPLAY_EVIDENCE_SECTIONS,
-    DISPLAY_ENTRY_LIMIT, DISPLAY_VALUE_LIMIT,
-    normalize_sections, fetch_details, display_details, enqueue_job, enqueue_chemical_if_needed,
-)
+from .core.security import Actor, internal_or_actor
+from .services.enrichment import enqueue_chemical_if_needed
 
 router = APIRouter(tags=["enrichment"])
 
@@ -37,13 +27,11 @@ router = APIRouter(tags=["enrichment"])
 async def chemical_details(
     request: Request,
     chemical_id: int,
-    sections: str = Query("computed,identifiers", max_length=200),
     actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):
-    requested = normalize_sections(sections)
     details, job_id, needs_refresh = await enqueue_chemical_if_needed(
-        db, chemical_id, sections=requested,
+        db, chemical_id,
         priority=80 if actor is not None else 50, request=request, actor=actor,
     )
     if job_id is not None:
@@ -54,7 +42,6 @@ async def chemical_details(
         "enrichment": {
             "status": "queued" if job_id is not None else ("stale" if needs_refresh else "current"),
             "job_id": job_id,
-            "requested_sections": list(requested),
         },
     }
 
@@ -66,8 +53,8 @@ async def enrichment_job(
     db=Depends(get_db),
 ):
     row = (await db.execute(text("""
-        SELECT id,chemical_id,status,sections,resolved_pubchem_cid,result_summary,
-               created_at,updated_at,completed_at
+        SELECT id,chemical_id,status,last_error_code,last_error_detail,
+               created_at,updated_at
         FROM maintenance.pubchem_jobs WHERE id=:job_id
     """), {"job_id": job_id})).mappings().fetchone()
     if not row:

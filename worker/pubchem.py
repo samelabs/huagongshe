@@ -268,6 +268,16 @@ def extract_synonyms(payload: dict[str, Any] | None) -> list[str]:
 
 
 class PubChemClient:
+    # (0901 整记录化) PB 唯一数据请求: PUG View 整包 + gzip。
+    # resolve/properties/synonyms/view(逐 heading) 全部退役。
+
+    async def whole_record(self, cid: int) -> dict[str, Any] | None:
+        url = f"{PUG_VIEW}/data/compound/{cid}/JSON"
+        payload = await self.request_json("GET", url, gzip_ok=True)
+        if not payload:
+            return None
+        from .whole_record import parse_whole_record
+        return parse_whole_record(payload)
     def __init__(self, session: aiohttp.ClientSession, rate: PubChemRateController):
         self.session = session
         self.rate = rate
@@ -280,12 +290,20 @@ class PubChemClient:
         *,
         data: dict[str, str] | None = None,
         params: dict[str, str] | None = None,
+        gzip_ok: bool = False,
     ) -> dict[str, Any] | None:
         # 8-29 规范: 单趟制 — 无内部重试循环。任何失败形态一次定型:
         # miss(404)=None / 拒绝(403|302跳转|封禁页|4xx)=refused 终态 /
         # 上游5xx|网络错=终态。lease 过期回队是任务级唯一合法重试路径。
+        # gzip_ok(0901): 整包请求带 Accept-Encoding (实测 1.8MB→185KB)。
         await self.rate.acquire()
         try:
+            headers = {
+                "User-Agent": "Huagongshe-AIchem-Chemical-Update/1.1 "
+                "(https://huagongshe.com; mail@huagongshe.com; 3 req/s)"
+            }
+            if gzip_ok:
+                headers["Accept-Encoding"] = "gzip"
             async with self.session.request(
                 method,
                 url,
@@ -295,10 +313,7 @@ class PubChemClient:
                 # NCBI 政策: 程序访问应自标识并留联系方式 — 这比伪装更抗封.
                 # 仅 PB 链; CB 链(caslib/fetch.py)是浏览器头, 性质不同, 不动.
                 # 速率说明: 3 req/s 持续采集, 详见站点.
-                headers={
-                    "User-Agent": "Huagongshe-AIchem-Chemical-Update/1.1 "
-                    "(https://huagongshe.com; mail@huagongshe.com; 3 req/s)"
-                },
+                headers=headers,
                 allow_redirects=False,
             ) as response:
                 raw = await response.read()

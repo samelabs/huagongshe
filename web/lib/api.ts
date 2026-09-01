@@ -136,8 +136,6 @@ export type ChemicalDetails = {
   regulatory?: EvidenceBlock | null;
   pharmacology?: EvidenceBlock | null;
   uses_and_manufacturing?: EvidenceBlock | null;
-  fetched_sections?: string[];
-  section_fetched_at?: Record<string, string>;
   fetched_at?: string | null;
 };
 

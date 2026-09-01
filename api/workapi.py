@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 import re
 import secrets
 import time
@@ -15,7 +14,6 @@ from sqlalchemy import text
 from .core.cache import cache_delete, get_cache
 from .core.config import settings
 from .core.database import get_db
-from .pubchem_core import number_or_none, validate_synonyms
 from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, ErrorBody, CasLeaseBody, CasCompleteBody
 from .services.workqueue import (
     lease_hash, verified_lease, as_json_object, sync_chemical_core,
@@ -121,21 +119,21 @@ async def lease_jobs(
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
-        # 过期租约回收(§4): 本地问题非通道问题 — 直接回队, 不进计数。
+        # 过期租约回收: 本地问题非通道问题 — 直接回队, 不进计数。
         await db.execute(text("""
             UPDATE maintenance.pubchem_jobs
             SET status='queued',lease_owner=NULL,lease_token_hash=NULL,
-                lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now(),
+                lease_expires_at=NULL,updated_at=now(),
                 last_error_code='lease_expired'
             WHERE status='leased' AND lease_expires_at<=now()
         """))
+        # claim 只认 queued — error 行=留痕占位, 永不派发(0901 裁定);
+        # 复活走同请求到达入列口 UPDATE 翻态。
         rows = (await db.execute(text("""
-            SELECT j.id,j.chemical_id,j.query_kind,j.query_value,j.sections,
-                   j.attempt_count,c.pubchem_cid,c.smiles
+            SELECT j.id,j.chemical_id,j.query_value
             FROM maintenance.pubchem_jobs j
-            LEFT JOIN chemistry.chemicals c ON c.id=j.chemical_id
-            WHERE j.status IN ('queued','error') AND j.not_before<=now()
-            ORDER BY j.priority DESC,j.not_before,j.id
+            WHERE j.status='queued'
+            ORDER BY j.priority DESC,j.id
             LIMIT :limit FOR UPDATE OF j SKIP LOCKED
         """), {"limit": limit})).fetchall()
         leased = []
@@ -145,7 +143,7 @@ async def lease_jobs(
                 UPDATE maintenance.pubchem_jobs
                 SET status='leased',lease_owner=:worker_id,lease_token_hash=:token_hash,
                     lease_expires_at=now()+make_interval(secs=>:lease_seconds),
-                    heartbeat_at=now(),attempt_count=attempt_count+1,updated_at=now()
+                    updated_at=now()
                 WHERE id=:job_id
             """), {
                 "worker_id": worker.worker_id,
@@ -157,35 +155,11 @@ async def lease_jobs(
                 "job_id": row[0],
                 "lease_token": token,
                 "chemical_id": row[1],
-                "query_kind": row[2],
-                "query_value": row[3],
-                "sections": list(row[4] or []),
-                "expected_pubchem_cid": row[6],
-                "expected_smiles": row[7],
+                "cid": int(row[2]),
                 "lease_seconds": settings.worker_job_lease_seconds,
             })
         await db.commit()
         return {"jobs": leased, "retry_after_seconds": 2 if leased else 5}
-    except Exception:
-        await db.rollback()
-        raise
-
-
-@router.post("/jobs/heartbeat")
-async def heartbeat(
-    body: LeaseProof,
-    db=Depends(get_db),
-    worker: WorkerContext = Depends(authenticated_worker),
-):
-    try:
-        await verified_lease(db, body, worker.worker_id)
-        await db.execute(text("""
-            UPDATE maintenance.pubchem_jobs
-            SET heartbeat_at=now(),lease_expires_at=now()+make_interval(secs=>:seconds),
-                updated_at=now() WHERE id=:job_id
-        """), {"seconds": settings.worker_job_lease_seconds, "job_id": body.job_id})
-        await db.commit()
-        return {"status": "leased", "lease_seconds": settings.worker_job_lease_seconds}
     except Exception:
         await db.rollback()
         raise
@@ -198,130 +172,35 @@ async def complete_job(
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
+    """整包入库(0901 定案): 拉到就 update, 全字段覆盖, 无校验。
+    result 空 → job 出表, 数据层零动作。"""
     try:
         job = await verified_lease(db, body, worker.worker_id)
         result = body.result
-        candidates = result.get("candidates") if isinstance(result.get("candidates"), list) else []
-        properties = as_json_object(result.get("properties"))
-        selected_cid = number_or_none(result.get("selected_cid"), int)
-        if selected_cid is not None and selected_cid <= 0:
-            selected_cid = None
         chemical_id = job[1]
-        if result.get("status") == "empty":
-            # API活但无数据: 正常出表(留空), 通道健康 → 闸门归零。
-            await db.execute(text("""
-                DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
-            """), {"job_id": body.job_id})
-            await db.commit()
-            redis = await get_cache()
-            await gate_record_success(redis, "pubchem")
-            await gate_unlock_error_rows(db, "pubchem")
-            await db.commit()
-            return {"status": "empty", "chemical_id": chemical_id}
-        if selected_cid is None:
-            await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
-            await db.commit()
-            raise HTTPException(422, "worker did not resolve exactly one PubChem CID")
-
-        candidate_cids = {
-            number_or_none(item.get("CID"), int)
-            for item in candidates
-            if isinstance(item, dict)
-        }
-        candidate_cids.discard(None)
-        if selected_cid not in candidate_cids:
-            await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
-            await db.commit()
-            raise HTTPException(422, "selected CID is absent from candidates")
-        if job[2] == "cid" and str(selected_cid) != str(job[3]).strip():
-            await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
-            await db.commit()
-            raise HTTPException(422, "selected CID differs from query")
-
-        chemical = None
-        if chemical_id is not None:
-            chemical = (await db.execute(text("""
-                SELECT id,pubchem_cid,smiles,inchikey FROM chemistry.chemicals WHERE id=:id FOR UPDATE
-            """), {"id": chemical_id})).fetchone()
-            if not chemical:
-                await db.execute(text("""
-                    DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
-                """), {"job_id": body.job_id})
-                await db.commit()
-                raise HTTPException(422, "target chemical no longer exists")
-        elif selected_cid is not None:
-            chemical = (await db.execute(text("""
-                SELECT id,pubchem_cid,smiles,inchikey FROM chemistry.chemicals
-                WHERE pubchem_cid=:cid ORDER BY id LIMIT 1 FOR UPDATE
-            """), {"cid": selected_cid})).fetchone()
-            if chemical:
-                chemical_id = chemical[0]
-
-        if chemical and selected_cid is not None:
-            if chemical[1] is not None and int(chemical[1]) != selected_cid:
-                await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
-                await db.commit()
-                raise HTTPException(422, "result CID differs from stored PubChem CID")
-            returned_inchikey = properties.get("InChIKey")
-            expected_inchikey = chemical[3]
-            if returned_inchikey and expected_inchikey and returned_inchikey != expected_inchikey:
-                await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
-                await db.commit()
-                raise HTTPException(422, "PubChem InChIKey differs from chemicals.inchikey")
-
-        allowed_for_job = set(job[4] or [])
-        sections = as_json_object(result.get("sections"))
-        sections = {key: value for key, value in sections.items() if key in {
-            "computed", "identifiers", "synonyms", "physical", "safety", "toxicity",
-            "regulatory", "pharmacology", "uses",
-        } and key in allowed_for_job and isinstance(value, dict)}
-        synonyms = None
-        if "synonyms" in allowed_for_job:
-            if "synonyms" not in sections:
-                await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
-                await db.commit()
-                raise HTTPException(422, "worker omitted requested synonyms")
-            try:
-                synonyms = validate_synonyms(sections["synonyms"].get("values"))
-            except ValueError as exc:
-                await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
-                await db.commit()
-                raise HTTPException(422, str(exc)) from exc
-        if chemical_id is not None and selected_cid is not None:
+        payload = as_json_object(result.get("payload")) if isinstance(result, dict) else {}
+        if payload:
+            await upsert_details(db, int(chemical_id), payload)
+            core = payload.get("core") or {}
             await sync_chemical_core(
-                db,
-                int(chemical_id),
-                properties,
-                record_title=result.get("record_title"),
-                synonyms=synonyms,
+                db, int(chemical_id), core,
+                record_title=payload.get("record_title"),
+                synonyms=payload.get("synonyms") or None,
+                cas_numbers=payload.get("cas_numbers") or None,
             )
-            await upsert_details(db, int(chemical_id), properties, sections, result)
-
-        summary = {
-            "selected_cid": selected_cid,
-            "chemical_id": chemical_id,
-            "candidate_count": len(candidates),
-            "candidates": candidates[:10],
-            "fetched_sections": sorted(sections),
-        }
-        result_hash = str(result.get("source_hash") or "")
-        if not re.fullmatch(r"[0-9a-f]{64}", result_hash, re.I):
-            result_hash = hashlib.sha256(
-                json.dumps(result, sort_keys=True, ensure_ascii=False).encode()
-            ).hexdigest()
-        # 出表(§3): complete 即 DELETE, job 是纯队列缓存不承载历史。
+        # 出表: complete 即 DELETE, job 是纯队列不承载历史。
         await db.execute(text("""
             DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
         """), {"job_id": body.job_id})
         await db.commit()
-        # 闸门归零(§4): 一次成功 = 通道连击清零 + 该通道 error 行解锁。
+        # 闸门归零: 一次成功 = 通道连击清零 + error 行复活回队。
         redis = await get_cache()
         await gate_record_success(redis, "pubchem")
         await gate_unlock_error_rows(db, "pubchem")
         await db.commit()
         if chemical_id is not None:
             await cache_delete(f"v1:chemical:{chemical_id}")
-        return summary
+        return {"status": "ok", "chemical_id": chemical_id, "empty": not payload}
     except HTTPException:
         raise
     except Exception:
@@ -335,29 +214,27 @@ async def error_job(
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
-    """worker error(§3/§4): 不写数据层, job 留 error 行进阶梯。"""
+    """worker error(0901 终版): 行留 error 态占位(有人要过、没拿到),
+    连击+1(网络类)。无时间调度字段 — 复活=同请求到达入列口 UPDATE 翻态。"""
     try:
         await verified_lease(db, body, worker.worker_id)
         redis = await get_cache()
-        streak = await gate_record_error(redis, "pubchem")
-        silence = await gate_silence_remaining(redis, "pubchem")
-        # 未达门槛(连击<5): 60s 短退避 — 防同一 error 行被瞬间重复派发磨穿;
-        # 达门槛: 静默窗=阶梯档时间(5/10/30分钟), 期间 lease 不派发。
-        delay = int(silence) if silence > 0 else 60
-        not_before_sql = "now()+make_interval(secs=>:silence)"
-        await db.execute(text(f"""
+        streak = 0
+        # pubchem_empty = 网络通但内容空: 留痕但不计连击(非通道劣化信号)。
+        if body.error_code != "pubchem_empty":
+            streak = await gate_record_error(redis, "pubchem")
+        await db.execute(text("""
             UPDATE maintenance.pubchem_jobs
-            SET status='error',not_before={not_before_sql},
+            SET status='error',
                 last_error_code=:code,last_error_detail=:detail,
                 lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                heartbeat_at=NULL,updated_at=now()
+                updated_at=now()
             WHERE id=:job_id
         """), {
-            "silence": delay,
             "code": body.error_code, "detail": body.error_detail, "job_id": body.job_id,
         })
         await db.commit()
-        return {"status": "error", "streak": streak, "silence_seconds": int(silence)}
+        return {"status": "error", "streak": streak}
     except Exception:
         await db.rollback()
         raise
