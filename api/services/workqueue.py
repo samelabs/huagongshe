@@ -120,7 +120,11 @@ async def sync_chemical_core(
             chebi_ids=CASE WHEN cardinality(incoming.chebi_in) > 0
                 THEN coalesce(chemistry.chemicals.chebi_ids, incoming.chebi_in)
                 ELSE chemistry.chemicals.chebi_ids END,
-            dtxsid=coalesce(incoming.dtxsid_in, chemistry.chemicals.dtxsid),
+            dtxsid=CASE WHEN incoming.dtxsid_in IS NOT NULL
+                 AND NOT EXISTS (SELECT 1 FROM chemistry.chemicals c2
+                     WHERE c2.dtxsid=incoming.dtxsid_in AND c2.id<>:chemical_id)
+                THEN coalesce(chemistry.chemicals.dtxsid, incoming.dtxsid_in)
+                ELSE chemistry.chemicals.dtxsid END,
             updated_at=now()
         FROM incoming
         WHERE chemistry.chemicals.id=:chemical_id AND (
