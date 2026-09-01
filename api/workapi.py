@@ -207,18 +207,6 @@ async def complete_job(
         if selected_cid is not None and selected_cid <= 0:
             selected_cid = None
         chemical_id = job[1]
-        if result.get("status") == "not_found":
-            # PB 权威否定(§2): 出表, 不写数据层(PB 否定不承载)。
-            # not_found = 200 成功响应 = 通道健康信号, 闸门归零(§4)。
-            await db.execute(text("""
-                DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
-            """), {"job_id": body.job_id})
-            await db.commit()
-            redis = await get_cache()
-            await gate_record_success(redis, "pubchem")
-            await gate_unlock_error_rows(db, "pubchem")
-            await db.commit()
-            return {"status": "not_found", "chemical_id": chemical_id}
         if selected_cid is None:
             await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
             await db.commit()

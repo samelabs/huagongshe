@@ -85,11 +85,10 @@ async def process_job(
     rate: PubChemRateController,
     job: dict[str, Any],
 ) -> None:
-    """PB 任务(数据链收口§2/§3): 状态码即真相。
+    """PB 任务(数据链收口终版): 拿到 complete(ok), 没拿到一律 error。
 
-    200 → complete(ok 数据 | not_found 负缓存); 非200/超时/拒服 → error。
-    worker 是哑管道: 不判熔断、不传 retry_after、不报 retryable —
-    闸门阶梯在 lease 派发口(api/workapi), 信号源就是这里的真实请求结果。
+    PB=cid 拉取, 无 not_found — cid 口径必答, 空手=没拿到, 不纠缠不记否定。
+    worker 哑管道: 不判熔断不传参; error 处理与重试全在 lease 闸门。
     """
     stop = asyncio.Event()
     heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop))
@@ -106,15 +105,8 @@ async def process_job(
             expected_smiles=job.get("expected_smiles"),
         )
         if selected_cid is None:
-            if not candidates:
-                # PB 权威否定(§2): 404/空 resolve — 写数据层负缓存。
-                await workapi.post(
-                    "/workapi/v1/jobs/complete",
-                    {"job_id": job["job_id"], "lease_token": job["lease_token"],
-                     "result": {"status": "not_found"}},
-                )
-                log.info("completed job=%s not_found", job["job_id"])
-                return
+            # PB 无 not_found(2026-09-01 定案): 不发现、不记否定 —
+            # 空手/歧义 = 没拿到, 一律 error, 通道与重试交给 lease。
             raise PubChemError("ambiguous_pubchem_identity",
                                "PubChem did not resolve exactly one verified CID")
         selected_properties = property_map.get(selected_cid, {}) if selected_cid else {}
@@ -275,21 +267,7 @@ async def process_cas_job(
                         payload["mol"] = await fetch_mol(session, mol_href)
         else:
             # 语言行: cb_number 直拉 CPP 语言页, 只写 entry。
-            cb_number = job.get("cb_number")
-            if not cb_number:
-                # 入列侧 skip 漏网(不可寻址): 留 error 观测, 不发请求。
-                await workapi.post(
-                    "/workapi/v1/cas/jobs/error",
-                    {
-                        "job_id": job["job_id"],
-                        "lease_token": job["lease_token"],
-                        "error_code": "cb_number_missing",
-                        "error_detail": f"locale={locale} no cb_number",
-                    },
-                )
-                log.info("cas job=%s error %s (no cb_number)", job["job_id"], locale)
-                return
-            cpp_state, cpp_html = await fetch_cpp_locale(session, cb_number, locale)
+            cpp_state, cpp_html = await fetch_cpp_locale(session, job.get("cb_number"), locale)
             if cpp_state in ("busy", "error"):
                 await workapi.post(
                     "/workapi/v1/cas/jobs/error",
