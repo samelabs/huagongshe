@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -435,83 +434,129 @@ async def dashboard(actor: Actor = Depends(admin), db=Depends(get_db)):
 
 @router.get("/pipeline")
 async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
-    """数据 worker 运行时状态: 队列健康 + 今日吞吐 + 最新入库。全部点查, 不扫大表。"""
+    """数据链运行时(0902 重构): CB/PB 分链独立展示, 语义对齐新机制
+    — queued/leased/error 三态, error=留痕占位, 吞吐=数据层真实落库。"""
     now_iso = (await db.execute(text("SELECT now()"))).scalar().isoformat()
-    # 队列健康(状态计数, 索引点查)
-    cas = dict((await db.execute(text("""
-        SELECT status, count(*) FROM maintenance.cas_jobs GROUP BY status
-    """))).fetchall())
-    pb = dict((await db.execute(text("""
-        SELECT status, count(*) FROM maintenance.pubchem_jobs GROUP BY status
-    """))).fetchall())
-    zombies = (await db.execute(text("""
-        SELECT
-          (SELECT count(*) FROM maintenance.cas_jobs WHERE status='leased' AND lease_expires_at < now()),
-          (SELECT count(*) FROM maintenance.pubchem_jobs WHERE status='leased' AND lease_expires_at < now())
-    """))).fetchone()
 
-    # 今日吞吐(§7): complete 即出表, 队列侧看 error 行分布; 真实吞吐在
-    # 数据层 locale_rows(chemical_cb 今日写入) 与 listing 计数。
-    cas_today = dict((await db.execute(text("""
-        SELECT last_error_code, count(*) FROM maintenance.cas_jobs
-        WHERE status='error' AND updated_at >= current_date GROUP BY 1
-    """))).fetchall())
-    pb_today = dict((await db.execute(text("""
-        SELECT last_error_code, count(*) FROM maintenance.pubchem_jobs
-        WHERE status='error' AND updated_at >= current_date GROUP BY 1
-    """))).fetchall())
+    async def chain_counts(table: str) -> dict:
+        rows = (await db.execute(text(f"""
+            SELECT status, count(*) FROM maintenance.{table} GROUP BY status
+        """))).fetchall()
+        d = {r[0]: int(r[1]) for r in rows}
+        return {"queued": d.get("queued", 0), "leased": d.get("leased", 0),
+                "error": d.get("error", 0)}
 
-    # 今日分语言落库(chemical_cb 索引点查)
-    locale_rows = (await db.execute(text("""
-        SELECT locale, last_status, count(*), max(updated_at)
-        FROM chemistry.chemical_cb
-        WHERE updated_at >= current_date
-        GROUP BY locale, last_status ORDER BY locale, 3 DESC
+    async def error_buckets(table: str) -> dict:
+        rows = (await db.execute(text(f"""
+            SELECT last_error_code, count(*) FROM maintenance.{table}
+            WHERE status='error' GROUP BY 1 ORDER BY 2 DESC LIMIT 10
+        """))).fetchall()
+        return {r[0] or "unknown": int(r[1]) for r in rows}
+
+    # ── CB 链 ──
+    cb_queue = await chain_counts("cas_jobs")
+    cb_errors = await error_buckets("cas_jobs")
+    cb_throughput = dict((await db.execute(text("""
+        SELECT last_status, count(*) FROM chemistry.chemical_cb
+        WHERE fetched_at >= current_date GROUP BY 1
+    """))).fetchall())
+    cb_locales = [
+        {"locale": r[0], "status": r[1], "count": int(r[2])}
+        for r in (await db.execute(text("""
+            SELECT locale, last_status, count(*) FROM chemistry.chemical_cb
+            WHERE fetched_at >= current_date
+            GROUP BY locale, last_status ORDER BY locale
+        """))).fetchall()
+    ]
+
+    # ── PB 链 ──
+    pb_queue = await chain_counts("pubchem_jobs")
+    pb_errors = await error_buckets("pubchem_jobs")
+    pb_throughput = int((await db.execute(text("""
+        SELECT count(*) FROM chemistry.chemical_pubchem
+        WHERE fetched_at >= current_date
+    """))).scalar())
+
+    # ── 闸门(redis db1, 0902 口径) ──
+    gates = {}
+    try:
+        from .core.cache import get_cache
+        import time as _time
+        redis = await get_cache()
+        for ch in ("pubchem", "cb"):
+            streak = await redis.get(f"gate:{ch}:streak")
+            until = await redis.get(f"gate:{ch}:silent_until")
+            remaining = max(0.0, float(until) - _time.time()) if until else 0.0
+            gates[ch] = {
+                "streak": int(streak) if streak else 0,
+                "silent": remaining > 0,
+                "silent_remaining_s": int(remaining),
+            }
+    except Exception:
+        gates = {"pubchem": None, "cb": None}
+
+    # ── worker 在线状态 ──
+    workers = (await db.execute(text("""
+        SELECT worker_id, display_name, enabled, last_seen_at
+        FROM maintenance.worker_clients ORDER BY worker_id
     """))).fetchall()
 
-    # 入库动态: 供应商 listing 今日 + 最近1小时 + 总量
-    listing = (await db.execute(text("""
-        SELECT
-          (SELECT count(*) FROM chemistry.chemical_supplier_listing WHERE fetched_at >= current_date),
-          (SELECT count(DISTINCT chemical_id) FROM chemistry.chemical_supplier_listing WHERE fetched_at >= current_date),
-          (SELECT count(*) FROM chemistry.chemical_supplier_listing WHERE fetched_at >= now() - interval '1 hour'),
-          (SELECT count(*) FROM chemistry.chemical_supplier_listing),
-          (SELECT count(DISTINCT chemical_id) FROM chemistry.chemical_supplier_listing),
-          (SELECT count(*) FROM chemistry.chemical_supplier_profile)
-    """))).fetchone()
-
-    # 最新入库滚动样本
-    latest = (await db.execute(text("""
-        SELECT chemical_id, locale, last_status, updated_at
-        FROM chemistry.chemical_cb
-        ORDER BY updated_at DESC LIMIT 8
+    # ── 最新落库滚动(两链各取) ──
+    cb_latest = [
+        {"chemical_id": r[0], "locale": r[1], "status": r[2],
+         "at": r[3].isoformat() if r[3] else None}
+        for r in (await db.execute(text("""
+            SELECT chemical_id, locale, last_status, updated_at
+            FROM chemistry.chemical_cb ORDER BY updated_at DESC LIMIT 5
+        """))).fetchall()
+    ]
+    pb_latest = (await db.execute(text("""
+        SELECT chemical_id, fetched_at FROM chemistry.chemical_pubchem
+        ORDER BY fetched_at DESC LIMIT 5
     """))).fetchall()
 
     return {
-        "queues": {
-            "cas": cas, "pb": pb,
-            "zombie_leases": {"cas": zombies[0], "pb": zombies[1]},
+        "cb": {
+            "queue": cb_queue, "error_buckets": cb_errors,
+            "throughput_today": cb_throughput, "locales_today": cb_locales,
+            "latest": cb_latest,
         },
-        "today": {
-            "cas": cas_today, "pb": pb_today,
-            "locales": [
-                {"locale": r[0], "status": r[1], "count": r[2], "last_at": r[3].isoformat() if r[3] else None}
-                for r in locale_rows
+        "pb": {
+            "queue": pb_queue, "error_buckets": pb_errors,
+            "throughput_today": pb_throughput,
+            "latest": [
+                {"chemical_id": r[0], "at": r[1].isoformat() if r[1] else None}
+                for r in pb_latest
             ],
         },
-        "listing": {
-            "today_rows": listing[0], "today_chemicals": listing[1],
-            "last_hour_rows": listing[2],
-            "total_rows": listing[3], "total_chemicals": listing[4],
-            "profiles": listing[5],
-        },
-        "latest": [
-            {"chemical_id": r[0], "locale": r[1], "status": r[2],
-             "at": r[3].isoformat() if r[3] else None}
-            for r in latest
+        "gates": gates,
+        "workers": [
+            {"worker_id": r[0], "display_name": r[1], "enabled": r[2],
+             "last_seen_at": r[3].isoformat() if r[3] else None}
+            for r in workers
         ],
         "generated_at": now_iso,
     }
+
+
+@router.post("/pipeline/{chain}/errors/revive")
+async def revive_errors(
+    chain: str,
+    actor: Actor = Depends(admin),
+    db=Depends(get_db),
+):
+    """error 行手动复活(0902): 一键把该链全部 error 态翻回 queued。
+    语义同闸门复活(gate_unlock), 管理员手动触发通道。"""
+    if chain not in ("cb", "pb"):
+        raise HTTPException(400, "chain 必须是 cb 或 pb")
+    table = "cas_jobs" if chain == "cb" else "pubchem_jobs"
+    result = (await db.execute(text(f"""
+        UPDATE maintenance.{table}
+        SET status='queued', updated_at=now()
+        WHERE status='error'
+    """))).rowcount
+    await db.commit()
+    return {"chain": chain, "revived": result}
 
 
 # ── 系统配置 ────────────────────────────────────────────
