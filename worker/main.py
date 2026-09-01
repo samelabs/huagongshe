@@ -29,7 +29,8 @@ class WorkApiClient:
         self.token = token
 
     async def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
-        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
+        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"),
+                          default=str).encode()
         if len(body) > 9_500_000:
             raise RuntimeError("workapi payload exceeds the 9.5 MB worker safety limit")
         timestamp = str(int(time.time()))

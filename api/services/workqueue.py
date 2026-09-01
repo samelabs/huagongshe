@@ -179,6 +179,16 @@ async def upsert_details(
     def num(key: str, cast=float):
         return number_or_none(payload.get(key), cast)
 
+    from datetime import date as _date
+    def as_date(key: str):
+        raw = payload.get(key)
+        if raw is None or isinstance(raw, _date):
+            return raw
+        try:
+            return _date.fromisoformat(str(raw)[:10])
+        except ValueError:
+            return None
+
     params = {
         "chemical_id": chemical_id,
         "record_title": payload.get("record_title"),
@@ -194,8 +204,8 @@ async def upsert_details(
         "external_ids": obj("external_ids"), "ghs_codes": obj("ghs_codes"),
         "exp_props": obj("exp_props"), "exp_limits": obj("exp_limits"),
         "reactivity": obj("reactivity"),
-        "created_on": payload.get("pubchem_created_on"),
-        "modified_on": payload.get("pubchem_modified_on"),
+        "created_on": as_date("pubchem_created_on"),
+        "modified_on": as_date("pubchem_modified_on"),
     }
     await db.execute(text("""
         INSERT INTO chemistry.chemical_pubchem (
