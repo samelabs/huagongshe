@@ -86,10 +86,11 @@ _BASIC_ROW_RE = re.compile(
 _MOL_ROW_KEY = "MOL 文件"
 # 安全特性/知名试剂等区块里的链接外链丢弃, 文本保留 → text_of 已做
 
-# mol 外链(2026-08-28 实测锚点): Basicsl 内 <span>MOL 文件</span><a title="..MolFile" href="/CAS/mol/{cas}.mol">
-# 只在"MOL 文件"行上下文内取站内绝对路径, 拒绝外域/散页误配
+# mol 外链(2026-08-28 实测锚点; 0901 修正: CB 路径带日期段 /CAS/{YYYYMMDD}/mol/):
+# Basicsl 内 <span>MOL 文件</span><a title="..MolFile" href="/CAS/20180703/mol/{cas}.mol">
+# 旧形态 /CAS/mol/{cas}.mol 仍兼容。只在"MOL 文件"行上下文内取站内绝对路径, 拒绝外域/散页误配
 _MOL_HREF_RE = re.compile(
-    r"<span>\s*MOL\s*文件\s*</span>\s*<a[^>]*href=[\"'](/CAS/mol/[^\"'?]+\.mol)[\"']",
+    r"<span>\s*MOL\s*文件\s*</span>\s*<a[^>]*href=[\"'](/CAS/(?:\d+/)?mol/[^\"'?]+\.mol)[\"']",
     re.I,
 )
 
