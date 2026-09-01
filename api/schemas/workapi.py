@@ -40,11 +40,13 @@ class CompleteBody(LeaseProof):
 
 
 
-class FailBody(LeaseProof):
+class ErrorBody(LeaseProof):
+    """worker error 报告(数据链收口§3): 没拿到有效回应。
+
+    不写数据层; job 留 error 行, not_before=阶梯档时间, 通道计数+1。
+    """
     error_code: str = Field(min_length=1, max_length=100)
     error_detail: str = Field(default="", max_length=2000)
-    retryable: bool = True
-    retry_after_seconds: int = Field(default=30, ge=1, le=3600)
 
 
 

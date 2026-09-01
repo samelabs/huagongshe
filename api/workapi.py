@@ -9,22 +9,21 @@ import re
 import secrets
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any
-
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from .core.cache import cache_delete, get_cache
 from .core.config import settings
 from .core.database import get_db
-from .services.name_index import ingest_from_synonyms
-from .pubchem_core import chemical_core_values, number_or_none, validate_synonyms
-from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, FailBody, CasLeaseBody, CasResultBody, CasCompleteBody
+from .pubchem_core import number_or_none, validate_synonyms
+from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, ErrorBody, CasLeaseBody, CasCompleteBody
 from .services.workqueue import (
     lease_hash, verified_lease, as_json_object, sync_chemical_core,
-    reject_completed_job, upsert_details, verified_cas_lease, _cb_requery_days,
+    upsert_details, verified_cas_lease, _cb_requery_days,
+)
+from .services.gate import (
+    gate_silence_remaining, gate_record_error, gate_record_success,
+    gate_unlock_error_rows,
 )
 
 router = APIRouter(prefix="/workapi/v1", tags=["workapi"])
@@ -74,7 +73,7 @@ async def authenticated_worker(
 
     token_hash = hashlib.sha256(token.encode()).digest()
     scope_needed = "cas" if request.url.path.startswith("/workapi/v1/cas/") else "pubchem"
-    row = (await db.execute(text(f"""
+    row = (await db.execute(text("""
         SELECT worker_id,max_lease_jobs
         FROM maintenance.worker_clients
         WHERE worker_id=:worker_id AND token_hash=:token_hash
@@ -115,42 +114,27 @@ async def lease_jobs(
         return {"jobs": [], "retry_after_seconds": 30}
     try:
         redis = await get_cache()
-        # PB 熔断闸门(2026-08-28): NCBI 封禁(Access Denied)期间停发新租约,
-        # 避免 5 万 retry 队列对封禁端点持续加害。手动解除: DEL pubchem:circuit_blocked。
-        if await redis.exists("pubchem:circuit_blocked"):
+        # ── 闸门(§4): 通道静默期不派发, job 留表, worker 零空转 ──
+        # 阶梯状态在 redis(通道计数+静默截止), 与 lease 同进程语义;
+        # redis 缺席=无闸门(保守放行), 计数由 /jobs/error 与 /jobs/complete 维护。
+        gate_wait = await gate_silence_remaining(redis, "pubchem")
+        if gate_wait > 0:
             await db.commit()
-            return {"jobs": [], "retry_after_seconds": 300}
-        if await redis.set("pubchem:jobs:prune", "1", ex=3600, nx=True):
-            # Bounded retention keeps the durable queue auditable without
-            # allowing successful task/event history to grow forever.
-            await db.execute(text("""
-                DELETE FROM maintenance.pubchem_jobs
-                WHERE id IN (
-                    SELECT id FROM maintenance.pubchem_jobs
-                    WHERE completed_at IS NOT NULL AND (
-                        (status='succeeded' AND completed_at<now()-interval '30 days') OR
-                        (status IN ('failed','dead') AND completed_at<now()-interval '90 days')
-                    )
-                    ORDER BY completed_at,id LIMIT 5000
-                )
-            """))
+            return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
+        # 过期租约回收(§4): 本地问题非通道问题 — 直接回队, 不进计数。
         await db.execute(text("""
             UPDATE maintenance.pubchem_jobs
-            SET status=CASE WHEN attempt_count>=max_attempts THEN 'dead' ELSE 'retry' END,
-                not_before=CASE WHEN attempt_count>=max_attempts THEN not_before ELSE now() END,
-                lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                heartbeat_at=NULL,updated_at=now(),
-                completed_at=CASE WHEN attempt_count>=max_attempts THEN now() ELSE completed_at END,
+            SET status='queued',lease_owner=NULL,lease_token_hash=NULL,
+                lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now(),
                 last_error_code='lease_expired'
             WHERE status='leased' AND lease_expires_at<=now()
         """))
         rows = (await db.execute(text("""
             SELECT j.id,j.chemical_id,j.query_kind,j.query_value,j.sections,
-                   j.attempt_count,j.max_attempts,c.pubchem_cid,c.smiles
+                   j.attempt_count,c.pubchem_cid,c.smiles
             FROM maintenance.pubchem_jobs j
             LEFT JOIN chemistry.chemicals c ON c.id=j.chemical_id
-            WHERE j.status IN ('queued','retry') AND j.not_before<=now()
-              AND j.attempt_count<j.max_attempts
+            WHERE j.status IN ('queued','error') AND j.not_before<=now()
             ORDER BY j.priority DESC,j.not_before,j.id
             LIMIT :limit FOR UPDATE OF j SKIP LOCKED
         """), {"limit": limit})).fetchall()
@@ -169,13 +153,6 @@ async def lease_jobs(
                 "lease_seconds": settings.worker_job_lease_seconds,
                 "job_id": row[0],
             })
-            await db.execute(text("""
-                INSERT INTO maintenance.pubchem_job_events(job_id,worker_id,event_type,details)
-                VALUES (:job_id,:worker_id,'leased',jsonb_build_object(
-                    'attempt',CAST(:attempt AS integer)))
-            """), {
-                "job_id": row[0], "worker_id": worker.worker_id, "attempt": row[5] + 1,
-            })
             leased.append({
                 "job_id": row[0],
                 "lease_token": token,
@@ -183,10 +160,8 @@ async def lease_jobs(
                 "query_kind": row[2],
                 "query_value": row[3],
                 "sections": list(row[4] or []),
-                "attempt": row[5] + 1,
-                "max_attempts": row[6],
-                "expected_pubchem_cid": row[7],
-                "expected_smiles": row[8],
+                "expected_pubchem_cid": row[6],
+                "expected_smiles": row[7],
                 "lease_seconds": settings.worker_job_lease_seconds,
             })
         await db.commit()
@@ -232,11 +207,15 @@ async def complete_job(
         if selected_cid is not None and selected_cid <= 0:
             selected_cid = None
         chemical_id = job[1]
+        if result.get("status") == "not_found":
+            # PB 权威否定(§2): 出表, 不写数据层(PB 否定不承载)。
+            await db.execute(text("""
+                DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
+            """), {"job_id": body.job_id})
+            await db.commit()
+            return {"status": "not_found", "chemical_id": chemical_id}
         if selected_cid is None:
-            await reject_completed_job(
-                db, body.job_id, worker.worker_id, "unresolved_cid",
-                "worker did not resolve exactly one PubChem CID",
-            )
+            await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
             await db.commit()
             raise HTTPException(422, "worker did not resolve exactly one PubChem CID")
 
@@ -247,17 +226,11 @@ async def complete_job(
         }
         candidate_cids.discard(None)
         if selected_cid not in candidate_cids:
-            await reject_completed_job(
-                db, body.job_id, worker.worker_id, "candidate_mismatch",
-                "selected CID is absent from the returned property candidates",
-            )
+            await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
             await db.commit()
             raise HTTPException(422, "selected CID is absent from candidates")
         if job[2] == "cid" and str(selected_cid) != str(job[3]).strip():
-            await reject_completed_job(
-                db, body.job_id, worker.worker_id, "query_cid_mismatch",
-                "selected CID differs from the CID job query",
-            )
+            await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
             await db.commit()
             raise HTTPException(422, "selected CID differs from query")
 
@@ -267,7 +240,9 @@ async def complete_job(
                 SELECT id,pubchem_cid,smiles,inchikey FROM chemistry.chemicals WHERE id=:id FOR UPDATE
             """), {"id": chemical_id})).fetchone()
             if not chemical:
-                await reject_completed_job(db, body.job_id, worker.worker_id, "chemical_missing", "target chemical no longer exists")
+                await db.execute(text("""
+                    DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
+                """), {"job_id": body.job_id})
                 await db.commit()
                 raise HTTPException(422, "target chemical no longer exists")
         elif selected_cid is not None:
@@ -280,13 +255,13 @@ async def complete_job(
 
         if chemical and selected_cid is not None:
             if chemical[1] is not None and int(chemical[1]) != selected_cid:
-                await reject_completed_job(db, body.job_id, worker.worker_id, "cid_mismatch", "result CID differs from stored PubChem CID")
+                await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
                 await db.commit()
                 raise HTTPException(422, "result CID differs from stored PubChem CID")
             returned_inchikey = properties.get("InChIKey")
             expected_inchikey = chemical[3]
             if returned_inchikey and expected_inchikey and returned_inchikey != expected_inchikey:
-                await reject_completed_job(db, body.job_id, worker.worker_id, "structure_mismatch", "PubChem InChIKey differs from chemicals.inchikey")
+                await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
                 await db.commit()
                 raise HTTPException(422, "PubChem InChIKey differs from chemicals.inchikey")
 
@@ -299,18 +274,13 @@ async def complete_job(
         synonyms = None
         if "synonyms" in allowed_for_job:
             if "synonyms" not in sections:
-                await reject_completed_job(
-                    db, body.job_id, worker.worker_id, "synonyms_missing",
-                    "worker omitted the requested PubChem synonym list",
-                )
+                await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
                 await db.commit()
                 raise HTTPException(422, "worker omitted requested synonyms")
             try:
                 synonyms = validate_synonyms(sections["synonyms"].get("values"))
             except ValueError as exc:
-                await reject_completed_job(
-                    db, body.job_id, worker.worker_id, "synonyms_invalid", str(exc),
-                )
+                await db.execute(text("DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id"), {"job_id": body.job_id})
                 await db.commit()
                 raise HTTPException(422, str(exc)) from exc
         if chemical_id is not None and selected_cid is not None:
@@ -335,31 +305,15 @@ async def complete_job(
             result_hash = hashlib.sha256(
                 json.dumps(result, sort_keys=True, ensure_ascii=False).encode()
             ).hexdigest()
+        # 出表(§3): complete 即 DELETE, job 是纯队列缓存不承载历史。
         await db.execute(text("""
-            UPDATE maintenance.pubchem_jobs
-            SET status='succeeded',chemical_id=coalesce(chemical_id,:chemical_id),
-                resolved_pubchem_cid=:cid,result_hash=:result_hash,
-                result_summary=CAST(:summary AS jsonb),last_error_code=NULL,
-                last_error_detail=NULL,lease_owner=NULL,lease_token_hash=NULL,
-                lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now(),completed_at=now()
-            WHERE id=:job_id
-        """), {
-            "job_id": body.job_id,
-            "chemical_id": chemical_id,
-            "cid": selected_cid,
-            "result_hash": result_hash,
-            "summary": json.dumps(summary, ensure_ascii=False, separators=(",", ":")),
-        })
-        await db.execute(text("""
-            INSERT INTO maintenance.pubchem_job_events(job_id,worker_id,event_type,details)
-            VALUES (:job_id,:worker_id,'succeeded',jsonb_build_object(
-                'chemical_id',CAST(:chemical_id AS integer),
-                'pubchem_cid',CAST(:cid AS integer),
-                'sections',CAST(:sections AS text[])))
-        """), {
-            "job_id": body.job_id, "worker_id": worker.worker_id,
-            "chemical_id": chemical_id, "cid": selected_cid, "sections": list(sections),
-        })
+            DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
+        """), {"job_id": body.job_id})
+        await db.commit()
+        # 闸门归零(§4): 一次成功 = 通道连击清零 + 该通道 error 行解锁。
+        redis = await get_cache()
+        await gate_record_success(redis, "pubchem")
+        await gate_unlock_error_rows(db, "pubchem")
         await db.commit()
         if chemical_id is not None:
             await cache_delete(f"v1:chemical:{chemical_id}")
@@ -371,42 +325,32 @@ async def complete_job(
         raise
 
 
-@router.post("/jobs/fail")
-async def fail_job(
-    body: FailBody,
+@router.post("/jobs/error")
+async def error_job(
+    body: ErrorBody,
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
+    """worker error(§3/§4): 不写数据层, job 留 error 行进阶梯。"""
     try:
-        job = await verified_lease(db, body, worker.worker_id)
-        retry = body.retryable and int(job[5]) < int(job[6])
-        status = "retry" if retry else ("dead" if body.retryable else "failed")
-        await db.execute(text("""
+        await verified_lease(db, body, worker.worker_id)
+        redis = await get_cache()
+        streak = await gate_record_error(redis, "pubchem")
+        silence = await gate_silence_remaining(redis, "pubchem")
+        not_before_sql = "now()+make_interval(secs=>:silence)" if silence > 0 else "now()"
+        await db.execute(text(f"""
             UPDATE maintenance.pubchem_jobs
-            SET status=:status,not_before=CASE WHEN :retry
-                    THEN now()+make_interval(secs=>:retry_after) ELSE not_before END,
+            SET status='error',not_before={not_before_sql},
                 last_error_code=:code,last_error_detail=:detail,
                 lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                heartbeat_at=NULL,updated_at=now(),
-                completed_at=CASE WHEN :retry THEN NULL ELSE now() END
+                heartbeat_at=NULL,updated_at=now()
             WHERE id=:job_id
         """), {
-            "status": status, "retry": retry, "retry_after": body.retry_after_seconds,
+            "silence": int(silence) if silence > 0 else None,
             "code": body.error_code, "detail": body.error_detail, "job_id": body.job_id,
         })
-        await db.execute(text("""
-            INSERT INTO maintenance.pubchem_job_events(job_id,worker_id,event_type,details)
-            VALUES (:job_id,:worker_id,:event_type,
-                    jsonb_build_object(
-                        'code',CAST(:code AS text),
-                        'retry_after',CAST(:retry_after AS integer)))
-        """), {
-            "job_id": body.job_id, "worker_id": worker.worker_id,
-            "event_type": status, "code": body.error_code,
-            "retry_after": body.retry_after_seconds,
-        })
         await db.commit()
-        return {"status": status}
+        return {"status": "error", "streak": streak, "silence_seconds": int(silence)}
     except Exception:
         await db.rollback()
         raise
@@ -428,75 +372,62 @@ async def cas_lease_jobs(
         await db.commit()
         return {"jobs": [], "retry_after_seconds": 30}
     try:
-        # 到期自扫(替代 SSR 触发, CF 缓存场景同样生效) + 过期租约回收 + 留存清理
+        # 到期自扫(替代 SSR 触发, CF 缓存场景同样生效) + 过期租约回收
         from .services.cb import scan_expired_into_queue
+        redis = await get_cache()
+        # ── 闸门(§4): cb 通道静默期不派发 ──
+        gate_wait = await gate_silence_remaining(redis, "cb")
+        if gate_wait > 0:
+            await db.commit()
+            return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
         await scan_expired_into_queue(db)
+        # 过期租约回收(§4): 本地问题非通道问题 — 直接回队, 不进计数。
         await db.execute(text("""
             UPDATE maintenance.cas_jobs
-            SET status=CASE WHEN attempt_count>=max_attempts THEN 'dead' ELSE 'retry' END,
-                lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                heartbeat_at=NULL,updated_at=now(),
-                completed_at=CASE WHEN attempt_count>=max_attempts THEN now() ELSE completed_at END,
+            SET status='queued',lease_owner=NULL,lease_token_hash=NULL,
+                lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now(),
                 last_error_code='lease_expired'
             WHERE status='leased' AND lease_expires_at<=now()
-        """))
-        await db.execute(text("""
-            DELETE FROM maintenance.cas_jobs
-            WHERE id IN (
-                SELECT id FROM maintenance.cas_jobs
-                WHERE completed_at IS NOT NULL AND (
-                    (status='succeeded' AND completed_at<now()-interval '30 days') OR
-                    (status IN ('failed','dead') AND completed_at<now()-interval '90 days')
-                )
-                ORDER BY completed_at,id LIMIT 5000
-            )
         """))
         # FOR UPDATE 不能落 LEFT JOIN 的 nullable 侧: 先锁 cas_jobs,
         # cb_number(语言行寻址键)另查补齐。
         # 终态拦截(2026-08-29定)单趟: 候选集内 JOIN 目标语言行, 已 not_found
-        # 的任务一条 UPDATE 顺手标 succeeded(零上游流量消化), 只返回幸存任务
+        # 的任务一条 UPDATE 顺手出表(零上游流量消化), 只返回幸存任务
         # 给分发循环 — 查验与不分发是同一个动作。standalone(chemical_id=NULL)
         # JOIN 不命中, 天然不拦。
         claim = (await db.execute(text("""
             WITH candidates AS (
                 SELECT j.id, j.chemical_id, j.cas_number,
-                       j.attempt_count, j.max_attempts,
+                       j.attempt_count,
                        coalesce(j.request_context->>'locale','zh-CN') AS locale
                 FROM maintenance.cas_jobs j
-                WHERE j.status IN ('queued','retry') AND j.not_before<=now()
-                  AND j.attempt_count<j.max_attempts
+                WHERE j.status IN ('queued','error') AND j.not_before<=now()
                 ORDER BY j.priority DESC, j.not_before, j.id
                 LIMIT :limit
                 FOR UPDATE OF j SKIP LOCKED
             ), intercepted AS (
-                UPDATE maintenance.cas_jobs j
-                SET status='succeeded',
-                    result_summary=CAST(:summary AS jsonb),
-                    lease_owner=NULL, lease_token_hash=NULL,
-                    lease_expires_at=NULL, heartbeat_at=NULL,
-                    updated_at=now(), completed_at=now()
+                -- 负缓存命中(数据层已有 not_found 且窗内) = 答案已在, 直接出表。
+                DELETE FROM maintenance.cas_jobs j
                 WHERE j.id IN (
                     SELECT c.id FROM candidates c
                     JOIN chemistry.chemical_cb cb
                       ON cb.chemical_id=c.chemical_id AND cb.locale=c.locale
                      AND cb.last_status='not_found'
-                     -- 2026-08-30 六态重构(准线§1.5): 拦截仅限重问窗内;
-                     -- 超窗 not_found 放行重问(CB 可能新增收录)。
+                     -- 重问窗内拦截; 超窗 not_found 放行重问(CB 可能新增收录)。
                      AND cb.fetched_at > now()-(:requery_days||' days')::interval
                     WHERE c.chemical_id IS NOT NULL
                 )
                 RETURNING j.id
             )
             SELECT c.id, c.chemical_id, c.cas_number, c.attempt_count,
-                   c.max_attempts, c.locale
+                   c.locale
             FROM candidates c
             WHERE c.id NOT IN (SELECT id FROM intercepted)
         """), {
             "limit": limit,
             "requery_days": str(await _cb_requery_days(db)),
-            "summary": '{"status":"not_found","intercepted":true,"negative_cached":true}',
         })).fetchall()
-        rows = [(r[0], r[1], r[2], r[3], r[4], r[5]) for r in claim]
+        rows = [(r[0], r[1], r[2], r[3], r[4]) for r in claim]
         cb_map: dict[int, str | None] = {}
         if rows:
             cb_rows = (await db.execute(text("""
@@ -572,21 +503,11 @@ async def cas_complete_job(
         # chemical_id。无主行建行分支已删除 — complete 落 cb 表数据 +
         # 结构三件回填(占位行靠这个出图)。
         if chemical_id is None:
-            # 兼容残量: 老无主行任务(存量10条跑完即绝迹) — 不建行, 只记终态。
+            # 兼容残量: 老无主行任务(存量10条跑完即绝迹) — 出表。
             payload = body.result
             await db.execute(text("""
-                UPDATE maintenance.cas_jobs
-                SET status='succeeded',result_summary=CAST(:summary AS jsonb),
-                    lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                    heartbeat_at=NULL,updated_at=now(),completed_at=now()
-                WHERE id=:job_id
-            """), {
-                "job_id": body.job_id,
-                "summary": json.dumps(
-                    {"status": payload.status, "standalone": True},
-                    ensure_ascii=False, separators=(",", ":"),
-                ),
-            })
+                DELETE FROM maintenance.cas_jobs WHERE id=:job_id
+            """), {"job_id": body.job_id})
             await db.commit()
             return {"status": payload.status, "standalone": True}
         payload = body.result
@@ -607,12 +528,14 @@ async def cas_complete_job(
                 cb_number=payload.cb_number, locale=locale,
             )
         except ValueError as exc:
+            # 载荷异常: 不打死 — 留 error 行(not_before 短延迟), 通道不计数。
             await db.execute(text("""
                 UPDATE maintenance.cas_jobs
-                SET status='failed',last_error_code='payload_invalid',
+                SET status='error',last_error_code='payload_invalid',
                     last_error_detail=:detail,
+                    not_before=now()+make_interval(secs=>300),
                     lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                    heartbeat_at=NULL,updated_at=now(),completed_at=now()
+                    heartbeat_at=NULL,updated_at=now()
                 WHERE id=:job_id
             """), {"job_id": body.job_id, "detail": str(exc)[:2000]})
             await db.commit()
@@ -638,17 +561,14 @@ async def cas_complete_job(
                         db, chemical_id=chemical_id, cas_number=cas_number,
                         priority=30, locale=lang,
                     )
+        # 出表(§3): complete 即 DELETE; 闸门归零(§4) cb 通道。
         await db.execute(text("""
-            UPDATE maintenance.cas_jobs
-            SET status='succeeded',result_summary=CAST(:summary AS jsonb),
-                last_error_code=NULL,last_error_detail=NULL,
-                lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                heartbeat_at=NULL,updated_at=now(),completed_at=now()
-            WHERE id=:job_id
-        """), {
-            "job_id": body.job_id,
-            "summary": json.dumps(summary, ensure_ascii=False, separators=(",", ":")),
-        })
+            DELETE FROM maintenance.cas_jobs WHERE id=:job_id
+        """), {"job_id": body.job_id})
+        await db.commit()
+        redis = await get_cache()
+        await gate_record_success(redis, "cb")
+        await gate_unlock_error_rows(db, "cb")
         await db.commit()
         await cache_delete(CACHE_KEY.format(chemical_id=chemical_id))
         return summary
@@ -659,31 +579,32 @@ async def cas_complete_job(
         raise
 
 
-@router.post("/cas/jobs/fail")
-async def cas_fail_job(
-    body: FailBody,
+@router.post("/cas/jobs/error")
+async def cas_error_job(
+    body: ErrorBody,
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
+    """worker error(§3/§4): 不写数据层, job 留 error 行进阶梯(cb 通道)。"""
     try:
-        job = await verified_cas_lease(db, body, worker.worker_id)
-        retry = body.retryable and int(job[3]) < int(job[4])
-        status = "retry" if retry else ("dead" if body.retryable else "failed")
-        await db.execute(text("""
+        await verified_cas_lease(db, body, worker.worker_id)
+        redis = await get_cache()
+        streak = await gate_record_error(redis, "cb")
+        silence = await gate_silence_remaining(redis, "cb")
+        not_before_sql = "now()+make_interval(secs=>:silence)" if silence > 0 else "now()"
+        await db.execute(text(f"""
             UPDATE maintenance.cas_jobs
-            SET status=:status,not_before=CASE WHEN :retry
-                    THEN now()+make_interval(secs=>:retry_after) ELSE not_before END,
+            SET status='error',not_before={not_before_sql},
                 last_error_code=:code,last_error_detail=:detail,
                 lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                heartbeat_at=NULL,updated_at=now(),
-                completed_at=CASE WHEN :retry THEN NULL ELSE now() END
+                heartbeat_at=NULL,updated_at=now()
             WHERE id=:job_id
         """), {
-            "status": status, "retry": retry, "retry_after": body.retry_after_seconds,
+            "silence": int(silence) if silence > 0 else None,
             "code": body.error_code, "detail": body.error_detail, "job_id": body.job_id,
         })
         await db.commit()
-        return {"status": status}
+        return {"status": "error", "streak": streak, "silence_seconds": int(silence)}
     except Exception:
         await db.rollback()
         raise

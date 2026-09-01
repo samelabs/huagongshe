@@ -116,14 +116,6 @@ async def enqueue_job(
         "request_context": json.dumps(request_context or {}, ensure_ascii=False),
     })).fetchone()
     job_id = int(row[0])
-    await db.execute(text("""
-        INSERT INTO maintenance.pubchem_job_events(job_id,event_type,details)
-        SELECT :job_id,'queued','{}'::jsonb
-        WHERE NOT EXISTS (
-            SELECT 1 FROM maintenance.pubchem_job_events
-            WHERE job_id=:job_id AND event_type='queued'
-        )
-    """), {"job_id": job_id})
     return job_id
 
 async def enqueue_chemical_if_needed(

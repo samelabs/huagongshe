@@ -28,7 +28,7 @@ def lease_hash(value: str) -> bytes:
 async def verified_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock: bool = True):
     suffix = " FOR UPDATE" if lock else ""
     row = (await db.execute(text(f"""
-        SELECT id,chemical_id,query_kind,query_value,sections,attempt_count,max_attempts
+        SELECT id,chemical_id,query_kind,query_value,sections,attempt_count
         FROM maintenance.pubchem_jobs
         WHERE id=:job_id AND status='leased' AND lease_owner=:worker_id
           AND lease_token_hash=:lease_hash AND lease_expires_at>now(){suffix}
@@ -102,23 +102,6 @@ async def sync_chemical_core(
     # name_index 摄入: synonyms 镜像, 与核心列同步同事务
     if synonyms is not None:
         await ingest_from_synonyms(db, chemical_id, synonyms)
-
-
-async def reject_completed_job(
-    db: Any, job_id: int, worker_id: str, code: str, detail: str
-) -> None:
-    await db.execute(text("""
-        UPDATE maintenance.pubchem_jobs
-        SET status='failed',last_error_code=:code,last_error_detail=:detail,
-            lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-            heartbeat_at=NULL,updated_at=now(),completed_at=now()
-        WHERE id=:job_id
-    """), {"job_id": job_id, "code": code, "detail": detail[:2000]})
-    await db.execute(text("""
-        INSERT INTO maintenance.pubchem_job_events(job_id,worker_id,event_type,details)
-        VALUES (:job_id,:worker_id,'failed',jsonb_build_object(
-            'code',CAST(:code AS text)))
-    """), {"job_id": job_id, "worker_id": worker_id, "code": code})
 
 
 async def upsert_details(
@@ -261,7 +244,7 @@ async def upsert_details(
 async def verified_cas_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock: bool = True):
     suffix = " FOR UPDATE" if lock else ""
     row = (await db.execute(text(f"""
-        SELECT id,chemical_id,cas_number,attempt_count,max_attempts
+        SELECT id,chemical_id,cas_number,attempt_count
         FROM maintenance.cas_jobs
         WHERE id=:job_id AND status='leased' AND lease_owner=:worker_id
           AND lease_token_hash=:lease_hash AND lease_expires_at>now(){suffix}
