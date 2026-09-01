@@ -72,11 +72,11 @@ async def gate_record_success(redis, channel: str) -> None:
 
 
 async def gate_unlock_error_rows(db, channel: str) -> None:
-    """通道成功后: 该通道 error 行全部解锁(not_before=now), 重新参与派发。"""
+    """通道成功后: 该通道 error 行全部复活归队(0901 终版语义, 纯翻态无时间字段)。"""
     from sqlalchemy import text
     table = "pubchem_jobs" if channel == "pubchem" else "cas_jobs"
     await db.execute(text(f"""
         UPDATE maintenance.{table}
-        SET not_before=now(), updated_at=now()
+        SET status='queued', updated_at=now()
         WHERE status='error'
     """))
