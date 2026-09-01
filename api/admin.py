@@ -456,26 +456,47 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     # ── CB 链 ──
     cb_queue = await chain_counts("cas_jobs")
     cb_errors = await error_buckets("cas_jobs")
-    cb_throughput = dict((await db.execute(text("""
+    cb_tp_rows = (await db.execute(text("""
         SELECT last_status, count(*) FROM chemistry.chemical_cb
         WHERE fetched_at >= current_date GROUP BY 1
-    """))).fetchall())
-    cb_locales = [
-        {"locale": r[0], "status": r[1], "count": int(r[2])}
-        for r in (await db.execute(text("""
-            SELECT locale, last_status, count(*) FROM chemistry.chemical_cb
-            WHERE fetched_at >= current_date
-            GROUP BY locale, last_status ORDER BY locale
-        """))).fetchall()
-    ]
+    """))).fetchall()
+    cb_tp = {r[0]: int(r[1]) for r in cb_tp_rows}
+    cb_throughput = {"ok": cb_tp.get("ok", 0), "not_found": cb_tp.get("not_found", 0),
+                     "total": cb_tp.get("ok", 0) + cb_tp.get("not_found", 0)}
+    cb_rate = int((await db.execute(text("""
+        SELECT count(*) FROM chemistry.chemical_cb
+        WHERE fetched_at >= now() - interval '1 hour'
+    """))).scalar())
+    cb_latest_at = (await db.execute(text("""
+        SELECT max(fetched_at) FROM chemistry.chemical_cb
+    """))).scalar()
+    loc_rows = (await db.execute(text("""
+        SELECT locale, last_status, count(*) FROM chemistry.chemical_cb
+        WHERE fetched_at >= current_date
+        GROUP BY locale, last_status ORDER BY locale
+    """))).fetchall()
+    loc_map: dict[str, dict[str, int]] = {}
+    for locale, status, n in loc_rows:
+        cur = loc_map.setdefault(locale, {"ok": 0, "not_found": 0})
+        if status in cur:
+            cur[status] = int(n)
+    cb_locales = [{"locale": k, **v} for k, v in loc_map.items()]
 
     # ── PB 链 ──
     pb_queue = await chain_counts("pubchem_jobs")
     pb_errors = await error_buckets("pubchem_jobs")
-    pb_throughput = int((await db.execute(text("""
+    pb_total = int((await db.execute(text("""
         SELECT count(*) FROM chemistry.chemical_pubchem
         WHERE fetched_at >= current_date
     """))).scalar())
+    pb_throughput = {"ok": pb_total, "not_found": -1, "total": pb_total}
+    pb_rate = int((await db.execute(text("""
+        SELECT count(*) FROM chemistry.chemical_pubchem
+        WHERE fetched_at >= now() - interval '1 hour'
+    """))).scalar())
+    pb_latest_at = (await db.execute(text("""
+        SELECT max(fetched_at) FROM chemistry.chemical_pubchem
+    """))).scalar()
 
     # ── 闸门(redis db1, 0902 口径) ──
     gates = {}
@@ -501,33 +522,32 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
         FROM maintenance.worker_clients ORDER BY worker_id
     """))).fetchall()
 
-    # ── 最新落库滚动(两链各取) ──
-    cb_latest = [
-        {"chemical_id": r[0], "locale": r[1], "status": r[2],
-         "at": r[3].isoformat() if r[3] else None}
-        for r in (await db.execute(text("""
-            SELECT chemical_id, locale, last_status, updated_at
-            FROM chemistry.chemical_cb ORDER BY updated_at DESC LIMIT 5
-        """))).fetchall()
-    ]
-    pb_latest = (await db.execute(text("""
-        SELECT chemical_id, fetched_at FROM chemistry.chemical_pubchem
-        ORDER BY fetched_at DESC LIMIT 5
-    """))).fetchall()
+    # ── 供应商(CB 链产物) ──
+    sup = (await db.execute(text("""
+        SELECT
+          (SELECT count(*) FROM chemistry.chemical_supplier_listing WHERE fetched_at >= current_date),
+          (SELECT count(DISTINCT chemical_id) FROM chemistry.chemical_supplier_listing WHERE fetched_at >= current_date),
+          (SELECT count(*) FROM chemistry.chemical_supplier_listing),
+          (SELECT count(DISTINCT chemical_id) FROM chemistry.chemical_supplier_listing),
+          (SELECT count(*) FROM chemistry.chemical_supplier_profile)
+    """))).fetchone()
 
     return {
+        "supplier": {
+            "today_rows": int(sup[0]), "today_chemicals": int(sup[1]),
+            "total_rows": int(sup[2]), "total_chemicals": int(sup[3]),
+            "profiles": int(sup[4]),
+        },
         "cb": {
             "queue": cb_queue, "error_buckets": cb_errors,
-            "throughput_today": cb_throughput, "locales_today": cb_locales,
-            "latest": cb_latest,
+            "throughput": cb_throughput, "rate_1h": cb_rate,
+            "latest_at": cb_latest_at.isoformat() if cb_latest_at else None,
+            "locales_today": cb_locales,
         },
         "pb": {
             "queue": pb_queue, "error_buckets": pb_errors,
-            "throughput_today": pb_throughput,
-            "latest": [
-                {"chemical_id": r[0], "at": r[1].isoformat() if r[1] else None}
-                for r in pb_latest
-            ],
+            "throughput": pb_throughput, "rate_1h": pb_rate,
+            "latest_at": pb_latest_at.isoformat() if pb_latest_at else None,
         },
         "gates": gates,
         "workers": [

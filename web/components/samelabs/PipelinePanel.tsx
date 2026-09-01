@@ -5,53 +5,94 @@ import { apiGet, apiPost, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type ChainQueue = { queued: number; leased: number; error: number };
-type ChainData = {
+type Gate = { streak: number; silent: boolean; silent_remaining_s: number } | null;
+type ChainBlock = {
   queue: ChainQueue;
   error_buckets: Record<string, number>;
-  latest: { chemical_id: number; at: string | null; locale?: string; status?: string }[];
+  throughput: { ok: number; not_found: number; total: number };
+  rate_1h: number;
+  latest_at: string | null;
 };
 type Pipeline = {
-  cb: ChainData & {
-    throughput_today: Record<string, number>;
-    locales_today: { locale: string; status: string; count: number }[];
-  };
-  pb: ChainData & { throughput_today: number };
-  gates: Record<string, { streak: number; silent: boolean; silent_remaining_s: number } | null>;
+  cb: ChainBlock & { locales_today: { locale: string; ok: number; not_found: number }[] };
+  pb: ChainBlock;
+  gates: Record<string, Gate>;
+  supplier: { today_rows: number; today_chemicals: number; total_rows: number; total_chemicals: number; profiles: number };
   workers: { worker_id: string; display_name: string | null; enabled: boolean; last_seen_at: string | null }[];
   generated_at: string;
 };
 
-const REFRESH_MS = 30000;
-const LOCALE_ORDER = ["zh-CN", "en", "de", "ru", "ja", "ko"];
+const REFRESH_MS = 15000;
+const LOCALES = ["zh-CN", "en", "de", "ru", "ja", "ko"];
+const LOCALE_NAME: Record<string, string> = { "zh-CN": "中文", en: "英文", de: "德文", ru: "俄文", ja: "日文", ko: "韩文" };
 
-function fmt(n: number) { return new Intl.NumberFormat("zh-CN").format(n); }
-function hm(iso: string | null) { return iso ? new Date(iso).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"; }
+const fmt = (n: number) => new Intl.NumberFormat("zh-CN").format(n);
+const hm = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—");
+const mins = (n: number) => (n >= 90 ? `${Math.round(n / 60)} 分` : `${n} 秒`);
 
-function QueueChip({ label, n }: { label: string; n: number }) {
-  return <span className={"pipe-chip" + (n > 0 ? " " + label : "")}>{label} {fmt(n)}</span>;
+function Dot({ ok }: { ok: boolean }) {
+  return <span className={`pipe-dot ${ok ? "ok" : "bad"}`} aria-hidden />;
 }
 
-function GateBadge({ g }: { g: { streak: number; silent: boolean; silent_remaining_s: number } | null }) {
-  if (!g) return <span className="muted">闸门 n/a</span>;
-  if (g.silent) return <span className="pipe-alert">静默中 · 剩余 {Math.ceil(g.silent_remaining_s / 60)} 分</span>;
-  return <span className={"pipe-chip" + (g.streak > 0 ? " error" : "")}>连击 {g.streak}</span>;
-}
-
-function ErrorBuckets({ buckets, onRevive, reviving }: {
-  buckets: Record<string, number>; onRevive: () => void; reviving: boolean;
+function ChainCard({ name, source, data, gate, supplier, onRevive, reviving }: {
+  name: string; source: string; data: ChainBlock; gate: Gate;
+  supplier?: { today_rows: number; today_chemicals: number; total_rows: number; total_chemicals: number; profiles: number };
+  onRevive: () => void; reviving: boolean;
 }) {
-  const entries = Object.entries(buckets);
-  const total = entries.reduce((a, [, n]) => a + n, 0);
-  if (total === 0) return <span className="pipe-chips"><span className="pipe-chip">error 0</span></span>;
+  const active = data.queue.leased > 0 || data.rate_1h > 0;
+  const errorTotal = Object.values(data.error_buckets).reduce((a, b) => a + b, 0);
   return (
-    <span className="pipe-chips">
-      {entries.map(([code, n]) => (
-        <span key={code} className="pipe-chip error" title={code}>{code} {fmt(n)}</span>
-      ))}
-      <button className="pipe-revive-btn" onClick={onRevive} disabled={reviving}>
-        {reviving ? "复活中…" : `一键复活 ${fmt(total)}`}
-      </button>
-    </span>
+    <div className="dashboard-card pipe-chain">
+      <div className="pipe-chain-head">
+        <span className="dashboard-card-label">{source}</span>
+        {gate && gate.silent
+          ? <span className="pipe-chip silent">静默中 · 剩 {mins(gate.silent_remaining_s)}</span>
+          : gate && gate.streak > 0
+            ? <span className="pipe-chip retry">连击 {gate.streak}</span>
+            : null}
+      </div>
+      <strong className="dashboard-card-value">{fmt(data.throughput.total)}</strong>
+      <span className="dashboard-card-sub">
+        今日入库 {fmt(data.throughput.total)} · 近1小时 {fmt(data.rate_1h)} /时
+      </span>
+      <div className="pipe-metrics">
+        <div className="pipe-metric">
+          <span className="pipe-metric-label">队列</span>
+          <span className="pipe-metric-val">{fmt(data.queue.queued)}</span>
+          <span className="pipe-metric-label">在途 {fmt(data.queue.leased)} · 留痕 {fmt(data.queue.error)}</span>
+        </div>
+        <div className="pipe-metric">
+          <span className="pipe-metric-label">{data.throughput.not_found >= 0 ? "判定分布" : "数据源"}</span>
+          <span className="pipe-metric-val">{data.throughput.not_found >= 0
+            ? `${fmt(data.throughput.ok)} 有 / ${fmt(data.throughput.not_found)} 无`
+            : "PUG View 整包"}</span>
+          <span className="pipe-metric-label">最近入库 {hm(data.latest_at)}</span>
+        </div>
+        {supplier && (
+          <div className="pipe-metric">
+            <span className="pipe-metric-label">供应商报价</span>
+            <span className="pipe-metric-val">今日 {fmt(supplier.today_rows)}</span>
+            <span className="pipe-metric-label">覆盖 {fmt(supplier.today_chemicals)} 化合物 · 累计 {fmt(supplier.total_chemicals)}</span>
+          </div>
+        )}
+      </div>
+      {errorTotal > 0 && (
+        <div className="pipe-error-row">
+          <span className="pipe-err">error {fmt(errorTotal)}</span>
+          <span className="pipe-buckets">
+            {Object.entries(data.error_buckets).slice(0, 4).map(([code, n]) => (
+              <span key={code} className="pipe-chip error" title={code}>{code.replace(/^(pubchem|cpp|cas)_/, "")} {fmt(n)}</span>
+            ))}
+          </span>
+          <button className="pipe-revive-btn" onClick={onRevive} disabled={reviving}>
+            {reviving ? "复活中…" : "复活全部"}
+          </button>
+        </div>
+      )}
+      <span className={"pipe-status-line " + (active ? "" : "idle")}>
+        <Dot ok={active} /> {active ? "运行中" : "等待"}
+      </span>
+    </div>
   );
 }
 
@@ -77,28 +118,15 @@ export function SamelabsPipeline() {
 
   const revive = async (chain: "cb" | "pb") => {
     setReviving(chain);
-    try {
-      await apiPost(`/admin/pipeline/${chain}/errors/revive`);
-      load();
-    } catch { setError(t.admin.errLoadFailed); }
+    try { await apiPost(`/admin/pipeline/${chain}/errors/revive`); load(); }
+    catch { setError(t.admin.errLoadFailed); }
     setReviving(null);
   };
 
   if (error) return <div className="notice error">{error}</div>;
   if (!data) return <p className="context-loading">{t.common.loading}</p>;
 
-  const byLocale = new Map<string, Record<string, number>>();
-  for (const row of data.cb.locales_today) {
-    const cur = byLocale.get(row.locale) ?? {};
-    cur[row.status] = (cur[row.status] ?? 0) + row.count;
-    byLocale.set(row.locale, cur);
-  }
-  const localeRows = LOCALE_ORDER.filter((l) => byLocale.has(l)).map((l) => {
-    const m = byLocale.get(l) ?? {};
-    return { locale: l, ok: m["ok"] ?? 0, not_found: m["not_found"] ?? 0 };
-  });
-  const cbTotal = data.cb.queue.queued + data.cb.queue.leased + data.cb.queue.error;
-  const pbTotal = data.pb.queue.queued + data.pb.queue.leased + data.pb.queue.error;
+  const liveWorkers = data.workers.filter((w) => w.enabled);
 
   return <>
     <header className="page-title">
@@ -108,68 +136,23 @@ export function SamelabsPipeline() {
     </header>
 
     <section className="dashboard-section">
-      <div className="section-heading"><h2>CB 链 · ChemicalBook</h2><GateBadge g={data.gates.cb} /></div>
-      <div className="dashboard-grid">
-        <div className="dashboard-card">
-          <span className="dashboard-card-label">队列</span>
-          <strong className="dashboard-card-value">{fmt(cbTotal)}</strong>
-          <span className="pipe-chips">
-            <QueueChip label="queued" n={data.cb.queue.queued} />
-            <QueueChip label="leased" n={data.cb.queue.leased} />
-            <QueueChip label="error" n={data.cb.queue.error} />
-          </span>
-        </div>
-        <div className="dashboard-card">
-          <span className="dashboard-card-label">今日落库</span>
-          <strong className="dashboard-card-value">{fmt(data.cb.throughput_today.ok ?? 0)}</strong>
-          <span className="dashboard-card-sub">ok · not_found {fmt(data.cb.throughput_today.not_found ?? 0)}</span>
-        </div>
-        <div className="dashboard-card">
-          <span className="dashboard-card-label">error 分桶</span>
-          <div className="dashboard-card-sub">
-            <ErrorBuckets buckets={data.cb.error_buckets} onRevive={() => revive("cb")} reviving={reviving === "cb"} />
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section className="dashboard-section">
-      <div className="section-heading"><h2>PB 链 · PubChem</h2><GateBadge g={data.gates.pubchem} /></div>
-      <div className="dashboard-grid">
-        <div className="dashboard-card">
-          <span className="dashboard-card-label">队列</span>
-          <strong className="dashboard-card-value">{fmt(pbTotal)}</strong>
-          <span className="pipe-chips">
-            <QueueChip label="queued" n={data.pb.queue.queued} />
-            <QueueChip label="leased" n={data.pb.queue.leased} />
-            <QueueChip label="error" n={data.pb.queue.error} />
-          </span>
-        </div>
-        <div className="dashboard-card">
-          <span className="dashboard-card-label">今日落库</span>
-          <strong className="dashboard-card-value">{fmt(data.pb.throughput_today)}</strong>
-          <span className="dashboard-card-sub">chemical_pubchem 行</span>
-        </div>
-        <div className="dashboard-card">
-          <span className="dashboard-card-label">error 分桶</span>
-          <div className="dashboard-card-sub">
-            <ErrorBuckets buckets={data.pb.error_buckets} onRevive={() => revive("pb")} reviving={reviving === "pb"} />
-          </div>
-        </div>
+      <div className="dashboard-grid pipe-grid-2">
+        <ChainCard name="CB" source="CB 链 · ChemicalBook" data={data.cb} gate={data.gates.cb}
+          supplier={data.supplier}
+          onRevive={() => revive("cb")} reviving={reviving === "cb"} />
+        <ChainCard name="PB" source="PB 链 · PubChem" data={data.pb} gate={data.gates.pubchem}
+          onRevive={() => revive("pb")} reviving={reviving === "pb"} />
       </div>
     </section>
 
     <section className="dashboard-section">
       <div className="section-heading"><h2>Worker</h2></div>
       <div className="pipe-table" role="table">
-        <div className="pipe-tr pipe-th" role="row">
-          <span>ID</span><span>名称</span><span>状态</span><span>最近活跃</span>
-        </div>
-        {data.workers.map((w) => (
-          <div className="pipe-tr" role="row" key={w.worker_id}>
+        {liveWorkers.map((w) => (
+          <div className="pipe-tr pipe-tr-4" role="row" key={w.worker_id}>
             <span className="pipe-locale">{w.worker_id}</span>
             <span>{w.display_name ?? "—"}</span>
-            <span className={w.enabled ? "" : "pipe-err"}>{w.enabled ? "启用" : "停权"}</span>
+            <span><Dot ok={w.enabled} /> {w.enabled ? "启用" : "停权"}</span>
             <span className="muted">{hm(w.last_seen_at)}</span>
           </div>
         ))}
@@ -179,39 +162,20 @@ export function SamelabsPipeline() {
     <section className="dashboard-section">
       <div className="section-heading"><h2>CB 今日分语言</h2></div>
       <div className="pipe-table" role="table">
-        <div className="pipe-tr pipe-th" role="row">
-          <span>{t.admin.pipeLocale}</span><span>ok</span><span>not_found</span><span>{t.admin.pipeLastAt}</span>
+        <div className="pipe-tr pipe-th pipe-tr-4" role="row">
+          <span>语言</span><span>有数据</span><span>无收录</span><span>合计</span>
         </div>
-        {localeRows.map((r) => (
-          <div className="pipe-tr" role="row" key={r.locale}>
-            <span className="pipe-locale">{r.locale}</span>
-            <span>{fmt(r.ok ?? 0)}</span>
-            <span className="muted">{fmt(r.not_found ?? 0)}</span>
-            <span className="muted" />
-          </div>
-        ))}
-      </div>
-    </section>
-
-    <section className="dashboard-section">
-      <div className="section-heading"><h2>最新落库</h2></div>
-      <div className="pipe-table" role="table">
-        {data.cb.latest.map((r, i) => (
-          <div className="pipe-tr" role="row" key={"cb" + i}>
-            <span className="pipe-locale">CB · {r.locale ?? "zh-CN"}</span>
-            <span>HCID {r.chemical_id}</span>
-            <span className={r.status === "error" ? "pipe-err" : "muted"}>{r.status}</span>
-            <span className="muted">{hm(r.at)}</span>
-          </div>
-        ))}
-        {data.pb.latest.map((r, i) => (
-          <div className="pipe-tr" role="row" key={"pb" + i}>
-            <span className="pipe-locale">PB</span>
-            <span>HCID {r.chemical_id}</span>
-            <span className="muted" />
-            <span className="muted">{hm(r.at)}</span>
-          </div>
-        ))}
+        {LOCALES.filter((l) => data.cb.locales_today.some((x) => x.locale === l)).map((l) => {
+          const row = data.cb.locales_today.find((x) => x.locale === l)!;
+          return (
+            <div className="pipe-tr pipe-tr-4" role="row" key={l}>
+              <span className="pipe-locale">{LOCALE_NAME[l] ?? l}</span>
+              <span>{fmt(row.ok)}</span>
+              <span className="muted">{fmt(row.not_found)}</span>
+              <span className="muted">{fmt(row.ok + row.not_found)}</span>
+            </div>
+          );
+        })}
       </div>
     </section>
   </>;
