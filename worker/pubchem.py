@@ -385,5 +385,3 @@ class PubChemClient:
         record = payload.get("Record") or {}
         return record.get("RecordTitle"), normalize_view(payload, section)
 
-    def source_hash(self) -> str:
-        return hashlib.sha256("\n".join(sorted(self.response_hashes)).encode()).hexdigest()

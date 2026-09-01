@@ -269,7 +269,7 @@ async def cas_lease_jobs(
         await db.execute(text("""
             UPDATE maintenance.cas_jobs
             SET status='queued',lease_owner=NULL,lease_token_hash=NULL,
-                lease_expires_at=NULL,heartbeat_at=NULL,updated_at=now(),
+                lease_expires_at=NULL,updated_at=now(),
                 last_error_code='lease_expired'
             WHERE status='leased' AND lease_expires_at<=now()
         """))
@@ -282,11 +282,10 @@ async def cas_lease_jobs(
         claim = (await db.execute(text("""
             WITH candidates AS (
                 SELECT j.id, j.chemical_id, j.cas_number,
-                       j.attempt_count,
                        coalesce(j.request_context->>'locale','zh-CN') AS locale
                 FROM maintenance.cas_jobs j
-                WHERE j.status IN ('queued','error') AND j.not_before<=now()
-                ORDER BY j.priority DESC, j.not_before, j.id
+                WHERE j.status='queued'
+                ORDER BY j.priority DESC, j.id
                 LIMIT :limit
                 FOR UPDATE OF j SKIP LOCKED
             ), intercepted AS (
@@ -303,7 +302,7 @@ async def cas_lease_jobs(
                 )
                 RETURNING j.id
             )
-            SELECT c.id, c.chemical_id, c.cas_number, c.attempt_count,
+            SELECT c.id, c.chemical_id, c.cas_number,
                    c.locale
             FROM candidates c
             WHERE c.id NOT IN (SELECT id FROM intercepted)
@@ -311,7 +310,7 @@ async def cas_lease_jobs(
             "limit": limit,
             "requery_days": str(await _cb_requery_days(db)),
         })).fetchall()
-        rows = [(r[0], r[1], r[2], r[3], r[4]) for r in claim]
+        rows = [(r[0], r[1], r[2], r[3]) for r in claim]
         cb_map: dict[int, str | None] = {}
         if rows:
             cb_rows = (await db.execute(text("""
@@ -326,7 +325,7 @@ async def cas_lease_jobs(
                 UPDATE maintenance.cas_jobs
                 SET status='leased',lease_owner=:worker_id,lease_token_hash=:token_hash,
                     lease_expires_at=now()+make_interval(secs=>:lease_seconds),
-                    heartbeat_at=now(),attempt_count=attempt_count+1,updated_at=now()
+                    updated_at=now()
                 WHERE id=:job_id
             """), {
                 "worker_id": worker.worker_id,
@@ -360,7 +359,7 @@ async def cas_heartbeat(
         await verified_cas_lease(db, body, worker.worker_id, lock=False)
         await db.execute(text("""
             UPDATE maintenance.cas_jobs
-            SET heartbeat_at=now(),lease_expires_at=now()+make_interval(secs=>:seconds),
+            SET lease_expires_at=now()+make_interval(secs=>:seconds),
                 updated_at=now() WHERE id=:job_id
         """), {"seconds": settings.worker_job_lease_seconds, "job_id": body.job_id})
         await db.commit()
@@ -410,14 +409,13 @@ async def cas_complete_job(
                 cb_number=payload.cb_number, locale=locale,
             )
         except ValueError as exc:
-            # 载荷异常: 不打死 — 留 error 行(not_before 短延迟), 通道不计数。
+            # 载荷异常: 不打死 — 留 error 行占位(0901 终版: 无时间字段, 复活=同请求翻态)。
             await db.execute(text("""
                 UPDATE maintenance.cas_jobs
                 SET status='error',last_error_code='payload_invalid',
                     last_error_detail=:detail,
-                    not_before=now()+make_interval(secs=>300),
                     lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                    heartbeat_at=NULL,updated_at=now()
+                    updated_at=now()
                 WHERE id=:job_id
             """), {"job_id": body.job_id, "detail": str(exc)[:2000]})
             await db.commit()
@@ -467,27 +465,24 @@ async def cas_error_job(
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
-    """worker error(§3/§4): 不写数据层, job 留 error 行进阶梯(cb 通道)。"""
+    """worker error(0901 终版): 行留 error 态占位, 连击+1。
+    无时间调度字段 — 复活=同请求到达入列口 UPDATE 翻态。"""
     try:
         await verified_cas_lease(db, body, worker.worker_id)
         redis = await get_cache()
         streak = await gate_record_error(redis, "cb")
-        silence = await gate_silence_remaining(redis, "cb")
-        delay = int(silence) if silence > 0 else 60
-        not_before_sql = "now()+make_interval(secs=>:silence)"
-        await db.execute(text(f"""
+        await db.execute(text("""
             UPDATE maintenance.cas_jobs
-            SET status='error',not_before={not_before_sql},
+            SET status='error',
                 last_error_code=:code,last_error_detail=:detail,
                 lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
-                heartbeat_at=NULL,updated_at=now()
+                updated_at=now()
             WHERE id=:job_id
         """), {
-            "silence": delay,
             "code": body.error_code, "detail": body.error_detail, "job_id": body.job_id,
         })
         await db.commit()
-        return {"status": "error", "streak": streak, "silence_seconds": int(silence)}
+        return {"status": "error", "streak": streak}
     except Exception:
         await db.rollback()
         raise

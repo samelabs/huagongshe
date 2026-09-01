@@ -34,14 +34,6 @@ DISPLAY_ENTRY_LIMIT = 12
 DISPLAY_VALUE_LIMIT = 6
 
 
-def normalize_sections(raw: str | list[str] | tuple[str, ...] | None) -> tuple[str, ...]:
-    if raw is None:
-        return DEFAULT_SECTIONS
-    values = raw.split(",") if isinstance(raw, str) else raw
-    sections = tuple(sorted({value.strip().lower() for value in values if value.strip()}))
-    if not sections or any(value not in ALLOWED_SECTIONS for value in sections):
-        raise HTTPException(400, "不支持的补全信息分区")
-    return sections
 
 async def fetch_details(db: Any, chemical_id: int) -> dict[str, Any] | None:
     row = (await db.execute(text("""

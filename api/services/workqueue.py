@@ -26,7 +26,7 @@ def lease_hash(value: str) -> bytes:
 async def verified_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock: bool = True):
     suffix = " FOR UPDATE" if lock else ""
     row = (await db.execute(text(f"""
-        SELECT id,chemical_id,query_kind,query_value,sections,attempt_count
+        SELECT id,chemical_id,query_value
         FROM maintenance.pubchem_jobs
         WHERE id=:job_id AND status='leased' AND lease_owner=:worker_id
           AND lease_token_hash=:lease_hash AND lease_expires_at>now(){suffix}
@@ -205,7 +205,7 @@ async def upsert_details(
 async def verified_cas_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock: bool = True):
     suffix = " FOR UPDATE" if lock else ""
     row = (await db.execute(text(f"""
-        SELECT id,chemical_id,cas_number,attempt_count
+        SELECT id,chemical_id,cas_number
         FROM maintenance.cas_jobs
         WHERE id=:job_id AND status='leased' AND lease_owner=:worker_id
           AND lease_token_hash=:lease_hash AND lease_expires_at>now(){suffix}
