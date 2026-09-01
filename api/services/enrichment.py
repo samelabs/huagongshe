@@ -41,7 +41,7 @@ async def fetch_details(db: Any, chemical_id: int) -> dict[str, Any] | None:
                topological_polar_surface_area,complexity,hbond_donor_count,
                hbond_acceptor_count,rotatable_bond_count,heavy_atom_count,
                formal_charge,computed_properties,physical_properties,
-               ghs_cl...tion,hazards,safety_measures,toxicity,regulatory,
+               ghs_classification,hazards,safety_measures,toxicity,regulatory,
                pharmacology,uses_and_manufacturing,identifier_evidence,
                source_references,
                external_ids,ghs_codes,exp_props,exp_limits,reactivity,

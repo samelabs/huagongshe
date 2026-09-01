@@ -18,8 +18,9 @@ WHERE  j.request_context->>'locale' IS DISTINCT FROM 'zh-CN'
 
 -- 非成功全部归位 queued (dead/failed/retry → 重跑; not_before 行级调度退役)
 UPDATE maintenance.cas_jobs
-SET    status = 'queued', not_before = NULL, attempt_count = 0
+SET    status = 'queued'
 WHERE status IN ('dead','failed','retry');
+-- not_before NOT NULL 约束: 不改值, 列随后整列 DROP
 
 -- 砍列 (与 pubchem_jobs 同构)
 ALTER TABLE maintenance.cas_jobs

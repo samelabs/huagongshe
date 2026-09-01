@@ -57,10 +57,9 @@ WHERE  j.query_kind != 'cid'
 
 -- 2c. 状态与时间字段收窄 (not_before 行级调度退役, 0901 裁定三次)
 UPDATE maintenance.pubchem_jobs
-SET    status = CASE WHEN last_error_code = 'pubchem_not_found' THEN 'error' ELSE 'queued' END,
-       not_before = NULL,
-       attempt_count = 0
+SET    status = CASE WHEN last_error_code = 'pubchem_not_found' THEN 'error' ELSE 'queued' END
 WHERE status IN ('dead','failed','retry');
+-- not_before NOT NULL 约束: 不改值, 列随后整列 DROP
 
 -- 2d. 砍列
 ALTER TABLE maintenance.pubchem_jobs
