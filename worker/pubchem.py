@@ -52,12 +52,10 @@ MAX_NORMALIZED_REFERENCES = 100
 
 
 class PubChemError(RuntimeError):
-    # 8-29 规范: PB 任务单趟制 — 所有错误形态都是终态(retryable=False)。
-    # 秒级 retry 无合法场景; lease 过期回队是 attempt 的唯一合法用途。
-    def __init__(self, code: str, detail: str, *, retryable: bool = False):
+    """PB 错误形态(数据链收口§2): 全部 = 没拿到有效回应, worker 一律报 error。"""
+    def __init__(self, code: str, detail: str):
         super().__init__(detail)
         self.code = code
-        self.retryable = retryable
 
 
 class PubChemRateController:
@@ -347,7 +345,7 @@ class PubChemClient:
                 "POST", url, data={"smiles": value}, params={"identity_type": "same_stereo_isotope"}
             )
         else:
-            raise PubChemError("unsupported_query", f"unsupported query kind {kind}", retryable=False)
+            raise PubChemError("unsupported_query", f"unsupported query kind {kind}")
         identifiers = (payload or {}).get("IdentifierList") or {}
         return [int(cid) for cid in identifiers.get("CID", [])[:20] if int(cid) > 0]
 

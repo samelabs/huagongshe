@@ -428,8 +428,12 @@ async def run() -> None:
                                 cb_proxy_sessions[cb_proxy_url] = aiohttp.ClientSession(connector=cb_conn)
                             cas_coros += [process_cas_job(cb_proxy_sessions[cb_proxy_url], workapi, job) for job in cb_jobs]
                     if not jobs and not cas_coros:
-                        requested_wait = float(leased.get("retry_after_seconds", 5)) if "pubchem" in _scopes else 5
-                        idle_seconds = min(30.0, max(requested_wait, idle_seconds * 1.5))
+                        # retry_after_seconds 承载闸门静默剩余(lease 返回 gate_wait+1),
+                        # worker 照单退避 — 静默期零空转(§4)。
+                        pb_wait = float(leased.get("retry_after_seconds", 5)) if "pubchem" in _scopes else 0
+                        cas_wait = float(cas_leased.get("retry_after_seconds", 5)) if "cas" in _scopes else 0
+                        requested_wait = max(pb_wait, cas_wait, 2)
+                        idle_seconds = min(1800.0, max(requested_wait, idle_seconds * 1.5))
                         await asyncio.sleep(idle_seconds + random.random())
                         continue
                     idle_seconds = 2.0
