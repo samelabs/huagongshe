@@ -85,10 +85,11 @@ async def process_job(
     rate: PubChemRateController,
     job: dict[str, Any],
 ) -> None:
-    """PB 任务(数据链收口终版): 拿到 complete(ok), 没拿到一律 error。
+    """PB 任务(数据链收口终版): API活=结论明确, 正常出表。
 
-    PB=cid 拉取, 无 not_found — cid 口径必答, 空手=没拿到, 不纠缠不记否定。
-    worker 哑管道: 不判熔断不传参; error 处理与重试全在 lease 闸门。
+    200有数据 → complete(ok) → 写库出表;
+    API活但无数据(404/空表) → complete(empty) → 出表留空, 不进error;
+    API不通(5xx/超时/拒服) → error → 留表进阶梯, 重试全在 lease 闸门。
     """
     stop = asyncio.Event()
     heartbeat_task = asyncio.create_task(heartbeat(workapi, job, stop))
@@ -111,10 +112,15 @@ async def process_job(
                                "PubChem did not resolve exactly one verified CID")
         selected_properties = property_map.get(selected_cid, {}) if selected_cid else {}
         if not selected_properties:
-            raise PubChemError(
-                "pubchem_properties_missing",
-                "PubChem did not return the selected CID property record",
+            # API活但这个cid没数据(PUG 404→None→空表): 结论明确, 正常出表,
+            # 数据层留空(下次100天窗到期再问)。不进error, 不占通道计数。
+            await workapi.post(
+                "/workapi/v1/jobs/complete",
+                {"job_id": job["job_id"], "lease_token": job["lease_token"],
+                 "result": {"status": "empty"}},
             )
+            log.info("completed job=%s empty (no data for cid)", job["job_id"])
+            return
         sections: dict[str, Any] = {}
         record_title = None
         requested = set(job.get("sections") or [])
