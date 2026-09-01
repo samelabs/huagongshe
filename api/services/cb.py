@@ -77,23 +77,7 @@ async def upsert_externals(
     entry_json = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) if entry else None
     if entry_json and len(entry_json.encode()) > MAX_ENTRY_JSON_BYTES:
         raise ValueError("cas entry payload exceeds safety limit")
-    # 2026-08-30 CB链重构(准线§3): error = 拿不到状态 — 只刷 last_status+
-    # fetched_at, 不抹既有 entry(旧数据仍可服务), 不写供应商/name_index。
-    if status == "error":
-        await db.execute(text("""
-            INSERT INTO chemistry.chemical_cb
-                (chemical_id,cas_number,entry,last_status,fetched_at,expires_at,locale)
-            VALUES
-                (:chemical_id,:cas_number,NULL,'error',now(),NULL,:locale)
-            ON CONFLICT (chemical_id, locale) DO UPDATE SET
-                last_status='error',
-                fetched_at=now(),
-                updated_at=now()
-        """), {
-            "chemical_id": chemical_id, "cas_number": cas_number,
-            "locale": locale,
-        })
-        return
+    # 数据链收口(§5): 数据层只有 ok/not_found — error 不落数据层(留在 job 表)。
     # 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环
     # 拆除 — expires_at 恒 NULL, fetched_at 即"何时取到/何时确认没有"。
     # ok 与 not_found 同为终态; 回补是未来手动脚本的事, 不进自动机制。
@@ -262,7 +246,7 @@ async def enqueue_cas_job(
         VALUES
             (:chemical_id,:cas_number,:priority,:dedupe_key,
              CAST(:context AS jsonb))
-        ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','retry')
+        ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','error')
         DO UPDATE SET priority=greatest(maintenance.cas_jobs.priority,excluded.priority),
                       updated_at=now()
         RETURNING id
@@ -394,7 +378,7 @@ async def apply_structure_fill(
     })
 
 
-# ---- 六态判定(2026-08-30 CB链重构, 准线: CB_CHAIN_REBUILD_PLAN.md §1) ------
+# ---- 五态判定(数据链收口§5, DATA_CHAIN_REFACTOR_PLAN) ------
 # 锚 = chemical_cb 行 (chemical_id, locale)。时间窗口配置化, 可调。
 
 CB_LOCALES = ("zh-CN", "en", "ja", "de", "ko", "ru")  # IETF/BCP47 对齐
@@ -418,13 +402,12 @@ async def cb_decide(
     db: Any, chemical_id: int, locale: str = "zh-CN",
     *, has_cb_number: bool | None = None,
 ) -> str:
-    """六态判定(统一入口, 准线§1)。返回:
+    """五态判定(数据链收口§5, error 态已亡)。返回:
     - serve_fresh      ok 且未超刷新窗 → 直接出 entry
     - serve_negative   not_found 且未超重问窗 → 出空(负缓存)
-    - enqueue_first    无行(首问)
+    - enqueue_first    无行(首问; 未知状态防御性同此)
     - enqueue_requery  not_found 超重问窗 → 重问(CB 可能新增收录)
     - enqueue_refresh  ok 超刷新窗 → 刷新(有 cb_number 直跳 CPP)
-    - enqueue_error    error → error 不是答案, 再问
     - skip             多语言前置 cb_number 缺失, 不可寻址不入列
     """
     if locale not in CB_LOCALES:
@@ -445,18 +428,17 @@ async def cb_decide(
     if status == "ok":
         age = (await db.execute(text("SELECT now()-:ft"), {"ft": fetched_at})).scalar()
         return "serve_fresh" if age < timedelta(days=refresh_days) else "enqueue_refresh"
-    return "enqueue_error"  # error/未知状态一律再问
+    return "enqueue_first"  # 未知状态防御性按首问(数据层已无 error 态)
 
 
 async def cas_search_state(db: Any, cas_number: str) -> str:
     """搜索miss三态: pending(活跃任务在途或已触发入列) / miss(终态且负缓存内,
-    不再入列) / new(可占行)。六态判定驱动(2026-08-30重构): 行在不再等于
-    "永不再问", not_found 超重问窗/ok 超刷新窗/error 均入列。
-    返回 enqueue 态时调用方须真实入列(与详情路径 stale→enqueue 同逻辑)。
+    不再入列) / new(可占行)。五态判定驱动(§5): not_found 超重问窗/ok 超刷新窗
+    均入列。返回 enqueue 态时调用方须真实入列(与详情路径同逻辑)。
     """
     row = (await db.execute(text("""
         SELECT 1 FROM maintenance.cas_jobs
-        WHERE cas_number=:cas AND status IN ('queued','leased','retry')
+        WHERE cas_number=:cas AND status IN ('queued','leased','error')
         LIMIT 1
     """), {"cas": cas_number})).first()
     if row:
@@ -474,7 +456,7 @@ async def cas_search_state(db: Any, cas_number: str) -> str:
         decision = await cb_decide(db, int(chemical_id))
         if not decision.startswith("enqueue"):
             return "miss"
-        # 六态判需再问(首问外的 超窗刷新/超窗重问/error): 真实入列 —
+        # 五态判需再问(首问外的 超窗刷新/超窗重问): 真实入列 —
         # 与详情路径 stale→enqueue 同逻辑(审计修复①, 2026-08-30)
         enqueued = await enqueue_cas_job(
             db, chemical_id=int(chemical_id), cas_number=cas_number,
@@ -519,7 +501,7 @@ async def enqueue_cas_search_fetch(db: Any, *, cas_number: str) -> bool:
         VALUES
             (:chemical_id,:cas_number,:priority,:dedupe_key,
              CAST(:context AS jsonb))
-        ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','retry')
+        ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','error')
         DO UPDATE SET priority=greatest(maintenance.cas_jobs.priority,excluded.priority),
                       updated_at=now()
     """), {
@@ -540,19 +522,16 @@ async def sync_fetch_and_store(
     """
     from caslib.fetch import fetch_cas
     from caslib.parse import (
-        cpp_page_state, parse_cpp_entry, parse_cpp_suppliers, parse_entry,
-        parse_suppliers,
+        parse_cpp_entry, parse_cpp_suppliers, parse_entry, parse_suppliers,
     )
 
     async def _fetch() -> tuple[str, dict | None, list, str | None]:
+        # 判定单点在 caslib fetch 层(§5): ok/not_found/error 三态直译。
         result = await fetch_cas(cas_number, total_budget_s=SYNC_FETCH_BUDGET_S)
         if result.status == "error":
             return "error", None, [], None
         if result.status == "not_found":
             return "not_found", None, [], None
-        # 上游"系统忙"限流: 语义=error, 同步路径不落行走入队
-        if result.cpp_html and cpp_page_state(result.cpp_html) in ("busy", "empty"):
-            return "error", None, [], None
         # CPP-CN 页为主(信息更全+100家供应商+国家); 缺席退 CAS 页旧链
         entry = parse_cpp_entry(result.cpp_html) if result.cpp_html else None
         suppliers = parse_cpp_suppliers(result.cpp_html or "") if result.cpp_html else []
@@ -589,7 +568,7 @@ async def ensure_externals(
     {state: fresh|queued|absent, entry, suppliers, job_id}
     - fresh: ok 行直接出 / not_found 行出空(negative)
     - absent: 无 cb 行(首访) — 调用方(sync路径)决定同步拉或入队
-    时间只记录不驱动(2026-08-29定): 无TTL无stale环, error终态不自动重试。
+    时间只记录不驱动(2026-08-29定): 无TTL无stale环。
     """
     redis = await get_cache()
     cache_key = CACHE_KEY.format(chemical_id=chemical_id)
@@ -605,13 +584,12 @@ async def ensure_externals(
     row = await get_externals_row(db, chemical_id)
     if row is None:
         return {"state": "absent", "entry": None, "suppliers": [], "job_id": None}
-    # 六态判定驱动(2026-08-30重构, 准线§1): not_found 负缓存窗/ok 刷新窗/
-    # error 均不再恒 fresh。
+    # 五态判定驱动(§5): not_found 负缓存窗/ok 刷新窗。
     decision = await cb_decide(db, chemical_id)
     if decision == "serve_negative":
         return {"state": "fresh", "entry": None, "suppliers": [], "job_id": None,
                 "negative": True}
-    if decision == "enqueue_requery" or decision == "enqueue_error" or decision == "enqueue_refresh":
+    if decision in ("enqueue_requery", "enqueue_refresh"):
         # 需再问: 出当前数据但标记 stale, 调用方决定入列
         return {"state": "stale", "entry": row["entry"], "suppliers": [], "job_id": None}
     # ok 行: 终态直出。suppliers 同行取。
