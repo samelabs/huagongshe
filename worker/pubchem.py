@@ -325,17 +325,9 @@ class PubChemClient:
                     raise PubChemError("pubchem_refused", f"PubChem HTTP {response.status}: {detail}")
                 if "json" not in response.headers.get("Content-Type", "").lower():
                     raw_text = raw.decode("utf-8", "replace")
-                    # NCBI 封禁页(200+text/html+"Access Denied"): 置 redis 熔断
-                    # key(server lease 闸门认它) + refused 终态
+                    # NCBI 封禁页(200+text/html+"Access Denied"): error 报告
+                    # 进闸门阶梯(连续错→静默), 不再单独置 redis 熔断 key。
                     if "Access Denied" in raw_text[:2000] and "ncbi" in raw_text.lower():
-                        try:
-                            from api.core.cache import get_cache
-
-                            redis = await get_cache()
-                            if redis is not None:
-                                await redis.set("pubchem:circuit_blocked", "1", ex=6 * 3600)
-                        except Exception:
-                            pass
                         raise PubChemError("pubchem_refused", "PubChem ban page (Access Denied)")
                     raise PubChemError("unexpected_content_type", "PubChem did not return JSON")
                 self.response_hashes.append(hashlib.sha256(raw).hexdigest())

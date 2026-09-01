@@ -455,10 +455,8 @@ async def cas_lease_jobs(
                 "lease_token": token,
                 "chemical_id": row[1],
                 "cas_number": row[2],
-                "attempt": row[3] + 1,
-                "max_attempts": row[4],
                 "lease_seconds": settings.worker_job_lease_seconds,
-                "locale": row[5] or "zh-CN",
+                "locale": row[3] or "zh-CN",
                 "cb_number": cb_map.get(row[1]),
             })
         await db.commit()

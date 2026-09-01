@@ -102,7 +102,7 @@ async def enqueue_job(
         VALUES
             (:chemical_id,:query_kind,:query_value,:sections,:priority,:dedupe_key,
              CAST(:request_context AS jsonb))
-        ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','retry')
+        ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','error')
         DO UPDATE SET priority=greatest(maintenance.pubchem_jobs.priority,excluded.priority),
                       updated_at=now()
         RETURNING id
@@ -168,7 +168,7 @@ async def enqueue_chemical_if_needed(
         # PB 仅 cid 拉取(2026-08-29 收口): PB 定位=cid 库维护者, 非发现通道。
         # 无 cid 行(PB 未收录结构: ORD 裸行/CB 占位/SMILES 建行)不入队 —
         # inchikey 兜底询问(0a76f43)对这批结构必然 not_found, 只产 miss 噪音
-        # 与 governor 跳闸。结构三件本地 RDKit 已算齐, 化合物页不缺数据。
+        # 只产 miss 噪音。结构三件本地 RDKit 已算齐, 化合物页不缺数据。
         return details, None, True
     job_id = await enqueue_job(
         db,
