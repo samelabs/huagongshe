@@ -532,12 +532,33 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
           (SELECT count(*) FROM chemistry.chemical_supplier_profile)
     """))).fetchone()
 
+    # 实时入库滚动(两链合并, 最新10条)
+    latest_cb = [
+        {"chain": "CB", "chemical_id": r[0], "detail": r[1] or "zh-CN",
+         "status": r[2], "at": r[3].isoformat() if r[3] else None}
+        for r in (await db.execute(text("""
+            SELECT chemical_id, locale, last_status, fetched_at
+            FROM chemistry.chemical_cb ORDER BY fetched_at DESC LIMIT 10
+        """))).fetchall()
+    ]
+    latest_pb = [
+        {"chain": "PB", "chemical_id": r[0],
+         "detail": (r[1] or "")[:40], "status": "ok",
+         "at": r[2].isoformat() if r[2] else None}
+        for r in (await db.execute(text("""
+            SELECT chemical_id, record_title, fetched_at
+            FROM chemistry.chemical_pubchem ORDER BY fetched_at DESC LIMIT 10
+        """))).fetchall()
+    ]
+    latest = sorted(latest_cb + latest_pb, key=lambda x: x["at"] or "", reverse=True)[:10]
+
     return {
         "supplier": {
             "today_rows": int(sup[0]), "today_chemicals": int(sup[1]),
             "total_rows": int(sup[2]), "total_chemicals": int(sup[3]),
             "profiles": int(sup[4]),
         },
+        "latest": latest,
         "cb": {
             "queue": cb_queue, "error_buckets": cb_errors,
             "throughput": cb_throughput, "rate_1h": cb_rate,

@@ -18,6 +18,7 @@ type Pipeline = {
   pb: ChainBlock;
   gates: Record<string, Gate>;
   supplier: { today_rows: number; today_chemicals: number; total_rows: number; total_chemicals: number; profiles: number };
+  latest: { chain: string; chemical_id: number; detail: string; status: string; at: string | null }[];
   workers: { worker_id: string; display_name: string | null; enabled: boolean; last_seen_at: string | null }[];
   generated_at: string;
 };
@@ -72,7 +73,8 @@ function ChainCard({ name, source, data, gate, supplier, onRevive, reviving }: {
           <div className="pipe-metric">
             <span className="pipe-metric-label">供应商报价</span>
             <span className="pipe-metric-val">今日 {fmt(supplier.today_rows)}</span>
-            <span className="pipe-metric-label">覆盖 {fmt(supplier.today_chemicals)} 化合物 · 累计 {fmt(supplier.total_chemicals)}</span>
+            <span className="pipe-metric-label">今日覆盖 {fmt(supplier.today_chemicals)} 化合物</span>
+            <span className="pipe-metric-label">listing 总 {fmt(supplier.total_rows)} 条 · {fmt(supplier.total_chemicals)} 化合物 · 厂商档案 {fmt(supplier.profiles)}</span>
           </div>
         )}
       </div>
@@ -154,6 +156,26 @@ export function SamelabsPipeline() {
             <span>{w.display_name ?? "—"}</span>
             <span><Dot ok={w.enabled} /> {w.enabled ? "启用" : "停权"}</span>
             <span className="muted">{hm(w.last_seen_at)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section className="dashboard-section">
+      <div className="section-heading"><h2>实时入库</h2>
+        <span className="muted">两链最新 10 条</span>
+      </div>
+      <div className="pipe-table" role="table">
+        <div className="pipe-tr pipe-th pipe-tr-latest" role="row">
+          <span>链</span><span>HCID</span><span>内容</span><span>判定</span><span>时间</span>
+        </div>
+        {data.latest.map((r, i) => (
+          <div className="pipe-tr pipe-tr-latest" role="row" key={i}>
+            <span className={"pipe-locale " + (r.chain === "PB" ? "pb-tag" : "")}>{r.chain}</span>
+            <span>{fmt(r.chemical_id)}</span>
+            <span className="pipe-detail" title={r.detail}>{r.detail || "—"}</span>
+            <span className={r.status === "ok" ? "" : "muted"}>{r.status === "ok" ? "有数据" : "无收录"}</span>
+            <span className="muted">{hm(r.at)}</span>
           </div>
         ))}
       </div>
