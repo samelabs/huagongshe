@@ -439,12 +439,10 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     now_iso = (await db.execute(text("SELECT now()"))).scalar().isoformat()
     # 队列健康(状态计数, 索引点查)
     cas = dict((await db.execute(text("""
-        SELECT status, count(*) FROM maintenance.cas_jobs
-        WHERE status IN ('queued','retry','leased','dead') GROUP BY status
+        SELECT status, count(*) FROM maintenance.cas_jobs GROUP BY status
     """))).fetchall())
     pb = dict((await db.execute(text("""
-        SELECT status, count(*) FROM maintenance.pubchem_jobs
-        WHERE status IN ('queued','retry','leased','dead') GROUP BY status
+        SELECT status, count(*) FROM maintenance.pubchem_jobs GROUP BY status
     """))).fetchall())
     zombies = (await db.execute(text("""
         SELECT
@@ -452,16 +450,15 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
           (SELECT count(*) FROM maintenance.pubchem_jobs WHERE status='leased' AND lease_expires_at < now())
     """))).fetchone()
 
-    # 今日吞吐: CAS 终态 + PB 终态
+    # 今日吞吐(§7): complete 即出表, 队列侧看 error 行分布; 真实吞吐在
+    # 数据层 locale_rows(chemical_cb 今日写入) 与 listing 计数。
     cas_today = dict((await db.execute(text("""
-        SELECT status, count(*) FROM maintenance.cas_jobs
-        WHERE updated_at >= current_date AND status IN ('succeeded','not_found','failed','dead')
-        GROUP BY status
+        SELECT last_error_code, count(*) FROM maintenance.cas_jobs
+        WHERE status='error' AND updated_at >= current_date GROUP BY 1
     """))).fetchall())
     pb_today = dict((await db.execute(text("""
-        SELECT status, count(*) FROM maintenance.pubchem_jobs
-        WHERE updated_at >= current_date AND status IN ('succeeded','failed')
-        GROUP BY status
+        SELECT last_error_code, count(*) FROM maintenance.pubchem_jobs
+        WHERE status='error' AND updated_at >= current_date GROUP BY 1
     """))).fetchall())
 
     # 今日分语言落库(chemical_cb 索引点查)
