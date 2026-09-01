@@ -209,9 +209,14 @@ async def complete_job(
         chemical_id = job[1]
         if result.get("status") == "not_found":
             # PB 权威否定(§2): 出表, 不写数据层(PB 否定不承载)。
+            # not_found = 200 成功响应 = 通道健康信号, 闸门归零(§4)。
             await db.execute(text("""
                 DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
             """), {"job_id": body.job_id})
+            await db.commit()
+            redis = await get_cache()
+            await gate_record_success(redis, "pubchem")
+            await gate_unlock_error_rows(db, "pubchem")
             await db.commit()
             return {"status": "not_found", "chemical_id": chemical_id}
         if selected_cid is None:
@@ -337,7 +342,10 @@ async def error_job(
         redis = await get_cache()
         streak = await gate_record_error(redis, "pubchem")
         silence = await gate_silence_remaining(redis, "pubchem")
-        not_before_sql = "now()+make_interval(secs=>:silence)" if silence > 0 else "now()"
+        # 未达门槛(连击<5): 60s 短退避 — 防同一 error 行被瞬间重复派发磨穿;
+        # 达门槛: 静默窗=阶梯档时间(5/10/30分钟), 期间 lease 不派发。
+        delay = int(silence) if silence > 0 else 60
+        not_before_sql = "now()+make_interval(secs=>:silence)"
         await db.execute(text(f"""
             UPDATE maintenance.pubchem_jobs
             SET status='error',not_before={not_before_sql},
@@ -346,7 +354,7 @@ async def error_job(
                 heartbeat_at=NULL,updated_at=now()
             WHERE id=:job_id
         """), {
-            "silence": int(silence) if silence > 0 else None,
+            "silence": delay,
             "code": body.error_code, "detail": body.error_detail, "job_id": body.job_id,
         })
         await db.commit()
@@ -589,7 +597,8 @@ async def cas_error_job(
         redis = await get_cache()
         streak = await gate_record_error(redis, "cb")
         silence = await gate_silence_remaining(redis, "cb")
-        not_before_sql = "now()+make_interval(secs=>:silence)" if silence > 0 else "now()"
+        delay = int(silence) if silence > 0 else 60
+        not_before_sql = "now()+make_interval(secs=>:silence)"
         await db.execute(text(f"""
             UPDATE maintenance.cas_jobs
             SET status='error',not_before={not_before_sql},
@@ -598,7 +607,7 @@ async def cas_error_job(
                 heartbeat_at=NULL,updated_at=now()
             WHERE id=:job_id
         """), {
-            "silence": int(silence) if silence > 0 else None,
+            "silence": delay,
             "code": body.error_code, "detail": body.error_detail, "job_id": body.job_id,
         })
         await db.commit()
