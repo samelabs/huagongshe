@@ -13,12 +13,20 @@ type ChainBlock = {
   rate_1h: number;
   latest_at: string | null;
 };
+type LatestRow = {
+  chain: string; chemical_id: number; detail: string; status: string; at: string | null;
+  cas?: string | null; has_entry?: boolean; site_url?: string | null; cid?: number | null;
+};
 type Pipeline = {
-  cb: ChainBlock & { locales_today: { locale: string; ok: number; not_found: number }[] };
+  cb: ChainBlock & {
+    locales_today: { locale: string; ok: number; not_found: number }[];
+    rate_1h_by_locale: { locale: string; ok: number; not_found: number; ok_rate: number | null }[];
+    reclaimed_today: number;
+  };
   pb: ChainBlock;
   gates: Record<string, Gate>;
   supplier: { today_rows: number; today_chemicals: number; total_rows: number; total_chemicals: number; profiles: number };
-  latest: { chain: string; chemical_id: number; detail: string; status: string; at: string | null }[];
+  latest: LatestRow[];
   workers: { worker_id: string; display_name: string | null; enabled: boolean; last_seen_at: string | null }[];
   generated_at: string;
 };
@@ -35,9 +43,10 @@ function Dot({ ok }: { ok: boolean }) {
   return <span className={`pipe-dot ${ok ? "ok" : "bad"}`} aria-hidden />;
 }
 
-function ChainCard({ name, source, data, gate, supplier, onRevive, reviving }: {
+function ChainCard({ name, source, data, gate, supplier, reclaimed, onRevive, reviving }: {
   name: string; source: string; data: ChainBlock; gate: Gate;
   supplier?: { today_rows: number; today_chemicals: number; total_rows: number; total_chemicals: number; profiles: number };
+  reclaimed?: number;
   onRevive: () => void; reviving: boolean;
 }) {
   const active = data.queue.leased > 0 || data.rate_1h > 0;
@@ -75,6 +84,13 @@ function ChainCard({ name, source, data, gate, supplier, onRevive, reviving }: {
             <span className="pipe-metric-val">今日 {fmt(supplier.today_rows)}</span>
             <span className="pipe-metric-label">今日覆盖 {fmt(supplier.today_chemicals)} 化合物</span>
             <span className="pipe-metric-label">listing 总 {fmt(supplier.total_rows)} 条 · {fmt(supplier.total_chemicals)} 化合物 · 厂商档案 {fmt(supplier.profiles)}</span>
+          </div>
+        )}
+        {reclaimed !== undefined && (
+          <div className="pipe-metric">
+            <span className="pipe-metric-label">错杀翻案(今日)</span>
+            <span className="pipe-metric-val">{fmt(reclaimed)}</span>
+            <span className="pipe-metric-label">旧 not_found 行被新 ok 覆盖</span>
           </div>
         )}
       </div>
@@ -140,7 +156,7 @@ export function SamelabsPipeline() {
     <section className="dashboard-section">
       <div className="dashboard-grid pipe-grid-2">
         <ChainCard name="CB" source="CB 链 · ChemicalBook" data={data.cb} gate={data.gates.cb}
-          supplier={data.supplier}
+          supplier={data.supplier} reclaimed={data.cb.reclaimed_today}
           onRevive={() => revive("cb")} reviving={reviving === "cb"} />
         <ChainCard name="PB" source="PB 链 · PubChem" data={data.pb} gate={data.gates.pubchem}
           onRevive={() => revive("pb")} reviving={reviving === "pb"} />
@@ -167,14 +183,20 @@ export function SamelabsPipeline() {
       </div>
       <div className="pipe-table" role="table">
         <div className="pipe-tr pipe-th pipe-tr-latest" role="row">
-          <span>链</span><span>HCID</span><span>内容</span><span>判定</span><span>时间</span>
+          <span>链</span><span>HCID</span><span>内容</span><span>判定</span><span>源站</span><span>时间</span>
         </div>
         {data.latest.map((r, i) => (
           <div className="pipe-tr pipe-tr-latest" role="row" key={i}>
             <span className={"pipe-locale " + (r.chain === "PB" ? "pb-tag" : "")}>{r.chain}</span>
-            <span>{fmt(r.chemical_id)}</span>
+            <span><a className="pipe-link" href={`/chemicals/${r.chemical_id}`}>{fmt(r.chemical_id)}</a></span>
             <span className="pipe-detail" title={r.detail}>{r.detail || "—"}</span>
-            <span className={r.status === "ok" ? "" : "muted"}>{r.status === "ok" ? "有数据" : "无收录"}</span>
+            <span className={r.status === "ok" ? "" : "muted"}>
+              {r.status === "ok" ? (r.has_entry === false ? "ok·空" : "有数据") : "无收录"}
+            </span>
+            <span className="pipe-src-links">
+              {r.site_url && <a className="pipe-link" href={r.site_url} target="_blank" rel="noreferrer">CB页</a>}
+              {r.cid && <a className="pipe-link" href={`https://pubchem.ncbi.nlm.nih.gov/compound/${r.cid}`} target="_blank" rel="noreferrer">PB页</a>}
+            </span>
             <span className="muted">{hm(r.at)}</span>
           </div>
         ))}
@@ -184,17 +206,20 @@ export function SamelabsPipeline() {
     <section className="dashboard-section">
       <div className="section-heading"><h2>CB 今日分语言</h2></div>
       <div className="pipe-table" role="table">
-        <div className="pipe-tr pipe-th pipe-tr-4" role="row">
-          <span>语言</span><span>有数据</span><span>无收录</span><span>合计</span>
+        <div className="pipe-tr pipe-th pipe-tr-5" role="row">
+          <span>语言</span><span>有数据</span><span>无收录</span><span>合计</span><span>近1h成功率</span>
         </div>
         {LOCALES.filter((l) => data.cb.locales_today.some((x) => x.locale === l)).map((l) => {
           const row = data.cb.locales_today.find((x) => x.locale === l)!;
+          const r1h = data.cb.rate_1h_by_locale?.find((x) => x.locale === l);
           return (
-            <div className="pipe-tr pipe-tr-4" role="row" key={l}>
+            <div className="pipe-tr pipe-tr-5" role="row" key={l}>
               <span className="pipe-locale">{LOCALE_NAME[l] ?? l}</span>
               <span>{fmt(row.ok)}</span>
               <span className="muted">{fmt(row.not_found)}</span>
               <span className="muted">{fmt(row.ok + row.not_found)}</span>
+              <span>{r1h?.ok_rate != null ? `${r1h.ok_rate}%` : "—"}
+                {r1h ? <span className="muted"> ({fmt(r1h.ok)}/{fmt(r1h.ok + r1h.not_found)})</span> : null}</span>
             </div>
           );
         })}
