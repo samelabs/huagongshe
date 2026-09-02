@@ -438,7 +438,7 @@ async def cas_complete_job(
         # dedupe :locale 后缀独立去重; 终态拦截在 lease 端已有时限窗。
         if status == "ok" and locale == "zh-CN" and payload.cb_number:
             from .services.cb import cb_decide, enqueue_cas_job
-            for lang in ("en", "ja", "de", "ko", "ru"):
+            for lang in ("en", "ja", "de", "ko"):
                 decision = await cb_decide(
                     db, chemical_id, lang, has_cb_number=True,
                 )

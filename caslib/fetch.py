@@ -153,7 +153,7 @@ async def warm_session(session: aiohttp.ClientSession) -> int:
 # ---------------------------------------------------------------- CPP 语言页
 # (2026-09-01 收口: CPP 熔断器删除, 上游保护统一由 lease 闸门阶梯承担。)
 
-_CPP_LANG_SUFFIX = {"en": "_EN", "ja": "_JP", "de": "_DE", "ko": "_KR", "ru": "_RU"}
+_CPP_LANG_SUFFIX = {"en": "_EN", "ja": "_JP", "de": "_DE", "ko": "_KR"}
 
 
 async def fetch_cpp_locale(

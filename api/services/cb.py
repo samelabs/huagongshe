@@ -435,7 +435,7 @@ async def apply_structure_fill(
 # ---- 五态判定(数据链收口§5, DATA_CHAIN_REFACTOR_PLAN) ------
 # 锚 = chemical_cb 行 (chemical_id, locale)。时间窗口配置化, 可调。
 
-CB_LOCALES = ("zh-CN", "en", "ja", "de", "ko", "ru")  # IETF/BCP47 对齐
+CB_LOCALES = ("zh-CN", "en", "ja", "de", "ko")  # ru已摘(0831误加未实测, ru页对爬虫全封)
 
 
 async def _cb_window_days(db: Any) -> tuple[int, int]:
