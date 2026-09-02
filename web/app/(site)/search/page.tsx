@@ -23,6 +23,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   let total: number | null = null;
   let error = "";
   let fetchPending = false;
+  let redirectTarget: string | null = null;
   // 结构检索登录墙: mode!=exact 需要会话, SSR 转发浏览器 cookie 供 API 鉴权
   // P0(0902): exact 也透传 — 登录用户 CB miss 入列拿 80 分(此前 exact 匿名 50 分)
   const cookieValue = (await headers()).get("cookie") || "";
@@ -46,8 +47,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       total = data.total ?? null;
       fetchPending = data.cas_fetch_pending === true;
       // 0902 P3b: 库外 CAS 同步拉命中 — 数据已落库, 服务端直达详情页(零轮询)
+      // redirect() 以抛 NEXT_REDIRECT 异常实现, 必须在 try 外执行,
+      // 否则被下方 catch 吞成 networkError(0902 实测翻车: 列表+错误横幅同屏)。
       if (data.cas_fetch_chemical_id && page === 1) {
-        redirect(`/chemical/${data.cas_fetch_chemical_id}`);
+        redirectTarget = `/chemical/${data.cas_fetch_chemical_id}`;
       }
     }
   } catch (err) {
@@ -77,6 +80,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const start = (page - 1) * PAGE_SIZE + 1;
   const shown = start + chemicals.length - 1;
 
+  if (redirectTarget) redirect(redirectTarget);  // try 外: NEXT_REDIRECT 异常直穿
   return (
     <div className="content-page search-page">
       <header className="search-head">
