@@ -259,7 +259,7 @@ async def process_cas_job(
         stop.set()
         heartbeat_task.cancel()
         await asyncio.gather(heartbeat_task, return_exceptions=True)
-        await asyncio.sleep(2)  # 抓取礼仪间隔
+
 
 
 async def _pb_loop(
@@ -302,18 +302,19 @@ async def _pb_loop(
 async def _cb_loop(
     workapi: WorkApiClient,
     session: aiohttp.ClientSession,
+    rate: PubChemRateController,
 ) -> None:
     """CB 单链循环(直连链与代理链各起一个实例, 各自独立退避)。
 
-    每轮 lease 一条 → 单发处理(内部含 2s 礼仪) → 下一轮。对上游保持
-    各出口恒定串行节奏(与原主循环形态一致)。
+    请求节奏由 rps 限速器统一控制(0902: 礼仪sleep退役, 与 PB 同构);
+    两条 CB 链各持有独立限速器实例 → 对上游各出口恒定 rps。
     """
     idle = 2.0
     while True:
         try:
             leased = await workapi.post(
                 "/workapi/v1/cas/jobs/lease",
-                {"max_jobs": 1, "capabilities": ["cas"]},
+                {"max_jobs": 4, "capabilities": ["cas"]},
             )
             jobs = leased.get("jobs") or []
             if not jobs:
@@ -322,6 +323,7 @@ async def _cb_loop(
                 continue
             idle = 2.0
             for job in jobs:
+                await rate.acquire()
                 await process_cas_job(session, workapi, job)
         except Exception:
             log.exception("cb loop cycle failed")
@@ -381,13 +383,14 @@ async def run() -> None:
                 worker_id, concurrency, pb_proxy_url or "none(idle)",
                 cb_proxy_url or "none", ",".join(scopes),
             )
+            cb_rps = float(os.environ.get("HGS_CB_REQUESTS_PER_SECOND", "1"))
             loops = []
             if "pubchem" in scopes:
                 loops.append(_pb_loop(workapi, pb_session, rate, concurrency))
             if "cas" in scopes:
-                loops.append(_cb_loop(workapi, session))
+                loops.append(_cb_loop(workapi, session, PubChemRateController(cb_rps)))
                 if cb_proxy_session is not None:
-                    loops.append(_cb_loop(workapi, cb_proxy_session))
+                    loops.append(_cb_loop(workapi, cb_proxy_session, PubChemRateController(cb_rps)))
             if not loops:
                 log.error("no scopes enabled (HGS_WORKER_SCOPES=%r) — exiting", scopes)
                 return
