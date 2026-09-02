@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -122,6 +123,40 @@ async def upsert_externals(
             SET cb_number=coalesce(cb_number, :cb), updated_at=now()
             WHERE id=:chemical_id
         """), {"cb": cb_number, "chemical_id": chemical_id})
+    # 0902 GPT审计: basic 分拣补主表(只补空, coalesce(existing, cb值) 反向于
+    # PB 的 coalesce(incoming, existing) → CB 先占, 未来 PB 到达仍可覆盖)。
+    # 标签双兼容: 英文名/英文名称, CAS号/CAS, 分子式, 分子量。
+    # 分子量只接受有限正数; CAS 格式校验。仅 zh-CN ok 载荷。
+    if status == "ok" and locale == "zh-CN" and entry:
+        basic = {k: v for k, v in entry.get("basic") or [] if v}
+        cb_name = basic.get("英文名") or basic.get("英文名称")
+        cb_formula = basic.get("分子式")
+        cb_mass_raw = basic.get("分子量")
+        cb_mass = None
+        if cb_mass_raw:
+            try:
+                val = float(str(cb_mass_raw).strip())
+                if 0 < val < 10000:
+                    cb_mass = val
+            except ValueError:
+                cb_mass = None
+        cb_cas = basic.get("CAS号") or basic.get("CAS")
+        if cb_cas and not CAS_FORMAT_RE.fullmatch(str(cb_cas).strip()):
+            cb_cas = None
+        await db.execute(text("""
+            UPDATE chemistry.chemicals SET
+                preferred_name=coalesce(preferred_name, :nm),
+                molecular_formula=coalesce(molecular_formula, :fm),
+                average_mass=coalesce(average_mass, :ms),
+                cas_numbers = CASE WHEN :cs = ANY(cas_numbers) OR :cs IS NULL
+                    THEN cas_numbers
+                    ELSE array_append(cas_numbers, :cs) END,
+                updated_at=now()
+            WHERE id=:chemical_id
+        """), {
+            "nm": cb_name, "fm": cb_formula, "ms": cb_mass,
+            "cs": cb_cas, "chemical_id": chemical_id,
+        })
     # name_index 摄入: 仅 zh-CN 主行(镜像)
     if locale == "zh-CN":
         await ingest_from_entry_cn(
@@ -231,6 +266,10 @@ def _norm_country_code(raw: str | None) -> str | None:
     if len(s) == 2 and s.isalpha() and s.isupper():
         return s
     return _COUNTRY_CODE_MAP.get(s, s)
+
+
+# CAS 格式校验(0902 basic分拣用): 2-7位-2位-1位数字
+CAS_FORMAT_RE = re.compile(r"^\d{2,7}-\d{2}-\d$")
 
 
 def _dedupe_key(chemical_id: int, cas_number: str, locale: str = "zh-CN") -> str:
