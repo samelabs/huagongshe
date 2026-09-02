@@ -31,6 +31,7 @@ async def run_search_query(
     chemicals: list[dict[str, Any]] = []
     total: int | None = None
     cas_fetch_pending = False
+    cas_fetch_hit_id: int | None = None  # 0902 P3b: 同步拉命中, 前端直跳详情页
     clauses: list[str] = []
     params: dict[str, Any] = {}
     try:
@@ -117,17 +118,35 @@ async def run_search_query(
                     try:
                         from .cb import (
                             cas_search_state, enqueue_cas_search_fetch,
+                            sync_fetch_and_store,
                         )
                         state = await cas_search_state(db, query)
                         if state == "new":
-                            # 2026-08-30: cas-search-fetch 限速 + 深度闸门
-                            # 均已剥离(用户裁定: 治理交互不治理总量)。
-                            # 防重复由 dedupe 活跃窗口唯一索引承担。
+                            # 0902 P3b: 同步拉首屏 — 占行后当场抓 CB(3s 预算,
+                            # 路径B实测 ~1.5s), 命中即本次响应带回 chemical_id,
+                            # 前端直接跳详情页, 零轮询。失败/超时降级入列(80 分)。
+                            # 治理不变: 治理交互不治理总量, dedupe 活跃窗防重复。
                             enqueued = await enqueue_cas_search_fetch(
                                 db, cas_number=query,
                             )
                             await db.commit()
-                            state = "pending" if enqueued else "miss"
+                            if enqueued:
+                                row_id = (await db.execute(text("""
+                                    SELECT id FROM chemistry.chemicals
+                                    WHERE cas_numbers @> ARRAY[:cas] LIMIT 1
+                                """), {"cas": query})).scalar()
+                                synced = None
+                                if row_id is not None:
+                                    synced = await sync_fetch_and_store(
+                                        db, chemical_id=int(row_id), cas_number=query,
+                                    )
+                                if synced and synced.get("status") == "ok":
+                                    cas_fetch_hit_id = int(row_id)
+                                    state = "hit"
+                                else:
+                                    state = "pending"
+                            else:
+                                state = "miss"
                     except Exception:
                         await db.rollback()  # 入队失败不阻塞搜索响应
                         state = "new"
@@ -252,4 +271,4 @@ async def run_search_query(
     except Exception as exc:
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
-    return chemicals, total, reactions, cas_fetch_pending, canonical
+    return chemicals, total, reactions, cas_fetch_pending, canonical, cas_fetch_hit_id

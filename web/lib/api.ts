@@ -180,6 +180,8 @@ export type SearchResponse = {
   reactions: ReactionLookup[];
   /** CAS 未命中且已入队自动获取时为 true（2026-08-27 起后端返回） */
   cas_fetch_pending?: boolean;
+  /** 0902 P3b: 同步拉命中 — CB 数据已落库, 前端直接跳详情页 */
+  cas_fetch_chemical_id?: number;
 };
 
 export type ReactionDetail = {

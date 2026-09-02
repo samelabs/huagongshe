@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { ChemicalResult } from "@/components/ChemicalResult";
 import { EntityId } from "@/components/shared/EntityId";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -44,6 +45,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       reactions = data.reactions || [];
       total = data.total ?? null;
       fetchPending = data.cas_fetch_pending === true;
+      // 0902 P3b: 库外 CAS 同步拉命中 — 数据已落库, 服务端直达详情页(零轮询)
+      if (data.cas_fetch_chemical_id && page === 1) {
+        redirect(`/chemical/${data.cas_fetch_chemical_id}`);
+      }
     }
   } catch (err) {
     if (err instanceof ApiError) {

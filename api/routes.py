@@ -80,7 +80,7 @@ async def search(
 
     canonical = canonicalize_smiles(query)
     try:
-        chemicals, total, reactions, cas_fetch_pending, canonical = await run_search_query(
+        chemicals, total, reactions, cas_fetch_pending, canonical, cas_fetch_hit_id = await run_search_query(
             db, query, mode, canonical, page, page_size, offset,
         )
     except HTTPException:
@@ -96,6 +96,9 @@ async def search(
     }
     if cas_fetch_pending:
         data["cas_fetch_pending"] = True  # 前端提示: 正在获取该CAS数据
+    if cas_fetch_hit_id:
+        # 0902 P3b: 同步拉命中 — 数据已落库, 前端直接跳详情页
+        data["cas_fetch_chemical_id"] = cas_fetch_hit_id
     if mode != "exact":
         await cache_set(cache_key, data, ttl=300)
     return data
