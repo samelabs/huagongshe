@@ -160,13 +160,22 @@ _TYC_RE = re.compile(
 )
 
 
+# 上下游条目里的供应商导航链接(0902): CB 页下游区尾部挂"XXX国内生产厂家"
+# 供应商导航链接, 非化学品 — 过滤(实测污染 7447 行, 全为该尾缀, 无其他变体)。
+_UPDOWN_NAV_RE = re.compile(r"生产厂家$")
+
+
+def _clean_updown_names(names: list[str]) -> list[str]:
+    return [n for n in names if not _UPDOWN_NAV_RE.search(n)]
+
+
 def _parse_updown(block: str) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for m in _TYC_RE.finditer(block):
         label = text_of(m.group(1))
-        items = [
+        items = _clean_updown_names([
             t for t in (text_of(a) for a in re.findall(r"<a[^>]*>([\s\S]*?)</a>", m.group(2))) if t
-        ]
+        ])
         if label and items:
             key = "up" if "上游" in label else "down"
             out.setdefault(key, []).extend(items)
@@ -783,11 +792,11 @@ def parse_cpp_entry(html: str) -> dict[str, Any] | None:
     for label, key in (("上游原料", "up"), ("下游产品", "down")):
         lm = re.search(rf"<h3[^>]*>\s*{label}\s*</h3>([\s\S]*?)<(?:h3|table)", html)
         if lm:
-            names = [
+            names = _clean_updown_names([
                 text_of(a)
                 for a in re.findall(r"<a[^>]*>([\s\S]*?)</a>", lm.group(1))
                 if text_of(a)
-            ]
+            ])
             if names:
                 updown[key] = names
     if updown:
