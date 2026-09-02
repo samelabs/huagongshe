@@ -92,14 +92,14 @@ _MOL_ROW_KEY = "MOL 文件"
 # 0902: 标签兼容 MOL文件/MOL File(Mol文件), 单双引号均吃。
 _MOL_HREF_RE = re.compile(
     r"<span>\s*MOL\s*(?:文件|File|file)\s*</span>\s*<a[^>]*href=[\"']"
-    r"(/CAS/(?:\d+/)?mol/[^\"'?]+\.mol)[\"']",
+    r"(/[^\"'?]+\.mol)[\"']",
     re.I,
 )
 # 0902 GPT审计: CPP 页 dt/dd 形态(<dt>MOL File:</dt><dd><a href='...mol'>,
 # CB38154098 实测)。与 CAS 页 span 形态并存, 路径白名单一致。
 _MOL_HREF_CPP_RE = re.compile(
     r"<dt>\s*MOL\s*File:?\s*</dt>\s*<dd>\s*<a[^>]*href=[\"']"
-    r"(/CAS/(?:\d+/)?mol/[^\"'?]+\.mol)[\"']",
+    r"(/[^\"'?]+\.mol)[\"']",
     re.I,
 )
 

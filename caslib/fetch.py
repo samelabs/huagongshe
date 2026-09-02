@@ -224,9 +224,9 @@ async def fetch_mol(
     timeout_s: float = 10.0,
 ) -> str | None:
     """拉一个 mol 文件(站内绝对路径)。任何失败返回 None, 不抛。"""
-    # 0901: 兼容日期段路径 /CAS/{date}/mol/*.mol 与旧 /CAS/mol/*.mol
+    # 0902: 不做路径白名单 — 上下文锚已防误配, 此处只要求站内绝对路径+.mol
     import re as _re
-    if not _re.fullmatch(r"/CAS/(?:\d+/)?mol/[^?]+\.mol", mol_href):
+    if not _re.fullmatch(r"/[^?]+\.mol", mol_href):
         return None
     try:
         status, body = await _get(session, f"{BASE}{mol_href}", timeout_s)
