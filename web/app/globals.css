@@ -940,42 +940,15 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 
 }
 @media (max-width: 680px) {
-  /* 稳定容器：body不滚动，app-container撑满视口
-     规范§2：壳容器高度禁止视口单位(vh/dvh/svh)参与——单位在冷恢复时刻的
-     求值无契约(vh→dvh→svh 三次同位事故)，高度一律由视口锚定解析 */
-  html, body { height: 100%; overflow: hidden; }
-  .app-container {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    /* 底栏 fixed 锚定视口，高度恒定（不读 env()），内容让位同高度 */
-    padding-bottom: 50px;
-  }
-  /* PWA 独立窗口：inset 恒定，让位含安全区 */
-  @media (display-mode: standalone) {
-    .app-container { padding-bottom: calc(50px + env(safe-area-inset-bottom)); }
-  }
-
-  /* header固定顶部，不滚动 */
-  .site-header { flex-shrink: 0; }
-
-  /* main独立滚动，填满header和tabbar之间 */
-  main {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: clip;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 0 !important;
-  }
-
-  /* 移动端不显示footer，用TabBar替代 */
+  /* 移动端壳层 — 标准范式(cas.cool MODEL A 同构):
+     body 自然滚动, header sticky, tabbar fixed。
+     无视口单位、无 fixed 壳、无 overflow:hidden(body 成滚动容器是历代
+     冷启动失控的根: 恢复时刻滚动容器归属错位, 软导航一路带病)。 */
+  .site-header { position: sticky; top: 0; z-index: 30; }
+  main { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
   footer { display: none; }
 
-  /* TabBar固定底部，不在滚动流中 */
+  /* TabBar: fixed 底栏, 高度 56px, 让位只此一处(main padding-bottom) */
   .mobile-tab-bar {
     position: fixed;
     bottom: 0;
@@ -983,17 +956,10 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
     right: 0;
     z-index: 40;
     display: flex;
-    /* 高度恒定：浏览器模式零 env() 输入，消除 inset 跳变 */
-    height: 50px;
+    height: calc(56px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
     background: var(--paper);
     border-top: 1px solid var(--line);
-  }
-  /* PWA 独立窗口：inset 恒定，恢复安全区让位 */
-  @media (display-mode: standalone) {
-    .mobile-tab-bar {
-      height: calc(50px + env(safe-area-inset-bottom));
-      padding-bottom: env(safe-area-inset-bottom);
-    }
   }
   .mobile-tab-bar .tab-item {
     flex: 1;
@@ -1006,6 +972,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
     color: var(--quiet);
     font-size: 10px;
     line-height: 1;
+    text-decoration: none;
     -webkit-tap-highlight-color: transparent;
   }
   .mobile-tab-bar .tab-item.active { color: var(--blue); }

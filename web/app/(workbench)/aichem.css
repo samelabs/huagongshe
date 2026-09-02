@@ -8,8 +8,7 @@
    L2 — Shell
    ═══════════════════════════════════════════════════════════════ */
 .wb-shell {
-  /* 规范§2：壳高度由视口锚定解析，禁视口单位(vh/dvh/svh)参与
-     (与主站 app-container 同规，见 globals.css 手机段) */
+  /* 工作台独立壳(手机端 fixed inset:0, 桌面 md+ 静态), 与主站滚动模型独立 */
   position: fixed;
   inset: 0;
   display: flex;
