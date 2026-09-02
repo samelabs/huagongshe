@@ -130,7 +130,8 @@ async def enqueue_chemical_if_needed(
     cid = chemical[0]
     if cid is None:
         # PB 仅 cid 维护(2026-08-29 收口): 无 cid 行不入队。
-        return details, None, True
+        # 0902: 无cid=PB不适用, 无在途无待刷 → current(前端不宣称失败不轮询)
+        return details, None, False
     # 判窗: fetched_at 一个字段(0901 定案)。100天=可完成周期, worker 扩容再收紧。
     fresh = False
     if details is not None:

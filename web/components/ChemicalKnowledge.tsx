@@ -17,7 +17,11 @@ export function ChemicalKnowledge({ details, enrichment }: {
   enrichment: EnrichmentState | null | undefined;
 }) {
   if (!details) {
-    return <div className="enrichment-note">{t.chemical.knowledge.enrichError}</div>;
+    // 0902: queued=在途"补全中"; 其余(无cid=PB不适用)无数据不渲染不宣称失败,
+    // 与 CB 块(无数据整块静默)同口径。
+    if (enrichment?.status === "queued")
+      return <div className="enrichment-note">{t.chemical.knowledge.enriching}</div>;
+    return null;
   }
   const available = sections.filter(({ key }) => hasEntries(details[key]));
   return (

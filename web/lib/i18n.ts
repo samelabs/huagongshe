@@ -177,7 +177,6 @@ const t = {
       charge: '形式电荷',
       complexity: '复杂度',
       enriching: '补全中',
-      enrichError: '同步失败',
       noData: (section: string) => `暂无${section}数据。`,
     },
     synonyms: {
