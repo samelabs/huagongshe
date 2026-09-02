@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { CasExternals, type CasExternalsPayload } from "@/components/CasExternals";
 import { ChemicalKnowledge } from "@/components/ChemicalKnowledge";
+import { DetailRefresher } from "@/components/DetailRefresher";
 import { EntityId } from "@/components/shared/EntityId";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { Molecule } from "@/components/Molecule";
@@ -48,6 +49,13 @@ export default async function ChemicalPage({ params }: {
   const reactionTotal = reactionsResult?.total ?? 0;
 
   const details: DetailResponse = { details: chemical.details || null, enrichment: chemical.enrichment || { status: "current" } };
+
+  // 0902 P1: 在途判定 — PB queued 或 (有CAS但CB externals 还没数据) 时自动轮询
+  const cbInFlight = chemical.cas_numbers.length > 0
+    && externals !== null
+    && externals.entry === null
+    && (externals.suppliers?.length ?? 0) === 0;
+  const refreshActive = details.enrichment.status === "queued" || cbInFlight;
 
   const title = chemical.preferred_name || chemical.iupac_name || details.details?.record_title || t.common.unnamedCompound;
   const identifiers = identifierGroups(chemical);
@@ -106,6 +114,7 @@ export default async function ChemicalPage({ params }: {
             </dl>
           </section>
 
+          <DetailRefresher active={refreshActive} />
           <CasExternals payload={externals} />
           <ChemicalKnowledge details={details.details} enrichment={details.enrichment} />
           <SynonymExplorer chemicalId={chemical.id} initial={chemical.synonyms || []} total={chemical.synonym_count || 0} />
