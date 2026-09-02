@@ -314,7 +314,7 @@ async def _cb_loop(
         try:
             leased = await workapi.post(
                 "/workapi/v1/cas/jobs/lease",
-                {"max_jobs": 4, "capabilities": ["cas"]},
+                {"max_jobs": 10, "capabilities": ["cas"]},
             )
             jobs = leased.get("jobs") or []
             if not jobs:
