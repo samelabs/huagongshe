@@ -283,7 +283,8 @@ async def cas_lease_jobs(
         claim = (await db.execute(text("""
             WITH candidates AS (
                 SELECT j.id, j.chemical_id, j.cas_number,
-                       coalesce(j.request_context->>'locale','zh-CN') AS locale
+                       coalesce(j.request_context->>'locale','zh-CN') AS locale,
+                       j.request_context->>'reason' AS req_reason
                 FROM maintenance.cas_jobs j
                 WHERE j.status='queued'
                 ORDER BY j.priority DESC, j.id
@@ -291,6 +292,9 @@ async def cas_lease_jobs(
                 FOR UPDATE OF j SKIP LOCKED
             ), intercepted AS (
                 -- 负缓存命中(数据层已有 not_found 且窗内) = 答案已在, 直接出表。
+                -- 0902 GPT审计豁免: requeue_0902_challenged_pages 回补任务不拦 —
+                -- 这批目标行本来就是质询误判的 not_found, 拦截=静默删除修复队列
+                -- (实测 34k/36k 任务被删未真抓)。它们必须真抓并逐条覆盖。
                 DELETE FROM maintenance.cas_jobs j
                 WHERE j.id IN (
                     SELECT c.id FROM candidates c
@@ -300,6 +304,7 @@ async def cas_lease_jobs(
                      -- 重问窗内拦截; 超窗 not_found 放行重问(CB 可能新增收录)。
                      AND cb.fetched_at > now()-(:requery_days||' days')::interval
                     WHERE c.chemical_id IS NOT NULL
+                      AND coalesce(c.req_reason, '') <> 'requeue_0902_challenged_pages'
                 )
                 RETURNING j.id
             )
