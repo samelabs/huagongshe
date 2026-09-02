@@ -1161,10 +1161,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .pipe-chip.silent { color: #8a6d00; border-color: #e0c56e; background: #fdf6e3; }
 .pipe-chip.error { color: #b33; border-color: #e6b3b3; background: #fdf0f0; }
 .pipe-tr-4 { grid-template-columns: 140px 1fr 1fr 1fr; }
-.pipe-tr-5 { grid-template-columns: 120px 1fr 1fr 1fr 1.4fr; }
-.pipe-tr-latest { grid-template-columns: 48px 110px 1fr 80px 96px 90px; }
-.pipe-link { color: var(--accent, #2563eb); text-decoration: none; border-bottom: 1px dotted currentColor; }
-.pipe-link:hover { opacity: 0.8; }
-.pipe-src-links { display: flex; gap: 8px; }
+.pipe-tr-latest { grid-template-columns: 48px 110px 1fr 80px 90px; }
 .pipe-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .pipe-locale.pb-tag { color: var(--blue); }

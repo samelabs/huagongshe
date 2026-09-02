@@ -463,23 +463,6 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     cb_tp = {r[0]: int(r[1]) for r in cb_tp_rows}
     cb_throughput = {"ok": cb_tp.get("ok", 0), "not_found": cb_tp.get("not_found", 0),
                      "total": cb_tp.get("ok", 0) + cb_tp.get("not_found", 0)}
-    # 0902 重构: 重采监控口径 — 1h分语言成功率 + 错杀翻案累计(老not_found被ok覆盖)
-    cb_1h_rows = (await db.execute(text("""
-        SELECT locale,
-               count(*) FILTER (WHERE last_status='ok') AS ok,
-               count(*) FILTER (WHERE last_status='not_found') AS nf
-        FROM chemistry.chemical_cb
-        WHERE fetched_at >= now() - interval '1 hour'
-        GROUP BY locale ORDER BY locale
-    """))).fetchall()
-    cb_1h = [{"locale": r[0], "ok": int(r[1]), "not_found": int(r[2]),
-              "ok_rate": round(100.0 * int(r[1]) / int(r[1] + r[2]), 1) if int(r[1] + r[2]) else None}
-             for r in cb_1h_rows]
-    cb_reclaimed = int((await db.execute(text("""
-        SELECT count(*) FROM chemistry.chemical_cb
-        WHERE last_status='ok' AND fetched_at >= current_date
-          AND created_at < current_date
-    """))).scalar())
     cb_rate = int((await db.execute(text("""
         SELECT count(*) FROM chemistry.chemical_cb
         WHERE fetched_at >= now() - interval '1 hour'
@@ -552,25 +535,19 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     # 实时入库滚动(两链合并, 最新10条)
     latest_cb = [
         {"chain": "CB", "chemical_id": r[0], "detail": r[1] or "zh-CN",
-         "status": r[2], "at": r[3].isoformat() if r[3] else None,
-         "cas": r[4], "has_entry": r[5],
-         "site_url": (f"https://www.chemicalbook.com/CAS_{r[4]}.htm" if r[4] else None)}
+         "status": r[2], "at": r[3].isoformat() if r[3] else None}
         for r in (await db.execute(text("""
-            SELECT cb.chemical_id, cb.locale, cb.last_status, cb.fetched_at,
-                   cb.cas_number, cb.entry IS NOT NULL
-            FROM chemistry.chemical_cb cb ORDER BY cb.fetched_at DESC LIMIT 10
+            SELECT chemical_id, locale, last_status, fetched_at
+            FROM chemistry.chemical_cb ORDER BY fetched_at DESC LIMIT 10
         """))).fetchall()
     ]
     latest_pb = [
         {"chain": "PB", "chemical_id": r[0],
          "detail": (r[1] or "")[:40], "status": "ok",
-         "at": r[2].isoformat() if r[2] else None,
-         "cid": r[3]}
+         "at": r[2].isoformat() if r[2] else None}
         for r in (await db.execute(text("""
-            SELECT p.chemical_id, p.record_title, p.fetched_at, c.pubchem_cid
-            FROM chemistry.chemical_pubchem p
-            JOIN chemistry.chemicals c ON c.id = p.chemical_id
-            ORDER BY p.fetched_at DESC LIMIT 10
+            SELECT chemical_id, record_title, fetched_at
+            FROM chemistry.chemical_pubchem ORDER BY fetched_at DESC LIMIT 10
         """))).fetchall()
     ]
     latest = sorted(latest_cb + latest_pb, key=lambda x: x["at"] or "", reverse=True)[:10]
@@ -587,8 +564,6 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
             "throughput": cb_throughput, "rate_1h": cb_rate,
             "latest_at": cb_latest_at.isoformat() if cb_latest_at else None,
             "locales_today": cb_locales,
-            "rate_1h_by_locale": cb_1h,
-            "reclaimed_today": cb_reclaimed,
         },
         "pb": {
             "queue": pb_queue, "error_buckets": pb_errors,
