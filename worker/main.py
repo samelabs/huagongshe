@@ -205,7 +205,10 @@ async def process_cas_job(
                         payload["cb_number"] = result.cb_number
                     # mol 文件: 详情页有外链才拉(无外链=零请求); 失败退化 None。
                     # 占位行靠这个回填结构三件, 否则smiles展示无图。
-                    mol_href = extract_mol_href(result.cas_html or "")
+                    # 0902: mol 双源 — CAS 页 span 形态 or CPP 页 dt/dd 形态
+                    # (路径A cas_html=None, mol 只在 CPP 页上, 原先结构性拿不到)
+                    mol_href = extract_mol_href(result.cas_html or "") or \
+                        extract_mol_href(result.cpp_html or "")
                     if mol_href:
                         payload["mol"] = await fetch_mol(session, mol_href)
         else:

@@ -89,17 +89,26 @@ _MOL_ROW_KEY = "MOL 文件"
 # mol 外链(2026-08-28 实测锚点; 0901 修正: CB 路径带日期段 /CAS/{YYYYMMDD}/mol/):
 # Basicsl 内 <span>MOL 文件</span><a title="..MolFile" href="/CAS/20180703/mol/{cas}.mol">
 # 旧形态 /CAS/mol/{cas}.mol 仍兼容。只在"MOL 文件"行上下文内取站内绝对路径, 拒绝外域/散页误配
+# 0902: 标签兼容 MOL文件/MOL File(Mol文件), 单双引号均吃。
 _MOL_HREF_RE = re.compile(
-    r"<span>\s*MOL\s*文件\s*</span>\s*<a[^>]*href=[\"'](/CAS/(?:\d+/)?mol/[^\"'?]+\.mol)[\"']",
+    r"<span>\s*MOL\s*(?:文件|File|file)\s*</span>\s*<a[^>]*href=[\"']"
+    r"(/CAS/(?:\d+/)?mol/[^\"'?]+\.mol)[\"']",
+    re.I,
+)
+# 0902 GPT审计: CPP 页 dt/dd 形态(<dt>MOL File:</dt><dd><a href='...mol'>,
+# CB38154098 实测)。与 CAS 页 span 形态并存, 路径白名单一致。
+_MOL_HREF_CPP_RE = re.compile(
+    r"<dt>\s*MOL\s*File:?\s*</dt>\s*<dd>\s*<a[^>]*href=[\"']"
+    r"(/CAS/(?:\d+/)?mol/[^\"'?]+\.mol)[\"']",
     re.I,
 )
 
 
 def extract_mol_href(cas_html: str) -> str | None:
-    """详情页 MOL 文件外链(站内路径), 无则 None。管制品/无结构条目无此前提。"""
+    """详情页/CPP页 MOL 文件外链(站内路径), 无则 None。管制品/无结构条目无此前提。"""
     if not cas_html:
         return None
-    m = _MOL_HREF_RE.search(cas_html)
+    m = _MOL_HREF_RE.search(cas_html) or _MOL_HREF_CPP_RE.search(cas_html)
     return m.group(1) if m else None
 
 
