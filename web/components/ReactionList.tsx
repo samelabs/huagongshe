@@ -38,7 +38,7 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
       <div className="role-filter">{roles.map((value) => (
         <button type="button" className={`role-filter-btn${role === value ? " active" : ""}`} key={value} onClick={() => { setRole(value); setPage(1); }}>{roleNames[value]}</button>
       ))}</div>
-      {loading ? <p className="quiet-empty">{t.common.loadingShort}</p> : data.reactions.length > 0 ? (
+      {loading ? <p className="quiet-empty">{t.common.loading}</p> : data.reactions.length > 0 ? (
         <div className="reaction-results">{data.reactions.map((reaction) => (
           <article className="reaction-result" key={reaction.id}>
             <div className="reaction-result-main">

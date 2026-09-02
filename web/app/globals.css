@@ -108,7 +108,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .page-kicker, .section-heading p { margin: 0 0 8px; color: var(--blue); font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
 .entity-id { display: inline-flex; align-items: baseline; gap: 5px; border-radius: 3px; padding: 5px 7px; color: var(--ink); background: var(--blue-pale); box-shadow: inset 2px 0 0 var(--blue); vertical-align: middle; font-variant-numeric: tabular-nums; line-height: 1; }
 .entity-id > span { color: var(--blue-deep); font-size: 8px; font-weight: 850; letter-spacing: .09em; }
-.entity-id > strong { color: var(--reaction-ink); font-family: "SFMono-Regular", Consolas, monospace; font-size: var(--text-sm); font-weight: 700; }
+.entity-id > strong { color: var(--reaction-ink); font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; }
 .entity-id.reaction { background: var(--reaction-bg); box-shadow: inset 2px 0 0 var(--reaction); }
 .entity-id.reaction > span { color: var(--reaction); }
 .entity-id.reaction > strong { color: var(--reaction-ink); }
@@ -466,9 +466,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .follow-button { min-height: 36px; border: 1px solid var(--blue); border-radius: 999px; padding: 0; display: inline-flex; overflow: hidden; color: var(--blue); background: var(--blue-tint); cursor: pointer; transition: background .15s, color .15s; }
 .follow-button span { padding: 0 16px; display: flex; align-items: center; font-size: var(--text-sm); font-weight: 600; }
 .follow-button strong { min-width: 42px; border-left: 1px solid var(--blue-border); padding: 0 10px; display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--blue-pale); font-size: var(--text-sm); }
-.follow-button:hover { background: var(--blue-pale); }
 .follow-button.following { color: white; background: var(--blue); border-color: var(--blue); }
-.follow-button.following:hover { background: var(--blue-deep); }
 .owner-actions { display: flex; gap: 8px; }
 .creator-card > a { display: flex; align-items: center; gap: 10px; }
 .creator-avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; color: white; background: var(--blue); font-weight: 700; }
@@ -498,7 +496,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .profile-counts-inline strong { color: var(--heading-soft); font-weight: var(--section-weight); font-variant-numeric: tabular-nums; margin-left: 12px; }
 .profile-counts-inline strong:first-child { margin-left: 0; }
 .profile-edit-link { font-size: var(--text-sm); color: var(--blue); border: 1px solid var(--blue-border); border-radius: 999px; padding: 6px 16px; font-weight: 600; background: var(--blue-tint); }
-.profile-edit-link:hover { background: var(--blue-pale); }
 .public-profile-header { margin-bottom: 0; border-bottom: 0; padding-bottom: 28px; }
 .follow-status-tag { font-size: var(--text-sm); color: var(--muted); background: var(--wash); border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px; white-space: nowrap; }
 .follow-status-tag.mutual { color: var(--blue); border-color: var(--blue-border); background: var(--blue-pale); }
@@ -600,8 +597,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 16px; }
 .dashboard-card { position: relative; border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; display: flex; flex-direction: column; gap: 6px; background: var(--paper); overflow: hidden; transition: border-color .15s, box-shadow .15s, transform .15s; }
 .dashboard-card::after { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, var(--blue), transparent 70%); opacity: 0; transition: opacity .15s; }
-.dashboard-card:hover { border-color: var(--blue-border); box-shadow: 0 4px 16px rgba(30,144,255,.10); transform: translateY(-1px); }
-.dashboard-card:hover::after { opacity: 1; }
 .dashboard-card-label { font-size: var(--text-xs); font-weight: 800; letter-spacing: .14em; color: var(--blue); text-transform: uppercase; }
 .dashboard-card-value { font-size: 30px; font-weight: var(--title-weight); color: var(--heading); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .dashboard-card-sub { font-size: var(--text-sm); color: var(--muted); }
@@ -899,7 +894,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   overflow: hidden;
 }
 
-
 /* 卡片统计信息 */
 .kdense-card-stats {
   display: flex; gap: 8px; margin-top: 6px;
@@ -1022,7 +1016,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .admin-nav { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 1px; padding: 10px; border-radius: 14px; background: linear-gradient(180deg, #16283c 0%, #101d2c 100%); box-shadow: 0 6px 24px rgba(16,29,44,.16); }
 .admin-nav::before { content: "管理控制台"; padding: 6px 12px 10px; color: #7fa3c9; font-size: 11px; font-weight: 800; letter-spacing: .18em; }
 .admin-nav a { padding: 10px 12px; border-radius: 9px; color: #b9c9dc; font-size: var(--text-sm); line-height: 1.4; text-decoration: none; transition: background .12s, color .12s; }
-.admin-nav a:hover { color: #fff; background: rgba(255,255,255,.06); }
 .admin-nav a.active { color: #fff; background: var(--blue); font-weight: 700; box-shadow: 0 2px 8px rgba(30,144,255,.35); }
 /* ── 数据管道(samelabs/pipeline) ── */
 .pipe-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1051,13 +1044,12 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 *::-webkit-scrollbar { width: 6px; height: 6px; }
 *::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
-*::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 *::-webkit-scrollbar-track { background: transparent; }
 
 /* ── CB 中文扩展条目/供应商(casext) ───────────────── */
 .casext-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .casext-tag { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: var(--text-xs); color: var(--text-soft, var(--muted)); background: var(--wash, transparent); }
-.casext-tag.en { font-family: var(--mono, monospace); }
+.casext-tag.en { font-family: var(--font-mono); }
 .casext-prose-list p { margin: 0 0 10px; font-size: var(--text); line-height: 1.75; }
 .casext-prose-list strong { display: inline-block; margin-right: 10px; color: var(--heading); font-weight: 650; }
 .casext-updown { display: grid; gap: 18px; }
@@ -1076,7 +1068,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .casext-supplier dl > div { grid-template-columns: 84px 1fr; }
 }
 
-
 /* ── MCP 连接器页(自包含, 仅 mcp-* 新类) ────────────────── */
 .mcp-connect { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: var(--wash); display: flex; flex-direction: column; gap: 10px; }
 .mcp-connect-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
@@ -1090,12 +1081,10 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .mcp-tools-table td { vertical-align: top; }
 .mcp-tool-auth { color: var(--ink-soft); font-size: var(--text-sm); white-space: nowrap; }
 
-
 /* ── 首页三入口卡片(M2, 自包含 home-card-*) ─────────────── */
 .home-cards-kicker { margin: 8px 0 10px; color: var(--muted); font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; }
 .home-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .home-card { border: 1px solid var(--line); border-radius: 9px; padding: 20px 22px 18px; display: grid; gap: 6px; align-content: start; color: var(--ink); background: var(--paper); transition: border-color .15s, box-shadow .15s; cursor: pointer; }
-.home-card:hover { border-color: var(--blue); box-shadow: 0 2px 10px rgb(30 144 255 / .10); }
 .home-card-kicker { font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; }
 .home-card strong { font-size: 17px; font-weight: var(--section-weight); }
 .home-card > span:nth-of-type(2) { color: var(--heading-soft); font-size: var(--text-sm); line-height: 1.7; }
@@ -1123,7 +1112,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .pipe-error-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px dashed var(--line); padding-top: 8px; }
 .pipe-buckets { display: flex; gap: 4px; flex-wrap: wrap; }
 .pipe-revive-btn { font-size: var(--text-xs); border: 1px solid var(--blue-border); color: var(--blue); background: transparent; border-radius: 999px; padding: 2px 12px; cursor: pointer; }
-.pipe-revive-btn:hover { background: rgba(30,144,255,.08); }
 .pipe-revive-btn:disabled { opacity: .5; cursor: wait; }
 .pipe-chip.silent { color: #8a6d00; border-color: #e0c56e; background: #fdf6e3; }
 .pipe-chip.error { color: #b33; border-color: #e6b3b3; background: #fdf0f0; }
@@ -1131,3 +1119,19 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .pipe-tr-latest { grid-template-columns: 48px 110px 1fr 80px 90px; }
 .pipe-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .pipe-locale.pb-tag { color: var(--blue); }
+
+/* 键盘可达: 统一焦点环(仅键盘Tab时显示, 不干扰点击) */
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* ── hover 交互: 只在真指针设备生效(触屏跳过) ── */
+@media (hover: hover) and (pointer: fine) {
+.follow-button:hover { background: var(--blue-pale); }
+.follow-button.following:hover { background: var(--blue-deep); }
+.profile-edit-link:hover { background: var(--blue-pale); }
+.dashboard-card:hover { border-color: var(--blue-border); box-shadow: 0 4px 16px rgba(30,144,255,.10); transform: translateY(-1px); }
+.dashboard-card:hover::after { opacity: 1; }
+.admin-nav a:hover { color: #fff; background: rgba(255,255,255,.06); }
+*::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+.home-card:hover { border-color: var(--blue); box-shadow: 0 2px 10px rgb(30 144 255 / .10); }
+.pipe-revive-btn:hover { background: rgba(30,144,255,.08); }
+}

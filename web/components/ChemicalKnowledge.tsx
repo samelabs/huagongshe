@@ -40,15 +40,15 @@ export function ChemicalKnowledge({ details, enrichment }: {
         <EvidenceSection key={key} eyebrow={eyebrow} title={title} block={details[key] as EvidenceBlock} />
       ))}
       {available.length === 0 && enrichment?.status !== "current" && (
-        <div className="enrichment-note">{t.chemical.knowledge.enrichPendingMsg}</div>
+        <div className="enrichment-note">{t.chemical.knowledge.enriching}</div>
       )}
     </>
   );
 }
 
 function SourceState({ enrichment }: { enrichment?: EnrichmentState | null }) {
-  if (!enrichment || enrichment.status === "current") return <span>{t.chemical.knowledge.synced}</span>;
-  return <span>{enrichment.status === "queued" ? t.chemical.knowledge.enriching : t.chemical.knowledge.enrichPending}</span>;
+  if (!enrichment || enrichment.status === "current") return null;
+  return <span>{t.chemical.knowledge.enriching}</span>;
 }
 
 function Metric({ label, value, suffix = "" }: { label: string; value: number | null | undefined; suffix?: string }) {
