@@ -630,22 +630,20 @@ def parse_cpp_entry_en(html: str) -> dict[str, Any] | None:
 # 输出与 CAS 页 entry 同构(basic/aliases/props/safety/prose/updown) + 两个增量段
 # (reagent_prices/global_distribution), 前端消费零改。
 
-_CPP_NOT_FOUND_RE = re.compile(r"本站不显示该产品信息")
-_CPP_BUSY_RE = re.compile(r"系统忙")
+_CPP_PAGE_MIN_BYTES = 10_000  # 真页实测 ≥12.8KB, 错误/降级页 <1KB, 中间零样本。
+# 0902 用户口径: <10KB 一律 error(系统/网络/质询错误, 留记录走重试);
+# ≥10KB 才是真页面 — 解析不出内容 = not_found(占位页), 判定单点在大小。
 
 
 def cpp_page_state(html: str | None) -> str:
-    """CPP 页三态: ok / not_found(真拒绝) / busy(临时限流) / empty。
+    """CPP 页判定(0902 用户口径): 大小分界, 不做文本特征匹配。
 
-    "系统忙"是上游限流降级(实测 14 字节页) — 语义=error 走重试,
-    绝不能当 not_found 落负缓存(会 1 天内锁死品目)。
+    - 大页(≥10KB): 真页面 — ok(占位/无内容由上层解析器判, 解析空=无有效信息)
+    - 小页(<10KB): 系统错误/网络错误/质询降级 — 一律 error 语义, 走重试。
+    系统错误/网络错误留存记录(error), 不落数据层; not_found 只有大页才有资格。
     """
-    if not html or len(html) < 500:
-        return "empty" if html is not None else "empty"
-    if _CPP_NOT_FOUND_RE.search(html):
-        return "not_found"
-    if _CPP_BUSY_RE.search(html) and len(html) < 1000:
-        return "busy"
+    if html is None or len(html) < _CPP_PAGE_MIN_BYTES:
+        return "error"
     return "ok"
 _CPP_SKIP_DT = {"CBNumber", "MOL File"}
 
@@ -681,12 +679,12 @@ def _balanced_table(html: str, start: int) -> tuple[int, int] | None:
 
 
 def parse_cpp_entry(html: str) -> dict[str, Any] | None:
-    """CPP-CN 页 -> entry。真拒绝页/空页返回 None。
+    """CPP-CN 页 -> entry。解析不出内容返回 None(调用方落 not_found)。
 
-    上游"系统忙"限流页由 cpp_page_state() 区分, 调用方须先判 busy(error 重试),
-    不进本函数语义。这里 _CPP_NOT_FOUND_RE 只兜真拒绝。
+    页面有效性由 cpp_page_state() 前置判定(0902: <10KB 一律 error),
+    本函数不做文本特征判断 — 拼接不出内容 = 无有效信息。
     """
-    if not html or _CPP_NOT_FOUND_RE.search(html):
+    if not html:
         return None
     entry: dict[str, Any] = {}
     m_tbl = re.search(r'<table id="ChemicalProperties"', html, re.I)

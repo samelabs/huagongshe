@@ -82,6 +82,26 @@ async def upsert_externals(
     # 拆除 — expires_at 恒 NULL, fetched_at 即"何时取到/何时确认没有"。
     # ok 与 not_found 同为终态; 回补是未来手动脚本的事, 不进自动机制。
     expires = None
+    # 0902 写入层保底: not_found 不得洗数据 — 已有 ok entry 的行,
+    # not_found 只翻状态不覆盖 entry(上游质询降级页曾被误判 not_found,
+    # 把几十KB真entry NULL覆盖)。entry 随 ok 到达才写。
+    if status == "not_found":
+        await db.execute(text("""
+            INSERT INTO chemistry.chemical_cb
+                (chemical_id,cas_number,entry,last_status,fetched_at,expires_at,locale)
+            VALUES
+                (:chemical_id,:cas_number,NULL,:status,now(),:expires,:locale)
+            ON CONFLICT (chemical_id, locale) DO UPDATE SET
+                cas_number=excluded.cas_number,
+                last_status=excluded.last_status,
+                fetched_at=excluded.fetched_at,
+                expires_at=excluded.expires_at,
+                updated_at=now()
+        """), {
+            "chemical_id": chemical_id, "cas_number": cas_number,
+            "status": status, "expires": expires, "locale": locale,
+        })
+        return
     await db.execute(text("""
         INSERT INTO chemistry.chemical_cb
             (chemical_id,cas_number,entry,last_status,fetched_at,expires_at,locale)

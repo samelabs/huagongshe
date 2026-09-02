@@ -212,15 +212,13 @@ async def process_cas_job(
         else:
             # 语言行: cb_number 直拉 CPP 语言页, 只写 entry。
             cpp_state, cpp_html = await fetch_cpp_locale(session, job.get("cb_number"), locale)
-            if cpp_state in ("busy", "error"):
+            if cpp_state == "error":
                 await workapi.post(
                     "/workapi/v1/cas/jobs/error",
                     {
                         "job_id": job["job_id"],
                         "lease_token": job["lease_token"],
-                        "error_code": (
-                            "cpp_busy" if cpp_state == "busy" else "cpp_fetch_error"
-                        ),
+                        "error_code": "cpp_error_page",
                         "error_detail": f"locale={locale} {cpp_state}",
                     },
                 )

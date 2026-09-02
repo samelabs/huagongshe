@@ -78,21 +78,19 @@ class TestLadder(unittest.TestCase):
 class TestFetchMapping(unittest.TestCase):
     """过渡判定(§1): fetch 三态映射 — 用 cpp_page_state 真函数验判定边界。"""
 
-    def test_busy_page_is_busy(self):
+    def test_small_pages_are_error(self):
         from caslib.parse import cpp_page_state
-        # busy 正则 + 长度 >500B(<500B 归 empty, 实测 14 字节页现归 not_found 路径)
-        body = "系统忙" + "x" * 600
-        self.assertEqual(cpp_page_state(body), "busy")
-
-    def test_empty_page(self):
-        from caslib.parse import cpp_page_state
-        self.assertEqual(cpp_page_state(""), "empty")
-        self.assertEqual(cpp_page_state(None), "empty")
-        self.assertEqual(cpp_page_state("<html></html>"[:200]), "empty")
+        # 0902 用户口径: <10KB 一律 error(系统忙/质询降级/空壳/网络错误页)
+        self.assertEqual(cpp_page_state("SysTem ERROR！"), "error")
+        self.assertEqual(cpp_page_state("尊敬的用户您好！系统忙。。。"), "error")
+        self.assertEqual(cpp_page_state(""), "error")
+        self.assertEqual(cpp_page_state(None), "error")
+        self.assertEqual(cpp_page_state("<html>" + "x" * 2000), "error")
 
     def test_normal_page_is_ok(self):
         from caslib.parse import cpp_page_state
-        body = "<html>" + "x" * 2000 + "</html>"
+        # 真页实测 ≥12.8KB; ≥10KB 即真页面
+        body = "<html>" + "x" * 12_000 + "</html>"
         self.assertEqual(cpp_page_state(body), "ok")
 
 

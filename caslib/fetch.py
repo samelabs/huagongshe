@@ -14,19 +14,15 @@ import aiohttp
 log = logging.getLogger("caslib.fetch")
 
 BASE = "https://www.chemicalbook.com"
-UA = (
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
-)
-# 浏览器指纹补齐: 真实 Chrome 的配套请求头, 与 UA 同源.
-# Chrome 大版本随官方 stable 走(2026-08: 153), 三位后归零是真实
-# Chrome UA 的形态(只带主版本); 完整版本号反而不像浏览器.
-# _get() 请求级合并; session 级仅兜底 UA(共享 session 由 _get 覆盖).
+# 0902 定案: 站点防爬升级为 JS 质询(_ancsi_ 令牌组, 纯HTTP客户端无法应答),
+# Chrome 仿真 UA 全线 13B "SysTem ERROR！" / 42B "系统忙" 降级页(实测头/IP/TLS/
+# cookie 逐项排除)。Googlebot UA 走搜索引擎白名单直通(实测 EN/CN/CAS 三类页
+# 均 200 全量真页), 遂整体伪装。若上游启用反解域名验证再回退。
+UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+# 爬虫UA不带浏览器配套头(Referer/Accept-Language 反而是破绽), 只保留最小集.
 BROWSER_HEADERS = {
     "User-Agent": UA,
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-    "Referer": f"{BASE}/ProductIndex.aspx",
 }
 
 
@@ -94,12 +90,9 @@ async def fetch_cas(
             state = cpp_page_state(body)
             log.info("cpp cb=%s loc=zh status=200 bytes=%s state=%s",
                      cb_number, len(body), state)
-            if state == "busy":
-                return FetchResult("error", error="cpp_busy", cb_number=cb_number,
-                                   stats=stats)
-            if state in ("empty", "not_found"):
-                # 空壳 200 与无条目页同归 not_found: 可达, 无有效信息。
-                return FetchResult("not_found", cpp_html=None, cb_number=cb_number,
+            if state == "error":
+                # 小页=系统错误/质询降级(0902): 留 error 行重试, 不落数据层。
+                return FetchResult("error", error="cpp_error_page", cb_number=cb_number,
                                    stats=stats)
             return FetchResult("ok", cpp_html=body, cb_number=cb_number, stats=stats)
         # 路径B: 无号 → CAS 详情页
@@ -129,7 +122,7 @@ async def fetch_cas(
                      cb, len(body2), state2)
             if state2 == "ok":
                 cpp_html = body2
-            # busy/empty/not_found: CPP 段缺失, CAS 页 entry 仍完整 → ok 不降级
+            # error(小页): CPP 段缺失, CAS 页 entry 仍完整 → ok 不降级
         else:
             log.info("cpp cb=%s loc=zh status=%s state=error", cb, status2)
         return FetchResult(
@@ -199,11 +192,9 @@ async def fetch_cpp_locale(
     state = cpp_page_state(body)
     log.info("cpp cb=%s loc=%s status=200 bytes=%s state=%s",
              cb_number, locale, len(body), state)
-    if state == "busy":
-        return "busy", None
-    if state in ("empty", "not_found"):
-        # 空壳 200 与无变体页同归判定成功: 该条目无此语言有效信息。
-        return "ok", None
+    if state == "error":
+        # 小页=系统错误/质询降级(0902): error 性质走重试, 不落 not_found。
+        return "error", None
     return "ok", body
 
 
