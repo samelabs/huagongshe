@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import hashlib
 import hmac
 import json
@@ -260,33 +259,111 @@ async def process_cas_job(
         await asyncio.sleep(2)  # 抓取礼仪间隔
 
 
+async def _pb_loop(
+    workapi: WorkApiClient,
+    pb_session: aiohttp.ClientSession | None,
+    rate: PubChemRateController,
+    concurrency: int,
+) -> None:
+    """PB 循环(独立退避/异常, 不与其他链互等)。
+
+    pb_session 为 None = PB 代理缺席(0902 守卫): 本机 IP 已被 NCBI 封禁,
+    直连=打进 abuse 页持续加害, 宁可 idle 等人修 env 重启。恢复途径只有
+    restart(环境变量启动时读一次, 不做运行时热读)。
+    """
+    if pb_session is None:
+        log.error("pb proxy missing (HGS_PUBCHEM_PROXY unset) — pubchem loop idle")
+        return
+    idle = 2.0
+    while True:
+        try:
+            leased = await workapi.post(
+                "/workapi/v1/jobs/lease",
+                {"max_jobs": concurrency, "capabilities": ["pubchem"]},
+            )
+            jobs = leased.get("jobs") or []
+            if not jobs:
+                wait = float(leased.get("retry_after_seconds", 5))
+                idle = min(1800.0, max(wait, idle * 1.5))
+                await asyncio.sleep(idle + random.random())
+                continue
+            idle = 2.0
+            await asyncio.gather(
+                *(process_job(pb_session, workapi, rate, job) for job in jobs)
+            )
+        except Exception:
+            log.exception("pb loop cycle failed")
+            await asyncio.sleep(5)
+
+
+async def _cb_loop(
+    workapi: WorkApiClient,
+    session: aiohttp.ClientSession,
+) -> None:
+    """CB 单链循环(直连链与代理链各起一个实例, 各自独立退避)。
+
+    每轮 lease 一条 → 单发处理(内部含 2s 礼仪) → 下一轮。对上游保持
+    各出口恒定串行节奏(与原主循环形态一致)。
+    """
+    idle = 2.0
+    while True:
+        try:
+            leased = await workapi.post(
+                "/workapi/v1/cas/jobs/lease",
+                {"max_jobs": 1, "capabilities": ["cas"]},
+            )
+            jobs = leased.get("jobs") or []
+            if not jobs:
+                idle = min(10.0, idle * 1.5)
+                await asyncio.sleep(idle + random.random())
+                continue
+            idle = 2.0
+            for job in jobs:
+                await process_cas_job(session, workapi, job)
+        except Exception:
+            log.exception("cb loop cycle failed")
+            await asyncio.sleep(5)
+
+
 async def run() -> None:
     base_url = os.environ["HGS_WORKAPI_URL"]
     worker_id = os.environ["HGS_WORKER_ID"]
     token = os.environ["HGS_WORKER_TOKEN"]
     concurrency = min(max(int(os.environ.get("HGS_WORKER_CONCURRENCY", "2")), 1), 8)
     requests_per_second = float(os.environ.get("HGS_PUBCHEM_REQUESTS_PER_SECOND", "4"))
-    connector = aiohttp.TCPConnector(limit=concurrency + 4, ttl_dns_cache=300)
-    # PB 专用出口(2026-08-29): 本机直连 IP 被 PubChem 封禁(abuse 302),
-    # 经本机 socks(127.0.0.1) 走远端出口, 仅 PubChem 流量使用。
-    # CB/工作API等其余流量仍走直连 session, 两链出口互不影响。
+    scopes = [
+        s.strip() for s in os.environ.get("HGS_WORKER_SCOPES", "pubchem,cas").split(",")
+        if s.strip()
+    ]
+    # 环境变量只在启动时读一次(0902): 运行时热读属画蛇添足, 变更走 restart+save。
     pb_proxy_url = os.environ.get("HGS_PUBCHEM_PROXY", "")
-    if pb_proxy_url:
-        from aiohttp_socks import ProxyConnector
+    cb_proxy_url = os.environ.get("HGS_CB_PROXY", "")
 
-        pb_connector = ProxyConnector.from_url(pb_proxy_url, ttl_dns_cache=300)
-    else:
-        pb_connector = None
+    # 代理 connector 显式创建(0902 GPT审计): 两出口各自导入, 不共享 PB 分支的
+    # import — PB 代理缺席 + CB 代理在 的组合不得 NameError。
+    from aiohttp_socks import ProxyConnector
+
+    connector = aiohttp.TCPConnector(limit=concurrency + 4, ttl_dns_cache=300)
     async with aiohttp.ClientSession(connector=connector) as session:
-        # PB 代理 session 与直连 session 并存: 代理缺席时退化为直连(变量留空)。
-        pb_session_ctx = (
-            aiohttp.ClientSession(connector=pb_connector)
-            if pb_connector
-            else contextlib.nullcontext(session)
-        )
-        async with pb_session_ctx as pb_session:
-            # 会话热身(2026-08-28): 首页一换取 ASP.NET_SessionId + _ancsi_ 防爬令牌,
-            # 之后整进程自动携带(浏览器式会话)。失败不阻塞启动 — cookie 缺席仅降级不致命。
+        # PB 专用出口(2026-08-29): 本机直连 IP 被 PubChem 封禁(abuse 302)。
+        # 0902 守卫: 代理缺席不再退化为直连(nullcontext 删除), pb_session=None
+        # → pb_loop 打 ERROR 后 idle。
+        pb_session: aiohttp.ClientSession | None = None
+        if "pubchem" in scopes:
+            if pb_proxy_url:
+                pb_session = aiohttp.ClientSession(
+                    connector=ProxyConnector.from_url(pb_proxy_url, ttl_dns_cache=300)
+                )
+            else:
+                log.error("HGS_PUBCHEM_PROXY unset — pubchem disabled (local IP banned)")
+        # CB 代理链: 有 HGS_CB_PROXY 才创建(缺席=只有直连链, 现状语义)。
+        cb_proxy_session: aiohttp.ClientSession | None = None
+        if "cas" in scopes and cb_proxy_url:
+            cb_proxy_session = aiohttp.ClientSession(
+                connector=ProxyConnector.from_url(cb_proxy_url, ttl_dns_cache=300)
+            )
+        try:
+            # 会话热身(2026-08-28): 首页一换取防爬令牌, 整进程直连链自动携带。
             try:
                 from caslib.fetch import warm_session
 
@@ -297,73 +374,26 @@ async def run() -> None:
             workapi = WorkApiClient(session, base_url, worker_id, token)
             rate = PubChemRateController(requests_per_second)
             log.info(
-                "worker started id=%s concurrency=%s pb_proxy=%s",
-                worker_id, concurrency, pb_proxy_url or "direct",
+                "worker started id=%s concurrency=%s pb_proxy=%s cb_proxy=%s scopes=%s",
+                worker_id, concurrency, pb_proxy_url or "none(idle)",
+                cb_proxy_url or "none", ",".join(scopes),
             )
-            idle_seconds = 2.0
-            # cas 空闲退避上限收紧: 30s->10s。lease 是本地 workapi 轮询(不打外部源),
-            # 换搜索miss用户重搜等待上限 40s->~20s(2026-08-28 体感收口)
-            cas_idle_seconds = 2.0
-            cas_idle_cap = 10.0
-            cb_proxy_sessions: dict[str, aiohttp.ClientSession] = {}
-            while True:
-                try:
-                    # 双队列: pubchem 优先轮询, cas 每轮附带认领(单并发,礼仪串行)。
-                    # scopes 门控对两条链对称: 不含 pubchem 就跳过 PB 轮询(PB 封禁期
-                    # 单停 PB 不伤 CAS, 8-28 事故后补的对称性, 原先只门控 cas 侧)。
-                    _scopes = [
-                        s.strip() for s in os.environ.get("HGS_WORKER_SCOPES", "pubchem,cas").split(",")
-                    ]
-                    jobs: list = []
-                    if "pubchem" in _scopes:
-                        leased = await workapi.post(
-                            "/workapi/v1/jobs/lease",
-                            {"max_jobs": concurrency, "capabilities": ["pubchem"]},
-                        )
-                        jobs = leased.get("jobs") or []
-                    cas_coros = []
-                    # CB 双入口并行(2026-08-30): 直连链恒在, HGS_CB_PROXY 设置时
-                    # 加一条独立代理 session 链(VLESS 出口 IP), 两条链各自 lease
-                    # 各自单发串行, 对 CB 呈两个独立出口各一恒定节奏。
-                    cb_proxy_url = os.environ.get("HGS_CB_PROXY", "")
-                    if "cas" in _scopes:
-                        cas_leased = await workapi.post(
-                            "/workapi/v1/cas/jobs/lease",
-                            {"max_jobs": 1, "capabilities": ["cas"]},
-                        )
-                        cas_jobs = cas_leased.get("jobs") or []
-                        cas_coros = [process_cas_job(session, workapi, job) for job in cas_jobs]
-                        if cas_jobs:
-                            cas_idle_seconds = 2.0
-                        else:
-                            cas_idle_seconds = min(cas_idle_cap, cas_idle_seconds * 1.5)
-                        if cb_proxy_url:
-                            cb_leased = await workapi.post(
-                                "/workapi/v1/cas/jobs/lease",
-                                {"max_jobs": 1, "capabilities": ["cas"]},
-                            )
-                            cb_jobs = cb_leased.get("jobs") or []
-                            if cb_proxy_url not in cb_proxy_sessions:
-                                cb_conn = ProxyConnector.from_url(cb_proxy_url, ttl_dns_cache=300)
-                                cb_proxy_sessions[cb_proxy_url] = aiohttp.ClientSession(connector=cb_conn)
-                            cas_coros += [process_cas_job(cb_proxy_sessions[cb_proxy_url], workapi, job) for job in cb_jobs]
-                    if not jobs and not cas_coros:
-                        # retry_after_seconds 承载闸门静默剩余(lease 返回 gate_wait+1),
-                        # worker 照单退避 — 静默期零空转(§4)。
-                        pb_wait = float(leased.get("retry_after_seconds", 5)) if "pubchem" in _scopes else 0
-                        cas_wait = float(cas_leased.get("retry_after_seconds", 5)) if "cas" in _scopes else 0
-                        requested_wait = max(pb_wait, cas_wait, 2)
-                        idle_seconds = min(1800.0, max(requested_wait, idle_seconds * 1.5))
-                        await asyncio.sleep(idle_seconds + random.random())
-                        continue
-                    idle_seconds = 2.0
-                    await asyncio.gather(
-                        *(process_job(pb_session, workapi, rate, job) for job in jobs),
-                        *cas_coros,
-                    )
-                except Exception:
-                    log.exception("worker cycle failed")
-                    await asyncio.sleep(5)
+            loops = []
+            if "pubchem" in scopes:
+                loops.append(_pb_loop(workapi, pb_session, rate, concurrency))
+            if "cas" in scopes:
+                loops.append(_cb_loop(workapi, session))
+                if cb_proxy_session is not None:
+                    loops.append(_cb_loop(workapi, cb_proxy_session))
+            if not loops:
+                log.error("no scopes enabled (HGS_WORKER_SCOPES=%r) — exiting", scopes)
+                return
+            await asyncio.gather(*loops)
+        finally:
+            if pb_session is not None:
+                await pb_session.close()
+            if cb_proxy_session is not None:
+                await cb_proxy_session.close()
 
 
 def main() -> None:
