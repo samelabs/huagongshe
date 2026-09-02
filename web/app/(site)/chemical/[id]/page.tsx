@@ -24,9 +24,14 @@ export default async function ChemicalPage({ params }: {
 }) {
   const { id } = await params;
   const hasSession = (await cookies()).has("hgs_session");
+  // P0(0902): SSR 透传用户凭证 — 登录用户 API 侧 actor 非空, PB/CB 任务拿 80 分
+  // (此前匿名 50 分压后台回补队尾, 987 实测等 5h)。带 cookie 请求禁缓存, 详情页 QPS 低可接受。
+  const sessionHeaders = hasSession
+    ? { cookie: `hgs_session=${(await cookies()).get("hgs_session")?.value ?? ""}` }
+    : undefined;
 
   const [chemicalResult, reactionsResult, externalsResult] = await Promise.all([
-    apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`).catch((error: unknown) => {
+    apiGet<Chemical>(`/chemicals/${id}?enrich=full&display=true`, sessionHeaders).catch((error: unknown) => {
       if (isApiNotFound(error)) notFound();
       throw error;
     }),
@@ -34,7 +39,7 @@ export default async function ChemicalPage({ params }: {
       `/chemicals/${id}/reactions?page=1&page_size=8&role=any`,
     ).catch(() => null),
     // CB 中文扩展(条目+供应商): 无 CAS 或无数据时整块静默不渲染
-    apiGet<CasExternalsPayload>(`/chemicals/${id}/externals`).catch(() => null),
+    apiGet<CasExternalsPayload>(`/chemicals/${id}/externals`, sessionHeaders).catch(() => null),
   ]);
   const chemical = chemicalResult;
   const externals = externalsResult;

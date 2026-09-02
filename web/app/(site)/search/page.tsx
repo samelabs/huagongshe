@@ -23,8 +23,10 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   let error = "";
   let fetchPending = false;
   // 结构检索登录墙: mode!=exact 需要会话, SSR 转发浏览器 cookie 供 API 鉴权
-  const sessionHeaders = mode !== "exact"
-    ? { cookie: (await headers()).get("cookie") || "" }
+  // P0(0902): exact 也透传 — 登录用户 CB miss 入列拿 80 分(此前 exact 匿名 50 分)
+  const cookieValue = (await headers()).get("cookie") || "";
+  const sessionHeaders = cookieValue
+    ? { cookie: cookieValue }
     : undefined;
 
   try {
