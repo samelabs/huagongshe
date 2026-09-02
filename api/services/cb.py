@@ -83,20 +83,9 @@ async def upsert_externals(
     # 拆除 — expires_at 恒 NULL, fetched_at 即"何时取到/何时确认没有"。
     # ok 与 not_found 同为终态; 回补是未来手动脚本的事, 不进自动机制。
     expires = None
-    # 0902 GPT审计定案: not_found 到达时该行完全不动 — 有行说明已回答过,
-    # 数据保留(前端继续展示旧entry); 没收录的真值锚点是主表 cb_number IS NULL,
-    # 不靠 chemical_cb 的状态行表达。not_found 唯一落点: 原本无行的 INSERT。
+    # 0902 剥离定案: not_found 零写入 — complete 静默出列(job 层删行),
+    # 收录与否由记录表本身表达(无行/主表 cb_number IS NULL)。
     if status == "not_found":
-        await db.execute(text("""
-            INSERT INTO chemistry.chemical_cb
-                (chemical_id,cas_number,entry,last_status,fetched_at,expires_at,locale)
-            VALUES
-                (:chemical_id,:cas_number,NULL,:status,now(),:expires,:locale)
-            ON CONFLICT (chemical_id, locale) DO NOTHING
-        """), {
-            "chemical_id": chemical_id, "cas_number": cas_number,
-            "status": status, "expires": expires, "locale": locale,
-        })
         return
     await db.execute(text("""
         INSERT INTO chemistry.chemical_cb
@@ -456,11 +445,9 @@ async def cb_decide(
     db: Any, chemical_id: int, locale: str = "zh-CN",
     *, has_cb_number: bool | None = None,
 ) -> str:
-    """五态判定(数据链收口§5, error 态已亡)。返回:
+    """四态判定(0902 剥离: not 负缓存态已亡, 收录与否由行缺省表达)。返回:
     - serve_fresh      ok 且未超刷新窗 → 直接出 entry
-    - serve_negative   not_found 且未超重问窗 → 出空(负缓存)
     - enqueue_first    无行(首问; 未知状态防御性同此)
-    - enqueue_requery  not_found 超重问窗 → 重问(CB 可能新增收录)
     - enqueue_refresh  ok 超刷新窗 → 刷新(有 cb_number 直跳 CPP)
     - skip             多语言前置 cb_number 缺失, 不可寻址不入列
     """
@@ -475,14 +462,11 @@ async def cb_decide(
     if row is None:
         return "enqueue_first"
     status, fetched_at = row[0], row[1]
-    requery_days, refresh_days = await _cb_window_days(db)
-    if status == "not_found":
-        age = (await db.execute(text("SELECT now()-:ft"), {"ft": fetched_at})).scalar()
-        return "serve_negative" if age < timedelta(days=requery_days) else "enqueue_requery"
+    _requery_days, refresh_days = await _cb_window_days(db)
     if status == "ok":
         age = (await db.execute(text("SELECT now()-:ft"), {"ft": fetched_at})).scalar()
         return "serve_fresh" if age < timedelta(days=refresh_days) else "enqueue_refresh"
-    return "enqueue_first"  # 未知状态防御性按首问(数据层已无 error 态)
+    return "enqueue_first"  # 未知状态防御性按首问(数据层已无 error/not 态)
 
 
 async def cas_search_state(db: Any, cas_number: str) -> str:
@@ -638,12 +622,9 @@ async def ensure_externals(
     row = await get_externals_row(db, chemical_id)
     if row is None:
         return {"state": "absent", "entry": None, "suppliers": [], "job_id": None}
-    # 五态判定驱动(§5): not_found 负缓存窗/ok 刷新窗。
+    # 四态判定驱动(0902 剥离): ok 刷新窗。
     decision = await cb_decide(db, chemical_id)
-    if decision == "serve_negative":
-        return {"state": "fresh", "entry": None, "suppliers": [], "job_id": None,
-                "negative": True}
-    if decision in ("enqueue_requery", "enqueue_refresh"):
+    if decision == "enqueue_refresh":
         # 需再问: 出当前数据但标记 stale, 调用方决定入列
         return {"state": "stale", "entry": row["entry"], "suppliers": [], "job_id": None}
     # ok 行: 终态直出。suppliers 同行取。

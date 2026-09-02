@@ -17,7 +17,7 @@ from .core.database import get_db
 from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, ErrorBody, CasLeaseBody, CasCompleteBody
 from .services.workqueue import (
     lease_hash, verified_lease, as_json_object, sync_chemical_core,
-    upsert_details, verified_cas_lease, _cb_requery_days,
+    upsert_details, verified_cas_lease,
 )
 from .services.gate import (
     gate_silence_remaining, gate_record_error, gate_record_success,
@@ -276,45 +276,23 @@ async def cas_lease_jobs(
         """))
         # FOR UPDATE 不能落 LEFT JOIN 的 nullable 侧: 先锁 cas_jobs,
         # cb_number(语言行寻址键)另查补齐。
-        # 终态拦截(2026-08-29定)单趟: 候选集内 JOIN 目标语言行, 已 not_found
-        # 的任务一条 UPDATE 顺手出表(零上游流量消化), 只返回幸存任务
-        # 给分发循环 — 查验与不分发是同一个动作。standalone(chemical_id=NULL)
-        # JOIN 不命中, 天然不拦。
+        # 0902 剥离: 负缓存终态拦截 CTE 整段删除 — not 行已清零且不再写入,
+        # 拦截永不命中; 且此段曾静默删除 34k 修复任务(lease拦截血案)。
         claim = (await db.execute(text("""
             WITH candidates AS (
                 SELECT j.id, j.chemical_id, j.cas_number,
-                       coalesce(j.request_context->>'locale','zh-CN') AS locale,
-                       j.request_context->>'reason' AS req_reason
+                       coalesce(j.request_context->>'locale','zh-CN') AS locale
                 FROM maintenance.cas_jobs j
                 WHERE j.status='queued'
                 ORDER BY j.priority DESC, j.id
                 LIMIT :limit
                 FOR UPDATE OF j SKIP LOCKED
-            ), intercepted AS (
-                -- 负缓存命中(数据层已有 not_found 且窗内) = 答案已在, 直接出表。
-                -- 0902 GPT审计豁免: requeue_0902_challenged_pages 回补任务不拦 —
-                -- 这批目标行本来就是质询误判的 not_found, 拦截=静默删除修复队列
-                -- (实测 34k/36k 任务被删未真抓)。它们必须真抓并逐条覆盖。
-                DELETE FROM maintenance.cas_jobs j
-                WHERE j.id IN (
-                    SELECT c.id FROM candidates c
-                    JOIN chemistry.chemical_cb cb
-                      ON cb.chemical_id=c.chemical_id AND cb.locale=c.locale
-                     AND cb.last_status='not_found'
-                     -- 重问窗内拦截; 超窗 not_found 放行重问(CB 可能新增收录)。
-                     AND cb.fetched_at > now()-(:requery_days||' days')::interval
-                    WHERE c.chemical_id IS NOT NULL
-                      AND coalesce(c.req_reason, '') <> 'requeue_0902_challenged_pages'
-                )
-                RETURNING j.id
             )
             SELECT c.id, c.chemical_id, c.cas_number,
                    c.locale
             FROM candidates c
-            WHERE c.id NOT IN (SELECT id FROM intercepted)
         """), {
             "limit": limit,
-            "requery_days": str(await _cb_requery_days(db)),
         })).fetchall()
         rows = [(r[0], r[1], r[2], r[3]) for r in claim]
         cb_map: dict[int, str | None] = {}
