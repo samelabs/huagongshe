@@ -102,6 +102,12 @@ async def fetch_cas(
             log.info("cas %s status=%s state=error", cas, status)
             return FetchResult("error", error=body if status is None else f"http_{status}",
                                stats=stats)
+        # 判定总览(0902 Q2/Q3): 先验页面身份, 再判收录。
+        # alien(无任何站内结构)=大拦截页(验证码可达数十KB), 不论字节 → error。
+        from .parse import page_identity
+        if page_identity(body) != "real":
+            log.info("cas %s status=200 bytes=%s state=error(alien_page)", cas, len(body))
+            return FetchResult("error", error="alien_page", stats=stats)
         if looks_like_not_found(body):
             log.info("cas %s status=200 bytes=%s state=not_found", cas, len(body))
             return FetchResult("not_found", cas_html=body, stats=stats)

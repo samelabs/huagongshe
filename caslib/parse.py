@@ -427,6 +427,39 @@ _NOT_FOUND_MARK = "本站不显示该产品信息"
 _BASICSL_RE = re.compile(r'<div class="Basicsl">([\s\S]{0,3000}?)英文名称', re.I)
 
 
+# ---- 页面身份标记(0902 判定总览 Q2): 真页面必有站内结构, 拦截页/验证码无 ----
+# 三标记全无 = 不是真页面(不论字节多大) → error 语义。站内结构锚, 非文本关键词。
+_PAGE_IDENTITY_MARKS = (
+    '<div class="Basicsl">',        # CAS 详情页结构壳(收录/未收录模板都有)
+    'id="ChemicalProperties"',      # CPP 页属性表(CN 页)
+    'id="GridView2"',               # CPP 语言页属性表(EN 实测, 201KB 真页无 ChemicalProperties)
+)
+_CB_LINK_RE = re.compile(
+    r"/(?:ProdSupplierGN|ProductMSDSDetail|PriceInfoall_CB)CB\d+\.htm"
+)
+_CPP_DT_RE = re.compile(r"<dt[^>]*>\s*(?:CAS No\.?|CBNumber|MOL File)", re.I)
+
+
+def page_identity(html: str | None) -> str:
+    """真页面身份判定: 'real' | 'alien'。
+
+    real  = 携带至少一种站内结构标记(Basicsl壳/ChemicalProperties表/cb链接)
+    alien = 无任何站内结构 — 大拦截页(验证码/质询/改版壳), 不论字节多大,
+            不具备 not_found 资格(error 语义, 走重试, 拦截事件可观测)。
+    """
+    if not html:
+        return "alien"
+    for mark in _PAGE_IDENTITY_MARKS:
+        if mark in html:
+            return "real"
+    if _CB_LINK_RE.search(html):
+        return "real"
+    # CPP dt/dl 结构(语言页变体, 兜底标记)
+    if _CPP_DT_RE.search(html):
+        return "real"
+    return "alien"
+
+
 def looks_like_not_found(html: str) -> bool:
     """三种 not_found 形态:
     1. 明示拒绝(管制): "本站不显示该产品信息"
@@ -642,16 +675,22 @@ def parse_cpp_entry_en(html: str) -> dict[str, Any] | None:
 _CPP_PAGE_MIN_BYTES = 10_000  # 真页实测 ≥12.8KB, 错误/降级页 <1KB, 中间零样本。
 # 0902 用户口径: <10KB 一律 error(系统/网络/质询错误, 留记录走重试);
 # ≥10KB 才是真页面 — 解析不出内容 = not_found(占位页), 判定单点在大小。
+# 0902 判定总览(Q2): 大页还需过 page_identity — 无站内结构的大拦截页
+# (验证码/质询壳可达数十KB)仍判 error, 不给 not_found 资格。
 
 
 def cpp_page_state(html: str | None) -> str:
-    """CPP 页判定(0902 用户口径): 大小分界, 不做文本特征匹配。
+    """CPP 页判定: 大小分界 + 页面身份, 不做文本特征匹配。
 
-    - 大页(≥10KB): 真页面 — ok(占位/无内容由上层解析器判, 解析空=无有效信息)
-    - 小页(<10KB): 系统错误/网络错误/质询降级 — 一律 error 语义, 走重试。
-    系统错误/网络错误留存记录(error), 不落数据层; not_found 只有大页才有资格。
+    - <10KB: 系统错误/网络错误/质询降级 — 一律 error 语义, 走重试。
+    - ≥10KB 且 real(站内结构在): 真页面 — ok(无变体由上层解析器判,
+      解析空=无有效信息)
+    - ≥10KB 但 alien(无任何站内结构): 大拦截页 — error 语义, 走重试。
+    系统错误/网络错误留存记录(error), 不落数据层; not_found 只有真页面才有资格。
     """
     if html is None or len(html) < _CPP_PAGE_MIN_BYTES:
+        return "error"
+    if page_identity(html) != "real":
         return "error"
     return "ok"
 _CPP_SKIP_DT = {"CBNumber", "MOL File"}

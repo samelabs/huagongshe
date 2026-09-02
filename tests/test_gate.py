@@ -89,9 +89,29 @@ class TestFetchMapping(unittest.TestCase):
 
     def test_normal_page_is_ok(self):
         from caslib.parse import cpp_page_state
-        # 真页实测 ≥12.8KB; ≥10KB 即真页面
-        body = "<html>" + "x" * 12_000 + "</html>"
+        # 真页实测 ≥12.8KB; ≥10KB 且有站内结构标记 = 真页面
+        body = "<html>" + "x" * 12_000 + 'id="ChemicalProperties"' + "x" * 500 + "</html>"
         self.assertEqual(cpp_page_state(body), "ok")
+
+    def test_big_alien_page_is_error(self):
+        # 0902 判定总览 Q2: >10KB 但无任何站内结构 = 大拦截页(验证码) → error
+        from caslib.parse import cpp_page_state
+        body = "<html>" + "x" * 30_000 + "</html>"
+        self.assertEqual(cpp_page_state(body), "error")
+
+    def test_page_identity_marks(self):
+        from caslib.parse import page_identity
+        # Basicsl 壳 / ChemicalProperties 表 / cb 链接, 三选一 = real
+        self.assertEqual(page_identity(None), "alien")
+        self.assertEqual(page_identity("<html>noise</html>"), "alien")
+        self.assertEqual(
+            page_identity('<div class="Basicsl">' + "x" * 50), "real")
+        self.assertEqual(
+            page_identity('<table id="ChemicalProperties">' + "x" * 50), "real")
+        self.assertEqual(
+            page_identity('<a href="/ProdSupplierGNCB123.htm">'), "real")
+        self.assertEqual(
+            page_identity('<a href="/ProductMSDSDetailCB123.htm">'), "real")
 
 
 if __name__ == "__main__":
