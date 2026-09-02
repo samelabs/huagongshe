@@ -560,7 +560,7 @@ async def sync_fetch_and_store(
     """
     from caslib.fetch import fetch_cas
     from caslib.parse import (
-        parse_cpp_entry, parse_cpp_suppliers, parse_entry, parse_suppliers,
+        parse_cpp_entry, parse_cpp_suppliers, parse_entry,
     )
 
     async def _fetch() -> tuple[str, dict | None, list, str | None]:
@@ -570,13 +570,15 @@ async def sync_fetch_and_store(
             return "error", None, [], None
         if result.status == "not_found":
             return "not_found", None, [], None
-        # CPP-CN 页为主(信息更全+100家供应商+国家); 缺席退 CAS 页旧链
+        # 0902 P3a: CPP 正向, CAS 页字段级补缺(同 worker 口径);
+        # 供应商弃 CAS 源(数据不准); CPP 解析空 → not_found
+        from caslib.merge import merge_entry
         entry = parse_cpp_entry(result.cpp_html) if result.cpp_html else None
         suppliers = parse_cpp_suppliers(result.cpp_html or "") if result.cpp_html else []
-        if entry is None and result.cas_html:
-            entry = parse_entry(result.cas_html)
-        if not suppliers and result.cas_html:
-            suppliers = parse_suppliers(result.cas_html, None)
+        if entry is not None and result.cas_html:
+            cas_e = parse_entry(result.cas_html)
+            if cas_e:
+                entry = merge_entry(entry, cas_e)
         if entry is None:
             return "not_found", None, [], None
         return "ok", entry, suppliers, result.cb_number

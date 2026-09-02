@@ -158,7 +158,7 @@ async def process_cas_job(
     from caslib.fetch import fetch_cas, fetch_cpp_locale, fetch_mol
     from caslib.parse import (
         extract_mol_href, parse_cpp_entry, parse_cpp_entry_en,
-        parse_cpp_suppliers, parse_entry, parse_suppliers,
+        parse_cpp_suppliers, parse_entry,
     )
 
     locale = job.get("locale") or "zh-CN"
@@ -186,19 +186,23 @@ async def process_cas_job(
             if result.status == "not_found":
                 payload = {"status": "not_found", "entry": None, "suppliers": []}
             else:
-                # ok: entry 按 CPP 优先、CAS 页兜底; 无号=供应商空(定案)。
-                entry = (
-                    parse_cpp_entry(result.cpp_html) if result.cpp_html else None
-                ) or (parse_entry(result.cas_html) if result.cas_html else None)
+                # 0902 P3a: CPP 正向, CAS 页字段级补缺(不再整体兜底)。
+                # CAS 页职能 = 提号 + 补 CPP 缺的物性/标识(实测 CAS 独有:
+                # 外观性状/溶解性/电导率/EINECS/MDL/reagents); 供应商弃 CAS 源(数据不准)。
+                # CPP 解析空 → 仍判 not_found(CB 主数据缺, 不用 CAS 顶)。
+                from caslib.merge import merge_entry
+                entry = parse_cpp_entry(result.cpp_html) if result.cpp_html else None
+                if entry is not None and result.cas_html:
+                    cas_e = parse_entry(result.cas_html)
+                    if cas_e:
+                        entry = merge_entry(entry, cas_e)
                 if entry is None:
-                    # fetch 判 ok 但双页解析皆空 = 无有效信息(§1: 空壳归 not_found)
+                    # fetch 判 ok 但 CPP 无有效内容 = 无有效信息(§1: 空壳归 not_found)
                     payload = {"status": "not_found", "entry": None, "suppliers": []}
                 else:
                     suppliers = (
                         parse_cpp_suppliers(result.cpp_html) if result.cpp_html else []
                     )
-                    if not suppliers and result.cas_html:
-                        suppliers = parse_suppliers(result.cas_html, None)
                     payload = {"status": "ok", "entry": entry, "suppliers": suppliers}
                     # CB条目号: 身份标识随载荷回传(落主表, 不进API输出)
                     if result.cb_number:
