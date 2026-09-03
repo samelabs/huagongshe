@@ -17,7 +17,13 @@ type DetailResponse = { details: ChemicalDetails | null; enrichment: EnrichmentS
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  return { title: `HCID ${id}`, description: t.chemical.desc };
+  const canonical = `/chemical/${id}`;
+  return {
+    title: `HCID ${id}`,
+    description: t.chemical.desc,
+    alternates: { canonical },
+    openGraph: { url: canonical, title: `HCID ${id}｜${t.brand.name}`, description: t.chemical.desc },
+  };
 }
 
 export default async function ChemicalPage({ params }: {

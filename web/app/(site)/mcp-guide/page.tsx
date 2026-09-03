@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ShareButton } from "@/components/ShareButton";
 import t from "@/lib/i18n";
 
 function CopyJson() {
@@ -35,7 +34,6 @@ export default function McpPage() {
     <header className="page-head guide-hero">
       <div className="guide-hero-top">
         <p className="page-kicker">MCP</p>
-        <ShareButton />
       </div>
       <h1>{t.mcp.hero}</h1>
       <p>{t.mcp.heroBody}</p>
