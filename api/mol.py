@@ -6,7 +6,7 @@ import asyncio
 import re
 from rdkit import Chem
 from rdkit.Chem import Draw, AllChem, rdChemReactions
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Response
 from sqlalchemy import text
 from .core.database import get_db
 from .core.security import Actor, internal_or_actor, optional_actor
@@ -62,7 +62,7 @@ def reaction_to_svg(reaction_smiles: str, width: int = 1200, height: int = 300) 
 
 @router.get("/mol/{chemical_id}/svg")
 async def render_molecule(
-    chemical_id: int,
+    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     w: int = 400,
     h: int = 300,
     actor: Actor | None = Depends(internal_or_actor),
@@ -93,7 +93,7 @@ async def render_molecule(
 
 @router.get("/reactions/{reaction_id}/svg")
 async def render_reaction(
-    reaction_id: int,
+    reaction_id: int = Path(..., ge=1, le=2_147_483_647),
     w: int = 1200,
     h: int = 300,
     actor: Actor | None = Depends(internal_or_actor),

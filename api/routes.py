@@ -224,7 +224,7 @@ async def chemical_synonyms(
 
 @router.get("/chemicals/{chemical_id}/reactions")
 async def chemical_reactions(
-    chemical_id: int,
+    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     actor: Actor | None = Depends(internal_or_actor),
     role: str = Query("any", pattern="^(any|reactant|reagent|solvent|catalyst|product)$"),
     page: int = Query(1, ge=1, le=500),
@@ -251,7 +251,15 @@ async def chemical_substructure(
     if cached:
         return cached
 
-    total, items = await substructure_page(db, chemical_id, page, page_size)
+    try:
+        total, items = await substructure_page(db, chemical_id, page, page_size)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # 0904 敞口收口: 8s statement timeout 此前 QueryCanceledError 裸冒泡
+        # 500(09-03 日志×19)。转 503, 文案口径同 /search 端点。
+        await db.rollback()
+        raise HTTPException(503, "查询超时，请使用更精确的结构或稍后重试") from exc
     if total == -1:
         raise HTTPException(404, "化合物没有可检索结构")
     data = {"page": page, "page_size": page_size, "total": total, "chemicals": items}
@@ -276,7 +284,13 @@ async def chemical_similarity(
     if cached:
         return cached
 
-    items = await similarity_page(db, chemical_id, threshold, page, page_size)
+    try:
+        items = await similarity_page(db, chemical_id, threshold, page, page_size)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(503, "查询超时，请使用更精确的结构或稍后重试") from exc
     if items is None:
         raise HTTPException(404, "化合物没有可检索结构")
     data = {"threshold": threshold, "page": page, "page_size": page_size, "total": len(items), "chemicals": items}
@@ -290,7 +304,7 @@ async def chemical_similarity(
     summary="读取一个反应记录",
 )
 async def reaction_detail(
-    reaction_id: int,
+    reaction_id: int = Path(..., ge=1, le=2_147_483_647),
     actor: Actor | None = Depends(internal_or_actor),
     db=Depends(get_db),
 ):

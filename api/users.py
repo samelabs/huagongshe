@@ -183,20 +183,26 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
 
 @router.patch("/me")
 async def update_profile(body: ProfileBody, actor: Actor = Depends(current_session), db=Depends(get_db)):
-    await db.execute(text("""
-        UPDATE community.users
-        SET display_name=:display_name,
-            bio=:bio,
-            email=:email,
-            location=:location,
-            institution=:institution,
-            title=:title,
-            website=:website,
-            orcid=:orcid,
-            updated_at=now()
-        WHERE id=:id
-    """), {"id": actor.id, **body.model_dump()})
-    await db.commit()
+    try:
+        await db.execute(text("""
+            UPDATE community.users
+            SET display_name=:display_name,
+                bio=:bio,
+                email=:email,
+                location=:location,
+                institution=:institution,
+                title=:title,
+                website=:website,
+                orcid=:orcid,
+                updated_at=now()
+            WHERE id=:id
+        """), {**body.model_dump(), "id": actor.id})
+        await db.commit()
+    except IntegrityError as exc:
+        # 0904 敞口收口: email 唯一约束冲突此前未处理直接 500(对照 register
+        # 路径同款异常已有 409)。补齐: 回滚+409, 错误信息不区分撞哪列。
+        await db.rollback()
+        raise HTTPException(409, "邮箱已被其他账号占用") from exc
     return body.model_dump()
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy import text
 
 from .core.database import get_db
@@ -38,7 +38,7 @@ async def unfollow_user(username: str, actor: Actor = Depends(current_session), 
 
 
 @router.post("/chemicals/{chemical_id}/follow", status_code=204)
-async def follow_chemical(chemical_id: int, actor: Actor = Depends(current_session), db=Depends(get_db)):
+async def follow_chemical(chemical_id: int = Path(..., ge=1, le=2_147_483_647), actor: Actor = Depends(current_session), db=Depends(get_db)):
     exists = (await db.execute(text("SELECT 1 FROM chemistry.chemicals WHERE id=:id"), {"id": chemical_id})).scalar()
     if not exists:
         raise HTTPException(404, "化合物不存在")
@@ -50,7 +50,7 @@ async def follow_chemical(chemical_id: int, actor: Actor = Depends(current_sessi
 
 
 @router.delete("/chemicals/{chemical_id}/follow", status_code=204)
-async def unfollow_chemical(chemical_id: int, actor: Actor = Depends(current_session), db=Depends(get_db)):
+async def unfollow_chemical(chemical_id: int = Path(..., ge=1, le=2_147_483_647), actor: Actor = Depends(current_session), db=Depends(get_db)):
     await db.execute(text("""
         DELETE FROM community.chemical_follows WHERE user_id=:user_id AND chemical_id=:chemical_id
     """), {"user_id": actor.id, "chemical_id": chemical_id})
@@ -58,7 +58,7 @@ async def unfollow_chemical(chemical_id: int, actor: Actor = Depends(current_ses
 
 
 @router.post("/reactions/{reaction_id}/follow", status_code=204)
-async def follow_reaction(reaction_id: int, actor: Actor = Depends(current_session), db=Depends(get_db)):
+async def follow_reaction(reaction_id: int = Path(..., ge=1, le=2_147_483_647), actor: Actor = Depends(current_session), db=Depends(get_db)):
     row = (await db.execute(text("""
         SELECT created_by_user_id,visibility,moderation_status
         FROM chemistry.reactions WHERE id=:id
@@ -75,7 +75,7 @@ async def follow_reaction(reaction_id: int, actor: Actor = Depends(current_sessi
 
 
 @router.delete("/reactions/{reaction_id}/follow", status_code=204)
-async def unfollow_reaction(reaction_id: int, actor: Actor = Depends(current_session), db=Depends(get_db)):
+async def unfollow_reaction(reaction_id: int = Path(..., ge=1, le=2_147_483_647), actor: Actor = Depends(current_session), db=Depends(get_db)):
     await db.execute(text("""
         DELETE FROM community.reaction_follows WHERE user_id=:user_id AND reaction_id=:reaction_id
     """), {"user_id": actor.id, "reaction_id": reaction_id})
