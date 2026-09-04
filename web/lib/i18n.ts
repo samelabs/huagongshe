@@ -17,7 +17,6 @@ const t = {
   /* ── 品牌 ────────────────────────────────────────────── */
   brand: {
     name: '化工社AIchem',
-    domain: 'huagongshe.com',
     seoTitle: '化工社AIchem｜你的AI化学工作台',
     seoDesc: '化工社AIchem是你的AI化学工作台。查化合物、找反应、算投料，构建可持续积累的个人化学工作台。',
     seoDescShort: '查化合物、找反应、算投料，构建你的化学工作台。',
@@ -33,8 +32,6 @@ const t = {
     loginRequired: '请先登录',
     loginOrRegister: '登录或注册',
     loginHint: '登录后管理你的反应记录和收藏。',
-    save: '保存',
-    cancel: '取消',
     delete: '删除',
     edit: '编辑',
     view: '查看',
@@ -48,7 +45,6 @@ const t = {
     pageNav: '分页',
     pageOf: (cur: number, total: number) => `第 ${cur} / ${total} 页`,
     networkError: '网络错误，稍后重试',
-    contentUnavailable: '加载失败',
     unnamedCompound: '未命名化合物',
     breadcrumb: '面包屑',
     close: '关闭',
@@ -100,7 +96,6 @@ const t = {
   /* ── 搜索 ────────────────────────────────────────────── */
   search: {
     title: '查询化学数据',
-    hintName: '中英文名称、别名、CAS、SMILES、PubChem CID、InChIKey、DTXSID、ChEMBL、ChEBI 等。',
     hintNameShort: '中英文名称、CAS、SMILES、PubChem CID、InChIKey 等',
     noResults: '没有匹配结果',
     noResultsHint: '请核对查询内容或更换标识符。',
@@ -159,7 +154,6 @@ const t = {
       solvent: '作为溶剂',
     },
     knowledge: {
-      title: '扩展信息',
       experimental: '实验与物化性质',
       pharmacology: '药理信息',
       uses: '用途与制造',
@@ -307,11 +301,6 @@ const t = {
     tabActivity: '关注动态',
     tabFollowers: '粉丝',
     tabFollowing: '关注',
-    newReaction: '新建反应',
-    bio: '简介',
-    joinedAt: (date: string) => `加入时间：${date}`,
-    following: '关注',
-    followers: '粉丝',
     homeGreeting: (name: string) => `${name}的工作台`,
     homeHint: '查化合物、找反应、算投料——你的化学工作都在这里',
     homeSearchPlaceholder: '中英文名称、CAS、SMILES、CID、InChIKey…',
@@ -401,7 +390,6 @@ const t = {
 
   settings: {
     title: '账户设置',
-    subtitle: '管理API Token、个人资料与账户安全。',
     nav: {
       ai: 'API Token',
       profile: '个人资料',
@@ -439,7 +427,6 @@ const t = {
       guideLink: '查看AI使用说明',
       statusValid: '有效',
       statusExpired: '已过期',
-      statusRevoked: '已撤销',
       longTerm: '长期有效',
       lastUsed: (date: string) => `最近使用：${date}`,
       neverUsed: '尚未使用',
@@ -501,7 +488,6 @@ const t = {
       submitting: '修改中…',
       mismatch: '两次输入的新密码不一致。',
       requirement: '新密码至少8位，并同时包含字母和数字。',
-      passwordHint: '至少8位，并同时包含字母和数字。',
       failed: '密码修改失败，请核对当前密码和新密码要求。',
       loginHint: '登录后修改密码。',
     },
@@ -541,7 +527,6 @@ const t = {
 
   /* ── 反应记录提交 ────────────────────────────────────── */
   submit: {
-    kicker: 'MY REACTION',
     newTitle: '新建反应记录',
     editTitle: '编辑反应记录',
     newDesc: '保存结构化反应记录，并自动关联相关化合物。新记录默认仅自己可见。',
@@ -572,7 +557,6 @@ const t = {
     workup: '后处理',
     safety: '安全说明',
     notes: '补充说明',
-    reagentsCatalystsSolvents: '试剂、催化剂与溶剂',
     otherConditions: '其他条件',
     temperature: '温度',
     time: '时间',
@@ -627,8 +611,6 @@ const t = {
   },
 
   mcp: {
-    title: 'MCP 连接器',
-    desc: '把化工社AIchem接入你的 AI 助手（豆包工作、千问办公、腾讯 WorkBuddy 等），AI 即可查询化合物与反应数据、计算投料，保存反应记录到你的账户。',
     hero: '把化工社AIchem接入你的 AI',
     heroBody: '化工社AIchem提供 MCP（Model Context Protocol）标准接口。在 AI 助手里添加一个 MCP 服务器，AI 就能直接查询化合物和反应、计算投料配比，并在你确认后把反应记录保存到你的账户。',
     /* ── 连接信息 ── */
@@ -788,12 +770,9 @@ const t = {
   /* ── 管理后台 ────────────────────────────────────────── */
   admin: {
     title: '系统管理',
-    kicker: 'ADMIN',
-    desc: '管理用户账号和用户内容可见度，不审核化学结论。',
     noPermission: '没有管理权限',
     errOperation: '操作失败',
     errLoadFailed: '数据加载失败',
-    errNetwork: '网络错误',
     errConfigLoad: '配置加载失败',
     errSaveFailed: '保存失败',
     saved: (key: string) => `${key} 已保存`,
@@ -810,16 +789,6 @@ const t = {
     pipelineKicker: 'PIPELINE',
     pipelineTitle: '数据管道',
     pipelineDesc: (s: number, at: string) => `队列健康、今日吞吐与最新入库, 每 ${s} 秒自动刷新 · 数据时刻 ${at}`,
-    pipeQueues: '队列与健康',
-    pipeToday: '今日成功',
-    pipeListingToday: '今日入库',
-    pipeListingSub: (c: string, h: string) => `${c} 个化合物 · 最近1小时 +${h} 行`,
-    pipeLocales: '今日分语言落库',
-    pipeLocale: '语言',
-    pipeLastAt: '最近写入',
-    pipeLatest: '最新入库(实时)',
-    pipeTotals: (r: string, c: string, p: string) => `listing 总量 ${r} 行 / ${c} 化合物 · 供应商档案 ${p} 家`,
-    pipeZombie: (n: number) => `僵尸租约 ${n} 条`,
     /* Worker 凭据 */
     workersKicker: 'WORKERS',
     workersTitle: 'Worker 凭据',
