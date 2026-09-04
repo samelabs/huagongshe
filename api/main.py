@@ -56,6 +56,12 @@ app.include_router(skills_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(workapi_router, include_in_schema=False)
 
+# 0904: health 必须注册在 mount_mcp 之前 — MCP 子应用挂根会吞掉其后
+# 所有路由(0831 151307d 回归, 0903 体检发现 /api/health 404)
+@app.get("/api/health")
+async def health():
+    return {"status": "ok", "version": settings.api_version}
+
 # MCP 面(M1): /mcp — Agent 连接器入口, stateless streamable-http.
 mount_mcp(app)
 
@@ -63,8 +69,3 @@ mount_mcp(app)
 # B2 通道规范: 公网入口统一为 Next BFF, FastAPI 只接受 loopback 与 MCP 透传流量.
 # 原 per-IP 公共限流中间件随直连面一同消亡(全流量 loopback 必跳过=死代码);
 # 按身份的 enforce(rate_limit.py)在各端点继续生效.
-
-
-@app.get("/api/health")
-async def health():
-    return {"status": "ok", "version": settings.api_version}
