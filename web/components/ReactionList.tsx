@@ -22,9 +22,11 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
     if (role === "any" && page === 1) { setData({ total: initialTotal, reactions: initial }); return; }
     let active = true;
     setLoading(true);
+    // 0904 P1收口: 此前 .catch(()=>{}) 静默吞错 — 页码已前进但展示旧页数据,
+    // 化学数据场景下是误导性正确性风险。改为失败即回退页码状态, 数据不换。
     apiGet<{ total: number; reactions: ReactionSummary[] }>(`/chemicals/${chemicalId}/reactions?page=${page}&page_size=8&role=${role}`)
       .then((result) => { if (active) setData({ total: result.total, reactions: result.reactions }); })
-      .catch(() => {})
+      .catch(() => { if (active) { setRole("any"); setPage(1); } })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
     // initial/initialTotal are the SSR snapshot for (any, 1); the reset branch

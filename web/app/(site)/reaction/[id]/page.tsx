@@ -172,7 +172,10 @@ function ParticipantGroup({ title, eyebrow, items, showRole = false }: {
 
 function Source({ label, value, href }: { label: string; value: string | null | undefined; href?: string }) {
   if (!value) return null;
-  return <div><dt>{label}</dt><dd>{href ? <a href={href} target="_blank" rel="noreferrer">{value}</a> : value}</dd></div>;
+  // 0904 P1收口: publication_url 是用户输入(type=url 挡不住 javascript: 伪协议,
+  // 结构上合法可过浏览器校验)。组件级守卫: 只渲染 http(s) 外链, 其余按纯文本出。
+  const safeHref = href && /^https?:\/\//i.test(href) ? href : undefined;
+  return <div><dt>{label}</dt><dd>{safeHref ? <a href={safeHref} target="_blank" rel="nofollow noopener noreferrer">{value}</a> : value}</dd></div>;
 }
 
 function formatYield(value: number) {

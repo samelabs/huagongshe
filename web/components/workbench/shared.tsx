@@ -82,6 +82,9 @@ export function PanelLoading({ variant = "grid", rows = 4 }: { variant?: "grid" 
 export function panelErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     switch (error.status) {
+      // 0904 P1收口: 401 此前落 errGeneric"稍后重试"误导 — 会话过期重试永远
+      // 失败, 应提示登录(主站 search/page.tsx 已有同款映射)。
+      case 401: return t.search.errLoginRequired;
       case 429: return t.search.errRateLimit;
       case 503: return t.search.errTimeout;
       case 422: return t.search.errIncomplete;

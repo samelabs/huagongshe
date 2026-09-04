@@ -52,7 +52,9 @@ export default async function UserPage({ params, searchParams }: { params: Promi
         {(profile.location || profile.website || profile.orcid) && (
           <div className="profile-meta">
             {profile.location && <span>📍 {profile.location}</span>}
-            {profile.website && <a href={profile.website} target="_blank" rel="noreferrer">{profile.website.replace(/^https?:\/\//, "")}</a>}
+            {/* 0904 P1收口: 用户可控 URL 直作 href, javascript: 伪协议可点击执行 —
+                加 http(s) 守卫(判据同 CasExternals.tsx 供应商站外链)。 */}
+            {profile.website && /^https?:\/\//i.test(profile.website) && <a href={profile.website} target="_blank" rel="nofollow noopener noreferrer">{profile.website.replace(/^https?:\/\//i, "")}</a>}
             {profile.orcid && <a href={`https://orcid.org/${profile.orcid}`} target="_blank" rel="noreferrer">ORCID: {profile.orcid}</a>}
           </div>
         )}
