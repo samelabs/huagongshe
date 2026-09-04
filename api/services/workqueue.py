@@ -17,7 +17,11 @@ from sqlalchemy import text
 
 from ..schemas.workapi import LeaseProof
 from ..services.name_index import ingest_from_synonyms
+import logging
+
 from ..pubchem_core import chemical_core_values, number_or_none, validate_synonyms
+
+logger = logging.getLogger(__name__)
 
 def lease_hash(value: str) -> bytes:
     return hashlib.sha256(value.encode()).digest()
@@ -67,6 +71,16 @@ async def sync_chemical_core(
     id_sets = {k: sorted(set(v)) for k, v in id_arrays.items() if v}
     dtxsid_values = sorted(set((main_table_ids or {}).get("dtxsid") or []))
     dtxsid_in = dtxsid_values[0] if dtxsid_values else None
+
+    validated = None
+    if synonyms is not None:
+        try:
+            validated = validate_synonyms(synonyms)
+        except ValueError:
+            logger.warning("synonyms rejected (limit/invariant): chemical_id=%s count=%s",
+                           chemical_id, len(synonyms) if isinstance(synonyms, list) else "?")
+    if validated is not None:
+        validated = json.dumps(validated, ensure_ascii=False, separators=(",", ":"))
     await db.execute(text("""
         WITH incoming AS (
             SELECT CAST(:preferred_name AS text) AS preferred_name,
@@ -153,14 +167,11 @@ async def sync_chemical_core(
         )
     """), {
         "chemical_id": chemical_id,
-        "sync_synonyms": synonyms is not None,
+        "sync_synonyms": validated is not None,
         # 0904: validate_synonyms 原是四层重构孤儿(全库零引用)。它是 PB
-        # synonyms 上限防线(20万条/8MB), 接回写入口 — 校验失败返回 None 不写。
-        "synonyms": (
-            json.dumps(validated, ensure_ascii=False, separators=(",", ":"))
-            if (validated := (validate_synonyms(synonyms) if synonyms is not None else None)) is not None
-            else None
-        ),
+        # synonyms 上限防线(20万条/8MB), 接回写入口。校验 raise ValueError
+        # → 此处捕获: 跳过 synonyms 写入(其余字段照写), log 留痕不静默。
+        "synonyms": validated,
         "cas_in": cas_numbers or [],
         "nikkaji_in": id_sets.get("nikkaji_numbers", []),
         "chembl_in": id_sets.get("chembl_ids", []),
@@ -170,8 +181,8 @@ async def sync_chemical_core(
         "dtxsid_in": dtxsid_in,
         **values,
     })
-    # name_index 摄入: synonyms 镜像, 与核心列同步同事务
-    if synonyms is not None:
+    # name_index 摄入: synonyms 镜像, 与核心列同步同事务(仅校验通过时)
+    if validated is not None:
         await ingest_from_synonyms(db, chemical_id, synonyms)
 
 

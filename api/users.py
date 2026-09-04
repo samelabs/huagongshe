@@ -198,10 +198,14 @@ async def update_profile(body: ProfileBody, actor: Actor = Depends(current_sessi
         """), {**body.model_dump(), "id": actor.id})
         await db.commit()
     except IntegrityError as exc:
-        # 0904 敞口收口: email 唯一约束冲突此前未处理直接 500(对照 register
-        # 路径同款异常已有 409)。补齐: 回滚+409, 错误信息不区分撞哪列。
+        # 0904 敞口收口: email 唯一索引(community_users_email_uidx)冲突此前
+        # 未处理直接 500(对照 register 路径同款异常已有 409)。精确判定:
+        # 只把 email 撞号转 409; 其余约束冲突(display_name/bio CHECK 已被
+        # pydantic Field 等值挡住, 理论不可达)原样抛, 不吞成误导性 409。
         await db.rollback()
-        raise HTTPException(409, "邮箱已被其他账号占用") from exc
+        if "community_users_email_uidx" in str(getattr(exc, "orig", "")) or "community_users_email_uidx" in str(exc):
+            raise HTTPException(409, "邮箱已被其他账号占用") from exc
+        raise
     return body.model_dump()
 
 

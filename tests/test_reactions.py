@@ -14,7 +14,8 @@ os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.
 
 from api import agent, reactions, social, users
 from api.core.config import settings
-from api.reactions import ParticipantBody, ReactionBody, canonical_participants
+from api.reactions import canonical_participants
+from api.schemas.reactions import ParticipantBody, ReactionBody
 from api.core.security import Actor
 
 

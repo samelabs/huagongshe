@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .core.cache import cache_delete
 from .chemistry import canonicalize_smiles
-from .schemas.reactions import ParticipantBody, ReactionBody  # re-export: tests/外部沿用本模块命名
+from .schemas.reactions import ReactionBody
 from .core.config import settings
 from .core.database import get_db
 from .core.rate_limit import enforce
