@@ -17,6 +17,7 @@ const t = {
   /* ── 品牌 ────────────────────────────────────────────── */
   brand: {
     name: '化工社AIchem',
+    domain: 'huagongshe.com',
     seoTitle: '化工社AIchem｜你的AI化学工作台',
     seoDesc: '化工社AIchem是你的AI化学工作台。查化合物、找反应、算投料，构建可持续积累的个人化学工作台。',
     seoDescShort: '查化合物、找反应、算投料，构建你的化学工作台。',
@@ -31,6 +32,8 @@ const t = {
     loginRequired: '请先登录',
     loginOrRegister: '登录或注册',
     loginHint: '登录后管理你的反应记录和收藏。',
+    save: '保存',
+    cancel: '取消',
     delete: '删除',
     edit: '编辑',
     view: '查看',
@@ -44,6 +47,7 @@ const t = {
     pageNav: '分页',
     pageOf: (cur: number, total: number) => `第 ${cur} / ${total} 页`,
     networkError: '网络错误，稍后重试',
+    contentUnavailable: '加载失败',
     unnamedCompound: '未命名化合物',
     breadcrumb: '面包屑',
     close: '关闭',
@@ -73,6 +77,7 @@ const t = {
   /* ── 首页 ────────────────────────────────────────────── */
   home: {
     hero: 'AI化学工作台',
+    subtitle: '从这里开始你的AI化学',
     searchPlaceholder: '中英文名称、CAS、SMILES、CID、ORD记录号或DOI',
     searchButton: '查询',
     /* ── 三入口卡片 ── */
@@ -93,6 +98,7 @@ const t = {
 
   /* ── 搜索 ────────────────────────────────────────────── */
   search: {
+    title: '查询化学数据',
     hintName: '中英文名称、别名、CAS、SMILES、PubChem CID、InChIKey、DTXSID、ChEMBL、ChEBI 等。',
     hintNameShort: '中英文名称、CAS、SMILES、PubChem CID、InChIKey 等',
     noResults: '没有匹配结果',
@@ -124,6 +130,7 @@ const t = {
   /* ── 化合物详情 ──────────────────────────────────────── */
   chemical: {
     detail: '化合物详情',
+    desc: '化合物结构、身份、性质与相关反应',
     home: '首页',
     structureIdentity: '结构与身份',
     relatedReactions: '相关反应',
@@ -133,6 +140,7 @@ const t = {
     structureLogin: '登录后使用结构检索',
     newRelated: '新建相关反应记录',
     newRelatedHint: '将当前化合物预填为反应物，并自动关联HCID。',
+    newReaction: '新建反应记录',
     errReactions: '相关反应暂时无法加载，请稍后重试。',
     noReactions: '当前筛选下没有反应记录。',
     identity: {
@@ -205,6 +213,7 @@ const t = {
   /* ── 反应详情 ────────────────────────────────────────── */
   reaction: {
     detail: '反应详情',
+    desc: '反应方程式、参与物、条件、结果与来源',
     ownerSelf: '我的反应',
     ownerOther: '查数据',
     equation: '反应方程式',
@@ -215,6 +224,7 @@ const t = {
     workup: '后处理',
     safety: '安全说明',
     notes: '补充说明',
+    reagentsCatalystsSolvents: '试剂、催化剂与溶剂',
     sources: '来源与证据',
     creator: '创建者',
     publicReaction: '公开反应',
@@ -297,6 +307,8 @@ const t = {
     tabFollowers: '粉丝',
     tabFollowing: '关注',
     newReaction: '新建反应',
+    bio: '简介',
+    joinedAt: (date: string) => `加入时间：${date}`,
     following: '关注',
     followers: '粉丝',
     homeGreeting: (name: string) => `${name}的工作台`,
@@ -434,6 +446,7 @@ const t = {
     },
     avatar: {
       title: '头像',
+      kicker: 'AVATAR',
       desc: '图片将自动裁切、移除元数据并压缩为WebP。',
       current: '当前头像',
       hint: '支持JPEG、PNG和WebP，最大5MB。',
@@ -450,6 +463,7 @@ const t = {
     },
     profile: {
       title: '个人资料',
+      kicker: 'PROFILE',
       desc: '完善资料有助于其他研究者了解和引用你的工作。',
       username: '用户名',
       usernameHint: '不可修改',
@@ -579,6 +593,7 @@ const t = {
     errConcUnit: '每个参与物的浓度数值和单位必须同时填写。',
     errSourceMissing: '请填写与来源类型对应的来源信息。',
     errSave: '保存失败，请稍后重试',
+    errNetwork: '网络连接失败，内容仍保留在本页，请稍后重试。',
     roles: {
       reactant: '反应物',
       product: '产物',
@@ -794,6 +809,16 @@ const t = {
     pipelineKicker: 'PIPELINE',
     pipelineTitle: '数据管道',
     pipelineDesc: (s: number, at: string) => `队列健康、今日吞吐与最新入库, 每 ${s} 秒自动刷新 · 数据时刻 ${at}`,
+    pipeQueues: '队列与健康',
+    pipeToday: '今日成功',
+    pipeListingToday: '今日入库',
+    pipeListingSub: (c: string, h: string) => `${c} 个化合物 · 最近1小时 +${h} 行`,
+    pipeLocales: '今日分语言落库',
+    pipeLocale: '语言',
+    pipeLastAt: '最近写入',
+    pipeLatest: '最新入库(实时)',
+    pipeTotals: (r: string, c: string, p: string) => `listing 总量 ${r} 行 / ${c} 化合物 · 供应商档案 ${p} 家`,
+    pipeZombie: (n: number) => `僵尸租约 ${n} 条`,
     /* Worker 凭据 */
     workersKicker: 'WORKERS',
     workersTitle: 'Worker 凭据',
