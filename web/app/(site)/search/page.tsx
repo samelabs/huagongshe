@@ -90,9 +90,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         {chemicalId && <p className="context-line">{t.search.basedOnStructure}<Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link>{t.search.queryStructure}{relationLabel}{mode === "similarity" ? t.search.similarityThreshold : ""}</p>}
       </header>
       {error && <div className="notice error">{error}</div>}
-      {!error && !q && !chemicalId && (
-        <p className="search-idle-hint">{t.search.idleHint}</p>
-      )}
       {chemicals.length > 0 && (
         <section className="results-section">
           <div className="section-heading">

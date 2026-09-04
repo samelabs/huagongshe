@@ -280,7 +280,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .search-head .context-line { margin-top: 14px; }
 .context-line a { color: var(--blue); }
 /* 结果页空态提示（2026-08-27 收敛：/search 是结果页，发现职责归首页） */
-.search-idle-hint { margin: 0; color: var(--muted); font-size: var(--text); line-height: 1.7; }
 .results-section + .results-section { margin-top: 44px; }
 .load-more { text-align: center; margin-top: 32px; }
 .load-more-btn { display: inline-block; padding: 12px 32px; border: 1px solid var(--blue-border); border-radius: 10px; color: var(--blue-deep); font-size: var(--text); font-weight: 600; transition: background .15s, border-color .15s; }
