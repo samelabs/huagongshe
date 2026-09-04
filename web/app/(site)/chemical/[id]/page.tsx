@@ -81,7 +81,9 @@ export default async function ChemicalPage({ params }: {
 
   return (
     <div className="content-page chemical-page">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {/* 0904 P0收口: JSON.stringify 不转义 '<', </script> 可闭合标签注入脚本
+          (存储型XSS, 数据源含PubChem第三方)。规范做法同 reaction 页。 */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href="/">{t.chemical.home}</Link><span>/</span><span>{t.chemical.detail}</span></nav>
       <header className="chemical-identity">
         <div className="chemical-structure"><Molecule chemicalId={chemical.id} label={chemical.preferred_name || chemical.iupac_name} width={360} height={280} /></div>

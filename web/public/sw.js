@@ -1,7 +1,7 @@
 // 缓存面收口(2026-08-27): 只缓存不可变静态资源(带内容哈希的 /_next/static 与本站图标/manifest)。
 // 用户态内容(HTML 导航/RSC 载荷)一律禁入缓存 —— 旧版把它们落进 SWR 分支,
 // 登出后客户端路由回放缓存里登入态的旧 RSC, 造成用户信息残存(已修, 升版清污染)。
-const CACHE_VERSION = 'hgs-pwa-v23';
+const CACHE_VERSION = 'hgs-pwa-v24';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
 // 仅不可变资源: /_next/static/* 构建产物带内容哈希, 图标/manifest 跨版本稳定

@@ -58,6 +58,20 @@ async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
     return [dict(r._mapping) for r in rows]
 
 
+def _strip_nul(value):
+    """0904 P0收口: CB上游页面字段可含 U+0000, PG text/jsonb 拒绝 \u0000 转义
+    (UntranslatableCharacterError 实锤于 error.log)。递归剔除, 仅处理 str,
+    其他类型原样返回。entry/suppliers 全部过这一道 — 写库前的唯一清洗点。
+    """
+    if isinstance(value, str):
+        return value.replace("\x00", "")
+    if isinstance(value, list):
+        return [_strip_nul(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _strip_nul(v) for k, v in value.items()}
+    return value
+
+
 async def upsert_externals(
     db: Any,
     *,
@@ -75,6 +89,8 @@ async def upsert_externals(
     chemical_cb 不存); cbsid 落 supplier profile/listing 两表, 任何 API/DOM 输出零标识。
     locale: zh-CN 为主行(供应商同写); en 等语言行只写 entry, suppliers 恒空。
     """
+    entry = _strip_nul(entry)
+    suppliers = _strip_nul(suppliers)
     entry_json = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) if entry else None
     if entry_json and len(entry_json.encode()) > MAX_ENTRY_JSON_BYTES:
         raise ValueError("cas entry payload exceeds safety limit")
