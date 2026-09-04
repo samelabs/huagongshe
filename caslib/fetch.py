@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
+from typing import Any
 
 import aiohttp
 
@@ -36,7 +37,17 @@ class FetchResult:
     stats: dict = field(default_factory=dict)
 
 
-async def _get(session: aiohttp.ClientSession, url: str, timeout_s: float) -> tuple[int | None, str]:
+async def _get(
+    session: aiohttp.ClientSession,
+    url: str,
+    timeout_s: float,
+    rate: Any = None,
+) -> tuple[int | None, str]:
+    # 0904 P1收口: 限速下沉到请求级 — 此前 worker 只在 job 级 acquire 一次,
+    # 一个 zh-CN job 内部 CAS页+CPP页+mol 最多 3 个请求全绕过限速器(实际峰值
+    # 可达配置 3 倍, 喂上游风控)。rate=None(如 API 同步路径)不限制, 行为不变。
+    if rate is not None:
+        await rate.acquire()
     try:
         async with session.get(
             url,
@@ -55,6 +66,7 @@ async def fetch_cas(
     total_budget_s: float = 3.0,
     cb_number: str | None = None,
     session: aiohttp.ClientSession | None = None,
+    rate: Any = None,
 ) -> FetchResult:
     """拉取一个 CAS — 两条单跳路径(2026-09-01 数据链收口, DATA_CHAIN_REFACTOR_PLAN §1)。
 
@@ -79,7 +91,8 @@ async def fetch_cas(
         if cb_number:
             # 路径A: 已知 CB 号 → 直跳 CPP-CN, 不发 CAS 页
             status, body = await _get(
-                session, f"{BASE}/ChemicalProductProperty_CN_CB{cb_number}.htm", total_budget_s)
+                session, f"{BASE}/ChemicalProductProperty_CN_CB{cb_number}.htm",
+                total_budget_s, rate)
             stats["cpp_status"] = status
             if status != 200:
                 log.info("cpp cb=%s loc=zh status=%s bytes=%s state=error",
@@ -96,7 +109,7 @@ async def fetch_cas(
                                    stats=stats)
             return FetchResult("ok", cpp_html=body, cb_number=cb_number, stats=stats)
         # 路径B: 无号 → CAS 详情页
-        status, body = await _get(session, f"{BASE}/CAS_{cas}.htm", total_budget_s)
+        status, body = await _get(session, f"{BASE}/CAS_{cas}.htm", total_budget_s, rate)
         stats["cas_status"] = status
         if status is None or status != 200:
             log.info("cas %s status=%s state=error", cas, status)
@@ -118,7 +131,7 @@ async def fetch_cas(
             return FetchResult("ok", cas_html=body, cb_number=None, stats=stats)
         cpp_html = None
         status2, body2 = await _get(
-            session, f"{BASE}/ChemicalProductProperty_CN_CB{cb}.htm", total_budget_s)
+            session, f"{BASE}/ChemicalProductProperty_CN_CB{cb}.htm", total_budget_s, rate)
         stats["cpp_status"] = status2
         if status2 == 200:
             from .parse import cpp_page_state
@@ -168,6 +181,7 @@ async def fetch_cpp_locale(
     locale: str,
     *,
     timeout_s: float = 20.0,
+    rate: Any = None,
 ) -> tuple[str, str | None]:
     """拉 CPP 语言变体页(ChemicalProductProperty_{L}_CB{cb}.htm), 返回 (state, html)。
 
@@ -185,7 +199,7 @@ async def fetch_cpp_locale(
     try:
         status, body = await _get(
             session, f"{BASE}/ChemicalProductProperty{suffix}_CB{cb_number}.htm",
-            timeout_s,
+            timeout_s, rate,
         )
     except Exception:
         log.info("cpp cb=%s loc=%s status=none state=error", cb_number, locale)
@@ -228,6 +242,7 @@ async def fetch_mol(
     mol_href: str,
     *,
     timeout_s: float = 10.0,
+    rate: Any = None,
 ) -> str | None:
     """拉一个 mol 文件(站内绝对路径)。任何失败返回 None, 不抛。"""
     # 0902: 不做路径白名单 — 上下文锚已防误配, 此处只要求站内绝对路径+.mol
@@ -235,7 +250,7 @@ async def fetch_mol(
     if not _re.fullmatch(r"/[^?]+\.mol", mol_href):
         return None
     try:
-        status, body = await _get(session, f"{BASE}{mol_href}", timeout_s)
+        status, body = await _get(session, f"{BASE}{mol_href}", timeout_s, rate)
         if status != 200 or not body:
             return None
         if not looks_like_molfile(body):

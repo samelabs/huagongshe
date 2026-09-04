@@ -394,6 +394,10 @@ async def cas_complete_job(
             )
         except ValueError as exc:
             # 载荷异常: 不打死 — 留 error 行占位(0901 终版: 无时间字段, 复活=同请求翻态)。
+            # 0904 P1收口: 此前分支 commit 会把 apply_structure_fill 的主表结构
+            # 半截写入一并落库(有结构无CB数据行, 违反"error=不写数据层"口径)。
+            # 改 rollback 整事务废弃 → 单独事务写 error 行再 commit。
+            await db.rollback()
             await db.execute(text("""
                 UPDATE maintenance.cas_jobs
                 SET status='error',last_error_code='payload_invalid',

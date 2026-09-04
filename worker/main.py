@@ -113,15 +113,21 @@ async def process_job(
         log.info("completed job=%s cid=%s", job["job_id"], job["cid"])
     except PubChemError as exc:
         # 网络/拒服/封禁页 = 没拿到有效回应 → error 报事实, 判定全在闸门。
-        await workapi.post(
-            "/workapi/v1/jobs/error",
-            {
-                "job_id": job["job_id"],
-                "lease_token": job["lease_token"],
-                "error_code": exc.code,
-                "error_detail": str(exc)[:2000],
-            },
-        )
+        # 0904 P1收口: 上报通道自身会失败(workapi 500/瞬断, 0902 日志实证),
+        # 与 PubChemError 事件在上游劣化期正相关 — 未包 try 时异常穿出被
+        # loop 吞掉, 连击丢失且 job 靠租约过期重派=对 NCBI 重复整包请求。
+        try:
+            await workapi.post(
+                "/workapi/v1/jobs/error",
+                {
+                    "job_id": job["job_id"],
+                    "lease_token": job["lease_token"],
+                    "error_code": exc.code,
+                    "error_detail": str(exc)[:2000],
+                },
+            )
+        except Exception:
+            log.exception("could not report pubchem error for job=%s", job["job_id"])
         log.info("PubChem job=%s error: %s", job["job_id"], exc)
     except Exception as exc:
         try:
@@ -143,6 +149,7 @@ async def process_cas_job(
     session: aiohttp.ClientSession,
     workapi: WorkApiClient,
     job: dict[str, Any],
+    rate: "PubChemRateController | None" = None,
 ) -> None:
     """cas_jobs 处理(数据链收口§1/§3): fetch 三态直译, 两出口。
 
@@ -169,7 +176,7 @@ async def process_cas_job(
         if locale == "zh-CN":
             result = await fetch_cas(
                 job["cas_number"], total_budget_s=20.0, session=session,
-                cb_number=job.get("cb_number"),
+                cb_number=job.get("cb_number"), rate=rate,
             )
             if result.status == "error":
                 await workapi.post(
@@ -214,10 +221,11 @@ async def process_cas_job(
                     mol_href = extract_mol_href(result.cas_html or "") or \
                         extract_mol_href(result.cpp_html or "")
                     if mol_href:
-                        payload["mol"] = await fetch_mol(session, mol_href)
+                        payload["mol"] = await fetch_mol(session, mol_href, rate=rate)
         else:
             # 语言行: cb_number 直拉 CPP 语言页, 只写 entry。
-            cpp_state, cpp_html = await fetch_cpp_locale(session, job.get("cb_number"), locale)
+            cpp_state, cpp_html = await fetch_cpp_locale(
+                session, job.get("cb_number"), locale, rate=rate)
             if cpp_state == "error":
                 await workapi.post(
                     "/workapi/v1/cas/jobs/error",
@@ -312,13 +320,18 @@ async def _cb_loop(
 
     请求节奏由 rps 限速器统一控制(0902: 礼仪sleep退役, 与 PB 同构);
     两条 CB 链各持有独立限速器实例 → 对上游各出口恒定 rps。
+    0904 P1收口: lease 批量 10→1。批量+串行处理下, heartbeat 只在 job
+    开跑时启动, 排队中的 job 无人续租(lease=180s, 单 job 最坏 ~50s,
+    第 4 条起未开跑租约已过期)→ 服务端回队重抓(上游双重打击)+原 worker
+    complete 409 落 cas_fetch_error 假错误行污染闸门。逐条 lease 即取即跑,
+    SKIP LOCKED 下另一条链可并行取其余任务, 并发不损失。
     """
     idle = 2.0
     while True:
         try:
             leased = await workapi.post(
                 "/workapi/v1/cas/jobs/lease",
-                {"max_jobs": 10, "capabilities": ["cas"]},
+                {"max_jobs": 1, "capabilities": ["cas"]},
             )
             jobs = leased.get("jobs") or []
             if not jobs:
@@ -327,8 +340,9 @@ async def _cb_loop(
                 continue
             idle = 2.0
             for job in jobs:
-                await rate.acquire()
-                await process_cas_job(session, workapi, job)
+                # 0904: 限速已下沉请求级(caslib._get), job 级 acquire 拆除
+                # — 否则双重间隔把有效 rps 再砍半。
+                await process_cas_job(session, workapi, job, rate=rate)
         except Exception:
             log.exception("cb loop cycle failed")
             await asyncio.sleep(5)

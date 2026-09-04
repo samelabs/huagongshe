@@ -306,8 +306,14 @@ async def enqueue_cas_job(
             (:chemical_id,:cas_number,:priority,:dedupe_key,
              CAST(:context AS jsonb))
         ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','error')
-        DO UPDATE SET priority=greatest(maintenance.cas_jobs.priority,excluded.priority),
-                      updated_at=now()
+        DO UPDATE SET
+            -- 0904 P1收口: error 行复活=同请求翻态(与 PB 链 enrichment.py 同构)。
+            -- 原实现只 bump priority 不翻 queued, error 行卡死后用户重试永远
+            -- "正在获取"(cas_search_state 只认 queued/leased 活跃窗)。
+            status=CASE WHEN maintenance.cas_jobs.status='error'
+                     THEN 'queued' ELSE maintenance.cas_jobs.status END,
+            priority=greatest(maintenance.cas_jobs.priority,excluded.priority),
+            updated_at=now()
         RETURNING id
     """), {
         "chemical_id": chemical_id, "cas_number": cas_number.strip(),
@@ -556,8 +562,12 @@ async def enqueue_cas_search_fetch(db: Any, *, cas_number: str) -> bool:
             (:chemical_id,:cas_number,:priority,:dedupe_key,
              CAST(:context AS jsonb))
         ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','error')
-        DO UPDATE SET priority=greatest(maintenance.cas_jobs.priority,excluded.priority),
-                      updated_at=now()
+        DO UPDATE SET
+            -- 0904 P1收口: 同上, error 复活=同请求翻态(search_miss 入口)。
+            status=CASE WHEN maintenance.cas_jobs.status='error'
+                     THEN 'queued' ELSE maintenance.cas_jobs.status END,
+            priority=greatest(maintenance.cas_jobs.priority,excluded.priority),
+            updated_at=now()
     """), {
         "chemical_id": int(chemical_id), "cas_number": cas,
         "priority": SEARCH_MISS_PRIORITY,
