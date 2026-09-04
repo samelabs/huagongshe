@@ -171,13 +171,19 @@ def _parse_number_from_text(text: str) -> tuple[float | None, str | None]:
     # 0904 P2: 单位截到首个空白/括号 — 原 .{0,14} 贪婪把 '135 °C (dec)' 的
     # '(dec)'、'68.5(14°C)' 的 '(14°C)' 整段吞进 unit, exp_props.unit 脏数据。
     match = re.search(r"(-?\d+(?:\.\d+)?)\s*([^\d\s(]+)?", text)
+    if match and match.group(2):
+        # 0904: 收紧 — 尾部句点剥掉; 纯标点(如区间'-')不是单位, 弃掉保原文
+        unit = match.group(2).rstrip(".").strip() or None
+        if unit and not re.search(r"[a-zA-Z°%]", unit):
+            unit = None
+    else:
+        unit = None
     if not match:
         return None, None
     try:
         number = float(match.group(1))
     except ValueError:
         return None, None
-    unit = match.group(2).strip() if match.group(2) else None
     return number, unit
 
 

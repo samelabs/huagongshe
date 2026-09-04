@@ -29,6 +29,7 @@ const t = {
   common: {
     loading: '加载中…',
     loadingAccount: '正在读取账号…',
+    errRetry: '加载失败，请重试',
     loginRequired: '请先登录',
     loginOrRegister: '登录或注册',
     loginHint: '登录后管理你的反应记录和收藏。',

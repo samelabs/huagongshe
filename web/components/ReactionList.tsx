@@ -16,17 +16,20 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ total: number; reactions: ReactionSummary[] }>({ total: initialTotal, reactions: initial });
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     // Skip initial fetch — SSR already provided the authoritative default view.
     if (role === "any" && page === 1) { setData({ total: initialTotal, reactions: initial }); return; }
     let active = true;
     setLoading(true);
+    setLoadError(false);
     // 0904 P1收口: 此前 .catch(()=>{}) 静默吞错 — 页码已前进但展示旧页数据,
-    // 化学数据场景下是误导性正确性风险。改为失败即回退页码状态, 数据不换。
+    // 化学数据场景下是误导性正确性风险。修正(二稿): 失败时保持当前筛选与页码、
+    // 数据不换(仍展示上一屏), 只出错误提示行; 不再强制回退 (any,1) 丢用户位置。
     apiGet<{ total: number; reactions: ReactionSummary[] }>(`/chemicals/${chemicalId}/reactions?page=${page}&page_size=8&role=${role}`)
       .then((result) => { if (active) setData({ total: result.total, reactions: result.reactions }); })
-      .catch(() => { if (active) { setRole("any"); setPage(1); } })
+      .catch(() => { if (active) setLoadError(true); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
     // initial/initialTotal are the SSR snapshot for (any, 1); the reset branch
@@ -40,6 +43,7 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
       <div className="role-filter">{roles.map((value) => (
         <button type="button" className={`role-filter-btn${role === value ? " active" : ""}`} key={value} onClick={() => { setRole(value); setPage(1); }}>{roleNames[value]}</button>
       ))}</div>
+      {loadError && !loading ? <p className="quiet-empty">{t.common.errRetry}</p> : null}
       {loading ? <p className="quiet-empty">{t.common.loading}</p> : data.reactions.length > 0 ? (
         <div className="reaction-results">{data.reactions.map((reaction) => (
           <article className="reaction-result" key={reaction.id}>
