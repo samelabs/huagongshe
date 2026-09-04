@@ -22,11 +22,13 @@ from .name_index import normalize_name
 async def run_search_query(
     db: Any, query: str, mode: str, canonical: Any, page: int, page_size: int,
     offset: int,
+    *, actor_id: int | None = None,
 ) -> tuple[list[dict[str, Any]], int | None, list[dict[str, Any]], bool, Any]:
     """执行搜索主体(化合物命中/total/反应/cas_fetch_pending/canonical 回写)。
 
     返回 (chemicals, total, reactions, cas_fetch_pending, canonical)。
     canonical 可能被 substructure 分支重新赋值(bounded), 调用方需取回。
+    actor_id: 鉴权用户 id(匿名=None) — 仅用于 CAS-miss 入队限流身份。
     """
     chemicals: list[dict[str, Any]] = []
     total: int | None = None
@@ -115,12 +117,29 @@ async def run_search_query(
                 if (
                     not chemicals and page == 1 and CAS_RE.fullmatch(query)
                 ):
+                    # 0904 敞口收口: 分支注释宣称限流但无 enforce 调用(匿名可
+                    # 无限建占位行+触发外部链)。按注释原口径补齐: 鉴权用户
+                    # 10/min/actor; 匿名(BFF/SSR=loopback, 无真实IP)共享全局桶
+                    # 30/min。超限/限速服务异常一律降级为不入队(state=miss),
+                    # 绝不阻塞搜索响应(注释原语义); 只挡占行+入队副作用面。
+                    rate_state = "ok"
+                    try:
+                        from ..core.rate_limit import enforce
+                        if actor_id is not None:
+                            await enforce("cas-search-fetch", str(actor_id), 10, 60)
+                        else:
+                            await enforce("cas-search-fetch", "anonymous-global", 30, 60)
+                    except Exception:
+                        rate_state = "miss"
                     try:
                         from .cb import (
                             cas_search_state, enqueue_cas_search_fetch,
                             sync_fetch_and_store,
                         )
-                        state = await cas_search_state(db, query)
+                        # rate 拒绝时跳过 state 询问, state 保持 "miss" 之外的
+                        # 平价值: 只是不入队, 不对 CB 收录下任何结论(与
+                        # cas_search_state 的 miss=终态负缓存语义区分)。
+                        state = "throttled" if rate_state == "miss" else await cas_search_state(db, query)
                         if state == "new":
                             # 0902 P3b: 同步拉首屏 — 占行后当场抓 CB(3s 预算,
                             # 路径B实测 ~1.5s), 命中即本次响应带回 chemical_id,

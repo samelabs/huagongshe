@@ -82,6 +82,7 @@ async def search(
     try:
         chemicals, total, reactions, cas_fetch_pending, canonical, cas_fetch_hit_id = await run_search_query(
             db, query, mode, canonical, page, page_size, offset,
+            actor_id=actor.id if actor else None,
         )
     except HTTPException:
         raise
