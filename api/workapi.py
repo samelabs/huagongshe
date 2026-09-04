@@ -258,14 +258,12 @@ async def cas_lease_jobs(
         return {"jobs": [], "retry_after_seconds": 30}
     try:
         # 到期自扫(替代 SSR 触发, CF 缓存场景同样生效) + 过期租约回收
-        from .services.cb import scan_expired_into_queue
         redis = await get_cache()
         # ── 闸门(§4): cb 通道静默期不派发 ──
         gate_wait = await gate_silence_remaining(redis, "cb")
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
-        await scan_expired_into_queue(db)
         # 过期租约回收(§4): 本地问题非通道问题 — 直接回队, 不进计数。
         await db.execute(text("""
             UPDATE maintenance.cas_jobs

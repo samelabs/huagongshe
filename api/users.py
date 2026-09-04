@@ -13,7 +13,6 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Response, UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
-from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -22,7 +21,7 @@ from .core.config import settings
 from .core.database import get_db
 from .core.rate_limit import enforce
 from .core.security import (
-    Actor, actor_payload, current_actor, current_session, internal_or_actor, optional_actor,
+    Actor, actor_payload, current_actor, current_session, internal_or_actor,
     password_hash, password_matches,
 )
 from .schemas.users import RegisterBody, LoginBody, ProfileBody, TokenBody, PasswordBody

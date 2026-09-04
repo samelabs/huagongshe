@@ -2,7 +2,7 @@
 
 包含: lease_hash/verified_lease(租约校验), as_json_object/sync_chemical_core/
 reject_completed_job/upsert_details(PB 完成写库),
-verified_cas_lease/_cb_requery_days(CB 租约校验)。
+verified_cas_lease(CB 租约校验)。
 外部引用者: api/workapi.py 各端点。
 """
 
@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 from ..schemas.workapi import LeaseProof
 from ..services.name_index import ingest_from_synonyms
-from ..pubchem_core import chemical_core_values, number_or_none
+from ..pubchem_core import chemical_core_values, number_or_none, validate_synonyms
 
 def lease_hash(value: str) -> bytes:
     return hashlib.sha256(value.encode()).digest()
@@ -154,8 +154,13 @@ async def sync_chemical_core(
     """), {
         "chemical_id": chemical_id,
         "sync_synonyms": synonyms is not None,
-        "synonyms": json.dumps(synonyms, ensure_ascii=False, separators=(",", ":"))
-        if synonyms is not None else None,
+        # 0904: validate_synonyms 原是四层重构孤儿(全库零引用)。它是 PB
+        # synonyms 上限防线(20万条/8MB), 接回写入口 — 校验失败返回 None 不写。
+        "synonyms": (
+            json.dumps(validated, ensure_ascii=False, separators=(",", ":"))
+            if (validated := (validate_synonyms(synonyms) if synonyms is not None else None)) is not None
+            else None
+        ),
         "cas_in": cas_numbers or [],
         "nikkaji_in": id_sets.get("nikkaji_numbers", []),
         "chembl_in": id_sets.get("chembl_ids", []),
@@ -282,15 +287,3 @@ async def verified_cas_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock
     if not row:
         raise HTTPException(409, "lease is missing, expired, or owned by another worker")
     return row
-
-
-async def _cb_requery_days(db: Any) -> int:
-    """lease 拦截窗口(读配置, 缺省180)。与 cas_externals._cb_window_days 同源语义。"""
-    try:
-        row = (await db.execute(text("""
-            SELECT value FROM community.system_config
-            WHERE namespace='cb' AND key='not_found_requery_days'
-        """))).first()
-        return int(row[0].get("days", 180)) if row else 180
-    except Exception:
-        return 180

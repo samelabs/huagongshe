@@ -31,7 +31,7 @@ function notFound(): NextResponse {
 
 async function proxy(request: NextRequest, path: string): Promise<NextResponse> {
   // MCP 发现面收口：OpenAPI/文档不暴露
-  if (path === "/api/docs" || path === "/api/openapi.json" || path === "/api/redoc" || path === "/api/redoc/*") {
+  if (path === "/api/docs" || path === "/api/openapi.json" || path === "/api/redoc" || path.startsWith("/api/redoc/")) {
     return notFound();
   }
 

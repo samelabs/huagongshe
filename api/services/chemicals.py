@@ -41,10 +41,6 @@ IDENTIFIER_ARRAYS = {
     "unii": "unii_codes",
     "chebi": "chebi_ids",
 }
-FULL_DETAILS_SECTIONS = (
-    "computed", "identifiers", "synonyms", "physical", "safety",
-    "toxicity", "regulatory", "pharmacology", "uses",
-)
 CHEMICAL_SELECT = """
     c.id, c.pubchem_cid, c.smiles, c.pubchem_smiles,
     c.preferred_name, c.iupac_name, c.molecular_formula,

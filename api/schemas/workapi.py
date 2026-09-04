@@ -31,7 +31,7 @@ class CasResultBody(BaseModel):
     # CB 条目号(可选, 身份标识): 纯数字字符串, 落主表 chemicals.cb_number
     cb_number: str | None = Field(default=None, pattern=r"^\d{1,16}$")
     # locale(可选, 默认 zh-CN 主行): en 等语言行只写 entry, suppliers 由主行独占
-    locale: str = Field(default="zh-CN", pattern="^(zh-CN|en|ja|de|ko|ru)$")
+    locale: str = Field(default="zh-CN", pattern="^(zh-CN|en|ja|de|ko)$")  # ru已摘(0831, 与 CB_LOCALES 对齐)
 
 
 

@@ -8,19 +8,18 @@ import logging
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Request
-from pydantic import BaseModel, Field, field_validator, model_validator
 from rdkit import Chem
 from rdkit.Chem import Descriptors, rdChemReactions, rdMolDescriptors
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from .core.cache import cache_delete
-from .chemistry import canonicalize_smiles, normalize_doi
+from .chemistry import canonicalize_smiles
+from .schemas.reactions import ParticipantBody, ReactionBody  # re-export: tests/外部沿用本模块命名
 from .core.config import settings
 from .core.database import get_db
 from .core.rate_limit import enforce
 from .core.security import Actor, current_actor, internal_or_actor, require_scope
-from .schemas.reactions import ReactionBody, ParticipantBody
 
 router = APIRouter(tags=["reactions"])
 logger = logging.getLogger(__name__)

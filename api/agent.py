@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from .core.config import settings
 from .core.database import get_db
-from .core.security import Actor, internal_or_actor, optional_actor
+from .core.security import Actor, internal_or_actor
 
 
 router = APIRouter(tags=["agent"])

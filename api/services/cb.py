@@ -672,11 +672,3 @@ async def ensure_externals(
     except Exception:
         pass
     return payload
-
-
-async def scan_expired_into_queue(db: Any, batch: int = 200) -> int:
-    """已退役(2026-08-29定): TTL回补环全拆 — 时间只记录不驱动。
-    ok/not_found 同为终态, 无到期无回炉。回补=未来手动脚本。
-    保留空壳防外部调用报错; 返回 0。
-    """
-    return 0

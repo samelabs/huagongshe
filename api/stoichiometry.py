@@ -9,17 +9,15 @@ theoretical (100% conversion).
 
 from __future__ import annotations
 
-from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
 from .core.config import settings
 from .core.rate_limit import enforce
-from .core.security import Actor, internal_or_actor, optional_actor
-from .schemas.stoichiometry import Component, Basis, ScaleInput, Role, Unit
+from .core.security import Actor, internal_or_actor
+from .schemas.stoichiometry import ScaleInput
 
 router = APIRouter(tags=["stoichiometry"])
 

@@ -168,7 +168,9 @@ def _leaf_texts_with_refs(section: dict[str, Any]) -> list[dict[str, Any]]:
 def _parse_number_from_text(text: str) -> tuple[float | None, str | None]:
     """从实验性质文本里解析 数值+单位: '135 °C' → (135.0, '°C')。失败 (None,None)。"""
     import re
-    match = re.search(r"(-?\d+(?:\.\d+)?)\s*([^\d\s].{0,14})?", text)
+    # 0904 P2: 单位截到首个空白/括号 — 原 .{0,14} 贪婪把 '135 °C (dec)' 的
+    # '(dec)'、'68.5(14°C)' 的 '(14°C)' 整段吞进 unit, exp_props.unit 脏数据。
+    match = re.search(r"(-?\d+(?:\.\d+)?)\s*([^\d\s(]+)?", text)
     if not match:
         return None, None
     try:
@@ -257,9 +259,7 @@ def parse_whole_record(payload: dict[str, Any]) -> dict[str, Any] | None:
     for heading in _DESCRIPTORS:
         section = _find_one(record, heading)
         if section:
-            text = _swm_string((section.get("Information") or [{}]).get(0, {}).get("Value") if section.get("Information") else {}) if False else (
-                (section.get("Information") or [{}])[0].get("Value") or {}
-            )
+            text = (section.get("Information") or [{}])[0].get("Value") or {}
             value = _swm_string((section.get("Information") or [{}])[0].get("Value") or {})
             if heading == "Molecular Formula":
                 core["MolecularFormula"] = value
