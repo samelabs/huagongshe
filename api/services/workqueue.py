@@ -222,7 +222,6 @@ async def upsert_details(
         "pharmacology": obj("pharmacology"), "uses": obj("uses"),
         "identifiers": obj("identifiers"), "references": obj("references"),
         "external_ids": obj("external_ids"), "ghs_codes": obj("ghs_codes"),
-        "exp_props": obj("exp_props"), "exp_limits": obj("exp_limits"),
         "reactivity": obj("reactivity"),
         "created_on": as_date("pubchem_created_on"),
         "modified_on": as_date("pubchem_modified_on"),
@@ -235,7 +234,7 @@ async def upsert_details(
             computed_properties,physical_properties,ghs_classification,hazards,
             safety_measures,toxicity,regulatory,pharmacology,uses_and_manufacturing,
             identifier_evidence,source_references,
-            external_ids,ghs_codes,exp_props,exp_limits,reactivity,
+            external_ids,ghs_codes,reactivity,
             pubchem_created_on,pubchem_modified_on,
             fetched_at,updated_at
         ) VALUES (
@@ -246,7 +245,7 @@ async def upsert_details(
             CAST(:regulatory AS jsonb),CAST(:pharmacology AS jsonb),CAST(:uses AS jsonb),
             CAST(:identifiers AS jsonb),CAST(:references AS jsonb),
             CAST(:external_ids AS jsonb),CAST(:ghs_codes AS jsonb),
-            CAST(:exp_props AS jsonb),CAST(:exp_limits AS jsonb),CAST(:reactivity AS jsonb),
+            CAST(:reactivity AS jsonb),
             :created_on,:modified_on,
             now(),now()
         )
@@ -274,8 +273,6 @@ async def upsert_details(
             source_references=excluded.source_references,
             external_ids=excluded.external_ids,
             ghs_codes=excluded.ghs_codes,
-            exp_props=excluded.exp_props,
-            exp_limits=excluded.exp_limits,
             reactivity=excluded.reactivity,
             pubchem_created_on=excluded.pubchem_created_on,
             pubchem_modified_on=excluded.pubchem_modified_on,

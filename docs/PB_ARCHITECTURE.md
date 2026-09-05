@@ -36,12 +36,17 @@
 
 1. **physical_properties 混入 Computed 分支**: PubChem 把 Computed Properties 挂在
    "Chemical and Physical Properties" 子树下，实测样本"实验性质"区出现
-   Computed Properties > Exact Mass，与 COMPUTED 格内容重复。修法（若要做）:
-   whole_record.py 物理子树剔除 Computed 分支
-2. **exp_props 前端零消费**: canonical 键+数值化（bp/density 带 v/unit）躺在库里，
-   页面展示的还是原文条目。启用是产品决策
-3. **exp_props.unit 脏**（若启用需先修）: 首数启发式把条件吞进 unit
-   （"°C at 0.039 atm" / "to 275 °F at 760 mm"）; text 原文始终完整
+   Computed Properties > Exact Mass，与 COMPUTED 格内容重复。~~修法（若要做）~~
+   **0905 已修**: whole_record.py 物理子树剔除 Computed 分支 + 存量 161,784 行剥净
+   （bak: chemical_pubchem_physical_0905_bak）
+2. **exp_props 前端呈现缺失（0905 定性修正）**: 非死列——数据是 PB 实验性质
+   canonical 键+数值化（bp/density 带 v/unit），前端零引用是呈现欠账不是数据无值。
+   数据源→数据架构→前端展现：前端未作明确改动不应作为后端结构决策依据。
+   列保留，呈现属产品决策待做
+3. **exp_props.unit 脏（0905 已清）**: 二轮清洗 1,130 修正/875 置null/137 年份v置null，
+   终扫残留=0（bak: chemical_pubchem_expprops_clean2_0905_bak, 1,076 行）
+   引文年份守卫已双链上线（caslib/parse_cpp.py + worker/whole_record.py，
+   CitationGuardTests 回归）
 
 ## 5. 与 CB 链的关系
 

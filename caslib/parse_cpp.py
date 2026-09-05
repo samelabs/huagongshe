@@ -13,7 +13,7 @@ CAS 页职能只剩发现 cb_number, 不再解析内容。
 - prose      h3 白名单标题区(用途/生产方法/化学性质等)
 
 canonical 键: props 的页面标签 → 稳定英文键(键表见 _PROP_KEY); 未收录标签
-保原文 label 不强行归类。数值化 v/unit 与 PB exp_props 同口径(首数+单位)。
+保原文 label 不强行归类。数值化 v/unit 单源函数(PB exp_props 派生链已废)。
 """
 
 from __future__ import annotations
@@ -211,10 +211,18 @@ def _norm_label(raw: str) -> str:
 
 def _parse_number_from_text(text: str) -> tuple[float | None, str | None]:
     """'162 °C (lit.)' → (162.0, '°C')。单位=首数后首个非空白非数字 token
-    (字母/°/%开头), 截到空白或括号。失败 (None, None)。与 PB 口径一致。"""
+    (字母/°/%开头), 截到空白或括号。失败 (None, None)。与 PB 口径一致。
+
+    引文守卫(0905): 唯一数字若在引文括号内——'Insoluble (NTP, 1992)'、
+    'Pyrene is a solid. (EPA, 1998)'——那是来源年份不是量值, v 不存在。
+    判据: 去掉所有 (...) 括号段后文本里不再含该数字。
+    """
+    stripped = re.sub(r"\([^)]*\)", " ", text)
     m = _NUM_RE.search(text)
     if not m:
         return None, None
+    if m.group(1) not in stripped:
+        return None, None  # 数字只活在引文括号里 → 无量值
     try:
         number = float(m.group(1))
     except ValueError:

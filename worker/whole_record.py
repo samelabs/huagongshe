@@ -44,26 +44,9 @@ _MAIN_TABLE_IDS = {
     "DSSTox Substance ID": "dtxsid",
 }
 
-# 实验性质 → exp_props 键 (值 {v,unit,cond}: 文本解析出数值+单位, 失败保原文)
-_EXP_PROPS = {
-    "Boiling Point": "bp",
-    "Melting Point": "mp",
-    "Flash Point": "flash_point",
-    "Solubility": "solubility",
-    "Density": "density",
-    "Vapor Pressure": "vapor_pressure",
-    "LogP": "logp",
-    "Dissociation Constants": "pka",
-    "Physical Description": "physical_desc",
-}
-
-# 暴露限值 → exp_limits 键
-_EXP_LIMITS = {
-    "Permissible Exposure Limit (PEL)": "pel",
-    "Recommended Exposure Limit (REL)": "rel",
-    "Threshold Limit Values (TLV)": "tlv",
-    "Immediately Dangerous to Life or Health (IDLH)": "idlh",
-}
+# 实验性质/暴露限值不派生落库(0905 B案裁定): 原文+引文以证据树为准
+# (physical_properties/safety_measures), exp_props/exp_limits 是剥引文的派生子集,
+# 已 DROP。数值化需要时从证据树现算。
 
 # 反应性 → reactivity 键
 _REACTIVITY = {
@@ -165,30 +148,18 @@ def _leaf_texts_with_refs(section: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
-def _parse_number_from_text(text: str) -> tuple[float | None, str | None]:
-    """从实验性质文本里解析 数值+单位: '135 °C' → (135.0, '°C')。失败 (None,None)。"""
-    import re
-    # 0904 P2: 单位截到首个空白/括号 — 原 .{0,14} 贪婪把 '135 °C (dec)' 的
-    # '(dec)'、'68.5(14°C)' 的 '(14°C)' 整段吞进 unit, exp_props.unit 脏数据。
-    match = re.search(r"(-?\d+(?:\.\d+)?)\s*([^\d\s(]+)?", text)
-    if match and match.group(2):
-        # 0904: 收紧 — 尾部句点剥掉; 纯标点(如区间'-')不是单位, 弃掉保原文
-        unit = match.group(2).rstrip(".").strip() or None
-        if unit and not re.search(r"[a-zA-Z°%]", unit):
-            unit = None
-    else:
-        unit = None
-    if not match:
-        return None, None
-    try:
-        number = float(match.group(1))
-    except ValueError:
-        return None, None
-    return number, unit
+# _parse_number_from_text 已删(0905 B案): exp_props/exp_limits 派生链整体废除,
+# 数值化解析单源在 caslib/parse_cpp.py(CB 链 props canonical)。
+# 如未来需要数值化 PB 证据树, 从证据树现算, 不落库缓存。
 
 
 def _collect_evidence_tree(section: dict[str, Any]) -> dict[str, Any]:
-    """子树 → {entries: {path: [values]}} 平铺(与既有渲染形态兼容), 预算截断。"""
+    """子树 → {entries: {path: [values]}} 平铺(与既有渲染形态兼容), 预算截断。
+
+    Computed 子树跳过(0905 体检毛病①): PUG View 把 'Computed Properties' 挂在
+    'Chemical and Physical Properties' 之下, 但它是计算值不是实验证据——Exact Mass/
+    TPSA 混进实验性质区。数值列另有专收(computed_properties 列), 这里不收。
+    """
     entries: dict[str, Any] = {}
     kept = 0
     budget = 150_000
@@ -197,6 +168,8 @@ def _collect_evidence_tree(section: dict[str, Any]) -> dict[str, Any]:
         nonlocal kept, budget
         for child in node.get("Section") or []:
             heading = str(child.get("TOCHeading") or "").strip()
+            if heading == "Computed Properties":
+                continue  # 计算值非实验证据, 专走数值列
             current = path + ((heading,) if heading else ())
             values = _leaf_texts_with_refs(child)
             if values and current:
@@ -358,45 +331,7 @@ def parse_whole_record(payload: dict[str, Any]) -> dict[str, Any] | None:
             ghs_codes["signal_word"] = signal
     out["ghs_codes"] = ghs_codes
 
-    # ── exp_props (数值化: 文本解析 数值+单位+原文) ──
-    exp_props: dict[str, Any] = {}
-    for heading, key in _EXP_PROPS.items():
-        section = _find_one(record, heading)
-        if not section:
-            continue
-        infos = section.get("Information") or []
-        if not infos:
-            continue
-        value = infos[0].get("Value") or {}
-        text = _swm_string(value)
-        if text is None:
-            continue
-        number, unit = _parse_number_from_text(text)
-        entry: dict[str, Any] = {"text": text}
-        if number is not None:
-            entry["v"] = number
-        unit = unit or (str(value["Unit"]) if value.get("Unit") else None)
-        if unit:
-            entry["unit"] = unit
-        exp_props[key] = entry
-    out["exp_props"] = exp_props
-
-    # ── exp_limits ──
-    exp_limits: dict[str, Any] = {}
-    for heading, key in _EXP_LIMITS.items():
-        section = _find_one(record, heading)
-        if not section:
-            continue
-        texts = _leaf_strings(section)
-        if texts:
-            number, unit = _parse_number_from_text(texts[0]) if len(texts) == 1 else (None, None)
-            entry: dict[str, Any] = {"text": "; ".join(texts[:3])}
-            if number is not None:
-                entry["v"] = number
-                if unit:
-                    entry["unit"] = unit
-            exp_limits[key] = entry
-    out["exp_limits"] = exp_limits
+    # ── 反应性(0905: exp_props/exp_limits 派生已废, 原文在证据树) ──
 
     # ── reactivity ──
     reactivity: dict[str, Any] = {}

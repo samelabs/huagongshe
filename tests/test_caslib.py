@@ -164,6 +164,25 @@ class CppL10nTests(unittest.TestCase):
             self.assertGreaterEqual(len(e["prose"]), 5, loc)
 
 
+class CitationGuardTests(unittest.TestCase):
+    """引文年份守卫回归: '(NTP, 1992)' 的 1992 是来源年份不是量值。
+
+    解析单源在 caslib/parse_cpp.py(CB 链 props canonical);
+    PB 派生链 exp_props/exp_limits 已废(0905 B案), 无 PB 侧守卫。
+    """
+
+    def test_guard_cb(self) -> None:
+        from caslib.parse_cpp import _parse_number_from_text as parse
+        self.assertEqual(parse("Insoluble (NTP, 1992)"), (None, None))
+        self.assertEqual(parse("不溶 (NTP, 1992)"), (None, None))
+        self.assertEqual(parse("Pyrene is a solid. (EPA, 1998)"), (None, None))
+        # 真量值不受影响(含括号引文也保数值)
+        v, unit = parse("140 °F (NTP, 1992)")
+        self.assertEqual((v, unit), (140.0, "°F"))
+        self.assertEqual(parse("162 °C"), (162.0, "°C"))
+        self.assertEqual(parse("135 °C (dec)"), (135.0, "°C"))
+
+
 class RedactTests(unittest.TestCase):
     def test_supplier_ref_stable(self) -> None:
         self.assertEqual(supplier_ref("10287"), supplier_ref(10287))

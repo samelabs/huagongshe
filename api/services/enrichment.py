@@ -44,7 +44,7 @@ async def fetch_details(db: Any, chemical_id: int) -> dict[str, Any] | None:
                ghs_classification,hazards,safety_measures,toxicity,regulatory,
                pharmacology,uses_and_manufacturing,identifier_evidence,
                source_references,
-               external_ids,ghs_codes,exp_props,exp_limits,reactivity,
+               external_ids,ghs_codes,reactivity,
                pubchem_created_on,pubchem_modified_on,
                fetched_at,updated_at
         FROM chemistry.chemical_pubchem WHERE chemical_id=:chemical_id
