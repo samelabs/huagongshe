@@ -5,7 +5,12 @@
 
 ## 1. 采集边界
 
-- **唯一采集目标页**: `ChemicalProductProperty_{CN,EN,JP,DE,KR}_CB{cb}.htm`（CPP 五语言页，同构模板）
+- **唯一采集目标页**: `ChemicalProductProperty_{CN,EN,JP,DE,KR}_CB{cb}.htm`（CPP 五语言页）
+- **五语言是两套 DOM**（2026-09-05 真页实测，fixtures/cpp_*.html 是唯一依据）：
+  - CN 页：物性在 ChemicalProperties 表（LabelID 配对），安全在 SafetyInformation 表
+  - en 页：物性在 `table2` th/td 表，安全在 Risk and Safety h3 下 table2
+  - de/ja/ko 页：物性混在头区 dl（46-48 对），安全在 `info_list` 表
+  - 解析器三通道按此分发（parse_cpp.py 分区注释）；标签词表全部来自真页实测，禁自构模板验证
 - **CAS 页（CAS_x_x.htm）职能只有一个**: 发现 cb_number。不解析内容，无兜底，无合并
 - 队列任务带 cb_number 时直接寻址 CPP 页（CB 直连机制），零 CAS 请求
 - ru 已剥离（代码 CB_LOCALES + 数据 DELETE 2156 行 + CHECK 约束收紧，0905）
@@ -82,7 +87,7 @@ reagent_prices / global_distribution / reagents / 更新日期 / FAQ`。
 
 - props 数值化是**首数启发式**：`'270 to 275 °F'` v=270 unit 含 "to 275" 尾巴——
   text 原文始终在，v 只用于排序/比对场景
-- 语言页（de/ja/ko）模板同构但标签本地化：未收录标签保原文 label，
+- 语言页标签本地化：未收录标签保原文 label，
   key 可能出现德文/日文——这是**设计**（保原文>幻觉归类），不是脏数据
 - `not_found` 行不自然刷新（60 天窗只刷 ok 行）；要重刷需显式入队
 - CPP 页 `<10KB` 一律 error 语义（拦截/降级页），不落数据层

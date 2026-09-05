@@ -22,7 +22,11 @@ from caslib.parse_cpp import parse_cpp_page  # noqa: E402
 from caslib.redact import supplier_ref  # noqa: E402
 
 FIXTURES = os.path.expanduser("~/ops/cb-fixtures")
-CPP_REAL = "/tmp/cpp_real.html"
+CPP_REAL = os.path.join(os.path.dirname(__file__), "fixtures", "cpp_cn.html")
+CPP_L10N = {
+    "en": "cpp_en.html", "de": "cpp_de.html", "ja": "cpp_ja.html", "ko": "cpp_ko.html",
+}
+CPP_L10N = {k: os.path.join(os.path.dirname(__file__), "fixtures", v) for k, v in CPP_L10N.items()}
 
 
 def _fixture(name: str) -> str:
@@ -100,6 +104,64 @@ class CppParseTests(unittest.TestCase):
         suppliers = parse_cpp_suppliers(html)
         self.assertGreater(len(suppliers), 50)
         # cbsid 100% 覆盖; phone 可缺(页面未填即 None, 不造假)
+
+
+class CppL10nTests(unittest.TestCase):
+    """语言页真页回归(en/de/ja/ko, 2026-09-05 实拉 fixtures)。
+
+    教训: 此前用自构模板验证语言页"通过"是幻觉——语言页与 CN 页是
+    两套 DOM(en 物性在 table2, de/ja/ko 物性混在头区 dl, 安全区是
+    info_list 表)。真页 fixtures 是唯一依据。
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        missing = [v for v in CPP_L10N.values() if not os.path.exists(v)]
+        if missing:
+            raise unittest.SkipTest(f"语言页 fixtures 不在本机: {missing}")
+        cls.entries = {
+            loc: parse_cpp_page(open(p, encoding="utf-8", errors="replace").read(), locale=loc)
+            for loc, p in CPP_L10N.items()
+        }
+
+    def test_identity_cross_language(self) -> None:
+        for loc, e in self.entries.items():
+            self.assertEqual(e["identity"]["en"], "Butyric Acid", loc)
+            self.assertEqual(e["identity"]["formula"], "C4H8O2", loc)
+            self.assertIn("mol_href", e["identity"], loc)
+        # 本地名: de=Buttersure, ja=酪酸, ko=부탄 산(en 页无 cn 键, 合法)
+        self.assertEqual(self.entries["de"]["identity"]["cn"], "Buttersure")
+        self.assertEqual(self.entries["ja"]["identity"]["cn"], "酪酸")
+        self.assertEqual(self.entries["ko"]["identity"]["cn"], "부탄 산")
+
+    def test_props_physical_values(self) -> None:
+        # 沸点 162°C 五语言一致(数值化), 密度 0.964
+        for loc, e in self.entries.items():
+            props = {p["key"]: p for p in e["props"]}
+            self.assertEqual(props["bp"]["v"], 162.0, loc)
+            self.assertEqual(props["bp"]["unit"], "°C", loc)
+            self.assertEqual(props["density"]["v"], 0.964, loc)
+            self.assertGreater(len(e["props"]), 30, loc)
+
+    def test_safety_structured(self) -> None:
+        for loc, e in self.entries.items():
+            s = e["safety"]
+            self.assertGreaterEqual(len(s), 10, loc)
+            self.assertIn("hazard_code", s, loc)
+            self.assertEqual(s["ridadr"], "UN 2820", loc)
+
+    def test_updown_cb_numbers(self) -> None:
+        for loc, e in self.entries.items():
+            ud = e["updown"]
+            self.assertGreaterEqual(len(ud["up"]), 5, loc)
+            self.assertGreaterEqual(len(ud["down"]), 20, loc)
+            up0 = ud["up"][0]
+            self.assertEqual(up0["name"], "Concentrated hydrochloric acid", loc)
+            self.assertEqual(up0["cb_number"], "01166822", loc)
+
+    def test_prose_present(self) -> None:
+        for loc, e in self.entries.items():
+            self.assertGreaterEqual(len(e["prose"]), 5, loc)
 
 
 class RedactTests(unittest.TestCase):

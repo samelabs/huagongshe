@@ -82,18 +82,110 @@ _PROP_KEY = {
 }
 
 # identity 头区 dt 标签(去尾冒号) → canonical 键
+# 标签全部来自五语言真页实测(tests/fixtures/cpp_*.html), 非推测。
 _IDENTITY_KEY = {
-    "中文名": "cn", "中文名称": "cn",
-    "英文名": "en", "英文名称": "en",
-    "中文别名": "alias_cn", "英文别名": "alias_en",
-    "分子式": "formula", "分子量": "mw",
+    "cn": ("中文名", "中文名称", "化学名", "Bezeichnung", "한글명"),
+    "en": ("英文名", "英文名称", "Chemical Name", "Englisch Name", "英語名", "상품명"),
+    "alias_cn": ("中文别名", "别名", "Synonyma", "동의어(한글)"),
+    "alias_en": ("英文别名", "Synonyms", "英語别名", "동의어(영문)"),
+    "formula": ("分子式", "化学式", "Molecular Formula", "Summenformel", "분자식"),
+    "mw": ("分子量", "Molecular Weight", "Molgewicht", "포뮬러 무게"),
 }
+# 反查: 标签 → identity 键
+_IDENTITY_LABELS = {lab: key for key, labs in _IDENTITY_KEY.items() for lab in labs}
 
-# prose h3 标题白名单(页面标题原文, 含 nbsp 变体)
+# 语言页头区 dl 里的物性标签(实测 de/ja/ko) → canonical 键。
+# CN 页物性在 ChemicalProperties 表(走 _PROP_PAIR_RE), 语言页物性混在头区 dl。
+_PROP_KEY_L10N = {
+    # de
+    "Dichte": "density", "Siedepunkt": "bp", "Schmelzpunkt": "mp",
+    "Flammpunkt": "flash_point", "Dampfdruck": "vapor_pressure",
+    "Dampfdichte": "vapor_density", "Brechungsindex": "refractive_index",
+    "Löslichkeit": "solubility", "Wasserlöslichkeit": "water_solubility",
+    "pka": "pka", "LogP": "logp", "Farbe": "color", "Geruch (Odor)": "odor",
+    "Geruchsart": "odor_type", "Wichte": "specific_gravity",
+    "Oberflächenspannung": "surface_tension",
+    "Spezifische Wärmekapazität": "specific_heat",
+    "Explosionsgrenze": "explosive_limit", "Stabilität": "stability",
+    "Aggregatzustand": "form", "storage temp.": "storage",
+    "Biologische Quelle": "biological_source", "Major Application": "main_application",
+    "Kosmetik-Inhaltsstoffe Funktionen": "cosmetic_function",
+    "PH": "ph", "Dielectric constant": "dielectric_constant",
+    "Odor Threshold": "odor_threshold",
+    "CAS Datenbank": "cas_db_ref", "EPA chemische Informationen": "epa_ref",
+    "NIST chemische Informationen": "nist_ref",
+    # ja
+    "密度": "density", "比重(密度)": "density", "沸点": "bp", "融点": "mp",
+    "闪点": "flash_point", "蒸気圧": "vapor_pressure", "蒸気密度": "vapor_density",
+    "屈折率": "refractive_index", "溶解性": "solubility_note",
+    "水溶解度": "water_solubility", "酸解離定数(Pka)": "pka",
+    "色": "color", "臭い (Odor)": "odor", "においのタイプ": "odor_type",
+    "比重": "specific_gravity", "表面張力": "surface_tension",
+    "比熱容量": "specific_heat", "爆発限界(explosive limit)": "explosive_limit",
+    "安定性": "stability", "外見": "appearance", "貯蔵温度": "storage",
+    "由来生物": "biological_source", "主な用途": "main_application",
+    "化粧品成分の機能": "cosmetic_function", "PH": "ph",
+    "臭気閾値(Odor Threshold)": "odor_threshold",
+    "CAS データベース": "cas_db_ref", "EPAの化学物質情報": "epa_ref",
+    "NISTの化学物質情報": "nist_ref",
+    # ko
+    "밀도": "density", "끓는 점": "bp", "녹는점": "mp", "인화점": "flash_point",
+    "증기압": "vapor_pressure", "증기 밀도": "vapor_density",
+    "굴절률": "refractive_index", "용해도": "solubility", "수용성": "water_solubility",
+    "산도 계수 (pKa)": "pka", "색상": "color", "냄새": "odor",
+    "냄새 유형": "odor_type", "물리적 상태": "form", "안정성": "stability",
+    "저장 조건": "storage", "생물학적 소스": "biological_source",
+    "주요 응용": "main_application", "화장품 원료 기능": "cosmetic_function",
+    "수소이온지수(pH)": "ph", "비열": "specific_heat", "표면장력": "surface_tension",
+    "폭발한계": "explosive_limit",
+    # en (头区 dl 不含物性, 物性在 table2; 此处只收 db 引用类)
+    "EPA": "epa_ref", "NIST": "nist_ref",
+    # en table2 物性表实测标签(部分与 de/ko 通用)
+    "Melting point": "mp", "Boiling point": "bp", "Flash point": "flash_point",
+    "vapor density": "vapor_density", "vapor pressure": "vapor_pressure",
+    "refractive index": "refractive_index", "solubility": "solubility",
+    "Density": "density",
+    "Water Solubility": "water_solubility", "pKa": "pka", "Color": "color",
+    "Odor": "odor", "Specific Gravity": "specific_gravity",
+    "Surface Tension": "surface_tension", "Specific Heat": "specific_heat",
+    "Explosive Limit": "explosive_limit", "Stability": "stability",
+    "Appearance": "appearance", "Storage Conditions": "storage",
+    "storage temp.": "storage", "Dielectric Constant": "dielectric_constant",
+    "FEMA": "fema", "JECFA Number": "jecfa",
+}
+_PROP_KEY.update(_PROP_KEY_L10N)
+
+# 语言页安全表(info_list / Risk and Safety table2)标签 → canonical 键。
+# CN 页 safety 走 SafetyInformation 表, 语言页安全区是独立 info_list 表。
+_SAFETY_KEY_L10N = {
+    "위험품 표기": "hazard_code", "위험 카페고리 넘버": "risk_code",
+    "안전지침서": "safety_code",
+    "Kennzeichnung gefährlicher": "hazard_code", "R-Sätze": "risk_code",
+    "S-Sätze": "safety_code",
+    "主な危険性": "hazard_code", "Rフレーズ": "risk_code", "Sフレーズ": "safety_code",
+    "Hazard Codes": "hazard_code", "Risk Statements": "risk_code",
+    "Safety Statements": "safety_code", "RIDADR": "ridadr",
+    "유엔번호(UN No.)": "ridadr",
+    "WGK Germany": "wgk", "WGK 독일": "wgk",
+    "RTECS": "rtecs", "RTECS 番号": "rtecs", "RTECS 번호": "rtecs",
+    "TSCA": "tsca", "HS Code": "hs_code", "HSコード": "hs_code",
+    "Hazard Note": "hazard_note",
+    "HazardClass": "hazard_class", "国連危険物分類": "hazard_class",
+    "PackingGroup": "packing_group", "容器等級": "packing_group",
+}
 _PROSE_TITLES = (
     "用途", "生产方法", "制备", "化学性质", "概述", "简介", "应用",
     "毒性", "毒性分级", "急性毒性", "刺激数据", "职业标准",
     "储运特性", "可燃性危险特性", "爆炸物危险特性", "灭火剂", "类别",
+    # 语言页实测标题(fixtures)
+    "化学的特性", "説明", "解説", "一般的な説明", "天然物の起源", "来歴",
+    "使用", "定義", "調製方法", "製造方法", "使用用途", "合成方法", "純化方法",
+    "개요", "화학적 성질", "출처", "역사", "용도", "생산 방법", "정의",
+    "제조 방법", "일반 설명", "순도시험", "확인시험", "정량법",
+    "Description", "Occurrence", "History", "Uses", "Definition",
+    "General Description", "Preparation", "Production Method",
+    "Beschreibung", "Chemische Eigensc", "Verwenden", "Vorbereitung Met",
+    "synthetische", "Allgemeine Besch",
 )
 
 _PROP_PAIR_RE = re.compile(
@@ -146,15 +238,21 @@ def parse_cpp_page(html: str | None, *, locale: str = "zh-CN") -> dict[str, Any]
     entry: dict[str, Any] = {}
 
     # ── identity 头区 ──
+    # 头区 dl 同时出现在 CN 页(头区)与语言页(de/ja/ko 头区混排物性, en 头区纯标识)。
+    # 头区里命中 _IDENTITY_LABELS 的进 identity, 命中 _PROP_KEY 的进 props(语言页通道)。
     identity: dict[str, Any] = {}
+    head_props: list[tuple[str, str]] = []
     head_zone = html[: html.find('id="ChemicalProperties"') if 'id="ChemicalProperties"' in html else 40000]
     for m in _HEAD_DL_RE.finditer(head_zone):
         label = _norm_label(m.group(1))
         value = text_of(m.group(2)).strip()
         if not label or not value:
             continue
-        key = _IDENTITY_KEY.get(label)
+        key = _IDENTITY_LABELS.get(label)
         if key in ("cn", "en", "formula"):
+            if key == "formula":
+                # en 页值带尾缀("C4H8O2 Lewis structure") — 只取化学式token
+                value = value.split()[0] if value.split() else value
             identity.setdefault(key, value)
         elif key in ("alias_cn", "alias_en"):
             parts = [p.strip() for p in _ALIAS_SPLIT_RE.split(value) if p.strip()]
@@ -165,24 +263,29 @@ def parse_cpp_page(html: str | None, *, locale: str = "zh-CN") -> dict[str, Any]
                 identity.setdefault("mw", float(value))
             except ValueError:
                 pass
+        elif label in _PROP_KEY:
+            head_props.append((label, value))
+        elif label.startswith("MOL"):
+            pass  # mol_href 统一由 _MOL_HREF_RE 从链接提取
     mol = _MOL_HREF_RE.search(head_zone)
     if mol:
         identity["mol_href"] = mol.group(1) or mol.group(2)
     if identity:
         entry["identity"] = identity
 
-    # ── properties (LabelID 配对) ──
+    # ── properties ──
+    # CN 页: ChemicalProperties 表 LabelID 配对; 语言页: 头区 dl 物性对(head_props)
+    # + en 页 ChemicalProperties 无 LabelID, 物性在 table2 th/td。
     props: list[dict[str, Any]] = []
     seen_keys: set[str] = set()
-    for m in _PROP_PAIR_RE.finditer(html):
-        raw_label, raw_value = m.group(2), m.group(3)
-        label = _norm_label(raw_label)
-        text = re.sub(r"\s+", " ", text_of(raw_value)).strip()
+
+    def _add_prop(label: str, raw_text: str) -> None:
+        text = re.sub(r"\s+", " ", raw_text).strip()
         if not label or not text:
-            continue
+            return
         key = _PROP_KEY.get(label) or label
         if key in seen_keys:
-            continue
+            return
         seen_keys.add(key)
         item: dict[str, Any] = {"key": key, "label": label, "text": text}
         if key not in ("smiles", "inchi", "inchikey"):
@@ -192,27 +295,58 @@ def parse_cpp_page(html: str | None, *, locale: str = "zh-CN") -> dict[str, Any]
             if unit:
                 item["unit"] = unit
         props.append(item)
+
+    for m in _PROP_PAIR_RE.finditer(html):
+        _add_prop(_norm_label(m.group(2)), text_of(m.group(3)))
+    if not props and head_props:
+        for label, value in head_props:
+            _add_prop(label, value)
+    # en 语言页: table2 th/td 物性表(Melting point 等)
+    if not props:
+        for tm in re.finditer(r'<table[^>]*class="table2"[\s\S]*?</table>', html, re.I):
+            for k, v in re.findall(
+                r"<th[^>]*>([\s\S]*?)</th>\s*<td[^>]*>([\s\S]*?)</td>",
+                tm.group(0), re.I,
+            ):
+                _add_prop(_norm_label(k), text_of(v))
     if props:
         entry["props"] = props
 
-    # ── safety (SafetyInformation 外层表 th/td) ──
+    # ── safety ──
+    # CN 页: SafetyInformation 锚点表; 语言页: info_list 表(de/ja/ko 安全区)
+    # 或 en 页 Risk and Safety h3 下的 table2。键走 _SAFETY_KEY_L10N,
+    # 未收录标签保原文(与 props 同纪律)。
+    def _safety_pairs(zone: str) -> dict[str, str]:
+        pairs = re.findall(
+            r"<th[^>]*>([\s\S]*?)</th>\s*<td[^>]*>([\s\S]*?)</td>", zone, re.I,
+        )
+        out: dict[str, str] = {}
+        for k, v in pairs:
+            key = _norm_label(k)
+            value = re.sub(r"\s+", " ", text_of(v)).strip()
+            if not key or not value:
+                continue
+            out[_SAFETY_KEY_L10N.get(key, key)] = value
+        return out
+
+    safety: dict[str, str] = {}
     sm = re.search(r"SafetyInformation[^>]*cellspacing", html)
     if sm:
         start = html.rfind("<table", 0, sm.start())
         span = _balanced_table(html, start) if start >= 0 else None
         if span:
-            pairs = re.findall(
-                r"<th[^>]*>([\s\S]*?)</th>\s*<td[^>]*>([\s\S]*?)</td>",
-                html[span[0]: span[1]], re.I,
-            )
-            safety: dict[str, str] = {}
-            for k, v in pairs:
-                key = _norm_label(k)
-                value = re.sub(r"\s+", " ", text_of(v)).strip()
-                if key and value:
-                    safety[key] = value
+            safety = _safety_pairs(html[span[0]: span[1]])
+    if not safety:
+        for im in re.finditer(r'<table[^>]*class="info_list"[\s\S]*?</table>', html, re.I):
+            safety.update(_safety_pairs(im.group(0)))
             if safety:
-                entry["safety"] = safety
+                break
+    if not safety:
+        rm = re.search(r"<h3[^>]*>\s*Risk and Safety[\s\S]*?</table>", html, re.I)
+        if rm:
+            safety = _safety_pairs(rm.group(0))
+    if safety:
+        entry["safety"] = safety
 
     # ── price (ProductReagentPrice 表) ──
     pi = html.find('id="ProductReagentPrice"')
@@ -231,10 +365,20 @@ def parse_cpp_page(html: str | None, *, locale: str = "zh-CN") -> dict[str, Any]
             entry["price"] = price
 
     # ── updown {name, cb_number} ──
+    # h3 标题五语言实测: CN 上游原料/下游产品, en Raw materials/Preparation Products,
+    # de Upstream-Materialien/Downstream Produ, ja 原材料/準備製品, ko 원자재/준비 용품。
     updown: dict[str, list[dict[str, Any]]] = {}
-    for label, key in (("上游原料", "up"), ("下游产品", "down")):
-        lm = re.search(rf"<h3[^>]*>\s*{label}\s*</h3>([\s\S]*?)(?:<h3|<!--|</div>\s*</div>)", html)
-        if not lm:
+    for labels, key in (
+        (("上游原料", "Raw materials", "Upstream-Materialien", "原材料", "원자재"), "up"),
+        (("下游产品", "Preparation Products", "Downstream Produkte", "準備製品", "준비 용품"), "down"),
+    ):
+        zone = None
+        for label in labels:
+            lm = re.search(rf"<h3[^>]*>\s*{re.escape(label)}\s*</h3>([\s\S]*?)(?:<h[23][^>]*>|</div>\s*</div>)", html)
+            if lm:
+                zone = lm.group(1)
+                break
+        if zone is None:
             continue
         items: list[dict[str, Any]] = []
         for am in re.finditer(r"<a\s[^>]*>([\s\S]*?)</a>", lm.group(1)):
