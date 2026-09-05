@@ -88,20 +88,19 @@ async def ingest_from_entry_cn(
     db: Any, chemical_id: int, entry: dict[str, Any] | None,
     supplier_names: list[str | None],
 ) -> None:
-    """CB 挂点: chemical_cb 落库同事务调用。
+    """CB 挂点: chemical_cb 落库同事务调用(0905 canonical schema)。
 
-    中文名称(name_cn) + 中文别名(alias_cn) + 英文别名(alias_en) + 供应商(supplier)。
+    identity.cn(name_cn) + alias_cn + alias_en + 供应商(supplier)。
     entry 为 None(not_found)时清空该 source。
     """
     items: list[tuple[str, str, str]] = []
     if entry:
-        for row in entry.get("basic", []):
-            if len(row) == 2 and row[0] == "中文名称" and row[1]:
-                items.append(("name_cn", "cn", row[1]))
-        aliases = entry.get("aliases") or {}
-        for v in aliases.get("cn", []) or []:
+        identity = entry.get("identity") or {}
+        if identity.get("cn"):
+            items.append(("name_cn", "cn", str(identity["cn"])))
+        for v in identity.get("alias_cn") or []:
             items.append(("alias_cn", "cn", v))
-        for v in aliases.get("en", []) or []:
+        for v in identity.get("alias_en") or []:
             items.append(("alias_en", "en", v))
     for v in supplier_names:
         if v:

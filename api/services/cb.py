@@ -23,11 +23,10 @@ from ..core.cache import cache_delete, get_cache
 from .name_index import ingest_from_entry_cn
 
 # 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环拆除。
-# chemical_cb.expires_at 恒 NULL(建表列保留, 兼容); fetched_at 即
-# "何时取到 / 何时确认没有"。ok 与 not_found 同为终态;
+# fetched_at 即"何时取到 / 何时确认没有"。ok 与 not_found 同为终态;
 # 回补 = 未来手动脚本, 不进自动机制。
 SYNC_FETCH_BUDGET_S = 3.0
-CACHE_KEY = "v3:cas-ext:{chemical_id}"  # v3: 表改名+locale(2026-08-28)
+CACHE_KEY = "v4:cas-ext:{chemical_id}"  # v4: 0905 CB entry schema 规范化(canonical)
 CACHE_TTL_S = 6 * 3600
 MAX_ENTRY_JSON_BYTES = 2_000_000  # 双保险: workapi 载荷上限内的条目尺寸
 
@@ -96,28 +95,26 @@ async def upsert_externals(
         raise ValueError("cas entry payload exceeds safety limit")
     # 数据链收口(§5): 数据层只有 ok/not_found — error 不落数据层(留在 job 表)。
     # 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环
-    # 拆除 — expires_at 恒 NULL, fetched_at 即"何时取到/何时确认没有"。
+    # 拆除 — fetched_at 即"何时取到/何时确认没有"。
     # ok 与 not_found 同为终态; 回补是未来手动脚本的事, 不进自动机制。
-    expires = None
     # 0902 剥离定案: not_found 零写入 — complete 静默出列(job 层删行),
     # 收录与否由记录表本身表达(无行/主表 cb_number IS NULL)。
     if status == "not_found":
         return
     await db.execute(text("""
         INSERT INTO chemistry.chemical_cb
-            (chemical_id,cas_number,entry,last_status,fetched_at,expires_at,locale)
+            (chemical_id,cas_number,entry,last_status,fetched_at,locale)
         VALUES
-            (:chemical_id,:cas_number,CAST(:entry AS jsonb),:status,now(),:expires,:locale)
+            (:chemical_id,:cas_number,CAST(:entry AS jsonb),:status,now(),:locale)
         ON CONFLICT (chemical_id, locale) DO UPDATE SET
             cas_number=excluded.cas_number,
             entry=excluded.entry,
             last_status=excluded.last_status,
             fetched_at=excluded.fetched_at,
-            expires_at=excluded.expires_at,
             updated_at=now()
     """), {
         "chemical_id": chemical_id, "cas_number": cas_number,
-        "entry": entry_json, "status": status, "expires": expires,
+        "entry": entry_json, "status": status,
         "locale": locale,
     })
     # CB 号上移主表: 只补空不覆盖。同 CAS 多 CID 行合法共享同一 cb_number
@@ -128,26 +125,16 @@ async def upsert_externals(
             SET cb_number=coalesce(cb_number, :cb), updated_at=now()
             WHERE id=:chemical_id
         """), {"cb": cb_number, "chemical_id": chemical_id})
-    # 0902 GPT审计: basic 分拣补主表(只补空, coalesce(existing, cb值) 反向于
-    # PB 的 coalesce(incoming, existing) → CB 先占, 未来 PB 到达仍可覆盖)。
-    # 标签双兼容: 英文名/英文名称, CAS号/CAS, 分子式, 分子量。
+    # 0905 规范化schema: identity 直取(canonical键), 无标签兼容。
     # 分子量只接受有限正数; CAS 格式校验。仅 zh-CN ok 载荷。
     if status == "ok" and locale == "zh-CN" and entry:
-        basic = {k: v for k, v in entry.get("basic") or [] if v}
-        cb_name = basic.get("英文名") or basic.get("英文名称")
-        cb_formula = basic.get("分子式")
-        cb_mass_raw = basic.get("分子量")
-        cb_mass = None
-        if cb_mass_raw:
-            try:
-                val = float(str(cb_mass_raw).strip())
-                if 0 < val < 10000:
-                    cb_mass = val
-            except ValueError:
-                cb_mass = None
-        cb_cas = basic.get("CAS号") or basic.get("CAS")
-        if cb_cas and not CAS_FORMAT_RE.fullmatch(str(cb_cas).strip()):
-            cb_cas = None
+        identity = entry.get("identity") or {}
+        cb_name = identity.get("en")
+        cb_formula = identity.get("formula")
+        cb_mass = identity.get("mw")
+        if cb_mass is not None and not (0 < cb_mass < 10000):
+            cb_mass = None
+        cb_cas = cas_number if cas_number and CAS_FORMAT_RE.fullmatch(str(cas_number).strip()) else None
         await db.execute(text("""
             UPDATE chemistry.chemicals SET
                 preferred_name=coalesce(preferred_name, :nm),
@@ -169,8 +156,8 @@ async def upsert_externals(
             [s.get("name") for s in suppliers] if status == "ok" else [],
         )
     # 供应商两表写入(2026-08-30 准线§4): 档表(cbsid主键,过期才重拉)+映射表
-    # (chemical_id+cbsid 全量替换)。仅 zh-CN 主行写。旧表同步写(迁移期双写,
-    # Step 6 迁移校验后退役)。locale 规范化(ISO 3166-1 alpha-2)。
+    # (chemical_id+cbsid 全量替换)。仅 zh-CN 主行写。
+    # locale 规范化(ISO 3166-1 alpha-2)。
     if locale == "zh-CN":
         if status == "ok":
             norm_locales = [_norm_country_code(s.get("locale")) for s in suppliers]
@@ -337,11 +324,11 @@ SEARCH_MISS_PRIORITY = 80       # 用户触发 > 后台刷新(30/50)
 # mol 文件是 worker 同趟附带。口径: 页面三件优先, mol 派生兜底; 主表宁缺勿错
 # —— RDKit 校验不过的值整字段丢弃, 绝不把脏值写进 chemicals。
 
-def _props_field(entry: dict[str, Any], label: str) -> str | None:
-    """CB props 块取字段(物理化学性质区 xztr 行)。"""
+def _props_field(entry: dict[str, Any], canonical_key: str) -> str | None:
+    """CB props 取字段(0905 canonical 键: smiles/inchikey)。"""
     for item in entry.get("props") or []:
-        if isinstance(item, (list, tuple)) and len(item) >= 2 and item[0] == label:
-            value = str(item[1]).strip()
+        if isinstance(item, dict) and item.get("key") == canonical_key:
+            value = str(item.get("text") or "").strip()
             return value or None
     return None
 
@@ -392,8 +379,8 @@ def resolve_structure(
     """
     smiles = inchikey = None
     if entry:
-        smiles = _validate_smiles(_props_field(entry, "SMILES"))
-        inchikey = _props_field(entry, "InChIKey")
+        smiles = _validate_smiles(_props_field(entry, "smiles"))
+        inchikey = _props_field(entry, "inchikey")
         if not inchikey or not smiles:
             d_smiles, d_ik = _derive_from_molblock(molblock)
             if not smiles:
@@ -592,9 +579,8 @@ async def sync_fetch_and_store(
     返回 ensure 状态字典; 网络失败/超时不落 error 行(留给 worker 重试)。
     """
     from caslib.fetch import fetch_cas
-    from caslib.parse import (
-        parse_cpp_entry, parse_cpp_suppliers, parse_entry,
-    )
+    from caslib.parse import parse_cpp_suppliers
+    from caslib.parse_cpp import parse_cpp_page
 
     async def _fetch() -> tuple[str, dict | None, list, str | None]:
         # 判定单点在 caslib fetch 层(§5): ok/not_found/error 三态直译。
@@ -603,15 +589,9 @@ async def sync_fetch_and_store(
             return "error", None, [], None
         if result.status == "not_found":
             return "not_found", None, [], None
-        # 0902 P3a: CPP 正向, CAS 页字段级补缺(同 worker 口径);
-        # 供应商弃 CAS 源(数据不准); CPP 解析空 → not_found
-        from caslib.merge import merge_entry
-        entry = parse_cpp_entry(result.cpp_html) if result.cpp_html else None
+        # 0905 规范化: CPP 唯一解析源(canonical schema), CAS 页不解析内容。
+        entry = parse_cpp_page(result.cpp_html) if result.cpp_html else None
         suppliers = parse_cpp_suppliers(result.cpp_html or "") if result.cpp_html else []
-        if entry is not None and result.cas_html:
-            cas_e = parse_entry(result.cas_html)
-            if cas_e:
-                entry = merge_entry(entry, cas_e)
         if entry is None:
             return "not_found", None, [], None
         return "ok", entry, suppliers, result.cb_number

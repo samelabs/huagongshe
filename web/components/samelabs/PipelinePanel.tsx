@@ -24,8 +24,8 @@ type Pipeline = {
 };
 
 const REFRESH_MS = 15000;
-const LOCALES = ["zh-CN", "en", "de", "ru", "ja", "ko"];
-const LOCALE_NAME: Record<string, string> = { "zh-CN": "中文", en: "英文", de: "德文", ru: "俄文", ja: "日文", ko: "韩文" };
+const LOCALES = ["zh-CN", "en", "de", "ja", "ko"];
+const LOCALE_NAME: Record<string, string> = { "zh-CN": "中文", en: "英文", de: "德文", ja: "日文", ko: "韩文" };
 
 const fmt = (n: number) => new Intl.NumberFormat("zh-CN").format(n);
 const hm = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—");

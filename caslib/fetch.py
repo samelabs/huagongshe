@@ -185,7 +185,7 @@ async def fetch_cpp_locale(
 ) -> tuple[str, str | None]:
     """拉 CPP 语言变体页(ChemicalProductProperty_{L}_CB{cb}.htm), 返回 (state, html)。
 
-    locale ∈ en/ja/de/ko/ru(zh-CN 走主链 fetch_cas, 不经此函数)。
+    locale ∈ en/ja/de/ko(zh-CN 走主链 fetch_cas, 不经此函数)。
     过渡判定对齐主链(§1 三行):
       - "ok":       200 且页面可判定 — 有效内容返回 html, 无变体返回 (ok, None)
       - "busy":     200 但"系统忙"限流页 → error 性质(调用方按 error 处理)

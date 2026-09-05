@@ -65,7 +65,11 @@ async def create_session(db, response: Response, user_id: int) -> None:
 
 @auth_router.get("/check-username")
 async def check_username(username: str = Query(min_length=4, max_length=30), db=Depends(get_db)):
-    """注册时实时校验用户名是否可用。"""
+    """注册时实时校验用户名是否可用。
+    0904 ⑱: 枚举敞口 — 原无限流, 脚本可批量探测已注册用户名。
+    匿名共享桶 30/min(BFF 后无真实 IP, 与 cas-search-fetch 同口径);
+    超限 429, 注册表单降级为提交时校验(不阻塞正常使用)。"""
+    await enforce("check-username", "global", 30, 60)
     if not USERNAME_RE.fullmatch(username):
         return {"available": False, "reason": "用户名仅支持 4–30 位小写字母、数字或下划线"}
     exists = (await db.execute(text(

@@ -163,10 +163,7 @@ async def process_cas_job(
     页间 2s 礼仪间隔(finally); 抓取预算放宽(后台路径非用户等待路径)。
     """
     from caslib.fetch import fetch_cas, fetch_cpp_locale, fetch_mol
-    from caslib.parse import (
-        extract_mol_href, parse_cpp_entry, parse_cpp_entry_en,
-        parse_cpp_suppliers, parse_entry,
-    )
+    from caslib.parse import parse_cpp_suppliers
 
     locale = job.get("locale") or "zh-CN"
     stop = asyncio.Event()
@@ -193,18 +190,12 @@ async def process_cas_job(
             if result.status == "not_found":
                 payload = {"status": "not_found", "entry": None, "suppliers": []}
             else:
-                # 0902 P3a: CPP 正向, CAS 页字段级补缺(不再整体兜底)。
-                # CAS 页职能 = 提号 + 补 CPP 缺的物性/标识(实测 CAS 独有:
-                # 外观性状/溶解性/电导率/EINECS/MDL/reagents); 供应商弃 CAS 源(数据不准)。
-                # CPP 解析空 → 仍判 not_found(CB 主数据缺, 不用 CAS 顶)。
-                from caslib.merge import merge_entry
-                entry = parse_cpp_entry(result.cpp_html) if result.cpp_html else None
-                if entry is not None and result.cas_html:
-                    cas_e = parse_entry(result.cas_html)
-                    if cas_e:
-                        entry = merge_entry(entry, cas_e)
+                # 0905 规范化: 目标页只有 CPP, parse_cpp_page 统一解析(五语言
+                # 同构)。CAS 页职能只剩发现 cb_number(fetch 层), 内容不采。
+                # CPP 解析空 → not_found(CB 主数据缺)。
+                from caslib.parse_cpp import parse_cpp_page
+                entry = parse_cpp_page(result.cpp_html) if result.cpp_html else None
                 if entry is None:
-                    # fetch 判 ok 但 CPP 无有效内容 = 无有效信息(§1: 空壳归 not_found)
                     payload = {"status": "not_found", "entry": None, "suppliers": []}
                 else:
                     suppliers = (
@@ -214,12 +205,9 @@ async def process_cas_job(
                     # CB条目号: 身份标识随载荷回传(落主表, 不进API输出)
                     if result.cb_number:
                         payload["cb_number"] = result.cb_number
-                    # mol 文件: 详情页有外链才拉(无外链=零请求); 失败退化 None。
+                    # mol 文件: identity.mol_href 有才拉(无链接=零请求); 失败退化 None。
                     # 占位行靠这个回填结构三件, 否则smiles展示无图。
-                    # 0902: mol 双源 — CAS 页 span 形态 or CPP 页 dt/dd 形态
-                    # (路径A cas_html=None, mol 只在 CPP 页上, 原先结构性拿不到)
-                    mol_href = extract_mol_href(result.cas_html or "") or \
-                        extract_mol_href(result.cpp_html or "")
+                    mol_href = (entry.get("identity") or {}).get("mol_href")
                     if mol_href:
                         payload["mol"] = await fetch_mol(session, mol_href, rate=rate)
         else:
@@ -238,7 +226,8 @@ async def process_cas_job(
                 )
                 log.info("cas job=%s error %s (cpp %s)", job["job_id"], locale, cpp_state)
                 return
-            entry = parse_cpp_entry_en(cpp_html) if cpp_html else None
+            from caslib.parse_cpp import parse_cpp_page
+            entry = parse_cpp_page(cpp_html, locale=locale) if cpp_html else None
             if entry is None:
                 # 判定成功的"无变体"(含空壳200): not_found 负缓存(8-29 定论,
                 # 大量条目无语言变体, retry 只产无效请求喂上游风控画像)。

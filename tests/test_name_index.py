@@ -120,8 +120,8 @@ class IngestTest(unittest.TestCase):
                 async with eng.begin() as conn:
                     sid = await _alloc_sentinel_id(conn)
                     entry = {
-                        "basic": [["中文名称", "哨兵苯甲酸"], ["英文名称", "Sentinel Acid"]],
-                        "aliases": {"cn": ["哨兵安息香酸"], "en": ["Sentinel Benzoate"]},
+                        "identity": {"cn": "哨兵苯甲酸", "en": "Sentinel Acid",
+                                     "alias_cn": ["哨兵安息香酸"], "alias_en": ["Sentinel Benzoate"]},
                     }
                     await ingest_from_entry_cn(conn, sid, entry, ["哨兵供应商甲", None])
                     rows = (await conn.execute(text(
