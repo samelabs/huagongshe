@@ -68,24 +68,19 @@ class IdentityResolutionTests(unittest.TestCase):
                             cas_numbers @> ARRAY[:c] OR inchikey IN (:ik,:ik2)
                             OR pubchem_cid IN (:a,:b))
                 """), {"c": CAS, "ik": IK, "ik2": IK2, "a": CID_A, "b": CID_B})
+                # 审计表清理: 按 trigger 直清。
+                # 旧法按 source/target 子查询匹配, 但 absorb 删除 source 行后
+                # 子查询失配 → unit-test 记录残留生产表(0906 已人工清 96 笔)。
+                # redirect 无 trigger 列, 经 merge_log_id 级联定位。
                 await c.execute(text("""
                     DELETE FROM maintenance.chemical_identity_redirect
-                    WHERE canonical_chemical_id IN (
-                        SELECT id FROM chemistry.chemicals WHERE
-                            cas_numbers @> ARRAY[:c] OR inchikey IN (:ik,:ik2)
-                            OR pubchem_cid IN (:a,:b))
-                """), {"c": CAS, "ik": IK, "ik2": IK2, "a": CID_A, "b": CID_B})
-                await c.execute(text("""
-                    DELETE FROM maintenance.identity_merge_log WHERE
-                        source_id IN (
-                            SELECT id FROM chemistry.chemicals WHERE
-                                cas_numbers @> ARRAY[:c] OR inchikey IN (:ik,:ik2)
-                                OR pubchem_cid IN (:a,:b))
-                        OR target_id IN (
-                            SELECT id FROM chemistry.chemicals WHERE
-                                cas_numbers @> ARRAY[:c] OR inchikey IN (:ik,:ik2)
-                                OR pubchem_cid IN (:a,:b))
-                """), {"c": CAS, "ik": IK, "ik2": IK2, "a": CID_A, "b": CID_B})
+                    WHERE merge_log_id IN (
+                        SELECT merge_id FROM maintenance.identity_merge_log
+                        WHERE trigger IN ('unit','unit-test'))
+                """))
+                await c.execute(text(
+                    "DELETE FROM maintenance.identity_merge_log"
+                    " WHERE trigger IN ('unit','unit-test')"))
                 await c.execute(text("""
                     DELETE FROM chemistry.chemicals WHERE
                         cas_numbers @> ARRAY[:c] OR inchikey IN (:ik,:ik2)
