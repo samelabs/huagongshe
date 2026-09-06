@@ -240,7 +240,7 @@ class IdentityResolutionTests(unittest.TestCase):
                 await db.execute(text(
                     "INSERT INTO maintenance.cas_jobs"
                     " (chemical_id,cas_number,dedupe_key,request_context)"
-                    " VALUES (:id,:cas,'test-dedupe-1','{}'::jsonb)"),
+                    " VALUES (:id,:cas,'test-dedupe-y39kkkqj','{}'::jsonb)"),
                     {"id": ph, "cas": CAS})
                 await db.commit()
                 survivor = await absorb(db, source_id=ph, target_id=tgt,
@@ -258,7 +258,7 @@ class IdentityResolutionTests(unittest.TestCase):
                     " WHERE name='测试名ZZ9' AND source='cb' AND kind='alias_cn'"))).scalar()
                 cj_moved = (await db.execute(text(
                     "SELECT chemical_id FROM maintenance.cas_jobs"
-                    " WHERE dedupe_key='test-dedupe-1'"))).scalar()
+                    " WHERE cas_number=:c"), {"c": CAS})).scalar()
                 await db.rollback()
                 return (survivor, leftovers, cb_moved, ni_moved, cj_moved, tgt,
                         len(CHEMICAL_REFERENCE_TABLES))
@@ -576,14 +576,18 @@ class OneToOneMergeTests(IdentityResolutionTests):
     """0906 canary cid2273 修复: 1:1 子表合并策略矩阵。"""
 
     def test_registry_strategy_completeness(self):
-        """每张 FK 表都有明确策略; 1:1 表必在白名单内。"""
+        """每张 FK 表都有明确策略; 策略闭集; cfg 键合法。"""
         from api.services.identity import (CHEMICAL_REFERENCE_TABLES,
                                            ONE_TO_ONE_MERGE_COLUMNS)
         valid = {"REKEY_MANY", "MERGE_ONE_TO_ONE", "DEDUPE_REKEY"}
-        for sch, tbl, strat in CHEMICAL_REFERENCE_TABLES:
-            self.assertIn(strat, valid)
-            if strat == "MERGE_ONE_TO_ONE":
+        for sch, tbl, cfg in CHEMICAL_REFERENCE_TABLES:
+            self.assertIn(cfg["strategy"], valid)
+            if cfg["strategy"] == "MERGE_ONE_TO_ONE":
                 self.assertIn((sch, tbl), ONE_TO_ONE_MERGE_COLUMNS)
+                self.assertIsNotNone(cfg.get("merge_cols"))
+            if cfg["strategy"] == "DEDUPE_REKEY":
+                self.assertTrue(cfg.get("dedupe_key"),
+                                f"{sch}.{tbl} DEDUPE_REKEY 无 dedupe_key")
 
     def _insert_row(self, db, *, cid=None, mol=False):
         return self._run(self._insert(db, cid=cid, mol=mol))
@@ -751,6 +755,224 @@ class OneToOneMergeTests(IdentityResolutionTests):
         for (sch, tbl), cols in ONE_TO_ONE_MERGE_COLUMNS.items():
             hit = banned & set(cols)
             self.assertFalse(hit, f"{tbl} 白名单含禁列: {hit}")
+
+    def test_constraints_strategy_consistency(self):
+        """约束驱动完整性: 凡 PK/UNIQUE(含partial unique index)含 chemical_id
+        的 registry 表, strategy 必须非 REKEY_MANY。未来新增
+        UNIQUE(chemical_id, foo) 而 registry 未声明碰撞处理 → 本测试红。"""
+        from sqlalchemy import text
+        from api.services.identity import reference_table_strategies
+        import re as _re
+
+        SQL_C = (
+            "SELECT n.nspname, c.relname, pg_get_constraintdef(con.oid) "
+            "FROM pg_constraint con "
+            "JOIN pg_class c ON c.oid = conrelid "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE contype IN ('p','u') "
+            "AND n.nspname NOT IN ('pg_catalog','information_schema')")
+        SQL_I = (
+            "SELECT schemaname, tablename, indexdef FROM pg_indexes "
+            "WHERE indexdef LIKE 'CREATE UNIQUE%' AND schemaname NOT LIKE 'pg%'")
+
+        async def go():
+            async with self._session() as db:
+                qc = await db.execute(text(SQL_C))
+                qi = await db.execute(text(SQL_I))
+                return list(qc) + list(qi)
+
+        hits = []
+        for r in self._run(go()):
+            d = r[-1]
+            m = _re.search(r"\(([^)]+)\)", d)
+            if not m:
+                continue
+            cols = {c.strip().split()[0] for c in m.group(1).split(",")}
+            if "chemical_id" in cols:
+                hits.append((r[0], r[1], d))
+        strat = reference_table_strategies()
+        for sch, tbl, d in hits:
+            if (sch, tbl) in strat:
+                self.assertNotEqual(
+                    strat[(sch, tbl)], "REKEY_MANY",
+                    f"{sch}.{tbl} 约束含 chemical_id ({d}) 但 strategy="
+                    "REKEY_MANY — 生产 UPDATE 会撞唯一约束")
+        # 反向: 非 REKEY_MANY 的表必须有含 chemical_id 的约束依据 或 是
+        # 声明式例外(不需要)。MERGE_ONE_TO_ONE/DEDUPE_REKEY 本身即声明。
+
+    def test_reaction_dedupe_same_rxn_role(self):
+        """同 reaction+role 双侧 → 不撞PK, 只保留一条 canonical 引用;
+        survivor payload 空被 old 补, 非空不被覆盖。"""
+        from sqlalchemy import text
+        from api.services.identity import absorb
+        async def go():
+            async with self._session() as db:
+                tgt = await self._insert(db, cid=990000201, mol=True)
+                ph = await self._insert(db, cid=990000201)
+                for i, (cid_, role, oc) in enumerate([
+                        (111111, "REACTANT", 1), (222222, "SOLVENT", 5)]):
+                    await db.execute(text(
+                        "INSERT INTO chemistry.reaction_chemicals"
+                        " (reaction_id, chemical_id, role, occurrence_count)"
+                        " VALUES (:r,:c,:ro,:oc)"),
+                        {"r": cid_, "c": tgt, "ro": role, "oc": oc})
+                # old: 同111111同role(撞键, amount=7.5补空, occ=3非空让survivor=1) + 独有333333(改指)
+                await db.execute(text(
+                    "INSERT INTO chemistry.reaction_chemicals"
+                    " (reaction_id, chemical_id, role, occurrence_count, amount_value)"
+                    " VALUES (111111,:c,'REACTANT',3,7.5)"), {"c": ph})
+                await db.execute(text(
+                    "INSERT INTO chemistry.reaction_chemicals"
+                    " (reaction_id, chemical_id, role, occurrence_count)"
+                    " VALUES (333333,:c,'REACTANT',1)"), {"c": ph})
+                await db.commit()
+                surv = await absorb(db, source_id=ph, target_id=tgt,
+                                    reason="t-rxn", trigger="unit-test",
+                                    evidence_cid=990000201)
+                await db.commit()
+                r1 = (await db.execute(text(
+                    "SELECT occurrence_count, amount_value FROM chemistry.reaction_chemicals"
+                    " WHERE reaction_id=111111 AND chemical_id=:i AND role='REACTANT'"),
+                    {"i": surv})).first()
+                n1 = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.reaction_chemicals"
+                    " WHERE reaction_id=111111 AND role='REACTANT'"
+                    " AND chemical_id IN (:i, :j)"),
+                    {"i": surv, "j": ph})).scalar()
+                n3 = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.reaction_chemicals"
+                    " WHERE reaction_id=333333 AND chemical_id=:i"),
+                    {"i": surv})).scalar()
+                n2 = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.reaction_chemicals"
+                    " WHERE reaction_id=222222 AND chemical_id=:i AND role='SOLVENT'"),
+                    {"i": surv})).scalar()
+                oldleft = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.reaction_chemicals"
+                    " WHERE chemical_id=:i"), {"i": ph})).scalar()
+                return r1, n1, n3, n2, oldleft
+        r1, n1, n3, n2, oldleft = self._run(go())
+        self.assertEqual(tuple(r1), (1, 7.5))  # occ survivor保留, amount old补空
+        self.assertEqual((n1, n3, n2, oldleft), (1, 1, 1, 0))
+
+    def test_reaction_diff_rxn_rekey(self):
+        """old/survivor 不同 reaction → 正常改指不去重。"""
+        from sqlalchemy import text
+        from api.services.identity import absorb
+        async def go():
+            async with self._session() as db:
+                tgt = await self._insert(db, cid=990000202, mol=True)
+                ph = await self._insert(db, cid=990000202)
+                await db.execute(text(
+                    "INSERT INTO chemistry.reaction_chemicals"
+                    " (reaction_id, chemical_id, role, occurrence_count)"
+                    " VALUES (444444,:c,'REACTANT',1)"),
+                    {"c": ph})
+                await db.commit()
+                surv = await absorb(db, source_id=ph, target_id=tgt,
+                                    reason="t-rxn2", trigger="unit-test",
+                                    evidence_cid=990000202)
+                await db.commit()
+                n = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.reaction_chemicals"
+                    " WHERE reaction_id=444444 AND chemical_id=:i"),
+                    {"i": surv})).scalar()
+                return n
+        self.assertEqual(self._run(go()), 1)
+
+    def test_supplier_same_cbsid_collision(self):
+        """supplier_listing 同 cbsid 双侧 → payload 补空后删 old, 不撞PK;
+        不同 cbsid → 全部改指。"""
+        from sqlalchemy import text
+        from api.services.identity import absorb
+        async def go():
+            async with self._session() as db:
+                tgt = await self._insert(db, cid=990000203, mol=True)
+                ph = await self._insert(db, cid=990000203)
+                # cbsid 外键 → chemical_supplier_profile, 先造 profile
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_supplier_profile (cbsid, name)"
+                    " VALUES ('UT1','ut1'),('UT2','ut2') ON CONFLICT DO NOTHING"))
+                # 同 cbsid: survivor remark NULL → old 补; purity 双方非空不同 → survivor 保留
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_supplier_listing"
+                    " (chemical_id, cbsid, purity, pack_price, remark)"
+                    " VALUES (:c,'UT1',98.5,100,NULL)"), {"c": tgt})
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_supplier_listing"
+                    " (chemical_id, cbsid, purity, pack_price, remark)"
+                    " VALUES (:c,'UT1',99.9,50,'old-note')"), {"c": ph})
+                # 独有 cbsid → 改指
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_supplier_listing"
+                    " (chemical_id, cbsid, remark) VALUES (:c,'UT2','x')"),
+                    {"c": ph})
+                await db.commit()
+                surv = await absorb(db, source_id=ph, target_id=tgt,
+                                    reason="t-sup", trigger="unit-test",
+                                    evidence_cid=990000203)
+                await db.commit()
+                a = (await db.execute(text(
+                    "SELECT purity, pack_price, remark FROM chemistry.chemical_supplier_listing"
+                    " WHERE cbsid='UT1' AND chemical_id=:i"), {"i": surv})).first()
+                n1 = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemical_supplier_listing"
+                    " WHERE cbsid='UT1' AND chemical_id IN (:i, :j)"),
+                    {"i": surv, "j": ph})).scalar()
+                n2 = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemical_supplier_listing"
+                    " WHERE cbsid='UT2' AND chemical_id=:i"), {"i": surv})).scalar()
+                oldleft = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemical_supplier_listing"
+                    " WHERE chemical_id=:i"), {"i": ph})).scalar()
+                return tuple(a), n1, n2, oldleft
+        a, n1, n2, oldleft = self._run(go())
+        self.assertEqual(tuple(float(x) if isinstance(x, (int, float)) or
+                               (isinstance(x, str) and x.replace('.', '', 1).isdigit())
+                               else x for x in a),
+                         (98.5, 100, "old-note"))  # purity survivor保留, remark old补空
+        self.assertEqual((n1, n2, oldleft), (1, 1, 0))
+
+    def test_dedupe_midway_failure_rollback(self):
+        """DEDUPE_REKEY 中途炸 → 主表/redirect/merge_log/引用全回滚。"""
+        import api.services.identity as ident
+        from api.services.identity import absorb
+        from sqlalchemy import text
+        real = ident._dedupe_rekey
+        async def bomb(db2, **kw):
+            await real(db2, **kw)
+            raise RuntimeError("dedupe midway bomb")
+        async def go():
+            async with self._session() as db:
+                tgt = await self._insert(db, cid=990000204, mol=True)
+                ph = await self._insert(db, cid=990000204)
+                await db.execute(text(
+                    "INSERT INTO chemistry.reaction_chemicals"
+                    " (reaction_id, chemical_id, role, occurrence_count)"
+                    " VALUES (555555,:c,'REACTANT',1)"),
+                    {"c": ph})
+                await db.commit()
+                ident._dedupe_rekey = bomb
+                try:
+                    await absorb(db, source_id=ph, target_id=tgt,
+                                 reason="t-bomb2", trigger="unit-test",
+                                 evidence_cid=990000204)
+                except RuntimeError:
+                    await db.rollback()
+                finally:
+                    ident._dedupe_rekey = real
+                both = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemicals WHERE id IN (:a,:b)"),
+                    {"a": tgt, "b": ph})).scalar()
+                logs = (await db.execute(text(
+                    "SELECT count(*) FROM maintenance.identity_merge_log"
+                    " WHERE source_id=:s"), {"s": ph})).scalar()
+                rx = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.reaction_chemicals"
+                    " WHERE chemical_id=:i"), {"i": ph})).scalar()
+                return both, logs, rx
+        both, logs, rx = self._run(go())
+        self.assertEqual((both, logs, rx), (2, 0, 1))
 
     def test_1to1_midway_failure_rollback(self):
         """1:1 合并中途炸 → 主表两行存活/merge_log/redirect 零残留。"""
