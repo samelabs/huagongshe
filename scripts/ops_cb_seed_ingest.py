@@ -220,7 +220,8 @@ async def _schedule_one(db: Any, counts: dict, args: argparse.Namespace,
         ok = await enqueue_cas_job(
             db, chemical_id=int(res.chemical_id), cas_number=cas,
             priority=20 if res.status in ("EXACT", "EQUIVALENT") else 40,
-            request_context={"reason": "cb_seed_scheduler", "cb_number": cb})
+            request_context={"reason": "cb_seed_scheduler", "cb_number": cb},
+            source_cb_number=cb)
         if ok:
             budgets["enqueue_left"] -= 1
             counts["ENQUEUED"] += 1

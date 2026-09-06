@@ -985,3 +985,106 @@ class PriorityTraversalTests(SeedLedgerTests):
         with self.assertRaises(SystemExit) as cm:
             self._run(ing.cmd_schedule(args))
         self.assertEqual(cm.exception.code, 2)
+
+
+class MultiCbSourceGrainTests(SeedLedgerTests):
+    """0907 multi-CB source grain 专项 (source retrieval identity, 非 entity identity)。"""
+
+    def _jobs(self, cbs):
+        from sqlalchemy import text
+        async def go():
+            async with self.engine.connect() as db:
+                rows = (await db.execute(text(
+                    "SELECT dedupe_key, priority, request_context->>'source_cb'"
+                    " FROM maintenance.cas_jobs"
+                    " WHERE request_context->>'cb_number' = ANY(:c)"), {"c": list(cbs)})).fetchall()
+                return [tuple(r) for r in rows]
+        return self._run(go())
+
+    def _clean_jobs(self, cbs):
+        from sqlalchemy import text
+        async def go():
+            async with self.engine.begin() as db:
+                await db.execute(text(
+                    "DELETE FROM maintenance.cas_jobs"
+                    " WHERE request_context->>'cb_number' = ANY(:c)"), {"c": list(cbs)})
+        self._run(go())
+
+    # 1. 同CAS+同chemical+CB001/CB002: 两条独立主 job, 互不吞
+    def test_same_cas_two_cbs_two_jobs(self):
+        async def go():
+            async with self.engine.begin() as db:
+                return await self._insert_chem(db, cas=CAS, cb="1111111")
+        self._run(go())
+        cbs = [PREFIX + "M1", PREFIX + "M2"]
+        self._load([(cbs[0], CAS), (cbs[1], CAS)])
+        try:
+            self._schedule(cbs, max_enqueue=5, new_budget=5)
+            rows = dict((r[0], r) for r in self._rows())
+            self.assertEqual(rows[cbs[0]][2], "ENQUEUED")
+            self.assertEqual(rows[cbs[1]][2], "ENQUEUED")
+            jobs = self._jobs(cbs)
+            self.assertEqual(len(jobs), 2)   # 不折叠: 各自独立 job
+            self.assertEqual({j[2] for j in jobs}, set(cbs))  # source_cb 各自留存
+        finally:
+            self._clean_jobs(cbs)
+
+    # 2. 同 cb 重跑幂等: 不重复创建同 source job
+    def test_same_cb_rerun_idempotent(self):
+        async def go():
+            async with self.engine.begin() as db:
+                return await self._insert_chem(db, cas=CAS, cb="1111111")
+        self._run(go())
+        cbs = [PREFIX + "M3"]
+        self._load([(cbs[0], CAS)])
+        try:
+            self._schedule(cbs, max_enqueue=5, new_budget=5)
+            self._tidy()
+            self._run(go())  # fixture 重建
+            self._load([(cbs[0], CAS)])
+            # 重跑: seed 已 ENQUEUED 不再 eligible, 不产生第二个 job
+            self._schedule(cbs, max_enqueue=5, new_budget=5)
+            jobs = self._jobs(cbs)
+            self.assertEqual(len(jobs), 1)
+        finally:
+            self._clean_jobs(cbs)
+
+    # 3. NEW placeholder + 第二 cb 同 CAS: 不因首次 placeholder 丢第二个 source record
+    def test_new_placeholder_keeps_second_cb(self):
+        CASX = "99999-55-5"
+        from sqlalchemy import text
+        async def wipe():
+            async with self.engine.begin() as db:
+                await db.execute(text(
+                    "DELETE FROM chemistry.chemicals"
+                    " WHERE cas_numbers && ARRAY[:c]::text[]"), {"c": CASX})
+        self._run(wipe())
+        cbs = [PREFIX + "M4", PREFIX + "M5"]
+        self._load([(cbs[0], CASX), (cbs[1], CASX)])
+        try:
+            self._schedule(cbs, max_enqueue=5, new_budget=5)
+            rows = dict((r[0], r) for r in self._rows())
+            # 两条都入队 (第一条 NEW 物化, 第二条 resolve 命中同 placeholder=EQUIV)
+            self.assertEqual(rows[cbs[0]][2], "ENQUEUED")
+            self.assertEqual(rows[cbs[1]][2], "ENQUEUED")
+            jobs = self._jobs(cbs)
+            self.assertEqual(len(jobs), 2)
+        finally:
+            self._clean_jobs(cbs)
+            self._run(wipe())
+
+    # 4. 线上路径零漂移: 不传 source_cb → dedupe_key 与旧语义一致
+    def test_online_paths_key_unchanged(self):
+        import sys
+        sys.path.insert(0, "/var/www/huagongshe")
+        from api.services.cb import _dedupe_key
+        self.assertEqual(_dedupe_key(123, "7732-18-5"),
+                         "cas:123:" + __import__("hashlib").sha256(
+                             b"7732-18-5").hexdigest()[:16])
+        self.assertEqual(
+            _dedupe_key(123, "7732-18-5", "en"),
+            _dedupe_key(123, "7732-18-5", "en", source_cb_number=None))
+        # 带 source_cb ≠ 不带
+        self.assertNotEqual(
+            _dedupe_key(123, "7732-18-5", source_cb_number="0100584"),
+            _dedupe_key(123, "7732-18-5"))

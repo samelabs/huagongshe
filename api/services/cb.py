@@ -264,10 +264,16 @@ def _norm_country_code(raw: str | None) -> str | None:
 CAS_FORMAT_RE = re.compile(r"^\d{2,7}-\d{2}-\d$")
 
 
-def _dedupe_key(chemical_id: int, cas_number: str, locale: str = "zh-CN") -> str:
+def _dedupe_key(chemical_id: int, cas_number: str, locale: str = "zh-CN",
+                source_cb_number: str | None = None) -> str:
     digest = hashlib.sha256(cas_number.strip().encode()).hexdigest()[:16]
     # locale 后缀: 语言行与主行各自独立去重(否则 en 任务会被 zh 活跃窗口吞掉)
     suffix = "" if locale == "zh-CN" else f":{locale}"
+    # source_cb 后缀(0907 source grain): 仅 backfill 显式传入。同 CAS 多
+    # ChemicalBook record(CB001/CB002/...) 各自独立 fetch, 不被主行活跃窗
+    # 吞掉。线上路径不传 → key 与历史逐字节一致, 语义零漂移。
+    if source_cb_number:
+        suffix = f"{suffix}:cb{source_cb_number}" if suffix else f":cb{source_cb_number}"
     return f"cas:{chemical_id}:{digest}{suffix}"
 
 
@@ -279,13 +285,22 @@ async def enqueue_cas_job(
     priority: int = 50,
     locale: str = "zh-CN",
     request_context: dict[str, Any] | None = None,
+    source_cb_number: str | None = None,
 ) -> int | None:
     """活跃窗口去重入队; 已有活跃任务时返回 None。
 
     locale>zh-CN 为语言行任务: 租约端从 request_context->>'locale' 寻址。
+    source_cb_number (0907 source grain): backfill 专用 source record 寻址键 —
+    同 CAS 多 cb_number 的 ChemicalBook source records 必须各自独立成 job,
+    不得被 (chemical_id,cas) 活跃窗折叠。为 None(全部线上路径)时行为零变化:
+    dedupe_key/locale/lease 语义均与旧版逐字节一致。该键只影响 source
+    retrieval identity(取哪条 CB record), 不是 chemical entity identity —
+    归属/合并仍全走 resolve_chemical/absorb, cb_number 不参与 can_merge。
     """
     context = dict(request_context or {})
     context["locale"] = locale
+    if source_cb_number:
+        context["source_cb"] = source_cb_number
     row = (await db.execute(text("""
         INSERT INTO maintenance.cas_jobs
             (chemical_id,cas_number,priority,dedupe_key,request_context)
@@ -304,7 +319,10 @@ async def enqueue_cas_job(
         RETURNING id
     """), {
         "chemical_id": chemical_id, "cas_number": cas_number.strip(),
-        "priority": priority, "dedupe_key": _dedupe_key(chemical_id, cas_number, locale),
+        "priority": priority,
+        "dedupe_key": _dedupe_key(
+            chemical_id, cas_number, locale,
+            source_cb_number=source_cb_number),
         "context": json.dumps(context, ensure_ascii=False),
     })).fetchone()
     return int(row[0]) if row else None

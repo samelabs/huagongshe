@@ -314,11 +314,21 @@ async def cas_lease_jobs(
         rows = [(r[0], r[1], r[2], r[3]) for r in claim]
         cb_map: dict[int, str | None] = {}
         if rows:
-            cb_rows = (await db.execute(text("""
+            # 0907 source grain: cb_number 寻址键优先取 job 自身 request_context
+            # (backfill 多 cb job: 目标 cb 可能尚未落主表, 或主表已有别的 cb);
+            # 无 context 键(全部线上 job)时回落主表 — 与旧版行为一致。
+            ctx_rows = (await db.execute(text("""
+                SELECT id, request_context->>'source_cb' FROM maintenance.cas_jobs
+                WHERE id = ANY(CAST(:ids AS bigint[]))
+                  AND request_context ? 'source_cb'
+            """), {"ids": [r[0] for r in rows]})).fetchall()
+            cb_map = {r[0]: r[1] for r in ctx_rows}
+            fallback = (await db.execute(text("""
                 SELECT id, cb_number FROM chemistry.chemicals
                 WHERE id = ANY(CAST(:ids AS integer[]))
             """), {"ids": [r[1] for r in rows if r[1] is not None]})).fetchall()
-            cb_map = {r[0]: r[1] for r in cb_rows}
+            for cid, cb in fallback:
+                cb_map.setdefault(cid, cb)
         leased = []
         for row in rows:
             token = secrets.token_urlsafe(32)
