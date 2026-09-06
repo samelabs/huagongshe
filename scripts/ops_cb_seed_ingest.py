@@ -254,74 +254,77 @@ async def cmd_schedule(args: argparse.Namespace) -> None:
         _d = json.load(open(args.cohort_file))
         cb_list = sorted({x["cb"] for v in _d["detail"].values() for x in v})
         log.info("cohort-file scope: %s cbs=%s", args.cohort_file, len(cb_list))
-    while processed < args.limit and stop_reason is None:
-        async with eng.connect() as conn:
-            await conn.execute(text("SET statement_timeout='600s'"))
-            await conn.commit()
-            async with conn.begin() as tx:
-                backlog = (await conn.execute(text(
-                    "SELECT count(*) FROM maintenance.cas_jobs"
-                    " WHERE status IN ('queued','leased')"))).scalar()
-                if args.max_enqueue > 0 and counts["ENQUEUED"] >= args.max_enqueue:
-                    # 0906 硬上限: cap>0 时达 cap 停整次 invocation。
-                    # cap=0 = 纯 resolve-only 模式(处理但绝不入队)。
-                    stop_reason = f"max_enqueue reached ({enq_state[0]})"
-                    break
-                if backlog > args.high_water:
-                    stop_reason = f"high water ({backlog})"
-                    break
-                # 0907 backlog-hours admission gate (operator supplied
-                # sustainable throughput; 无 durable completion 账本则
-                # 不伪造 rolling 统计) + static high-water 第二道闸。
-                hours = (backlog / args.throughput_per_hour
-                         if args.throughput_per_hour > 0 else 0.0)
-                gate_open = hours < args.backlog_hours
-                budgets = {"enqueue_left": (args.max_enqueue
-                                           - counts["ENQUEUED"]
-                                           if args.max_enqueue >= 0 else 10**9),
-                           "new_left": (args.new_budget
-                                        - counts["CREATED_PLACEHOLDER"]
-                                        if args.new_budget >= 0 else 10**9),
-                           "gate_open": gate_open}
-                if not gate_open:
-                    stop_reason = (f"backlog_hours_limit "
-                                   f"({hours:.1f}h >= {args.backlog_hours}h)")
-                    break
-                row = (await conn.execute(text("""
-                    SELECT cb_number, cas, status, last_chemical_id
-                    FROM ingestion.chemicalbook_seed
-                    WHERE status IN ('ACCEPTED','PENDING_NEW',
-                                     'RESOLVED_EXISTING')
-                      AND cb_number > :after
-                      AND (:no_list OR cb_number = ANY(:cbs))
-                    ORDER BY (CASE status WHEN 'PENDING_NEW' THEN 1
-                                           WHEN 'RESOLVED_EXISTING' THEN 2
-                                           ELSE 3 END),
-                             cb_number
-                    LIMIT 1
-                """), {"after": args.start_after or "",
-                       "no_list": cb_list is None,
-                       "cbs": cb_list or ["-"]})).first()
-                if row is None:
-                    stop_reason = "no more eligible seeds"
-                    break
-                args.start_after = row[0]
-                processed += 1
-                cb, cas, prev_status, _prev_cid = row
-                try:
-                    await _schedule_one(conn, counts, args, cb, cas,
-                                        prev_status, budgets)
-                except Exception as exc:  # noqa: BLE001 — 单 seed 不熔断批次
-                    await tx.rollback()
-                    counts["ERROR"] += 1
-                    log.warning("seed %s error: %s", cb, exc)
-                    async with eng.begin() as db2:
-                        await db2.execute(text("""
-                            UPDATE ingestion.chemicalbook_seed
-                            SET status='ERROR', last_error=:e,
-                                attempts=attempts+1, updated_at=now()
-                            WHERE cb_number=:cb AND status IN ('ACCEPTED','PENDING_NEW','AMBIGUOUS')
-                        """), {"e": str(exc)[:500], "cb": cb})
+    # 0907 fix: priority 由 phase 表达, 每层独立 local keyset cursor,
+    # 层间绝不共享 cb cursor (修复 P2 cb > P3 cb 全部被跳过的 traversal bug)。
+    if getattr(args, "start_after", ""):
+        print(json.dumps({"error": "start-after is not supported for "
+              "prioritized scheduler; rerun the explicit scope idempotently"}))
+        raise SystemExit(2)
+    PHASES = (("P1", "PENDING_NEW"), ("P2", "RESOLVED_EXISTING"),
+              ("P3", "ACCEPTED"))
+    for phase_name, phase_status in PHASES:
+        local_after = ""
+        while processed < args.limit and stop_reason is None:
+            async with eng.connect() as conn:
+                await conn.execute(text("SET statement_timeout='600s'"))
+                await conn.commit()
+                async with conn.begin() as tx:
+                    backlog = (await conn.execute(text(
+                        "SELECT count(*) FROM maintenance.cas_jobs"
+                        " WHERE status IN ('queued','leased')"))).scalar()
+                    if args.max_enqueue > 0 and counts["ENQUEUED"] >= args.max_enqueue:
+                        stop_reason = f"max_enqueue reached ({counts['ENQUEUED']})"
+                        break
+                    if backlog > args.high_water:
+                        stop_reason = f"high water ({backlog})"
+                        break
+                    hours = (backlog / args.throughput_per_hour
+                             if args.throughput_per_hour > 0 else 0.0)
+                    gate_open = hours < args.backlog_hours
+                    budgets = {"enqueue_left": (args.max_enqueue
+                                               - counts["ENQUEUED"]
+                                               if args.max_enqueue >= 0 else 10**9),
+                               "new_left": (args.new_budget
+                                            - counts["CREATED_PLACEHOLDER"]
+                                            if args.new_budget >= 0 else 10**9),
+                               "gate_open": gate_open}
+                    if not gate_open:
+                        stop_reason = (f"backlog_hours_limit "
+                                       f"({hours:.1f}h >= {args.backlog_hours}h)")
+                        break
+                    row = (await conn.execute(text("""
+                        SELECT cb_number, cas, status, last_chemical_id
+                        FROM ingestion.chemicalbook_seed
+                        WHERE status = :phase_status
+                          AND cb_number > :after
+                          AND (:no_list OR cb_number = ANY(:cbs))
+                        ORDER BY cb_number
+                        LIMIT 1
+                    """), {"phase_status": phase_status,
+                           "after": local_after,
+                           "no_list": cb_list is None,
+                           "cbs": cb_list or ["-"]})).first()
+                    if row is None:
+                        break  # 本层扫尽 → 下一 phase (cursor 重新从空开始)
+                    local_after = row[0]
+                    processed += 1
+                    cb, cas, prev_status, _prev_cid = row
+                    try:
+                        await _schedule_one(conn, counts, args, cb, cas,
+                                            prev_status, budgets)
+                    except Exception as exc:  # noqa: BLE001
+                        await tx.rollback()
+                        counts["ERROR"] += 1
+                        log.warning("seed %s error: %s", cb, exc)
+                        async with eng.begin() as db2:
+                            await db2.execute(text("""
+                                UPDATE ingestion.chemicalbook_seed
+                                SET status='ERROR', last_error=:e,
+                                    attempts=attempts+1, updated_at=now()
+                                WHERE cb_number=:cb AND status IN ('ACCEPTED','PENDING_NEW','AMBIGUOUS')
+                            """), {"e": str(exc)[:500], "cb": cb})
+        if stop_reason:
+            break
     enq_state[0] = counts["ENQUEUED"]
     if stop_reason:
         log.info("scheduler stop: %s", stop_reason)
