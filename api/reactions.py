@@ -49,19 +49,15 @@ async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:smiles,0))"), {"smiles": canonical})
     props = await asyncio.to_thread(chemical_properties, canonical)
     inchikey = props.get("inchikey")
-    chemical_id = None
-    if inchikey:
-        chemical_id = (await db.execute(text("""
-            SELECT id FROM chemistry.chemicals
-            WHERE inchikey=:inchikey AND mol IS NOT NULL ORDER BY id LIMIT 1
-        """), {"inchikey": inchikey})).scalar()
-    if chemical_id is None:
-        chemical_id = (await db.execute(text("""
-            SELECT id FROM chemistry.chemicals
-            WHERE smiles=:smiles AND mol IS NOT NULL ORDER BY id LIMIT 1
-        """), {"smiles": canonical})).scalar()
-    if chemical_id is not None:
-        return int(chemical_id), False
+    # 0906 治理机制: 定位/裁定改走 identity.resolve_chemical 五状态契约。
+    # SMILES 路证据=ik(结构键)。EQUIVALENT(ik 结构行命中)直接用;
+    # CONFLICT/AMBIGUOUS 不可能在此形态出现(单键定位), 保守起见仍检查。
+    from .services.identity import resolve_chemical
+    # create=False: NEW 时不占行 — 完整行(带mol/指纹)由本函数下方 INSERT
+    # 一次性建, 避免 resolve 先建裸占位行再建完整行的双行缝(终审0906)
+    res = await resolve_chemical(db, inchikey=inchikey, create=False)
+    if res.chemical_id is not None and res.status in ("EQUIVALENT", "EXACT"):
+        return int(res.chemical_id), False
     chemical_id = int((await db.execute(text("""
         INSERT INTO chemistry.chemicals
           (smiles,molecular_formula,average_mass,monoisotopic_mass,inchikey,

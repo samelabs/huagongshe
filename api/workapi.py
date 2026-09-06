@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import re
 import secrets
 import time
@@ -12,6 +13,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import text
 
 from .core.cache import cache_delete, get_cache
+
+logger = logging.getLogger(__name__)
 from .core.config import settings
 from .core.database import get_db
 from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, ErrorBody, CasLeaseBody, CasCompleteBody
@@ -177,7 +180,10 @@ async def complete_job(
     try:
         job = await verified_lease(db, body, worker.worker_id)
         result = body.result
-        chemical_id = job[1]
+        # 0906 身份机制: job 携带的行 id 可能已被合并删除(异步执行期间
+        # absorb), 先过 redirect 解析 canonical, 无记录返回原值
+        from .services.identity import canonicalize_id
+        chemical_id = await canonicalize_id(db, job[1])
         payload = as_json_object(result.get("payload")) if isinstance(result, dict) else {}
         if payload:
             await upsert_details(db, int(chemical_id), payload)
@@ -378,12 +384,39 @@ async def cas_complete_job(
         entry = payload.entry if status == "ok" else None
         locale = payload.locale
         suppliers = payload.suppliers if status == "ok" and locale == "zh-CN" else []
+        # 0906 治理机制(规范版): 回补重定位 — 拿本任务刚解析出的 inchikey
+        # 过 resolve 五状态契约; EQUIVALENT/EXACT 且目标行≠job行时过
+        # can_merge 吸收(gate 内置于 absorb); AMBIGUOUS/CONFLICT 不写
+        # 任何行的身份字段(数据只落子表), 规范见 docs/CHEMICALS_IDENTITY_GOVERNANCE.md
         if status == "ok":
-            # 结构三件只补空: 占位行/无结构行靠 CB mol 回填出图;
+            from .services.identity import resolve_chemical, canonicalize_id
+            structure = resolve_structure(entry, payload.mol)
+            # 异步执行期间行可能已被合并(旧id已删) — redirect 兜底
+            job_chemical_id = await canonicalize_id(db, chemical_id)
+            res = await resolve_chemical(
+                db, inchikey=structure.get("inchikey"), cas=cas_number)
+            if res.chemical_id is not None and res.chemical_id != job_chemical_id:
+                from .services.identity import absorb, MergeBlockedError
+                # gate 拒绝(如 job 行与目标行均无强键) → 保留两行不合并,
+                # 数据只落子表; 规范"宁可暂时一物多行, 不允许两物误合一行"
+                try:
+                    await absorb(
+                        db, source_id=job_chemical_id, target_id=res.chemical_id,
+                        reason="workapi-relocation", trigger="cas_fetch_callback",
+                        evidence_ik=structure.get("inchikey"),
+                        evidence_cid=structure.get("pubchem_cid"))
+                    chemical_id = res.chemical_id
+                except MergeBlockedError as exc:
+                    # 保留两行不中断回补, 但必须可观测 — 身份冲突不允许静默
+                    logger.warning(
+                        "merge_gate_blocked chemical_id=%s target=%s reason=%s",
+                        job_chemical_id, res.chemical_id, exc)
+            elif res.chemical_id is not None:
+                chemical_id = res.chemical_id
+            # 结构三件只补空: 无结构行靠 CB mol 回填出图;
             # cid 在的行 PubChem 早填过(coalesce no-op)。
-            await apply_structure_fill(
-                db, chemical_id, resolve_structure(entry, payload.mol)
-            )
+            if chemical_id is not None:
+                await apply_structure_fill(db, chemical_id, structure)
         try:
             await upsert_externals(
                 db, chemical_id=chemical_id, cas_number=cas_number,

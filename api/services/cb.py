@@ -516,38 +516,27 @@ async def cas_search_state(db: Any, cas_number: str) -> str:
 async def enqueue_cas_search_fetch(db: Any, *, cas_number: str) -> bool:
     """搜索miss: 占主表行(CAS登记, 只落 cas_numbers) + 入队(带行id)。
 
-    占位行=标准化合物, 不区分对待(2026-08-29定)。INSERT 原子防并发重复
-    (NOT EXISTS), 竞态败者回查取既有行 id。无深度闸门(2026-08-30拆除)。
+    0905 治理机制: 定位/建行改走 api/services/identity.resolve_chemical
+    (身份序位 cid > inchikey > cas, 治理五条见该文件头注释)。原裸
+    NOT EXISTS 只查 cas_numbers, 撞不上既有同物 SMILES 行(inchikey 行),
+    双行并存 388 例的病根即此。resolve_chemical 内含 advisory 锁, 原
+    0904 锁代码随之移除。
     """
     cas = cas_number.strip()
-    # 0904 敞口收口: 占行前 advisory 锁(照抄 SMILES 路径 resolve_or_create_
-    # chemical 同款)。此前裸 NOT EXISTS 在 READ COMMITTED 下两并发首搜同一
-    # CAS 可各建一行(GIN @> 无法做唯一约束兜底)。锁键=cas 文本; 竞态败者
-    # 走下方既有回查分支复用胜者行, 流程零改动。
-    await db.execute(text(
-        "SELECT pg_advisory_xact_lock(hashtextextended(:cas,0))"
-    ), {"cas": cas})
-    chemical_id = (await db.execute(text("""
-        INSERT INTO chemistry.chemicals (cas_numbers,created_at,updated_at)
-        SELECT ARRAY[:cas],now(),now()
-        WHERE NOT EXISTS (
-            SELECT 1 FROM chemistry.chemicals WHERE cas_numbers @> ARRAY[:cas]
-        )
-        RETURNING id
-    """), {"cas": cas})).scalar()
-    if chemical_id is not None:
-        # 仅真建行时计数(竞态败者回查复用既有行, 不重复+1)
+    from .identity import resolve_chemical
+    # 0906 规范: 五状态契约。AMBIGUOUS/CONFLICT 不建行不写身份字段,
+    # 仅入队等待结构判据后 re-resolve; EXACT/EQUIVALENT/NEW 占行入队。
+    res = await resolve_chemical(db, cas=cas)
+    chemical_id, created = res.chemical_id, (res.status == "NEW")
+    if chemical_id is None:
+        # AMBIGUOUS(cas 多行无判据): 不猜行(规范3.3), 入队不带行,
+        # worker 解析出结构判据后由回补路 re-resolve 收敛
+        pass
+    if created:
         await db.execute(text("""
             UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
             WHERE metric='chemicals'
         """))
-    else:
-        chemical_id = (await db.execute(text("""
-            SELECT id FROM chemistry.chemicals
-            WHERE cas_numbers @> ARRAY[:cas] LIMIT 1
-        """), {"cas": cas})).scalar()
-    if chemical_id is None:
-        return False
     digest = hashlib.sha256(cas.encode()).hexdigest()[:16]
     await db.execute(text("""
         INSERT INTO maintenance.cas_jobs
@@ -563,10 +552,14 @@ async def enqueue_cas_search_fetch(db: Any, *, cas_number: str) -> bool:
             priority=greatest(maintenance.cas_jobs.priority,excluded.priority),
             updated_at=now()
     """), {
-        "chemical_id": int(chemical_id), "cas_number": cas,
+        "chemical_id": int(chemical_id) if chemical_id is not None else None,
+        "cas_number": cas,
         "priority": SEARCH_MISS_PRIORITY,
         "dedupe_key": f"cas:new:{digest}",
-        "context": json.dumps({"reason": "search_miss"}, ensure_ascii=False),
+        "context": json.dumps(
+            {"reason": "search_miss",
+             **({"identity_status": res.status} if chemical_id is None else {})},
+            ensure_ascii=False),
     })
     return True
 
