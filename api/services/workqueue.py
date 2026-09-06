@@ -186,6 +186,54 @@ async def sync_chemical_core(
         await ingest_from_synonyms(db, chemical_id, synonyms)
 
 
+async def reconcile_pubchem_identity(
+    db: Any, chemical_id: int, new_cid: int | None
+) -> int:
+    """0907 强身份回补 gate: enrichment 新获得 pubchem_cid 后的 re-resolution。
+
+    冻结规则: 任何 enrichment 新获得此前行上不存在的强 identity evidence,
+    必须在最终落主表身份前重新经过 identity resolution (CID=entity proof,
+    IK 不单独授权, 复用 resolve_chemical/absorb, 不另写 matcher)。
+
+    返回最终 canonical chemical_id。create=False — callback 永不因 enrichment
+    自行新建 chemical 行。分支:
+    - resolver 指向当前行 → 正常 enrichment, 返回原 id
+    - resolver 指向他行 → 正式 absorb() (gate 内置 can_merge), 返回 survivor
+    - absorb 被 gate 拒 → 保留两行 + structured warning, 返回原 id
+    - CONFLICT → 不覆盖 + structured warning, 返回原 id
+    """
+    if new_cid is None:
+        return chemical_id
+    import logging
+    logger = logging.getLogger("huagongshe.workqueue")
+    from .identity import resolve_chemical, absorb, MergeBlockedError
+    res = await resolve_chemical(db, cid=new_cid, create=False)
+    if res.status == "CONFLICT":
+        logger.warning(
+            "pubchem_identity_conflict chemical_id=%s new_cid=%s candidates=%s",
+            chemical_id, new_cid, res.candidates)
+        return chemical_id
+    # cid 命中行的全体 candidates 中, 除当前行外还有他行 → 必须 reconcile。
+    # 不用 res.chemical_id(picked): picked 可能恰为当前行而残留他行重复;
+    # reconcile 对象由 resolver candidates 决定, survivor 仍由 absorb 裁定。
+    others = [c for c in (res.candidates or []) if c != chemical_id]
+    if not others:
+        return chemical_id
+    target = others[0]
+    try:
+        survivor = await absorb(
+            db, source_id=chemical_id, target_id=target,
+            reason="pubchem-cid-relocation", trigger="pubchem_fetch_callback",
+            evidence_cid=new_cid)
+        return survivor
+    except MergeBlockedError as exc:
+        # 保留两行不中断回补, 但必须可观测 — 身份冲突不允许静默
+        logger.warning(
+            "merge_gate_blocked chemical_id=%s target=%s reason=%s",
+            chemical_id, target, exc)
+        return chemical_id
+
+
 async def upsert_details(
     db: Any,
     chemical_id: int,

@@ -513,7 +513,9 @@ async def cas_search_state(db: Any, cas_number: str) -> str:
     return "new"
 
 
-async def enqueue_cas_search_fetch(db: Any, *, cas_number: str) -> bool:
+async def enqueue_cas_search_fetch(
+    db: Any, *, cas_number: str
+) -> tuple[bool, str | None, int | None]:
     """搜索miss: 占主表行(CAS登记, 只落 cas_numbers) + 入队(带行id)。
 
     0905 治理机制: 定位/建行改走 api/services/identity.resolve_chemical
@@ -521,6 +523,10 @@ async def enqueue_cas_search_fetch(db: Any, *, cas_number: str) -> bool:
     NOT EXISTS 只查 cas_numbers, 撞不上既有同物 SMILES 行(inchikey 行),
     双行并存 388 例的病根即此。resolve_chemical 内含 advisory 锁, 原
     0904 锁代码随之移除。
+
+    0907 门禁收口: 返回 (enqueued, resolve_status, chemical_id) —
+    resolver 裁定结果必须穿透给调用方, 调用方禁止再按 CAS 自行重查
+    任意行(旧 LIMIT 1 旁路已删, 全链路覆盖审计 BYPASS 项)。
     """
     cas = cas_number.strip()
     from .identity import resolve_chemical
@@ -561,7 +567,7 @@ async def enqueue_cas_search_fetch(db: Any, *, cas_number: str) -> bool:
              **({"identity_status": res.status} if chemical_id is None else {})},
             ensure_ascii=False),
     })
-    return True
+    return True, res.status, (int(chemical_id) if chemical_id is not None else None)
 
 
 async def sync_fetch_and_store(

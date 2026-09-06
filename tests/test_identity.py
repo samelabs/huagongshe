@@ -81,11 +81,35 @@ class IdentityResolutionTests(unittest.TestCase):
                 await c.execute(text(
                     "DELETE FROM maintenance.identity_merge_log"
                     " WHERE trigger IN ('unit','unit-test')"))
+                # GateCoverage 走生产 reconcile_pubchem_identity(trigger=
+                # pubchem_fetch_callback) — 测试行也按标记 CAS 清理,
+                # 审计表只承载真实治理事实
+                await c.execute(text("""
+                    DELETE FROM maintenance.chemical_identity_redirect
+                    WHERE merge_log_id IN (
+                        SELECT merge_id FROM maintenance.identity_merge_log
+                        WHERE trigger = 'pubchem_fetch_callback'
+                          AND source_keys_before->>'cas_numbers'
+                              = '["99999-99-9"]')
+                """))
+                await c.execute(text(
+                    "DELETE FROM maintenance.identity_merge_log"
+                    " WHERE trigger = 'pubchem_fetch_callback'"
+                    " AND source_keys_before->>'cas_numbers' = '[\"99999-99-9\"]'"))
                 await c.execute(text("""
                     DELETE FROM chemistry.chemicals WHERE
                         cas_numbers @> ARRAY[:c] OR inchikey IN (:ik,:ik2)
                         OR pubchem_cid IN (:a,:b)
                 """), {"c": CAS, "ik": IK, "ik2": IK2, "a": CID_A, "b": CID_B})
+                # cas_jobs 部分唯一索引 dedupe: 本测试前缀直清(0907 卫生收口)
+                await c.execute(text(
+                    "DELETE FROM maintenance.cas_jobs"
+                    " WHERE dedupe_key LIKE 'test-dedupe-%'"))
+                # GateCoverage enqueue 也会以测试 CAS 占 cas_jobs 行(cas:new:*),
+                # 其中 AMBIGUOUS 行 chemical_id 为 NULL — 一并清理防跨用例污染
+                await c.execute(text(
+                    "DELETE FROM maintenance.cas_jobs WHERE cas_number = :c"),
+                    {"c": CAS})
         self._run(clean())
 
     @classmethod
@@ -240,8 +264,9 @@ class IdentityResolutionTests(unittest.TestCase):
                 await db.execute(text(
                     "INSERT INTO maintenance.cas_jobs"
                     " (chemical_id,cas_number,dedupe_key,request_context)"
-                    " VALUES (:id,:cas,'test-dedupe-y39kkkqj','{}'::jsonb)"),
-                    {"id": ph, "cas": CAS})
+                    " VALUES (:id,:cas,:dk,'{}'::jsonb)"),
+                    {"id": ph, "cas": CAS,
+                     "dk": "test-dedupe-%s" % __import__("uuid").uuid4().hex[:12]})
                 await db.commit()
                 survivor = await absorb(db, source_id=ph, target_id=tgt,
                                         reason="test-refs", trigger="unit",
@@ -1012,6 +1037,157 @@ class OneToOneMergeTests(IdentityResolutionTests):
         both, logs = self._run(go())
         self.assertEqual(both, 2)
         self.assertEqual(logs, 0)
+
+
+@unittest.skipUnless(DB_URL, "需要 PG")
+class GateCoverageTests(IdentityResolutionTests):
+    """0907 门禁覆盖: search CAS bypass 修复 + pubchem 强身份回补 gate。"""
+
+    def test_cas_bypass_unique_hit_uses_resolver_id(self):
+        # 1. CAS 唯一命中 → enqueue_cas_search_fetch 返回 resolver chemical_id
+        from api.services.cb import enqueue_cas_search_fetch
+        async def go():
+            async with self.engine.begin() as db:
+                rid = await self._insert(db, cas=CAS)
+                enq, status, cid = await enqueue_cas_search_fetch(db, cas_number=CAS)
+                return enq, status, cid, rid
+        enq, status, cid, rid = self._run(go())
+        # cas-unique-hit → EQUIVALENT(五状态契约, 序位3)
+        self.assertEqual((enq, status, cid), (True, "EQUIVALENT", rid))
+
+    def test_cas_bypass_new_uses_resolver_created_id(self):
+        # 2. CAS NEW → resolver 合法占位行 id 直接穿透(调用方不再 LIMIT 1 重查)
+        from api.services.cb import enqueue_cas_search_fetch
+        async def go():
+            async with self.engine.begin() as db:
+                enq, status, cid = await enqueue_cas_search_fetch(db, cas_number=CAS)
+                return enq, status, cid
+        enq, status, cid = self._run(go())
+        self.assertEqual((enq, status), (True, "NEW"))
+        self.assertIsInstance(cid, int)
+        self.assertGreater(cid, 0)
+
+    def test_cas_bypass_ambiguous_returns_none(self):
+        # 3. CAS 多候选无强判据 → AMBIGUOUS, chemical_id=None, 绝不选 candidate
+        from api.services.cb import enqueue_cas_search_fetch
+        async def go():
+            async with self.engine.begin() as db:
+                await self._insert(db, cas=CAS, ik=IK)
+                await self._insert(db, cas=CAS, ik=None)
+                enq, status, cid = await enqueue_cas_search_fetch(db, cas_number=CAS)
+                return enq, status, cid
+        enq, status, cid = self._run(go())
+        self.assertEqual((enq, status, cid), (True, "AMBIGUOUS", None))
+
+    def test_cas_bypass_no_limit1_fallback_in_search(self):
+        # 4. 旧 LIMIT 1 fallback 代码不复存在(静态检查)
+        src = open("api/services/search.py").read()
+        self.assertNotIn("cas_numbers @> ARRAY[:cas] LIMIT 1", src)
+
+    def test_pubchem_reconcile_new_cid_free(self):
+        # P1. 行 CID 空, 新 CID 无他行 → 原样返回, 不 merge 不建行
+        from api.services.workqueue import reconcile_pubchem_identity
+        from sqlalchemy import text
+        async def go():
+            async with self.engine.begin() as db:
+                rid = await self._insert(db, cas=CAS)
+                out = await reconcile_pubchem_identity(db, rid, CID_A)
+                n = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemicals WHERE pubchem_cid=:c"),
+                    {"c": CID_A})).scalar()
+                return out, n
+        out, n = self._run(go())
+        self.assertEqual(out, out)  # id 返回
+        self.assertEqual(n, 0)      # reconcile 不写 CID(sync 已写), 不建行
+
+    def test_pubchem_reconcile_absorbs_into_existing_cid_row(self):
+        # P2. 新 CID 已存在另一行 → 正式 absorb, same-CID 一行收敛
+        from api.services.workqueue import reconcile_pubchem_identity
+        from sqlalchemy import text
+        async def go():
+            async with self.engine.begin() as db:
+                other = await self._insert(db, cid=CID_A, mol=True)
+                mine = await self._insert(db, cas=CAS, cid=CID_A)
+                out = await reconcile_pubchem_identity(db, mine, CID_A)
+                left = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemicals WHERE pubchem_cid=:c"),
+                    {"c": CID_A})).scalar()
+                return out, left, other, mine
+        out, left, other, mine = self._run(go())
+        self.assertEqual(left, 1)
+        self.assertIn(out, (other, mine))
+
+    def test_pubchem_reconcile_same_row_noop(self):
+        # P3. resolver 只命中当前行 → 不重复 merge
+        from api.services.workqueue import reconcile_pubchem_identity
+        async def go():
+            async with self.engine.begin() as db:
+                rid = await self._insert(db, cid=CID_A)
+                out = await reconcile_pubchem_identity(db, rid, CID_A)
+                return out, rid
+        out, rid = self._run(go())
+        self.assertEqual(out, rid)
+
+    def test_pubchem_reconcile_conflict_fail_closed(self):
+        # P4. 当前行已有不同非空 CID → CONFLICT 不覆盖不 merge
+        from api.services.workqueue import reconcile_pubchem_identity
+        from sqlalchemy import text
+        async def go():
+            async with self.engine.begin() as db:
+                rid = await self._insert(db, cid=CID_A)
+                out = await reconcile_pubchem_identity(db, rid, CID_B)
+                cid_now = (await db.execute(text(
+                    "SELECT pubchem_cid FROM chemistry.chemicals WHERE id=:i"),
+                    {"i": rid})).scalar()
+                return out, rid, cid_now
+        out, rid, cid_now = self._run(go())
+        self.assertEqual(out, rid)
+        self.assertEqual(cid_now, CID_A)
+
+    def test_pubchem_reconcile_gate_block_keeps_both(self):
+        # P6. absorb 被 gate 拒(无 CID entity proof) → 两行保留不炸
+        from api.services.workqueue import reconcile_pubchem_identity
+        from sqlalchemy import text  # noqa: F401
+        async def go():
+            async with self.engine.begin() as db:
+                # 当前行无CID; 新CID行存在 → resolve EXACT 指向他行,
+                # 但 can_merge: src空侧由 evidence_cid 补齐=同CID → ALLOW 会过。
+                # 构造 gate BLOCK: 当前行带不同非空 CID。
+                rid = await self._insert(db, cid=CID_A)
+                other = await self._insert(db, cid=CID_B)
+                out = await reconcile_pubchem_identity(db, rid, CID_B)
+                both = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemicals WHERE id IN (:a,:b)"),
+                    {"a": rid, "b": other})).scalar()
+                return out, rid, both
+        out, rid, both = self._run(go())
+        # CONFLICT 分支(行 CID_A vs CID_B) → 不进入 absorb, 两行保留
+        self.assertEqual(out, rid)
+        self.assertEqual(both, 2)
+
+    def test_pubchem_reconcile_child_facts_follow_survivor(self):
+        # P7. absorb 后 source 子表事实归属 survivor
+        from api.services.workqueue import reconcile_pubchem_identity
+        from sqlalchemy import text
+        async def go():
+            async with self.engine.begin() as db:
+                await self._insert(db, cid=CID_A, mol=True)
+                mine = await self._insert(db, cas=CAS, cid=CID_A)
+                await db.execute(text(
+                    "INSERT INTO chemistry.name_index (chemical_id,name,lang,normalized,source,kind)"
+                    " VALUES (:c,'gate-t','cn','gate-t','cb','supplier')"
+                    " ON CONFLICT DO NOTHING"), {"c": mine})
+                out = await reconcile_pubchem_identity(db, mine, CID_A)
+                n_old = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.name_index WHERE chemical_id=:c"),
+                    {"c": mine})).scalar()
+                n_surv = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.name_index WHERE chemical_id=:c"),
+                    {"c": out})).scalar()
+                return n_old, n_surv
+        n_old, n_surv = self._run(go())
+        self.assertEqual(n_old, 0)
+        self.assertEqual(n_surv, 1)
 
 
 if __name__ == "__main__":

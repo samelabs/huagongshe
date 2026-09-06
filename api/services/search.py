@@ -145,21 +145,21 @@ async def run_search_query(
                             # 路径B实测 ~1.5s), 命中即本次响应带回 chemical_id,
                             # 前端直接跳详情页, 零轮询。失败/超时降级入列(80 分)。
                             # 治理不变: 治理交互不治理总量, dedupe 活跃窗防重复。
-                            enqueued = await enqueue_cas_search_fetch(
+                            # 0907 门禁收口: resolver 裁定结果直接穿透 —
+                            # chemical_id 非空(EXACT/EQUIVALENT/NEW 占位行)才
+                            # 同步拉; None(AMBIGUOUS/CONFLICT)不落到任何候选行,
+                            # 旧 cas_numbers LIMIT 1 任意选行旁路已删除。
+                            enqueued, _res_status, row_id = await enqueue_cas_search_fetch(
                                 db, cas_number=query,
                             )
                             await db.commit()
                             if enqueued:
-                                row_id = (await db.execute(text("""
-                                    SELECT id FROM chemistry.chemicals
-                                    WHERE cas_numbers @> ARRAY[:cas] LIMIT 1
-                                """), {"cas": query})).scalar()
                                 synced = None
                                 if row_id is not None:
                                     synced = await sync_fetch_and_store(
                                         db, chemical_id=int(row_id), cas_number=query,
                                     )
-                                if synced and synced.get("status") == "ok":
+                                if row_id is not None and synced and synced.get("status") == "ok":
                                     cas_fetch_hit_id = int(row_id)
                                     state = "hit"
                                 else:

@@ -195,6 +195,19 @@ async def complete_job(
                 cas_numbers=payload.get("cas_numbers") or None,
                 main_table_ids=payload.get("main_table_ids") or None,
             )
+            # 0907 强身份回补 gate: enrichment 新 CID 落主表前(经上面的
+            # coalesce 补空)重新过 identity resolution — 新增 same-CID 分叉
+            # 的最后来源关闭; 只经正式 absorb(), gate 拒则两行保留+warning。
+            from .services.workqueue import reconcile_pubchem_identity
+            new_cid = None
+            if core:
+                try:
+                    v = int(core.get("CID") or 0)
+                    new_cid = v if v > 0 else None
+                except (TypeError, ValueError):
+                    new_cid = None
+            chemical_id = await reconcile_pubchem_identity(
+                db, int(chemical_id), new_cid)
         # 出表: complete 即 DELETE, job 是纯队列不承载历史。
         await db.execute(text("""
             DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id

@@ -299,7 +299,8 @@ async def resolve_chemical(
     cols: list[str] = ["created_at", "updated_at"]
     vals: list[str] = ["now()", "now()"]
     params: dict[str, Any] = {}
-    for name, key, val in (("cas_numbers", "cas", cas),
+    for name, key, val in (("cas_numbers", "cas",
+                            [cas] if cas is not None else None),
                            ("pubchem_cid", "cid", cid),
                            ("inchikey", "ik", inchikey)):
         if val is not None:
