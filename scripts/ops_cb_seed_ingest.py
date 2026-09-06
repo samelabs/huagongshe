@@ -56,6 +56,12 @@ def db_url() -> str:
 
 async def cmd_load(args: argparse.Namespace) -> None:
     """sqlite → ledger, keyset by cb_number, 幂等 UPSERT, 零 identity 副作用。"""
+    # 0907 fail-closed (与 scheduler 同规): 无显式 scope 禁止装载
+    if not (getattr(args, "cohort_file", "") or getattr(args, "cb_list", "")
+            or getattr(args, "all", False)):
+        print(json.dumps({"error": "refusing: no explicit scope "
+              "(--cohort-file | --cb-list | --all required)"}))
+        raise SystemExit(2)
     eng = create_async_engine(db_url(), pool_size=4)
     src = sqlite3.connect(f"file:{args.sqlite}?mode=ro", uri=True)
     cur: str = args.start_after or ""
@@ -69,11 +75,16 @@ async def cmd_load(args: argparse.Namespace) -> None:
             (cur, args.batch)).fetchall()
         if not rows:
             break
-        if getattr(args, "cohort_file", "") and cohort_cbs is None:
-            _d = json.load(open(args.cohort_file))
-            cohort_cbs = set()
-            for v in _d["detail"].values():
-                cohort_cbs.update(x["cb"] for x in v)
+        if cohort_cbs is None and (getattr(args, "cohort_file", "")
+                                   or getattr(args, "cb_list", "")):
+            if getattr(args, "cb_list", ""):
+                cohort_cbs = set(json.load(open(args.cb_list)))
+                log.info("cb-list file: %s cbs=%s", args.cb_list, len(cohort_cbs))
+            else:
+                _d = json.load(open(args.cohort_file))
+                cohort_cbs = set()
+                for v in _d["detail"].values():
+                    cohort_cbs.update(x["cb"] for x in v)
             log.info("cohort file: %s unique cbs=%s",
                      args.cohort_file, len(cohort_cbs))
         payload = []
@@ -298,6 +309,10 @@ def main() -> None:
     pl.add_argument("--limit", type=int, default=0)
     pl.add_argument("--start-after", default="")
     pl.add_argument("--dry-run", action="store_true")
+    pl.add_argument("--cb-list", default="",
+                    help="json 文件(cb 数组): 只装载这些 cb_number")
+    pl.add_argument("--all", action="store_true",
+                    help="显式全量 sqlite valid seeds (必须明确写出)")
     pl.add_argument("--cohort-file", default="",
                     help="frozen cohort json: 只 load 文件内 cb_number")
     ps = sub.add_parser("schedule")
