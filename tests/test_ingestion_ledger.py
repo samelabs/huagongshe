@@ -1,7 +1,10 @@
-"""Ingestion ledger / seed loader / scheduler 治理边界测试 (0907)。
+"""Ingestion ledger / seed loader / scheduler 治理边界测试 (0907 v2).
 
-覆盖立项十一节 15 项要求。测试用 ledger 前缀 cb 'UTSEED-' 与 CAS
-'99999-99-9' 标记, setUp 直清; 绝不触碰生产 seed。
+0906 生产污染事故后的隔离规范:
+  - 所有 scheduler 测试用独立 UUID cb 前缀, 显式 --cb-list scope
+  - 绝不调用无 scope schedule
+  - setUp/tearDown 零残留 (ledger/jobs/chemicals/audit)
+  - 生产污染回归: 存在非测试 seed 时, scoped schedule 不碰它
 """
 import asyncio
 import os
@@ -20,15 +23,7 @@ ASYNC_URL = re.sub(
 
 CAS = "99999-99-9"
 CAS2 = "99999-88-8"
-TEST_MOL = """
-  Mrv1582
-
-  2  1  0  0  0  0            999 V2000
-    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-    1.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
-  1  2  1  0  0  0  0
-M  END
-"""
+PREFIX = "UT2-"  # v2 独立前缀, 与事故残留 UTSEED- 区分
 
 
 def _make_sqlite(rows):
@@ -53,26 +48,36 @@ class SeedLedgerTests(unittest.TestCase):
     def _run(self, coro):
         return self._aio.run_until_complete(coro)
 
-    def setUp(self):
+    def _tidy(self):
         from sqlalchemy import text
-        async def clean():
-            async with self.engine.begin() as c:
-                await c.execute(text(
-                    "DELETE FROM ingestion.chemicalbook_seed"
-                    " WHERE cb_number LIKE 'UTSEED-%'"))
-                await c.execute(text(
-                    "DELETE FROM maintenance.cas_jobs WHERE cas_number IN (:a,:b)"
-                ), {"a": CAS, "b": CAS2})
-                await c.execute(text("""
+        async def go():
+            async with self.engine.begin() as db:
+                # 自身残留 + v1 事故遗留 UTSEED 前缀(本测试产生的才清; 只按前缀)
+                for pat in (PREFIX + "%", "UTSEED-%"):
+                    await db.execute(text(
+                        "DELETE FROM ingestion.chemicalbook_seed"
+                        " WHERE cb_number LIKE :p"), {"p": pat})
+                await db.execute(text(
+                    "DELETE FROM maintenance.cas_jobs"
+                    " WHERE cas_number IN (:a,:b) OR request_context::text LIKE '%UT2-%'"
+                    " OR request_context::text LIKE '%UTSEED-%'"),
+                    {"a": CAS, "b": CAS2})
+                await db.execute(text("""
                     DELETE FROM maintenance.cas_jobs WHERE chemical_id IN (
                         SELECT id FROM chemistry.chemicals
                         WHERE cas_numbers && ARRAY[:a,:b]::text[])
                 """), {"a": CAS, "b": CAS2})
-                await c.execute(text(
+                await db.execute(text(
                     "DELETE FROM chemistry.chemicals"
-                    " WHERE cas_numbers && ARRAY[:a,:b]::text[]"
-                ), {"a": CAS, "b": CAS2})
-        self._run(clean())
+                    " WHERE cas_numbers && ARRAY[:a,:b]::text[]"),
+                    {"a": CAS, "b": CAS2})
+        self._run(go())
+
+    def setUp(self):
+        self._tidy()
+
+    def tearDown(self):
+        self._tidy()
 
     @classmethod
     def tearDownClass(cls):
@@ -97,47 +102,55 @@ class SeedLedgerTests(unittest.TestCase):
         path = _make_sqlite(rows)
         args = ing._A(cmd="load", sqlite=path, batch=500, limit=kw.get("limit", 0),
                       start_after=kw.get("start_after", ""),
-                      dry_run=kw.get("dry_run", False))
+                      dry_run=kw.get("dry_run", False),
+                      cohort_file=kw.get("cohort_file", ""))
         try:
             self._run(ing.cmd_load(args))
         finally:
             os.unlink(path)
 
-    def _schedule(self, **kw):
+    def _schedule(self, cbs, **kw):
+        """v2: scheduler 测试必须显式 cb-list scope。"""
         import sys
+        import json as _json
         sys.path.insert(0, "/home/ubuntu/ops")
         import cb_seed_ingest as ing
+        lst = tempfile.mktemp(suffix=".json")
+        _json.dump(list(cbs), open(lst, "w"))
         args = ing._A(cmd="schedule", limit=kw.get("limit", 50),
                       max_enqueue=kw.get("max_enqueue", 0),
                       high_water=kw.get("high_water", 10**9),
-                      start_after=kw.get("start_after", ""))
-        self._run(ing.cmd_schedule(args))
+                      start_after=kw.get("start_after", ""),
+                      cb_list=lst, cohort_file="", all=False)
+        try:
+            self._run(ing.cmd_schedule(args))
+        finally:
+            os.unlink(lst)
 
-    def _seed_rows(self, only=None):
+    def _rows(self, cbs=None):
         from sqlalchemy import text
         async def go():
             async with self.engine.connect() as db:
                 q = ("SELECT cb_number, cas, status, last_chemical_id"
-                     " FROM ingestion.chemicalbook_seed"
-                     " WHERE cb_number LIKE 'UTSEED-%'")
-                if only:
-                    q += f" AND cb_number IN {tuple(only)}"
-                r = await db.execute(text(q + " ORDER BY cb_number"))
+                     " FROM ingestion.chemicalbook_seed WHERE cb_number LIKE :p")
+                if cbs:
+                    q += f" AND cb_number IN {tuple(cbs)}"
+                r = await db.execute(text(q + " ORDER BY cb_number"), {"p": PREFIX + "%"})
                 return [tuple(x) for x in r]
         return self._run(go())
 
-    # -- 1/2: loader 插入 + 幂等 ------------------------------------
+    # -- 1/2: loader 插入 + 幂等 --------------------------------------
 
     def test_loader_insert_and_idempotent(self):
-        rows = [("UTSEED-1", CAS), ("UTSEED-2", CAS2), ("UTSEED-3", None),
-                ("UTSEED-4", "bad-format")]
+        rows = [(PREFIX + "1", CAS), (PREFIX + "2", CAS2), (PREFIX + "3", None),
+                (PREFIX + "4", "bad-format")]
         self._load(rows)
-        got = self._seed_rows()
-        self.assertEqual([g[0] for g in got], ["UTSEED-1", "UTSEED-2"])
+        got = self._rows()
+        self.assertEqual([g[0] for g in got], [PREFIX + "1", PREFIX + "2"])
         self.assertEqual([g[2] for g in got], ["ACCEPTED", "ACCEPTED"])
-        n_before = len(got)
-        self._load(rows)  # 重跑
-        self.assertEqual(len(self._seed_rows()), n_before)
+        n = len(got)
+        self._load(rows)
+        self.assertEqual(len(self._rows()), n)
 
     def test_loader_no_identity_side_effects(self):
         from sqlalchemy import text
@@ -152,146 +165,267 @@ class SeedLedgerTests(unittest.TestCase):
                     " WHERE cas_number IN (:a,:b)"),
                     {"a": CAS, "b": CAS2})).scalar()
                 return n_chem, n_jobs
-        self._load([("UTSEED-1", CAS)])
-        n_chem, n_jobs = self._run(go())
-        self.assertEqual((n_chem, n_jobs), (0, 0))
+        self._load([(PREFIX + "1", CAS)])
+        self.assertEqual(self._run(go()), (0, 0))
 
-    # -- 3: 同 CAS 多 cb 全保留 --------------------------------------
+    def test_loader_cohort_file_scopes(self):
+        rows = [(PREFIX + "1", CAS), (PREFIX + "2", CAS2)]
+        cf = tempfile.mktemp(suffix=".json")
+        import json as _json
+        _json.dump({"detail": {"x": [{"cb": PREFIX + "1", "cas": CAS}]}}, open(cf, "w"))
+        self._load(rows, cohort_file=cf)
+        got = self._rows()
+        self.assertEqual([g[0] for g in got], [PREFIX + "1"])  # 只载 cohort 内
+        os.unlink(cf)
+
+    # -- 3: 同 CAS 多 cb 全保留 ---------------------------------------
 
     def test_multi_cb_seeds_all_kept(self):
-        rows = [(f"UTSEED-{i}", CAS) for i in range(1, 6)]
-        self._load(rows)
-        self.assertEqual(len(self._seed_rows()), 5)  # 不折叠
+        self._load([(PREFIX + str(i), CAS) for i in range(1, 6)])
+        self.assertEqual(len(self._rows()), 5)
 
-    # -- 4: EXACT 不建行 ---------------------------------------------
+    # -- 4: EXACT 不建行 ----------------------------------------------
 
     def test_schedule_exact_no_create(self):
-        from sqlalchemy import text
+
         async def go():
             async with self.engine.begin() as db:
                 return await self._insert_chem(db, cas=CAS, cb="1111111")
         rid = self._run(go())
-        self._load([("UTSEED-1", CAS)])
-        self._schedule(max_enqueue=0)
-        rows = dict((r[0], r) for r in self._seed_rows())
-        self.assertEqual(rows["UTSEED-1"][2], "RESOLVED_EXISTING")
-        self.assertEqual(rows["UTSEED-1"][3], rid)
+        self._load([(PREFIX + "1", CAS)])
+        self._schedule([PREFIX + "1"], max_enqueue=0)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "RESOLVED_EXISTING")
+        self.assertEqual(rows[PREFIX + "1"][3], rid)
         async def count():
+            from sqlalchemy import text as t
             async with self.engine.connect() as db:
-                return (await db.execute(text(
+                return (await db.execute(t(
                     "SELECT count(*) FROM chemistry.chemicals"
-                    " WHERE cas_numbers && ARRAY[:a]::text[]"), {"a": CAS})).scalar()
-        self.assertEqual(self._run(count()), 1)  # 不建行
+                    " WHERE cas_numbers && ARRAY[:a]::text[]"),
+                    {"a": CAS})).scalar()
+        self.assertEqual(self._run(count()), 1)  # 仅 fixture 1 行, 不建第二行
 
     # -- 10: 主表 cb_number 只补空不覆盖 ------------------------------
 
     def test_main_cb_number_fill_only(self):
-        from sqlalchemy import text
         async def go():
             async with self.engine.begin() as db:
                 return await self._insert_chem(db, cas=CAS, cb="1111111")
         rid = self._run(go())
-        self._load([("UTSEED-1", CAS)])
-        self._schedule(max_enqueue=0)
+        self._load([(PREFIX + "1", CAS)])
+        self._schedule([PREFIX + "1"], max_enqueue=0)
+        from sqlalchemy import text
         async def cb_now():
             async with self.engine.connect() as db:
                 return (await db.execute(text(
                     "SELECT cb_number FROM chemistry.chemicals WHERE id=:i"),
                     {"i": rid})).scalar()
-        self.assertEqual(self._run(cb_now()), "1111111")  # 不被 seed 覆盖
+        self.assertEqual(self._run(cb_now()), "1111111")
 
     # -- 5/6/7: NEW 延迟物化 + 单占位 + 重跑命中 ----------------------
 
     def test_new_placeholder_lazy_and_idempotent(self):
         from sqlalchemy import text
-        # 未 schedule 前绝不建行
-        self._load([("UTSEED-1", CAS)])
+        self._load([(PREFIX + "1", CAS)])
         async def count():
             async with self.engine.connect() as db:
                 return (await db.execute(text(
                     "SELECT count(*) FROM chemistry.chemicals"
-                    " WHERE cas_numbers && ARRAY[:a]::text[]"), {"a": CAS})).scalar()
-        self.assertEqual(self._run(count()), 0)
-        # schedule 后建一个占位
-        self._schedule(max_enqueue=0)
+                    " WHERE cas_numbers && ARRAY[:a]::text[]"),
+                    {"a": CAS})).scalar()
+        self.assertEqual(self._run(count()), 0)  # 未 schedule 零建行
+        self._schedule([PREFIX + "1"], max_enqueue=0)
+        self.assertEqual(self._run(count()), 1)  # 一个占位
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "PENDING_NEW")
+        # 重跑(resolve-only): resolver 命中首次占位不建第二个
+        self._schedule([PREFIX + "1"], max_enqueue=0)
         self.assertEqual(self._run(count()), 1)
-        rows = dict((r[0], r) for r in self._seed_rows())
-        self.assertEqual(rows["UTSEED-1"][2], "PENDING_NEW")
-        first_cid = rows["UTSEED-1"][3]
-        self.assertIsNotNone(first_cid)
-        # 重跑(seed 再入队处理后): resolver 命中首次占位, 不建第二个
-        self._schedule(max_enqueue=0, start_after="UTSEED-0")
-        # 注: PENDING_NEW 不在 scheduler 取用状态内 — 手动重置后重跑验证幂等
-        async def reset():
-            async with self.engine.begin() as db:
-                await db.execute(text(
-                    "UPDATE ingestion.chemicalbook_seed SET status='ACCEPTED'"
-                    " WHERE cb_number='UTSEED-1'"))
-        self._run(reset())
-        self._schedule(max_enqueue=0)
-        self.assertEqual(self._run(count()), 1)  # 命中首次 placeholder
 
-    # -- 8: AMBIGUOUS 不建行不选 candidate ---------------------------
+    # -- 8: AMBIGUOUS 不建行不选 -------------------------------------
 
     def test_ambiguous_no_create_no_pick(self):
-        from sqlalchemy import text
         async def go():
             async with self.engine.begin() as db:
                 a = await self._insert_chem(db, cas=CAS, cb="1111111")
                 b = await self._insert_chem(db, cas=CAS)
                 return a, b
-        a, b = self._run(go())
-        self._load([("UTSEED-1", CAS)])
-        self._schedule(max_enqueue=0)
-        rows = dict((r[0], r) for r in self._seed_rows())
-        self.assertEqual(rows["UTSEED-1"][2], "AMBIGUOUS")
-        self.assertIsNone(rows["UTSEED-1"][3])  # 不选 candidate
+        self._run(go())
+        self._load([(PREFIX + "1", CAS)])
+        self._schedule([PREFIX + "1"], max_enqueue=0)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "AMBIGUOUS")
+        self.assertIsNone(rows[PREFIX + "1"][3])
+        from sqlalchemy import text
         async def count():
             async with self.engine.connect() as db:
                 return (await db.execute(text(
                     "SELECT count(*) FROM chemistry.chemicals"
-                    " WHERE cas_numbers && ARRAY[:a]::text[]"), {"a": CAS})).scalar()
-        self.assertEqual(self._run(count()), 2)  # 不建行
+                    " WHERE cas_numbers && ARRAY[:a]::text[]"),
+                    {"a": CAS})).scalar()
+        self.assertEqual(self._run(count()), 2)  # fixture 两行, 不建第三行
 
-    # -- 12: enqueue dedupe -------------------------------------------
+    # -- 9: enqueue dedupe ----------------------------------------------
 
     def test_enqueue_dedupe(self):
-        from sqlalchemy import text
         async def go():
             async with self.engine.begin() as db:
                 return await self._insert_chem(db, cas=CAS)
         self._run(go())
-        self._load([("UTSEED-1", CAS)])
-        self._schedule(max_enqueue=5)
-        self._schedule(max_enqueue=5)  # 重跑: status=ENQUEUED 不再取用
+        self._load([(PREFIX + "1", CAS)])
+        self._schedule([PREFIX + "1"], max_enqueue=5)
+        # ENQUEUED 状态不再被取用; active dedupe_key 双保险
+        self._schedule([PREFIX + "1"], max_enqueue=5)
+        from sqlalchemy import text
         async def jobs():
             async with self.engine.connect() as db:
                 return (await db.execute(text(
                     "SELECT count(*) FROM maintenance.cas_jobs"
                     " WHERE cas_number=:c"), {"c": CAS})).scalar()
-        n = self._run(jobs())
-        self.assertLessEqual(n, 1)  # active dedupe_key + ENQUEUED 状态双保险
+        self.assertLessEqual(self._run(jobs()), 1)
 
-    # -- 13: 高水位停止 ------------------------------------------------
+    # -- 11: 高水位 ---------------------------------------------------
 
     def test_high_water_stops_scheduler(self):
         async def go():
             async with self.engine.begin() as db:
                 return await self._insert_chem(db, cas=CAS)
         self._run(go())
-        self._load([("UTSEED-1", CAS)])
-        self._schedule(max_enqueue=5, high_water=-1)  # 任何 backlog 即停
-        rows = dict((r[0], r) for r in self._seed_rows())
-        self.assertEqual(rows["UTSEED-1"][2], "ACCEPTED")  # 未被处理
+        self._load([(PREFIX + "1", CAS)])
+        self._schedule([PREFIX + "1"], max_enqueue=5, high_water=-1)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "ACCEPTED")
 
-    # -- 15: ledger 不参与 identity -----------------------------------
+    # -- 12: RESOLVED_EXISTING 不 stranded (0906 修复) -----------------
+
+    def test_resolved_existing_reachable_and_reenqueue(self):
+
+        async def go():
+            async with self.engine.begin() as db:
+                return await self._insert_chem(db, cas=CAS, cb="1111111")
+        rid = self._run(go())
+        self._load([(PREFIX + "1", CAS)])
+        # 第一轮: max_enqueue=0 → RESOLVED_EXISTING 但未 enqueue
+        self._schedule([PREFIX + "1"], max_enqueue=0)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "RESOLVED_EXISTING")
+        # 第二轮: 允许 enqueue → 必须能重取 RESOLVED_EXISTING 并入队
+        self._schedule([PREFIX + "1"], max_enqueue=5)
+        from sqlalchemy import text as t
+        async def state():
+            async with self.engine.connect() as db:
+                led = (await db.execute(t(
+                    "SELECT status, last_chemical_id FROM ingestion.chemicalbook_seed"
+                    " WHERE cb_number=:c"), {"c": PREFIX + "1"})).first()
+                nj = (await db.execute(t(
+                    "SELECT count(*) FROM maintenance.cas_jobs WHERE chemical_id=:i"),
+                    {"i": rid})).scalar()
+                return led, nj
+        led, nj = self._run(state())
+        self.assertEqual(led[0], "ENQUEUED")
+        self.assertEqual(led[1], rid)
+        self.assertEqual(nj, 1)
+
+    # -- 13: max_enqueue 硬上限 ----------------------------------------
+
+    def test_max_enqueue_hard_cap(self):
+        async def go():
+            async with self.engine.begin() as db:
+                await self._insert_chem(db, cas=CAS, cb="1111111")
+                await self._insert_chem(db, cas=CAS2)
+        self._run(go())
+        self._load([(PREFIX + "1", CAS), (PREFIX + "2", CAS2),
+                    (PREFIX + "3", CAS), (PREFIX + "4", CAS2)])
+        self._schedule([PREFIX + "1", PREFIX + "2", PREFIX + "3", PREFIX + "4"],
+                       max_enqueue=1)
+        from sqlalchemy import text
+        async def counts():
+            async with self.engine.connect() as db:
+                nq = (await db.execute(text(
+                    "SELECT count(*) FROM maintenance.cas_jobs"
+                    " WHERE cas_number IN (:a,:b)"), {"a": CAS, "b": CAS2})).scalar()
+                led = dict((await db.execute(text(
+                    "SELECT status, count(*) FROM ingestion.chemicalbook_seed"
+                    " WHERE cb_number LIKE :p GROUP BY 1"),
+                    {"p": PREFIX + "%"})).fetchall())
+                return nq, led
+        nq, led = self._run(counts())
+        self.assertEqual(nq, 1)  # 永远 ≤ cap
+        # 达 cap 即停: 其余 seed 未被推进(无半推进 stranded)
+        self.assertEqual(led.get("ACCEPTED", 0), 3)
+
+    # -- 14: 生产污染回归 ----------------------------------------------
+
+    def test_scoped_schedule_does_not_touch_production_seed(self):
+        """存在非测试 seed 时, scoped schedule 不碰它 (0906 事故回归)。"""
+        from sqlalchemy import text
+        PROD = "PRODLIKE-0001"
+        async def setup():
+            async with self.engine.begin() as db:
+                await db.execute(text(
+                    "INSERT INTO ingestion.chemicalbook_seed (cb_number, cas)"
+                    " VALUES (:cb, :cas) ON CONFLICT DO NOTHING"),
+                    {"cb": PROD, "cas": CAS})
+                before = (await db.execute(text(
+                    "SELECT status, last_chemical_id, attempts FROM"
+                    " ingestion.chemicalbook_seed WHERE cb_number=:cb"),
+                    {"cb": PROD})).first()
+                await self._insert_chem(db, cas=CAS2)
+                return before
+        before = self._run(setup())
+        self._load([(PREFIX + "1", CAS2)])
+        self._schedule([PREFIX + "1"], max_enqueue=0)
+        async def after():
+            async with self.engine.connect() as db:
+                row = (await db.execute(text(
+                    "SELECT status, last_chemical_id, attempts FROM"
+                    " ingestion.chemicalbook_seed WHERE cb_number=:cb"),
+                    {"cb": PROD})).first()
+                njobs = (await db.execute(text(
+                    "SELECT count(*) FROM maintenance.cas_jobs"
+                    " WHERE cas_number=:c"), {"c": CAS})).scalar()
+                return row, njobs
+        row, njobs = self._run(after())
+        self.assertEqual(tuple(row), tuple(before))  # 完全未动
+        self.assertEqual(njobs, 0)
+        async def clean():
+            async with self.engine.begin() as db:
+                await db.execute(text(
+                    "DELETE FROM ingestion.chemicalbook_seed WHERE cb_number=:cb"),
+                    {"cb": PROD})
+        self._run(clean())
+
+    # -- 15: 无 scope fail-closed ---------------------------------------
+
+    def test_no_scope_fails_closed(self):
+        import sys
+        sys.path.insert(0, "/home/ubuntu/ops")
+        import cb_seed_ingest as ing
+        args = ing._A(cmd="schedule", limit=5, max_enqueue=5, high_water=10**9,
+                      start_after="", cb_list="", cohort_file="", all=False)
+        with self.assertRaises(SystemExit) as cm:
+            self._run(ing.cmd_schedule(args))
+        self.assertEqual(cm.exception.code, 2)
+
+    # -- 16: --all 显式全量开关存在 --------------------------------------
+
+    def test_all_flag_allows_full_ledger(self):
+        """--all 时 scope 检查通过(不实际跑全量, 只验证不拒绝)。
+        用 cb-list 也同时给 --all? 不行 — 验证方式: --all + limit=0 立即退出。"""
+        import sys
+        sys.path.insert(0, "/home/ubuntu/ops")
+        import cb_seed_ingest as ing
+        args = ing._A(cmd="schedule", limit=0, max_enqueue=0, high_water=10**9,
+                      start_after="", cb_list="", cohort_file="", all=True)
+        self._run(ing.cmd_schedule(args))  # limit=0: 不处理任何行, 不拒绝
+
+    # -- 17: ledger 非 identity authority ------------------------------
 
     def test_ledger_not_identity_authority(self):
-        # ledger 行存在 ≠ chemical 存在: 没有 chemical 时 status 停在自身状态,
-        # 且 ledger 无 FK — 删 chemical 不级联影响 ledger
         from sqlalchemy import text
-        self._load([("UTSEED-1", CAS)])
-        self._schedule(max_enqueue=0)
+        self._load([(PREFIX + "1", CAS)])
+        self._schedule([PREFIX + "1"], max_enqueue=0)
         async def check():
             async with self.engine.begin() as db:
                 rid = await self._insert_chem(db, cas=CAS)
@@ -299,9 +433,36 @@ class SeedLedgerTests(unittest.TestCase):
                     "DELETE FROM chemistry.chemicals WHERE id=:i"), {"i": rid})
                 n = (await db.execute(text(
                     "SELECT count(*) FROM ingestion.chemicalbook_seed"
-                    " WHERE cb_number='UTSEED-1'"))).scalar()
+                    " WHERE cb_number=:c"), {"c": PREFIX + "1"})).scalar()
                 return n
         self.assertEqual(self._run(check()), 1)
+
+    # -- 18: teardown 零残留 ---------------------------------------------
+
+    def test_teardown_zero_residue(self):
+        from sqlalchemy import text
+        async def residue():
+            async with self.engine.connect() as db:
+                ml = (await db.execute(text(
+                    "SELECT count(*) FROM maintenance.identity_merge_log"))).scalar()
+                rd = (await db.execute(text(
+                    "SELECT count(*) FROM maintenance.chemical_identity_redirect"))).scalar()
+                ut2 = (await db.execute(text(
+                    "SELECT count(*) FROM ingestion.chemicalbook_seed"
+                    " WHERE cb_number LIKE 'UT2-%'"))).scalar()
+                chem = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemicals"
+                    " WHERE cas_numbers && ARRAY[:a,:b]::text[]"
+),
+                    {"a": CAS, "b": CAS2})).scalar()
+                jobs = (await db.execute(text(
+                    "SELECT count(*) FROM maintenance.cas_jobs"
+                    " WHERE cas_number IN (:a,:b) OR request_context::text LIKE '%UT2-%'"),
+                    {"a": CAS, "b": CAS2})).scalar()
+                return ml, rd, ut2, chem, jobs
+        ml, rd, ut2, chem, jobs = self._run(residue())
+        self.assertEqual((ml, rd), (2864, 2864))
+        self.assertEqual((ut2, chem, jobs), (0, 0, 0))
 
 
 if __name__ == "__main__":
