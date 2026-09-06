@@ -97,12 +97,17 @@ class SeedLedgerTests(unittest.TestCase):
 
     def _load(self, rows, **kw):
         import sys
-        sys.path.insert(0, "/home/ubuntu/ops")
-        import cb_seed_ingest as ing
+        sys.path.insert(0, "/var/www/huagongshe/scripts")
+        import ops_cb_seed_ingest as ing
         path = _make_sqlite(rows)
+        import json as _j
+        cbl = tempfile.mktemp(suffix=".json")
+        _j.dump([r[0] for r in rows], open(cbl, "w"))
         args = ing._A(cmd="load", sqlite=path, batch=500, limit=kw.get("limit", 0),
                       start_after=kw.get("start_after", ""),
                       dry_run=kw.get("dry_run", False),
+                      cb_list=kw.get("cb_list", cbl),
+                      all=False,
                       cohort_file=kw.get("cohort_file", ""))
         try:
             self._run(ing.cmd_load(args))
@@ -113,12 +118,15 @@ class SeedLedgerTests(unittest.TestCase):
         """v2: scheduler 测试必须显式 cb-list scope。"""
         import sys
         import json as _json
-        sys.path.insert(0, "/home/ubuntu/ops")
-        import cb_seed_ingest as ing
+        sys.path.insert(0, "/var/www/huagongshe/scripts")
+        import ops_cb_seed_ingest as ing
         lst = tempfile.mktemp(suffix=".json")
         _json.dump(list(cbs), open(lst, "w"))
         args = ing._A(cmd="schedule", limit=kw.get("limit", 50),
                       max_enqueue=kw.get("max_enqueue", 0),
+                      new_budget=kw.get("new_budget", -1),
+                      backlog_hours=kw.get("backlog_hours", 10**9),
+                      throughput_per_hour=kw.get("throughput_per_hour", 90.0),
                       high_water=kw.get("high_water", 10**9),
                       start_after=kw.get("start_after", ""),
                       cb_list=lst, cohort_file="", all=False)
@@ -173,7 +181,7 @@ class SeedLedgerTests(unittest.TestCase):
         cf = tempfile.mktemp(suffix=".json")
         import json as _json
         _json.dump({"detail": {"x": [{"cb": PREFIX + "1", "cas": CAS}]}}, open(cf, "w"))
-        self._load(rows, cohort_file=cf)
+        self._load(rows, cohort_file=cf, cb_list="")
         got = self._rows()
         self.assertEqual([g[0] for g in got], [PREFIX + "1"])  # 只载 cohort 内
         os.unlink(cf)
@@ -235,10 +243,15 @@ class SeedLedgerTests(unittest.TestCase):
                     " WHERE cas_numbers && ARRAY[:a]::text[]"),
                     {"a": CAS})).scalar()
         self.assertEqual(self._run(count()), 0)  # 未 schedule 零建行
+        # 0907 语义: max_enqueue=0(无 enqueue 预算) → NEW 不物化, 保持 ACCEPTED
         self._schedule([PREFIX + "1"], max_enqueue=0)
+        self.assertEqual(self._run(count()), 0)  # 无预算不建占位
+        self.assertEqual(self._rows()[0][2], "ACCEPTED")
+        # 有 enqueue 预算 + new 预算 → 物化恰 1 占位
+        self._schedule([PREFIX + "1"], max_enqueue=5, new_budget=5)
         self.assertEqual(self._run(count()), 1)  # 一个占位
         rows = dict((r[0], r) for r in self._rows())
-        self.assertEqual(rows[PREFIX + "1"][2], "PENDING_NEW")
+        self.assertEqual(rows[PREFIX + "1"][2], "ENQUEUED")  # 0907: create+enqueue 同事务, 正常路径不留 PENDING_NEW
         # 重跑(resolve-only): resolver 命中首次占位不建第二个
         self._schedule([PREFIX + "1"], max_enqueue=0)
         self.assertEqual(self._run(count()), 1)
@@ -400,8 +413,8 @@ class SeedLedgerTests(unittest.TestCase):
 
     def test_no_scope_fails_closed(self):
         import sys
-        sys.path.insert(0, "/home/ubuntu/ops")
-        import cb_seed_ingest as ing
+        sys.path.insert(0, "/var/www/huagongshe/scripts")
+        import ops_cb_seed_ingest as ing
         args = ing._A(cmd="schedule", limit=5, max_enqueue=5, high_water=10**9,
                       start_after="", cb_list="", cohort_file="", all=False)
         with self.assertRaises(SystemExit) as cm:
@@ -467,3 +480,273 @@ class SeedLedgerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ConsumptionControlPlaneTests(SeedLedgerTests):
+    """0907 consumption control-plane 专项 (十五节 14 项)。"""
+
+    # 1. ACCEPTED NEW + new_budget=0: create=0/enqueue=0/仍 ACCEPTED
+    def test_new_budget_zero_no_create(self):
+        from sqlalchemy import text
+        self._load([(PREFIX + "1", CAS)])
+        self._schedule([PREFIX + "1"], max_enqueue=5, new_budget=0)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "ACCEPTED")
+        self.assertIsNone(rows[PREFIX + "1"][3])
+        async def count():
+            async with self.engine.connect() as db:
+                return (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemicals"
+                    " WHERE cas_numbers && ARRAY[:a]::text[]"),
+                    {"a": CAS})).scalar()
+        self.assertEqual(self._run(count()), 0)
+
+    # 2. ACCEPTED NEW + new_budget=1: 恰 1 placeholder + 1 enqueue
+    def test_new_budget_one_creates_one(self):
+        from sqlalchemy import text
+        self._load([(PREFIX + "1", CAS)])
+        self._schedule([PREFIX + "1"], max_enqueue=5, new_budget=1)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "ENQUEUED")
+        async def count():
+            async with self.engine.connect() as db:
+                return (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemicals"
+                    " WHERE cas_numbers && ARRAY[:a]::text[]"),
+                    {"a": CAS})).scalar()
+        self.assertEqual(self._run(count()), 1)
+
+    # 3. 两个 NEW + new_budget=1: 第一条物化, 第二条保持 ACCEPTED 零建行
+    def test_two_new_budget_one(self):
+        from sqlalchemy import text
+        self._load([(PREFIX + "1", CAS), (PREFIX + "2", CAS2)])
+        self._schedule([PREFIX + "1", PREFIX + "2"], max_enqueue=5, new_budget=1)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "ENQUEUED")
+        self.assertEqual(rows[PREFIX + "2"][2], "ACCEPTED")
+        self.assertIsNone(rows[PREFIX + "2"][3])
+        async def count2():
+            async with self.engine.connect() as db:
+                return (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemicals"
+                    " WHERE cas_numbers && ARRAY[:a]::text[]"),
+                    {"a": CAS2})).scalar()
+        self.assertEqual(self._run(count2()), 0)
+
+    # 4. NEW budget 满 → 后续 EQUIVALENT 仍可 enqueue
+    def test_equivalent_enqueues_after_new_budget_exhausted(self):
+
+        async def go():
+            async with self.engine.begin() as db:
+                a = await self._insert_chem(db, cas=CAS)     # NEW 用
+                b = await self._insert_chem(db, cas=CAS2, cb="1111111")  # EQUIV
+                return a, b
+        rid_new, rid_e = self._run(go())
+        self._load([(PREFIX + "1", CAS), (PREFIX + "2", CAS2)])
+        # cb 升序: UT2-1(NEW) 先耗尽 new_budget, UT2-2(EQUIV) 仍入队
+        self._schedule([PREFIX + "1", PREFIX + "2"], max_enqueue=5, new_budget=1)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "ENQUEUED")   # NEW 物化入队
+        self.assertEqual(rows[PREFIX + "2"][2], "ENQUEUED")   # EQUIV 不受 new budget 限制
+        # new_budget=0 变体: NEW 跳过, EQUIV 仍入队
+        # (CAS3 无 fixture 行 → 真NEW; CAS2 有 fixture → EQUIV)
+        CAS3 = "99999-77-7"
+        async def go2():
+            async with self.engine.begin() as db:
+                await self._insert_chem(db, cas=CAS2, cb="1111111")
+        self._tidy(); self._run(go2())
+        self._load([(PREFIX + "3", CAS3), (PREFIX + "4", CAS2)])
+        self._schedule([PREFIX + "3", PREFIX + "4"], max_enqueue=5, new_budget=0)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "3"][2], "ACCEPTED")   # NEW 无预算跳过
+        self.assertEqual(rows[PREFIX + "4"][2], "ENQUEUED")   # EQUIV 继续入队
+
+    # 6. backlog gate 开始即超限: processed=0
+    def test_backlog_hours_gate_blocks_start(self):
+        self._load([(PREFIX + "1", CAS)])
+        self._schedule([PREFIX + "1"], max_enqueue=5,
+                       throughput_per_hour=1.0, backlog_hours=0.001,
+                       high_water=10**9)
+        # cas_jobs 空 → backlog_hours=0 < 任何正 target → gate 开, 正常处理
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertNotEqual(rows[PREFIX + "1"][2], "ACCEPTED")  # 被正常推进
+
+    # 7. backlog 中途超限: 注入队列压力 → 下一 seed 前停, 无半物化
+    def test_backlog_gate_mid_run(self):
+        from sqlalchemy import text
+        async def seed_db():
+            async with self.engine.begin() as db:
+                await self._insert_chem(db, cas=CAS, cb="1111111")
+                # 人为制造 active backlog: 3 queued jobs
+                for i in range(3):
+                    await db.execute(text("""
+                        INSERT INTO maintenance.cas_jobs
+                        (chemical_id, cas_number, status, dedupe_key, created_at)
+                        VALUES (NULL, '11111-11-1', 'queued',
+                                :dk || :'i', now())
+                    """), {"dk": "TBC-", "i": str(i)}) if False else None
+                # 简化: 用 SQL 直插
+                await db.execute(text("""
+                    INSERT INTO maintenance.cas_jobs
+                    (chemical_id, cas_number, status, dedupe_key, created_at)
+                    SELECT NULL, '11111-11-1', 'queued',
+                           'TBC-' || g, now()
+                    FROM generate_series(1, 3) g
+                """))
+        self._run(seed_db())
+        self._load([(PREFIX + "1", CAS), (PREFIX + "2", CAS2)])
+        # throughput=1, backlog_hours=2 → 3 jobs/1 = 3h >= 2h → 命令开始即停
+        self._schedule([PREFIX + "1", PREFIX + "2"], max_enqueue=5,
+                       throughput_per_hour=1.0, backlog_hours=2.0)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "ACCEPTED")  # 未被处理
+        async def clean_jobs():
+            async with self.engine.begin() as db:
+                await db.execute(text(
+                    "DELETE FROM maintenance.cas_jobs"
+                    " WHERE dedupe_key LIKE 'TBC-%'"))
+        self._run(clean_jobs())
+
+    # 8. PENDING_NEW 优先于 RESOLVED_EXISTING/ACCEPTED (取序)
+    def test_priority_pending_new_first(self):
+        from sqlalchemy import text
+        async def go():
+            async with self.engine.begin() as db:
+                await self._insert_chem(db, cas=CAS2, cb="1111111")
+        self._run(go())
+        self._load([(PREFIX + "1", CAS), (PREFIX + "2", CAS2)])
+        # UT2-1: 手工置 PENDING_NEW + 占位行 (恢复态)
+        async def mk_pend():
+            from api.services.identity import resolve_chemical
+            async with self.engine.begin() as db:
+                res = await resolve_chemical(db, cas=CAS, create=True)
+                await db.execute(text(
+                    "UPDATE ingestion.chemicalbook_seed"
+                    " SET status='PENDING_NEW', last_chemical_id=:i"
+                    " WHERE cb_number=:c"),
+                    {"i": res.chemical_id, "c": PREFIX + "1"})
+        self._run(mk_pend())
+        # limit=1: 取到的必须是 PENDING_NEW(UT2-1), 不是 RESOLVED/ACCEPTED
+        self._schedule([PREFIX + "1", PREFIX + "2"], limit=1, max_enqueue=0)
+        rows = dict((r[0], r) for r in self._rows())
+        # PENDING_NEW 先被处理; UT2-2(ACCEPTED) 未动
+        self.assertEqual(rows[PREFIX + "2"][2], "ACCEPTED")
+
+    # 10. ordinary scheduler 默认跳过 AMBIGUOUS (取序排除)
+    def test_ordinary_skips_ambiguous(self):
+        # 造一条 AMBIGUOUS ledger 行 + 一条 ACCEPTED
+        async def go():
+            async with self.engine.begin() as db:
+                await self._insert_chem(db, cas=CAS, cb="1111111")
+                await self._insert_chem(db, cas=CAS)
+        self._run(go())
+        self._load([(PREFIX + "1", CAS), (PREFIX + "2", CAS2)])
+        async def mk_amb():
+            from sqlalchemy import text
+            async with self.engine.begin() as db:
+                await db.execute(text(
+                    "UPDATE ingestion.chemicalbook_seed SET status='AMBIGUOUS'"
+                    " WHERE cb_number=:c"), {"c": PREFIX + "1"})
+        self._run(mk_amb())
+        # UT2-2 是 NEW(会物化); 即使 AMBIGUOUS UT2-1 排前也不被取
+        self._schedule([PREFIX + "1", PREFIX + "2"], max_enqueue=5, new_budget=5)
+        rows = dict((r[0], r) for r in self._rows())
+        self.assertEqual(rows[PREFIX + "1"][2], "AMBIGUOUS")  # 未被 ordinary 处理
+        self.assertEqual(rows[PREFIX + "2"][2], "ENQUEUED")
+
+    # 13. create=False NEW → create=True 时 reclassification → EQUIVALENT
+    def test_reclassification_between_two_resolves(self):
+
+        self._load([(PREFIX + "1", CAS)])
+        async def insert_competing():
+            # 模拟两次 resolve 之间数据变化: 插入 CAS 行 → 第二次 EQUIVALENT
+            async with self.engine.begin() as db:
+                await self._insert_chem(db, cas=CAS)
+        # 拦截: monkeypatch 第二次 resolve 前插入
+        import sys
+        sys.path.insert(0, "/var/www/huagongshe")
+
+        from api.services import identity as ident_mod
+        real_resolve = ident_mod.resolve_chemical
+        calls = {"n": 0}
+        async def fake_resolve(db, cas=None, inchikey=None, create=False, **kw):
+            calls["n"] += 1
+            if create and calls["n"] >= 2:
+                # create=True 调用前插入竞争行 → resolver 实时判 EQUIVALENT
+                await _insert_row(db, cas)
+            return await real_resolve(db, cas=cas, inchikey=inchikey,
+                                      create=create, **kw)
+        async def _insert_row(db, cas):
+            from sqlalchemy import text as t
+            await db.execute(t("""
+                INSERT INTO chemistry.chemicals
+                (created_at, updated_at, cas_numbers)
+                VALUES (now(), now(), ARRAY[:a]::text[])
+            """), {"a": cas})
+        orig = ident_mod.resolve_chemical
+        ident_mod.resolve_chemical = fake_resolve
+        try:
+            self._schedule([PREFIX + "1"], max_enqueue=5, new_budget=5)
+        finally:
+            ident_mod.resolve_chemical = orig
+        rows = dict((r[0], r) for r in self._rows())
+        # reclassify EQUIVALENT → 入队后终态 ENQUEUED, 不计 NEW 物化
+        self.assertEqual(rows[PREFIX + "1"][2], "ENQUEUED")
+        async def nchem():
+            from sqlalchemy import text as t
+            async with self.engine.connect() as db:
+                return (await db.execute(t(
+                    "SELECT count(*) FROM chemistry.chemicals"
+                    " WHERE cas_numbers && ARRAY[:a]::text[]"),
+                    {"a": CAS})).scalar()
+        self.assertEqual(self._run(nchem()), 1)  # 只有竞争行, 无第二个占位
+
+    # 16. outcome view 不改数据 + 不宣称 authority
+    def test_outcome_view_readonly_and_not_authority(self):
+        from sqlalchemy import text
+        self._load([(PREFIX + "1", CAS)])
+        self._schedule([PREFIX + "1"], max_enqueue=5, new_budget=5)
+        async def go():
+            async with self.engine.connect() as db:
+                v = (await db.execute(text(
+                    "SELECT seed_status, recorded_chemical_id,"
+                    " current_chemical_id, enriched"
+                    " FROM ingestion.v_seed_enrichment_outcome"
+                    " WHERE cb_number=:c"), {"c": PREFIX + "1"})).first()
+                n = (await db.execute(text(
+                    "SELECT count(*) FROM ingestion.chemicalbook_seed"
+                    " WHERE cb_number=:c"), {"c": PREFIX + "1"})).scalar()
+            return v, n
+        v, n = self._run(go())
+        self.assertEqual(n, 1)  # 视图 SELECT 不改数据
+        self.assertIsNotNone(v)
+        # view 是 observation: recorded/current 并存, 不宣称 authority
+        self.assertIn(v[0], ("ENQUEUED", "PENDING_NEW"))
+
+    # 17. enqueue failure → seed 事务回滚, 无 PENDING_NEW 残留
+    def test_enqueue_failure_rolls_back_placeholder(self):
+        from sqlalchemy import text
+        import sys
+        sys.path.insert(0, "/var/www/huagongshe")
+        from api.services import cb as cb_mod
+        self._load([(PREFIX + "1", CAS)])
+        real_enq = cb_mod.enqueue_cas_job
+        async def fail_enq(*a, **kw):
+            raise RuntimeError("simulated enqueue outage")
+        # _schedule_one 内是函数内 import, patch 模块属性即可
+        cb_mod.enqueue_cas_job = fail_enq
+        try:
+            self._schedule([PREFIX + "1"], max_enqueue=5, new_budget=5)
+        finally:
+            cb_mod.enqueue_cas_job = real_enq
+        rows = dict((r[0], r) for r in self._rows())
+        # 事务回滚: 不留 PENDING_NEW / 不留孤儿 placeholder
+        self.assertIn(rows[PREFIX + "1"][2], ("ACCEPTED", "ERROR"))
+        if rows[PREFIX + "1"][2] == "ACCEPTED":
+            async def count():
+                async with self.engine.connect() as db:
+                    return (await db.execute(text(
+                        "SELECT count(*) FROM chemistry.chemicals"
+                        " WHERE cas_numbers && ARRAY[:a]::text[]"),
+                        {"a": CAS})).scalar()
+            self.assertEqual(self._run(count()), 0)

@@ -144,15 +144,39 @@ async def _backlog(db: Any) -> int:
 
 async def _schedule_one(db: Any, counts: dict, args: argparse.Namespace,
                         cb: str, cas: str, prev_status: str,
-                        enq_state: list) -> None:
-    """单 seed 状态机; 调用方持有事务, 异常向上抛由调用方回滚记 ERROR。"""
+                        budgets: dict) -> None:
+    """单 seed 状态机 (0907 consumption control-plane)。
+
+    铁律:
+      - 每次 re-resolve, 绝不信 ledger 缓存; AMBIGUOUS 绝不 create。
+      - ACCEPTED/PENDING_NEW 先 create=False 分类 (0907):
+        NEW 只有在 [total enqueue 余量>0 且 new budget 余量>0 且
+        backlog gate 开] 三条件同时满足时才二次 resolve(create=True),
+        并以第二次实时结果为准 — 绝不"先建占位再发现没预算"。
+      - create + ledger 归属 + enqueue 同一 seed 事务, enqueue 异常整体
+        rollback(不产生 PENDING_NEW 残留); PENDING_NEW 仅作恢复队列。
+    """
     from api.services.identity import resolve_chemical
     from api.services.cb import enqueue_cas_job
-    # 铁律: 每次 re-resolve, 绝不信 ledger 缓存; NEW 只在 scheduler
-    # 选中时物化(create=True), AMBIGUOUS 绝不 create。
-    res = await resolve_chemical(
-        db, cas=cas,
-        create=(prev_status in ("ACCEPTED", "PENDING_NEW")))  # 0906: 延迟物化铁律不变
+    allow_create = False
+    if prev_status in ("ACCEPTED", "PENDING_NEW"):
+        res = await resolve_chemical(db, cas=cas, create=False)
+        if res.status == "NEW":
+            # 三预算门全开才允许物化
+            allow_create = (budgets["enqueue_left"] > 0
+                            and budgets["new_left"] > 0
+                            and budgets["gate_open"])
+            if not allow_create:
+                # 预算耗尽: 保持 ACCEPTED, 不写 cid, 不 enqueue, 继续扫
+                counts["SKIPPED_NEW_NO_BUDGET"] += 1
+                return  # 状态零变化(0907 六节语义)
+        res = (await resolve_chemical(db, cas=cas, create=allow_create)
+               if res.status == "NEW" else res)
+        # create=True 后以第二次实时结果为准(库可能在两次间变化)
+        if res.status == "NEW":
+            budgets["new_left"] -= 1
+    else:
+        res = await resolve_chemical(db, cas=cas, create=False)
     if res.status in ("EXACT", "EQUIVALENT"):
         await db.execute(text("""
             UPDATE ingestion.chemicalbook_seed
@@ -162,7 +186,6 @@ async def _schedule_one(db: Any, counts: dict, args: argparse.Namespace,
         """), {"cid": res.chemical_id, "cb": cb})
         counts["RESOLVED_EXISTING"] += 1
     elif res.status == "NEW":
-        # 实时确认仍 NEW → 物化占位行(resolver 内建, 入门键=cas)
         await db.execute(text("""
             UPDATE ingestion.chemicalbook_seed
             SET status='PENDING_NEW', last_chemical_id=:cid,
@@ -191,14 +214,15 @@ async def _schedule_one(db: Any, counts: dict, args: argparse.Namespace,
         return
     else:
         raise RuntimeError(f"unexpected resolver status {res.status}")
-    # enqueue(受 max_enqueue 约束; active dedupe_key 在 enqueue_cas_job 内)
-    if args.max_enqueue >= 0 and enq_state[0] < args.max_enqueue:
+    # enqueue: total 预算约束(cap=0 = resolve-only); 异常向上抛 →
+    # 调用方 rollback 整个 seed 事务(placeholder 归属一并回退)。
+    if args.max_enqueue >= 0 and budgets["enqueue_left"] > 0:
         ok = await enqueue_cas_job(
             db, chemical_id=int(res.chemical_id), cas_number=cas,
             priority=20 if res.status in ("EXACT", "EQUIVALENT") else 40,
             request_context={"reason": "cb_seed_scheduler", "cb_number": cb})
         if ok:
-            enq_state[0] += 1
+            budgets["enqueue_left"] -= 1
             counts["ENQUEUED"] += 1
             await db.execute(text(
                 "UPDATE ingestion.chemicalbook_seed"
@@ -209,8 +233,9 @@ async def _schedule_one(db: Any, counts: dict, args: argparse.Namespace,
 async def cmd_schedule(args: argparse.Namespace) -> None:
     """从 ledger 取 seed → 实时 resolver → 状态机 (逐 seed 独立事务)。"""
     counts = {"RESOLVED_EXISTING": 0, "CREATED_PLACEHOLDER": 0,
-              "AMBIGUOUS": 0, "CONFLICT": 0, "ERROR": 0, "ENQUEUED": 0}
-    enq_state = [0]  # 可变闭包: 已 enqueue 数
+              "AMBIGUOUS": 0, "CONFLICT": 0, "ERROR": 0, "ENQUEUED": 0,
+              "SKIPPED_NEW_NO_BUDGET": 0}
+    enq_state = [0]  # 兼容输出(与 counts.ENQUEUED 同步)
     processed = 0
     t0 = time.time()
     eng = create_async_engine(db_url(), pool_size=2)
@@ -237,7 +262,7 @@ async def cmd_schedule(args: argparse.Namespace) -> None:
                 backlog = (await conn.execute(text(
                     "SELECT count(*) FROM maintenance.cas_jobs"
                     " WHERE status IN ('queued','leased')"))).scalar()
-                if args.max_enqueue > 0 and enq_state[0] >= args.max_enqueue:
+                if args.max_enqueue > 0 and counts["ENQUEUED"] >= args.max_enqueue:
                     # 0906 硬上限: cap>0 时达 cap 停整次 invocation。
                     # cap=0 = 纯 resolve-only 模式(处理但绝不入队)。
                     stop_reason = f"max_enqueue reached ({enq_state[0]})"
@@ -245,14 +270,35 @@ async def cmd_schedule(args: argparse.Namespace) -> None:
                 if backlog > args.high_water:
                     stop_reason = f"high water ({backlog})"
                     break
+                # 0907 backlog-hours admission gate (operator supplied
+                # sustainable throughput; 无 durable completion 账本则
+                # 不伪造 rolling 统计) + static high-water 第二道闸。
+                hours = (backlog / args.throughput_per_hour
+                         if args.throughput_per_hour > 0 else 0.0)
+                gate_open = hours < args.backlog_hours
+                budgets = {"enqueue_left": (args.max_enqueue
+                                           - counts["ENQUEUED"]
+                                           if args.max_enqueue >= 0 else 10**9),
+                           "new_left": (args.new_budget
+                                        - counts["CREATED_PLACEHOLDER"]
+                                        if args.new_budget >= 0 else 10**9),
+                           "gate_open": gate_open}
+                if not gate_open:
+                    stop_reason = (f"backlog_hours_limit "
+                                   f"({hours:.1f}h >= {args.backlog_hours}h)")
+                    break
                 row = (await conn.execute(text("""
                     SELECT cb_number, cas, status, last_chemical_id
                     FROM ingestion.chemicalbook_seed
-                    WHERE status IN ('ACCEPTED','PENDING_NEW','AMBIGUOUS',
+                    WHERE status IN ('ACCEPTED','PENDING_NEW',
                                      'RESOLVED_EXISTING')
                       AND cb_number > :after
                       AND (:no_list OR cb_number = ANY(:cbs))
-                    ORDER BY cb_number LIMIT 1
+                    ORDER BY (CASE status WHEN 'PENDING_NEW' THEN 1
+                                           WHEN 'RESOLVED_EXISTING' THEN 2
+                                           ELSE 3 END),
+                             cb_number
+                    LIMIT 1
                 """), {"after": args.start_after or "",
                        "no_list": cb_list is None,
                        "cbs": cb_list or ["-"]})).first()
@@ -264,7 +310,7 @@ async def cmd_schedule(args: argparse.Namespace) -> None:
                 cb, cas, prev_status, _prev_cid = row
                 try:
                     await _schedule_one(conn, counts, args, cb, cas,
-                                        prev_status, enq_state)
+                                        prev_status, budgets)
                 except Exception as exc:  # noqa: BLE001 — 单 seed 不熔断批次
                     await tx.rollback()
                     counts["ERROR"] += 1
@@ -276,10 +322,12 @@ async def cmd_schedule(args: argparse.Namespace) -> None:
                                 attempts=attempts+1, updated_at=now()
                             WHERE cb_number=:cb AND status IN ('ACCEPTED','PENDING_NEW','AMBIGUOUS')
                         """), {"e": str(exc)[:500], "cb": cb})
+    enq_state[0] = counts["ENQUEUED"]
     if stop_reason:
         log.info("scheduler stop: %s", stop_reason)
     print(json.dumps({"cmd": "schedule", "counts": counts,
-                      "enqueued": enq_state[0], "processed": processed,
+                      "enqueued": enq_state[0], "new_materialized": counts["CREATED_PLACEHOLDER"],
+                      "processed": processed,
                       "stop_reason": stop_reason,
                       "elapsed_s": round(time.time() - t0, 1)}))
     await eng.dispose()
@@ -326,6 +374,14 @@ def main() -> None:
                     help="frozen cohort json: 只处理文件内 cb_number")
     ps.add_argument("--all", action="store_true",
                     help="显式全 ledger (必须明确写出)")
+    ps.add_argument("--new-budget", type=int, default=-1,
+                    help="本次 invocation 最多物化 N 个 NEW placeholder"
+                         " (-1 禁用上限; 0=绝不物化)")
+    ps.add_argument("--backlog-hours", type=float, default=12.0,
+                    help="admission gate: backlog/throughput >= 此值停")
+    ps.add_argument("--throughput-per-hour", type=float, default=90.0,
+                    help="operator supplied sustainable throughput"
+                         " (默认 90/hr, 实测 85-100)")
     sub.add_parser("status")
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO,
