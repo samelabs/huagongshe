@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import unittest
 
@@ -162,6 +163,67 @@ class CppL10nTests(unittest.TestCase):
     def test_prose_present(self) -> None:
         for loc, e in self.entries.items():
             self.assertGreaterEqual(len(e["prose"]), 5, loc)
+
+    def test_prose_no_leading_cas_list(self) -> None:
+        """0905: prose 正文首部不得有原料 CAS 罗列残留(导航残留, 非正文)。"""
+        for loc, e in self.entries.items():
+            for seg in e.get("prose", []):
+                self.assertIsNone(
+                    re.match(r"\s*\d{2,7}-\d{2}-\d[\s,，、]", seg["text"]),
+                    f"{loc}: {seg['text'][:40]!r}")
+
+
+
+class StripLeadingCasListTests(unittest.TestCase):
+    """0905 prose 首部 CAS 罗列剥离: 边界矩阵(终审补)。"""
+
+    def _f(self):
+        from caslib.parse_cpp import _strip_leading_cas_list
+        return _strip_leading_cas_list
+
+    def test_design_target(self):
+        f = self._f()
+        self.assertEqual(f("209919-30-2 1570-64-5 一般步骤：混合"), "一般步骤：混合")
+        self.assertEqual(f("107-13-1 丙烯腈"), "丙烯腈")          # 单段也剥
+        self.assertEqual(f("57-50-1，蔗糖衍生物"), "蔗糖衍生物")   # 中文逗号
+        self.assertEqual(f("  209919-30-2\t正文"), "正文")        # 前导空白/tab
+
+    def test_in_text_citation_kept(self):
+        f = self._f()
+        # 文中引用 / 带标签前缀 / cas# 引用: 一律不剥
+        self.assertEqual(f("CAS号：29049-45-4 的化合物"), "CAS号：29049-45-4 的化合物")
+        self.assertEqual(f("cas# 3068-34-6 用作原料"), "cas# 3068-34-6 用作原料")
+        self.assertEqual(f("一般步骤：将 1570-64-5 与水混合"), "一般步骤：将 1570-64-5 与水混合")
+
+    def test_all_cas_no_prose_kept(self):
+        f = self._f()
+        # 剥完无正文残留 → 整段保留(宁可留着不吞段)
+        self.assertEqual(f("209919-30-2 1570-64-5"), "209919-30-2 1570-64-5")
+
+    def test_non_cas_numbers_kept(self):
+        f = self._f()
+        self.assertEqual(f("分子量 144.13 的物质"), "分子量 144.13 的物质")
+        self.assertEqual(f("2024-01-15 更新"), "2024-01-15 更新")  # 双位尾段=日期形态
+        self.assertEqual(f("123456789-01-2 正文"), "123456789-01-2 正文")  # >7位超限
+
+    def test_trailing_word_after_list_kept(self):
+        f = self._f()
+        # 序列后第一个非CAS词就是正文, 不吞
+        self.assertEqual(f("209919-30-2 1570-64-5 2000年投产装置"), "2000年投产装置")
+
+    def test_empty_and_plain(self):
+        f = self._f()
+        self.assertEqual(f(""), "")
+        self.assertEqual(f("无任何编号的正文"), "无任何编号的正文")
+
+    def test_known_limit_single_digit_date(self):
+        """已知边界: 形如 2024-01-1 的单尾位日期会被当作CAS段剥掉。
+
+        概率极低(源站日期恒为两位尾段); 记录在案不修 — 加日期判断会
+        把剥离逻辑与语义猜测耦合。
+        """
+        f = self._f()
+        self.assertEqual(f("2024-01-1 版本更新"), "版本更新")
 
 
 class CitationGuardTests(unittest.TestCase):

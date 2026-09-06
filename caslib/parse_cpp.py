@@ -201,6 +201,23 @@ _MOL_HREF_RE = re.compile(r"href='([^']+\.mol)'|href=\"([^\"]+\.mol)\"")
 _ALIAS_SPLIT_RE = re.compile(r"[;；]")
 _UPDOWN_LINK_RE = re.compile(r"ChemicalProductProperty_\w\w_CB(\d+)\.htm", re.I)
 _NUM_RE = re.compile(r"(-?\d+(?:\.\d+)?)")
+_CAS_TOKEN_RE = re.compile(r"\d{2,7}-\d{2}-\d")
+
+
+def _strip_leading_cas_list(text: str) -> str:
+    r"""剥正文首部的连续裸CAS罗列(0905): "^209919-30-2 1570-64-5 一般步骤：…" → "一般步骤：…"。
+
+    只剥开头由空白分隔、每段都是CAS号的序列(≥1段); 段后必须还有正文。
+    文中引用(cas# …/CAS号：…)不在开头, 天然不受影响。
+    """
+    m = re.match(r"\s*(?:\d{2,7}-\d{2}-\d[\s,，、]+)+", text)
+    if not m:
+        return text
+    rest = text[m.end():].lstrip()
+    # 剥完必须有正文残留, 且残留不以CAS开头(防把"CAS号正文"误剥)
+    if rest and not _CAS_TOKEN_RE.match(rest):
+        return rest
+    return text
 
 
 def _norm_label(raw: str) -> str:
@@ -418,6 +435,11 @@ def parse_cpp_page(html: str | None, *, locale: str = "zh-CN") -> dict[str, Any]
         stop = re.search(r"<h[23][^>]*>|<table|<dl>", rest)
         seg = rest[: stop.start()] if stop else rest
         text = re.sub(r"\s+", " ", text_of(seg)).strip()
+        # 剥首部原料CAS列表(0905): 源站"生产方法"段前缀的原料CAS罗列(如
+        # "209919-30-2 1570-64-5 一般步骤：…")是页面导航残留, 非正文——
+        # 上游原料已有 updown 结构化承载。仅剥开头的连续裸CAS, 文中引用
+        # (cas# 3068-34-6 / CAS号：29049-45-4)不动。
+        text = _strip_leading_cas_list(text)
         if text and len(text) > 4:
             prose.append({"title": title, "text": text})
     if prose:
