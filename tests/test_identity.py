@@ -292,7 +292,7 @@ class IdentityResolutionTests(unittest.TestCase):
                 return {tuple(r) for r in rows}
         from api.services.identity import CHEMICAL_REFERENCE_TABLES
         fks = self._run(go())
-        reg = set(CHEMICAL_REFERENCE_TABLES)
+        reg = {(s, t) for s, t, _ in CHEMICAL_REFERENCE_TABLES}
         missing = fks - reg
         extra = reg - fks
         self.assertFalse(missing,
@@ -570,6 +570,231 @@ class IdentityResolutionTests(unittest.TestCase):
         res, a = self._run(go())
         self.assertEqual(res.status, "EQUIVALENT")
         self.assertEqual(res.chemical_id, a)
+
+
+
+class OneToOneMergeTests(IdentityResolutionTests):
+    # 父类回归用例(test_5..test_8)只跑一次 — 本类只加载 1:1 矩阵,
+    # 避免 cas_jobs 部分唯一索引 dedupe_key='test-dedupe-1' 跨类残留。
+    def test_5_absorb_migrates_all_registered_references(self):
+        self.skipTest("回归用例由 IdentityResolutionTests 承担")
+    """0906 canary cid2273 修复: 1:1 子表合并策略矩阵。"""
+
+    def test_registry_strategy_completeness(self):
+        """每张 FK 表都有明确策略; 1:1 表必在白名单内。"""
+        from api.services.identity import (CHEMICAL_REFERENCE_TABLES,
+                                           ONE_TO_ONE_MERGE_COLUMNS)
+        valid = {"REKEY_MANY", "MERGE_ONE_TO_ONE", "DEDUPE_REKEY"}
+        for sch, tbl, strat in CHEMICAL_REFERENCE_TABLES:
+            self.assertIn(strat, valid)
+            if strat == "MERGE_ONE_TO_ONE":
+                self.assertIn((sch, tbl), ONE_TO_ONE_MERGE_COLUMNS)
+
+    def _insert_row(self, db, *, cid=None, mol=False):
+        return self._run(self._insert(db, cid=cid, mol=mol))
+
+    def test_1to1_C_both_sides_coalesce(self):
+        """两侧都有: survivor 非空保留, 空被补, old 行删。"""
+        from sqlalchemy import text
+        from api.services.identity import absorb
+        async def go():
+            async with self._session() as db:
+                tgt, ph = None, None
+                tgt = await self._insert(db, cid=990000101, mol=True)
+                ph = await self._insert(db, cid=990000101)
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_pubchem (chemical_id, record_title, xlogp)"
+                    " VALUES (:i,'surv-t',NULL)"), {"i": tgt})
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_pubchem (chemical_id, record_title, xlogp)"
+                    " VALUES (:i,'old-t',3.5)"), {"i": ph})
+                await db.commit()
+                surv = await absorb(db, source_id=ph, target_id=tgt,
+                                    reason="t-1to1-C", trigger="unit-test",
+                                    evidence_cid=990000101)
+                await db.commit()
+                row = (await db.execute(text(
+                    "SELECT record_title, xlogp FROM chemistry.chemical_pubchem"
+                    " WHERE chemical_id=:i"), {"i": surv})).first()
+                left = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemical_pubchem"
+                    " WHERE chemical_id=:i"), {"i": ph})).scalar()
+                return row, left
+        row, left = self._run(go())
+        self.assertEqual((row[0], row[1]), ("surv-t", 3.5))
+        self.assertEqual(left, 0)
+
+    def test_1to1_A_old_only_rekey(self):
+        from sqlalchemy import text
+        from api.services.identity import absorb
+        async def go():
+            async with self._session() as db:
+                tgt = await self._insert(db, cid=990000102, mol=True)
+                ph = await self._insert(db, cid=990000102)
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_pubchem (chemical_id, record_title)"
+                    " VALUES (:i,'only-old')"), {"i": ph})
+                await db.commit()
+                surv = await absorb(db, source_id=ph, target_id=tgt,
+                                    reason="t-1to1-A", trigger="unit-test",
+                                    evidence_cid=990000102)
+                await db.commit()
+                n = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemical_pubchem"
+                    " WHERE chemical_id=:i"), {"i": surv})).scalar()
+                return n
+        self.assertEqual(self._run(go()), 1)
+
+    def test_1to1_B_survivor_only_untouched(self):
+        from sqlalchemy import text
+        from api.services.identity import absorb
+        async def go():
+            async with self._session() as db:
+                tgt = await self._insert(db, cid=990000103, mol=True)
+                ph = await self._insert(db, cid=990000103)
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_pubchem (chemical_id, record_title)"
+                    " VALUES (:i,'surv-only')"), {"i": tgt})
+                await db.commit()
+                surv = await absorb(db, source_id=ph, target_id=tgt,
+                                    reason="t-1to1-B", trigger="unit-test",
+                                    evidence_cid=990000103)
+                await db.commit()
+                t = (await db.execute(text(
+                    "SELECT record_title FROM chemistry.chemical_pubchem"
+                    " WHERE chemical_id=:i"), {"i": surv})).scalar()
+                return t
+        self.assertEqual(self._run(go()), "surv-only")
+
+    def test_1to1_cb_same_locale(self):
+        """chemical_cb 同 locale 双行(键撞) → 并入 survivor, old 删。"""
+        from sqlalchemy import text
+        from api.services.identity import absorb
+        async def go():
+            async with self._session() as db:
+                tgt = await self._insert(db, cid=990000105, mol=True)
+                ph = await self._insert(db, cid=990000105)
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_cb (chemical_id, cas_number, locale)"
+                    " VALUES (:i,'12345-67-1','zh-CN')"), {"i": ph})
+                await db.commit()
+                surv = await absorb(db, source_id=ph, target_id=tgt,
+                                    reason="t-1to1-cb", trigger="unit-test",
+                                    evidence_cid=990000105)
+                await db.commit()
+                n = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemical_cb"
+                    " WHERE chemical_id=:i"), {"i": surv})).scalar()
+                return n
+        self.assertEqual(self._run(go()), 1)
+
+
+    def test_1to1_cb_multi_locale_partial_overlap(self):
+        """cb per-locale: old 有 zh-CN+en-US, survivor 只有 zh-CN。
+        zh-CN 同键 → coalesce 并删 old zh-CN 行; en-US survivor 无 → 改指保留。
+        不同 locale entry 不得互串, locale 绝不改写。"""
+        from sqlalchemy import text
+        from api.services.identity import absorb
+        async def go():
+            async with self._session() as db:
+                tgt = await self._insert(db, cid=990000107, mol=True)
+                ph = await self._insert(db, cid=990000107)
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_cb"
+                    " (chemical_id, cas_number, locale, entry)"
+                    " VALUES (:t,'111-11-1','zh-CN', CAST(:e1 AS jsonb))"),
+                    {"t": tgt, "e1": '{"zh":1}'})
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_cb"
+                    " (chemical_id, cas_number, locale, entry)"
+                    " VALUES (:p,'222-22-2','zh-CN', CAST(:e2 AS jsonb))"),
+                    {"p": ph, "e2": '{"oldzh":1}'})
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_cb"
+                    " (chemical_id, cas_number, locale, entry)"
+                    " VALUES (:p,'333-33-3','en', CAST(:e3 AS jsonb))"),
+                    {"p": ph, "e3": '{"en":1}'})
+                await db.commit()
+                surv = await absorb(db, source_id=ph, target_id=tgt,
+                                    reason="t-cb-loc", trigger="unit-test",
+                                    evidence_cid=990000107)
+                await db.commit()
+                rows = (await db.execute(text(
+                    "SELECT locale, cas_number, entry FROM chemistry.chemical_cb"
+                    " WHERE chemical_id=:i ORDER BY locale"), {"i": surv})).all()
+                old_left = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemical_cb"
+                    " WHERE chemical_id=:i"), {"i": ph})).scalar()
+                return [tuple(r) for r in rows], old_left
+        rows, old_left = self._run(go())
+        self.assertEqual(old_left, 0)
+        self.assertEqual(rows, [
+            ("en", "333-33-3", {"en": 1}),           # survivor 无 → 改指原样
+            ("zh-CN", "111-11-1", {"zh": 1}),         # 同键 → survivor 值保留(cas非空不被覆盖)
+        ])
+
+    def test_whitelist_matches_schema(self):
+        """白名单列必须真实存在于表; 排除列绝不在白名单。"""
+        from api.services.identity import ONE_TO_ONE_MERGE_COLUMNS
+        async def go():
+            async with self._session() as db:
+                from sqlalchemy import text
+                out = {}
+                for (sch, tbl), cols in ONE_TO_ONE_MERGE_COLUMNS.items():
+                    rows = (await db.execute(text(
+                        "SELECT column_name FROM information_schema.columns"
+                        " WHERE table_schema=:s AND table_name=:t"),
+                        {"s": sch, "t": tbl})).all()
+                    real = {r[0] for r in rows}
+                    out[f"{sch}.{tbl}"] = (set(cols) - real, real & set(cols))
+                return out
+        res = self._run(go())
+        for tbl, (missing, _) in res.items():
+            self.assertFalse(missing, f"{tbl} 白名单含不存在列: {missing}")
+        banned = {"chemical_id", "created_at", "updated_at",
+                  "fetched_at", "locale"}
+        for (sch, tbl), cols in ONE_TO_ONE_MERGE_COLUMNS.items():
+            hit = banned & set(cols)
+            self.assertFalse(hit, f"{tbl} 白名单含禁列: {hit}")
+
+    def test_1to1_midway_failure_rollback(self):
+        """1:1 合并中途炸 → 主表两行存活/merge_log/redirect 零残留。"""
+        import api.services.identity as ident
+        from api.services.identity import absorb
+        from sqlalchemy import text
+        real = ident._merge_one_to_one
+
+        async def bomb(db2, **kw):
+            await real(db2, **kw)
+            raise RuntimeError("1:1 midway bomb")
+
+        async def go():
+            async with self._session() as db:
+                tgt = await self._insert(db, cid=990000106, mol=True)
+                ph = await self._insert(db, cid=990000106)
+                await db.execute(text(
+                    "INSERT INTO chemistry.chemical_pubchem (chemical_id, record_title)"
+                    " VALUES (:i,'x')"), {"i": tgt})
+                await db.commit()
+                ident._merge_one_to_one = bomb
+                try:
+                    await absorb(db, source_id=ph, target_id=tgt,
+                                 reason="t-bomb", trigger="unit-test",
+                                 evidence_cid=990000106)
+                except RuntimeError:
+                    await db.rollback()
+                finally:
+                    ident._merge_one_to_one = real
+                both = (await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemicals"
+                    " WHERE id IN (:a,:b)"), {"a": tgt, "b": ph})).scalar()
+                logs = (await db.execute(text(
+                    "SELECT count(*) FROM maintenance.identity_merge_log"
+                    " WHERE source_id=:s"), {"s": ph})).scalar()
+                return both, logs
+        both, logs = self._run(go())
+        self.assertEqual(both, 2)
+        self.assertEqual(logs, 0)
 
 
 if __name__ == "__main__":

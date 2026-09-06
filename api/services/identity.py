@@ -39,20 +39,54 @@ logger = logging.getLogger(__name__)
 # 引用表注册 (规范3.6.1): 所有含 chemical_id 指向 chemistry.chemicals 的表。
 # 硬 FK 的表由测试从 PG 元数据反查断言全覆盖(见 tests/test_identity.py);
 # 本清单必须与库内实际 FK 集一致, 漏一张测试即失败。
-CHEMICAL_REFERENCE_TABLES: tuple[tuple[str, str], ...] = (
-    # (schema, table) — 与 pg_constraint 反查结果一一对应 (0906 实查 11 张)
-    ("chemistry", "chemical_cb"),
-    ("chemistry", "chemical_pubchem"),
-    ("chemistry", "chemical_supplier_listing"),
-    ("chemistry", "name_index"),
-    ("chemistry", "reaction_chemicals"),
-    ("community", "chemical_follows"),
-    ("community", "notifications"),
-    ("maintenance", "cas_jobs"),
-    ("maintenance", "pubchem_jobs"),
-    ("ord", "compound"),
-    ("ord", "product_compound"),
+#
+# 0906 canary 熔断后升级为带 merge strategy 的 registry (非纯表名清单):
+#   REKEY_MANY      — 1:N 引用, 直接 UPDATE chemical_id = survivor
+#   MERGE_ONE_TO_ONE — chemical_id 为 PK/UNIQUE 前缀的 1:1 子表,
+#                      两侧都有行时先 coalesce 补 survivor 空值再 DELETE old 行
+#                      (canary cid2273 撞 chemical_pubchem_pkey 实证)
+#   DEDUPE_REKEY    — 复合 PK 含 chemical_id 且行有独立语义(name_index),
+#                      先删键重合行再改指
+# 策略完整性由测试锁定: 每张 FK 表必须有策略, 且 1:1 表与 PG 约束实查一致。
+ReferenceStrategy = tuple[str, str, str]  # (schema, table, strategy)
+CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
+    ("chemistry", "chemical_pubchem", "MERGE_ONE_TO_ONE"),  # PK(chemical_id)
+    ("chemistry", "chemical_cb", "MERGE_ONE_TO_ONE"),  # PK(chemical_id,locale): 同locale撞PK, 按1:1处理
+    ("chemistry", "name_index", "DEDUPE_REKEY"),  # PK(chemical_id,source,kind,normalized)
+    ("chemistry", "chemical_supplier_listing", "REKEY_MANY"),  # PK(chemical_id,cbsid) 但行有独立语义, 改指不撞PK(chemical_id非唯一)
+    ("chemistry", "reaction_chemicals", "REKEY_MANY"),
+    ("community", "chemical_follows", "REKEY_MANY"),
+    ("community", "notifications", "REKEY_MANY"),
+    ("maintenance", "cas_jobs", "REKEY_MANY"),
+    ("maintenance", "pubchem_jobs", "REKEY_MANY"),
+    ("ord", "compound", "REKEY_MANY"),
+    ("ord", "product_compound", "REKEY_MANY"),
 )
+
+# 1:1 子表允许 coalesce 的业务列(显式白名单; PK/chemical_id/created_at/
+# updated_at/fetched_at 等身份审计列绝不合并)。JSONB 只做顶层 survivor-null
+# 才整体采用, 不做深度 merge; 两侧非空不同 → 保留 survivor。
+ONE_TO_ONE_MERGE_COLUMNS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("chemistry", "chemical_pubchem"): (
+        "record_title", "record_description", "xlogp",
+        "topological_polar_surface_area", "complexity",
+        "hbond_donor_count", "hbond_acceptor_count",
+        "rotatable_bond_count", "heavy_atom_count", "formal_charge",
+        "computed_properties", "physical_properties", "ghs_classification",
+        "hazards", "safety_measures", "toxicity", "regulatory",
+        "pharmacology", "uses_and_manufacturing", "identifier_evidence",
+        "source_references", "pubchem_created_on", "pubchem_modified_on",
+        "external_ids", "ghs_codes", "reactivity",
+    ),
+    ("chemistry", "chemical_cb"): (
+        "cas_number", "entry", "last_status",
+    ),
+}
+
+
+def reference_tables() -> tuple[tuple[str, str], ...]:
+    """兼容视图: (schema, table) 序列 — 供测试/工具遍历。"""
+    return tuple((s, t) for s, t, _ in CHEMICAL_REFERENCE_TABLES)
 
 
 class MergeBlockedError(RuntimeError):
@@ -321,6 +355,57 @@ async def absorb(db: Any, *, source_id: int, target_id: int,
     return survivor_id
 
 
+async def _merge_one_to_one(db: Any, *, schema: str, table: str,
+                            survivor_id: int, absorbed_id: int) -> None:
+    """1:1/唯一键子表迁移 (仅 _absorb_verified 内部调用)。
+
+    键: chemical_pubchem=chemical_id; chemical_cb=(chemical_id,locale)。
+    - 情况A old 行键与 survivor 不冲突(cb 不同locale/survivor无行) → 直接改指
+    - 情况C 同键两侧都有 → 白名单业务列 coalesce 补 survivor 空值,
+      补值成功后才 DELETE old 行; 绝不覆盖 survivor 非空值。
+    身份/审计列(chemical_id/created_at/updated_at/fetched_at/locale)不合并。
+    """
+    key_extra = "locale" if table == "chemical_cb" else None
+    tbl = f"{schema}.{table}"
+    merge_cols = ONE_TO_ONE_MERGE_COLUMNS.get((schema, table))
+    if merge_cols is None:
+        # fail-closed: 策略声明 1:1 但无字段白名单 = 配置错误, 绝不静默退化为
+        # 纯改指(会在同键两侧场景撞唯一约束)或纯删
+        raise RuntimeError(
+            f"MERGE_ONE_TO_ONE table {tbl} lacks ONE_TO_ONE_MERGE_COLUMNS"
+            " whitelist — refusing to migrate")
+    sets = ", ".join(f"{c} = coalesce({tbl}.{c}, a.{c})" for c in merge_cols)
+    km = (f"AND {tbl}.{key_extra} = a.{key_extra}" if key_extra else "")
+    if merge_cols:
+        # C1: 同键两侧都有 → 补 survivor 空值
+        await db.execute(text(f"""
+            UPDATE {tbl}
+            SET {sets}, updated_at = now()
+            FROM {tbl} a
+            WHERE a.chemical_id = :ph AND {tbl}.chemical_id = :surv {km}
+        """), {"surv": survivor_id, "ph": absorbed_id})  # noqa: S608
+        # C2: 只删"同键 survivor 行存在"的 old 行(即真正被并掉内容的行)。
+        # survivor 无同键行 → 不删, 走下方情况A改指。
+        if key_extra:
+            await db.execute(text(f"""
+                DELETE FROM {tbl} a
+                USING {tbl} b
+                WHERE a.chemical_id = :ph AND b.chemical_id = :surv
+                  AND a.{key_extra} = b.{key_extra}
+            """), {"surv": survivor_id, "ph": absorbed_id})  # noqa: S608
+        else:
+            await db.execute(text(f"""
+                DELETE FROM {tbl} a
+                WHERE a.chemical_id = :ph
+                  AND EXISTS (SELECT 1 FROM {tbl} b
+                              WHERE b.chemical_id = :surv)
+            """), {"surv": survivor_id, "ph": absorbed_id})  # noqa: S608
+    # A: 剩余 old 行(survivor 无同键行) → 改指
+    await db.execute(text(f"""
+        UPDATE {tbl} SET chemical_id = :surv WHERE chemical_id = :ph
+    """), {"surv": survivor_id, "ph": absorbed_id})  # noqa: S608
+
+
 async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
                            reason: str, trigger: str | None,
                            src_snap: dict, tgt_snap: dict) -> int:
@@ -357,26 +442,43 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
         WHERE t.id = :target AND p.id = :ph
     """), {"target": survivor_id, "ph": absorbed_id})
 
-    # 3. 引用表全量改指 (规范3.6.1 registry) + name_index 去重 (3.6.4)
-    for schema, tbl in CHEMICAL_REFERENCE_TABLES:
-        if (schema, tbl) == ("chemistry", "name_index"):
-            continue  # 先去重后改指, 见下
-        await db.execute(text(f"""
-            UPDATE {schema}.{tbl} SET chemical_id = :target WHERE chemical_id = :ph
-        """), {"target": survivor_id, "ph": absorbed_id})  # noqa: S608
-    # name_index: PK=(chemical_id,source,kind,normalized)。先删 absorbed 侧
-    # 与 survivor 侧键重合的行(normalized 相同即 PK 冲突), 再 UPDATE 改指。
-    # 同事务完成, 去重以 PK 列为准。
-    await db.execute(text("""
-        DELETE FROM chemistry.name_index a
-        USING chemistry.name_index b
-        WHERE a.chemical_id = :ph AND b.chemical_id = :target
-          AND a.source = b.source AND a.kind = b.kind
-          AND a.normalized = b.normalized
-    """), {"target": survivor_id, "ph": absorbed_id})
-    await db.execute(text(
-        "UPDATE chemistry.name_index SET chemical_id = :target WHERE chemical_id = :ph"
-    ), {"target": survivor_id, "ph": absorbed_id})
+    # 3. 引用表按 strategy 迁移 (规范3.6.1 registry) + name_index 去重 (3.6.4)
+    for schema, tbl, strategy in CHEMICAL_REFERENCE_TABLES:
+        if strategy == "DEDUPE_REKEY":
+            # name_index: PK=(chemical_id,source,kind,normalized)。先删 absorbed
+            # 侧与 survivor 侧键重合的行, 再 UPDATE 改指。同事务。
+            await db.execute(text("""
+                DELETE FROM chemistry.name_index a
+                USING chemistry.name_index b
+                WHERE a.chemical_id = :ph AND b.chemical_id = :target
+                  AND a.source = b.source AND a.kind = b.kind
+                  AND a.normalized = b.normalized
+            """), {"target": survivor_id, "ph": absorbed_id})
+            await db.execute(text(
+                "UPDATE chemistry.name_index SET chemical_id = :target "
+                "WHERE chemical_id = :ph"
+            ), {"target": survivor_id, "ph": absorbed_id})
+        elif strategy == "MERGE_ONE_TO_ONE":
+            # 1:1/同键子表 (0906 canary cid2273): 统一 UPDATE 会撞唯一约束。
+            # 语义: survivor 行保留; 同键 old 行只补 survivor 空值
+            # (coalesce, 白名单业务列), 补值完成后才 DELETE old 行;
+            # 无键冲突的行(如 chemical_cb 不同 locale)直接改指。
+            await _merge_one_to_one(
+                db, schema=schema, table=tbl,
+                survivor_id=survivor_id, absorbed_id=absorbed_id)
+        elif strategy == "REKEY_MANY":
+            await db.execute(text(f"""
+                UPDATE {schema}.{tbl} SET chemical_id = :target
+                WHERE chemical_id = :ph
+            """), {"target": survivor_id, "ph": absorbed_id})  # noqa: S608
+        else:
+            raise RuntimeError(
+                f"unknown reference strategy {strategy!r} for "
+                f"{schema}.{tbl} — refusing to migrate")
+            await db.execute(text(f"""
+                UPDATE {schema}.{tbl} SET chemical_id = :target
+                WHERE chemical_id = :ph
+            """), {"target": survivor_id, "ph": absorbed_id})  # noqa: S608
 
     # 4. redirect (规范3.6.3) — 身份历史不删, canonicalize_id 可查
     await db.execute(text("""
