@@ -62,7 +62,10 @@ CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
         "source_references", "pubchem_created_on", "pubchem_modified_on",
         "external_ids", "ghs_codes", "reactivity")}),
     ("chemistry", "chemical_cb",
-     {"strategy": "MERGE_ONE_TO_ONE", "key_extra": "locale", "merge_cols": (
+     {"strategy": "MERGE_ONE_TO_ONE", "key_extra": "locale",
+      # 0907 source grain: collision 键收窄 — cb_number 进比对(同 cb+locale 才
+      # 合并; 不同 cb 各自保留), 但 payload 补空白名单不含 cb_number(身份列)。
+      "key_extra2": "cb_number", "merge_cols": (
         "cas_number", "entry", "last_status")}),
     ("chemistry", "name_index",
      {"strategy": "DEDUPE_REKEY", "dedupe_key": ("source", "kind", "normalized"),
@@ -379,10 +382,15 @@ async def absorb(db: Any, *, source_id: int, target_id: int,
 
 async def _coalesce_payload(db: Any, *, tbl: str, surv: int, ph: int,
                             key_extra: str | None, key_cols: tuple[str, ...],
-                            merge_cols: tuple[str, ...]) -> None:
+                            merge_cols: tuple[str, ...],
+                            key_extra2: str | None = None) -> None:
     """同键 survivor 行 ← old 行补空(白名单列, 绝不覆盖非空)。内部共用。"""
     if key_extra:
         km = f'AND {tbl}."{key_extra}" = a."{key_extra}"'
+        # 0907 source grain: 第二碰撞键(chemical_cb.cb_number) — NULL 安全比对
+        if key_extra2:
+            km += (f' AND {tbl}."{key_extra2}" IS NOT DISTINCT FROM'
+                   f' a."{key_extra2}"')
     elif key_cols:
         km = "AND " + " AND ".join(
             f'{tbl}."{k}" = a."{k}"' for k in key_cols)
@@ -423,15 +431,21 @@ async def _merge_one_to_one(db: Any, *, schema: str, table: str,
         # C1: 同键两侧都有 → 补 survivor 空值
         await _coalesce_payload(db, tbl=tbl, surv=survivor_id, ph=absorbed_id,
                                 key_extra=key_extra, key_cols=(),
-                                merge_cols=tuple(merge_cols))
+                                merge_cols=tuple(merge_cols),
+                                key_extra2=cfg.get("key_extra2"))
         # C2: 只删"同键 survivor 行存在"的 old 行(即真正被并掉内容的行)。
         # survivor 无同键行 → 不删, 走下方情况A改指。
         if key_extra:
+            km2 = ""
+            if cfg.get("key_extra2"):
+                k2 = cfg["key_extra2"]
+                # NULL 安全: legacy NULL-grain 行与 NULL-grain 行互撞也属同键
+                km2 = (f" AND a.{k2} IS NOT DISTINCT FROM b.{k2}")
             await db.execute(text(f"""
                 DELETE FROM {tbl} a
                 USING {tbl} b
                 WHERE a.chemical_id = :ph AND b.chemical_id = :surv
-                  AND a.{key_extra} = b.{key_extra}
+                  AND a.{key_extra} = b.{key_extra}{km2}
             """), {"surv": survivor_id, "ph": absorbed_id})  # noqa: S608
         else:
             await db.execute(text(f"""

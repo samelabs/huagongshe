@@ -477,11 +477,17 @@ async def cas_complete_job(
             for lang in ("en", "ja", "de", "ko"):
                 decision = await cb_decide(
                     db, chemical_id, lang, has_cb_number=True,
+                    cb_number=payload.cb_number,
                 )
                 if decision.startswith("enqueue"):
                     await enqueue_cas_job(
                         db, chemical_id=chemical_id, cas_number=cas_number,
                         priority=30, locale=lang,
+                        # 0907 source grain: 语言 job 继承本 source record 的
+                        # cb_number — CB001/en 与 CB002/en 各自独立, 不被
+                        # (chemical_id,cas,locale) 折叠; 普通线上(无源cb)路径
+                        # 不传 → 语义与旧行为一致。
+                        source_cb_number=payload.cb_number,
                     )
         # 出表(§3): complete 即 DELETE; 闸门归零(§4) cb 通道。
         await db.execute(text("""

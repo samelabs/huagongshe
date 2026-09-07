@@ -564,10 +564,11 @@ class ConsumptionControlPlaneTests(SeedLedgerTests):
     # 6. backlog gate 开始即超限: processed=0
     def test_backlog_hours_gate_blocks_start(self):
         self._load([(PREFIX + "1", CAS)])
+        # 0907 修: 生产队列可能瞬时非空(线上 worker 在租), 用吞吐 1e9 保证
+        # backlog_hours≈0 恒 < target → gate 确定性开, 测试不再依赖空队列
         self._schedule([PREFIX + "1"], max_enqueue=5,
-                       throughput_per_hour=1.0, backlog_hours=0.001,
+                       throughput_per_hour=1e9, backlog_hours=0.001,
                        high_water=10**9)
-        # cas_jobs 空 → backlog_hours=0 < 任何正 target → gate 开, 正常处理
         rows = dict((r[0], r) for r in self._rows())
         self.assertNotEqual(rows[PREFIX + "1"][2], "ACCEPTED")  # 被正常推进
 

@@ -36,10 +36,23 @@ def _now() -> datetime:
 
 
 async def get_externals_row(db: Any, chemical_id: int) -> dict[str, Any] | None:
+    """详情读路径: 优先主表 imprint 对应的 source 行(convenience cb),
+    回落任意 zh-CN 行(legacy/多行任意一条, 与旧行为兼容)。"""
     row = (await db.execute(text("""
-        SELECT chemical_id,cas_number,entry,last_status,fetched_at
-        FROM chemistry.chemical_cb WHERE chemical_id=:chemical_id AND locale='zh-CN'
+        SELECT x.chemical_id,x.cas_number,x.entry,x.last_status,x.fetched_at
+        FROM chemistry.chemical_cb x
+        JOIN chemistry.chemicals c ON c.id=x.chemical_id
+        WHERE x.chemical_id=:chemical_id AND x.locale='zh-CN'
+          AND x.cb_number IS NOT DISTINCT FROM c.cb_number
+        LIMIT 1
     """), {"chemical_id": chemical_id})).mappings().fetchone()
+    if row is None:
+        row = (await db.execute(text("""
+            SELECT chemical_id,cas_number,entry,last_status,fetched_at
+            FROM chemistry.chemical_cb
+            WHERE chemical_id=:chemical_id AND locale='zh-CN'
+            LIMIT 1
+        """), {"chemical_id": chemical_id})).mappings().fetchone()
     return dict(row) if row else None
 
 
@@ -85,7 +98,10 @@ async def upsert_externals(
     """worker complete 与同步拉取共用的唯一写入口(事务由调用方管理)。
 
     cb_number/cbsid 为原站身份标识: cb_number 落主表 chemicals(2026-08-28 上移,
-    chemical_cb 不存); cbsid 落 supplier profile/listing 两表, 任何 API/DOM 输出零标识。
+    2026-09-07 source grain: 亦随行写入 chemical_cb.cb_number — 一 chemical
+    多 CB record (CB001/CB002/...) 各自独立成行, 不再互相覆盖; 主表 cb_number
+    收窄为 convenience/first-known imprint, 完整事实在 source 行);
+    cbsid 落 supplier profile/listing 两表, 任何 API/DOM 输出零标识。
     locale: zh-CN 为主行(供应商同写); en 等语言行只写 entry, suppliers 恒空。
     """
     entry = _strip_nul(entry)
@@ -101,22 +117,48 @@ async def upsert_externals(
     # 收录与否由记录表本身表达(无行/主表 cb_number IS NULL)。
     if status == "not_found":
         return
-    await db.execute(text("""
-        INSERT INTO chemistry.chemical_cb
-            (chemical_id,cas_number,entry,last_status,fetched_at,locale)
-        VALUES
-            (:chemical_id,:cas_number,CAST(:entry AS jsonb),:status,now(),:locale)
-        ON CONFLICT (chemical_id, locale) DO UPDATE SET
-            cas_number=excluded.cas_number,
-            entry=excluded.entry,
-            last_status=excluded.last_status,
-            fetched_at=excluded.fetched_at,
-            updated_at=now()
-    """), {
-        "chemical_id": chemical_id, "cas_number": cas_number,
-        "entry": entry_json, "status": status,
-        "locale": locale,
-    })
+    # 0907 source grain: 冲突键 (chemical_id, cb_number, locale) —
+    # 同 cb 同 locale 幂等 UPSERT; 不同 cb 各自成行不覆盖。
+    # cb_number=NULL(线上无号路径): 回落 legacy (chemical_id, locale) 粒度,
+    # 与旧行为一致。
+    if cb_number:
+        await db.execute(text("""
+            INSERT INTO chemistry.chemical_cb
+                (chemical_id,cas_number,cb_number,entry,last_status,fetched_at,locale)
+            VALUES
+                (:chemical_id,:cas_number,:cb_number,
+                 CAST(:entry AS jsonb),:status,now(),:locale)
+            ON CONFLICT (chemical_id, cb_number, locale) WHERE cb_number IS NOT NULL
+            DO UPDATE SET
+                cas_number=excluded.cas_number,
+                entry=excluded.entry,
+                last_status=excluded.last_status,
+                fetched_at=excluded.fetched_at,
+                updated_at=now()
+        """), {
+            "chemical_id": chemical_id, "cas_number": cas_number,
+            "cb_number": cb_number,
+            "entry": entry_json, "status": status,
+            "locale": locale,
+        })
+    else:
+        await db.execute(text("""
+            INSERT INTO chemistry.chemical_cb
+                (chemical_id,cas_number,entry,last_status,fetched_at,locale)
+            VALUES
+                (:chemical_id,:cas_number,CAST(:entry AS jsonb),:status,now(),:locale)
+            ON CONFLICT (chemical_id, locale) WHERE cb_number IS NULL
+            DO UPDATE SET
+                cas_number=excluded.cas_number,
+                entry=excluded.entry,
+                last_status=excluded.last_status,
+                fetched_at=excluded.fetched_at,
+                updated_at=now()
+        """), {
+            "chemical_id": chemical_id, "cas_number": cas_number,
+            "entry": entry_json, "status": status,
+            "locale": locale,
+        })
     # CB 号上移主表: 只补空不覆盖。同 CAS 多 CID 行合法共享同一 cb_number
     # (CB 按 CAS 建页, CID 才是真区分键; 唯一索引已于 20260830 迁移改为普通索引)。
     if cb_number:
@@ -470,7 +512,7 @@ async def _cb_window_days(db: Any) -> tuple[int, int]:
 
 async def cb_decide(
     db: Any, chemical_id: int, locale: str = "zh-CN",
-    *, has_cb_number: bool | None = None,
+    *, has_cb_number: bool | None = None, cb_number: str | None = None,
 ) -> str:
     """四态判定(0902 剥离: not 负缓存态已亡, 收录与否由行缺省表达)。返回:
     - serve_fresh      ok 且未超刷新窗 → 直接出 entry
@@ -482,10 +524,20 @@ async def cb_decide(
         return "skip"
     if locale != "zh-CN" and has_cb_number is False:
         return "skip"  # 语言页靠 cb_number 寻址, 无号不可执行
-    row = (await db.execute(text("""
-        SELECT last_status, fetched_at FROM chemistry.chemical_cb
-        WHERE chemical_id=:id AND locale=:loc
-    """), {"id": chemical_id, "loc": locale})).first()
+    # 0907 source grain: 有 cb_number 时按 source record 行判定
+    # (CB001/en 与 CB002/en 互不遮挡); 无 cb_number(普通线上路径)回落
+    # 旧行为 — 兼容 legacy NULL-grain 行。
+    if cb_number:
+        row = (await db.execute(text("""
+            SELECT last_status, fetched_at FROM chemistry.chemical_cb
+            WHERE chemical_id=:id AND locale=:loc AND cb_number=:cb
+        """), {"id": chemical_id, "loc": locale, "cb": cb_number})).first()
+    else:
+        row = (await db.execute(text("""
+            SELECT last_status, fetched_at FROM chemistry.chemical_cb
+            WHERE chemical_id=:id AND locale=:loc
+              AND (cb_number IS NULL OR TRUE)
+        """), {"id": chemical_id, "loc": locale})).first()
     if row is None:
         return "enqueue_first"
     status, fetched_at = row[0], row[1]
