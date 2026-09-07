@@ -1,3 +1,9 @@
+-- 运维教训(0907): 本 migration 删除旧 UNIQUE(chemical_id,locale) 后, 未重启的
+-- 旧代码 upsert(裸 ON CONFLICT (chemical_id,locale)) 立即报
+-- InvalidColumnReferenceError, 窗口内 61 回调失败(已全部自然重放/可重触发)。
+-- 部署顺序: 旧代码不兼容的新 schema 变更, 必须先部署兼容新旧两套 schema 的
+-- 代码(ON CONFLICT 按索引推断兼容两版), 再执行 migration, 或 migration 与
+-- API 重启同一维护窗完成。禁止 schema 先行+代码滞后窗口。
 -- 0907 source grain: chemical_cb (chemical_id, locale) → (chemical_id, cb_number, locale)
 -- 保守原位演进(用户拍板: 不接受折损方案B):
 --   1) 加 surrogate PK + cb_number 列(可 NULL = legacy "无CB号"行, 合法保留)

@@ -312,7 +312,6 @@ async def cas_lease_jobs(
             "limit": limit,
         })).fetchall()
         rows = [(r[0], r[1], r[2], r[3]) for r in claim]
-        cb_map: dict[int, str | None] = {}
         if rows:
             # 0907 source grain: cb_number 寻址键优先取 job 自身 request_context
             # (backfill 多 cb job: 目标 cb 可能尚未落主表, 或主表已有别的 cb);
@@ -322,13 +321,15 @@ async def cas_lease_jobs(
                 WHERE id = ANY(CAST(:ids AS bigint[]))
                   AND request_context ? 'source_cb'
             """), {"ids": [r[0] for r in rows]})).fetchall()
-            cb_map = {r[0]: r[1] for r in ctx_rows}
-            fallback = (await db.execute(text("""
+            # 0907 fix: 键域分离 — context 按 jobId, 主表按 chemicalId。
+            # 旧版两域混写同一 cb_map, lookup 恒用 chemicalId → source_cb 永远
+            # 取不到, 全部错误回落主表(跨 cb 串抓事故根因)
+            cb_by_job = {r[0]: r[1] for r in ctx_rows}
+            fb_rows = (await db.execute(text("""
                 SELECT id, cb_number FROM chemistry.chemicals
                 WHERE id = ANY(CAST(:ids AS integer[]))
             """), {"ids": [r[1] for r in rows if r[1] is not None]})).fetchall()
-            for cid, cb in fallback:
-                cb_map.setdefault(cid, cb)
+            cb_by_chem = {r[0]: r[1] for r in fb_rows}
         leased = []
         for row in rows:
             token = secrets.token_urlsafe(32)
@@ -351,7 +352,9 @@ async def cas_lease_jobs(
                 "cas_number": row[2],
                 "lease_seconds": settings.worker_job_lease_seconds,
                 "locale": row[3] or "zh-CN",
-                "cb_number": cb_map.get(row[1]),
+                # 本 job 自己的 source_cb 优先(有 context 键即用); 无键 legacy 线上 job 走主表 fallback
+                "cb_number": cb_by_job[row[0]] if row[0] in cb_by_job
+                             else cb_by_chem.get(row[1]),
             })
         await db.commit()
         return {"jobs": leased, "retry_after_seconds": 2 if leased else 10}
