@@ -427,8 +427,8 @@ class SeedLedgerTests(unittest.TestCase):
         """--all 时 scope 检查通过(不实际跑全量, 只验证不拒绝)。
         用 cb-list 也同时给 --all? 不行 — 验证方式: --all + limit=0 立即退出。"""
         import sys
-        sys.path.insert(0, "/home/ubuntu/ops")
-        import cb_seed_ingest as ing
+        sys.path.insert(0, "/var/www/huagongshe/scripts")
+        import ops_cb_seed_ingest as ing
         args = ing._A(cmd="schedule", limit=0, max_enqueue=0, high_water=10**9,
                       start_after="", cb_list="", cohort_file="", all=True)
         self._run(ing.cmd_schedule(args))  # limit=0: 不处理任何行, 不拒绝
