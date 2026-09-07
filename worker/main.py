@@ -228,6 +228,9 @@ async def process_cas_job(
                 return
             from caslib.parse_cpp import parse_cpp_page
             entry = parse_cpp_page(cpp_html, locale=locale) if cpp_html else None
+            # 0907 source grain: 语言行 payload 必须携带本 job 的 cb_number —
+            # 缺失时 callback upsert 收 cb=None 落 legacy NULL 粒度, 同 chemical
+            # 的 CB001/en 与 CB002/en 互相覆盖(语言层折叠事故)。
             if entry is None:
                 # 判定成功的"无变体"(含空壳200): not_found 负缓存(8-29 定论,
                 # 大量条目无语言变体, retry 只产无效请求喂上游风控画像)。
@@ -236,6 +239,8 @@ async def process_cas_job(
             else:
                 payload = {"status": "ok", "entry": entry, "suppliers": [],
                            "locale": locale}
+            if job.get("cb_number"):
+                payload["cb_number"] = job["cb_number"]
         await workapi.post(
             "/workapi/v1/cas/jobs/complete",
             {"job_id": job["job_id"], "lease_token": job["lease_token"], "result": payload},
