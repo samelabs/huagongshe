@@ -77,7 +77,9 @@ class LeaseCbKeyDomainTests(unittest.TestCase):
                 return cid
         return _run(go())
 
-    def _insert_job(self, cid, source_cb=None, priority=1):
+    def _insert_job(self, cid, source_cb=None, priority=99):
+        # priority=99: 测试 job 必须压过生产 backfill 队列(priority 20/50),
+        # 否则 lease ORDER BY priority DESC 先派发生产行, 测试 job 永不入列。
         from sqlalchemy import text
 
         async def go():
