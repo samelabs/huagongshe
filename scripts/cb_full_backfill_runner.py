@@ -207,7 +207,7 @@ async def safety_check(eng, state: dict | None = None) -> dict:
             raise SafetyStop(f"duplicate nonnull grain = {dup_nn}")
         dup_null = (await db.execute(text(
             "SELECT count(*) FROM (SELECT 1 FROM chemistry.chemical_cb"
-            " WHERE cb_number IS NULL GROUP BY chemical_id, source_url,"
+            " WHERE cb_number IS NULL GROUP BY chemical_id, cas_number,"
             " locale HAVING count(*) > 1) t"))).scalar()
         if dup_null > 0:
             raise SafetyStop(f"duplicate null grain = {dup_null}")
