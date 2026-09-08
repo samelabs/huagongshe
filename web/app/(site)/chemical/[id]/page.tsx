@@ -9,6 +9,7 @@ import { EntityId } from "@/components/shared/EntityId";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { Molecule } from "@/components/Molecule";
 import { ReactionList } from "@/components/ReactionList";
+import { ShareButton } from "@/components/ShareButton";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
 import { apiGet, isApiNotFound, type Chemical, type ChemicalDetails, type EnrichmentState, type ReactionSummary } from "@/lib/api";
 import t from "@/lib/i18n";
@@ -113,6 +114,7 @@ export default async function ChemicalPage({ params }: {
             {chemical.cas_numbers[0] && <span>CAS {chemical.cas_numbers[0]}</span>}
           </div>
           <div className="context-actions">
+            <ShareButton title={title} />
             <FollowButton endpoint={`/chemicals/${chemical.id}/follow`} initial={Boolean(chemical.is_following)} count={chemical.follower_count || 0} label="favor" />
             <Link className="button primary" href="#reactions">{t.chemical.viewReactions}</Link>
             {hasSession ? (<>
