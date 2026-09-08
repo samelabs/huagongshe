@@ -47,11 +47,28 @@
 
 ## 化合物事实规则
 
-- `chemistry.chemicals.id` 是稳定 HCID；PubChem CID 只标识 PubChem 来源子集。
+- `chemistry.chemicals.id` 是稳定 HCID；PubChem CID 与 ChemicalBook 编号只标识各自来源子集。
 - `smiles` 是 RDKit 标准表达，也是跨来源结构对齐基础。
 - DSSTox 数据只能在标准结构或完整 InChIKey 验证后挂载，CAS 不能单独确认结构。
 - PubChem PUG REST 用于 CID、结构和计算属性；PUG View 用于带来源的扩展信息。
 - PubChem worker 可以补全名称、分子式、质量、InChIKey 和同义词，但不能修改 HCID、CID 或标准 SMILES。
+
+## 化合物身份治理
+
+多来源化合物数据统一走身份裁定，核心原则：宁可暂时一物多行，不允许两物误合一行。
+
+- 新数据按 结构证据（InChIKey/同非空 CID）> 唯一 CAS 定位 的顺序归一到既有 HCID；无证据匹配则新建占位行。
+- 多行命中且缺乏结构判据时挂起（AMBIGUOUS），不猜归属；证据冲突时拒绝写入（CONFLICT），不吞并。
+- 行合并只能由同非空 CID 的结构证据授权；CAS 或来源编号相同永不构成合并证据（一个物质可有多个 CAS 与来源编号）。
+- 每次合并留有审计记录（merge log）与旧 ID 重定向（redirect），旧 ID 的引用自动指向合并后的正身行。
+- 各来源的原始记录以 (HCID, 来源编号, 语言) 粒度独立保留，同一化合物可挂多个来源记录，互不覆盖。
+
+## 化学数据源
+
+- PubChem：CID、结构、计算属性与带来源的扩展信息，异步补全。
+- ChemicalBook：化合物页面（结构、性质、供应商），按 CAS 触发异步获取；语言页独立入库。
+- DSSTox：验证挂载的参考数据。
+- 检索未命中且输入为 CAS 时，入队异步获取，命中后直接可达详情页。
 
 ## 检索
 

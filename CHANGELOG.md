@@ -3,6 +3,15 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [1.4.0] — 2026-09-08
+
+- 化合物身份治理上线：多来源数据统一身份裁定（结构证据授权合并、无判据挂起、冲突拒绝写入），合并全程留审计记录与旧 ID 重定向
+- ChemicalBook 数据链接入：按 CAS 异步获取化合物页面，中英日韩德法语言页独立入库；来源记录以 (HCID, 来源编号, 语言) 粒度保留
+- 检索未命中且输入为 CAS 时自动入队获取，命中后直达详情页
+- MCP 工具增强：分子结构图支持直接传入 SMILES 渲染；技能详情支持数字 ID 或 slug 查询；投料计算工具内置调用示例
+- 化合物主表新增 InChIKey 与来源编号字段，支撑跨来源结构对齐
+- 受控 SSR 数据缓存层（A 档）：仅低频无用户态读取走 revalidate，带用户凭据的请求禁缓存
+
 ## [1.3.0] — 2026-08-22
 
 - AIchem 新增投料计算工具：角色化组分 + 基准换算（质量/摩尔/当量）+ 理论收率 + 溶剂定容，RDKit 后端（api/stoichiometry.py），agent-guide 与 llms.txt 同步宣告
