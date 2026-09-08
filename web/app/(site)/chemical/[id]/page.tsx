@@ -18,11 +18,27 @@ type DetailResponse = { details: ChemicalDetails | null; enrichment: EnrichmentS
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const canonical = `/chemical/${id}`;
+  // 分享卡标题带化合物名; 失败(未命中/上游异常)回退纯 HCID, 不阻塞渲染
+  let title = `HCID ${id}｜${t.brand.name}`;
+  const chemical = await apiGet<Chemical>(`/chemicals/${id}?display=true`).catch(() => null);
+  const name = chemical?.preferred_name || chemical?.iupac_name;
+  if (name) title = `${name} (HCID ${id})｜${t.brand.name}`;
   return {
     title: `HCID ${id}`,
     description: t.chemical.desc,
     alternates: { canonical },
-    openGraph: { url: canonical, title: `HCID ${id}｜${t.brand.name}`, description: t.chemical.desc },
+    openGraph: {
+      url: canonical,
+      title,
+      description: t.chemical.desc,
+      images: [{ url: `/api/mol/${id}/png`, width: 500, height: 375, alt: `${name || `HCID ${id}`} 分子结构式` }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: t.chemical.desc,
+      images: [`/api/mol/${id}/png`],
+    },
   };
 }
 
