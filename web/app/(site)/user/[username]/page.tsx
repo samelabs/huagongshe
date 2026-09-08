@@ -19,7 +19,13 @@ type Reaction = { id: number; reaction_smiles: string; followers: number; update
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
-  return { title: t.user.title.replace("{username}", username), description: t.user.desc };
+  const canonical = `/user/${encodeURIComponent(username)}`;
+  return {
+    title: t.user.title.replace("{username}", username),
+    description: t.user.desc,
+    alternates: { canonical },
+    openGraph: { url: canonical, title: `${t.user.title.replace("{username}", username)}｜${t.brand.name}`, description: t.user.desc },
+  };
 }
 
 export default async function UserPage({ params, searchParams }: { params: Promise<{ username: string }>; searchParams: Promise<{ page?: string | string[] }> }) {

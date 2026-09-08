@@ -16,7 +16,13 @@ const roleNames: Record<string, string> = {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  return { title: `HRID ${id}`, description: t.reaction.desc };
+  const canonical = `/reaction/${id}`;
+  return {
+    title: `HRID ${id}`,
+    description: t.reaction.desc,
+    alternates: { canonical },
+    openGraph: { url: canonical, title: `HRID ${id}｜${t.brand.name}`, description: t.reaction.desc },
+  };
 }
 
 export default async function ReactionPage({ params }: { params: Promise<{ id: string }> }) {
