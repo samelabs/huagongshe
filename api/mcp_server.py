@@ -180,25 +180,36 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="render_molecule_svg", title="分子结构图")
     async def render_molecule_svg(
-        chemical_id: int,
+        chemical_id: int | None = None,
+        smiles: str | None = None,
         width: int = 400,
         height: int = 300,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> str:
-        """获取化合物的 2D 结构图(SVG 文本)，width/height 指定像素尺寸(50-800)。"""
+        """获取化合物的 2D 结构图(SVG 文本)，width/height 指定像素尺寸(50-800)。
+        chemical_id(库内化合物)或 smiles(任意结构)二选一。"""
         from . import mol as mol_module
 
         width = min(max(width, 50), 800)
         height = min(max(height, 50), 800)
-        async with async_session() as session:
-            row = (await session.execute(text(
-                "SELECT smiles FROM chemistry.chemicals WHERE id=:id"
-            ), {"id": chemical_id})).fetchone()
-        if not row or not row[0]:
-            raise ToolError("化合物不存在或没有可渲染的结构表达")
+        target_smiles: str | None = None
+        if chemical_id is not None:
+            async with async_session() as session:
+                row = (await session.execute(text(
+                    "SELECT smiles FROM chemistry.chemicals WHERE id=:id"
+                ), {"id": chemical_id})).fetchone()
+            if not row or not row[0]:
+                raise ToolError("化合物不存在或没有可渲染的结构表达")
+            target_smiles = row[0]
+        elif smiles:
+            target_smiles = smiles.strip()
+        else:
+            raise ToolError("需要 chemical_id 或 smiles 参数(二选一)")
+        if not target_smiles:
+            raise ToolError("没有可渲染的结构表达")
         import asyncio as _asyncio
 
-        svg = await _asyncio.to_thread(mol_module.smiles_to_svg, row[0], width, height)
+        svg = await _asyncio.to_thread(mol_module.smiles_to_svg, target_smiles, width, height)
         if svg is None:
             raise ToolError("SMILES 无法渲染")
         return svg
@@ -266,17 +277,35 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="get_skill", title="技能详情")
     async def get_skill(
-        skill_id: int,
+        skill_id: int | str,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """读取一个技能的 manifest、文件清单和 SKILL.md 全文(文本文件不含二进制)。"""
+        """读取一个技能的 manifest、文件清单和 SKILL.md 全文(文本文件不含二进制)。
+        skill_id 支持数字 id 或 slug 字符串(如 huagongshe-reaction-publisher)。"""
         from . import skills as skills_module
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
-        if not 1 <= skill_id <= 2_147_483_647:
+        # MCP 适配层 slug 解析: 内核 skills.get_skill 保持纯数字 id(REST 两路共用不污染)。
+        # slug 全库唯一(159/159 实测), 无 owner 歧义。
+        resolved_id: int
+        if isinstance(skill_id, str):
+            candidate = skill_id.strip()
+            if candidate.isdigit():
+                resolved_id = int(candidate)
+            else:
+                async with async_session() as session:
+                    row = (await session.execute(text(
+                        "SELECT id FROM community.skills WHERE slug=:slug"
+                    ), {"slug": candidate})).fetchone()
+                if not row:
+                    raise ToolError(f"slug 不存在: {candidate!r}")
+                resolved_id = row[0]
+        else:
+            resolved_id = skill_id
+        if not 1 <= resolved_id <= 2_147_483_647:
             raise ToolError("skill_id 超出范围")
         async with async_session() as session:
-            return await skills_module.get_skill(skill_id=skill_id, actor=actor, db=session)
+            return await skills_module.get_skill(skill_id=resolved_id, actor=actor, db=session)
 
     @server.tool(name="calculate_stoichiometry", title="投料计算")
     async def calculate_stoichiometry(
@@ -290,6 +319,8 @@ def build_mcp_server() -> MCPServer:
         components[{role(REACTANT/REAGENT/CATALYST/SOLVENT/PRODUCT), smiles, eq, label?}]
         basis{index, amount_value, amount_unit(g/mg/mol/mmol)}。
         非溶剂组分 eq 必填；最多 30 个组分。
+
+        示例(arguments): {"components":[{"role":"REACTANT","smiles":"O=C(O)c1ccccc1O","eq":1},{"role":"REAGENT","smiles":"CC(=O)OC(=O)C","eq":1.05},{"role":"PRODUCT","smiles":"CC(=O)Oc1ccccc1C(=O)O","eq":1}],"basis":{"index":0,"amount_value":10,"amount_unit":"g"}}
         """
         from . import stoichiometry as stoich_module
 
