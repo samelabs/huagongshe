@@ -67,6 +67,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
           </svg>
           <input
             type="text"
+            enterKeyHint="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t.me.searchPlaceholder}
