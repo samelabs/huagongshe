@@ -121,7 +121,7 @@ export function HomePanel({ counts, initialReactions }: {
                 </header>
                 <Link className="wb-card-img" href={`/reaction/${item.id}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={`HRID ${item.id}`} />
+                  <img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={t.reaction.equationAlt(item.id)} />
                 </Link>
                 <footer>
                   <span>{item.visibility === "private" ? t.me.privateVisible : t.common.public}</span>

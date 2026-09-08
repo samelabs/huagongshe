@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiGet, reactionSvgUrl, type ReactionSummary } from "@/lib/api";
+import { EntityId } from "@/components/shared/EntityId";
 import t from "@/lib/i18n";
 
 const roles = ["any", "reactant", "product", "reagent", "catalyst", "solvent"] as const;
@@ -48,10 +49,13 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
         <div className="reaction-results">{data.reactions.map((reaction) => (
           <article className="reaction-result" key={reaction.id}>
             <div className="reaction-result-main">
+              <div className="reaction-result-head">
+                <Link href={`/reaction/${reaction.id}`}><EntityId kind="reaction" id={reaction.id} /></Link>
+              </div>
               {reaction.reaction_smiles ? (
                 <Link className="reaction-preview" href={`/reaction/${reaction.id}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={`HRID ${reaction.id} 反应方程式`} loading="lazy" />
+                  <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={t.reaction.equationAlt(reaction.id)} loading="lazy" />
                 </Link>
               ) : <div className="reaction-preview unavailable">{t.reaction.equationUnavailable}</div>}
               <div className="reaction-result-foot">

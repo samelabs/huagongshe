@@ -110,10 +110,10 @@ export function ReactionCards({ items, editable = false }: { items: Reaction[]; 
             <Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link>
             {item.updated_at && <span>{new Date(item.updated_at).toLocaleDateString("zh-CN")}</span>}
           </header>
-          <Link className="wb-card-img" href={`/reaction/${item.id}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={`HRID ${item.id}`} />
-          </Link>
+              <Link href={`/reaction/${item.id}`} className="wb-card-img">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={t.reaction.equationAlt(item.id)} />
+              </Link>
           <footer>
             <span>{item.visibility === "private" ? t.me.privateVisible : editable ? t.me.publicRecord(item.followers || 0) : t.common.public}</span>
             {editable ? <Link href={`/submit?reaction=${item.id}`}>{t.common.edit}</Link> : <Link href={`/reaction/${item.id}`}>{t.common.view}</Link>}

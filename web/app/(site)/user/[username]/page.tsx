@@ -85,7 +85,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
       <div className="wb-panel-head"><div><h2>{t.user.publicReactions}</h2></div>{!contentUnavailable && <strong>{t.user.reactionCount(profile.public_reactions)}</strong>}</div>
       {contentUnavailable ? <div className="wb-empty"><p>{t.user.contentError}</p></div> : reactions.length ? <div className="repository-grid">{reactions.map((item) => <article key={item.id}>
         <header><Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link><span>{t.user.peopleCount(item.followers)}</span></header>
-        <Link className="repository-scheme" href={`/reaction/${item.id}`}><img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={`${profile.username}公开反应 HRID ${item.id}`} /></Link>
+        <Link className="repository-scheme" href={`/reaction/${item.id}`}><img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={t.reaction.equationAlt(item.id)} /></Link>
       </article>)}</div> : <div className="wb-empty"><p>{t.user.noReactions}</p></div>}
       {!contentUnavailable && profile.public_reactions > 20 && <nav className="profile-pagination" aria-label={t.common.pageNav}>
         {page > 1 ? <Link href={page === 2 ? base : `${base}?page=${page - 1}`}>{t.common.prev}</Link> : <span />}

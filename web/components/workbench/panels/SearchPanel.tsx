@@ -101,7 +101,8 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img loading="lazy" src={molSvgUrl(chem.id, 160, 110)} alt="" />
                 <div>
-                  <strong>{chem.preferred_name || chem.iupac_name || chem.cas_numbers[0] || `HCID ${chem.id}`}</strong>
+                  <strong>{chem.preferred_name || chem.iupac_name || chem.cas_numbers[0]}</strong>
+                  <EntityId kind="chemical" id={chem.id} compact />
                   <span>{chem.molecular_formula || chem.inchikey || ""}</span>
                 </div>
               </Link>

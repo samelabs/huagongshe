@@ -644,6 +644,10 @@
   color: var(--wb-heading);
   font-weight: var(--wb-w-medium);
 }
+.wb-search-chemical .entity-id {
+  display: inline-flex;
+  margin: 2px 0;
+}
 .wb-search-chemical span {
   display: block;
   font-size: var(--wb-fs-xs);
