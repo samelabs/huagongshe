@@ -67,7 +67,6 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
           </svg>
           <input
             type="text"
-            inputMode="search"
             enterKeyHint="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}

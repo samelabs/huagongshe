@@ -29,7 +29,6 @@ export function GlobalSearch({ initial = "", compact = false }: {
           <input
             ref={inputRef}
             type="text"
-            inputMode="search"
             enterKeyHint="search"
             value={query}
             onChange={(e) => { setQuery(e.target.value); }}
