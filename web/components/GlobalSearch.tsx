@@ -29,7 +29,6 @@ export function GlobalSearch({ initial = "", compact = false }: {
           <input
             ref={inputRef}
             type="text"
-            enterKeyHint="search"
             value={query}
             onChange={(e) => { setQuery(e.target.value); }}
             placeholder={compact ? t.search.hintNameShort : t.home.searchPlaceholder}

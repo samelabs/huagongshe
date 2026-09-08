@@ -68,7 +68,6 @@ export function HomePanel({ counts, initialReactions }: {
           </svg>
           <input
             type="text"
-            enterKeyHint="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t.me.homeSearchPlaceholder}
