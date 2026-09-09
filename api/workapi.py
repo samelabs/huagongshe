@@ -445,16 +445,24 @@ async def cas_complete_job(
         # 占位行机制(2026-08-29定): 搜索miss入队时已占主表行, 任务必有
         # chemical_id。无主行建行分支已删除 — complete 落 cb 表数据 +
         # 结构三件回填(占位行靠这个出图)。
+        payload = body.result
+        status = payload.status
         if chemical_id is None:
-            # 兼容残量: 老无主行任务(存量10条跑完即绝迹) — 出表。
-            payload = body.result
+            # 无主行任务(AMBIGUOUS 入列: resolver 不猜行, job 带
+            # chemical_id=NULL — 生产代码当前仍能新建此类 job,
+            # "存量10条跑完即绝迹"不再成立, 见 enqueue_cas_search_fetch)。
+            # B-minimal 漏口修复(2026-09-10): unbound job 明确 zh-CN
+            # not_found → 同事务记录 cas_locator negative(与 job DELETE
+            # 原子), 下次同 CAS 搜索在重问窗内不再重抓。
+            # 不建行/不猜候选/不写 chemical_cb; ok 路径另行审计(见下)。
+            if status == "not_found" and payload.locale == "zh-CN":
+                await record_negative(
+                    db, "cas_locator", cas_number=cas_number)
             await db.execute(text("""
                 DELETE FROM maintenance.cas_jobs WHERE id=:job_id
             """), {"job_id": body.job_id})
             await db.commit()
             return {"status": payload.status, "standalone": True}
-        payload = body.result
-        status = payload.status
         entry = payload.entry if status == "ok" else None
         locale = payload.locale
         suppliers = payload.suppliers if status == "ok" and locale == "zh-CN" else []

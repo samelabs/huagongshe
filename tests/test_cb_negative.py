@@ -503,5 +503,103 @@ class CbNegativeTests(unittest.TestCase):
         self.assertEqual(len(self._neg()), 0)
 
 
+    def test_15_unbound_ambiguous_cas_not_found_chain(self):
+        """远端验收漏口修复: 真实 AMBIGUOUS 链的 unbound job
+        (chemical_id=NULL) 明确 not_found → 同事务记 cas_locator
+        negative + job DELETE。真链: 双行同 CAS → resolve AMBIGUOUS
+        → enqueue_cas_search_fetch → NULL job → 真 complete。"""
+        import string
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from api.services.cb import cas_search_state, enqueue_cas_search_fetch
+        from api.services.identity import resolve_chemical
+
+        cas = f"{RUN}-90-{RUN % 10}"
+        # 两条共享同 CAS (无 cid/ik/mol → 无结构判据) → resolver AMBIGUOUS
+        a = self._mk_chemical(preferred_name=f"ut4-neg-{RUN}-a",
+                              cas_numbers=[cas])
+        b = self._mk_chemical(preferred_name=f"ut4-neg-{RUN}-b",
+                              cas_numbers=[cas])
+
+        async def go():
+            async with AsyncSession(self.engine) as db:
+                res = await resolve_chemical(db, cas=cas)
+                if res.status != "AMBIGUOUS":
+                    return ("resolve", res.status)
+                enq, rstatus, cid = await enqueue_cas_search_fetch(
+                    db, cas_number=cas)
+                await db.commit()
+                return ("ok", enq, rstatus, cid)
+
+        r = _run(go())
+        self.assertEqual(r[0], "ok", f"resolver 状态: {r}")
+        _, enq, rstatus, cid = r
+        self.assertTrue(enq)
+        self.assertEqual(rstatus, "AMBIGUOUS")
+        self.assertIsNone(cid, "AMBIGUOUS 不建行不猜行")
+
+        jobs = self._q("""
+            SELECT id, chemical_id FROM maintenance.cas_jobs
+            WHERE cas_number=:c
+        """, c=cas)
+        self.assertEqual(len(jobs), 1)
+        self.assertIsNone(jobs[0]["chemical_id"], "unbound job chemical_id=NULL")
+        jid = int(jobs[0]["id"])
+
+        # worker 租约转换 (真实 lease 端点等价步骤, 非 INSERT NULL job)
+        from api.services.workqueue import lease_hash
+        self.assertEqual(len(self._q("""
+            UPDATE maintenance.cas_jobs
+            SET status='leased', lease_owner=:w,
+                lease_token_hash=CAST(:h AS bytea),
+                lease_expires_at=now()+interval '10 min'
+            WHERE id=:i RETURNING id AS x
+        """, w=f"ut4negw{RUN}", h=lease_hash(self.LEASE_TOKEN), i=jid)), 1)
+
+        # 真 complete NOT_FOUND (端点直调, 不手工 INSERT NULL job)
+        resp = self._complete(jid, {
+            "status": "not_found", "entry": None, "suppliers": []})
+        self.assertEqual(resp.get("status"), "not_found")
+        self.assertTrue(resp.get("standalone"))
+
+        # 断言组: negative 恰1 + key 正确 + job 删 + 双行原样 + 零redirect
+        # + 零merge_log + chemical_cb 零not_found + fresh窗内不再新job
+        negs = self._neg("cas_locator")
+        self.assertEqual(len(negs), 1)
+        self.assertEqual(negs[0]["negative_key"], f"cbneg:cas:{cas}")
+        self.assertFalse(self._job_alive(jid))
+        self.assertEqual(len(self._q(
+            "SELECT 1 AS x FROM chemistry.chemicals WHERE id=:i", i=a)), 1)
+        self.assertEqual(len(self._q(
+            "SELECT 1 AS x FROM chemistry.chemicals WHERE id=:i", i=b)), 1)
+        redirects = self._q("""
+            SELECT count(*) AS n FROM maintenance.chemical_identity_redirect
+            WHERE old_chemical_id IN (:a, :b)
+        """, a=a, b=b)
+        self.assertEqual(redirects[0]["n"], 0)
+        merges = self._q("""
+            SELECT count(*) AS n FROM maintenance.identity_merge_log
+            WHERE source_id IN (:a, :b) OR target_id IN (:a, :b)
+        """, a=a, b=b)
+        self.assertEqual(merges[0]["n"], 0)
+        nf = self._q("""
+            SELECT count(*) AS n FROM chemistry.chemical_cb
+            WHERE chemical_id IN (:a, :b) AND last_status='not_found'
+        """, a=a, b=b)
+        self.assertEqual(nf[0]["n"], 0)
+
+        async def search10():
+            async with AsyncSession(self.engine) as db:
+                return [await cas_search_state(db, cas) for _ in range(10)]
+
+        states = _run(search10())
+        self.assertEqual(set(states), {"miss"},
+                         "fresh negative 窗内 10 次搜索不再产生新 job")
+        jobs2 = self._q("""
+            SELECT count(*) AS n FROM maintenance.cas_jobs
+            WHERE cas_number=:c
+        """, c=cas)
+        self.assertEqual(jobs2[0]["n"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
