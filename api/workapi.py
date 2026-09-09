@@ -430,6 +430,80 @@ async def cas_heartbeat(
         raise
 
 
+async def _bind_unbound_ok(db, body, payload, cas_number: str) -> int | None:
+    """B-safe (P1): unbound CAS OK 的安全绑定判定。
+
+    authority = resolved chemical_id 必须属于 callback-time CAS candidate
+    set — 不使用 resolver reason 作 authority(resolver 序位 CID→global IK→
+    CAS: 候选自带 IK+mol 时先返回 ik-structural-hit, 集外 C 可在 global IK
+    序位提前胜出, reason 会骗人, 集合成员资格不会)。
+
+    契约 (用户令 2026-09-10):
+    - multi-candidate: 必须有 valid incoming IK; resolve_chemical(create=
+      False) 返回 EXACT/EQUIVALENT 且 id ∈ candidate set 才 bind。
+      AMBIGUOUS/CONFLICT/NEW/集外命中/IK 缺失 → 不 bind。不得 NEW/absorb/merge。
+    - single-candidate A: IK 缺失可按 frozen CAS-unique contract bind A;
+      IK 非空时须 A.inchikey IS NULL 或 == incoming (调用方 fail-closed,
+      不改 frozen resolver — resolver 的 cas-unique-hit 不校验行内 IK)。
+    - zero-candidate: 永不建行 — NEW(create=False) 也只是 unresolved。
+    - IK 必须符合标准 14-10-1 形态(总长 27)才作 identity evidence;
+      malformed 当无 IK, 不得写入 chemicals.inchikey。
+    unresolved → 结构化日志(不记整 payload), 返回 None。
+    """
+    from .services.cb import resolve_structure
+    from .pubchem_core import INCHIKEY_RE
+
+    # callback-time candidate set (当前事实, 非 enqueue-time 快照 —
+    # 异步期间 identity 可能已收敛; 不新增快照 schema, 不加 row-lock)
+    candidates = (await db.execute(text("""
+        SELECT id, inchikey FROM chemistry.chemicals
+        WHERE cas_numbers @> ARRAY[:cas]
+        ORDER BY id
+    """), {"cas": cas_number})).mappings().all()
+    cand_ids = [int(r["id"]) for r in candidates]
+
+    structure = resolve_structure(payload.entry, payload.mol)
+    raw_ik = structure.get("inchikey")
+    incoming_ik = raw_ik if (raw_ik and INCHIKEY_RE.fullmatch(raw_ik)) else None
+    # malformed IK 当作无 IK — 不作 identity evidence, 不得写入
+
+    def _unresolved(resolver_status: str, resolver_reason: str) -> None:
+        logger.warning(
+            "event=cb_unbound_ok_unresolved cas=%s candidate_ids=%s "
+            "resolver_status=%s resolver_reason=%s has_valid_ik=%s cb_number=%s",
+            cas_number, cand_ids, resolver_status, resolver_reason,
+            incoming_ik is not None, payload.cb_number)
+
+    if not cand_ids:
+        _unresolved("NEW", "zero-callback-time-candidates")
+        return None
+
+    if len(cand_ids) == 1:
+        a = candidates[0]
+        if incoming_ik is None:
+            # IK 缺失 + 事实已收敛唯一候选 → frozen CAS-unique contract
+            return cand_ids[0]
+        if a["inchikey"] is None or a["inchikey"] == incoming_ik:
+            return cand_ids[0]
+        # A.inchikey != incoming → 拒绝(resolver cas-unique 不校验此点)
+        _unresolved("EQUIVALENT", "single-candidate-ik-mismatch")
+        return None
+
+    # multi-candidate: 必须有 valid IK
+    if incoming_ik is None:
+        _unresolved("AMBIGUOUS", "multi-candidate-no-valid-ik")
+        return None
+    from .services.identity import resolve_chemical
+    res = await resolve_chemical(
+        db, inchikey=incoming_ik, cas=cas_number, create=False)
+    if (res.status in ("EXACT", "EQUIVALENT")
+            and res.chemical_id is not None
+            and res.chemical_id in cand_ids):
+        return res.chemical_id
+    _unresolved(res.status, res.reason or "")
+    return None
+
+
 @router.post("/cas/jobs/complete")
 async def cas_complete_job(
     body: CasCompleteBody,
@@ -442,6 +516,7 @@ async def cas_complete_job(
         job = await verified_cas_lease(db, body, worker.worker_id)
         chemical_id = job[1]
         cas_number = job[2]
+        unbound_bound = False  # B-safe: unbound OK bind 成功标记
         # 占位行机制(2026-08-29定): 搜索miss入队时已占主表行, 任务必有
         # chemical_id。无主行建行分支已删除 — complete 落 cb 表数据 +
         # 结构三件回填(占位行靠这个出图)。
@@ -449,20 +524,40 @@ async def cas_complete_job(
         status = payload.status
         if chemical_id is None:
             # 无主行任务(AMBIGUOUS 入列: resolver 不猜行, job 带
-            # chemical_id=NULL — 生产代码当前仍能新建此类 job,
-            # "存量10条跑完即绝迹"不再成立, 见 enqueue_cas_search_fetch)。
-            # B-minimal 漏口修复(2026-09-10): unbound job 明确 zh-CN
-            # not_found → 同事务记录 cas_locator negative(与 job DELETE
-            # 原子), 下次同 CAS 搜索在重问窗内不再重抓。
-            # 不建行/不猜候选/不写 chemical_cb; ok 路径另行审计(见下)。
+            # chemical_id=NULL)。B-minimal: not_found → cas_locator
+            # negative(与 job DELETE 同事务)。
             if status == "not_found" and payload.locale == "zh-CN":
                 await record_negative(
                     db, "cas_locator", cas_number=cas_number)
-            await db.execute(text("""
-                DELETE FROM maintenance.cas_jobs WHERE id=:job_id
-            """), {"job_id": body.job_id})
-            await db.commit()
-            return {"status": payload.status, "standalone": True}
+            if status == "ok" and payload.locale == "zh-CN":
+                # B-safe (P1, 2026-09-10): unbound OK 只允许绑定
+                # callback-time CAS candidate set 内、证据无冲突的实体。
+                # 填补 enqueue 注释承诺但从未实现的"结构判据后 re-resolve
+                # 收敛"义务 — 此前 OK payload 直接随 job DELETE 丢弃。
+                bound_id = await _bind_unbound_ok(db, body, payload, cas_number)
+                if bound_id is not None:
+                    # safe bind 成功 → 复用 bound callback 的 positive
+                    # write half(见下, relocation/absorb half 除外 —
+                    # unbound 无 source row, absorb 无合法含义)。
+                    chemical_id = bound_id
+                    unbound_bound = True
+                else:
+                    # unresolved OK: 上游已证明 CAS 在 CB 存在 —
+                    # "CAS 不存在"的 negative fact 必须失效(与 job DELETE
+                    # 同事务); 候选零 canonical 写。
+                    await clear_negative(db, "cas_locator", cas_number=cas_number)
+                    await db.execute(text("""
+                        DELETE FROM maintenance.cas_jobs WHERE id=:job_id
+                    """), {"job_id": body.job_id})
+                    await db.commit()
+                    return {"status": status, "standalone": True,
+                            "resolved": False}
+            else:
+                await db.execute(text("""
+                    DELETE FROM maintenance.cas_jobs WHERE id=:job_id
+                """), {"job_id": body.job_id})
+                await db.commit()
+                return {"status": payload.status, "standalone": True}
         entry = payload.entry if status == "ok" else None
         locale = payload.locale
         suppliers = payload.suppliers if status == "ok" and locale == "zh-CN" else []
@@ -484,7 +579,16 @@ async def cas_complete_job(
         # 过 resolve 五状态契约; EQUIVALENT/EXACT 且目标行≠job行时过
         # can_merge 吸收(gate 内置于 absorb); AMBIGUOUS/CONFLICT 不写
         # 任何行的身份字段(数据只落子表), 规范见 docs/CHEMICALS_IDENTITY_GOVERNANCE.md
-        if status == "ok":
+        if status == "ok" and unbound_bound:
+            # B-safe: unbound bind 已在 _bind_unbound_ok 完成 — 目标行
+            # 就是 authority, 复用 positive write half。relocation/absorb
+            # half 对 unbound 旁路: unbound 无 source row, absorb(source=?,
+            # target=?) 无合法含义(§4 survivor contract 不适用)。
+            # structure fill 仍需执行(bind 判据用的 IK 与写回的 mol/smiles
+            # 同源, 只补空语义)。
+            structure = resolve_structure(entry, payload.mol)
+            await apply_structure_fill(db, chemical_id, structure)
+        elif status == "ok":
             from .services.identity import resolve_chemical, canonicalize_id
             structure = resolve_structure(entry, payload.mol)
             # 异步执行期间行可能已被合并(旧id已删) — redirect 兜底
