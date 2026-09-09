@@ -34,7 +34,13 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
 
   return (
     <section className="wb-panel">
-      <PanelHeading title={t.me.tabReactions} subtitle={subtitle[visibility]} count={state === "ready" ? total : "—"} unit={t.me.unitReaction} />
+      <PanelHeading
+        title={t.me.tabReactions}
+        subtitle={subtitle[visibility]}
+        count={state === "ready" ? total : "—"}
+        unit={t.me.unitReaction}
+        action={<Link className="wb-btn wb-btn-primary" href="/submit">{t.me.navNewReaction}</Link>}
+      />
       <nav className="wb-filters" aria-label={t.me.filterReactions}>
         {(["all", "private", "public"] as ReactionVisibility[]).map((value) => (
           <Link href={`/aichem?tab=mine&visibility=${value}`} className={visibility === value ? "active" : ""} key={value}>{labels[value]}</Link>

@@ -6,11 +6,12 @@ import { ApiError, reactionSvgUrl } from "@/lib/api";
 import t from "@/lib/i18n";
 import type { LoadState, Reaction } from "./types";
 
-export function PanelHeading({ title, subtitle, count, unit = "" }: {
+export function PanelHeading({ title, subtitle, count, unit = "", action }: {
   title: string;
   subtitle?: string;
   count?: number | string;
   unit?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="wb-panel-head">
@@ -18,7 +19,7 @@ export function PanelHeading({ title, subtitle, count, unit = "" }: {
         <h2>{title}</h2>
         {subtitle && <span>{subtitle}</span>}
       </div>
-      {count !== undefined && <strong>{count} {unit}</strong>}
+      {action ? <span className="wb-panel-head-side">{action}<strong>{count} {unit}</strong></span> : (count !== undefined ? <strong>{count} {unit}</strong> : null)}
     </div>
   );
 }

@@ -3,6 +3,13 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [1.4.1] — 2026-09-09
+
+- 工作台反应模块：列表头部常驻「新建反应」入口
+- 数据链 worker 配置：PubChem 限速调整与作用域恢复
+- 维护脚本与配套测试移出仓库，归档至运维目录
+- PWA 缓存版本更新
+
 ## [1.4.0] — 2026-09-08
 
 - 化合物身份治理上线：多来源数据统一身份裁定（结构证据授权合并、无判据挂起、冲突拒绝写入），合并全程留审计记录与旧 ID 重定向

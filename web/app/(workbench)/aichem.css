@@ -205,6 +205,7 @@
   font-weight: var(--wb-w-regular);
   white-space: nowrap;
 }
+.wb-panel-head-side { display: inline-flex; align-items: baseline; gap: var(--wb-sp-3); white-space: nowrap; }
 
 /* ═══════════════════════════════════════════════════════════════
    L5 — Components
