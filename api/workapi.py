@@ -192,6 +192,16 @@ async def complete_job(
             # canonical → 再写普通 enrichment → CID/IK 仅经 grant 补空。
             # ------------------------------------------------------------
             from .services.workqueue import adjudicate_pubchem_identity
+
+            # §2.2 query binding: expected CID = lease 行 query_value(生产契约
+            # = worker 实际被派发请求的 CID)。任何 identity adjudication 之前
+            # 先解析; 非法正整数 → fail-closed 零写入(job 照常完成出表)。
+            expected_cid = None
+            try:
+                _v = int(str(job[2]).strip())
+                expected_cid = _v if _v > 0 else None
+            except (TypeError, ValueError):
+                expected_cid = None
             core = payload.get("core") or {}
             inc_cid, inc_ik = None, None
             if core:
@@ -203,31 +213,48 @@ async def complete_job(
                 ik_raw = core.get("InChIKey")
                 if isinstance(ik_raw, str) and len(ik_raw) == 27:
                     inc_ik = ik_raw
-            chemical_id, grant, conflict = await adjudicate_pubchem_identity(
-                db, int(chemical_id), inc_cid, inc_ik)
 
-            if conflict:
-                # §2.1 fail-closed: identity CONFLICT → 该 payload 的实体事实
-                # (details 子表/主表普通字段/身份 grant) 全部零写入 — 禁止把
-                # CID=B 的 PubChem 数据挂到 CID=A 的 HCID 上。conflict 保留
-                # 可观测 warning; job 照常完成出表(最小改动, 终态治理后置)。
+            if expected_cid is None:
+                # §2.2 规则1: query_value 非法 → 不 adjudicate, 实体事实零写入。
                 logger.warning(
-                    "pubchem_identity_conflict chemical_id=%s incoming_cid=%s "
-                    "incoming_ik=%s existing_cid=%s existing_ik=%s reason=%s — "
-                    "payload facts withheld (fail-closed)",
-                    chemical_id, inc_cid, inc_ik,
-                    conflict.get("existing_cid"), conflict.get("existing_ik"),
-                    conflict.get("reason"))
+                    "pubchem_query_binding_invalid job_id=%s chemical_id=%s "
+                    "query_value=%r — payload facts withheld (fail-closed)",
+                    job[0], chemical_id, job[2])
+            elif inc_cid is not None and inc_cid != expected_cid:
+                # §2.2 规则2+4: callback CID 与请求 CID 漂移 → binding conflict。
+                # 任何 IK 匹配/resolver 候选都不得绕过 → 不进 adjudicate,
+                # 零 reconcile/absorb/merge, 实体事实全部扣留。
+                logger.warning(
+                    "pubchem_callback_binding_conflict job_id=%s chemical_id=%s "
+                    "expected_cid=%s incoming_cid=%s incoming_ik=%s — payload "
+                    "facts withheld, zero merge (fail-closed)",
+                    job[0], chemical_id, expected_cid, inc_cid, inc_ik)
             else:
-                await upsert_details(db, int(chemical_id), payload)
-                await sync_chemical_core(
-                    db, int(chemical_id), core,
-                    record_title=payload.get("record_title"),
-                    synonyms=payload.get("synonyms") or None,
-                    cas_numbers=payload.get("cas_numbers") or None,
-                    main_table_ids=payload.get("main_table_ids") or None,
-                    identity_grant=grant,
-                )
+                chemical_id, grant, conflict = await adjudicate_pubchem_identity(
+                    db, int(chemical_id), inc_cid, inc_ik)
+
+                if conflict:
+                    # §2.1 fail-closed: identity CONFLICT → 该 payload 的实体事实
+                    # (details 子表/主表普通字段/身份 grant) 全部零写入 — 禁止把
+                    # CID=B 的 PubChem 数据挂到 CID=A 的 HCID 上。conflict 保留
+                    # 可观测 warning; job 照常完成出表(最小改动, 终态治理后置)。
+                    logger.warning(
+                        "pubchem_identity_conflict chemical_id=%s incoming_cid=%s "
+                        "incoming_ik=%s existing_cid=%s existing_ik=%s reason=%s — "
+                        "payload facts withheld (fail-closed)",
+                        chemical_id, inc_cid, inc_ik,
+                        conflict.get("existing_cid"), conflict.get("existing_ik"),
+                        conflict.get("reason"))
+                else:
+                    await upsert_details(db, int(chemical_id), payload)
+                    await sync_chemical_core(
+                        db, int(chemical_id), core,
+                        record_title=payload.get("record_title"),
+                        synonyms=payload.get("synonyms") or None,
+                        cas_numbers=payload.get("cas_numbers") or None,
+                        main_table_ids=payload.get("main_table_ids") or None,
+                        identity_grant=grant,
+                    )
         # 出表: complete 即 DELETE, job 是纯队列不承载历史。
         await db.execute(text("""
             DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id

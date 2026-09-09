@@ -180,7 +180,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
         """existing CID=A + incoming CID=B → CONFLICT, 主表现值仍为 A。"""
         row_id = self._mk_chemical({"pubchem_cid": CID_A,
                                     "preferred_name": f"ut3-{RUN}-n1"})
-        job = self._mk_job(row_id)
+        job = self._mk_job(row_id, query_cid=CID_B)
         resp = self._complete(job, self._payload(cid=CID_B, name=f"ut3-{RUN}-other"))
         row = self._get_row(row_id)
         self.assertIsNotNone(row, "CONFLICT 路径不得删除原行")
@@ -191,7 +191,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
     def test_2_existing_ik_a_incoming_ik_b_no_overwrite(self):
         """existing IK=A + incoming IK=B → 不覆盖。"""
         row_id = self._mk_chemical({"inchikey": IK_A})
-        job = self._mk_job(row_id)
+        job = self._mk_job(row_id, query_cid=CID_A)
         self._complete(job, self._payload(ik=IK_B))
         row = self._get_row(row_id)
         self.assertIsNotNone(row)
@@ -200,7 +200,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
     def test_3_null_cid_incoming_a_fills_empty(self):
         """existing CID NULL + incoming CID=A → 合法补空。"""
         row_id = self._mk_chemical({"preferred_name": f"ut3-{RUN}-n3"})
-        job = self._mk_job(row_id)
+        job = self._mk_job(row_id, query_cid=CID_FILL)
         self._complete(job, self._payload(cid=CID_FILL))
         row = self._get_row(row_id)
         self.assertIsNotNone(row)
@@ -211,7 +211,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
         other = self._mk_chemical({"pubchem_cid": CID_SHARED, "inchikey": IK_C,
                                    "preferred_name": f"ut3-{RUN}-n4a"})
         me = self._mk_chemical({"preferred_name": f"ut3-{RUN}-n4b"})
-        job = self._mk_job(me)
+        job = self._mk_job(me, query_cid=CID_SHARED)
         resp = self._complete(job, self._payload(cid=CID_SHARED))
         survivor = resp.get("chemical_id")
         self.assertIn(survivor, (me, other), "resp 必须返回 absorb 后真实 survivor")
@@ -224,7 +224,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
     def test_5_transaction_failure_no_partial_identity(self):
         """事务中途失败不留下半写 identity。"""
         row_id = self._mk_chemical({"preferred_name": f"ut3-{RUN}-n5"})
-        job = self._mk_job(row_id)
+        job = self._mk_job(row_id, query_cid=CID_TX)
         os.environ.setdefault("HGS_DATABASE_URL",
                               "postgresql+asyncpg://test:test@127.0.0.1:5432/test_hgs")
         from api.services import workqueue as wq
@@ -258,7 +258,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
         """incoming CID 冲突时, 不得因 incoming IK 恰巧相同而绕过。"""
         row_id = self._mk_chemical({"pubchem_cid": CID_A, "inchikey": IK_A,
                                     "preferred_name": f"ut3-{RUN}-n6"})
-        job = self._mk_job(row_id)
+        job = self._mk_job(row_id, query_cid=CID_B)
         # incoming: CID=B(冲突) + IK=A(与行相同) → 必须仍按 CID 冲突 fail-closed
         self._complete(job, self._payload(cid=CID_B, ik=IK_A))
         row = self._get_row(row_id)
@@ -270,7 +270,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
         """incoming CID 合法但 incoming IK 与目标行 IK 冲突 → fail-closed(不写身份)。"""
         row_id = self._mk_chemical({"inchikey": IK_A,
                                     "preferred_name": f"ut3-{RUN}-n7"})
-        job = self._mk_job(row_id)
+        job = self._mk_job(row_id, query_cid=CID_FILL)
         # 行 CID NULL, incoming CID=新值 + IK=B ≠ 行 IK=A → IK 冲突, 身份零写入
         self._complete(job, self._payload(cid=CID_FILL, ik=IK_B))
         row = self._get_row(row_id)
@@ -284,7 +284,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
         other = self._mk_chemical({"pubchem_cid": CID_SHARED, "inchikey": IK_C,
                                    "preferred_name": f"ut3-{RUN}-n8a"})
         me = self._mk_chemical({"preferred_name": f"ut3-{RUN}-n8b"})
-        job = self._mk_job(me)
+        job = self._mk_job(me, query_cid=CID_SHARED)
         resp1 = self._complete(job, self._payload(cid=CID_SHARED))
         survivor1 = resp1.get("chemical_id")
         self.assertIn(survivor1, (me, other))
@@ -313,13 +313,22 @@ class PubChemWriteOrderTests(unittest.TestCase):
         holder = self._mk_chemical({"pubchem_cid": self._CID_HOLDER, "inchikey": ik_holder,
                                     "preferred_name": f"ut3-{RUN}-n9h"})
         src = self._mk_chemical({"preferred_name": f"ut3-{RUN}-n9s"})
-        job = self._mk_job(src)
+        job = self._mk_job(src, query_cid=self._CID_HOLDER)
         self._complete(job, self._payload(cid=self._CID_HOLDER, ik=ik_incoming))
         h, s = self._get_row(holder), self._get_row(src)
-        self.assertIsNotNone(h)
-        self.assertIsNotNone(s)
-        # 两 HCID 都存活
-        self.assertIsNot(h, s)
+        # §2.2 修正: 逐 ID 真实查询 — 两个原始 ID 行都必须仍存在(非 dict 比较)
+        self.assertIsNotNone(h, f"holder 行 id={holder} 必须仍存活")
+        self.assertIsNotNone(s, f"source 行 id={src} 必须仍存活")
+        self.assertNotEqual(holder, src, "两行必须是不同 HCID")
+        # 无 redirect 指向 destructive merge
+        from sqlalchemy import text
+        async def cnt_redirect():
+            async with self.engine.begin() as db:
+                return int((await db.execute(text("""
+                    SELECT count(*) FROM maintenance.chemical_identity_redirect
+                    WHERE old_chemical_id IN (:a,:b)
+                """), {"a": holder, "b": src})).scalar())
+        self.assertEqual(_run(cnt_redirect()), 0, "holder IK 冲突不得产生 redirect")
         # 无 merge_log
         from sqlalchemy import text
         async def cnt():
@@ -347,7 +356,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
     def test_10_cid_conflict_withholds_payload_facts(self):
         """§2.1 二(1): CID 冲突时 payload 实体事实零写入。"""
         row_id = self._mk_chemical({"pubchem_cid": CID_A, "preferred_name": "OLD"})
-        job = self._mk_job(row_id)
+        job = self._mk_job(row_id, query_cid=CID_B)
         self._complete(job, self._payload(cid=CID_B, name="WRONG"))
         row = self._get_row(row_id)
         self.assertIsNotNone(row)
@@ -359,7 +368,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
     def test_11_ik_conflict_withholds_payload_facts(self):
         """§2.1 二(2): IK 冲突时普通事实也不得写。"""
         row_id = self._mk_chemical({"inchikey": IK_A, "preferred_name": "OLD"})
-        job = self._mk_job(row_id)
+        job = self._mk_job(row_id, query_cid=CID_A)
         self._complete(job, self._payload(ik=IK_B, name="WRONG"))
         row = self._get_row(row_id)
         self.assertIsNotNone(row)
@@ -370,7 +379,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
     def test_12_conflict_no_merge_log(self):
         """§2.1 二(3): conflict callback 不得产生 merge_log。"""
         row_id = self._mk_chemical({"pubchem_cid": CID_A, "preferred_name": "OLD"})
-        job = self._mk_job(row_id)
+        job = self._mk_job(row_id, query_cid=CID_B)
         self._complete(job, self._payload(cid=CID_B, name="WRONG"))
         from sqlalchemy import text
         async def cnt():
@@ -393,6 +402,81 @@ class PubChemWriteOrderTests(unittest.TestCase):
         self.assertIsNotNone(row)
         self.assertEqual(row["pubchem_cid"], CID_FILL, "query_value=CID 且 incoming 同 CID → 合法补空")
         self.assertEqual(self._details_count(row_id), 1)
+
+    # ---- §2.2 query binding 边界 -----------------------------------
+
+    def _merge_log_count(self, *ids: int) -> int:
+        from sqlalchemy import text
+        async def go():
+            async with self.engine.begin() as db:
+                return int((await db.execute(text(
+                    "SELECT count(*) FROM maintenance.identity_merge_log "
+                    "WHERE source_id = ANY(:ids) OR target_id = ANY(:ids)"),
+                    {"ids": list(ids)})).scalar())
+        return _run(go())
+
+    def test_14_query_a_incoming_a_normal_write(self):
+        """A: query=A / incoming=A → 正常写入(§2.2 不阻断合法回补)。"""
+        row_id = self._mk_chemical({"preferred_name": f"ut3-{RUN}-n14"})
+        job = self._mk_job(row_id, query_cid=CID_FILL)
+        self._complete(job, self._payload(cid=CID_FILL, name=f"ut3-{RUN}-n14t"))
+        row = self._get_row(row_id)
+        self.assertIsNotNone(row)
+        self.assertEqual(row["pubchem_cid"], CID_FILL)
+        self.assertEqual(self._details_count(row_id), 1)
+
+    def test_15_query_a_incoming_b_zero_everything(self):
+        """B: query=A / incoming=B → binding conflict: 主表零变化 /
+        chemical_pubchem 零写入 / 零 merge_log。"""
+        row_id = self._mk_chemical({"preferred_name": "OLD"})
+        job = self._mk_job(row_id, query_cid=CID_A)
+        resp = self._complete(job, self._payload(cid=CID_B, name="WRONG"))
+        self.assertEqual(resp["status"], "ok", "binding conflict 仍正常完成出表")
+        row = self._get_row(row_id)
+        self.assertIsNone(row["pubchem_cid"], "主表 CID 零变化")
+        self.assertEqual(row["preferred_name"], "OLD", "主表普通字段零变化")
+        self.assertEqual(self._details_count(row_id), 0, "chemical_pubchem 零写入")
+        self.assertEqual(self._merge_log_count(row_id), 0, "零 merge_log")
+
+    def test_16_invalid_query_value_zero_entity_writes(self):
+        """C: query_value 非法 / incoming=A → 零实体写入(job 仍完成出表)。"""
+        row_id = self._mk_chemical({"preferred_name": "OLD"})
+        job = self._mk_job(row_id, query_cid=None)  # 保留旧夹具 'test' = 非法值
+        resp = self._complete(job, self._payload(cid=CID_A, name="WRONG"))
+        self.assertEqual(resp["status"], "ok", "query 非法仍按现有口径完成出表")
+        row = self._get_row(row_id)
+        self.assertIsNone(row["pubchem_cid"], "非法 query → 零身份写入")
+        self.assertEqual(row["preferred_name"], "OLD", "非法 query → 零普通写入")
+        self.assertEqual(self._details_count(row_id), 0)
+
+    def test_17_mismatch_ik_match_cannot_bypass_binding(self):
+        """D: query=A / incoming=B + incoming IK 可匹配其他行 → 仍零 merge。"""
+        # 另一行持 IK_X 且 CID=B — incoming IK 与它完全匹配
+        other = self._mk_chemical({"pubchem_cid": CID_B, "inchikey": IK_B})
+        row_id = self._mk_chemical({"preferred_name": "OLD"})
+        job = self._mk_job(row_id, query_cid=CID_A)
+        resp = self._complete(job, self._payload(cid=CID_B, ik=IK_B))
+        self.assertEqual(resp["status"], "ok")
+        row = self._get_row(row_id)
+        other_row = self._get_row(other)
+        self.assertIsNotNone(row, "query 行不得被 absorb 删除")
+        self.assertIsNotNone(other_row, "IK 匹配行不得被 absorb 删除")
+        self.assertIsNone(row["pubchem_cid"])
+        self.assertEqual(row["preferred_name"], "OLD")
+        self.assertEqual(self._details_count(row_id), 0)
+        self.assertEqual(self._merge_log_count(row_id, other), 0,
+                         "IK 可匹配其他行也不得绕过 query binding 产生 merge")
+
+    def test_18_query_a_incoming_cid_missing_no_grant(self):
+        """E: query=A / incoming CID 缺失 → 不产生 CID grant(IK-only 原规范)。"""
+        row_id = self._mk_chemical({"preferred_name": f"ut3-{RUN}-n18"})
+        job = self._mk_job(row_id, query_cid=CID_A)
+        # incoming 无 CID, 仅 IK → 走 IK-only 原路径, 绝不从 query_value 发明 CID
+        self._complete(job, self._payload(ik=IK_A, name=f"ut3-{RUN}-n18t"))
+        row = self._get_row(row_id)
+        self.assertIsNotNone(row)
+        self.assertIsNone(row["pubchem_cid"], "incoming 无 CID → 不得借 query_value 获得 CID grant")
+        self.assertEqual(row["inchikey"], IK_A, "IK-only 补空原规范保持")
 
 
 if __name__ == "__main__":
