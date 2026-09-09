@@ -594,12 +594,16 @@ async def cas_error_job(
 
 
 async def _verified_identity_lease(db, proof: LeaseProof, worker_id: str):
+    """§3.1: FOR UPDATE 行锁 — complete/error 对同一 lease 不允许并发
+    落两个不同终态; 第二个事务阻塞至第一个提交后看到 status 已非
+    leased → 409。与既有 PubChem verified lease 模型一致。"""
     from .services.workqueue import lease_hash
     row = (await db.execute(text("""
         SELECT id,chemical_id,evidence_value
         FROM maintenance.pubchem_identity_jobs
         WHERE id=:job_id AND status='leased' AND lease_owner=:worker_id
           AND lease_token_hash=:lease_hash AND lease_expires_at>now()
+        FOR UPDATE
     """), {
         "job_id": proof.job_id,
         "worker_id": worker_id,

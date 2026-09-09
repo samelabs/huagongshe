@@ -496,15 +496,17 @@ async def apply_structure_fill(
         "chemical_id": chemical_id, "smiles": smiles,
         "inchikey": inchikey, "molblock": molblock,
     })
-    # §3 MVP trigger 2: 本次真正发生 inchikey NULL → non-NULL 且 CID 仍空 →
-    # discovery 入列(仅本地 DB 动作, 零网络, 不阻塞回补主流程)。
-    if (before is not None and before[0] is None and inchikey
-            and before[1] is None):
+    # §3 MVP trigger 2(§3.1 修正: 真正 best-effort):
+    # 本次真正发生 inchikey NULL → non-NULL 且 CID 仍空 → discovery 入列。
+    # begin_nested savepoint 隔离 — SQL error 只回滚 savepoint,
+    # CB 回补主 transaction 可继续 commit。
+    if before is not None and before[0] is None and inchikey and before[1] is None:
         try:
-            from .discovery import enqueue_discovery
-            await enqueue_discovery(
-                db, chemical_id=chemical_id, inchikey=inchikey,
-                request_context={"origin": "cb_structure_fill"})
+            async with db.begin_nested():
+                from .discovery import enqueue_discovery
+                await enqueue_discovery(
+                    db, chemical_id=chemical_id, inchikey=inchikey,
+                    request_context={"origin": "cb_structure_fill"})
         except Exception:
             logger.warning("identity discovery enqueue failed chemical_id=%s",
                            chemical_id, exc_info=True)

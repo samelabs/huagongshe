@@ -50,8 +50,13 @@ class ErrorBody(LeaseProof):
 
 
 class IdentityCompleteBody(LeaseProof):
-    """§3 discovery complete: cid_list = PubChem /cids 原始集合(零裁剪)。"""
-    cid_list: list[int] = Field(default_factory=list, max_length=100)
+    """§3 discovery complete: cid_list = PubChem /cids 原始集合(零裁剪)。
+
+    §3.1: 无数量上限 — ">1 → AMBIGUOUS" 契约不允许语义截断。
+    资源边界仍由既有层承担: PubChem response 8MiB cap /
+    worker WorkAPI body 9.5MB cap / server worker body cap。
+    """
+    cid_list: list[int] = Field(default_factory=list)
 
 
 

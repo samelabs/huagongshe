@@ -63,6 +63,8 @@ async def enqueue_discovery(
     """
     ehash = _evidence_hash(inchikey)
     key = _dedupe_key(chemical_id, INCHIKEY_ONLY, ehash)
+    # §3.1 4A: 终态真正 immutable — DO UPDATE 带 WHERE 守卫,
+    # 终态行不 UPDATE/不刷新 updated_at; RETURNING 空 → None。
     row = (await db.execute(text("""
         INSERT INTO maintenance.pubchem_identity_jobs
             (chemical_id,evidence_type,evidence_value,evidence_hash,
@@ -77,6 +79,8 @@ async def enqueue_discovery(
             priority=greatest(
                 maintenance.pubchem_identity_jobs.priority, excluded.priority),
             updated_at=now()
+        WHERE maintenance.pubchem_identity_jobs.status
+              IN ('queued','leased','error')
         RETURNING id, status
     """), {
         "chemical_id": chemical_id,
@@ -87,7 +91,8 @@ async def enqueue_discovery(
         "dedupe_key": key,
         "request_context": json.dumps(request_context or {}, ensure_ascii=False),
     })).fetchone()
-    if row is None:  # ON CONFLICT 不可能 None, 防御
+    if row is None:
+        # 终态行: 不复活, 不触碰(含 updated_at)。调用方无感知。
         return None
     return int(row[0])
 
