@@ -146,7 +146,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 }
 
 .search-input-box {
-  position: relative; /* input 占满容器方案的锚点 */
   flex: 1;
   min-width: 0;
   display: flex;
@@ -172,12 +171,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 }
 .search-input-box:focus-within .search-input-box__icon { color: var(--blue); }
 .search-input-box input {
-  /* iOS standalone 键盘 IME 修复: input 本体占满容器(position方案),
-     使 tap 永远落在 input 上获得原生焦点 —— 程序化 focus() 转发在
-     WKWebView standalone 下弹出的键盘缺输入法切换(地球键) */
-  position: absolute;
-  inset: 0;
-  padding: 0 16px 0 46px;
+  flex: 1;
+  min-width: 0;
   border: 0;
   outline: 0;
   background: none;
@@ -188,8 +183,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 }
 .search-input-box input::placeholder { color: var(--quiet); }
 .search-input-box__clear {
-  position: relative; /* 盖在占满容器的 input 之上, 保持可点 */
-  z-index: 1;
   flex-shrink: 0;
   display: flex;
   align-items: center;
