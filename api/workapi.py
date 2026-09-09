@@ -206,21 +206,28 @@ async def complete_job(
             chemical_id, grant, conflict = await adjudicate_pubchem_identity(
                 db, int(chemical_id), inc_cid, inc_ik)
 
-            await upsert_details(db, int(chemical_id), payload)
-            await sync_chemical_core(
-                db, int(chemical_id), core,
-                record_title=payload.get("record_title"),
-                synonyms=payload.get("synonyms") or None,
-                cas_numbers=payload.get("cas_numbers") or None,
-                main_table_ids=payload.get("main_table_ids") or None,
-                identity_grant=grant,
-            )
             if conflict:
+                # §2.1 fail-closed: identity CONFLICT → 该 payload 的实体事实
+                # (details 子表/主表普通字段/身份 grant) 全部零写入 — 禁止把
+                # CID=B 的 PubChem 数据挂到 CID=A 的 HCID 上。conflict 保留
+                # 可观测 warning; job 照常完成出表(最小改动, 终态治理后置)。
                 logger.warning(
                     "pubchem_identity_conflict chemical_id=%s incoming_cid=%s "
-                    "incoming_ik=%s existing_cid=%s existing_ik=%s",
+                    "incoming_ik=%s existing_cid=%s existing_ik=%s reason=%s — "
+                    "payload facts withheld (fail-closed)",
                     chemical_id, inc_cid, inc_ik,
-                    conflict.get("existing_cid"), conflict.get("existing_ik"))
+                    conflict.get("existing_cid"), conflict.get("existing_ik"),
+                    conflict.get("reason"))
+            else:
+                await upsert_details(db, int(chemical_id), payload)
+                await sync_chemical_core(
+                    db, int(chemical_id), core,
+                    record_title=payload.get("record_title"),
+                    synonyms=payload.get("synonyms") or None,
+                    cas_numbers=payload.get("cas_numbers") or None,
+                    main_table_ids=payload.get("main_table_ids") or None,
+                    identity_grant=grant,
+                )
         # 出表: complete 即 DELETE, job 是纯队列不承载历史。
         await db.execute(text("""
             DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id

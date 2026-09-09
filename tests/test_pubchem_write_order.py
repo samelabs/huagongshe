@@ -118,16 +118,19 @@ class PubChemWriteOrderTests(unittest.TestCase):
                 ), cols)).scalar())
         return _run(go())
 
-    def _mk_job(self, chemical_id: int) -> int:
+    def _mk_job(self, chemical_id: int, query_cid: int | None = None) -> int:
+        """query_cid=None 保留旧夹具写法; 传值时模拟真实生产契约:
+        pubchem_jobs.query_value = worker 发起的 CID 请求值。"""
         from sqlalchemy import text
+        qv = str(query_cid) if query_cid is not None else "test"
         async def go():
             async with self.engine.begin() as db:
                 return int((await db.execute(text("""
                     INSERT INTO maintenance.pubchem_jobs
                         (chemical_id, query_value, dedupe_key, priority, status, lease_owner, lease_token_hash, lease_expires_at)
-                    VALUES (:c, 'test', :dk, 50, 'leased', :w, :h, now() + interval '10 min')
+                    VALUES (:c, :qv, :dk, 50, 'leased', :w, :h, now() + interval '10 min')
                     RETURNING id
-                """), {"c": chemical_id, "dk": f"ut3:{uuid.uuid4().hex}", "w": P + "w1",
+                """), {"c": chemical_id, "qv": qv, "dk": f"ut3:{uuid.uuid4().hex}", "w": P + "w1",
                        "h": self.lease_hash(LEASE_TOKEN)})).scalar())
         return _run(go())
 
@@ -297,6 +300,99 @@ class PubChemWriteOrderTests(unittest.TestCase):
                 """), {"a": me, "b": other})).scalar())
         merges = _run(count_merges())
         self.assertEqual(merges, 1, "重放不得产生第二次 destructive merge")
+
+    # ---- §2.1 边界矩阵 ---------------------------------------------
+
+    _CID_HOLDER = 910000001   # holder 行既有 CID
+
+    def test_9_incoming_ik_conflicts_with_existing_cid_holder(self):
+        """§2.1 一: source(NULL/NULL) + incoming(CID=holder.CID, IK≠holder.IK)
+        → 必须 CONFLICT, 不得因 same CID 直接 absorb。"""
+        ik_holder = "".join(random.choices(_string.ascii_uppercase, k=14)) + "-XXXXXXXXXX-A"
+        ik_incoming = "".join(random.choices(_string.ascii_uppercase, k=14)) + "-YYYYYYYYYY-A"
+        holder = self._mk_chemical({"pubchem_cid": self._CID_HOLDER, "inchikey": ik_holder,
+                                    "preferred_name": f"ut3-{RUN}-n9h"})
+        src = self._mk_chemical({"preferred_name": f"ut3-{RUN}-n9s"})
+        job = self._mk_job(src)
+        self._complete(job, self._payload(cid=self._CID_HOLDER, ik=ik_incoming))
+        h, s = self._get_row(holder), self._get_row(src)
+        self.assertIsNotNone(h)
+        self.assertIsNotNone(s)
+        # 两 HCID 都存活
+        self.assertIsNot(h, s)
+        # 无 merge_log
+        from sqlalchemy import text
+        async def cnt():
+            async with self.engine.begin() as db:
+                return int((await db.execute(text("""
+                    SELECT count(*) FROM maintenance.identity_merge_log
+                    WHERE source_id IN (:a,:b) OR target_id IN (:a,:b)
+                """), {"a": holder, "b": src})).scalar())
+        self.assertEqual(_run(cnt()), 0, "holder IK 冲突不得 destructive merge")
+        # holder IK 不变
+        self.assertEqual(h["inchikey"], ik_holder)
+        # source 不获得 CID / 不获得 incoming IK
+        self.assertIsNone(s["pubchem_cid"])
+        self.assertIsNone(s["inchikey"])
+
+    def _details_count(self, chemical_id: int) -> int:
+        from sqlalchemy import text
+        async def go():
+            async with self.engine.begin() as db:
+                return int((await db.execute(text(
+                    "SELECT count(*) FROM chemistry.chemical_pubchem WHERE chemical_id=:i"),
+                    {"i": chemical_id})).scalar())
+        return _run(go())
+
+    def test_10_cid_conflict_withholds_payload_facts(self):
+        """§2.1 二(1): CID 冲突时 payload 实体事实零写入。"""
+        row_id = self._mk_chemical({"pubchem_cid": CID_A, "preferred_name": "OLD"})
+        job = self._mk_job(row_id)
+        self._complete(job, self._payload(cid=CID_B, name="WRONG"))
+        row = self._get_row(row_id)
+        self.assertIsNotNone(row)
+        self.assertEqual(row["pubchem_cid"], CID_A, "CID 仍 A")
+        self.assertEqual(row["preferred_name"], "OLD", "冲突时 preferred_name 不得被 incoming 覆盖")
+        self.assertEqual(self._details_count(row_id), 0,
+                         "conflict → chemical_pubchem 不得新增/更新")
+
+    def test_11_ik_conflict_withholds_payload_facts(self):
+        """§2.1 二(2): IK 冲突时普通事实也不得写。"""
+        row_id = self._mk_chemical({"inchikey": IK_A, "preferred_name": "OLD"})
+        job = self._mk_job(row_id)
+        self._complete(job, self._payload(ik=IK_B, name="WRONG"))
+        row = self._get_row(row_id)
+        self.assertIsNotNone(row)
+        self.assertEqual(row["inchikey"], IK_A, "IK 仍 A")
+        self.assertEqual(row["preferred_name"], "OLD", "冲突时普通事实零写入")
+        self.assertEqual(self._details_count(row_id), 0)
+
+    def test_12_conflict_no_merge_log(self):
+        """§2.1 二(3): conflict callback 不得产生 merge_log。"""
+        row_id = self._mk_chemical({"pubchem_cid": CID_A, "preferred_name": "OLD"})
+        job = self._mk_job(row_id)
+        self._complete(job, self._payload(cid=CID_B, name="WRONG"))
+        from sqlalchemy import text
+        async def cnt():
+            async with self.engine.begin() as db:
+                return int((await db.execute(text(
+                    "SELECT count(*) FROM maintenance.identity_merge_log WHERE source_id=:s"),
+                    {"s": row_id})).scalar())
+        self.assertEqual(_run(cnt()), 0)
+
+    def test_13_query_value_cid_binding_contract(self):
+        """§2.1 契约确认: 正常生产 job 的 query_value = worker 请求 CID;
+        真实链路(完整回补)下 incoming CID 应等于 query_value CID。
+        本用例以 query_cid=CID_A 造 job, incoming 同 CID → 正常补空写入,
+        证明夹具可表达真实契约; binding 校验是否强制=待报告不扩大。"""
+        row_id = self._mk_chemical({"preferred_name": f"ut3-{RUN}-n13"})
+        job = self._mk_job(row_id, query_cid=CID_FILL)
+        resp = self._complete(job, self._payload(cid=CID_FILL, name=f"ut3-{RUN}-n13t"))
+        self.assertEqual(resp.get("chemical_id"), row_id)
+        row = self._get_row(row_id)
+        self.assertIsNotNone(row)
+        self.assertEqual(row["pubchem_cid"], CID_FILL, "query_value=CID 且 incoming 同 CID → 合法补空")
+        self.assertEqual(self._details_count(row_id), 1)
 
 
 if __name__ == "__main__":

@@ -291,6 +291,19 @@ async def adjudicate_pubchem_identity(
     if inc_cid is None:
         return chemical_id, grant, None
 
+    # --- §2.1 holder preflight: incoming CID+IK 先过现有 resolver 完整裁定 ---
+    # same-CID reconcile 只传 CID, 会漏 "holder CID=A/Ik=X vs incoming IK=Y"
+    # 的强键冲突; destructive reconciliation 前用 resolve_chemical 的
+    # 3.3 硬约束(cid vs 行上 ik)复核, CONFLICT → fail-closed, 不 absorb。
+    if inc_ik is not None:
+        from .identity import resolve_chemical
+        pre = await resolve_chemical(db, cid=inc_cid, inchikey=inc_ik, create=False)
+        if pre.status == "CONFLICT":
+            return chemical_id, {}, {
+                "incoming_cid": inc_cid, "incoming_ik": inc_ik,
+                "candidates": pre.candidates, "reason": "holder-ik-conflict",
+                **(pre.evidence or {})}
+
     # --- same-CID fork 收敛(0907 gate 原逻辑): resolve → absorb, 不改闸 ---
     canonical = await reconcile_pubchem_identity(db, chemical_id, inc_cid)
     if canonical != chemical_id:
