@@ -473,12 +473,16 @@ async def cas_complete_job(
                 # gate 拒绝(如 job 行与目标行均无强键) → 保留两行不合并,
                 # 数据只落子表; 规范"宁可暂时一物多行, 不允许两物误合一行"
                 try:
-                    await absorb(
+                    # §4 survivor contract: 必须使用 absorb 返回的真实
+                    # survivor_id — survivor selection 是 absorb 内部职权,
+                    # 调用方不得预判哪一行活。res.chemical_id 只是 target
+                    # 入参, target 落败时该行会被删, 后续 fill/externals/
+                    # 派发/缓存/summary 若继续用它=写已删行。
+                    chemical_id = await absorb(
                         db, source_id=job_chemical_id, target_id=res.chemical_id,
                         reason="workapi-relocation", trigger="cas_fetch_callback",
                         evidence_ik=structure.get("inchikey"),
                         evidence_cid=structure.get("pubchem_cid"))
-                    chemical_id = res.chemical_id
                 except MergeBlockedError as exc:
                     # 保留两行不中断回补, 但必须可观测 — 身份冲突不允许静默
                     logger.warning(
