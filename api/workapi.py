@@ -186,28 +186,41 @@ async def complete_job(
         chemical_id = await canonicalize_id(db, job[1])
         payload = as_json_object(result.get("payload")) if isinstance(result, dict) else {}
         if payload:
-            await upsert_details(db, int(chemical_id), payload)
+            # ------------------------------------------------------------
+            # 0909 §2 写前裁定: identity evidence 先于一切主表写入。
+            # 顺序: 提取 CID/IK → 强身份冲突判断 → resolve/reconcile 得
+            # canonical → 再写普通 enrichment → CID/IK 仅经 grant 补空。
+            # ------------------------------------------------------------
+            from .services.workqueue import adjudicate_pubchem_identity
             core = payload.get("core") or {}
+            inc_cid, inc_ik = None, None
+            if core:
+                try:
+                    v = int(core.get("CID") or 0)
+                    inc_cid = v if v > 0 else None
+                except (TypeError, ValueError):
+                    inc_cid = None
+                ik_raw = core.get("InChIKey")
+                if isinstance(ik_raw, str) and len(ik_raw) == 27:
+                    inc_ik = ik_raw
+            chemical_id, grant, conflict = await adjudicate_pubchem_identity(
+                db, int(chemical_id), inc_cid, inc_ik)
+
+            await upsert_details(db, int(chemical_id), payload)
             await sync_chemical_core(
                 db, int(chemical_id), core,
                 record_title=payload.get("record_title"),
                 synonyms=payload.get("synonyms") or None,
                 cas_numbers=payload.get("cas_numbers") or None,
                 main_table_ids=payload.get("main_table_ids") or None,
+                identity_grant=grant,
             )
-            # 0907 强身份回补 gate: enrichment 新 CID 落主表前(经上面的
-            # coalesce 补空)重新过 identity resolution — 新增 same-CID 分叉
-            # 的最后来源关闭; 只经正式 absorb(), gate 拒则两行保留+warning。
-            from .services.workqueue import reconcile_pubchem_identity
-            new_cid = None
-            if core:
-                try:
-                    v = int(core.get("CID") or 0)
-                    new_cid = v if v > 0 else None
-                except (TypeError, ValueError):
-                    new_cid = None
-            chemical_id = await reconcile_pubchem_identity(
-                db, int(chemical_id), new_cid)
+            if conflict:
+                logger.warning(
+                    "pubchem_identity_conflict chemical_id=%s incoming_cid=%s "
+                    "incoming_ik=%s existing_cid=%s existing_ik=%s",
+                    chemical_id, inc_cid, inc_ik,
+                    conflict.get("existing_cid"), conflict.get("existing_ik"))
         # 出表: complete 即 DELETE, job 是纯队列不承载历史。
         await db.execute(text("""
             DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id

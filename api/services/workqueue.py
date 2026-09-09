@@ -56,11 +56,22 @@ async def sync_chemical_core(
     synonyms: list[str] | None = None,
     cas_numbers: list[str] | None = None,
     main_table_ids: dict[str, list[str]] | None = None,
+    identity_grant: dict[str, Any] | None = None,
 ) -> None:
     """Synchronize trusted PubChem core fields without changing identity/structure.
+
+    0909 §2 写前裁定收口: 强身份字段(pubchem_cid/inchikey)不再从 incoming
+    properties 直取 — 调用方(complete_job)必须先完成 identity 裁定, 把
+    **已裁定可落**的身份值经 identity_grant 传入; 本函数只按"补空不覆盖"
+    语义写入。identity_grant 缺省(兼容旧调用面)时 cid/ik 一律不写。
+
     cas_numbers(0901 裁定): cb_number 为空才写(并集补空), 有 CB 印记归 CB 链。
-    main_table_ids: nikkaji/chembl/ec/unii/chebi/dtxsid 主表已有列补空(0901 方案§四)。"""
+    main_table_ids: nikkaji/chembl/ec/unii/chebi/dtxsid 主表已有列补空(0901 方案§四)。
+    """
     values = chemical_core_values(properties, record_title=record_title)
+    # §2 职责分离: identity 字段只来自裁定通道(grant), incoming payload 不再直写
+    values["pubchem_cid"] = (identity_grant or {}).get("pubchem_cid")
+    values["inchikey"] = (identity_grant or {}).get("inchikey")
     id_arrays = {
         "nikkaji_numbers": (main_table_ids or {}).get("nikkaji_numbers"),
         "chembl_ids": (main_table_ids or {}).get("chembl_ids"),
@@ -107,8 +118,9 @@ async def sync_chemical_core(
             molecular_formula=coalesce(incoming.molecular_formula,chemistry.chemicals.molecular_formula),
             average_mass=coalesce(incoming.average_mass,chemistry.chemicals.average_mass),
             monoisotopic_mass=coalesce(incoming.monoisotopic_mass,chemistry.chemicals.monoisotopic_mass),
-            inchikey=coalesce(incoming.inchikey,chemistry.chemicals.inchikey),
-            pubchem_cid=coalesce(incoming.pubchem_cid,chemistry.chemicals.pubchem_cid),
+            -- §2 强身份: 只补空(existing-first), 非空冲突永不覆盖
+            inchikey=coalesce(chemistry.chemicals.inchikey, incoming.inchikey),
+            pubchem_cid=coalesce(chemistry.chemicals.pubchem_cid, incoming.pubchem_cid),
             pubchem_smiles=coalesce(incoming.pubchem_smiles,chemistry.chemicals.pubchem_smiles),
             synonyms=CASE WHEN incoming.sync_synonyms
                 THEN incoming.synonyms ELSE chemistry.chemicals.synonyms END,
@@ -232,6 +244,77 @@ async def reconcile_pubchem_identity(
             "merge_gate_blocked chemical_id=%s target=%s reason=%s",
             chemical_id, target, exc)
         return chemical_id
+
+
+async def adjudicate_pubchem_identity(
+    db: Any, chemical_id: int,
+    inc_cid: int | None, inc_ik: str | None,
+) -> tuple[int, dict[str, Any], dict[str, Any] | None]:
+    """0909 §2 写前裁定: incoming CID/IK 先裁定, 后写入。
+
+    返回 (canonical_chemical_id, identity_grant, conflict):
+    - grant: 经裁定可落的强身份值(仅补空), 由 sync_chemical_core 写入
+    - conflict: 行上强身份冲突事实 — 不吞、不覆盖、不吸收, 仅可观测
+    顺序: 行上冲突判断 → 补空 grant → same-CID fork 收敛(reconcile/absorb)
+    → fork 未收敛时撤回 CID grant(禁止制造 same-CID 分叉)。
+    can_merge/absorb 冻结规则不变; 本函数只重排写序, 不新增任何合并权限。
+    """
+    from ..pubchem_core import INCHIKEY_RE
+    if inc_ik is not None and not INCHIKEY_RE.fullmatch(inc_ik):
+        inc_ik = None  # 格式非法的 IK 不作为 evidence
+
+    row = (await db.execute(text("""
+        SELECT pubchem_cid, inchikey FROM chemistry.chemicals WHERE id=:id
+    """), {"id": chemical_id})).mappings().first()
+    if row is None:
+        return chemical_id, {}, None
+    ex_cid, ex_ik = row["pubchem_cid"], row["inchikey"]
+
+    # --- 行上强身份冲突: fail-closed, 身份零写入(普通 enrichment 照走) ---
+    conflict = None
+    if inc_cid is not None and ex_cid is not None and inc_cid != ex_cid:
+        # CID 冲突先判 — 不因 incoming IK 恰巧相同而绕过
+        conflict = {"existing_cid": ex_cid, "existing_ik": ex_ik,
+                    "incoming_cid": inc_cid, "reason": "cid-conflict"}
+    elif inc_ik is not None and ex_ik is not None and inc_ik != ex_ik:
+        conflict = {"existing_cid": ex_cid, "existing_ik": ex_ik,
+                    "incoming_ik": inc_ik, "reason": "ik-conflict"}
+    if conflict:
+        return chemical_id, {}, conflict
+
+    grant: dict[str, Any] = {}
+    if ex_cid is None and inc_cid is not None:
+        grant["pubchem_cid"] = inc_cid
+    if ex_ik is None and inc_ik is not None:
+        grant["inchikey"] = inc_ik
+
+    if inc_cid is None:
+        return chemical_id, grant, None
+
+    # --- same-CID fork 收敛(0907 gate 原逻辑): resolve → absorb, 不改闸 ---
+    canonical = await reconcile_pubchem_identity(db, chemical_id, inc_cid)
+    if canonical != chemical_id:
+        # 已收敛: 以 survivor 落库后实际状态重算 grant(merge 白名单可能已带上)
+        srow = (await db.execute(text("""
+            SELECT pubchem_cid, inchikey FROM chemistry.chemicals WHERE id=:id
+        """), {"id": canonical})).mappings().first()
+        grant = {}
+        if srow is not None:
+            if srow["pubchem_cid"] is None:
+                grant["pubchem_cid"] = inc_cid
+            if srow["inchikey"] is None and inc_ik is not None:
+                grant["inchikey"] = inc_ik
+        return canonical, grant, None
+
+    # reconcile 未移动行: 他行仍持有该 CID(absorb 被闸拒 / resolver CONFLICT)
+    # → 撤回 CID grant, 禁止制造 same-CID 分叉
+    holder = (await db.execute(text("""
+        SELECT 1 FROM chemistry.chemicals
+        WHERE pubchem_cid=:c AND id<>:me LIMIT 1
+    """), {"c": inc_cid, "me": chemical_id})).first()
+    if holder is not None:
+        grant.pop("pubchem_cid", None)
+    return chemical_id, grant, None
 
 
 async def upsert_details(

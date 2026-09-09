@@ -83,7 +83,11 @@ class WorkApiContractTests(unittest.TestCase):
             from sqlalchemy.ext.asyncio import create_async_engine as _ce
             from sqlalchemy import text as _t
             async def _cleanup():
-                tmp = _ce((__import__("tests.db_gate", fromlist=["require_test_db"]).require_test_db()))
+                _u = __import__("tests.db_gate", fromlist=["require_test_db"]).require_test_db()
+                _u = _u.split("?")[0]
+                if _u.startswith("postgresql://"):
+                    _u = "postgresql+asyncpg://" + _u.split("://", 1)[1]
+                tmp = _ce(_u)
                 # 先归还测试名下租约(否则 lease_shape CHECK 挡 DELETE), 再删凭据
                 async with tmp.begin() as c:
                     await c.execute(_t("""

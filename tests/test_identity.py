@@ -32,6 +32,13 @@ try:
 except Exception:  # noqa: BLE001 — 闸缺失/不合规都视为无测试库
     DB_URL = None
 
+if DB_URL:
+    # 闸返回值带 sentinel query(asyncpg 会把 query 误当 connect kwarg);
+    # 在闸出口一次性规范化: 去 query + 转 asyncpg 驱动前缀, 全文件共用
+    DB_URL = DB_URL.split("?", 1)[0]
+    if not DB_URL.startswith("postgresql+asyncpg://"):
+        DB_URL = "postgresql+asyncpg://" + DB_URL.split("://", 1)[1]
+
 # 测试专用标记值 — 不可能与真实数据相撞
 CAS = "99999-99-9"
 IK = "TESTTESTTESTTESTEST-UHFFFAOYSA-N"
@@ -839,6 +846,9 @@ class OneToOneMergeTests(IdentityResolutionTests):
                 for i, (cid_, role, oc) in enumerate([
                         (111111, "REACTANT", 1), (222222, "SOLVENT", 5)]):
                     await db.execute(text(
+                        "INSERT INTO chemistry.reactions (id) VALUES (:r) ON CONFLICT DO NOTHING"),
+                        {"r": cid_})
+                    await db.execute(text(
                         "INSERT INTO chemistry.reaction_chemicals"
                         " (reaction_id, chemical_id, role, occurrence_count)"
                         " VALUES (:r,:c,:ro,:oc)"),
@@ -848,6 +858,8 @@ class OneToOneMergeTests(IdentityResolutionTests):
                     "INSERT INTO chemistry.reaction_chemicals"
                     " (reaction_id, chemical_id, role, occurrence_count, amount_value)"
                     " VALUES (111111,:c,'REACTANT',3,7.5)"), {"c": ph})
+                await db.execute(text(
+                    "INSERT INTO chemistry.reactions (id) VALUES (333333) ON CONFLICT DO NOTHING"))
                 await db.execute(text(
                     "INSERT INTO chemistry.reaction_chemicals"
                     " (reaction_id, chemical_id, role, occurrence_count)"
@@ -890,6 +902,8 @@ class OneToOneMergeTests(IdentityResolutionTests):
             async with self._session() as db:
                 tgt = await self._insert(db, cid=990000202, mol=True)
                 ph = await self._insert(db, cid=990000202)
+                await db.execute(text(
+                    "INSERT INTO chemistry.reactions (id) VALUES (444444) ON CONFLICT DO NOTHING"))
                 await db.execute(text(
                     "INSERT INTO chemistry.reaction_chemicals"
                     " (reaction_id, chemical_id, role, occurrence_count)"
@@ -973,6 +987,8 @@ class OneToOneMergeTests(IdentityResolutionTests):
             async with self._session() as db:
                 tgt = await self._insert(db, cid=990000204, mol=True)
                 ph = await self._insert(db, cid=990000204)
+                await db.execute(text(
+                    "INSERT INTO chemistry.reactions (id) VALUES (555555) ON CONFLICT DO NOTHING"))
                 await db.execute(text(
                     "INSERT INTO chemistry.reaction_chemicals"
                     " (reaction_id, chemical_id, role, occurrence_count)"

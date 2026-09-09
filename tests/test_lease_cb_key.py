@@ -14,6 +14,7 @@ except Exception:
     _raw = None
 if _raw:
     DB_URL = _raw
+    DB_URL = _raw.split("?")[0]  # 去 sentinel query, 不下传驱动
     ASYNC = re.sub(r'postgres(?:ql)?://([^:]+):([^@]+)@',
                    lambda m: f'postgresql+asyncpg://{m.group(1)}:{m.group(2)}@',
                    DB_URL)
