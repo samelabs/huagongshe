@@ -437,6 +437,7 @@ async def cas_complete_job(
     worker: WorkerContext = Depends(authenticated_worker),
 ):
     from .services.cb import CACHE_KEY, apply_structure_fill, resolve_structure, upsert_externals
+    from .services.cb import clear_negative, negative_is_fresh, record_negative
     try:
         job = await verified_cas_lease(db, body, worker.worker_id)
         chemical_id = job[1]
@@ -457,6 +458,20 @@ async def cas_complete_job(
         entry = payload.entry if status == "ok" else None
         locale = payload.locale
         suppliers = payload.suppliers if status == "ok" and locale == "zh-CN" else []
+        # B-minimal negative observations (2026-09-10):
+        # 明确 NOT_FOUND → 独立观察表记录 (grain 不折叠: zh 链未拿到
+        # cb_number → cas_locator; 语言链有明确 source locator →
+        # locale_variant)。ERROR 永不落 negative。chemical_cb 零写入。
+        if status == "not_found":
+            if locale == "zh-CN":
+                await record_negative(
+                    db, "cas_locator", cas_number=cas_number)
+            elif payload.cb_number:
+                # 只有明确 source locator (cb_number+locale) 才允许记录;
+                # 拿不到 → fail closed 零记录(禁止从主表 convenience 字段猜)
+                await record_negative(
+                    db, "locale_variant", cb_number=payload.cb_number,
+                    locale=locale)
         # 0906 治理机制(规范版): 回补重定位 — 拿本任务刚解析出的 inchikey
         # 过 resolve 五状态契约; EQUIVALENT/EXACT 且目标行≠job行时过
         # can_merge 吸收(gate 内置于 absorb); AMBIGUOUS/CONFLICT 不写
@@ -522,6 +537,14 @@ async def cas_complete_job(
             "supplier_count": len(suppliers),
             "entry_keys": sorted(entry.keys()) if entry else [],
         }
+        # B-minimal: 上游明确 ok → 同事务清除对应 negative (CAS locator /
+        # locale variant)。positive 数据已落, 旧 negative 观察失效。
+        if status == "ok":
+            await clear_negative(db, "cas_locator", cas_number=cas_number)
+            if payload.cb_number and locale != "zh-CN":
+                await clear_negative(
+                    db, "locale_variant", cb_number=payload.cb_number,
+                    locale=locale)
         # 多语言派发(2026-08-30 准线§2): zh-CN ok 且拿到 cb_number 时, 对
         # 五语言逐一六态判定, 满足才入列(事件驱动, 替代已拆除的 TTL定时扫描)。
         # 语言页靠 cb_number 寻址; 语言任务 complete 不再派生(单点派发)。
@@ -529,6 +552,13 @@ async def cas_complete_job(
         if status == "ok" and locale == "zh-CN" and payload.cb_number:
             from .services.cb import cb_decide, enqueue_cas_job
             for lang in ("en", "ja", "de", "ko"):
+                # B-minimal: fresh locale negative → 该 (cb, locale) 已明确
+                # 无变体(重问窗内), 不再派发 — "zh 有 / en 无"是正常事实,
+                # 不得反复抓。expired → 允许重新验证(fall through 入列)。
+                if await negative_is_fresh(
+                        db, "locale_variant", cb_number=payload.cb_number,
+                        locale=lang):
+                    continue
                 decision = await cb_decide(
                     db, chemical_id, lang, has_cb_number=True,
                     cb_number=payload.cb_number,

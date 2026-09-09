@@ -518,6 +518,92 @@ async def apply_structure_fill(
 CB_LOCALES = ("zh-CN", "en", "ja", "de", "ko")  # ru已摘(0831误加未实测, ru页对爬虫全封)
 
 
+# ---------------------------------------------------------------------------
+# B-minimal: CB negative observations (absence semantics, 2026-09-10 用户令)
+#
+# 不变量:
+# - chemical_cb 只承载 positive data; 本机制绝不写 last_status='not_found'
+# - cas_jobs 继续只承载 queued/leased/error; 终态 complete 后 DELETE 不变
+# - negative observation 无 chemical_id — absorb/rekey/merge registry 零关联
+# - ERROR 永不落 negative; 只有 caslib 判定的明确 NOT_FOUND 才记录
+# - key grain 不折叠: cas_locator(CAS 缺) ≠ locale_variant((cb,locale) 缺)
+# ---------------------------------------------------------------------------
+
+
+def negative_key(kind: str, *, cas_number: str | None = None,
+                 cb_number: str | None = None,
+                 locale: str | None = None) -> str | None:
+    """规范化 negative key。shape 不合(缺定位键)→ None = fail closed 不记录。"""
+    cas = (cas_number or "").strip() or None
+    cb = (cb_number or "").strip() or None
+    loc = (locale or "").strip() or None
+    if kind == "cas_locator":
+        return f"cbneg:cas:{cas}" if cas else None
+    if kind == "locale_variant":
+        # 禁止从 chemicals.cb_number convenience 字段猜 cb_number —
+        # 调用方拿不到明确 source locator 时必须不记录(fail closed)。
+        return f"cbneg:locale:{cb}:{loc}" if (cb and loc) else None
+    return None
+
+
+async def record_negative(db: Any, kind: str, *, cas_number: str | None = None,
+                          cb_number: str | None = None,
+                          locale: str | None = None) -> bool:
+    """记录一次明确 NOT_FOUND。重复观察: 保留 first_observed_at, 只推
+    observed_at。事务由调用方管理(与数据写入同事务)。返回是否落键。"""
+    key = negative_key(kind, cas_number=cas_number, cb_number=cb_number,
+                       locale=locale)
+    if key is None:
+        return False
+    await db.execute(text("""
+        INSERT INTO maintenance.cb_negative_observations
+            (negative_key, kind, cas_number, cb_number, locale,
+             first_observed_at, observed_at)
+        VALUES
+            (:key, :kind, :cas_number, :cb_number, :locale, now(), now())
+        ON CONFLICT (negative_key) DO UPDATE SET
+            observed_at = now()
+    """), {"key": key, "kind": kind, "cas_number": cas_number,
+           "cb_number": cb_number, "locale": locale})
+    return True
+
+
+async def clear_negative(db: Any, kind: str, *, cas_number: str | None = None,
+                         cb_number: str | None = None,
+                         locale: str | None = None) -> None:
+    """上游转 positive(明确 ok)时同事务清除对应 negative。"""
+    key = negative_key(kind, cas_number=cas_number, cb_number=cb_number,
+                       locale=locale)
+    if key is None:
+        return
+    await db.execute(text("""
+        DELETE FROM maintenance.cb_negative_observations
+        WHERE negative_key = :key
+    """), {"key": key})
+
+
+async def negative_is_fresh(db: Any, kind: str, *,
+                            cas_number: str | None = None,
+                            cb_number: str | None = None,
+                            locale: str | None = None) -> bool:
+    """fresh = 观察在重问窗内(cb.not_found_requery_days, 缺省 180 天)。
+    过期不删行 — 判定时允许 requery(返回 False)。无观察行 = False。"""
+    key = negative_key(kind, cas_number=cas_number, cb_number=cb_number,
+                       locale=locale)
+    if key is None:
+        return False
+    row = (await db.execute(text("""
+        SELECT observed_at FROM maintenance.cb_negative_observations
+        WHERE negative_key = :key
+    """), {"key": key})).first()
+    if row is None:
+        return False
+    requery_days, _ = await _cb_window_days(db)
+    age = (await db.execute(text("SELECT now()-:ft"),
+                            {"ft": row[0]})).scalar()
+    return age < timedelta(days=requery_days)
+
+
 async def _cb_window_days(db: Any) -> tuple[int, int]:
     """system_config: cb 命名空间两键, 缺省 180/60。"""
     try:
@@ -594,6 +680,13 @@ async def cas_search_state(db: Any, cas_number: str) -> str:
         """), {"cas": cas_number})).scalar()
         decision = await cb_decide(db, int(chemical_id))
         if not decision.startswith("enqueue"):
+            return "miss"
+        # B-minimal: fresh cas_locator negative(明确 not_found 重问窗内)
+        # → miss 零入列。不依赖 cb_decide 的 NULL-selector 表达 CAS
+        # negative(既有 selector 问题本轮只记录不顺手修, 独立负缓存
+        # lookup 不走那条查询)。expired → 允许现有 requery 链继续。
+        if decision == "enqueue_first" and await negative_is_fresh(
+                db, "cas_locator", cas_number=cas_number):
             return "miss"
         # 五态判需再问(首问外的 超窗刷新/超窗重问): 真实入列 —
         # 与详情路径 stale→enqueue 同逻辑(审计修复①, 2026-08-30)
@@ -695,6 +788,13 @@ async def sync_fetch_and_store(
         return None  # 网络层失败: 不落行, 走入队
     if status == "error":
         return None
+    if status == "not_found":
+        # B-minimal: 同步路径明确 not_found → 记录 cas_locator negative
+        # (调用方 routes 据 sync["status"] 分流, 不再误判为失败入列重抓)
+        await record_negative(db, "cas_locator", cas_number=cas_number)
+        await db.commit()
+        await cache_delete(CACHE_KEY.format(chemical_id=chemical_id))
+        return {"status": "not_found"}
     await upsert_externals(
         db, chemical_id=chemical_id, cas_number=cas_number.strip(),
         entry=entry, suppliers=suppliers, status=status,
@@ -710,7 +810,8 @@ async def ensure_externals(
 ) -> dict[str, Any]:
     """ensure 链入口。返回:
     {state: fresh|queued|absent, entry, suppliers, job_id}
-    - fresh: ok 行直接出 / not_found 行出空(negative)
+    - fresh: ok 行直接出 (negative 由 B-minimal 独立观察表表达,
+      absent 分支调用方 routes 先查 fresh cas_locator negative)
     - absent: 无 cb 行(首访) — 调用方(sync路径)决定同步拉或入队
     时间只记录不驱动(2026-08-29定): 无TTL无stale环。
     """

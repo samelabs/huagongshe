@@ -159,7 +159,7 @@ async def chemical_externals(
     遵循公开读口径: 无原站标识; 404 = 化合物不存在;
     entry/suppliers 为空 = 该化合物无 CAS 或源站无数据(非错误)。
     """
-    from .services.cb import ensure_externals, sync_fetch_and_store
+    from .services.cb import ensure_externals, negative_is_fresh, sync_fetch_and_store
 
     row = (await db.execute(text("""
         SELECT id, cas_numbers[1] AS cas FROM chemistry.chemicals WHERE id=:id
@@ -182,10 +182,25 @@ async def chemical_externals(
         outcome = {"state": "fresh", "entry": outcome.get("entry"),
                    "suppliers": outcome.get("suppliers") or [], "job_id": job_id}
     if outcome["state"] == "absent":
+        # B-minimal: fresh cas_locator negative → 明确 not_found 在重问窗内,
+        # 零同步 fetch 零 enqueue(此前每次页面访问=1次同步外呼+1次入列重抓)。
+        # expired → 允许现有同步验证链继续。
+        if await negative_is_fresh(db, "cas_locator", cas_number=cas_number):
+            return {
+                "chemical_id": chemical_id,
+                "state": "fresh",
+                "entry": None, "suppliers": [], "job_id": None,
+                "negative": True,  # 内部 decision; 不扩前端公开 state 协议
+            }
         # 首访: 同步拉取(3s 预算); 失败入队,本响应出空
         sync = await sync_fetch_and_store(db, chemical_id=chemical_id, cas_number=cas_number)
         if sync and sync["status"] == "ok":
             outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
+        elif sync and sync["status"] == "not_found":
+            # 明确 not_found: negative 已在 sync 内记录 — 不 enqueue
+            # (二连击修复: 一次访问最多一次上游验证, 不再排队重抓)
+            outcome = {"state": "fresh", "entry": None, "suppliers": [],
+                       "job_id": None}
         else:
             from .services.cb import enqueue_cas_job
             job_id = await enqueue_cas_job(
