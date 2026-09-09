@@ -78,6 +78,10 @@ async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
     # 不污染主 reaction transaction(aborted), 主流程可继续 commit。
     if inchikey:
         try:
+            # §3 frozen-baseline correction: 局部 import(勿改模块级 ——
+            # test_discovery_fix31 monkeypatch api.services.discovery.
+            # enqueue_discovery 注入真实 PG error, 局部 import 保持真链)
+            from .services.discovery import enqueue_discovery
             async with db.begin_nested():
                 await enqueue_discovery(
                     db, chemical_id=chemical_id, inchikey=inchikey,

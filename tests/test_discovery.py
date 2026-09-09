@@ -162,6 +162,38 @@ class IdentityDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(rows), 1, "同 evidence 重复触发必须幂等为单 job")
         self.assertEqual(rows[0]["status"], "queued")
 
+    def test_1b_real_reaction_chain_creates_job(self):
+        """§3 correction 防回归: 真调 resolve_or_create_chemical() 整链
+        (不是直调 enqueue_discovery 却命名为 reaction trigger 的覆盖假象)。
+        断言: is_new=True / discovery job 恰 1 条 / status=queued。
+        覆盖 0de4d4b 基线上局部 import 缺失被 best-effort 静默吞掉的缺陷
+        (reaction 主流程成功但 discovery 永不入队)。"""
+        from api.reactions import resolve_or_create_chemical
+        # RUN 唯一且合法的 SMILES: 烷基链长度唯一化(跨运行不同的同系物)
+        smiles = "C" * (RUN % 17 + 3) + "O"
+        created: dict = {}
+
+        async def go():
+            async with self.engine.begin() as db:
+                chemical_id, is_new = await resolve_or_create_chemical(db, smiles)
+                created["id"], created["is_new"] = chemical_id, is_new
+
+        _run(go())
+        self.assertTrue(created["is_new"], "RUN 唯一 SMILES 必须新建行")
+        rows = self._discovery_rows(created["id"])
+        self.assertEqual(len(rows), 1, "真链 reaction 新建 IK → 恰 1 条 discovery job")
+        self.assertEqual(rows[0]["status"], "queued")
+        self.assertEqual(rows[0]["ev"], _run(self._ik_of(created["id"])))
+
+    def _ik_of(self, chemical_id: int):
+        from sqlalchemy import text
+        async def go():
+            async with self.engine.begin() as db:
+                return (await db.execute(text(
+                    "SELECT inchikey FROM chemistry.chemicals WHERE id=:c"
+                ), {"c": chemical_id})).scalar()
+        return go()
+
     # ---- 2/3: CB structure fill 触发 ------------------------------
 
     def _apply_fill(self, chemical_id: int, structure: dict):
