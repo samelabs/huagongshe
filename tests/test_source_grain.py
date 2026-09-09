@@ -4,17 +4,22 @@ import os
 import re
 import unittest
 
-DB_URL = os.environ.get(
-    "HGS_DATABASE_URL",
-    [l.strip() for l in open("/etc/huagongshe.env")
-     if l.startswith("HGS_DATABASE_URL")][0].split("=", 1)[1].strip())
+DB_URL = None
+try:
+    from tests.db_gate import test_db_or_skip
+    _raw = test_db_or_skip()
+except Exception:
+    _raw = None
+if _raw:
+    DB_URL = _raw
 ASYNC_URL = re.sub(
     r"postgres(?:ql)?://([^:]+):([^@]+)@",
-    lambda m: f"postgresql+asyncpg://{m.group(1)}:{m.group(2)}@", DB_URL)
+    lambda m: f"postgresql+asyncpg://{m.group(1)}:{m.group(2)}@", DB_URL) if DB_URL else None
 
 P = "UT2-SG-"
 
 
+@unittest.skipUnless(DB_URL, "需要测试库 (TEST_DATABASE_URL 过闸)")
 class SourceGrainTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

@@ -35,7 +35,12 @@ ON CONFLICT (id) DO UPDATE SET preferred_name='测试乙醇哨兵', iupac_name='
 
 
 def _engine():
-    url = os.environ.get("HGS_DATABASE_URL", "")
+    # 0909 测试库闸: 只认 TEST_DATABASE_URL 过闸值, 不再读 HGS_DATABASE_URL
+    from tests.db_gate import require_test_db, ProductionDbBlocked
+    try:
+        url = require_test_db()
+    except ProductionDbBlocked:
+        raise unittest.SkipTest("需要测试库 (TEST_DATABASE_URL 过闸)")
     if url.startswith("postgresql://"):
         url = "postgresql+asyncpg://" + url.split("://", 1)[1]
     return create_async_engine(url)
@@ -59,6 +64,7 @@ class NormalizeTest(unittest.TestCase):
         self.assertEqual(normalize_name("\tX\nY\t"), "x y")
 
 
+@unittest.skipUnless(os.environ.get("TEST_DATABASE_URL"), "需要测试库 (TEST_DATABASE_URL)")
 class IngestTest(unittest.TestCase):
     def run_coro(self, coro):
         return asyncio.run(coro)

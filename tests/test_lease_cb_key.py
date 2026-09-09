@@ -1,18 +1,22 @@
 # 0907 lease cb 键域专项: request_context.source_cb 必须按 jobId 取, 不得回落错主表
 # 背景: cb_map 键域混用(jobId 写入 / chemicalId lookup)致 source_cb 永远失效,
-# targeted canary 跨 cb 串抓事故。本测试直打真实 DB + claim SQL。
+# targeted canary 跨 cb 串抓事故。本测试直打测试 DB + claim SQL (0909 起必须过测试库闸)。
 import asyncio
 import os
 import re
 import unittest
 
-DB_URL = os.environ.get(
-    "HGS_DATABASE_URL",
-    [l.strip() for l in open('/etc/huagongshe.env')
-     if l.startswith('HGS_DATABASE_URL')][0].split('=', 1)[1].strip())
-ASYNC = re.sub(r'postgres(?:ql)?://([^:]+):([^@]+)@',
-               lambda m: f'postgresql+asyncpg://{m.group(1)}:{m.group(2)}@',
-               DB_URL)
+DB_URL = None
+try:
+    from tests.db_gate import test_db_or_skip
+    _raw = test_db_or_skip()
+except Exception:
+    _raw = None
+if _raw:
+    DB_URL = _raw
+    ASYNC = re.sub(r'postgres(?:ql)?://([^:]+):([^@]+)@',
+                   lambda m: f'postgresql+asyncpg://{m.group(1)}:{m.group(2)}@',
+                   DB_URL)
 
 P = "UT2-LCB-"
 CAS_A = "99999-77-7"
@@ -25,6 +29,7 @@ def _run(coro):
     return _LOOP.run_until_complete(coro)
 
 
+@unittest.skipUnless(DB_URL, "需要测试库 (TEST_DATABASE_URL 过闸)")
 class LeaseCbKeyDomainTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

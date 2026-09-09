@@ -13,8 +13,18 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from api.core.config import settings
-from api.main import app
+# 0909 测试库闸: DB 契约测试必须显式测试库; 未设置则整模块 skip
+import unittest as _ut
+try:
+    from tests.db_gate import test_db_or_skip as _gate
+    _gate()
+    _GATE_OK = True
+except Exception:
+    _GATE_OK = False
+
+if _GATE_OK:
+    from api.core.config import settings
+    from api.main import app
 
 TOKEN = "it_contract_" + "a" * 32  # >=32字符哑token
 WORKER_ID = "it-contract-test-worker"
@@ -35,6 +45,7 @@ def sign(method: str, path: str, body: bytes, token: str = TOKEN):
     }
 
 
+@_ut.skipUnless(_GATE_OK, "需要测试库 (TEST_DATABASE_URL 过闸)")
 class WorkApiContractTests(unittest.TestCase):
     _registered = False
 
@@ -72,7 +83,7 @@ class WorkApiContractTests(unittest.TestCase):
             from sqlalchemy.ext.asyncio import create_async_engine as _ce
             from sqlalchemy import text as _t
             async def _cleanup():
-                tmp = _ce(_os.environ["HGS_DATABASE_URL"])
+                tmp = _ce((__import__("tests.db_gate", fromlist=["require_test_db"]).require_test_db()))
                 # 先归还测试名下租约(否则 lease_shape CHECK 挡 DELETE), 再删凭据
                 async with tmp.begin() as c:
                     await c.execute(_t("""

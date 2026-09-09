@@ -25,10 +25,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 TEST_MOL = '0Chemicalbook65-85-0.MOL\r\n  ChemDraw12022217462D\r\n\r\n  9  9  0  0  0  0  0  0  0  0999 V2000\r\n    0.7145    0.4125    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\r\n   -0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\r\n   -0.7145    0.4125    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\r\n   -1.4289    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\r\n   -1.4289   -0.8250    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\r\n   -0.7145   -1.2375    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\r\n   -0.0000   -0.8250    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0\r\n    0.7145    1.2375    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\r\n    1.4289    0.0000    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0\r\n  1  2  1  0      \r\n  2  3  1  0      \r\n  3  4  2  0      \r\n  4  5  1  0      \r\n  5  6  2  0      \r\n  6  7  1  0      \r\n  2  7  2  0      \r\n  1  8  2  0      \r\n  1  9  1  0      \r\nM  END\r\n'
 
-DB_URL = os.environ.get("TEST_DATABASE_URL")
-if not DB_URL:
-    from api.core.config import settings  # noqa: E402
-    DB_URL = getattr(settings, "database_url", None)
+DB_URL = None
+try:
+    from tests.db_gate import test_db_or_skip  # noqa: E402
+    DB_URL = test_db_or_skip()
+except Exception:  # noqa: BLE001 — 闸缺失/不合规都视为无测试库
+    DB_URL = None
 
 # 测试专用标记值 — 不可能与真实数据相撞
 CAS = "99999-99-9"
