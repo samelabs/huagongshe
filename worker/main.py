@@ -145,6 +145,84 @@ async def process_job(
         log.exception("worker job=%s errored", job["job_id"])
 
 
+async def process_identity_job(
+    pb_session: aiohttp.ClientSession,
+    workapi: WorkApiClient,
+    rate: "PubChemRateController",
+    job: dict[str, Any],
+) -> None:
+    """§3 identity discovery 任务: InChIKey → CID 集合, 零裁剪上报。
+
+    裁定(0/1/>1 → not_found/candidate/ambiguous)全在服务端 complete。
+    网络/拒服/封禁 → error 事实码(与 whole_record 同通道闸门)。
+    与 PB 循环共用 RateController — 总出口 3rps 不因 discovery 翻倍。
+    """
+    pubchem = PubChemClient(pb_session, rate)
+    try:
+        cid_list = await pubchem.cids_by_inchikey(str(job["evidence_value"]))
+        await workapi.post(
+            "/workapi/v1/identity/jobs/complete",
+            {"job_id": job["job_id"], "lease_token": job["lease_token"],
+             "cid_list": cid_list},
+        )
+        log.info("identity job=%s cids=%s", job["job_id"], len(cid_list))
+    except PubChemError as exc:
+        try:
+            await workapi.post(
+                "/workapi/v1/identity/jobs/error",
+                {"job_id": job["job_id"], "lease_token": job["lease_token"],
+                 "error_code": exc.code, "error_detail": str(exc)[:2000]},
+            )
+        except Exception:
+            log.exception("could not report identity error for job=%s", job["job_id"])
+        log.info("identity job=%s error: %s", job["job_id"], exc)
+    except Exception as exc:
+        try:
+            await workapi.post(
+                "/workapi/v1/identity/jobs/error",
+                {"job_id": job["job_id"], "lease_token": job["lease_token"],
+                 "error_code": "identity_worker_error",
+                 "error_detail": str(exc)[:2000]},
+            )
+        except Exception:
+            log.exception("could not report identity error for job=%s", job["job_id"])
+        log.exception("identity job=%s errored", job["job_id"])
+
+
+async def _identity_loop(
+    workapi: WorkApiClient,
+    pb_session: aiohttp.ClientSession | None,
+    rate: PubChemRateController,
+) -> None:
+    """§3 discovery 循环(独立退避; 与 PB 共用 pb_session+限流器+闸门)。
+
+    pb_session None = PB 代理缺席 → 本循环同样 idle(与 _pb_loop 同守卫):
+    discovery 请求走同一 NCBI 出口, 封禁期不打扰。
+    """
+    if pb_session is None:
+        log.error("pb proxy missing — identity discovery loop idle")
+        return
+    idle = 2.0
+    while True:
+        try:
+            leased = await workapi.post(
+                "/workapi/v1/identity/jobs/lease",
+                {"max_jobs": 1, "capabilities": ["identity"]},
+            )
+            jobs = leased.get("jobs") or []
+            if not jobs:
+                wait = float(leased.get("retry_after_seconds", 5))
+                idle = min(1800.0, max(wait, idle * 1.5))
+                await asyncio.sleep(idle + random.random())
+                continue
+            idle = 2.0
+            for job in jobs:
+                await process_identity_job(pb_session, workapi, rate, job)
+        except Exception:
+            log.exception("identity loop cycle failed")
+            await asyncio.sleep(5)
+
+
 async def process_cas_job(
     session: aiohttp.ClientSession,
     workapi: WorkApiClient,
@@ -399,6 +477,8 @@ async def run() -> None:
             loops = []
             if "pubchem" in scopes:
                 loops.append(_pb_loop(workapi, pb_session, rate, concurrency))
+                # §3 discovery 与 whole_record 同 scope 同限流器(总 3rps 不翻倍)
+                loops.append(_identity_loop(workapi, pb_session, rate))
             if "cas" in scopes:
                 loops.append(_cb_loop(workapi, session, PubChemRateController(cb_rps)))
                 if cb_proxy_session is not None:

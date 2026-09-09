@@ -85,6 +85,19 @@ class PubChemClient:
             return None
         from .whole_record import parse_whole_record
         return parse_whole_record(payload)
+
+    async def cids_by_inchikey(self, inchikey: str) -> list[int]:
+        """§3 identity discovery: InChIKey → CID 集合(PUG REST /cids)。
+
+        只取原始集合零裁剪 — 0/1/>1 的裁定全在服务端 discovery.complete。
+        404=空列表; 其余失败形态走 request_json 单趟制定义(PubChemError)。
+        与 whole_record 共用同一 RateController(总 cap 3rps 不翻倍)。
+        """
+        from urllib.parse import quote
+        url = f"{PUG_REST}/compound/inchikey/{quote(inchikey, safe='')}/cids/JSON"
+        payload = await self.request_json("GET", url)
+        idlist = ((payload or {}).get("IdentifierList") or {}).get("CID") or []
+        return [int(c) for c in idlist]
     def __init__(self, session: aiohttp.ClientSession, rate: PubChemRateController):
         self.session = session
         self.rate = rate

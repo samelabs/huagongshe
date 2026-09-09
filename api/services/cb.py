@@ -13,11 +13,14 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 from ..core.cache import cache_delete, get_cache
 from .name_index import ingest_from_entry_cn
@@ -465,6 +468,11 @@ async def apply_structure_fill(
         return
     inchikey = structure.get("inchikey")
     molblock = structure.get("mol")
+    # §3 MVP trigger 2 前置读: 本次 UPDATE 前行的 inchikey/pubchem_cid 状态,
+    # 用于判定"本次真正发生 inchikey NULL → non-NULL"。
+    before = (await db.execute(text("""
+        SELECT inchikey,pubchem_cid FROM chemistry.chemicals WHERE id=:id
+    """), {"id": chemical_id})).fetchone()
     await db.execute(text("""
         WITH incoming AS (
             SELECT CAST(:smiles AS text) AS smiles,
@@ -488,6 +496,18 @@ async def apply_structure_fill(
         "chemical_id": chemical_id, "smiles": smiles,
         "inchikey": inchikey, "molblock": molblock,
     })
+    # §3 MVP trigger 2: 本次真正发生 inchikey NULL → non-NULL 且 CID 仍空 →
+    # discovery 入列(仅本地 DB 动作, 零网络, 不阻塞回补主流程)。
+    if (before is not None and before[0] is None and inchikey
+            and before[1] is None):
+        try:
+            from .discovery import enqueue_discovery
+            await enqueue_discovery(
+                db, chemical_id=chemical_id, inchikey=inchikey,
+                request_context={"origin": "cb_structure_fill"})
+        except Exception:
+            logger.warning("identity discovery enqueue failed chemical_id=%s",
+                           chemical_id, exc_info=True)
 
 
 # ---- 五态判定(数据链收口§5, DATA_CHAIN_REFACTOR_PLAN) ------

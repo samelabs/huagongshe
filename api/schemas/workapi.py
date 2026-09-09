@@ -49,6 +49,11 @@ class ErrorBody(LeaseProof):
     error_detail: str = Field(default="", max_length=2000)
 
 
+class IdentityCompleteBody(LeaseProof):
+    """§3 discovery complete: cid_list = PubChem /cids 原始集合(零裁剪)。"""
+    cid_list: list[int] = Field(default_factory=list, max_length=100)
+
+
 
 class CasCompleteBody(LeaseProof):
     result: CasResultBody

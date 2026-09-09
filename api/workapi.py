@@ -17,7 +17,7 @@ from .core.cache import cache_delete, get_cache
 logger = logging.getLogger(__name__)
 from .core.config import settings
 from .core.database import get_db
-from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, ErrorBody, CasLeaseBody, CasCompleteBody
+from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, ErrorBody, CasLeaseBody, CasCompleteBody, IdentityCompleteBody
 from .services.workqueue import (
     lease_hash, verified_lease, as_json_object, sync_chemical_core,
     upsert_details, verified_cas_lease,
@@ -578,6 +578,150 @@ async def cas_error_job(
             WHERE id=:job_id
         """), {
             "code": body.error_code, "detail": body.error_detail, "job_id": body.job_id,
+        })
+        await db.commit()
+        return {"status": "error", "streak": streak}
+    except Exception:
+        await db.rollback()
+        raise
+
+
+# ---------------------------------------------------------------------------
+# §3 MVP: PubChem identity discovery 链 (InChIKey → candidate CID)。
+# 职责边界: 只产出候选, 零 chemicals 身份写, 零 absorb/merge;
+# 唯一出口 = complete 内原子入既有 pubchem_jobs(§2 frozen 契约)。
+# ---------------------------------------------------------------------------
+
+
+async def _verified_identity_lease(db, proof: LeaseProof, worker_id: str):
+    from .services.workqueue import lease_hash
+    row = (await db.execute(text("""
+        SELECT id,chemical_id,evidence_value
+        FROM maintenance.pubchem_identity_jobs
+        WHERE id=:job_id AND status='leased' AND lease_owner=:worker_id
+          AND lease_token_hash=:lease_hash AND lease_expires_at>now()
+    """), {
+        "job_id": proof.job_id,
+        "worker_id": worker_id,
+        "lease_hash": lease_hash(proof.lease_token),
+    })).fetchone()
+    if not row:
+        raise HTTPException(409, "identity lease is missing, expired, or owned by another worker")
+    return row
+
+
+@router.post("/identity/jobs/lease")
+async def lease_identity_jobs(
+    body: LeaseBody,
+    db=Depends(get_db),
+    worker: WorkerContext = Depends(authenticated_worker),
+):
+    """discovery lease。claim 只认 queued; error 行留痕永不派发(对齐纪律)。
+    闸门复用 pubchem 命名空间(与 whole_record 同通道连击计数)。"""
+    limit = min(body.max_jobs, worker.max_lease_jobs)
+    if "identity" not in body.capabilities:
+        await db.commit()
+        return {"jobs": [], "retry_after_seconds": 30}
+    try:
+        redis = await get_cache()
+        gate_wait = await gate_silence_remaining(redis, "pubchem")
+        if gate_wait > 0:
+            await db.commit()
+            return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
+        # 过期租约回收: 本地问题, 回队不计连击(对齐 pubchem_jobs)。
+        await db.execute(text("""
+            UPDATE maintenance.pubchem_identity_jobs
+            SET status='queued',lease_owner=NULL,lease_token_hash=NULL,
+                lease_expires_at=NULL,updated_at=now(),
+                last_error_code='lease_expired'
+            WHERE status='leased' AND lease_expires_at<=now()
+        """))
+        rows = (await db.execute(text("""
+            SELECT j.id,j.chemical_id,j.evidence_value
+            FROM maintenance.pubchem_identity_jobs j
+            WHERE j.status='queued'
+            ORDER BY j.priority DESC,j.id
+            LIMIT :limit FOR UPDATE OF j SKIP LOCKED
+        """), {"limit": limit})).fetchall()
+        leased = []
+        for row in rows:
+            token = secrets.token_urlsafe(32)
+            await db.execute(text("""
+                UPDATE maintenance.pubchem_identity_jobs
+                SET status='leased',lease_owner=:worker_id,
+                    lease_token_hash=:token_hash,
+                    lease_expires_at=now()+make_interval(secs=>:lease_seconds),
+                    updated_at=now()
+                WHERE id=:job_id
+            """), {
+                "worker_id": worker.worker_id,
+                "token_hash": lease_hash(token),
+                "lease_seconds": settings.worker_job_lease_seconds,
+                "job_id": row[0],
+            })
+            leased.append({
+                "job_id": row[0],
+                "lease_token": token,
+                "chemical_id": row[1],
+                "evidence_type": "inchikey",
+                "evidence_value": row[2],
+            })
+        await db.commit()
+        return {"jobs": leased, "retry_after_seconds": 2 if leased else 5}
+    except Exception:
+        await db.rollback()
+        raise
+
+
+@router.post("/identity/jobs/complete")
+async def complete_identity_job(
+    body: IdentityCompleteBody,
+    db=Depends(get_db),
+    worker: WorkerContext = Depends(authenticated_worker),
+):
+    """discovery complete: 0→not_found / >1→ambiguous / 1→candidate handoff
+    (canonicalize → freshness recheck → 原子入 pubchem_jobs → candidate,
+    任一步失败整事务 rollback — §3 修正3)。闸门成功归零与 pubchem 同源。"""
+    try:
+        job = await _verified_identity_lease(db, body, worker.worker_id)
+        from .services.discovery import complete_discovery
+        status = await complete_discovery(
+            db, job_id=int(job[0]), cid_list=body.cid_list)
+        # 结果行保留(审计+负缓存), 不是 DELETE。
+        await db.commit()
+        redis = await get_cache()
+        await gate_record_success(redis, "pubchem")
+        await gate_unlock_error_rows(db, "pubchem")
+        await db.commit()
+        return {"status": status, "chemical_id": int(job[1])}
+    except HTTPException:
+        raise
+    except Exception:
+        await db.rollback()
+        raise
+
+
+@router.post("/identity/jobs/error")
+async def error_identity_job(
+    body: ErrorBody,
+    db=Depends(get_db),
+    worker: WorkerContext = Depends(authenticated_worker),
+):
+    """discovery worker error: 留 error 行占位, 连击+1(与 pubchem 同通道)。"""
+    try:
+        await _verified_identity_lease(db, body, worker.worker_id)
+        redis = await get_cache()
+        streak = await gate_record_error(redis, "pubchem")
+        await db.execute(text("""
+            UPDATE maintenance.pubchem_identity_jobs
+            SET status='error',
+                last_error_code=:code,last_error_detail=:detail,
+                lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,
+                updated_at=now()
+            WHERE id=:job_id
+        """), {
+            "code": body.error_code, "detail": body.error_detail,
+            "job_id": body.job_id,
         })
         await db.commit()
         return {"status": "error", "streak": streak}

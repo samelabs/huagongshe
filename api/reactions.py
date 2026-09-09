@@ -72,6 +72,16 @@ async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
         UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
         WHERE metric='chemicals'
     """))
+    # §3 MVP trigger 1: 真正新 INSERT 且 CID=NULL 且合法 IK 非空 →
+    # discovery 入列(仅本地 DB 动作, 零网络, 不阻塞业务)。
+    try:
+        from .services.discovery import enqueue_discovery
+        await enqueue_discovery(
+            db, chemical_id=chemical_id, inchikey=inchikey,
+            request_context={"origin": "reaction_insert"})
+    except Exception:
+        logger.warning("identity discovery enqueue failed chemical_id=%s",
+                       chemical_id, exc_info=True)
     return chemical_id, True
 
 
