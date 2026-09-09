@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from .core.config import settings
 from .core.database import get_db
-from .core.security import Actor, internal_or_actor
+from .core.security import Actor, public_or_actor
 
 
 router = APIRouter(tags=["agent"])
@@ -34,7 +34,7 @@ def agent_connection_text(token: str) -> str:
 )
 async def agent_guide(
     authorization: str | None = Header(default=None),
-    actor: Actor | None = Depends(internal_or_actor),
+    actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
     """Return the complete, bounded operation guide; a Bearer token also confirms its owner."""

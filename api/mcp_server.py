@@ -133,8 +133,9 @@ def build_mcp_server() -> MCPServer:
         if not 1 <= chemical_id <= 2_147_483_647:
             raise ToolError("chemical_id 超出范围")
         async with async_session() as session:
-            # request=None: enqueue_chemical_if_needed 仅在 request 非 None 且非 loopback
-            # 时短路(公网只读); None = 不过短路 → 入队, 与 REST 经 BFF(loopback)行为一致.
+            # H1 方案 D: refresh 由 use-case policy 决定(chemical_detail 显式
+            # allow_refresh=True), transport/loopback 不再参与; request 仅存于
+            # 签名兼容。
             return await routes_module.chemical_detail(
                 request=None,  # type: ignore[arg-type]
                 chemical_id=chemical_id,

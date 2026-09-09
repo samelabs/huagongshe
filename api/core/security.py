@@ -12,7 +12,6 @@ from sqlalchemy import text
 
 from .config import settings
 from .database import get_db
-from .rate_limit import is_loopback_host
 
 
 @dataclass(frozen=True)
@@ -111,19 +110,17 @@ async def current_actor(actor: Actor | None = Depends(optional_actor)) -> Actor:
     return actor
 
 
-async def internal_or_actor(
-    request: Request,
+async def public_or_actor(
     actor: Actor | None = Depends(optional_actor),
 ) -> Actor | None:
-    """公开数据读取的通道判定: 内部(loopback=SSR) 或 已鉴权用户(会话/API Token).
+    """公开数据读 dependency(H1 方案 D): 匿名与已鉴权 actor 都可读。
 
-    匿名公网请求不得直接调用 API —— 匿名浏览体验由 SSR 页面承担.
+    loopback 不再是 authorization evidence —— 本 dependency 不读取
+    Request / client.host / XFF, transport 不是权限; 公开数据是否可读
+    由产品 use-case policy 决定, 与来源无关。端点自身可再叠加业务墙
+    (如结构检索 mode!=exact 需已鉴权 actor)。
     """
-    if actor is not None:
-        return actor
-    if is_loopback_host(request.client.host if request.client else None):
-        return None
-    raise HTTPException(401, "请先登录或提供有效的 API Token")
+    return actor
 
 
 async def current_session(actor: Actor = Depends(current_actor)) -> Actor:

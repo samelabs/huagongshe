@@ -60,15 +60,15 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertFalse(is_loopback_host("203.0.113.8"))
 
     def test_structure_modes_share_the_public_read_gate(self) -> None:
-        """结构模式登录墙: mode!=exact 需已鉴权 actor, exact 匿名照旧(SSR).
-
+        """结构模式登录墙(H1 保持): mode!=exact 需已鉴权 actor, exact 匿名照旧.
         墙由 c75424c 建立、73f2ab3 拆除、2026-08-26 重建(拆墙评估漏算并发面).
+        H1 方案 D 重命名 dependency 为 public_or_actor, 本墙语义不变。
         """
         source = inspect.getsource(routes.search)
         self.assertIn('if mode != "exact" and actor is None', source)
         for endpoint in (routes.chemical_substructure, routes.chemical_similarity):
             src = inspect.getsource(endpoint)
-            self.assertIn("Depends(internal_or_actor)", src)
+            self.assertIn("Depends(public_or_actor)", src)
             self.assertIn("actor is None", src)
 
     def test_chemical_reaction_counts_avoid_visible_reaction_point_lookups(self) -> None:

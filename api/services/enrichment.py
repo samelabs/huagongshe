@@ -9,8 +9,6 @@ from typing import Any
 from fastapi import HTTPException, Request
 from sqlalchemy import text
 
-from ..core.rate_limit import is_loopback_host
-
 
 ALLOWED_SECTIONS = frozenset(
     {
@@ -115,12 +113,18 @@ async def enqueue_chemical_if_needed(
     *,
     sections: tuple[str, ...] = DEFAULT_SECTIONS,
     priority: int = 70,
-    request: Request | None = None,
+    allow_refresh: bool = True,
     actor: Any = None,
+    request: Request | None = None,
 ) -> tuple[dict[str, Any] | None, int | None, bool]:
     """pb_decide(0901 整记录化, 对齐 cb_decide 形态):
     无 cid=skip / 无行或 fetched_at 超 100 天窗=enqueue / 新鲜=serve_fresh。
-    sections 参数保留签名兼容(路由层还在传), 判定不再使用。"""
+    sections 参数保留签名兼容(路由层还在传), 判定不再使用。
+
+    H1 方案 D: refresh 是产品 use-case policy, 不是 transport privilege ——
+    由调用方显式传 allow_refresh; 不再读取 request.client.host/loopback。
+    默认 True 仅因现存调用点都是详情 use case; 新调用点必须显式传值。
+    """
     chemical = (await db.execute(text("""
         SELECT pubchem_cid FROM chemistry.chemicals WHERE id=:chemical_id
     """), {"chemical_id": chemical_id})).fetchone()
@@ -142,8 +146,9 @@ async def enqueue_chemical_if_needed(
             fresh = value >= cutoff
     if fresh:
         return details, None, False
-    # 入队是内部通道(T0)专属: SSR/agent 走 loopback 直连, 公网只读不触发。
-    if request is not None and not is_loopback_host(request.client.host if request.client else None):
+    # H1: 非 loopback 短路已删 — 详情页读驱动回补是产品 use-case policy,
+    # 匿名公网/登录用户/内部服务一律按调用方显式 allow_refresh 决定。
+    if not allow_refresh:
         return details, None, True
     job_id = await enqueue_job(
         db,

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import text
 
 from .core.database import get_db
-from .core.security import Actor, internal_or_actor
+from .core.security import Actor, public_or_actor
 from .services.enrichment import enqueue_chemical_if_needed
 
 router = APIRouter(tags=["enrichment"])
@@ -27,12 +27,15 @@ router = APIRouter(tags=["enrichment"])
 async def chemical_details(
     request: Request,
     chemical_id: int,
-    actor: Actor | None = Depends(internal_or_actor),
+    actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
     details, job_id, needs_refresh = await enqueue_chemical_if_needed(
         db, chemical_id,
-        priority=80 if actor is not None else 50, request=request, actor=actor,
+        priority=80 if actor is not None else 50,
+        # H1: 详情 use case 允许读驱动回补(产品策略), 与 transport 无关。
+        allow_refresh=True,
+        actor=actor, request=request,
     )
     if job_id is not None:
         await db.commit()
@@ -49,7 +52,7 @@ async def chemical_details(
 @router.get("/enrichment/jobs/{job_id}")
 async def enrichment_job(
     job_id: int,
-    actor: Actor | None = Depends(internal_or_actor),
+    actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
     row = (await db.execute(text("""

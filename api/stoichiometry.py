@@ -16,7 +16,7 @@ from rdkit.Chem import Descriptors
 
 from .core.config import settings
 from .core.rate_limit import enforce
-from .core.security import Actor, internal_or_actor
+from .core.security import Actor, public_or_actor
 from .schemas.stoichiometry import ScaleInput
 
 router = APIRouter(tags=["stoichiometry"])
@@ -34,7 +34,7 @@ def _parse(smiles: str, role: str):
 @router.post("/stoichiometry/scale", operation_id="calculate_stoichiometry")
 async def calculate_stoichiometry(
     body: ScaleInput,
-    actor: Actor | None = Depends(internal_or_actor),
+    actor: Actor | None = Depends(public_or_actor),
 ) -> dict:
     """Scale a batch from a chosen basis component to a full role-based dosing table."""
     identity = f"u{actor.id}" if actor else "anon"
