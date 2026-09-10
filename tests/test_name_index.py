@@ -42,7 +42,8 @@ def _engine():
     except ProductionDbBlocked:
         raise unittest.SkipTest("需要测试库 (TEST_DATABASE_URL 过闸)")
     if url.startswith("postgresql://"):
-        url = "postgresql+asyncpg://" + url.split("://", 1)[1].split("?", 1)[0]
+        url = "postgresql+asyncpg://" + url.split("://", 1)[1]
+    url = url.split("?", 1)[0]
     return create_async_engine(url)
 
 
