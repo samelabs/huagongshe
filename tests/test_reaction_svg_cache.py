@@ -69,6 +69,8 @@ class ReactionSvgCacheTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        import random as _random
+        from sqlalchemy import text
         os.environ.setdefault(
             "HGS_DATABASE_URL",
             os.environ.get("TEST_DATABASE_URL",
@@ -76,6 +78,52 @@ class ReactionSvgCacheTests(unittest.TestCase):
         from sqlalchemy.ext.asyncio import create_async_engine
         from sqlalchemy.pool import NullPool
         cls.engine = create_async_engine(DB_URL, poolclass=NullPool)
+        # 自建 fixture(fresh baseline 库无历史行): owner member + 三条 reaction
+        # public visible / public hidden / private
+        run = _random.randint(10_000_000, 99_000_000)
+
+        async def _seed():
+            async with cls.engine.begin() as db:
+                rows = (await db.execute(text("""
+                    INSERT INTO community.users
+                      (username,email,password_hash,role,display_name)
+                    VALUES (:u,:e1,'x','member','U'),
+                           (:a,:e2,'x','admin','A')
+                    RETURNING id, role
+                """), {"u": f"utsvg{run}", "a": f"utsvga{run}",
+                     "e1": f"svg{run}@t.example", "e2": f"svga{run}@t.example"})).fetchall()
+                uid = next(r[0] for r in rows if r[1] == "member")
+                admin_uid = next(r[0] for r in rows if r[1] == "admin")
+                rids = (await db.execute(text("""
+                    INSERT INTO chemistry.reactions
+                      (reaction_smiles,created_by_user_id,visibility,
+                       moderation_status,source_type)
+                    VALUES
+                      ('C>>O', :uid, 'public',  'visible', 'self'),
+                      ('C>>N', :uid, 'public',  'hidden',  'self'),
+                      ('C>>S', :uid, 'private', 'visible', 'self')
+                    RETURNING id
+                """), {"uid": uid})).fetchall()
+                return uid, admin_uid, [r[0] for r in rids]
+
+        cls._own_id, _admin_id, _rids = asyncio.run(_seed())
+        # discover 会以 tests.xxx 与裸 xxx 双名装载本模块(两份全局命名空间),
+        # 类属性+两类模块全局三处同绑, 保证 test 方法看到 seed id。
+        import sys
+        cls.OWNER_ID = cls._own_id
+        cls.ADMIN_ID = _admin_id
+        cls.R_PUBLIC_VISIBLE = _rids[0]
+        cls.R_PUBLIC_HIDDEN = _rids[1]
+        cls.R_PRIVATE = _rids[2]
+        for _name in ("tests.test_reaction_svg_cache",
+                      "test_reaction_svg_cache"):
+            _mod = sys.modules.get(_name)
+            if _mod is not None:
+                _mod.OWNER_ID = cls._own_id
+                _mod.ADMIN_ID = _admin_id
+                _mod.R_PUBLIC_VISIBLE = _rids[0]
+                _mod.R_PUBLIC_HIDDEN = _rids[1]
+                _mod.R_PRIVATE = _rids[2]
 
     @classmethod
     def tearDownClass(cls):

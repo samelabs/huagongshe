@@ -103,7 +103,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn("ORDER BY n.created_at DESC,n.id DESC", feed_source)
 
     def test_activity_feed_has_a_bounded_order_index(self) -> None:
-        migration = Path("migrations/20260722_optimize_activity_feed.sql").read_text()
+        migration = Path("migrations/history/20260722_optimize_activity_feed.sql").read_text()
         self.assertIn("notifications(user_id,created_at DESC,id DESC)", migration)
         self.assertIn("WHERE event_type='new_reaction'", migration)
 

@@ -54,21 +54,51 @@ class PasswordChangeRateLimitTests(unittest.TestCase):
         raise NotImplementedError
 
     def test_password_change_bucket_and_isolation(self):
+        import asyncio
         from fastapi import HTTPException
         from api.users import change_password
-        from api.core.security import Actor
+        from api.core.security import Actor, password_hash
+        from sqlalchemy import text
         from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
         from sqlalchemy.pool import NullPool
         from api.schemas.users import PasswordBody
 
-        actors = {i: Actor(id=i, username=f"u{i}", display_name="U",
-                           email=f"u{i}@t.example", role="member",
-                           avatar_path=None, auth_kind="web")
-                  for i in (OWNER_ID, ADMIN_ID)}
+        class _Resp:
+            def delete_cookie(self, *a, **k): pass
+
+        # 自建 fixture users(fresh baseline 无历史行, 不依赖 test_hgs 存量)
+        import random
+        RUN = random.randint(10_000_000, 99_000_000)
+
+        async def _seed_ids(engine):
+            async with engine.begin() as db:
+                rows = (await db.execute(text("""
+                    INSERT INTO community.users
+                      (username,email,password_hash,role,display_name)
+                    VALUES (:u1,:e1,:p,'member','U'), (:u2,:e2,:p,'admin','A')
+                    RETURNING id, role
+                """), {"u1": f"utpw{RUN}a", "e1": f"a{RUN}@t.example",
+                       "u2": f"utpw{RUN}b", "e2": f"b{RUN}@t.example",
+                       "p": await asyncio.to_thread(password_hash, "real0seed")
+                       })).fetchall()
+            return [r[0] for r in rows]
+
+        engine0 = create_async_engine(DB_URL, poolclass=NullPool)
+        try:
+            _ids = asyncio.run(_seed_ids(engine0))
+        finally:
+            asyncio.run(engine0.dispose())
+        owner_id, admin_id = _ids
+        actors = {owner_id: Actor(id=owner_id, username=f"u{owner_id}", display_name="U",
+                                  email=f"a{owner_id}@t.example", role="member",
+                                  avatar_path=None, auth_kind="web"),
+                  admin_id: Actor(id=admin_id, username=f"u{admin_id}", display_name="A",
+                                  email=f"b{admin_id}@t.example", role="admin",
+                                  avatar_path=None, auth_kind="web")}
         body = PasswordBody(current_password="wrong0pw",
                             new_password="newpass1A",
                             confirm_password="newpass1A")
-        statuses: dict[int, list[int]] = {OWNER_ID: [], ADMIN_ID: []}
+        statuses: dict[int, list[int]] = {owner_id: [], admin_id: []}
 
         async def go():
             import redis.asyncio as aioredis
@@ -83,31 +113,31 @@ class PasswordChangeRateLimitTests(unittest.TestCase):
                     for _ in range(10):
                         try:
                             await change_password(
-                                body=body, response=None,
-                                actor=actors[OWNER_ID], db=session)
-                            statuses[OWNER_ID].append(0)
+                                body=body, response=_Resp(),
+                                actor=actors[owner_id], db=session)
+                            statuses[owner_id].append(0)
                         except HTTPException as exc:
-                            statuses[OWNER_ID].append(exc.status_code)
+                            statuses[owner_id].append(exc.status_code)
                     try:  # 第 11 次 → 429
-                        await change_password(body=body, response=None,
-                                              actor=actors[OWNER_ID], db=session)
-                        statuses[OWNER_ID].append(0)
+                        await change_password(body=body, response=_Resp(),
+                                              actor=actors[owner_id], db=session)
+                        statuses[owner_id].append(0)
                     except HTTPException as exc:
-                        statuses[OWNER_ID].append(exc.status_code)
+                        statuses[owner_id].append(exc.status_code)
                     try:  # actor 4 隔离 → 400
-                        await change_password(body=body, response=None,
-                                              actor=actors[ADMIN_ID], db=session)
-                        statuses[ADMIN_ID].append(0)
+                        await change_password(body=body, response=_Resp(),
+                                              actor=actors[admin_id], db=session)
+                        statuses[admin_id].append(0)
                     except HTTPException as exc:
-                        statuses[ADMIN_ID].append(exc.status_code)
+                        statuses[admin_id].append(exc.status_code)
             finally:
                 await engine.dispose()
 
         asyncio.run(go())
-        for i, sc in enumerate(statuses[OWNER_ID][:10]):
+        for i, sc in enumerate(statuses[owner_id][:10]):
             self.assertEqual(sc, 400, f"owner 第{i+1}次应 400(密码错误), 非 {sc}")
-        self.assertEqual(statuses[OWNER_ID][10], 429, "第 11 次超限须 429")
-        self.assertEqual(statuses[ADMIN_ID][0], 400, "actor 桶必须隔离")
+        self.assertEqual(statuses[owner_id][10], 429, "第 11 次超限须 429")
+        self.assertEqual(statuses[admin_id][0], 400, "actor 桶必须隔离")
 
 
 class McpRenderSmilesBoundTests(unittest.TestCase):

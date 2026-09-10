@@ -28,7 +28,7 @@ if _raw:
     _stripped = _raw.split("?")[0]
     from urllib.parse import urlparse, parse_qs
     _u = urlparse(_raw)
-    assert parse_qs(_u.query).get("test_sentinel") == ["hgs-test-db"], "sentinel 校验失败"
+    assert parse_qs(_u.query).get("test_sentinel") in (["hgs-test-db"], ["hgs-ephemeral-db"]), "sentinel 校验失败"
     print(f"[gate] integration db = {_u.path.lstrip('/')} sentinel = hgs-test-db")
     DB_URL = _stripped
     ASYNC_URL = re.sub(

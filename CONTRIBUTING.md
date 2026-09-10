@@ -34,10 +34,11 @@ npm install
 ```bash
 createdb huagongshe
 
-# Apply migrations in order
-psql huagongshe -f migrations/20260720_unify_core_schemas.sql
-# ... continue with remaining migration files in chronological order
+psql huagongshe -f migrations/0000_baseline.sql
+psql huagongshe -f migrations/0001_bootstrap_reference_data.sql
 ```
+
+Migration 规则（顺序、命名、history 边界）见 `migrations/README.md`。
 
 ### Environment
 
