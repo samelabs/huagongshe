@@ -20,7 +20,7 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from scripts.migrate import run  # noqa: E402
+from scripts.migrate import run, FORWARD_RE  # noqa: E402
 
 
 def _db_url() -> str:
@@ -185,13 +185,35 @@ class MigrationRunnerTests(unittest.TestCase):
         self.assertEqual(applied_lines, 1)
         self.assertEqual(skip_lines, 1)
 
-    def test_repo_root_only_baseline_and_bootstrap(self):
-        # 正式 repo migrations/ 目录: runner 只会看到 0000/0001(均不匹配 forward 规则)
+    def test_repo_forward_chain_contains_pubchem_identity_reconciliation(self):
+        # 正式 repo migrations/: reconciliation migration 存在于合法 forward 集合
+        # (未来 forward migration 会自然增加, 不断言"恰一条")。
+        RECONCILE = "20260910_01_reconcile_pubchem_identity_jobs.sql"
+        fwd = sorted(
+            f for f in os.listdir(os.path.join(ROOT, "migrations"))
+            if FORWARD_RE.match(f)
+        )
+        self.assertIn(RECONCILE, fwd)
+        # 文件单一职责: 幂等 reconciliation DDL, 无 backfill/无 enqueue
+        sql = open(os.path.join(ROOT, "migrations", RECONCILE)).read()
+        self.assertIn("CREATE TABLE IF NOT EXISTS maintenance.pubchem_identity_jobs", sql)
+        self.assertIn("CREATE UNIQUE INDEX IF NOT EXISTS pubchem_identity_jobs_dedupe_idx", sql)
+        self.assertIn("CREATE INDEX IF NOT EXISTS pubchem_identity_jobs_claim_idx", sql)
+        self.assertIn("CREATE INDEX IF NOT EXISTS pubchem_identity_jobs_chem_idx", sql)
+        self.assertNotIn("INSERT INTO", sql)
+        # runner 对 fresh scratch 库执行全部 forward 并记录 tracking
         rc = run(self.url, os.path.join(ROOT, "migrations"))
-        self.assertIn(rc, (0, 3))  # 0=空 forward; 3 仅当曾有 hash 冲突(不应发生)
-        self.assertEqual(
-            self._psql("SELECT count(*) FROM maintenance.schema_migrations;")
-            .stdout.strip(), "0")
+        self.assertIn(rc, (0, 3))
+        tracked = self._psql(
+            "SELECT filename FROM maintenance.schema_migrations;"
+        ).stdout.split()
+        self.assertIn(RECONCILE, tracked)
+        # reconciliation 幂等: 表与三个冻结索引存在
+        idx = self._psql("""
+            SELECT count(*) FROM pg_indexes WHERE schemaname='maintenance'
+            AND tablename='pubchem_identity_jobs';
+        """).stdout.strip()
+        self.assertEqual(idx, "4")  # pkey + dedupe + claim + chem
 
 
 if __name__ == "__main__":

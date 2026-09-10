@@ -46,3 +46,10 @@ YYYYMMDD_02_description.sql
 - runner 通过 advisory lock 防并行；只处理 `YYYYMMDD_NN_description.sql`，绝不扫描 `history/`，不执行 0000/0001
 - existing production：tracking 从 cutover 后第一条真实 forward migration 开始记录，不回填 history/0000/0001
 
+
+## Cutover reconciliation（2026-09-10）
+
+- cutover 只读核查证实：production 缺少 `maintenance.pubchem_identity_jobs`（其余 required schema 全部存在），即 baseline 声明的 schema state 与真实 production 并非完全一致
+- `20260910_01_reconcile_pubchem_identity_jobs.sql` 作为 cutover 后第一条 forward migration，把 existing production 与 baseline target state 对齐
+- fresh baseline 库中该表已由 0000 创建，此 migration 为幂等 no-op，但 runner 正常记录 tracking
+- `history/` 永不执行（不变）
