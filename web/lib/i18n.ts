@@ -642,12 +642,11 @@ const t = {
       '粘贴服务器地址，添加认证 Header：Authorization = Bearer <你的AI Key>',
     ],
     doubaoTitle: '豆包工作',
-    doubaoDesc: '字节 2026-08-25 发布的独立 Agent 产品，连接器支持自定义 MCP（地址 + Headers）。以产品内指引为准。',
+    doubaoDesc: '支持自定义 MCP 连接器的 Agent 产品。以产品内指引为准。',
     doubaoSteps: [
       '下载豆包工作电脑版（官网 doubao.com/work），或使用最新豆包电脑版',
       '在连接器中选择自定义 MCP，填写服务器地址',
-      '认证二选一：表单有独立的 Bearer／密钥填空 → 只粘贴 AI Key 本身；用自定义 Header → 名称填 Authorization、值填 Bearer <你的AI Key>',
-      '两种填法发出同一个请求头，选一种即可，不要两边都填；表单具体样式以产品内指引为准',
+      '认证 Header：Authorization = Bearer <你的AI Key>',
     ],
     /* ── 通用配置 ── */
     commonKicker: '通用配置 JSON',
