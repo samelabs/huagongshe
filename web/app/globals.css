@@ -1018,12 +1018,8 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .admin-nav a { padding: 10px 12px; border-radius: 9px; color: #b9c9dc; font-size: var(--text-sm); line-height: 1.4; text-decoration: none; transition: background .12s, color .12s; }
 .admin-nav a.active { color: #fff; background: var(--blue); font-weight: 700; box-shadow: 0 2px 8px rgba(30,144,255,.35); }
 /* ── 数据管道(samelabs/pipeline) ── */
-.pipe-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .pipe-chip { font-size: var(--text-xs); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
-.pipe-chip.queued { color: var(--ink); }
 .pipe-chip.retry { color: #8a6d00; border-color: #e0c56e; background: #fdf6e3; }
-.pipe-chip.dead { color: #b33; border-color: #e6b3b3; background: #fdf0f0; }
-.pipe-alert { font-size: var(--text-xs); color: #b33; background: #fdf0f0; border: 1px solid #e6b3b3; border-radius: 8px; padding: 4px 10px; }
 .pipe-table { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: grid; }
 .pipe-tr { display: grid; grid-template-columns: 90px 1fr 1fr 1fr 1fr; gap: 8px; padding: 9px 16px; align-items: center; font-size: var(--text-sm); border-top: 1px solid var(--line); }
 .pipe-tr:first-child { border-top: none; }
@@ -1096,7 +1092,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .home-cards { grid-template-columns: 1fr; }
 }
 
-/* ── 数据看板 v2 (0902) ── */
+/* ── 数据看板 v2 (0911) ── */
 .pipe-grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
 .pipe-chain { gap: 10px; }
 .pipe-chain-head { display: flex; justify-content: space-between; align-items: center; }
@@ -1116,9 +1112,27 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .pipe-chip.silent { color: #8a6d00; border-color: #e0c56e; background: #fdf6e3; }
 .pipe-chip.error { color: #b33; border-color: #e6b3b3; background: #fdf0f0; }
 .pipe-tr-4 { grid-template-columns: 140px 1fr 1fr 1fr; }
-.pipe-tr-latest { grid-template-columns: 48px 110px 1fr 80px 90px; }
-.pipe-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+/* 最新 10 条: 链/HCID/来源/编号/标题(弹性)/时间 —— 标题独占宽列, 不再被挤 */
+.pipe-tr-latest { grid-template-columns: 44px 96px 72px 104px minmax(0, 1fr) 78px; }
+.pipe-tr-latest.pipe-th span { white-space: nowrap; }
+.pipe-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.pipe-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pipe-time { color: var(--muted); }
+.pipe-empty { color: var(--muted); }
+.pipe-src { white-space: nowrap; }
+.pipe-ok { color: var(--success); font-weight: 700; }
 .pipe-locale.pb-tag { color: var(--blue); }
+.pipe-group { display: grid; gap: 6px; margin-top: 4px; }
+.pipe-group-head { display: flex; align-items: baseline; gap: 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.pipe-group-title { font-size: var(--text-sm); font-weight: 700; color: var(--heading); }
+.pipe-group-note { font-size: var(--text-xs); color: var(--quiet); }
+.pipe-metrics.pipe-sub { margin-top: 6px; }
+.pipe-meta-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 680px) {
+  .pipe-tr-latest { grid-template-columns: 38px 88px minmax(0, 1fr) 72px; }
+  .pipe-tr-latest span:nth-child(3), .pipe-tr-latest span:nth-child(4) { display: none; }
+  .pipe-metrics { grid-template-columns: 1fr 1fr; }
+}
 
 /* 键盘可达: 统一焦点环(仅键盘Tab时显示, 不干扰点击) */
 :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

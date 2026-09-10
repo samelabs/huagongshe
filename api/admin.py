@@ -7,6 +7,7 @@ import re
 import shutil
 import asyncio
 import hashlib
+import time as _time
 import secrets
 from pathlib import Path
 from typing import Any, Literal
@@ -431,10 +432,18 @@ async def dashboard(actor: Actor = Depends(admin), db=Depends(get_db)):
 
 # ── 数据管道运行时 ────────────────────────────────────────
 
+_PIPELINE_STATS_CACHE: dict = {}
+_PIPELINE_STATS_TTL = 60.0   # 秒: 管理端"总量"类精确统计的新鲜度
+
+
 @router.get("/pipeline")
 async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
-    """数据链运行时(0902 重构): CB/PB 分链独立展示, 语义对齐新机制
-    — queued/leased/error 三态, error=留痕占位, 吞吐=数据层真实落库。"""
+    """数据管道运行时(0911 定稿口径): CB/PB 分链独立展示。
+    数据源 → 归类: 上游账本(chemicalbook_seed) / 队列(cas_jobs·pubchem_jobs)
+    / 落库(chemical_cb·chemical_pubchem·supplier_*) / 负面账本(cb_negative_observations)
+    / 闸门(redis) / 运行时(worker_clients)。
+    字段语义: queue=queued·leased·error 三态; rows={today,total} 两链同义;
+    rate_1h=近一小时真实落库行数; error_buckets 只统计 status='error' 的留痕分桶。"""
     now_iso = (await db.execute(text("SELECT now()"))).scalar().isoformat()
 
     async def chain_counts(table: str) -> dict:
@@ -452,56 +461,78 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
         """))).fetchall()
         return {r[0] or "unknown": int(r[1]) for r in rows}
 
-    # ── CB 链 ──
+    # ── 队列三态 + error 分桶 (小表, 快, 不走缓存) ──
     cb_queue = await chain_counts("cas_jobs")
     cb_errors = await error_buckets("cas_jobs")
-    cb_tp_rows = (await db.execute(text("""
-        SELECT last_status, count(*) FROM chemistry.chemical_cb
-        WHERE fetched_at >= current_date GROUP BY 1
-    """))).fetchall()
-    cb_tp = {r[0]: int(r[1]) for r in cb_tp_rows}
-    cb_throughput = {"ok": cb_tp.get("ok", 0), "not_found": cb_tp.get("not_found", 0),
-                     "total": cb_tp.get("ok", 0) + cb_tp.get("not_found", 0)}
-    cb_rate = int((await db.execute(text("""
-        SELECT count(*) FROM chemistry.chemical_cb
-        WHERE fetched_at >= now() - interval '1 hour'
-    """))).scalar())
-    cb_latest_at = (await db.execute(text("""
-        SELECT max(fetched_at) FROM chemistry.chemical_cb
-    """))).scalar()
-    loc_rows = (await db.execute(text("""
-        SELECT locale, last_status, count(*) FROM chemistry.chemical_cb
-        WHERE fetched_at >= current_date
-        GROUP BY locale, last_status ORDER BY locale
-    """))).fetchall()
-    loc_map: dict[str, dict[str, int]] = {}
-    for locale, status, n in loc_rows:
-        cur = loc_map.setdefault(locale, {"ok": 0, "not_found": 0})
-        if status in cur:
-            cur[status] = int(n)
-    cb_locales = [{"locale": k, **v} for k, v in loc_map.items()]
-
-    # ── PB 链 ──
     pb_queue = await chain_counts("pubchem_jobs")
     pb_errors = await error_buckets("pubchem_jobs")
-    pb_total = int((await db.execute(text("""
-        SELECT count(*) FROM chemistry.chemical_pubchem
-        WHERE fetched_at >= current_date
-    """))).scalar())
-    pb_throughput = {"ok": pb_total, "not_found": -1, "total": pb_total}
-    pb_rate = int((await db.execute(text("""
-        SELECT count(*) FROM chemistry.chemical_pubchem
-        WHERE fetched_at >= now() - interval '1 hour'
-    """))).scalar())
-    pb_latest_at = (await db.execute(text("""
-        SELECT max(fetched_at) FROM chemistry.chemical_pubchem
-    """))).scalar()
+
+    # ── 数据口径 (0910 管理场景重构): 总量+今日新增成对; 无 not_found 维度
+    # (negative 走 observations 账本, chemical_cb 只存 positive, 展示死维度已删)。
+    # 性能: 每表一次聚合扫描, 串行 (AsyncSession 不允许并发 execute)。
+    # 这些"总量"精确统计必须全表扫 (120万/290万行, 合计 ~3s), 管理员视角
+    # 几十秒的新鲜度足够 → 60s 进程内 TTL 缓存。队列/闸门/最新条不走缓存。
+    stats = _PIPELINE_STATS_CACHE.get("v")
+    if stats is None or _time.time() - stats[0] > _PIPELINE_STATS_TTL:
+        # "今日" = DB 会话时区(Asia/Shanghai)的自然日, 与管理员本地日一致(已实测 DB tz);
+        # 每表一次聚合扫描, 同一扫描内同时取 今日/近1小时/总量 三个口径。
+        cb_locales = [
+            {"locale": r[0], "today": int(r[1]), "total": int(r[2]), "last_1h": int(r[3])}
+            for r in (await db.execute(text("""
+                SELECT locale,
+                       count(*) FILTER (WHERE fetched_at >= current_date),
+                       count(*),
+                       count(*) FILTER (WHERE fetched_at >= now() - interval '1 hour')
+                FROM chemistry.chemical_cb GROUP BY locale
+            """))).fetchall()
+        ]
+        pb_today, pb_last_1h, pb_total_rows = (await db.execute(text("""
+            SELECT count(*) FILTER (WHERE fetched_at >= current_date),
+                   count(*) FILTER (WHERE fetched_at >= now() - interval '1 hour'),
+                   count(*)
+            FROM chemistry.chemical_pubchem
+        """))).fetchone()
+        sup = (await db.execute(text("""
+            SELECT
+              count(*) FILTER (WHERE fetched_at >= current_date),
+              count(DISTINCT chemical_id) FILTER (WHERE fetched_at >= current_date),
+              count(*),
+              count(DISTINCT chemical_id),
+              (SELECT count(*) FROM chemistry.chemical_supplier_profile),
+              (SELECT count(*) FROM chemistry.chemical_supplier_profile WHERE fetched_at >= current_date)
+            FROM chemistry.chemical_supplier_listing
+        """))).fetchone()
+        # CB 上游账本 (89万 cb_number 种子) —— 按 status 索引扫描, 快
+        seed = (await db.execute(text("""
+            SELECT count(*) FILTER (WHERE status = 'ACCEPTED'),
+                   count(*) FILTER (WHERE status = 'ENQUEUED'),
+                   count(*) FILTER (WHERE status = 'AMBIGUOUS')
+            FROM ingestion.chemicalbook_seed
+        """))).fetchone()
+        # CB 负面观测账本 (无数据不落主表, 只落这里)
+        neg = (await db.execute(text("""
+            SELECT count(*), count(*) FILTER (WHERE observed_at >= current_date)
+            FROM maintenance.cb_negative_observations
+        """))).fetchone()
+        stats = (_time.time(), cb_locales, int(pb_today), int(pb_last_1h), int(pb_total_rows),
+                 {"today_rows": int(sup[0]), "today_chemicals": int(sup[1]),
+                  "total_rows": int(sup[2]), "total_chemicals": int(sup[3]),
+                  "profiles": int(sup[4]), "today_profiles": int(sup[5])},
+                 {"accepted": int(seed[0]), "enqueued": int(seed[1]), "ambiguous": int(seed[2])},
+                 {"total": int(neg[0]), "today": int(neg[1])})
+        _PIPELINE_STATS_CACHE["v"] = stats
+    (_, cb_locales, pb_today, pb_last_1h, pb_total_rows,
+     supplier, seed_stats, neg_stats) = stats
+
+    # 落库口径: rows.today / rows.total 两链同语义 (total=落库总量, 非"今日")
+    cb_today = sum(x["today"] for x in cb_locales)
+    cb_total = sum(x["total"] for x in cb_locales)
+    cb_rate = sum(x["last_1h"] for x in cb_locales)
 
     # ── 闸门(redis db1, 0902 口径) ──
     gates = {}
     try:
         from .core.cache import get_cache
-        import time as _time
         redis = await get_cache()
         for ch in ("pubchem", "cb"):
             streak = await redis.get(f"gate:{ch}:streak")
@@ -521,53 +552,52 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
         FROM maintenance.worker_clients ORDER BY worker_id
     """))).fetchall()
 
-    # ── 供应商(CB 链产物) ──
-    sup = (await db.execute(text("""
-        SELECT
-          (SELECT count(*) FROM chemistry.chemical_supplier_listing WHERE fetched_at >= current_date),
-          (SELECT count(DISTINCT chemical_id) FROM chemistry.chemical_supplier_listing WHERE fetched_at >= current_date),
-          (SELECT count(*) FROM chemistry.chemical_supplier_listing),
-          (SELECT count(DISTINCT chemical_id) FROM chemistry.chemical_supplier_listing),
-          (SELECT count(*) FROM chemistry.chemical_supplier_profile)
-    """))).fetchone()
-
-    # 实时入库滚动(两链合并, 最新10条)
+    # ── 各链最新 10 条 (NULLS LAST: fetched_at 为空的旧行不得占据榜首) ──
+    # 行形状统一 {chain, chemical_id, source, ref, title, at} —— 只暴露界面真正要用的字段。
     latest_cb = [
-        {"chain": "CB", "chemical_id": r[0], "detail": r[1] or "zh-CN",
-         "status": r[2], "at": r[3].isoformat() if r[3] else None}
+        {"chain": "CB", "chemical_id": int(r[0]),
+         "source": r[1] or "zh-CN", "ref": r[2] or "—",
+         "title": r[4] or "—",
+         "at": r[3].isoformat() if r[3] else None}
         for r in (await db.execute(text("""
-            SELECT chemical_id, locale, last_status, fetched_at
-            FROM chemistry.chemical_cb ORDER BY fetched_at DESC LIMIT 10
+            SELECT cc.chemical_id, cc.locale, cc.cb_number, cc.fetched_at, c.preferred_name
+            FROM chemistry.chemical_cb cc
+            LEFT JOIN chemistry.chemicals c ON c.id = cc.chemical_id
+            ORDER BY cc.fetched_at DESC NULLS LAST LIMIT 10
         """))).fetchall()
     ]
     latest_pb = [
-        {"chain": "PB", "chemical_id": r[0],
-         "detail": (r[1] or "")[:40], "status": "ok",
-         "at": r[2].isoformat() if r[2] else None}
+        {"chain": "PB", "chemical_id": int(r[0]),
+         "source": "PUG View", "ref": str(r[2]) if r[2] else "—",
+         "title": r[1] or r[3] or "—",
+         "at": r[4].isoformat() if r[4] else None}
         for r in (await db.execute(text("""
-            SELECT chemical_id, record_title, fetched_at
-            FROM chemistry.chemical_pubchem ORDER BY fetched_at DESC LIMIT 10
+            SELECT p.chemical_id, p.record_title, c.pubchem_cid, c.preferred_name, p.fetched_at
+            FROM chemistry.chemical_pubchem p
+            LEFT JOIN chemistry.chemicals c ON c.id = p.chemical_id
+            ORDER BY p.fetched_at DESC NULLS LAST LIMIT 10
         """))).fetchall()
     ]
-    latest = sorted(latest_cb + latest_pb, key=lambda x: x["at"] or "", reverse=True)[:10]
+    cb_latest_at = latest_cb[0]["at"] if latest_cb else None
+    pb_latest_at = latest_pb[0]["at"] if latest_pb else None
 
     return {
-        "supplier": {
-            "today_rows": int(sup[0]), "today_chemicals": int(sup[1]),
-            "total_rows": int(sup[2]), "total_chemicals": int(sup[3]),
-            "profiles": int(sup[4]),
-        },
-        "latest": latest,
+        "supplier": supplier,
+        "latest": {"cb": latest_cb, "pb": latest_pb},
         "cb": {
             "queue": cb_queue, "error_buckets": cb_errors,
-            "throughput": cb_throughput, "rate_1h": cb_rate,
-            "latest_at": cb_latest_at.isoformat() if cb_latest_at else None,
-            "locales_today": cb_locales,
+            "rate_1h": cb_rate,
+            "latest_at": cb_latest_at,
+            "rows": {"today": int(cb_today), "total": int(cb_total)},
+            "locales": cb_locales,       # 五语种: 每个 {locale, today, total, last_1h}
+            "seed": seed_stats,          # 上游账本 ingestion.chemicalbook_seed
+            "negative": neg_stats,       # 负面观测 maintenance.cb_negative_observations
         },
         "pb": {
             "queue": pb_queue, "error_buckets": pb_errors,
-            "throughput": pb_throughput, "rate_1h": pb_rate,
-            "latest_at": pb_latest_at.isoformat() if pb_latest_at else None,
+            "rate_1h": int(pb_last_1h),
+            "latest_at": pb_latest_at,
+            "rows": {"today": int(pb_today), "total": int(pb_total_rows)},
         },
         "gates": gates,
         "workers": [
@@ -585,8 +615,10 @@ async def revive_errors(
     actor: Actor = Depends(admin),
     db=Depends(get_db),
 ):
-    """error 行手动复活(0902): 一键把该链全部 error 态翻回 queued。
-    语义同闸门复活(gate_unlock), 管理员手动触发通道。"""
+    """error 行手动复活(0902, 0911 复核): 一键把该链全部 error 态翻回 queued。
+    与 worker 的"过期租约回收"同口径 —— error 行在入 error 态时已清空租约字段,
+    故翻态只需改 status/updated_at; last_error_code 保留为留痕(下次派发失败会覆盖)。
+    claim 只认 status='queued', 翻态后即可被 worker 正常认领。"""
     if chain not in ("cb", "pb"):
         raise HTTPException(400, "chain 必须是 cb 或 pb")
     table = "cas_jobs" if chain == "cb" else "pubchem_jobs"
