@@ -179,6 +179,21 @@ class ApiTokenBoundaryTests(unittest.TestCase):
         self.assertIsNone(guide["connection"]["account"])
         self.assertIn("AI Key", guide["connection"]["instruction"])
         self.assertIn("operations", guide)
+        # A-fix: 机器契约无星号伪 placeholder
+        self.assertEqual(
+            guide["authentication"]["header"], "Authorization: Bearer <AI Key>")
+        ops = {item["id"]: item for item in guide["operations"]}
+        # A-fix: validate_skill = bearer (REST current_actor, 无 skill:write scope)
+        self.assertEqual(ops["validate_skill"]["auth"], "bearer")
+        # 已认证状态
+        actor = Actor(
+            7, "chemist", "Chemist", "chemist@example.test", "member", None,
+            "agent", scopes=("read", "reaction:write"),
+        )
+        guide2 = asyncio.run(agent.agent_guide("Bearer hgs_t", actor, db=db_mock))
+        self.assertEqual(guide2["connection"]["status"], "authenticated")
+        self.assertEqual(
+            guide2["authentication"]["header"], "Authorization: Bearer <AI Key>")
 
     def test_machine_contract_uses_ai_key_wording(self) -> None:
         source = inspect.getsource(agent)

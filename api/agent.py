@@ -57,12 +57,12 @@ async def agent_guide(
             "instruction": (
                 "连接已确认。只使用下列 operations；能力均以本契约为准。"
                 if agent
-                else "公开操作可直接使用。如需访问个人数据或受授权操作，请在账户设置创建 AI Key，并以 Authorization: Bearer *** 再次读取本入口以确认连接。"
+                else "公开操作可直接使用。如需访问个人数据或受授权操作，请在账户设置创建 AI Key，并以 Authorization: Bearer <AI Key> 再次读取本入口以确认连接。"
             ),
         },
         "authentication": {
             "type": "bearer",
-            "header": "Authorization: Bearer *** AI Key>",
+            "header": "Authorization: Bearer <AI Key>",
             "scopes": list(agent.scopes) if agent else ["read", "reaction:write", "skill:write"],
             "token_handling": "AI Key 仅发送给 huagongshe.com，不写入公开提示词、代码、文件或日志。",
         },
@@ -164,7 +164,7 @@ async def agent_guide(
                 "id": "validate_skill",
                 "method": "POST",
                 "path": "/api/skills/validate",
-                "auth": "public_or_bearer",
+                "auth": "bearer",
                 "purpose": "校验技能 zip 草稿（不保存）：结构、配额、文件数、frontmatter、脚本语法与危险调用警告",
                 "input": "multipart 字段 file=<技能 zip>",
             },

@@ -56,7 +56,7 @@ async def _actor_from_headers(headers: Any) -> Actor | None:
 
 def _require(actor: Actor | None, scope: str) -> Actor:
     if actor is None:
-        raise ToolError("此操作需要 AI Key：在网页 账户设置 → AI Key 生成后以 Authorization: Bearer *** 连接")
+        raise ToolError("此操作需要 AI Key：在网页 账户设置 → AI Key 生成后以 Authorization: Bearer <AI Key> 连接")
     if actor.auth_kind != "agent" and actor.auth_kind != "session":
         raise ToolError("身份类型不支持")
     if actor.auth_kind == "agent" and scope not in actor.scopes:
@@ -67,7 +67,7 @@ def _require(actor: Actor | None, scope: str) -> Actor:
 def _require_login(actor: Actor | None) -> Actor:
     """登录即可的操作(与 REST current_actor 同语义), 不做 scope 收紧."""
     if actor is None:
-        raise ToolError("此操作需要 AI Key：在网页 账户设置 → AI Key 生成后以 Authorization: Bearer *** 连接")
+        raise ToolError("此操作需要 AI Key：在网页 账户设置 → AI Key 生成后以 Authorization: Bearer <AI Key> 连接")
     return actor
 
 
@@ -78,13 +78,13 @@ def build_mcp_server() -> MCPServer:
         version=settings.api_version,
         instructions=(
             "你是化工社AIchem助手：查询化合物与反应数据、计算投料、保存反应记录。"
-            "读工具匿名可用；写工具(校验/保存反应)需要 AI Key。"
+            "部分公开工具可匿名使用；访问个人数据、结构检索及受授权操作需要 AI Key。"
             "保存前必须先向用户展示草稿并取得确认；新记录默认 private。"
             "不得编造 SMILES、来源、条件或收率。"
         ),
     )
 
-    # ---------------- 读工具(匿名可用) ----------------
+    # ---------------- 查询与读取工具 ----------------
 
     @server.tool(name="search_chemistry_data", title="统一搜索")
     async def search_chemistry_data(
