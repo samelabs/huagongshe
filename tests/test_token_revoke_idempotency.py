@@ -202,6 +202,15 @@ class SkillsRaceTests(unittest.TestCase):
     → 回读第一次的 skill。用直调 _create_skill_record + 手工制造竞态窗口:
     第一个事务 INSERT 后未 commit 前第二个事务 INSERT → UniqueViolation。"""
 
+    def setUp(self):
+        # create_skill 走 enforce(redis) — 模块级 pool 绑定首个 loop,
+        # 逐次 asyncio.run 关 loop → 'Event loop is closed'。
+        # 自建 pool(与 TokenRevokeSemanticsTests 同修法)。
+        import redis.asyncio as aioredis
+        from api.core import rate_limit
+        rate_limit.pool = aioredis.ConnectionPool.from_url(
+            os.environ["HGS_REDIS_URL"], decode_responses=True)
+
     def test_concurrent_same_key_returns_same_skill(self):
         from sqlalchemy import text
         from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -295,17 +304,18 @@ class SkillsRaceTests(unittest.TestCase):
         # 不同正常请求(slug 冲突、无 key)不被吞 → 仍 IntegrityError 上抛
 
     def test_concurrent_same_slug_different_key_ends_409(self):
-        """真实 race: T1 INSERT 未 commit, T2 越过 pre-check 直落 INSERT
-        → UNIQUE 拦截 → 生产 handler 的 owner+slug 回读 → 最终 409。
-        直调 create_skill 的 except 分支逻辑(等价复现): rollback 后查
-        owner+slug 命中 → HTTPException(409)。"""
+        """真实调用 create_skill(): DB 预置同 owner/同 slug/different key,
+        _create_skill_record 被替换为抛 IntegrityError(模拟 INSERT 被
+        UNIQUE 拦截后的 race 终态) — 必须由生产 handler 完整走
+        rollback → owner+key 未命中 → owner+slug 命中 → 409。"""
+        from unittest import mock
         from fastapi import HTTPException
-        from api.skills import create_skill
-        from api.core.security import Actor
         from sqlalchemy import text
         from sqlalchemy.exc import IntegrityError
         from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
         from sqlalchemy.pool import NullPool
+        from api.skills import create_skill
+        from api.core.security import Actor
 
         url = DB_URL.split("?")[0]
         if url.startswith("postgresql://"):
@@ -315,13 +325,27 @@ class SkillsRaceTests(unittest.TestCase):
         uid = None
         slug = f"race2-{RUN}"
         key1, key2 = f"k1-{RUN}", f"k2-{RUN}"
+        manifest = {"slug": slug, "title": "T", "description": "D",
+                    "license": "MIT", "has_scripts": False, "file_count": 0,
+                    "size_bytes": 0, "files": [], "warnings": []}
 
         class _Upload:
             async def read(self, limit: int = -1):
-                return b""  # 不实际走 zip 解析 — 本测试只验证 except 分支
+                return b""
+
+        class _Settings:
+            skill_zip_max_bytes = 1024 * 1024
+            api_skill_write_limit_per_hour = 10_000
+
+        async def _fake_create(db, actor, mf, cat, key):
+            raise IntegrityError("race", None, Exception("unique"))
+
+        def _fake_zip(raw):  # 生产侧 asyncio.to_thread 调用 → 必须同步
+            return manifest
 
         async def go():
             nonlocal uid
+            import api.skills as sk
             try:
                 async with engine.begin() as db:
                     uid = (await db.execute(text("""
@@ -330,7 +354,7 @@ class SkillsRaceTests(unittest.TestCase):
                         VALUES (:u,:e,:p,'member','U') RETURNING id
                     """), {"u": f"utr{RUN}f", "e": f"f{RUN}@t.example",
                            "p": "x"*60})).scalar()
-                # T1: 同 owner 同 slug, 不同 key, 已提交(race 结局之一)
+                # 预置: 同 owner / 同 slug / key1(第一次请求已提交)
                 async with SM() as s1:
                     await s1.execute(text("""
                         INSERT INTO community.skills
@@ -340,35 +364,23 @@ class SkillsRaceTests(unittest.TestCase):
                                 false,0,0,:idem)
                     """), {"owner": uid, "slug": slug, "idem": key1})
                     await s1.commit()
-                # T2: 竞态后handler等价路径 — 直接调生产 except 分支逻辑:
-                # 模拟 INSERT 撞 UNIQUE 后的回读决策。用真实生产 SQL 复现
-                # create_skill except 块的 owner+slug 查询。
-                async with SM() as s2:
-                    await s2.execute(text("""
-                        INSERT INTO community.skills
-                          (owner_id,slug,title,description,license,category,origin,
-                           visibility,has_scripts,file_count,size_bytes,idempotency_key)
-                        VALUES (:owner,:slug,'T','D','MIT',NULL,'user','private',
-                                false,0,0,:idem)
-                    """), {"owner": uid, "slug": slug, "idem": key2})
-                    await s2.commit()
-                return "no-conflict"
-            except IntegrityError:
-                # race 后回读(与生产 handler 同 SQL)
-                async with engine.connect() as c:
-                    conflict = (await c.execute(text("""
-                        SELECT id FROM community.skills
-                        WHERE owner_id=:u AND slug=:s
-                    """), {"u": uid, "s": slug})).scalar()
-                    key_hit = (await c.execute(text("""
-                        SELECT id FROM community.skills
-                        WHERE owner_id=:u AND idempotency_key=:k
-                    """), {"u": uid, "k": key2})).scalar()
-                if key_hit is not None:
-                    return "key-hit"
-                if conflict is not None:
-                    return "slug-conflict-409"
-                return "bare-raise"
+                actor = Actor(id=uid, username="u", display_name="U",
+                              email="u@t.example", role="member",
+                              avatar_path=None, auth_kind="agent",
+                              scopes=("skill:write",))
+                session = SM()
+                with mock.patch.object(sk, "_create_skill_record", _fake_create), \
+                     mock.patch.object(sk, "extract_skill_zip", _fake_zip), \
+                     mock.patch.object(sk, "settings", _Settings()):
+                    try:
+                        await create_skill(file=_Upload(), category=None,
+                                           request_idempotency_key=key2,
+                                           actor=actor, db=session)
+                        return "no-exception"
+                    except HTTPException as exc:
+                        return f"http-{exc.status_code}"
+                    finally:
+                        await session.close()
             finally:
                 if uid is not None:
                     async with engine.begin() as db:
@@ -379,8 +391,166 @@ class SkillsRaceTests(unittest.TestCase):
                 await engine.dispose()
 
         outcome = asyncio.run(go())
-        self.assertEqual(outcome, "slug-conflict-409",
-                         "不同 key 撞同 slug 的 race 最终须归 409 语义")
+        self.assertEqual(outcome, "http-409",
+                         "different key 撞同 slug 须由真实 handler 抛 409")
+
+    def test_same_key_retry_returns_existing_skill_via_create_skill(self):
+        """same-key retry: pre-check(owner+key) 命中直接返回既有 skill —
+        走真实 create_skill + 真实 _create_skill_record 未被调用断言。"""
+        from unittest import mock
+        from sqlalchemy import text
+        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+        from sqlalchemy.pool import NullPool
+        from api.skills import create_skill
+        from api.core.security import Actor
+
+        url = DB_URL.split("?")[0]
+        if url.startswith("postgresql://"):
+            url = "postgresql+asyncpg://" + url.split("://", 1)[1]
+        engine = create_async_engine(url, poolclass=NullPool)
+        SM = async_sessionmaker(engine, expire_on_commit=False)
+        uid = None
+        slug = f"race3-{RUN}"
+        key = f"kk-{RUN}"
+        manifest = {"slug": slug, "title": "T", "description": "D",
+                    "license": "MIT", "has_scripts": False, "file_count": 0,
+                    "size_bytes": 0, "files": [], "warnings": []}
+
+        class _Upload:
+            async def read(self, limit: int = -1):
+                return b""
+
+        class _Settings:
+            skill_zip_max_bytes = 1024 * 1024
+            api_skill_write_limit_per_hour = 10_000
+
+        async def _fake_create(db, actor, mf, cat, k):
+            raise AssertionError("pre-check 命中后不得再走 INSERT")
+
+        def _fake_zip(raw):  # 生产侧 asyncio.to_thread 调用 → 必须同步
+            return manifest
+
+        async def go():
+            nonlocal uid
+            import api.skills as sk
+            try:
+                async with engine.begin() as db:
+                    uid = (await db.execute(text("""
+                        INSERT INTO community.users
+                          (username,email,password_hash,role,display_name)
+                        VALUES (:u,:e,:p,'member','U') RETURNING id
+                    """), {"u": f"utr{RUN}g", "e": f"g{RUN}@t.example",
+                           "p": "x"*60})).scalar()
+                async with SM() as s1:
+                    sid = (await s1.execute(text("""
+                        INSERT INTO community.skills
+                          (owner_id,slug,title,description,license,category,origin,
+                           visibility,has_scripts,file_count,size_bytes,idempotency_key)
+                        VALUES (:owner,:slug,'T','D','MIT',NULL,'user','private',
+                                false,0,0,:idem) RETURNING id
+                    """), {"owner": uid, "slug": slug, "idem": key})).scalar()
+                    await s1.commit()
+                actor = Actor(id=uid, username="u", display_name="U",
+                              email="u@t.example", role="member",
+                              avatar_path=None, auth_kind="agent",
+                              scopes=("skill:write",))
+                session = SM()
+                with mock.patch.object(sk, "_create_skill_record", _fake_create), \
+                     mock.patch.object(sk, "extract_skill_zip", _fake_zip), \
+                     mock.patch.object(sk, "settings", _Settings()):
+                    out = await create_skill(file=_Upload(), category=None,
+                                             request_idempotency_key=key,
+                                             actor=actor, db=session)
+                await session.close()
+                return out["id"], sid
+            finally:
+                if uid is not None:
+                    async with engine.begin() as db:
+                        await db.execute(text(
+                            "DELETE FROM community.skills WHERE owner_id=:u"), {"u": uid})
+                        await db.execute(text(
+                            "DELETE FROM community.users WHERE id=:u"), {"u": uid})
+                await engine.dispose()
+
+        got, existing = asyncio.run(go())
+        self.assertEqual(got, existing,
+                         "same-key retry 必须返回既有 skill(pre-check 命中)")
+
+    def test_unrelated_integrity_error_reraises_via_create_skill(self):
+        """unrelated IntegrityError: key/slug 均未命中 → 原异常继续 raise。"""
+        from unittest import mock
+        from sqlalchemy import text
+        from sqlalchemy.exc import IntegrityError
+        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+        from sqlalchemy.pool import NullPool
+        from api.skills import create_skill
+        from api.core.security import Actor
+
+        url = DB_URL.split("?")[0]
+        if url.startswith("postgresql://"):
+            url = "postgresql+asyncpg://" + url.split("://", 1)[1]
+        engine = create_async_engine(url, poolclass=NullPool)
+        SM = async_sessionmaker(engine, expire_on_commit=False)
+        uid = None
+        slug = f"race4-{RUN}"  # DB 无此 slug → slug 回读不命中
+        key = f"kk4-{RUN}"    # DB 无此 key
+        manifest = {"slug": slug, "title": "T", "description": "D",
+                    "license": "MIT", "has_scripts": False, "file_count": 0,
+                    "size_bytes": 0, "files": [], "warnings": []}
+
+        class _Upload:
+            async def read(self, limit: int = -1):
+                return b""
+
+        class _Settings:
+            skill_zip_max_bytes = 1024 * 1024
+            api_skill_write_limit_per_hour = 10_000
+
+        async def _fake_create(db, actor, mf, cat, k):
+            raise IntegrityError("unrelated", None, Exception("fk"))
+
+        def _fake_zip(raw):  # 生产侧 asyncio.to_thread 调用 → 必须同步
+            return manifest
+
+        async def go():
+            nonlocal uid
+            import api.skills as sk
+            try:
+                async with engine.begin() as db:
+                    uid = (await db.execute(text("""
+                        INSERT INTO community.users
+                          (username,email,password_hash,role,display_name)
+                        VALUES (:u,:e,:p,'member','U') RETURNING id
+                    """), {"u": f"utr{RUN}h", "e": f"h{RUN}@t.example",
+                           "p": "x"*60})).scalar()
+                actor = Actor(id=uid, username="u", display_name="U",
+                              email="u@t.example", role="member",
+                              avatar_path=None, auth_kind="agent",
+                              scopes=("skill:write",))
+                session = SM()
+                with mock.patch.object(sk, "_create_skill_record", _fake_create), \
+                     mock.patch.object(sk, "extract_skill_zip", _fake_zip), \
+                     mock.patch.object(sk, "settings", _Settings()):
+                    try:
+                        await create_skill(file=_Upload(), category=None,
+                                           request_idempotency_key=key,
+                                           actor=actor, db=session)
+                        return "no-exception"
+                    except IntegrityError:
+                        return "reraw"
+                    finally:
+                        await session.close()
+            finally:
+                if uid is not None:
+                    async with engine.begin() as db:
+                        await db.execute(text(
+                            "DELETE FROM community.skills WHERE owner_id=:u"), {"u": uid})
+                        await db.execute(text(
+                            "DELETE FROM community.users WHERE id=:u"), {"u": uid})
+                await engine.dispose()
+
+        self.assertEqual(asyncio.run(go()), "reraw",
+                         "不相关 IntegrityError 不得被吞成 409/其他")
 
     def test_no_key_conflict_still_raises(self):
         from api.skills import _create_skill_record
