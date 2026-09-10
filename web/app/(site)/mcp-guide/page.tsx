@@ -48,7 +48,7 @@ export default function McpPage() {
         </div>
         <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.mcp.connectTokenLabel}</span>
-          <code className="mcp-connect-value">Authorization: Bearer &lt;你的API Token&gt;</code>
+          <code className="mcp-connect-value">Authorization: Bearer &lt;你的AI Key&gt;</code>
         </div>
         <p className="mcp-connect-desc">{t.mcp.connectTokenDesc}</p>
         <div className="guide-actions">
