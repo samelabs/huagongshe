@@ -201,6 +201,12 @@ class MigrationRunnerTests(unittest.TestCase):
         self.assertIn("CREATE INDEX IF NOT EXISTS pubchem_identity_jobs_claim_idx", sql)
         self.assertIn("CREATE INDEX IF NOT EXISTS pubchem_identity_jobs_chem_idx", sql)
         self.assertNotIn("INSERT INTO", sql)
+        # runner owns transaction: forward migration 顶层不得含事务控制
+        # (psql --single-transaction 遇脚本自身 BEGIN/COMMIT/ROLLBACK 失效)
+        for line in sql.splitlines():
+            stripped = line.strip().rstrip(";").strip().upper()
+            self.assertNotIn(stripped, {"BEGIN", "COMMIT", "ROLLBACK"},
+                             f"transaction control in forward migration: {line!r}")
         # runner 对 fresh scratch 库执行全部 forward 并记录 tracking
         rc = run(self.url, os.path.join(ROOT, "migrations"))
         self.assertIn(rc, (0, 3))

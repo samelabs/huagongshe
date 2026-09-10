@@ -6,8 +6,6 @@
 -- 0000_baseline.sql 的最终 schema 一致; 不新增字段/不改 discovery semantics/
 -- 不 backfill/不 enqueue historical rows。
 
-BEGIN;
-
 SET LOCAL statement_timeout = '600s';
 
 CREATE TABLE IF NOT EXISTS maintenance.pubchem_identity_jobs (
@@ -41,5 +39,3 @@ CREATE INDEX IF NOT EXISTS pubchem_identity_jobs_claim_idx
 
 CREATE INDEX IF NOT EXISTS pubchem_identity_jobs_chem_idx
     ON maintenance.pubchem_identity_jobs (chemical_id);
-
-COMMIT;
