@@ -49,6 +49,7 @@ class MigrationRunnerTests(unittest.TestCase):
             DROP TABLE IF EXISTS chemistry.mig_bad;
             DROP TABLE IF EXISTS chemistry.mig_base;
             DROP TABLE IF EXISTS chemistry.mig_boom;
+            DROP TABLE IF EXISTS chemistry.runner_concurrent_once;
             DROP TABLE IF EXISTS chemistry.after_ok;
         """], check=True, capture_output=True, env=dict(os.environ))
 
@@ -130,6 +131,59 @@ class MigrationRunnerTests(unittest.TestCase):
         self.assertEqual(
             self._psql("SELECT count(*) FROM maintenance.schema_migrations;")
             .stdout.strip(), "0")
+
+    def test_concurrent_runners_serialized_by_lock(self):
+        """真并发: 两个 runner 子进程同时启动, advisory lock 串行化。
+
+        migration 带 pg_sleep(1) 制造重叠窗口: 若锁无效, 两边几乎同时
+        越过 hash check → 一边 INSERT tracking UNIQUE 冲突或表 DDL race
+        → 至少一个 runner 非零退出; 锁有效时 B 等 A commit 后重读
+        tracking → skip, 双方 0 退出。
+        """
+        import time
+        self._write(
+            "20260911_01_concurrent_once.sql",
+            "CREATE TABLE chemistry.runner_concurrent_once (id int PRIMARY KEY, "
+            "created_by text NOT NULL); "
+            "SELECT pg_sleep(1); "
+            "INSERT INTO chemistry.runner_concurrent_once "
+            "SELECT 1, pg_backend_pid()::text;")
+        env = dict(os.environ)
+        env["PYTHONPATH"] = ROOT
+        script = (
+            "import sys; "
+            f"sys.path.insert(0, {ROOT!r}); "
+            "from scripts.migrate import run; "
+            f"sys.exit(run({self.url!r}, {self.tmp!r}))")
+        # 真同时启动两个独立 runner 进程
+        procs = [subprocess.Popen(
+            [sys.executable, "-c", script], env=env,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            for _ in range(2)]
+        outs = [p.communicate(timeout=120) for p in procs]
+        rcs = [p.returncode for p in procs]
+        # 两个 runner 都必须正常结束
+        self.assertEqual(rcs, [0, 0],
+                         f"runner 退出码 {rcs}: {[o[1] for o in outs]}")
+        # business effect 只有一次
+        self.assertEqual(
+            self._psql("SELECT count(*), count(DISTINCT created_by) "
+                       "FROM chemistry.runner_concurrent_once;").stdout.strip(),
+            "1|1")
+        # tracking 恰 1 行
+        self.assertEqual(
+            self._psql("SELECT count(*) FROM maintenance.schema_migrations "
+                       "WHERE filename='20260911_01_concurrent_once.sql';")
+            .stdout.strip(), "1")
+        # skip 路径被走到: 两个进程输出里恰一个 applied
+        applied_lines = sum(
+            o for o in [outs[0][0].count("[runner] applied"),
+                        outs[1][0].count("[runner] applied")])
+        skip_lines = sum(
+            o for o in [outs[0][0].count("[runner] skip"),
+                        outs[1][0].count("[runner] skip")])
+        self.assertEqual(applied_lines, 1)
+        self.assertEqual(skip_lines, 1)
 
     def test_repo_root_only_baseline_and_bootstrap(self):
         # 正式 repo migrations/ 目录: runner 只会看到 0000/0001(均不匹配 forward 规则)
