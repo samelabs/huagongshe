@@ -64,6 +64,9 @@ export default function GuidePage() {
             <span className="guide-path-suit">{t.guide.path2Suit}</span>
           </div>
           <p>{t.guide.path2Desc}</p>
+          <div className="guide-actions">
+            <Link className="button primary" href="/api/agent-guide">{t.guide.apiCta}</Link>
+          </div>
           <AiSubmissionPrompt />
         </article>
       </div>

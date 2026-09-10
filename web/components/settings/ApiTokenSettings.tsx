@@ -8,7 +8,7 @@ import { apiGet, apiPost, apiDelete, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type Token = { id: number; name: string; token_prefix: string; token_plain: string | null; created_at: string; expires_at: string | null; last_used_at: string | null };
-type CreatedToken = { agent_connection_text: string };
+type CreatedToken = { token: string };
 
 export function ApiTokenSettings() {
   const { user, ready } = useAccount();
@@ -20,24 +20,6 @@ export function ApiTokenSettings() {
   const [creating, setCreating] = useState(false);
   const [revokingId, setRevokingId] = useState<number | null>(null);
 
-  async function loadTokens() {
-    try {
-      const data = await apiGet<Token[]>(`/users/me/tokens`);
-      setTokens(data);
-    } catch {
-      setMessage(t.settings.ai.loadFailed);
-    }
-  }
-  async function copyConnection() {
-    if (!createdToken) return;
-    try {
-      await navigator.clipboard.writeText(createdToken.agent_connection_text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      setMessage(t.settings.ai.copyFailed);
-    }
-  }
   useEffect(() => {
     if (!user) return;
     let active = true;
@@ -62,17 +44,17 @@ export function ApiTokenSettings() {
       setCreating(true);
       try {
         const values = new FormData(form);
-        const body = await apiPost<{ token?: string; agent_connection_text?: string; detail?: unknown }>(
+        const body = await apiPost<{ token?: string; detail?: unknown }>(
           `/users/me/tokens`,
           JSON.stringify({ name: values.get("name"), expires_in_days: Number(values.get("days")) || null })
         );
-        if (!body?.token || !body?.agent_connection_text) {
+        if (!body?.token) {
           setMessage(t.settings.ai.createFailed);
           return;
         }
-        setCreatedToken({ agent_connection_text: body.agent_connection_text });
+        setCreatedToken({ token: body.token });
         form.reset();
-        await loadTokens();
+        await loadTokens(tokens, setTokens, setMessage);
       } catch (error) {
         if (error instanceof ApiError && error.status === 409) setMessage(t.settings.ai.limitReached);
         else if (error instanceof ApiError && error.status === 401) setMessage(t.settings.ai.relogin);
@@ -84,7 +66,9 @@ export function ApiTokenSettings() {
       <select name="days" defaultValue="90" disabled={creating}><option value="30">{t.settings.ai.days30}</option><option value="90">{t.settings.ai.days90}</option><option value="365">{t.settings.ai.days365}</option><option value="">{t.settings.ai.noExpiry}</option></select>
       <button type="submit" className="button primary small" disabled={creating}>{creating ? t.settings.ai.creating : t.settings.ai.createBtn}</button>
     </form>
-    {createdToken && <div className="token-secret"><div><strong>{t.settings.ai.created}</strong><button type="button" className="button primary small" onClick={copyConnection}>{copied ? t.settings.ai.copied : t.settings.ai.copyToAI}</button></div><textarea className="token-connection" readOnly value={createdToken.agent_connection_text} aria-label={t.settings.ai.connectionLabel} /><span>{t.settings.ai.copyHint}</span></div>}
+    {createdToken && <div className="token-secret"><div><strong>{t.settings.ai.created}</strong><button type="button" className="button primary small" onClick={async () => {
+      try { await navigator.clipboard.writeText(createdToken.token); setCopied(true); window.setTimeout(() => setCopied(false), 1800); } catch { setMessage(t.settings.ai.copyFailed); }
+    }}>{copied ? t.settings.ai.copied : t.settings.ai.copyToken}</button></div><code className="token-value">{createdToken.token}</code><span>{t.settings.ai.copyHint}</span></div>}
     {message && <p className="form-message bad">{message}</p>}
     <div className="token-list">{tokens.map((token) => {
       const expired = Boolean(token.expires_at && new Date(token.expires_at).getTime() <= Date.now());
@@ -98,12 +82,28 @@ export function ApiTokenSettings() {
           setRevokingId(token.id); setMessage("");
           try {
             await apiDelete(`/users/me/tokens/${token.id}`);
-            await loadTokens();
+            await loadTokens(tokens, setTokens, setMessage);
           } catch { setMessage(t.settings.ai.revokeFailed); }
           finally { setRevokingId(null); }
         }}>{revokingId === token.id ? t.settings.ai.revoking : t.settings.ai.revoke}</button>
       </div></article>;
-    })}</div>    <Link className="api-guide-link" href="/guide">{t.settings.ai.guideLink}</Link>
+    })}</div>
+    <div className="token-help-links">
+      <Link className="api-guide-link" href="/guide">{t.settings.ai.guideLink}</Link>
+      <Link className="api-guide-link" href="/mcp-guide">{t.settings.ai.mcpGuideLink}</Link>
+    </div>
   </section>;
 }
 
+async function loadTokens(
+  _tokens: Token[],
+  setTokens: (ts: Token[]) => void,
+  setMessage: (m: string) => void,
+) {
+  try {
+    const data = await apiGet<Token[]>(`/users/me/tokens`);
+    setTokens(data);
+  } catch {
+    setMessage(t.settings.ai.loadFailed);
+  }
+}

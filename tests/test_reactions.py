@@ -131,8 +131,10 @@ class ReactionContractTests(unittest.TestCase):
     def test_agent_guide_is_a_bounded_connection_and_operation_surface(self) -> None:
         source = inspect.getsource(agent.agent_guide)
         self.assertIn("optional_skill_url", source)
-        self.assertIn("mcp_url", source)
-        self.assertIn("mcp_transport", source)
+        # P2 边界归一: HTTP API guide 不再携带 MCP discovery
+        self.assertNotIn("mcp_url", source)
+        self.assertNotIn("mcp_transport", source)
+        self.assertNotIn("mcp-guide", source)
         self.assertNotIn("openapi_url", source)
         self.assertIn('"operations"', source)
         self.assertIn('"payload_hints"', source)
@@ -161,12 +163,21 @@ class ReactionContractTests(unittest.TestCase):
             },
         )
 
-    def test_token_connection_text_contains_token_and_single_entry_point(self) -> None:
-        value = agent.agent_connection_text("hgs_secret")
-        self.assertIn("https://huagongshe.com/api/agent-guide", value)
-        self.assertIn("访问令牌：hgs_secret", value)
-        self.assertIn("Authorization: Bearer", value)
-        self.assertIn("新记录默认 private", value)
+
+class ApiTokenBoundaryTests(unittest.TestCase):
+    """P2 边界归一: Token = credential, 与 API/MCP onboarding 解耦。"""
+
+    def test_token_create_response_only_returns_credential_and_metadata(self) -> None:
+        # create_token handler 源码契约: 只返回 row(id/name/prefix/scopes/created_at/expires_at)+token
+        import api.users as users_mod
+        source = inspect.getsource(users_mod.create_token)
+        return_source = source[source.rindex("return {"):]
+        self.assertIn('"token": plain', return_source)
+        for coupling in ("agent_connection_text", "agent_guide_url", "api_base_url"):
+            self.assertNotIn(f'"{coupling}"', return_source)
+        # agent_connection_text 函数已删除, 无残留消费者
+        import api.agent as agent_mod
+        self.assertFalse(hasattr(agent_mod, "agent_connection_text"))
 
 
 if __name__ == "__main__":

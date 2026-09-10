@@ -523,7 +523,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .token-create { display: grid; grid-template-columns: 1fr 160px auto; }
 .token-secret { margin-top: 15px; border: 1px solid var(--warning-border); padding: 13px; display: grid; gap: 8px; background: rgba(212,136,6,.06); font-size: var(--text-sm); }
 .token-secret > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.token-connection { width: 100%; min-height: 190px; border: 1px solid var(--warning-border); border-radius: 6px; padding: 11px; resize: vertical; color: var(--ink); background: white; font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.65; }
+.token-value { width: 100%; border: 1px solid var(--warning-border); border-radius: 6px; padding: 11px; color: var(--ink); background: white; font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.65; overflow-wrap: anywhere; }
 .token-secret > span { color: var(--muted); font-size: var(--text-xs); }
 .token-actions { display: flex; gap: 8px; align-items: center; }
 .token-actions .text-button { white-space: nowrap; }
@@ -534,7 +534,8 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .token-list strong { overflow-wrap: anywhere; }
 .token-list span { color: var(--quiet); font-size: var(--text-xs); }
 .token-list small { color: var(--quiet); font-size: var(--text-xs); }
-.api-guide-link { margin-top: 14px; display: inline-block; color: var(--blue); font-size: var(--text); }
+.api-guide-link { color: var(--blue); font-size: var(--text); }
+.token-help-links { margin-top: 14px; display: flex; gap: 18px; }
 
 .guide-page { max-width: var(--content-wide); }
 .guide-hero { max-width: var(--content-measure); padding: 30px 0 34px; }

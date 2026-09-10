@@ -13,19 +13,6 @@ from .core.security import Actor, public_or_actor
 router = APIRouter(tags=["agent"])
 
 
-def agent_connection_text(token: str) -> str:
-    origin = settings.public_base_url.rstrip("/")
-    return (
-        "请连接化工社AIchem，我是化工社AIchem助手的用户，请以化工社AIchem助手的身份帮助我：查询化学数据、计算投料，并在确认后保存反应记录。\n"
-        f"连接地址：{origin}/api/agent-guide\n"
-        f"访问令牌：{token}\n\n"
-        "请仅将令牌作为 Authorization: Bearer <访问令牌> 发送给 huagongshe.com。"
-        "先携带令牌读取连接地址，确认账号、可用操作、字段要求和安全规则，"
-        "再按我接下来的任务查询或计算。只有在我确认草稿后才能保存；"
-        "新记录默认 private，设为 public 前必须再次确认。"
-        "保存成功后返回 HRID、页面地址、可见范围和新建的 HCID。"
-    )
-
 
 @router.get(
     "/agent-guide",
@@ -80,12 +67,9 @@ async def agent_guide(
             "token_handling": "Token 仅发送给 huagongshe.com，不写入公开提示词、代码、文件或日志。",
         },
         "discovery": {
-            "mcp_url": f"{origin}/mcp",
-            "mcp_transport": "streamable-http",
-            "help_url": f"{origin}/mcp-guide",
             "skill_help_url": f"{origin}/skills",
             "optional_skill_url": skill_url,
-            "instruction": "先从 operations 选择操作；能力均以本契约为准，不依赖 OpenAPI。MCP 客户端可直接连接 mcp_url。",
+            "instruction": "先从 operations 选择操作；能力均以本契约为准，不依赖 OpenAPI。",
         },
         "operations": [
             {

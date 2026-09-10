@@ -16,7 +16,6 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from .agent import agent_connection_text
 from .core.config import settings
 from .core.database import get_db
 from .core.rate_limit import enforce
@@ -341,14 +340,12 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
         "plain": plain, "expires_at": expires,
     })).mappings().one()
     await db.commit()
+    # P2 边界归一: Token 创建只返回 credential 与 token metadata。
+    # api_base_url / agent_guide_url / agent_connection_text 已删除(前端零真实消费者,
+    # onboarding 耦合由 /guide 与 /mcp-guide 平级入口承担)。
     return {
         **dict(row),
         "token": plain,
-        "api_base_url": f"{settings.public_base_url.rstrip('/')}/api",
-        "agent_guide_url": f"{settings.public_base_url.rstrip('/')}/api/agent-guide",
-        # B2 通道规范: OpenAPI 不对公网暴露(BFF 404 + main.py docs_url=None),
-        # 原 openapi_url 字段是失效链接, 已移除(前端零引用)。
-        "agent_connection_text": agent_connection_text(plain),
     }
 
 
