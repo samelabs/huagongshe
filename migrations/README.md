@@ -37,3 +37,12 @@ YYYYMMDD_02_description.sql
 ```
 
 即使当天只有一个 migration 也使用 `_01` 序号，消除同日字母序歧义。
+
+## Forward runner
+
+- forward migrations **必须**通过 `scripts/migrate.py`（psql CLI，无新 dependency）执行，不手工 psql
+- 已执行 migration 文件 **immutable**；filename 存在但 sha256 不一致 → fail closed，不执行任何后续
+- migration SQL 与 tracking INSERT（`maintenance.schema_migrations`，由 runner 幂等创建）同事务原子提交；SQL 失败即整体回滚
+- runner 通过 advisory lock 防并行；只处理 `YYYYMMDD_NN_description.sql`，绝不扫描 `history/`，不执行 0000/0001
+- existing production：tracking 从 cutover 后第一条真实 forward migration 开始记录，不回填 history/0000/0001
+
