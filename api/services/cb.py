@@ -42,7 +42,7 @@ async def get_externals_row(db: Any, chemical_id: int) -> dict[str, Any] | None:
     """详情读路径: 优先主表 imprint 对应的 source 行(convenience cb),
     回落任意 zh-CN 行(legacy/多行任意一条, 与旧行为兼容)。"""
     row = (await db.execute(text("""
-        SELECT x.chemical_id,x.cas_number,x.entry,x.last_status,x.fetched_at
+        SELECT x.chemical_id,x.cas_number,x.entry,x.last_status,x.fetched_at,x.cb_number
         FROM chemistry.chemical_cb x
         JOIN chemistry.chemicals c ON c.id=x.chemical_id
         WHERE x.chemical_id=:chemical_id AND x.locale='zh-CN'
@@ -51,7 +51,7 @@ async def get_externals_row(db: Any, chemical_id: int) -> dict[str, Any] | None:
     """), {"chemical_id": chemical_id})).mappings().fetchone()
     if row is None:
         row = (await db.execute(text("""
-            SELECT chemical_id,cas_number,entry,last_status,fetched_at
+            SELECT chemical_id,cas_number,entry,last_status,fetched_at,cb_number
             FROM chemistry.chemical_cb
             WHERE chemical_id=:chemical_id AND locale='zh-CN'
             LIMIT 1
@@ -641,10 +641,17 @@ async def cb_decide(
             WHERE chemical_id=:id AND locale=:loc AND cb_number=:cb
         """), {"id": chemical_id, "loc": locale, "cb": cb_number})).first()
     else:
+        # source grain 收口(2026-09-10): 未显式传 cb_number 时按主表
+        # imprint 判定 — 与 get_externals_row 首选查询同一语义, 删除
+        # 恒真 (cb_number IS NULL OR TRUE)。legacy(c.cb_number IS NULL)
+        # 时唯一命中 NULL-grain 行(partial UNIQUE (chemical_id, locale)
+        # WHERE cb_number IS NULL), 不再"任意一行"。
         row = (await db.execute(text("""
-            SELECT last_status, fetched_at FROM chemistry.chemical_cb
-            WHERE chemical_id=:id AND locale=:loc
-              AND (cb_number IS NULL OR TRUE)
+            SELECT x.last_status, x.fetched_at
+            FROM chemistry.chemical_cb x
+            JOIN chemistry.chemicals c ON c.id=x.chemical_id
+            WHERE x.chemical_id=:id AND x.locale=:loc
+              AND x.cb_number IS NOT DISTINCT FROM c.cb_number
         """), {"id": chemical_id, "loc": locale})).first()
     if row is None:
         return "enqueue_first"
@@ -830,7 +837,7 @@ async def ensure_externals(
     if row is None:
         return {"state": "absent", "entry": None, "suppliers": [], "job_id": None}
     # 四态判定驱动(0902 剥离): ok 刷新窗。
-    decision = await cb_decide(db, chemical_id)
+    decision = await cb_decide(db, chemical_id, cb_number=row.get("cb_number"))
     if decision == "enqueue_refresh":
         # 需再问: 出当前数据但标记 stale, 调用方决定入列
         return {"state": "stale", "entry": row["entry"], "suppliers": [], "job_id": None}

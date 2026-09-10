@@ -113,6 +113,140 @@ class SourceGrainTests(unittest.TestCase):
         finally:
             self._wipe(cas)
 
+    # 6. cb_decide grain 收口: serve 行与 freshness/status 判定同源
+    def test_cb_decide_grain_selector(self):
+        """① 双非空 cb: imprint=CB001(ok 新) vs CB002(error 旧) —
+        未传 cb_number 时按 imprint 判 serve_fresh, 不读 CB002;
+        ② 指定 cb_number=CB002 精确命中其自身 grain;
+        ③ legacy(主表 cb NULL) 唯一命中 NULL-grain 行;
+        ④ 无 source row → enqueue_first。"""
+        import asyncio
+        from sqlalchemy import text
+        from api.services.cb import cb_decide
+
+        P = "7789"  # 同类前缀
+        cas = ["99999-55-5"]
+        self._wipe(cas)
+        cid = self._insert_chem(cas, cb=P + "CB001")
+
+        async def go():
+            from datetime import timedelta
+            async with self.engine.begin() as db:
+                # CB001: ok, 新鲜
+                await db.execute(text("""
+                    INSERT INTO chemistry.chemical_cb
+                        (chemical_id,cas_number,locale,cb_number,entry,
+                         last_status,fetched_at)
+                    VALUES (:i,:cas,'zh-CN',:cb,'{}'::jsonb,'ok',now())
+                """), {"i": cid, "cas": cas[0], "cb": P + "CB001"})
+                # CB002: ok, 但 fetched_at 老(超刷新窗)
+                await db.execute(text("""
+                    INSERT INTO chemistry.chemical_cb
+                        (chemical_id,cas_number,locale,cb_number,entry,
+                         last_status,fetched_at)
+                    VALUES (:i,:cas,'zh-CN',:cb,'{}'::jsonb,'ok',
+                            now()-interval '365 days')
+                """), {"i": cid, "cas": cas[0], "cb": P + "CB002"})
+            async with self.engine.connect() as db:
+                d_default = await cb_decide(db, cid)
+                d_cb2 = await cb_decide(db, cid, cb_number=P + "CB002")
+                d_cb1 = await cb_decide(db, cid, cb_number=P + "CB001")
+            return d_default, d_cb2, d_cb1
+
+        d_default, d_cb2, d_cb1 = self._run(go())
+        try:
+            self.assertEqual(d_default, "serve_fresh",
+                             "未传 grain 时按 imprint=CB001 判定, 不得读 CB002 的旧 fetched_at")
+            self.assertEqual(d_cb2, "enqueue_refresh",
+                             "指定 CB002 须精确命中其自身 grain(超窗→refresh)")
+            self.assertEqual(d_cb1, "serve_fresh")
+        finally:
+            self._wipe(cas)
+
+    def test_cb_decide_legacy_null_grain(self):
+        """legacy: 主表 cb NULL + NULL-grain 行 → 唯一命中; 无行 → enqueue_first。"""
+        from sqlalchemy import text
+        from api.services.cb import cb_decide
+        cas = ["99999-66-6"]
+        self._wipe(cas)
+        cid = self._insert_chem(cas, cb=None)
+
+        async def go():
+            async with self.engine.begin() as db:
+                await db.execute(text("""
+                    INSERT INTO chemistry.chemical_cb
+                        (chemical_id,cas_number,locale,cb_number,entry,
+                         last_status,fetched_at)
+                    VALUES (:i,:cas,'zh-CN',NULL,'{}'::jsonb,'ok',now())
+                """), {"i": cid, "cas": cas[0]})
+            async with self.engine.connect() as db:
+                d_hit = await cb_decide(db, cid)
+            async with self.engine.begin() as db:
+                await db.execute(text(
+                    "DELETE FROM chemistry.chemical_cb WHERE chemical_id=:i"),
+                    {"i": cid})
+            async with self.engine.connect() as db:
+                d_miss = await cb_decide(db, cid)
+            return d_hit, d_miss
+
+        d_hit, d_miss = self._run(go())
+        try:
+            self.assertEqual(d_hit, "serve_fresh",
+                             "legacy NULL imprint 须唯一命中 NULL-grain 行")
+            self.assertEqual(d_miss, "enqueue_first",
+                             "无 source row → enqueue_first")
+        finally:
+            self._wipe(cas)
+
+    def test_externals_state_uses_served_row_grain(self):
+        """serve 路径(get_externals_with_state): imprint 行缺失而 fallback
+        serve CB002 时, freshness 判定须用 CB002 的 grain 而非 imprint。"""
+        from sqlalchemy import text
+        from api.services.cb import upsert_externals
+        cas = ["99999-77-7"]
+        self._wipe(cas)
+        # 主表无 imprint → get_externals_row fallback 落 CB002(唯一行)
+        cid = self._insert_chem(cas, cb=None)
+
+        async def go():
+            from api.services.cb import upsert_externals
+            async with self.engine.begin() as db:
+                await upsert_externals(db, chemical_id=cid, cas_number=cas[0],
+                                       entry={"identity": {}}, suppliers=[],
+                                       status="ok", cb_number="7789CB002",
+                                       locale="zh-CN")
+            # 抓 fetched_at 拉老 → 超窗; serve 的是 CB002 行, 判定必须
+            # 用 CB002 grain → stale, 而非 imprint(NULL, miss)
+            async with self.engine.begin() as db:
+                await db.execute(text("""
+                    UPDATE chemistry.chemical_cb
+                    SET fetched_at = now()-interval '365 days'
+                    WHERE chemical_id=:i AND cb_number='7789CB002'
+                """), {"i": cid})
+            import api.services.cb as cbmod
+            class _FakeRedis:
+                async def get(self, k): return None
+                async def set(self, k, v, ex=None): pass
+            async def _fake_cache():
+                return _FakeRedis()
+            orig = cbmod.get_cache
+            cbmod.get_cache = _fake_cache
+            try:
+                async with self.engine.connect() as db:
+                    payload = await cbmod.ensure_externals(
+                        db, cid, cas_number=cas[0])
+            finally:
+                cbmod.get_cache = orig
+            return payload
+
+        payload = self._run(go())
+        try:
+            self.assertEqual(payload["state"], "stale",
+                             "fallback serve CB002 时 freshness 须用 CB002 grain")
+            self.assertIsNotNone(payload["entry"])
+        finally:
+            self._wipe(cas)
+
     # 4+5. absorb: 不同 cb 保留 / 同 cb 同 locale 合并
     def test_absorb_multi_cb(self):
         from sqlalchemy import text
