@@ -525,10 +525,11 @@ async def create_skill(
     try:
         created = await _create_skill_record(db, actor, manifest, category, idempotency_key)
     except IntegrityError:
-        # concurrent same-request race: 第二个请求越过 pre-check 后被
-        # (owner_id, slug) UNIQUE 拦截 — 回滚后按 idempotency_key 回读
-        # 第一次创建的同一 skill; 无 key 则保持原异常(同名冲突 409 语义
-        # 由 pre-check 承担, 不吞)。
+        # concurrent race: 第二个请求越过 existing_slug pre-check 后被
+        # (owner_id, slug) UNIQUE 拦截 — 回滚后按序回读:
+        # ① idempotency_key 命中 → 同一请求 retry, 返回第一次的 skill;
+        # ② owner+slug 命中 → 不同请求撞同名, 保持顺序请求的 409 语义;
+        # ③ 其余(不相关 IntegrityError)不吞, 原异常 raise。
         await db.rollback()
         if idempotency_key:
             existing = (await db.execute(text("""
@@ -537,6 +538,13 @@ async def create_skill(
             """), {"user_id": actor.id, "key": idempotency_key})).scalar()
             if existing is not None:
                 return await skill_accessible(db, int(existing), actor)
+        conflict = (await db.execute(text("""
+            SELECT id FROM community.skills
+            WHERE owner_id=:user_id AND slug=:slug
+        """), {"user_id": actor.id, "slug": manifest["slug"]})).scalar()
+        if conflict is not None:
+            raise HTTPException(
+                409, f"已存在同名技能（slug={manifest['slug']}），请先删除或改名")
         raise
     created["warnings"] = manifest["warnings"]
     return created
