@@ -204,6 +204,12 @@ def build_mcp_server() -> MCPServer:
             target_smiles = row[0]
         elif smiles:
             target_smiles = smiles.strip()
+            # 外部直传 SMILES 的 resource bound: 实测 ~4000 字符合法
+            # SMILES 可让 RDKit render 占分钟级 CPU。512 只管用户直传;
+            # chemical_id 路径的 SMILES 来自 DB(受写入校验), 不套用。
+            # guard 必须在 RDKit 之前。
+            if len(target_smiles) > 512:
+                raise ToolError("SMILES 不能超过 512 字符")
         else:
             raise ToolError("需要 chemical_id 或 smiles 参数(二选一)")
         if not target_smiles:

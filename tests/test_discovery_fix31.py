@@ -39,6 +39,19 @@ def _ik(tag: str) -> str:
 
 
 @unittest.skipUnless(DB_URL, "需要 PG 测试库")
+def _fixture_smiles(run: int) -> str:
+    """高熵短 SMILES fixture(ns=fix31): 与 test_discovery 不同 namespace,
+    构造规则相同(hash 进多个结构位) — 两空间独立, 实际不可耗尽。"""
+    import hashlib
+    n = int(hashlib.sha256(f"fix31:{run}".encode()).hexdigest(), 16)
+    hal = {0: "", 1: "F", 2: "Cl", 3: "Br", 4: "I", 5: "N", 6: "O", 7: "S"}
+    length = 6 + ((n >> 30) & 7)
+    parts = ["C"]
+    for i in range(1, length):
+        sub = hal[(n >> (3 * i)) & 7]
+        parts.append(f"({sub})C" if sub else "C")
+    return "".join(parts)
+
 class DiscoveryFix31Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -65,6 +78,9 @@ class DiscoveryFix31Tests(unittest.TestCase):
                 await db.execute(text(
                     "DELETE FROM chemistry.chemicals "
                     "WHERE preferred_name LIKE :p"), {"p": f"ut31-{RUN}-%"})
+                await db.execute(text(
+                    "DELETE FROM chemistry.chemicals WHERE smiles = :s"),
+                    {"s": _fixture_smiles(RUN)})
         _run(clean())
 
     def _mk_chem(self, cols: dict) -> int:
@@ -103,7 +119,9 @@ class DiscoveryFix31Tests(unittest.TestCase):
         # RUN 唯一 SMILES: 防残留行命中 EQUIVALENT 短路(短路则不触发
         # trigger 路径, is_new=False 假红)。氟代链(F 结尾)与历史醇链
         # (O 结尾)零冲突 — 醇链长度空间已被历史运行占满。
-        uniq_smiles = "C" * (RUN % 20 + 3) + "F"
+        # 高熵 fixture(ns=fix31) — 与 test_discovery 独立 namespace,
+        # hash 进多个结构位, setUp 精确 cleanup
+        uniq_smiles = _fixture_smiles(RUN)
 
         async def poisoned(db, **kw):
             # 真实 PostgreSQL error: 向 NOT NULL 列插 NULL → server 拒绝,

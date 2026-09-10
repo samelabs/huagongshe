@@ -54,6 +54,21 @@ def _ik(suffix: str) -> str:
 
 
 @unittest.skipUnless(DB_URL, "需要 PG 测试库")
+def _fixture_smiles(run: int) -> str:
+    """高熵短 SMILES fixture(ns=disc): 取代卤素/杂原子 3 bits × 链长 6-13,
+    hash 编码进多个结构位而非只编码链长 — canonical 后仍高熵差异,
+    实际不可耗尽; 20k 抽样 100% 合法。配合 setUp 显式 cleanup(按精确
+    smiles 删行), is_new 断言不再依赖同系物长度空间的唯一性。"""
+    import hashlib
+    n = int(hashlib.sha256(f"disc:{run}".encode()).hexdigest(), 16)
+    hal = {0: "", 1: "F", 2: "Cl", 3: "Br", 4: "I", 5: "N", 6: "O", 7: "S"}
+    length = 6 + ((n >> 30) & 7)
+    parts = ["C"]
+    for i in range(1, length):
+        sub = hal[(n >> (3 * i)) & 7]
+        parts.append(f"({sub})C" if sub else "C")
+    return "".join(parts)
+
 class IdentityDiscoveryTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -80,6 +95,9 @@ class IdentityDiscoveryTests(unittest.TestCase):
                 await db.execute(text("""
                     DELETE FROM chemistry.chemicals WHERE preferred_name LIKE :p
                 """), {"p": f"ut4-{RUN}-%"})
+                await db.execute(text("""
+                    DELETE FROM chemistry.chemicals WHERE smiles = :s
+                """), {"s": _fixture_smiles(RUN)})
         _run(clean())
 
     # ---- helpers -------------------------------------------------
@@ -169,10 +187,9 @@ class IdentityDiscoveryTests(unittest.TestCase):
         覆盖 0de4d4b 基线上局部 import 缺失被 best-effort 静默吞掉的缺陷
         (reaction 主流程成功但 discovery 永不入队)。"""
         from api.reactions import resolve_or_create_chemical
-        # RUN 唯一且合法的 SMILES: 氟代链长度唯一化。旧醇链(O 结尾)
-        # 已被历史运行占满长度 3-19, 同长度重跑 is_new=False 假红;
-        # F 结尾与历史醇链零冲突, 长度窗 3-22 仍有余量。
-        smiles = "C" * (RUN % 20 + 3) + "F"
+        # 高熵 fixture(ns=disc) + setUp 精确 cleanup — 不再依赖同系物
+        # 长度空间唯一性(历史假红根源)
+        smiles = _fixture_smiles(RUN)
         created: dict = {}
 
         async def go():

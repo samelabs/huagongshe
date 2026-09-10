@@ -217,6 +217,9 @@ async def update_profile(body: ProfileBody, actor: Actor = Depends(current_sessi
 async def change_password(
     body: PasswordBody, response: Response, actor: Actor = Depends(current_session), db=Depends(get_db)
 ):
+    # scrypt 验证昂贵: 认证会话重复错误 current_password = CPU 放大,
+    # 简单 actor bucket (LOW-PATCH, 与 login account bucket 同风格)
+    await enforce("password-change", str(actor.id), 10, 900)
     encoded = (await db.execute(text(
         "SELECT password_hash FROM community.users WHERE id=:id"
     ), {"id": actor.id})).scalar_one()
