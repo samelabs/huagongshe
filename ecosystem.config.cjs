@@ -66,7 +66,7 @@ module.exports = {
         HGS_CB_REQUESTS_PER_SECOND: "3",
         HGS_PUBCHEM_PROXY: "socks5://127.0.0.1:12345",
         HGS_CB_PROXY: "socks5://127.0.0.1:12346",
-        // PB dispatch temporarily disabled; restore to "pubchem,cas" to re-enable.
+        // PubChem and CAS worker scopes are enabled.
         HGS_WORKER_SCOPES: "pubchem,cas",
       },
     },

@@ -3,7 +3,7 @@
 只测新增 guard:
 1. /users/me/password actor bucket (10/15min) — N 次内允许, 超限 429,
    actor bucket 隔离。
-2. MCP render_molecule_svg 直接 smiles 长度上限 4000 (匿名 RDKit 入口)。
+2. MCP render_molecule_svg 直接 smiles 长度上限 512 (匿名 RDKit 入口)。
 不为已有 bounds 写重复矩阵。
 """
 

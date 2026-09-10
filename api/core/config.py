@@ -1,4 +1,4 @@
-"""Runtime configuration. Production values are provided by systemd."""
+"""Runtime configuration loaded from environment variables."""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

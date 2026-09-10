@@ -37,13 +37,13 @@
 ## API 边界
 
 - `/api/*`：网站与用户 AI Agent 共用的查询和用户能力。
-- `/api/agent-guide`：AI 的唯一连接入口；携带 Token 时确认所属账号，并返回真实可用操作、字段要求、安全规则和调用顺序。
-- `/api/openapi.json`：稳定的结构化契约。
+- `/api/agent-guide`：AI/Agent 的公开自描述连接入口；携带 Token 时确认所属账号，并返回真实可用操作、字段要求、安全规则和调用顺序。
+- `/mcp`：MCP 连接入口。
 - `/guide`：面向用户的网页记录、AI 对话提示词与 Skill 使用指南。
 - `/skills/huagongshe-reaction-publisher/SKILL.md`：可直接交给 AI 的反应提取与保存 Skill。
-- `/workapi/*`：只服务受信任 PubChem worker，与用户 Agent 完全无关。
+- `/workapi/*`：worker HMAC 面，只服务受信任 PubChem worker，与用户 Agent 完全无关。
 
-网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 API Token（Bearer Token）；数据库只保存 Token 摘要。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
+网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 API Token（Bearer Token）：Token 属于用户账号，用于 Agent/API 调用；Token 列表仅已认证本人可读，响应带 `Cache-Control: private, no-store`；当前产品允许本人后续重新复制自己的 Token。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
 
 ## 化合物事实规则
 
@@ -51,17 +51,17 @@
 - `smiles` 是 RDKit 标准表达，也是跨来源结构对齐基础。
 - DSSTox 数据只能在标准结构或完整 InChIKey 验证后挂载，CAS 不能单独确认结构。
 - PubChem PUG REST 用于 CID、结构和计算属性；PUG View 用于带来源的扩展信息。
-- PubChem worker 可以补全名称、分子式、质量、InChIKey 和同义词，但不能修改 HCID、CID 或标准 SMILES。
+- PubChem worker 可以补全名称、分子式、质量、同义词等普通 enrichment 字段；身份字段（CID、InChIKey 等）的回写先经过身份裁定，只按 adjudication grant 写入，冲突证据不得静默覆盖现有身份。
 
 ## 化合物身份治理
 
 多来源化合物数据统一走身份裁定，核心原则：宁可暂时一物多行，不允许两物误合一行。
 
-- 新数据按 结构证据（InChIKey/同非空 CID）> 唯一 CAS 定位 的顺序归一到既有 HCID；无证据匹配则新建占位行。
-- 多行命中且缺乏结构判据时挂起（AMBIGUOUS），不猜归属；证据冲突时拒绝写入（CONFLICT），不吞并。
-- 行合并只能由同非空 CID 的结构证据授权；CAS 或来源编号相同永不构成合并证据（一个物质可有多个 CAS 与来源编号）。
-- 每次合并留有审计记录（merge log）与旧 ID 重定向（redirect），旧 ID 的引用自动指向合并后的正身行。
-- 各来源的原始记录以 (HCID, 来源编号, 语言) 粒度独立保留，同一化合物可挂多个来源记录，互不覆盖。
+- 身份解析按 `cid → ik → cas` 顺序定位既有 HCID；解析只决定"归到哪一行"，不授权合并。
+- 破坏性合并（destructive merge gate）只由一致的非空 CID entity proof 授权；`cb_number` 只是来源标识，不参与身份裁定；InChIKey 可参与解析与候选定位，但 same IK alone 永不授权合并；CAS 或来源编号相同同样不构成合并证据（一个物质可有多个 CAS 与来源编号）。
+- 多行命中且缺乏充分判据时挂起（AMBIGUOUS），不猜归属；证据冲突时拒绝写入（CONFLICT），不吞并。
+- 每次合并留有审计记录（merge log）与旧 ID 重定向（redirect），旧 ID 的引用自动指向合并后的正身行，合并可追溯。
+- 各来源数据保存在各自来源子表，来源 grain 由对应子表约束定义，不以一种统一复合键概括所有来源（例如 ChemicalBook 记录按其子表约束独立保留，同一化合物可挂多条来源记录，互不覆盖）。
 
 ## 化学数据源
 
