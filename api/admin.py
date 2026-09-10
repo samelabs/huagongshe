@@ -161,9 +161,8 @@ async def set_user_status(
         raise HTTPException(404, "用户不存在")
     if body.status == "disabled":
         await db.execute(text("DELETE FROM community.sessions WHERE user_id=:id"), {"id": user_id})
-        await db.execute(text("""
-            UPDATE community.user_api_tokens SET revoked_at=coalesce(revoked_at,now()) WHERE user_id=:id
-        """), {"id": user_id})
+        # revoke = 物理 DELETE(与用户侧 password change 同一语义), 不留 soft-revoke
+        await db.execute(text("DELETE FROM community.user_api_tokens WHERE user_id=:id"), {"id": user_id})
     await db.commit()
     return {"id": user_id, "status": body.status}
 

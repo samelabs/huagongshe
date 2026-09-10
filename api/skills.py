@@ -19,6 +19,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Path as PathParam, Query, Response, UploadFile
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from .core.config import settings
 from .core.database import get_db
@@ -521,7 +522,22 @@ async def create_skill(
     if len(raw) > settings.skill_zip_max_bytes:
         raise HTTPException(400, f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
     manifest = await asyncio.to_thread(extract_skill_zip, raw)
-    created = await _create_skill_record(db, actor, manifest, category, idempotency_key)
+    try:
+        created = await _create_skill_record(db, actor, manifest, category, idempotency_key)
+    except IntegrityError:
+        # concurrent same-request race: 第二个请求越过 pre-check 后被
+        # (owner_id, slug) UNIQUE 拦截 — 回滚后按 idempotency_key 回读
+        # 第一次创建的同一 skill; 无 key 则保持原异常(同名冲突 409 语义
+        # 由 pre-check 承担, 不吞)。
+        await db.rollback()
+        if idempotency_key:
+            existing = (await db.execute(text("""
+                SELECT id FROM community.skills
+                WHERE owner_id=:user_id AND idempotency_key=:key
+            """), {"user_id": actor.id, "key": idempotency_key})).scalar()
+            if existing is not None:
+                return await skill_accessible(db, int(existing), actor)
+        raise
     created["warnings"] = manifest["warnings"]
     return created
 

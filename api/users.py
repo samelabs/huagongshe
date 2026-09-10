@@ -230,9 +230,8 @@ async def change_password(
         UPDATE community.users SET password_hash=:password_hash,updated_at=now() WHERE id=:id
     """), {"id": actor.id, "password_hash": new_password_hash})
     await db.execute(text("DELETE FROM community.sessions WHERE user_id=:id"), {"id": actor.id})
-    await db.execute(text("""
-        UPDATE community.user_api_tokens SET revoked_at=coalesce(revoked_at,now()) WHERE user_id=:id
-    """), {"id": actor.id})
+    # revoke = 物理 DELETE(2026-08-31 终局): 不保留 soft-revoke 两套语义
+    await db.execute(text("DELETE FROM community.user_api_tokens WHERE user_id=:id"), {"id": actor.id})
     await db.commit()
     response.delete_cookie(settings.session_cookie, path="/")
 
@@ -306,7 +305,9 @@ async def delete_avatar(actor: Actor = Depends(current_session), db=Depends(get_
 
 
 @router.get("/me/tokens")
-async def list_tokens(actor: Actor = Depends(current_session), db=Depends(get_db)):
+async def list_tokens(response: Response, actor: Actor = Depends(current_session), db=Depends(get_db)):
+    # 响应含 token_plain(secret): 明确禁缓存, 不依赖 CDN/浏览器默认
+    response.headers["Cache-Control"] = "private, no-store"
     rows = (await db.execute(text("""
         SELECT id,name,token_prefix,scopes,created_at,expires_at,last_used_at,token_plain
         FROM community.user_api_tokens
