@@ -30,7 +30,7 @@ export default function GuidePage() {
         <article className="guide-card">
           <h3>{t.guide.cap2Title}</h3>
           <p>{t.guide.cap2Desc}</p>
-          <span className="guide-card-badge">{t.guide.cap2Badge}</span>
+          {t.guide.cap2Badge ? <span className="guide-card-badge">{t.guide.cap2Badge}</span> : null}
         </article>
         <article className="guide-card">
           <h3>{t.guide.cap3Title}</h3>
@@ -67,8 +67,12 @@ export default function GuidePage() {
           <div className="guide-actions">
             <Link className="button primary" href="/api/agent-guide">{t.guide.apiCta}</Link>
           </div>
-          <AiSubmissionPrompt />
         </article>
+      </div>
+      <div className="guide-fallback">
+        <h4>{t.guide.fallbackTitle}</h4>
+        <p>{t.guide.fallbackDesc}</p>
+        <AiSubmissionPrompt />
       </div>
     </section>
 

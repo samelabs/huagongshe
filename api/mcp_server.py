@@ -56,18 +56,18 @@ async def _actor_from_headers(headers: Any) -> Actor | None:
 
 def _require(actor: Actor | None, scope: str) -> Actor:
     if actor is None:
-        raise ToolError("此操作需要 API Token：在网页 账户设置 → AI 授权 生成后以 Authorization: Bearer *** 连接")
+        raise ToolError("此操作需要 AI Key：在网页 账户设置 → AI Key 生成后以 Authorization: Bearer *** 连接")
     if actor.auth_kind != "agent" and actor.auth_kind != "session":
         raise ToolError("身份类型不支持")
     if actor.auth_kind == "agent" and scope not in actor.scopes:
-        raise ToolError(f"API Token 缺少 {scope} 权限")
+        raise ToolError(f"AI Key 缺少 {scope} 权限")
     return actor
 
 
 def _require_login(actor: Actor | None) -> Actor:
     """登录即可的操作(与 REST current_actor 同语义), 不做 scope 收紧."""
     if actor is None:
-        raise ToolError("此操作需要 API Token：在网页 账户设置 → AI 授权 生成后以 Authorization: Bearer *** 连接")
+        raise ToolError("此操作需要 AI Key：在网页 账户设置 → AI Key 生成后以 Authorization: Bearer *** 连接")
     return actor
 
 
@@ -78,7 +78,7 @@ def build_mcp_server() -> MCPServer:
         version=settings.api_version,
         instructions=(
             "你是化工社AIchem助手：查询化合物与反应数据、计算投料、保存反应记录。"
-            "读工具匿名可用；写工具(校验/保存反应)需要 API Token。"
+            "读工具匿名可用；写工具(校验/保存反应)需要 AI Key。"
             "保存前必须先向用户展示草稿并取得确认；新记录默认 private。"
             "不得编造 SMILES、来源、条件或收率。"
         ),
@@ -113,7 +113,7 @@ def build_mcp_server() -> MCPServer:
         if mode != "exact":
             actor = await _actor_from_headers(ctx.headers if ctx else None)
             if actor is None:
-                raise ToolError("结构检索（子结构/相似度）需要 API Token；exact 模式可匿名使用")
+                raise ToolError("结构检索（子结构/相似度）需要 AI Key；exact 模式可匿名使用")
         async with async_session() as session:
             return await routes_module.search(
                 actor=actor, q=q, mode=mode, page=page, page_size=page_size, db=session
@@ -263,7 +263,7 @@ def build_mcp_server() -> MCPServer:
         page_size: int = 30,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """列出技能。scope=public 匿名可用; scope=mine 需要 Token。"""
+        """列出技能。scope=public 匿名可用; scope=mine 需要 AI Key。"""
         from . import skills as skills_module
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
@@ -339,7 +339,7 @@ def build_mcp_server() -> MCPServer:
         # actor 透传: 限流桶与 REST 同构(登录=u{id} 桶, 匿名=anon 桶).
         return await stoich_module.calculate_stoichiometry(body=body, actor=actor)
 
-    # ---------------- 写工具(需要 Token) ----------------
+    # ---------------- 写工具(需要 AI Key) ----------------
 
     @server.tool(name="list_my_reactions", title="我的反应")
     async def list_my_reactions(
@@ -348,7 +348,7 @@ def build_mcp_server() -> MCPServer:
         page_size: int = 20,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """读取 Token 所属用户自己的反应记录(需 API Token)。"""
+        """读取 AI Key 所属用户自己的反应记录(需 AI Key)。"""
         from . import reactions as reactions_module
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)

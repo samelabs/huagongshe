@@ -139,8 +139,11 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn('"operations"', source)
         self.assertIn('"payload_hints"', source)
         self.assertIn("携带唯一 Idempotency-Key", source)
-        self.assertIn("用户创建的 API Token", source)
+        self.assertIn("AI Key", source)
         self.assertNotIn("Agent Token", source)
+        # P2.1: 机器可读契约统一 AI Key 术语
+        self.assertNotIn("authorization_required", source)
+        self.assertNotIn("AI 授权", source)
 
         actor = Actor(
             7, "chemist", "Chemist", "chemist@example.test", "member", None,
@@ -149,7 +152,7 @@ class ReactionContractTests(unittest.TestCase):
         db_mock = AsyncMock()
         db_mock.execute.return_value.scalar.return_value = None
         guide = asyncio.run(agent.agent_guide("Bearer hgs_test_token", actor, db=db_mock))
-        self.assertEqual(guide["connection"]["status"], "ready")
+        self.assertEqual(guide["connection"]["status"], "authenticated")
         self.assertEqual(guide["connection"]["account"]["username"], "chemist")
         self.assertEqual(
             {item["id"] for item in guide["operations"]},
@@ -166,6 +169,25 @@ class ReactionContractTests(unittest.TestCase):
 
 class ApiTokenBoundaryTests(unittest.TestCase):
     """P2 边界归一: Token = credential, 与 API/MCP onboarding 解耦。"""
+
+    def test_agent_guide_anonymous_is_public_ready(self) -> None:
+        # P2.1: 匿名状态 = public_ready (公开操作无需 Key), account=null
+        db_mock = AsyncMock()
+        db_mock.execute.return_value.scalar.return_value = None
+        guide = asyncio.run(agent.agent_guide(None, None, db=db_mock))
+        self.assertEqual(guide["connection"]["status"], "public_ready")
+        self.assertIsNone(guide["connection"]["account"])
+        self.assertIn("AI Key", guide["connection"]["instruction"])
+        self.assertIn("operations", guide)
+
+    def test_machine_contract_uses_ai_key_wording(self) -> None:
+        source = inspect.getsource(agent)
+        self.assertNotIn("authorization_required", source)
+        self.assertNotIn("AI 授权", source)
+        self.assertNotIn("API Token", source)
+        mcp_source = Path(inspect.getsourcefile(__import__("api.mcp_server", fromlist=["x"]))).read_text()
+        self.assertNotIn("API Token", mcp_source)
+        self.assertIn("AI Key", mcp_source)
 
     def test_token_create_response_only_returns_credential_and_metadata(self) -> None:
         # create_token handler 源码契约: 只返回 row(id/name/prefix/scopes/created_at/expires_at)+token
