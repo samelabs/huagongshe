@@ -169,8 +169,10 @@ class IdentityDiscoveryTests(unittest.TestCase):
         覆盖 0de4d4b 基线上局部 import 缺失被 best-effort 静默吞掉的缺陷
         (reaction 主流程成功但 discovery 永不入队)。"""
         from api.reactions import resolve_or_create_chemical
-        # RUN 唯一且合法的 SMILES: 烷基链长度唯一化(跨运行不同的同系物)
-        smiles = "C" * (RUN % 17 + 3) + "O"
+        # RUN 唯一且合法的 SMILES: 氟代链长度唯一化。旧醇链(O 结尾)
+        # 已被历史运行占满长度 3-19, 同长度重跑 is_new=False 假红;
+        # F 结尾与历史醇链零冲突, 长度窗 3-22 仍有余量。
+        smiles = "C" * (RUN % 20 + 3) + "F"
         created: dict = {}
 
         async def go():

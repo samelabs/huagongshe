@@ -154,13 +154,19 @@ async def render_reaction(
 ):
     """Render the stored reaction expression by stable reaction ID.
 
-    Caching is handled entirely by Cloudflare (immutable for public) — no Redis
+    Caching is handled entirely by Cloudflare — no Redis
     layer to avoid write-only keys from crawler traffic hitting unique URLs.
+
+    shared-cache eligibility = visibility public AND moderation visible
+    (不基于 actor 身份: public+visible 即使 owner/admin 请求, 匿名同样
+    有权访问; public+hidden 即使 owner/admin 有权读取, 也不可 shared-
+    cache)。TTL 5min 短窗接受最终一致性: 转私/隐藏/删除后旧 SVG 最多
+    继续存在约 5 分钟。
     """
     w = min(max(w, 600), 1800)
     h = min(max(h, 180), 600)
     row = (await db.execute(text("""
-        SELECT reaction_smiles,updated_at,visibility
+        SELECT reaction_smiles,updated_at,visibility,moderation_status
         FROM chemistry.reactions
         WHERE id=:id AND reaction_smiles IS NOT NULL
           AND (:is_admin OR created_by_user_id=:viewer_id
@@ -172,12 +178,15 @@ async def render_reaction(
     if not row:
         raise HTTPException(status_code=404, detail="反应没有可渲染的结构表达")
 
-    is_public = row[2] == "public"
+    is_public_cacheable = row[2] == "public" and row[3] == "visible"
     svg = await asyncio.to_thread(reaction_to_svg, row[0], w, h)
     if svg is None:
         raise HTTPException(status_code=422, detail="反应结构无法渲染")
     return Response(
         content=svg,
         media_type="image/svg+xml",
-        headers={"Cache-Control": "public, max-age=31536000, immutable" if is_public else "private, no-store"},
+        headers={"Cache-Control":
+                 "public, max-age=300"
+                 if is_public_cacheable
+                 else "private, no-store"},
     )

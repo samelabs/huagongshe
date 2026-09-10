@@ -100,9 +100,10 @@ class DiscoveryFix31Tests(unittest.TestCase):
         from api.services import discovery as disc
         ik = _ik("SVPTREACT")
         orig = disc.enqueue_discovery
-        # RUN 唯一 SMILES: 防 test_hgs 残留 CCO 行命中 EQUIVALENT 短路
-        # (短路则不触发 trigger 路径, is_new=False 假红)。
-        uniq_smiles = "C" * (RUN % 40 + 8) + "O"
+        # RUN 唯一 SMILES: 防残留行命中 EQUIVALENT 短路(短路则不触发
+        # trigger 路径, is_new=False 假红)。氟代链(F 结尾)与历史醇链
+        # (O 结尾)零冲突 — 醇链长度空间已被历史运行占满。
+        uniq_smiles = "C" * (RUN % 20 + 3) + "F"
 
         async def poisoned(db, **kw):
             # 真实 PostgreSQL error: 向 NOT NULL 列插 NULL → server 拒绝,
