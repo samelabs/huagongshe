@@ -305,7 +305,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .section-heading { margin-bottom: 16px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
 .section-heading h2 { margin: 0; font-size: 18px; font-weight: var(--section-weight); letter-spacing: -.01em; color: var(--heading); }
 .section-heading > span { color: var(--muted); font-size: var(--text); }
-.compact-heading h2 { font-size: var(--text-lg); }
 .notice { border-radius: 8px; padding: 14px 16px; font-size: var(--text); }
 .notice.error { border: 1px solid var(--danger-border); color: var(--danger); background: var(--danger-bg); }
 .notice p { margin: 4px 0 0; color: var(--muted); }
@@ -483,40 +482,48 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .inline-error { margin: 0; color: var(--danger); font-size: var(--text); }
 .inline-error a { text-decoration: underline; }
 
-.reaction-title { margin-bottom: 38px; display: flex; align-items: end; justify-content: space-between; gap: 24px; }
-.reaction-title h1 { margin: 0; font-size: clamp(27px, 3.5vw, 35px); font-weight: var(--title-weight); letter-spacing: -.008em; }
-.reaction-title .entity-id { margin-bottom: 13px; }
-.reaction-title p:last-child { margin: 13px 0 0; color: var(--muted); font-size: var(--text-lg); }
-.reaction-equation { margin-bottom: 52px; }
-.reaction-scheme { width: 100%; border: 1px solid var(--line); overflow-x: auto; background: white; }
+.reaction-title { margin-bottom: var(--space-8); display: flex; align-items: end; justify-content: space-between; gap: var(--space-5); }
+.reaction-title h1 { margin: 0; font-size: var(--fs-title); font-weight: var(--title-weight); letter-spacing: -.008em; overflow-wrap: anywhere; }
+.reaction-title .entity-id { margin-bottom: var(--space-3); }
+.reaction-title p:last-child { margin: var(--space-3) 0 0; color: var(--muted); font-size: var(--fs-data); }
+/* 事实摘要: 只由结构化字段拼出(反应物→产物 · 催化剂/溶剂 · 温度 · 时间), 无值不出 */
+.reaction-summary { overflow-wrap: anywhere; }
+.reaction-equation { margin-bottom: var(--space-8); }
+.reaction-equation .section-heading h2 { font-size: var(--fs-h2); }
+/* equation 允许比正文宽: 超出部分在容器内局部横向滚动, document 不横向溢出 */
+.reaction-scheme { width: 100%; border: 1px solid var(--line); border-radius: var(--radius-md); overflow-x: auto; background: white; }
 .reaction-scheme img { display: block; width: 100%; min-width: 900px; height: 310px; object-fit: contain; }
-.reaction-scheme.unavailable { min-height: 180px; display: flex; align-items: center; justify-content: center; padding: 24px; color: var(--quiet); background: var(--wash); font-size: var(--text); text-align: center; }
-.reaction-layout { display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-width); gap: 60px; align-items: start; }
-.reaction-main { min-width: 0; display: grid; gap: 48px; }
-.reaction-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
-.participant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 10px; }
+.reaction-scheme.unavailable { min-height: 180px; display: flex; align-items: center; justify-content: center; padding: var(--space-5); color: var(--quiet); background: var(--wash); font-size: var(--fs-data); text-align: center; }
+.reaction-layout { margin-top: var(--space-4); display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-width); gap: 64px; align-items: start; }
+.reaction-main { min-width: 0; display: grid; gap: var(--space-8); }
+.reaction-sides { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); }
+.participant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: var(--space-2); }
 .reaction-sides .participant-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
-.participant-card { min-width: 0; border: 1px solid var(--line); padding: 13px; display: block; overflow: hidden; transition: .15s ease; }
+/* Entity Card: structure → compact HCID → name → formula → 定量 → yield/role */
+.participant-card { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-3); display: block; overflow: hidden; transition: .15s ease; }
 .participant-structure { width: 100%; height: 132px; border-bottom: 1px solid var(--wash); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .participant-structure img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.participant-card > div:last-child { min-width: 0; padding-top: 10px; }
-.participant-card h3 { margin: 7px 0 5px; font-size: var(--text); line-height: 1.45; overflow-wrap: anywhere; }
-.participant-card p { margin: 0; color: var(--muted); font-size: var(--text-sm); }
-.role-label { display: block; margin-bottom: 6px; color: var(--blue); font-size: var(--text-xs); font-weight: 800; letter-spacing: .08em; }
-.yield-value { display: block; margin-top: 7px; color: var(--success); font-size: var(--text-sm); }
-.condition-list { margin: 0 0 18px; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
-.condition-list > div { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 12px; }
-.condition-list dt { color: var(--quiet); font-size: var(--text-xs); }
-.condition-list dd { margin: 6px 0 0; font-size: var(--text); }
-.document-text { margin: 0; color: var(--ink); font-size: var(--text); line-height: 1.9; white-space: pre-wrap; }
+.participant-card > div:last-child { min-width: 0; padding-top: var(--space-2); }
+.participant-card h3 { margin: var(--space-1) 0; font-size: var(--fs-data); line-height: 1.45; overflow-wrap: anywhere; }
+.participant-card p { margin: 0; color: var(--muted); font-size: var(--fs-meta); overflow-wrap: anywhere; }
+.role-label { display: block; margin-bottom: var(--space-1); color: var(--blue); font-size: var(--fs-caption); font-weight: 800; letter-spacing: .08em; }
+.yield-value { display: block; margin-top: var(--space-1); color: var(--success); font-size: var(--fs-meta); }
+.condition-list { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.condition-list > div { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: var(--space-3); }
+.condition-list dt { color: var(--quiet); font-size: var(--fs-caption); }
+.condition-list dd { margin: var(--space-1) 0 0; font-size: var(--fs-data); }
+/* document content: public body typography(不是 admin 13px 密度) */
+.document-text { margin: 0; color: var(--ink); font-size: var(--fs-body); line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .workup-list { margin: 0; padding: 0; list-style: none; counter-reset: workup; }
-.workup-list li { border-top: 1px solid var(--line); padding: 13px 0; display: grid; grid-template-columns: 160px 1fr; gap: 20px; font-size: var(--text); }
-.workup-list span { color: var(--muted); line-height: 1.7; }
-.safety-panel { border-left: 3px solid var(--warning-border); padding-left: 18px; }
+.workup-list li { border-top: 1px solid var(--line); padding: var(--space-3) 0; display: grid; grid-template-columns: 160px 1fr; gap: var(--space-5); font-size: var(--fs-data); }
+.workup-list li strong { overflow-wrap: anywhere; }
+.workup-list span { color: var(--muted); line-height: 1.7; overflow-wrap: anywhere; }
+/* Safety: 用户/来源文本 —— 明确、有区别, 但不夸大危险结论 */
+.safety-panel { border-left: 3px solid var(--warning-border); padding-left: var(--space-4); }
 .reaction-aside { position: sticky; top: 94px; display: grid; gap: 16px; }
 .source-expression { border: 1px solid var(--line); padding: 15px 18px; }
-.source-expression summary { cursor: pointer; color: var(--muted); font-size: var(--text); }
-.source-expression p { margin: 13px 0 0; color: var(--quiet); font-size: var(--text-xs); }
+.source-expression summary { cursor: pointer; color: var(--muted); font-size: var(--fs-meta); }
+.source-expression p { margin: var(--space-3) 0 0; color: var(--quiet); font-size: var(--fs-caption); overflow-wrap: anywhere; word-break: break-word; }
 
 .auth-required { margin-bottom: 25px; border: 1px solid var(--blue-border); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 20px; background: var(--blue-tint); }
 .auth-required div { display: grid; gap: 3px; }
@@ -765,7 +772,8 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .chemical-aside, .reaction-aside { grid-template-columns: 1fr; }
   .reaction-title { align-items: start; flex-direction: column; }
-  .reaction-scheme img { min-width: 100%; height: 250px; }
+  /* 保持结构图可读: 容器内部滚动, 不缩到不可读; document 仍不横向溢出 */
+  .reaction-scheme img { min-width: 760px; height: 250px; }
   .reaction-preview img { min-width: 100%; }
   .participant-grid, .reaction-sides .participant-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
   .participant-structure { height: 116px; }
