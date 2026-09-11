@@ -4,10 +4,18 @@ import { useState } from "react";
 import { apiGet } from "@/lib/api";
 import t from "@/lib/i18n";
 
-export function SynonymExplorer({ chemicalId, initial, total }: {
+/**
+ * SynonymExplorer (Design System v2, Issue #4 重组)。
+ *
+ * 页面 IA 归 Names & Identifiers; 本组件只负责 preview 之外的展开与 load-more。
+ * 关键约束: preview 已有前 N 条, 这里**不得重复渲染** —— 只渲染 items.slice(shown) 起。
+ * 数据获取逻辑不变(page_size=100 分页, 客户端去重)。
+ */
+export function SynonymExplorer({ chemicalId, initial, total, shown }: {
   chemicalId: number;
   initial: string[];
   total: number;
+  shown: number;
 }) {
   const [items, setItems] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -28,19 +36,16 @@ export function SynonymExplorer({ chemicalId, initial, total }: {
   }
 
   if (!total) return null;
+  const rest = items.slice(shown); // preview 已展示的不重复
   return (
-    <section className="aliases-section" aria-labelledby="aliases-title">
-      <div className="section-heading compact-heading">
-        <div><p>ALIASES</p><h2 id="aliases-title">{t.chemical.synonyms.title}</h2></div>
-        <span>{t.chemical.synonyms.total(new Intl.NumberFormat("zh-CN").format(total))}</span>
-      </div>
-      <div className="alias-list">{items.map((item) => <span key={item}>{item}</span>)}</div>
+    <>
+      {rest.map((item) => <span key={item}>{item}</span>)}
       {items.length < total && (
-        <button className="text-button" type="button" onClick={loadMore} disabled={busy}>
+        <button className="text-button synonym-more" type="button" onClick={loadMore} disabled={busy}>
           {busy ? t.common.loading : t.chemical.synonyms.loadMore(items.length)}
         </button>
       )}
       {failed && <p className="inline-error">{t.chemical.synonyms.error}</p>}
-    </section>
+    </>
   );
 }

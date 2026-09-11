@@ -416,6 +416,45 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .contribute-panel a { display: block; border-top: 1px solid var(--line); padding: 9px 0; color: var(--blue); font-size: var(--text); }
 .description-panel { border-left: 3px solid var(--blue); padding: 0 0 0 18px; }
 .description-panel p { margin: 0; color: var(--muted); font-size: var(--text-lg); line-height: 1.85; }
+/* Chemical Detail semantic v2 (Issue #4):
+   语义 section 为一级 IA, source 只是 evidence tag; token 用 #3 Foundation。 */
+.chem-section { display: grid; gap: var(--space-4); }
+/* 仅 Chemical Detail: 一级 section H2 用 v2 规范字号(22px); 共享 .section-heading 不动 */
+.chem-section .section-heading h2 { font-size: var(--fs-h2); }
+.chem-sub-block { display: grid; gap: var(--space-2); }
+.chem-subhead { margin: var(--space-3) 0 0; font-size: var(--fs-h3); font-weight: var(--section-weight); color: var(--heading); }
+.chem-subhead-note { margin-left: var(--space-2); color: var(--muted); font-size: var(--fs-meta); font-weight: 400; }
+.chem-source-tag { margin-left: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 1px var(--space-2); color: var(--muted); font-size: var(--fs-caption); font-weight: 400; vertical-align: middle; white-space: nowrap; }
+.chem-names-block { display: grid; gap: var(--space-2); }
+.chem-local-nav { margin-bottom: var(--space-4); display: flex; flex-wrap: wrap; gap: var(--space-2); border-bottom: 1px solid var(--line); padding-bottom: var(--space-2); }
+.chem-local-nav a { color: var(--muted); font-size: var(--fs-meta); }
+.chem-toc { display: grid; gap: var(--space-1); }
+.chem-toc a { color: var(--muted); font-size: var(--fs-meta); }
+.chem-rail-id { overflow-wrap: anywhere; }
+.chem-sources { display: grid; gap: var(--space-2); }
+.chem-source-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); background: var(--paper); }
+.chem-source-row.unavailable { opacity: .55; }
+.chem-source-name { font-weight: var(--section-weight); color: var(--heading); }
+.chem-source-meta { color: var(--muted); font-size: var(--fs-meta); overflow-wrap: anywhere; }
+.context-secondary-actions { margin-top: var(--space-2); display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.context-secondary-actions .text-button { font-size: var(--fs-meta); }
+.evidence-flat { display: grid; grid-template-columns: 170px 1fr; gap: var(--space-3); border-bottom: 1px solid var(--line); padding: var(--space-3) 0; }
+.evidence-flat dt { color: var(--muted); font-size: var(--fs-meta); }
+.evidence-flat dd { margin: 0; font-size: var(--fs-data); overflow-wrap: anywhere; }
+.evidence-count { margin-left: var(--space-2); color: var(--quiet); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
+.synonym-disclosure > summary { cursor: pointer; color: var(--blue); font-size: var(--fs-meta); padding: var(--space-1) 0; }
+.synonym-full { margin-top: var(--space-2); }
+.synonym-more { margin-top: var(--space-1); }
+@media (max-width: 900px) {
+  .chem-local-nav { display: flex; }
+}
+@media (max-width: 680px) {
+  .evidence-flat { grid-template-columns: 1fr; gap: var(--space-1); }
+  .chem-local-nav { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .chem-local-nav::-webkit-scrollbar { display: none; }
+  .chem-local-nav a { white-space: nowrap; flex-shrink: 0; }
+}
+
 .metric-grid { margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
 .metric-grid > div { min-height: 82px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 15px; }
 .metric-grid dt { color: var(--muted); font-size: var(--text-sm); }
@@ -720,8 +759,8 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .reaction-preview { height: 145px; }
   .chemical-identity { grid-template-columns: 1fr; gap: 12px; }
   .chemical-structure { height: 230px; }
-  .chemical-title-block { text-align: center; }
-  .identity-primary, .context-actions { justify-content: center; }
+  /* Issue #4: mobile 全部左对齐(molecule 上, identity 下), 不再居中 */
+  .identity-primary, .context-actions { justify-content: flex-start; }
   .identity-table > div { grid-template-columns: 115px 1fr; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .chemical-aside, .reaction-aside { grid-template-columns: 1fr; }
@@ -1029,6 +1068,8 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 @media (min-width: 681px) {
   .mobile-tab-bar { display: none !important; }
   .site-header { position: sticky; top: 0; }
+  /* desktop: local nav 隐藏, 由 secondary rail 的 On this page 承担 */
+  .chem-local-nav { display: none; }
 }
 
 /* 工作台样式已迁移至 (workbench)/aichem.css，此处无残留 */
