@@ -1065,41 +1065,43 @@
   display: inline-flex;
   align-items: baseline;
   gap: var(--wb-sp-1);
-  border-radius: var(--wb-r-xs);
-  padding: var(--wb-sp-1) var(--wb-sp-1);
+  border: 1px solid var(--wb-blue-border);
+  border-left: 3px solid var(--wb-blue);
+  border-radius: var(--wb-r-sm);
+  padding: 2px var(--wb-sp-1) 2px var(--wb-sp-1);
   color: var(--wb-ink);
   font-variant-numeric: tabular-nums;
-  line-height: 1;
-  font-family: var(--wb-font-mono);
+  line-height: 1.2;
 }
 .wb-shell .entity-id > span {
-  font-size: var(--wb-fs-micro);
-  font-weight: 850;
-  letter-spacing: .09em;
-  color: var(--wb-blue-deep);
+  font-size: var(--wb-fs-xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--wb-blue-strong);
 }
 .wb-shell .entity-id > strong {
   font-size: var(--wb-fs-sm);
-  font-weight: var(--wb-w-bold);
+  font-weight: var(--wb-w-semibold);
   color: var(--wb-ink);
+  font-family: var(--wb-font-mono);
 }
 .wb-shell .entity-id.compact {
   gap: var(--wb-sp-1);
-  padding: 3px var(--wb-sp-1);
+  padding: 1px var(--wb-sp-1);
 }
-.wb-shell .entity-id.compact > span { font-size: var(--wb-fs-micro); }
+.wb-shell .entity-id.compact > span { font-size: var(--wb-fs-xs); }
 .wb-shell .entity-id.compact > strong { font-size: var(--wb-fs-xs); }
 .wb-shell .entity-id.reaction {
+  border-color: var(--wb-line-strong);
+  border-left-color: var(--wb-reaction);
   background: var(--wb-reaction-bg);
-  box-shadow: inset 2px 0 0 var(--wb-reaction);
 }
-.wb-shell .entity-id.reaction > span { color: var(--wb-reaction); }
+.wb-shell .entity-id.reaction > span { color: var(--wb-reaction-ink); }
 .wb-shell .entity-id.reaction > strong { color: var(--wb-reaction-ink); }
 .wb-shell .entity-id.chemical {
-  background: var(--wb-blue-pale);
-  box-shadow: inset 2px 0 0 var(--wb-blue);
+  background: var(--wb-blue-tint);
 }
-.wb-shell .entity-id.chemical > span { color: var(--wb-blue-deep); }
+.wb-shell .entity-id.chemical > span { color: var(--wb-blue-strong); }
 .wb-shell .entity-id.chemical > strong { color: var(--wb-ink); }
 
 /* ── FollowButton ── */

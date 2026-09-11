@@ -46,6 +46,8 @@ const t = {
     pageOf: (cur: number, total: number) => `第 ${cur} / ${total} 页`,
     networkError: '网络错误，稍后重试',
     unnamedCompound: '未命名化合物',
+    hcidLabel: (id: number | string) => `Huagongshe 化合物记录 HCID ${id}`,
+    hridLabel: (id: number | string) => `Huagongshe 反应记录 HRID ${id}`,
     breadcrumb: '面包屑',
     close: '关闭',
   },

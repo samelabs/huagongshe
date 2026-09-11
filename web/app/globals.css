@@ -17,11 +17,12 @@
   --line:         #dfe5ee;   /* 分割线 */
   --line-strong:  #cbd4e2;   /* 强分割线 */
 
-  /* ── 内容宽度规范 — 全站两档，不再随机取值 ── */
-  --content-measure: 760px;   /* 阅读基准：wb-panel / page-head / 表单 */
-  --content-wide: 1040px;     /* 数据宽页：search / profile / guide / admin */
+  /* ── 内容宽度 — 全站两档 + v2 语义层别名（不新增第二套值） ── */
+  --content-measure: var(--layout-reading);   /* 阅读基准：wb-panel / page-head / 表单 */
+  --content-wide: var(--layout-content);      /* 数据宽页：search / profile / guide / admin */
   --wash:         #f6f8fb;   /* 洗白背景 */
   --paper:        #fff;      /* 底色 */
+  --max: var(--layout-wide); /* 旧名别名（header/footer 壳层用） */
 
   /* ── 反应 (Reaction) 灰蓝色系 ──────────────────────────────── */
   --reaction:     #6b8aab;   /* 反应标识色 */
@@ -57,12 +58,40 @@
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --title-weight: 500;
   --section-weight: 600;
-  --max: 1180px;
-  /* ── 字号阶梯：4层 ──────────────────────────── */
+  /* ── 字体阶梯：4层（紧凑密度档 · operations/数据行仍用） ─────── */
   --text-lg: 15px;   /* 正文主文本 */
   --text: 13px;      /* 常规文本 */
   --text-sm: 11px;   /* 辅助文本、标签 */
   --text-xs: 10px;   /* kicker、badge */
+
+  /* ══ Design System v2 Foundation tokens（0911）═══════════════
+     公开产品层的唯一规范 scale（docs/DESIGN_SYSTEM_V2.md §3–4）。
+     --text-* 四档保留给 operations/紧凑数据行；public 新代码一律
+     用本块语义 token，不再新造字号/间距/圆角/宽度值。 */
+
+  /* Typography — 12/13/14/16/18/22/30(+34–36 实体名/hero 由页面 clamp) */
+  --fs-caption: 12px;   /* caption / provenance / compact metadata */
+  --fs-meta:    13px;   /* secondary metadata */
+  --fs-data:    14px;   /* data value / compact body */
+  --fs-body:    16px;   /* main body */
+  --fs-h3:      18px;   /* H3 / card title */
+  --fs-h2:      22px;   /* H2 / major section */
+  --fs-title:   30px;   /* page title */
+
+  /* Spacing — 4/8/12/16/24/32/48/64 */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px;
+
+  /* Radius — 6 small/tag/control · 10 panel/button/input/card · 14 major surface */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* Layout width roles — 唯一宽度语义层（下方旧名是别名，非第二套） */
+  --layout-reading: 760px;    /* 阅读基准 */
+  --layout-content: 1040px;   /* 数据宽页 */
+  --layout-wide:    1180px;   /* 全站最大 */
+  --rail-width:     270px;    /* 实体页副栏 */
 }
 
 * { box-sizing: border-box; }
@@ -106,15 +135,35 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .button:disabled { opacity: .5; cursor: not-allowed; }
 .text-button { border: 0; padding: 0; color: var(--blue); background: none; cursor: pointer; font-size: var(--text); }
 .page-kicker, .section-heading p { margin: 0 0 8px; color: var(--blue); font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-.entity-id { display: inline-flex; align-items: baseline; gap: 5px; border-radius: 3px; padding: 5px 7px; color: var(--ink); background: var(--blue-pale); box-shadow: inset 2px 0 0 var(--blue); vertical-align: middle; font-variant-numeric: tabular-nums; line-height: 1; }
-.entity-id > span { color: var(--blue-deep); font-size: 8px; font-weight: 850; letter-spacing: .09em; }
-.entity-id > strong { color: var(--reaction-ink); font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; }
-.entity-id.reaction { background: var(--reaction-bg); box-shadow: inset 2px 0 0 var(--reaction); }
-.entity-id.reaction > span { color: var(--reaction); }
-.entity-id.reaction > strong { color: var(--reaction-ink); }
-.entity-id.compact { gap: 4px; padding: 3px 6px; }
-.entity-id.compact > span { font-size: 7px; }
-.entity-id.compact > strong { font-size: var(--text-xs); }
+/* ── EntityId · HCID/HRID 平台实体身份（Design System v2 唯一实现）────
+ * HCID = chemistry.chemicals.id · HRID = chemistry.reactions.id
+ * 平台记录引用，非 CAS/CID/InChIKey 类科学标识。
+ * Full = 实体详情 header；Compact = 搜索卡/成分卡/列表。
+ * chemical 与 reaction 只差 accent（蓝 / 灰蓝），几何完全同构。
+ * 旧实现问题（已修）：prefix 8px/7px 不可读、inset shadow 当结构线、
+ * radius 3px 任意值、chemical 数字误用 --reaction-ink。
+ */
+.entity-id {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid var(--blue-border);
+  border-left: 3px solid var(--blue);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px 4px 8px;
+  color: var(--ink);
+  background: var(--blue-tint);
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.entity-id > span { color: var(--blue-strong); font-size: var(--fs-caption); font-weight: 700; letter-spacing: .06em; }
+.entity-id > strong { color: var(--ink); font-family: var(--font-mono); font-size: var(--fs-data); font-weight: 600; }
+.entity-id.reaction { border-color: var(--line-strong); border-left-color: var(--reaction); background: var(--reaction-bg); }
+.entity-id.reaction > span { color: var(--reaction-ink); }
+.entity-id.compact { gap: var(--space-1); padding: 2px 8px 2px 7px; }
+.entity-id.compact > span { font-size: var(--fs-caption); letter-spacing: .04em; }
+.entity-id.compact > strong { font-size: var(--fs-meta); }
 
 /* ── 首页 Hero ── */
 .home { width: min(820px, calc(100% - 40px)); margin: auto; padding-bottom: 48px; }
@@ -344,7 +393,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .identity-primary { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 8px; }
 .identity-primary span { border-radius: 5px; padding: 6px 9px; color: var(--blue-deep); background: var(--blue-pale); font-size: var(--text); }
 .context-actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 9px; }
-.chemical-layout { margin-top: 48px; display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 64px; align-items: start; }
+.chemical-layout { margin-top: 48px; display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-width); gap: 64px; align-items: start; }
 .chemical-main { min-width: 0; display: grid; gap: 52px; }
 .identity-table { margin: 0; border-top: 1px solid var(--line); }
 .identity-table > div { border-bottom: 1px solid var(--line); padding: 13px 0; display: grid; grid-template-columns: 170px 1fr; gap: 22px; }
@@ -399,7 +448,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .reaction-scheme { width: 100%; border: 1px solid var(--line); overflow-x: auto; background: white; }
 .reaction-scheme img { display: block; width: 100%; min-width: 900px; height: 310px; object-fit: contain; }
 .reaction-scheme.unavailable { min-height: 180px; display: flex; align-items: center; justify-content: center; padding: 24px; color: var(--quiet); background: var(--wash); font-size: var(--text); text-align: center; }
-.reaction-layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 60px; align-items: start; }
+.reaction-layout { display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-width); gap: 60px; align-items: start; }
 .reaction-main { min-width: 0; display: grid; gap: 48px; }
 .reaction-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
 .participant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 10px; }
@@ -588,10 +637,10 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 
 .admin-worker-form { border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; margin-bottom: 16px; }
 .admin-worker-form label { display: grid; gap: 5px; font-size: var(--text-xs); color: var(--quiet); }
-.admin-worker-form input[type="text"], .admin-worker-form input:not([type]) { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: var(--text-s); background: var(--panel); color: var(--text); }
+.admin-worker-form input[type="text"], .admin-worker-form input:not([type]) { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: var(--text-sm); background: var(--paper); color: var(--ink); }
 .admin-worker-form fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; gap: 16px; }
 .admin-worker-form fieldset legend { font-size: var(--text-xs); color: var(--quiet); padding: 0 4px; }
-.checkbox-row { display: flex; align-items: center; gap: 6px; font-size: var(--text-s); color: var(--text); }
+.checkbox-row { display: flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--ink); }
 .admin-pre { border: 1px solid #22364d; border-radius: 10px; padding: 14px; background: #0f1b2a; color: #cfe3f7; overflow-x: auto; font-size: var(--text-xs); line-height: 1.7; }
 
 .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 16px; }
@@ -1044,7 +1093,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 
 /* ── CB 中文扩展条目/供应商(casext) ───────────────── */
 .casext-tags { display: flex; flex-wrap: wrap; gap: 8px; }
-.casext-tag { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: var(--text-xs); color: var(--text-soft, var(--muted)); background: var(--wash, transparent); }
+.casext-tag { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: var(--text-xs); color: var(--muted); background: var(--wash); }
 .casext-tag.en { font-family: var(--font-mono); }
 .casext-prose-list p { margin: 0 0 10px; font-size: var(--text); line-height: 1.75; }
 .casext-prose-list strong { display: inline-block; margin-right: 10px; color: var(--heading); font-weight: 650; }
@@ -1067,15 +1116,15 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 /* ── MCP 连接器页(自包含, 仅 mcp-* 新类) ────────────────── */
 .mcp-connect { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: var(--wash); display: flex; flex-direction: column; gap: 10px; }
 .mcp-connect-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.mcp-connect-label { color: var(--ink-soft); font-size: var(--text-sm); white-space: nowrap; }
+.mcp-connect-label { color: var(--muted); font-size: var(--text-sm); white-space: nowrap; }
 .mcp-connect-value { font-family: var(--font-mono); font-size: var(--text-sm); color: var(--ink); word-break: break-all; }
-.mcp-connect-desc { color: var(--ink-soft); font-size: var(--text-sm); margin: 0; }
+.mcp-connect-desc { color: var(--muted); font-size: var(--text-sm); margin: 0; }
 .mcp-agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .mcp-agent-card { display: flex; flex-direction: column; }
 .mcp-agent-steps { margin: 8px 0 0; padding-left: 20px; color: var(--ink); font-size: var(--text-sm); line-height: 1.8; }
 .mcp-agent-steps li { word-break: break-word; }
 .mcp-tools-table td { vertical-align: top; }
-.mcp-tool-auth { color: var(--ink-soft); font-size: var(--text-sm); white-space: nowrap; }
+.mcp-tool-auth { color: var(--muted); font-size: var(--text-sm); white-space: nowrap; }
 
 /* ── 首页三入口卡片(M2, 自包含 home-card-*) ─────────────── */
 .home-cards-kicker { margin: 8px 0 10px; color: var(--muted); font-size: var(--text-xs); font-weight: 800; letter-spacing: .16em; }
@@ -1149,6 +1198,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .home-card:hover { border-color: var(--blue); box-shadow: 0 2px 10px rgb(30 144 255 / .10); }
 .pipe-revive-btn:hover { background: rgba(30,144,255,.08); }
 }
-.guide-fallback { margin-top: 18px; padding: 14px 16px; border: 1px dashed var(--border); border-radius: 8px; opacity: .85; }
+.guide-fallback { margin-top: 18px; padding: 14px 16px; border: 1px dashed var(--line-strong); border-radius: 8px; opacity: .85; }
 .guide-fallback h4 { margin: 0 0 6px; font-size: var(--text-sm); color: var(--muted); }
 .guide-fallback p { margin: 0 0 10px; font-size: var(--text-sm); color: var(--muted); }
