@@ -162,12 +162,13 @@ const t = {
       keyIdentifiers: '关键标识',
       dataStatus: '数据状态',
       dbIdentifiers: '数据库标识',
-      ordRelations: 'ORD 关联反应',
       sourceAvailable: '已收录',
       sourceNone: '未收录',
       statusQueued: '补全中',
+      statusStale: '待刷新',
       statusCurrent: '最新',
       statusNone: '暂无',
+      statusUnavailable: '暂不可用',
     },
     roles: {
       reactant: '作为反应物',
@@ -198,9 +199,9 @@ const t = {
     },
     synonyms: {
       title: '名称与别名',
-      total: (n: string) => `共 ${n} 条`,
       error: '别名暂时无法继续读取。',
       loadMore: (shown: number) => `继续读取（已显示 ${shown} 条）`,
+      expandMore: '展开更多名称',
     },
     casext: {
       identity: '标识信息',

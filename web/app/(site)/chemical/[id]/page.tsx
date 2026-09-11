@@ -10,6 +10,7 @@ import { ReactionList } from "@/components/ReactionList";
 import { ShareButton } from "@/components/ShareButton";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
 import { cbNameGroups, industryGroups, propertyGroups, safetyGroups, type CasExternalsPayload } from "@/components/chemicalSections";
+import { cbDataStatus, cbInFlight, pubchemDataStatus, type DataStatus } from "@/components/chemicalStatus";
 import { evidenceSectionKeys, isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
 import { apiGet, isApiNotFound, type Chemical, type ChemicalDetails, type EnrichmentState, type ReactionSummary } from "@/lib/api";
 import t from "@/lib/i18n";
@@ -83,12 +84,20 @@ export default async function ChemicalPage({ params }: {
   const pb = details.details;
   const pbSections = pb ? evidenceSectionKeys(pb as unknown as Record<string, unknown>) : {};
 
-  // 0902 P1: 在途判定(不变)
-  const cbInFlight = chemical.cas_numbers.length > 0
-    && externals !== null
-    && externals.entry === null
-    && (externals.suppliers?.length ?? 0) === 0;
-  const refreshActive = details.enrichment.status === "queued" || cbInFlight;
+  // 数据状态映射(唯一实现见 chemicalStatus.ts): 不在页面内联推断状态语义。
+  // CB 在途 = 服务端真实 queued; 空数据不算在途, 否则 fresh negative 会被持续轮询。
+  const cbPending = cbInFlight(externals?.state);
+  const cbHasData = Boolean(externals?.entry) || (externals?.suppliers?.length ?? 0) > 0;
+  const pubchemState = pubchemDataStatus(details.enrichment.status, chemical.pubchem_cid != null);
+  const cbState = cbDataStatus(externals === null ? null : externals.state, cbHasData);
+  const statusText: Record<DataStatus, string> = {
+    queued: t.chemical.page.statusQueued,
+    stale: t.chemical.page.statusStale,
+    current: t.chemical.page.statusCurrent,
+    none: t.chemical.page.statusNone,
+    unavailable: t.chemical.page.statusUnavailable,
+  };
+  const refreshActive = details.enrichment.status === "queued" || cbPending;
 
   const title = chemical.preferred_name || chemical.iupac_name || pb?.record_title || t.common.unnamedCompound;
   const identifiers = identifierGroups(chemical);
@@ -137,15 +146,16 @@ export default async function ChemicalPage({ params }: {
     ...(chemical.pubchem_cid ? { url: `https://huagongshe.com/chemical/${chemical.id}` } : {}),
   };
 
-  const tocSections = [
+  // TOC 只列实际渲染的 section(rail TOC 与 tablet/mobile local nav 共用此唯一列表)
+  const tocSections: [string, string][] = [
     ["overview", t.chemical.page.overview],
     ["names", t.chemical.page.names],
-    ["properties", t.chemical.page.properties],
-    ["safety", t.chemical.page.safety],
-    ["industry", t.chemical.page.industry],
+    ...(hasProperties ? [["properties", t.chemical.page.properties] as [string, string]] : []),
+    ...(hasSafetyReal ? [["safety", t.chemical.page.safety] as [string, string]] : []),
+    ...(hasIndustry ? [["industry", t.chemical.page.industry] as [string, string]] : []),
     ["reactions", t.chemical.relatedReactions],
     ["sources", t.chemical.page.sources],
-  ] as const;
+  ];
 
   return (
     <div className="content-page chemical-page">
@@ -212,13 +222,14 @@ export default async function ChemicalPage({ params }: {
             </dl>
             {(synTotal > 0 || cbAliasOnly.length > 0) && (
               <div className="chem-names-block">
-                <h3 className="chem-subhead">{t.chemical.synonyms.title} <span className="chem-subhead-note">{t.chemical.synonyms.total(new Intl.NumberFormat("zh-CN").format(synTotal))}</span></h3>
+                {/* 不显示 aggregate 总数: 视觉列表是 synonyms + CB aliases 去重 union, 无可靠 union total */}
+                <h3 className="chem-subhead">{t.chemical.synonyms.title}</h3>
                 <div className="alias-list">
                   {previewAliases.map((a) => <span key={`${a.source}-${a.value}`} className={a.source === "cb" ? "casext-tag" : undefined}>{a.value}</span>)}
                 </div>
                 {hasAliasRest && (
                   <details className="synonym-disclosure">
-                    <summary>{t.chemical.synonyms.loadMore(aliasUnion.length)}</summary>
+                    <summary>{t.chemical.synonyms.expandMore}</summary>
                     <div className="alias-list synonym-full">
                       {cbRest.map((a) => <span key={`cb-${a.value}`} className="casext-tag">{a.value}</span>)}
                       <SynonymExplorer chemicalId={chemical.id} initial={synonyms} total={synTotal} shown={synShownInPreview} />
@@ -377,10 +388,8 @@ export default async function ChemicalPage({ params }: {
             <div className="chem-sources">
               <SourceRow label="PubChem" available={chemical.pubchem_cid != null}
                 meta={chemical.pubchem_cid ? `CID ${chemical.pubchem_cid}` : undefined} />
-              <SourceRow label="ChemicalBook" available={Boolean(externals?.entry || (externals?.suppliers?.length ?? 0) > 0)}
+              <SourceRow label="ChemicalBook" available={cbHasData}
                 meta={externals?.entry?.identity?.cn || externals?.entry?.identity?.en} />
-              <SourceRow label={t.chemical.page.ordRelations} available={reactionTotal > 0}
-                meta={reactionTotal > 0 ? `${new Intl.NumberFormat("zh-CN").format(reactionTotal)} 条` : undefined} />
             </div>
           </section>
         </main>
@@ -404,8 +413,8 @@ export default async function ChemicalPage({ params }: {
           <section>
             <h2>{t.chemical.page.dataStatus}</h2>
             <dl>
-              <div><dt>PubChem</dt><dd>{details.enrichment.status === "queued" ? t.chemical.page.statusQueued : chemical.pubchem_cid != null ? t.chemical.page.statusCurrent : t.chemical.page.statusNone}</dd></div>
-              <div><dt>ChemicalBook</dt><dd>{externals?.entry ? t.chemical.page.statusCurrent : (cbInFlight ? t.chemical.page.statusQueued : t.chemical.page.statusNone)}</dd></div>
+              <div><dt>PubChem</dt><dd>{statusText[pubchemState]}</dd></div>
+              <div><dt>ChemicalBook</dt><dd>{statusText[cbState]}</dd></div>
               <div><dt>{t.chemical.relatedReactions}</dt><dd>{reactionsUnavailable ? "—" : `${new Intl.NumberFormat("zh-CN").format(reactionTotal)} 条`}</dd></div>
             </dl>
           </section>
@@ -447,7 +456,7 @@ function ComputedDescriptors({ details, enrichment }: { details: ChemicalDetails
   if (!hasAny) return null;
   return (
     <div className="chem-sub-block">
-      <h3 className="chem-subhead">{t.chemical.knowledge.descriptors} <SourceTag source="PubChem" />{enrichment.status !== "current" && <span className="chem-subhead-note">{t.chemical.knowledge.enriching}</span>}</h3>
+      <h3 className="chem-subhead">{t.chemical.knowledge.descriptors} <SourceTag source="PubChem" />{enrichment.status !== "current" && <span className="chem-subhead-note">{enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued}</span>}</h3>
       <dl className="metric-grid">
         <Metric label="XLogP" value={details.xlogp} />
         <Metric label={t.chemical.knowledge.tpsa} value={details.topological_polar_surface_area} suffix=" Å²" />
