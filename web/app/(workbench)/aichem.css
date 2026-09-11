@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    aichem.css — AI化学工作台 样式表
    依赖 aichem-tokens.css 的 --wb-* 变量
-   零外部依赖 · 零 !important · 零硬编码（entity-id 微标签除外）
+   零外部依赖 · 零 !important · 零硬编码
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════
@@ -646,7 +646,6 @@
   font-weight: var(--wb-w-medium);
 }
 .wb-search-chemical .entity-id {
-  display: inline-flex;
   margin: 2px 0;
 }
 .wb-search-chemical span {
@@ -694,10 +693,7 @@
 }
 .wb-followed-list > a > .entity-id {
   flex-shrink: 0;
-  padding: 2px var(--wb-sp-1);
 }
-.wb-followed-list > a > .entity-id > span { font-size: var(--wb-fs-xs); }
-.wb-followed-list > a > .entity-id > strong { font-size: var(--wb-fs-sm); }
 .wb-followed-list > a > span:not(.entity-id) {
   flex: 1;
   min-width: 0;
@@ -1059,50 +1055,6 @@
 /* ═══════════════════════════════════════════════════════════════
    L8 — 公共组件上下文覆盖
    ═══════════════════════════════════════════════════════════════ */
-
-/* ── EntityId ── */
-.wb-shell .entity-id {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--wb-sp-1);
-  border: 1px solid var(--wb-blue-border);
-  border-left: 3px solid var(--wb-blue);
-  border-radius: var(--wb-r-sm);
-  padding: 2px var(--wb-sp-1) 2px var(--wb-sp-1);
-  color: var(--wb-ink);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-}
-.wb-shell .entity-id > span {
-  font-size: var(--wb-fs-xs);
-  font-weight: 700;
-  letter-spacing: .04em;
-  color: var(--wb-blue-strong);
-}
-.wb-shell .entity-id > strong {
-  font-size: var(--wb-fs-sm);
-  font-weight: var(--wb-w-semibold);
-  color: var(--wb-ink);
-  font-family: var(--wb-font-mono);
-}
-.wb-shell .entity-id.compact {
-  gap: var(--wb-sp-1);
-  padding: 1px var(--wb-sp-1);
-}
-.wb-shell .entity-id.compact > span { font-size: var(--wb-fs-xs); }
-.wb-shell .entity-id.compact > strong { font-size: var(--wb-fs-xs); }
-.wb-shell .entity-id.reaction {
-  border-color: var(--wb-line-strong);
-  border-left-color: var(--wb-reaction);
-  background: var(--wb-reaction-bg);
-}
-.wb-shell .entity-id.reaction > span { color: var(--wb-reaction-ink); }
-.wb-shell .entity-id.reaction > strong { color: var(--wb-reaction-ink); }
-.wb-shell .entity-id.chemical {
-  background: var(--wb-blue-tint);
-}
-.wb-shell .entity-id.chemical > span { color: var(--wb-blue-strong); }
-.wb-shell .entity-id.chemical > strong { color: var(--wb-ink); }
 
 /* ── FollowButton ── */
 .wb-shell .follow-button {

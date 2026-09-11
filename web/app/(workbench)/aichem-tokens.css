@@ -60,8 +60,10 @@
      --wb-fs-lg  (15px) → 面板标题 / 抽屉标题
      --wb-fs     (14px) → 正文 / 菜单项 / 分类标题（同号不同粗）
      --wb-fs-sm  (12px) → 副标题 / badge / 元数据
-     --wb-fs-xs  (11px) → HRID / 时间戳 / 微标签
-     --wb-fs-micro(7px) → 实体ID前缀字标（HCID/HRID 徽标小字）
+     --wb-fs-xs  (11px) → 时间戳 / 微标签
+     --wb-fs-micro(7px) → 化学计量表表头/基准标签(stoich thead/basis-tag)专用微型标签。
+                          不再用于 HCID/HRID 实体ID —— EntityId 已统一走全局 .entity-id
+                          规则(globals.css, Design System v2), prefix 最低 12px。
      --wb-fs-stat(24px) → 统计数字（首页统计卡片）
   */
   --wb-fs-xl:   18px;

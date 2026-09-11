@@ -164,6 +164,10 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .entity-id.compact { gap: var(--space-1); padding: 2px 8px 2px 7px; }
 .entity-id.compact > span { font-size: var(--fs-caption); letter-spacing: .04em; }
 .entity-id.compact > strong { font-size: var(--fs-meta); }
+/* 溢出防线(手机/平板): 作为 flex/grid 子项时允许收缩, 超长 ID 在徽章内断行,
+   不撑破容器、不产生横向滚动、不缩字体。属于唯一全局实现, 非 scoped fork。 */
+.entity-id { min-width: 0; max-width: 100%; }
+.entity-id > strong { overflow-wrap: anywhere; }
 
 /* ── 首页 Hero ── */
 .home { width: min(820px, calc(100% - 40px)); margin: auto; padding-bottom: 48px; }
