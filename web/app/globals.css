@@ -96,7 +96,8 @@
 
 * { box-sizing: border-box; }
 html { max-width: 100%; color-scheme: light; scroll-behavior: smooth; overflow-x: clip; }
-body { width: 100%; max-width: 100%; margin: 0; color: var(--ink); background: var(--paper); font-family: var(--font-ui); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+body { width: 100%; max-width: 100%; margin: 0; color: var(--ink); background: var(--wash); font-family: var(--font-ui); -webkit-font-smoothing: antialiased; overflow-x: clip; }
+/* 手机背景到底: body 与 main 同为 --wash, 短页面 main 结束后不再露出异色 body 到 fixed 底栏。*/
 img, svg { max-width: 100%; }
 a { color: inherit; text-decoration: none; }
 button, input, select, textarea { font: inherit; }
@@ -425,8 +426,22 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .chem-subhead { margin: var(--space-3) 0 0; font-size: var(--fs-h3); font-weight: var(--section-weight); color: var(--heading); }
 .chem-subhead-note { margin-left: var(--space-2); color: var(--muted); font-size: var(--fs-meta); font-weight: 400; }
 .chem-names-block { display: grid; gap: var(--space-2); }
-.chem-local-nav { margin-bottom: var(--space-4); display: flex; flex-wrap: wrap; gap: var(--space-2); border-bottom: 1px solid var(--line); padding-bottom: var(--space-2); }
-.chem-local-nav a { color: var(--muted); font-size: var(--fs-meta); }
+.chem-local-nav {
+  /* 唯一 local-nav primitive(Chemical/Reaction 共用): 单行横向页面导航。
+     非胶囊、非 badge: paper 底 + 底部分隔线 + 14px 可读字号。 */
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) 0 calc(var(--space-2) + 1px);
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.chem-local-nav::-webkit-scrollbar { display: none; }
+.chem-local-nav a { color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; flex-shrink: 0; text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; }
+.chem-local-nav a:hover { color: var(--blue); }
 .chem-toc { display: grid; gap: var(--space-1); }
 .chem-toc a { color: var(--muted); font-size: var(--fs-meta); }
 .chem-rail-id { overflow-wrap: anywhere; }
@@ -445,13 +460,11 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .synonym-full { margin-top: var(--space-2); }
 .synonym-more { margin-top: var(--space-1); }
 @media (max-width: 900px) {
-  .chem-local-nav { display: flex; }
+  .chem-local-nav { display: flex; position: sticky; top: 58px; z-index: 20; }
+  .chem-section { scroll-margin-top: 120px; }
 }
 @media (max-width: 680px) {
   .evidence-flat { grid-template-columns: 1fr; gap: var(--space-1); }
-  .chem-local-nav { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
-  .chem-local-nav::-webkit-scrollbar { display: none; }
-  .chem-local-nav a { white-space: nowrap; flex-shrink: 0; }
 }
 
 .metric-grid { margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }

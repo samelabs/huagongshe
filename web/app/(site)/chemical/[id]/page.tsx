@@ -168,7 +168,6 @@ export default async function ChemicalPage({ params }: {
             <ShareButton title={title} />
           </div>
           <div className="context-secondary-actions">
-            <Link className="text-button" href="#reactions">{t.chemical.viewReactions}</Link>
             {hasSession ? (<>
               <Link className="text-button" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>{t.chemical.substructure}</Link>
               <Link className="text-button" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>{t.chemical.similarity}</Link>

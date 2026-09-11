@@ -7,8 +7,10 @@ import t from "@/lib/i18n";
 export function MobileTabBar() {
   const pathname = usePathname();
 
+  /* 底栏只承担三个顶级目的地; 站内检索/浏览(search/chemical/reaction/guide/skills)
+     不是底栏 tab, 不参与 active 判定 —— 工作台内部搜索在 WbTopnav(/aichem?tab=search)。 */
   const tabs = [
-    { href: "/search", label: t.nav.tabSearch, icon: searchIcon, match: (p: string) => p === "/" || p.startsWith("/search") || p.startsWith("/chemical") || p.startsWith("/reaction") || p.startsWith("/skills") || p.startsWith("/guide") },
+    { href: "/", label: t.nav.tabHome, icon: homeIcon, match: (p: string) => p === "/" },
     { href: "/aichem", label: t.nav.tabWorkbench, icon: flaskIcon, match: (p: string) => p === "/aichem" || p.startsWith("/aichem?") || p.startsWith("/submit") },
     { href: "/me/settings/profile", label: t.nav.tabMe, icon: userIcon, match: (p: string) => p.startsWith("/me/settings") || p.startsWith("/user/") },
   ];
@@ -28,11 +30,11 @@ export function MobileTabBar() {
   );
 }
 
-function searchIcon(active: boolean) {
+function homeIcon(active: boolean) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--blue)" : "var(--quiet)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.5" y2="16.5" />
+      <path d="M3 11l9-8 9 8" />
+      <path d="M5 10v10h14V10" />
     </svg>
   );
 }

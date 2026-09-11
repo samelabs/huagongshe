@@ -1217,6 +1217,8 @@
 
 /* ── 桌面 ≥681px ── */
 @media (min-width: 681px) {
+  /* 桌面为静态文档流: 短内容时壳高度需至少覆盖视口, 否则露出 body 异色断层 */
+  .wb-shell { position: static; min-height: 100dvh; background: var(--wb-paper); }
   .wb-burger { display: none; }
 }
 
