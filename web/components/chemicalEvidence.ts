@@ -13,7 +13,7 @@ import type { EvidenceBlock } from "@/lib/api";
 
 export type EvidenceEntry = { label: string; values: string[] };
 
-export function evidenceEntries(block: EvidenceBlock | null | undefined): EvidenceEntry[] {
+function evidenceEntries(block: EvidenceBlock | null | undefined): EvidenceEntry[] {
   if (!hasEntries(block)) return [];
   const source = block!.entries && typeof block!.entries === "object" ? block!.entries : block!;
   return Object.entries(source)
