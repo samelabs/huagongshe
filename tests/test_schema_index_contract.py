@@ -85,5 +85,64 @@ class ChemicalCbFkIndexContract(unittest.TestCase):
             await engine.dispose()
 
 
+class ChemicalCbFetchedAtIndexContract(unittest.TestCase):
+    """契约: chemical_cb 必须有可服务 `ORDER BY fetched_at DESC NULLS LAST` 的索引。
+
+    锁的是 /admin/pipeline latest-10 的计划形态 (0911, 实测 before = Parallel Seq Scan 1156.7ms)。
+    indoption 位: 1 = DESC, 2 = NULLS FIRST —— 故 DESC NULLS LAST ⇒ indoption[0] & 1 = 1 且 & 2 = 0。
+    """
+
+    COLUMN = "fetched_at"
+
+    SQL = f"""
+    SELECT i.indexrelid::regclass::text          AS index_name,
+           a.attname                             AS first_col,
+           (i.indpred IS NOT NULL)               AS is_partial,
+           i.indisvalid                          AS is_valid,
+           i.indoption[0]                        AS indoption0,
+           (i.indoption[0] & 1) = 1              AS is_desc,
+           (i.indoption[0] & 2) = 0              AS is_nulls_last,
+           pg_get_indexdef(i.indexrelid)         AS indexdef
+      FROM pg_index i
+      JOIN pg_class c     ON c.oid = i.indexrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
+     WHERE i.indrelid = '{TABLE}'::regclass
+     ORDER BY 1
+    """
+
+    def test_fetched_at_index_serves_desc_nulls_last(self):
+        asyncio.run(self._run())
+
+    async def _run(self) -> None:
+        engine = _engine()
+        try:
+            async with engine.connect() as conn:
+                rows = (await conn.execute(text(self.SQL))).mappings().fetchall()
+                self.assertTrue(rows, f"{TABLE} 上找不到任何索引")
+
+                usable = [r for r in rows if r["first_col"] == self.COLUMN
+                          and not r["is_partial"] and r["is_valid"]
+                          and r["is_desc"] and r["is_nulls_last"]]
+                self.assertTrue(
+                    usable,
+                    "缺少可服务 fetched_at DESC NULLS LAST 的有效非部分索引 (现有: "
+                    + "; ".join(f"{r['index_name']}[first={r['first_col']},"
+                                f"partial={r['is_partial']},valid={r['is_valid']},"
+                                f"desc={r['is_desc']},nulls_last={r['is_nulls_last']}]" for r in rows)
+                    + ")")
+
+                # 计划层: latest-10 语义不得再出现 Seq Scan, 也不应再需要显式 Sort
+                await conn.execute(text("SET enable_seqscan = off"))
+                plan = "\n".join(str(r[0]) for r in (await conn.execute(text(
+                    f"EXPLAIN SELECT chemical_id, locale, last_status, fetched_at "
+                    f"FROM {TABLE} ORDER BY {self.COLUMN} DESC NULLS LAST LIMIT 10"))).fetchall())
+                self.assertNotIn("Seq Scan", plan, f"latest-10 仍在顺序扫, 计划:\n{plan}")
+                self.assertIn("idx_chemical_cb_fetched_at", plan, f"未使用目标索引, 计划:\n{plan}")
+                self.assertNotIn("Sort", plan, f"仍在显式排序(索引未提供顺序), 计划:\n{plan}")
+        finally:
+            await engine.dispose()
+
+
 if __name__ == "__main__":
     unittest.main()
