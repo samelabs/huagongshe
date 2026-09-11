@@ -26,27 +26,6 @@ export default async function Home() {
         <p className="home-entry-note">{t.home.entryNote}</p>
       </section>
 
-      <div className="home-cards-kicker">{t.home.cardsKicker}</div>
-      <div className="home-cards">
-        <Link className="home-card home-card-mcp" href="/mcp-guide">
-          <span className="home-card-kicker">{t.home.card1Kicker}</span>
-          <strong>{t.home.card1Title}</strong>
-          <span>{t.home.card1Body}</span>
-          <span className="home-card-link">{t.home.card1Link}</span>
-        </Link>
-        <a className="home-card home-card-api" href="/api/agent-guide">
-          <span className="home-card-kicker">{t.home.card2Kicker}</span>
-          <strong>{t.home.card2Title}</strong>
-          <span>{t.home.card2Body}</span>
-          <span className="home-card-link">{t.home.card2Link}</span>
-        </a>
-        <Link className="home-card home-card-work" href="/aichem">
-          <span className="home-card-kicker">{t.home.card3Kicker}</span>
-          <strong>{t.home.card3Title}</strong>
-          <span>{t.home.card3Body}</span>
-          <span className="home-card-link">{t.home.card3Link}</span>
-        </Link>
-      </div>
       <p className="home-aux"><Link href="/skills">{t.home.skillsAux} →</Link></p>
     </div>
   );

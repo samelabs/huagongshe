@@ -87,20 +87,7 @@ const t = {
     entryWorkbench: '网页工作台',
     entryKey: '创建 AI Key',
     entryNote: '公开查询无需认证直接调用；写操作（保存反应、技能）需要 AI Key。文档：/mcp-guide · API 契约：/api/agent-guide · /llms.txt',
-    /* ── 三入口卡片 ── */
-    cardsKicker: '化工社AIchem',
-    card1Kicker: 'MCP 连接器',
-    card1Title: '接入你的 AI 助手',
-    card1Body: '在支持远程 MCP 的 AI 客户端（豆包工作、千问办公、WorkBuddy 等）添加该地址，AI 即可查询化合物与反应、计算投料，把反应记录保存到你的账户。',
-    card1Link: '查看 MCP 接入方法 →',
-    card2Kicker: 'HTTP API',
-    card2Title: 'HTTP API / Agent guide',
-    card2Body: 'Agent 或应用读取该契约后即可调用化学数据与个人工作台能力；写操作使用 AI Key。',
-    card2Link: '查看 API 契约 →',
-    card3Kicker: 'WORKBENCH',
-    card3Title: '网页工作台',
-    card3Body: '检索与结构查询、投料计算、反应记录与收藏，登录即可使用。',
-    card3Link: '进入工作台 →',
+    /* ── 辅助入口 ── */
     skillsAux: 'Agent 技能库（可安装的规则文件，辅助入口）',
   },
 
@@ -754,16 +741,7 @@ const t = {
     cap4Title: '保存记录',
     cap4Desc: '确认后保存到你的工作台，默认私有。返回HRID和页面链接。',
     cap4Badge: '需AI Key',
-    /* ── 怎么开始 ── */
-    startKicker: '怎么开始',
     mcpCta: '查看 MCP 接入方法 →',
-    path1Title: '连接 MCP Server',
-    path1Suit: '适合支持远程 MCP 的 AI 客户端',
-    path1Desc: '在你的 AI 助手里添加化工社AIchem MCP 服务器。AI 直接查询化合物与反应、计算投料，保存反应记录到你的账户。',
-    path2Title: '使用 HTTP API',
-    path2Suit: '适合支持 HTTP 请求、工具调用的 Agent 和开发者',
-    path2Desc: 'AI Agent 或应用读取化工社 API 契约，按 HTTP 接口调用化学数据与个人工作台能力。需要用户授权的操作使用 AI Key。',
-
     apiCta: '查看 HTTP API 契约 →',
     fallbackTitle: '没有工具接入？',
     fallbackDesc: '如果当前 AI 不支持 MCP 或 HTTP 工具调用，可以复制提示词让 AI 先整理结构化草稿，再由你在化工社网页保存。这不是 API/MCP 连接。',

@@ -68,29 +68,6 @@ export default function GuidePage() {
     </section>
 
     <section className="guide-section">
-      <div className="section-heading"><div><p className="page-kicker">{t.guide.startKicker}</p></div></div>
-      <div className="guide-paths">
-        <article className="guide-path">
-          <div className="guide-path-head">
-            <h3>{t.guide.path1Title}</h3>
-            <span className="guide-path-suit">{t.guide.path1Suit}</span>
-          </div>
-          <p>{t.guide.path1Desc}</p>
-          <div className="guide-actions">
-            <Link className="button primary" href="/mcp-guide">{t.guide.mcpCta}</Link>
-          </div>
-        </article>
-        <article className="guide-path">
-          <div className="guide-path-head">
-            <h3>{t.guide.path2Title}</h3>
-            <span className="guide-path-suit">{t.guide.path2Suit}</span>
-          </div>
-          <p>{t.guide.path2Desc}</p>
-          <div className="guide-actions">
-            <Link className="button primary" href="/api/agent-guide">{t.guide.apiCta}</Link>
-          </div>
-        </article>
-      </div>
       <div className="guide-fallback">
         <h4>{t.guide.fallbackTitle}</h4>
         <p>{t.guide.fallbackDesc}</p>
