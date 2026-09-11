@@ -1,39 +1,15 @@
 /**
- * Chemical Detail data-status 语义映射(唯一实现)。
+ * Chemical Detail 内部补全在途判定。
  *
- * 只做 UI 映射, 不改 API:
- *  - PubChem 状态来自 `EnrichmentState.status`(queued | stale | current)
- *  - ChemicalBook 状态直接来自 `externals.state`(queued | stale | fresh | absent | no_cas)
+ * 只为 DetailRefresher 的轮询服务 —— 不再有面向用户的"数据状态"表达,
+ * 因此不暴露底层数据源名称, 也不保留 rail 专用状态映射(已随 Data Status 移除)。
  *
- * 原则(PM review #4):
- *  - stale 不得显示为"最新"
- *  - CB 空数据不得推断为 in flight; 只有服务端 state === "queued" 才是在途
- *  - externals 请求失败(state === null)显示"暂不可用/—", 不得显示 queued
+ * 原则(PM review #4 保留项):
+ *  - 空数据不得推断为 in flight; 只有服务端 state === "queued" 才是在途,
+ *    否则 fresh negative 会被持续轮询。
  */
 
-export type DataStatus = "queued" | "stale" | "current" | "none" | "unavailable";
-export type EnrichmentStatus = "queued" | "stale" | "current";
-
-/** PubChem: queued → 补全中; stale → 待刷新; current + CID → 最新; 无 CID → 暂无 */
-export function pubchemDataStatus(status: EnrichmentStatus, hasCid: boolean): DataStatus {
-  if (status === "queued") return "queued";
-  if (status === "stale") return "stale";
-  return hasCid ? "current" : "none";
-}
-
-/**
- * ChemicalBook: 有 entry 或 supplier → 当前已有数据; queued → 补全中;
- * 其他空数据状态(fresh negative / absent / no_cas) → 暂无;
- * state === null(externals 请求本身失败) → 暂不可用。
- */
-export function cbDataStatus(state: string | null, hasData: boolean): DataStatus {
-  if (state === null) return "unavailable";
-  if (state === "queued") return "queued";
-  if (state === "stale") return "stale";
-  return hasData ? "current" : "none";
-}
-
-/** 在途 = 服务端真实 queued; 空数据不算在途(避免 fresh negative 被持续轮询)。 */
+/** 在途 = 服务端真实 queued; 空数据不算在途。 */
 export function cbInFlight(state: string | null | undefined): boolean {
   return state === "queued";
 }

@@ -138,29 +138,28 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
  * HCID = chemistry.chemicals.id · HRID = chemistry.reactions.id
  * 平台记录引用，非 CAS/CID/InChIKey 类科学标识。
  * Full = 实体详情 header；Compact = 搜索卡/成分卡/列表。
- * chemical 与 reaction 只差 accent（蓝 / 灰蓝），几何完全同构。
- * 旧实现问题（已修）：prefix 8px/7px 不可读、inset shadow 当结构线、
- * radius 3px 任意值、chemical 数字误用 --reaction-ink。
+ *
+ * 形态：typographic accession mark —— 正式数据库记录号式的纯排版标识，
+ * 不是 badge/胶囊：无外框、无填充、无阴影、无左侧 accent bar、无圆角容器。
+ * HCID 与 HRID 的区别只来自字样与 prefix 文字色，几何完全同构。
+ * 旧实现问题（已废）：tinted 背景 + 外框 + 3px 左色条 + 圆角徽章。
  */
 .entity-id {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
-  border: 1px solid var(--blue-border);
-  border-left: 3px solid var(--blue);
-  border-radius: var(--radius-sm);
-  padding: 4px 10px 4px 8px;
+  gap: 7px;
+  border: 0;
+  padding: 0;
   color: var(--ink);
-  background: var(--blue-tint);
+  background: transparent;
   vertical-align: middle;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
 }
-.entity-id > span { color: var(--blue-strong); font-size: var(--fs-caption); font-weight: 700; letter-spacing: .06em; }
+.entity-id > span { color: var(--blue-strong); font-size: var(--fs-caption); font-weight: 700; letter-spacing: .05em; }
 .entity-id > strong { color: var(--ink); font-family: var(--font-mono); font-size: var(--fs-data); font-weight: 600; }
-.entity-id.reaction { border-color: var(--line-strong); border-left-color: var(--reaction); background: var(--reaction-bg); }
 .entity-id.reaction > span { color: var(--reaction-ink); }
-.entity-id.compact { gap: var(--space-1); padding: 2px 8px 2px 7px; }
+.entity-id.compact { gap: 4px; }
 .entity-id.compact > span { font-size: var(--fs-caption); letter-spacing: .04em; }
 .entity-id.compact > strong { font-size: var(--fs-meta); }
 /* 溢出防线(手机/平板): 作为 flex/grid 子项时允许收缩, 超长 ID 在徽章内断行,
@@ -425,7 +424,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .chem-sub-block { display: grid; gap: var(--space-2); }
 .chem-subhead { margin: var(--space-3) 0 0; font-size: var(--fs-h3); font-weight: var(--section-weight); color: var(--heading); }
 .chem-subhead-note { margin-left: var(--space-2); color: var(--muted); font-size: var(--fs-meta); font-weight: 400; }
-.chem-source-tag { margin-left: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 1px var(--space-2); color: var(--muted); font-size: var(--fs-caption); font-weight: 400; vertical-align: middle; white-space: nowrap; }
 .chem-names-block { display: grid; gap: var(--space-2); }
 .chem-local-nav { margin-bottom: var(--space-4); display: flex; flex-wrap: wrap; gap: var(--space-2); border-bottom: 1px solid var(--line); padding-bottom: var(--space-2); }
 .chem-local-nav a { color: var(--muted); font-size: var(--fs-meta); }

@@ -56,9 +56,7 @@ export type CasExternalsPayload = {
  * CB 值与 PB 值各自保留原值与来源, 只进同一个语义 section。
  */
 
-export type SemanticProperty = { label: string; value: string; source: "PubChem" | "ChemicalBook" };
-
-export type SemanticEvidence = { title: string; entries: { label: string; values: string[] }[]; source: "PubChem" };
+export type SemanticProperty = { label: string; value: string };
 
 export type SemanticProse = { title: string; text: string };
 
@@ -73,7 +71,6 @@ export function propertyGroups(payload: CasExternalsPayload | null): {
     cbExperimental: props.map((p) => ({
       label: p.label,
       value: p.v != null ? `${p.v}${p.unit ? ` ${p.unit}` : ""} · ${p.text}` : p.text,
-      source: "ChemicalBook",
     })),
     cbChemicalProse: proseOf(payload).filter((i) => proseGroup(i.title) === "properties"),
   };
@@ -88,7 +85,7 @@ export function safetyGroups(payload: CasExternalsPayload | null): {
   const raw = payload?.entry?.safety;
   const safety = raw && !Array.isArray(raw) ? Object.entries(raw) : [];
   return {
-    cbSafety: safety.map(([k, v]) => ({ label: k, value: v, source: "ChemicalBook" })),
+    cbSafety: safety.map(([k, v]) => ({ label: k, value: v })),
     cbToxicity: proseOf(payload).filter((i) => proseGroup(i.title) === "toxicity"),
     cbPackaging: proseOf(payload).filter((i) => proseGroup(i.title) === "packaging"),
   };
@@ -132,10 +129,10 @@ export function cbNameGroups(payload: CasExternalsPayload | null, canonical: str
   const out: { label: string; value: string }[] = [];
   // 同一字符串只在 Names 区出现一次: CB 英文名与 canonical 名逐字相同时不重复列出
   const canon = new Set(canonical.filter(Boolean).map((v) => v.trim().toLowerCase()));
-  if (identity?.cn && !canon.has(identity.cn.trim().toLowerCase())) out.push({ label: "中文名 (ChemicalBook)", value: identity.cn });
-  if (identity?.en && !canon.has(identity.en.trim().toLowerCase())) out.push({ label: "英文名 (ChemicalBook)", value: identity.en });
-  if (identity?.formula) out.push({ label: "分子式 (ChemicalBook)", value: identity.formula });
-  if (identity?.mw != null) out.push({ label: "分子量 (ChemicalBook)", value: String(identity.mw) });
+  if (identity?.cn && !canon.has(identity.cn.trim().toLowerCase())) out.push({ label: "中文名", value: identity.cn });
+  if (identity?.en && !canon.has(identity.en.trim().toLowerCase())) out.push({ label: "英文名", value: identity.en });
+  if (identity?.formula) out.push({ label: "分子式", value: identity.formula });
+  if (identity?.mw != null) out.push({ label: "分子量", value: String(identity.mw) });
   const aliases = [...(identity?.alias_cn ?? []), ...(identity?.alias_en ?? [])].filter(Boolean);
   return { identity: out, aliases };
 }

@@ -10,7 +10,7 @@ import { ReactionList } from "@/components/ReactionList";
 import { ShareButton } from "@/components/ShareButton";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
 import { cbNameGroups, industryGroups, propertyGroups, safetyGroups, type CasExternalsPayload } from "@/components/chemicalSections";
-import { cbDataStatus, cbInFlight, pubchemDataStatus, type DataStatus } from "@/components/chemicalStatus";
+import { cbInFlight } from "@/components/chemicalStatus";
 import { evidenceSectionKeys, isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
 import { apiGet, isApiNotFound, type Chemical, type ChemicalDetails, type EnrichmentState, type ReactionSummary } from "@/lib/api";
 import t from "@/lib/i18n";
@@ -84,19 +84,9 @@ export default async function ChemicalPage({ params }: {
   const pb = details.details;
   const pbSections = pb ? evidenceSectionKeys(pb as unknown as Record<string, unknown>) : {};
 
-  // 数据状态映射(唯一实现见 chemicalStatus.ts): 不在页面内联推断状态语义。
-  // CB 在途 = 服务端真实 queued; 空数据不算在途, 否则 fresh negative 会被持续轮询。
+  // 内部补全在途判定(不再向 UI 暴露数据源状态): CB queued → 继续轮询;
+  // 空数据不算在途, 否则 fresh negative 会被持续轮询。
   const cbPending = cbInFlight(externals?.state);
-  const cbHasData = Boolean(externals?.entry) || (externals?.suppliers?.length ?? 0) > 0;
-  const pubchemState = pubchemDataStatus(details.enrichment.status, chemical.pubchem_cid != null);
-  const cbState = cbDataStatus(externals === null ? null : externals.state, cbHasData);
-  const statusText: Record<DataStatus, string> = {
-    queued: t.chemical.page.statusQueued,
-    stale: t.chemical.page.statusStale,
-    current: t.chemical.page.statusCurrent,
-    none: t.chemical.page.statusNone,
-    unavailable: t.chemical.page.statusUnavailable,
-  };
   const refreshActive = details.enrichment.status === "queued" || cbPending;
 
   const title = chemical.preferred_name || chemical.iupac_name || pb?.record_title || t.common.unnamedCompound;
@@ -154,7 +144,6 @@ export default async function ChemicalPage({ params }: {
     ...(hasSafetyReal ? [["safety", t.chemical.page.safety] as [string, string]] : []),
     ...(hasIndustry ? [["industry", t.chemical.page.industry] as [string, string]] : []),
     ["reactions", t.chemical.relatedReactions],
-    ["sources", t.chemical.page.sources],
   ];
 
   return (
@@ -255,13 +244,13 @@ export default async function ChemicalPage({ params }: {
               {pb && <ComputedDescriptors details={pb} enrichment={details.enrichment} />}
               {(pbSections["physical_properties"]?.length ?? 0) > 0 && (
                 <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.knowledge.experimental} <SourceTag source="PubChem" /></h3>
+                  <h3 className="chem-subhead">{t.chemical.knowledge.experimental}</h3>
                   <EvidenceList entries={pbSections["physical_properties"]} />
                 </div>
               )}
               {props.cbExperimental.length > 0 && (
                 <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.props} <SourceTag source="ChemicalBook" /></h3>
+                  <h3 className="chem-subhead">{t.chemical.casext.props}</h3>
                   <dl className="identity-table">
                     {props.cbExperimental.map((p) => <div key={p.label}><dt>{p.label}</dt><dd>{p.value}</dd></div>)}
                   </dl>
@@ -269,7 +258,7 @@ export default async function ChemicalPage({ params }: {
               )}
               {props.cbChemicalProse.length > 0 && (
                 <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.chemicalProps} <SourceTag source="ChemicalBook" /></h3>
+                  <h3 className="chem-subhead">{t.chemical.casext.chemicalProps}</h3>
                   <ProseList prose={props.cbChemicalProse} />
                 </div>
               )}
@@ -283,13 +272,13 @@ export default async function ChemicalPage({ params }: {
               {(["ghs_classification", "hazards", "safety_measures", "toxicity", "regulatory"] as const).map((key) =>
                 (pbSections[key]?.length ?? 0) > 0 ? (
                   <div className="chem-sub-block" key={key}>
-                    <h3 className="chem-subhead">{pbSectionTitle(key)} <SourceTag source="PubChem" /></h3>
+                    <h3 className="chem-subhead">{pbSectionTitle(key)}</h3>
                     <EvidenceList entries={pbSections[key]} />
                   </div>
                 ) : null)}
               {safety.cbSafety.length > 0 && (
                 <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.safety} <SourceTag source="ChemicalBook" /></h3>
+                  <h3 className="chem-subhead">{t.chemical.casext.safety}</h3>
                   <dl className="identity-table">
                     {safety.cbSafety.map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}
                   </dl>
@@ -297,13 +286,13 @@ export default async function ChemicalPage({ params }: {
               )}
               {safety.cbToxicity.length > 0 && (
                 <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.toxicity} <SourceTag source="ChemicalBook" /></h3>
+                  <h3 className="chem-subhead">{t.chemical.casext.toxicity}</h3>
                   <ProseList prose={safety.cbToxicity} />
                 </div>
               )}
               {safety.cbPackaging.length > 0 && (
                 <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.packaging} <SourceTag source="ChemicalBook" /></h3>
+                  <h3 className="chem-subhead">{t.chemical.casext.packaging}</h3>
                   <ProseList prose={safety.cbPackaging} />
                 </div>
               )}
@@ -316,25 +305,25 @@ export default async function ChemicalPage({ params }: {
               <SectionHead anchor="industry" eyebrow="INDUSTRY" title={t.chemical.page.industry} />
               {(pbSections["pharmacology"]?.length ?? 0) > 0 && (
                 <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.knowledge.pharmacology} <SourceTag source="PubChem" /></h3>
+                  <h3 className="chem-subhead">{t.chemical.knowledge.pharmacology}</h3>
                   <EvidenceList entries={pbSections["pharmacology"]} />
                 </div>
               )}
               {(pbSections["uses_and_manufacturing"]?.length ?? 0) > 0 && (
                 <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.knowledge.uses} <SourceTag source="PubChem" /></h3>
+                  <h3 className="chem-subhead">{t.chemical.knowledge.uses}</h3>
                   <EvidenceList entries={pbSections["uses_and_manufacturing"]} />
                 </div>
               )}
               {industry.uses.length > 0 && (
                 <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.uses} <SourceTag source="ChemicalBook" /></h3>
+                  <h3 className="chem-subhead">{t.chemical.casext.uses}</h3>
                   <ProseList prose={industry.uses} />
                 </div>
               )}
               {industry.preparation.length > 0 && (
                 <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.preparation} <SourceTag source="ChemicalBook" /></h3>
+                  <h3 className="chem-subhead">{t.chemical.casext.preparation}</h3>
                   <ProseList prose={industry.preparation} />
                 </div>
               )}
@@ -382,16 +371,6 @@ export default async function ChemicalPage({ params }: {
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
           </section>
 
-          {/* ── 7. Sources ── */}
-          <section className="chem-section" id="sources">
-            <SectionHead anchor="sources" eyebrow="SOURCES" title={t.chemical.page.sources} />
-            <div className="chem-sources">
-              <SourceRow label="PubChem" available={chemical.pubchem_cid != null}
-                meta={chemical.pubchem_cid ? `CID ${chemical.pubchem_cid}` : undefined} />
-              <SourceRow label="ChemicalBook" available={cbHasData}
-                meta={externals?.entry?.identity?.cn || externals?.entry?.identity?.en} />
-            </div>
-          </section>
         </main>
 
         {/* ── Secondary rail (desktop) ── */}
@@ -408,14 +387,6 @@ export default async function ChemicalPage({ params }: {
               {chemical.cas_numbers[0] && <div><dt>CAS</dt><dd>{chemical.cas_numbers.join("、")}</dd></div>}
               {chemical.pubchem_cid != null && <div><dt>PubChem CID</dt><dd>{chemical.pubchem_cid}</dd></div>}
               {chemical.inchikey && <div><dt>InChIKey</dt><dd className="mono chem-rail-id">{chemical.inchikey}</dd></div>}
-            </dl>
-          </section>
-          <section>
-            <h2>{t.chemical.page.dataStatus}</h2>
-            <dl>
-              <div><dt>PubChem</dt><dd>{statusText[pubchemState]}</dd></div>
-              <div><dt>ChemicalBook</dt><dd>{statusText[cbState]}</dd></div>
-              <div><dt>{t.chemical.relatedReactions}</dt><dd>{reactionsUnavailable ? "—" : `${new Intl.NumberFormat("zh-CN").format(reactionTotal)} 条`}</dd></div>
             </dl>
           </section>
           <section className="contribute-panel">
@@ -445,10 +416,6 @@ function Identity({ label, value, mono = false }: { label: string; value: string
   return <div><dt>{label}</dt><dd className={mono ? "mono" : ""}>{value}</dd></div>;
 }
 
-function SourceTag({ source }: { source: string }) {
-  return <span className="chem-source-tag">{source}</span>;
-}
-
 function ComputedDescriptors({ details, enrichment }: { details: ChemicalDetails; enrichment: EnrichmentState }) {
   const hasAny = details.xlogp != null || details.topological_polar_surface_area != null || details.hbond_donor_count != null
     || details.hbond_acceptor_count != null || details.rotatable_bond_count != null || details.heavy_atom_count != null
@@ -456,7 +423,7 @@ function ComputedDescriptors({ details, enrichment }: { details: ChemicalDetails
   if (!hasAny) return null;
   return (
     <div className="chem-sub-block">
-      <h3 className="chem-subhead">{t.chemical.knowledge.descriptors} <SourceTag source="PubChem" />{enrichment.status !== "current" && <span className="chem-subhead-note">{enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued}</span>}</h3>
+      <h3 className="chem-subhead">{t.chemical.knowledge.descriptors}{enrichment.status !== "current" && <span className="chem-subhead-note">{enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued}</span>}</h3>
       <dl className="metric-grid">
         <Metric label="XLogP" value={details.xlogp} />
         <Metric label={t.chemical.knowledge.tpsa} value={details.topological_polar_surface_area} suffix=" Å²" />
@@ -523,15 +490,6 @@ function SupplierCard({ supplier }: { supplier: { ref: string; name: string; pho
         {remark && <div><dt>{t.chemical.casext.remark}</dt><dd>{remark}</dd></div>}
       </dl>
     </article>
-  );
-}
-
-function SourceRow({ label, available, meta }: { label: string; available: boolean; meta?: string }) {
-  return (
-    <div className={`chem-source-row${available ? "" : " unavailable"}`}>
-      <span className="chem-source-name">{label}</span>
-      <span className="chem-source-meta">{available ? (meta || t.chemical.page.sourceAvailable) : t.chemical.page.sourceNone}</span>
-    </div>
   );
 }
 

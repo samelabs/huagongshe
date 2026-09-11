@@ -636,7 +636,7 @@
   object-fit: contain;
 }
 .wb-search-chemical > div { min-width: 0; }
-.wb-search-chemical strong {
+.wb-search-chemical > div > strong {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -648,7 +648,7 @@
 .wb-search-chemical .entity-id {
   margin: 2px 0;
 }
-.wb-search-chemical span {
+.wb-search-chemical > div > span {
   display: block;
   font-size: var(--wb-fs-xs);
   color: var(--wb-quiet);
