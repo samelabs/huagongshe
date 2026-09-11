@@ -58,15 +58,6 @@ export default function McpPage() {
     </section>
 
     <section className="guide-section">
-      <div className="section-heading"><div><p className="page-kicker">{t.mcp.agentsKicker}</p></div></div>
-      <div className="guide-cards mcp-agents">
-        <AgentCard title={t.mcp.qwenTitle} desc={t.mcp.qwenDesc} steps={t.mcp.qwenSteps} />
-        <AgentCard title={t.mcp.workbuddyTitle} desc={t.mcp.workbuddyDesc} steps={t.mcp.workbuddySteps} />
-        <AgentCard title={t.mcp.doubaoTitle} desc={t.mcp.doubaoDesc} steps={t.mcp.doubaoSteps} />
-      </div>
-    </section>
-
-    <section className="guide-section">
       <div className="section-heading"><div><p className="page-kicker">{t.mcp.commonKicker}</p></div></div>
       <p className="guide-ref-intro">{t.mcp.commonDesc}</p>
       <CopyJson />
@@ -86,6 +77,15 @@ export default function McpPage() {
           ))}
         </tbody>
       </table>
+    </section>
+
+    <section className="guide-section">
+      <div className="section-heading"><div><p className="page-kicker">{t.mcp.agentsKicker}</p></div></div>
+      <div className="guide-cards mcp-agents">
+        <AgentCard title={t.mcp.qwenTitle} desc={t.mcp.qwenDesc} steps={t.mcp.qwenSteps} />
+        <AgentCard title={t.mcp.workbuddyTitle} desc={t.mcp.workbuddyDesc} steps={t.mcp.workbuddySteps} />
+        <AgentCard title={t.mcp.doubaoTitle} desc={t.mcp.doubaoDesc} steps={t.mcp.doubaoSteps} />
+      </div>
     </section>
 
     <section className="guide-section guide-trust">

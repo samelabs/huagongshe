@@ -20,6 +20,28 @@ export default function GuidePage() {
       <p>{t.guide.heroBody}</p>
     </header>
 
+    {/* ── 接入入口: 第一屏直出 MCP 地址 / MCP 说明 / API 契约 / AI Key ── */}
+    <section className="guide-section">
+      <div className="section-heading"><div><p className="page-kicker">{t.guide.connectKicker}</p></div></div>
+      <div className="mcp-connect">
+        <div className="mcp-connect-row">
+          <span className="mcp-connect-label">{t.guide.connectMcpLabel}</span>
+          <code className="mcp-connect-value">https://huagongshe.com/mcp</code>
+        </div>
+        <div className="mcp-connect-row">
+          <span className="mcp-connect-label">{t.guide.connectKeyLabel}</span>
+          <code className="mcp-connect-value">Authorization: Bearer *** Key&gt;</code>
+        </div>
+        <p className="mcp-connect-desc">{t.guide.connectKeyDesc}</p>
+        <div className="guide-actions">
+          <Link className="button primary" href="/mcp-guide">{t.guide.mcpCta}</Link>
+          <Link className="button secondary" href="/api/agent-guide">{t.guide.apiCta}</Link>
+          <Link className="button secondary" href="/me/settings/api-tokens">{t.guide.keyCta}</Link>
+          <a className="button secondary" href="/llms.txt">{t.guide.llmsCta}</a>
+        </div>
+      </div>
+    </section>
+
     <section className="guide-section">
       <div className="section-heading"><div><p className="page-kicker">{t.guide.capabilityKicker}</p></div></div>
       <div className="guide-cards">

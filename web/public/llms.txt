@@ -1,66 +1,54 @@
 # 化工社AIchem (huagongshe.com)
 
-> 化工社AIchem是化工社推出的AI化学工作台。
-> 用户可以查询化合物和反应数据，建立个人反应库，并连接AI助手查询数据、计算投料、保存记录，
-> 逐步构建自己的化学知识库。
+> 化工社AIchem：查询化合物与反应数据、计算投料、保存反应记录。人和 AI 都能直接使用。
 
-## For AI Agents
+## AI 接入（先读这一节）
 
-化工社支持两种接入方式：MCP 服务器（推荐）与 REST API。
+- **MCP 服务器（推荐）**: `https://huagongshe.com/mcp` — Streamable HTTP
+- **MCP 接入说明**: https://huagongshe.com/mcp-guide
+- **Agent API 契约**: https://huagongshe.com/api/agent-guide
+- **AI Key**: 登录后在 https://huagongshe.com/me/settings/api-tokens 创建，请求头 `Authorization: Bearer <AI Key>`
 
-### 接入方式一：MCP 服务器（推荐）
+**匿名可用**（无需认证）: 统一搜索、化合物详情、反应详情、分子/反应 SVG、统计数据、数据集列表、投料计算
+**需要 AI Key**: 读取我的反应、校验草稿、创建反应、技能校验/保存
 
-- **地址**: `https://huagongshe.com/mcp`
-- **传输**: Streamable HTTP
-- **认证**: `Authorization: Bearer <API Token>`（公开查询工具可匿名使用）
-- **配置说明**: `https://huagongshe.com/mcp-guide`（含豆包工作、千问办公、WorkBuddy 接入指引）
+## 能调用什么
 
-提供 14 个工具：统一搜索、化合物详情、中文扩展、反应详情、分子/反应 SVG 渲染、
-技能库浏览、投料计算、我的反应、反应校验/保存、技能校验/保存。
-公开查询无需登录；写操作需要 Token（reaction:write / skill:write 权限）。
+### MCP 工具（14 个）
 
-### 接入方式二：REST API
+统一搜索、化合物详情、中文扩展、反应详情、分子/反应 SVG 渲染、技能库浏览、投料计算、
+我的反应、反应校验/保存、技能校验/保存。公开查询无需登录；写操作需要 AI Key（reaction:write / skill:write）。
 
-1. **读取连接指南**: `GET https://huagongshe.com/api/agent-guide`
-   返回完整的 agent 操作契约：可用操作、字段要求、安全规则、速率限制。
-   无需认证即可读取；携带 Bearer token 可同时确认账号身份。
-
-2. **查询数据**: `GET https://huagongshe.com/api/search?q=...`
-   统一入口，支持名称、CAS号、InChIKey、SMILES、DOI、HCID 等多种标识符。
-
-3. **管理反应记录**: 携带用户授权的 Bearer token，可校验和创建结构化反应记录。
-
-### 核心能力
+### HTTP API
 
 | 能力 | 端点 | 说明 |
 |------|------|------|
 | 统一搜索 | `GET /api/search` | 名称、CAS、InChIKey、SMILES、结构检索（精确/子结构/相似度）|
-| 化合物详情 | `GET /api/chemicals/{id}` | 结构、标识符、性质、关联反应、PubChem 富集 |
+| 化合物详情 | `GET /api/chemicals/{id}` | 结构、标识符、性质、关联反应 |
 | 反应详情 | `GET /api/reactions/{id}` | 参与物、条件、产率、来源、操作步骤 |
 | 分子渲染 | `GET /api/mol/{hcid}/svg/{w}x{h}.svg` | HCID → SVG 结构图 |
 | 投料计算 | `POST /api/stoichiometry/scale` | 角色化组分 + 基准投料量 → 整表投料量/理论收率/溶剂定容（RDKit）|
 | 统计数据 | `GET /api/stats` | 化合物/反应/数据集总数 |
-| 数据集列表 | `GET /api/datasets` | ORD 来源数据集 |
+| 数据集列表 | `GET /api/datasets` | 反应来源数据集 |
 
-### Agent 专属能力（需用户授权 Token）
+### 需要 AI Key 的操作
 
 | 能力 | 端点 | 说明 |
 |------|------|------|
 | 连接确认 | `GET /api/agent-guide` | 操作契约 + 身份验证 |
-| 我的反应 | `GET /api/users/me/reactions` | 读取 Token 所属用户的反应库 |
+| 我的反应 | `GET /api/users/me/reactions` | 读取 AI Key 所属用户的反应库 |
 | 校验草稿 | `POST /api/reactions/validate` | RDKit 标准化校验，不保存 |
 | 创建反应 | `POST /api/reactions` | 保存到用户反应库（需 Idempotency-Key）|
 
-### 认证
+## 认证
 
 - **公开数据**（搜索、化合物、反应读取）: 无需认证，直接调用。
-- **Agent 操作**（读取/创建用户反应记录）: 需要 Bearer token。
-  - 用户在网页端 `https://huagongshe.com` 登录后，于个人设置创建 API Token。
-  - 格式: `Authorization: Bearer <token>`
-  - Token 仅发送给 `huagongshe.com`，不写入公开提示词、代码或日志。
+- **Agent 操作**（读取/创建用户反应记录）: 需要 AI Key。
+  - 格式: `Authorization: Bearer <AI Key>`
+  - AI Key 仅发送给 `huagongshe.com`，不写入公开提示词、代码或日志。
   - 创建/校验反应时，先展示草稿给用户确认，再保存。默认 `private`，公开需用户明确确认。
 
-### 速率限制
+## 速率限制
 
 | 类型 | 限制 |
 |------|------|
@@ -71,7 +59,7 @@
 
 超限时返回 `429` + `Retry-After` 头。
 
-### 标识符说明
+## 标识符说明
 
 化工社使用以下稳定标识符：
 

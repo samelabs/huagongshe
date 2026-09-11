@@ -1187,8 +1187,17 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .home-card > span:nth-of-type(2) { color: var(--heading-soft); font-size: var(--text-sm); line-height: 1.7; }
 .home-card-link { margin-top: 6px; color: var(--blue); font-weight: 600; font-size: var(--text-sm); }
 .home-card-mcp .home-card-kicker { color: var(--blue); }
-.home-card-skills .home-card-kicker { color: var(--green-strong); }
+.home-card-api .home-card-kicker { color: var(--green-strong); }
 .home-card-work .home-card-kicker { color: var(--warm); }
+
+/* ── 首页 AI 接入入口(第一屏) ── */
+.home-entry { margin-top: 26px; border: 1px solid var(--line); border-radius: 9px; padding: 16px 18px; background: var(--wash); display: grid; gap: 10px; }
+.home-entry-mcp { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.home-entry .guide-actions { margin-top: 0; }
+.home-entry-note { margin: 0; color: var(--muted); font-size: var(--text-sm); line-height: 1.6; }
+.home-aux { margin: 14px 0 0; text-align: center; font-size: var(--text-sm); }
+.home-aux a { color: var(--muted); }
+.home-aux a:hover { color: var(--blue); }
 @media (max-width: 720px) {
   .home-cards { grid-template-columns: 1fr; }
 }

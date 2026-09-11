@@ -96,7 +96,7 @@ export function HomePanel({ counts, initialReactions }: {
       </div>
 
       {/* AI 指南入口 */}
-      <Link className="wb-home-guide" href="/guide">
+      <Link className="wb-home-guide" href="/mcp-guide">
         <div className="wb-home-guide-body">
           <h3>{t.me.homeGuideTitle}</h3>
           <p>{t.me.homeGuideDesc}</p>
