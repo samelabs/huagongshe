@@ -30,7 +30,7 @@ export default function GuidePage() {
         </div>
         <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.guide.connectKeyLabel}</span>
-          <code className="mcp-connect-value">Authorization: Bearer *** Key&gt;</code>
+          <code className="mcp-connect-value">Authorization: Bearer &lt;AI Key&gt;</code>
         </div>
         <p className="mcp-connect-desc">{t.guide.connectKeyDesc}</p>
         <div className="guide-actions">
