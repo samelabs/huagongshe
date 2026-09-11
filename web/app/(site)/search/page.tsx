@@ -114,7 +114,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       )}
       {!error && (q || chemicalId) && chemicals.length === 0 && reactions.length === 0 && (
         <div className="empty-state empty-state--search">
-          <span className="empty-state-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.5" y2="16.5" /></svg></span>
           {fetchPending ? (
             <>
               <strong>{t.search.fetchPendingTitle}</strong>
@@ -122,8 +121,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             </>
           ) : (
             <>
-              <strong>{t.search.noResults}</strong>
+              <strong>{t.search.noResultsFor(q)}</strong>
               <p>{t.search.noResultsHint}</p>
+              <div className="empty-state-hints">
+                {t.search.noResultsHints.map((hint) => <span key={hint}>{hint}</span>)}
+              </div>
             </>
           )}
           <Link className="button secondary" href="/search">{t.search.clearQuery}</Link>
