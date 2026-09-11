@@ -346,7 +346,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
   position: relative;
   min-height: 0;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--blue);
   border-radius: 10px;
   padding: 16px 18px;
   display: grid;
@@ -370,7 +369,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .match-score { margin: 6px 0 0; color: var(--success); font-size: var(--text); }
 .record-open { position: absolute; right: 16px; top: 16px; color: var(--blue); font-size: var(--text-sm); font-weight: 600; }
 .reaction-results { display: grid; gap: 12px; }
-.reaction-result { border: 1px solid var(--line); border-left: 3px solid var(--reaction); border-radius: 10px; background: white; overflow: hidden; transition: border-color .15s, box-shadow .15s; }
+.reaction-result { border: 1px solid var(--line); border-radius: 10px; background: white; overflow: hidden; transition: border-color .15s, box-shadow .15s; }
 @media (hover:hover) {
   .reaction-result:hover { border-color: var(--blue-border); box-shadow: 0 2px 8px rgba(0,0,0,.04); }
 }
@@ -745,11 +744,11 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .admin-nav a { white-space: nowrap; }
 }
 @media (max-width: 680px) {
-  .chemical-result { grid-template-columns: 104px 1fr; gap: 12px; padding: 12px 12px 12px 14px; }
+  .chemical-result { grid-template-columns: 104px 1fr; gap: 12px; padding: 12px; }
   .chemical-result-structure { height: 88px; }
   .record-open { position: static; justify-self: start; margin-top: 4px; }
-  .reaction-result-head { padding: 12px 12px 8px 14px; }
-  .reaction-result-foot { padding: 10px 12px 10px 14px; flex-wrap: wrap; }
+  .reaction-result-head { padding: 12px 12px 8px; }
+  .reaction-result-foot { padding: 10px 12px; flex-wrap: wrap; }
   .reaction-badges { display: none; }
   .header-inner, .content-page, .home, .auth-page { width: min(100% - 28px, var(--max)); }
   .header-inner { height: 58px; }
