@@ -136,7 +136,14 @@ async def structure_enter(actor_id: int | None, bucket: str = "structure-search"
             held.append(identity)
         else:
             raise _over_limit()
-    if await acquire_lease(bucket, "global", STRUCTURE_GLOBAL_INFLIGHT):
+    try:
+        granted = await acquire_lease(bucket, "global", STRUCTURE_GLOBAL_INFLIGHT)
+    except HTTPException:
+        # global 侧 Redis 故障(fail-closed 503): 已持有的 actor 租约必须立刻释放,
+        # 不能等 TTL(30s) — 否则单个 actor 的槽位被故障窗口白白锁住。
+        await structure_exit(held, bucket)
+        raise
+    if granted:
         held.append("global")
     else:
         await structure_exit(held, bucket)
