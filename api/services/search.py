@@ -22,13 +22,14 @@ from .name_index import normalize_name
 async def run_search_query(
     db: Any, query: str, mode: str, canonical: Any, page: int, page_size: int,
     offset: int,
-    *, actor_id: int | None = None,
+    *, actor_id: int | None = None, threshold: float = 0.7,
 ) -> tuple[list[dict[str, Any]], int | None, list[dict[str, Any]], bool, Any]:
     """执行搜索主体(化合物命中/total/反应/cas_fetch_pending/canonical 回写)。
 
     返回 (chemicals, total, reactions, cas_fetch_pending, canonical)。
     canonical 可能被 substructure 分支重新赋值(bounded), 调用方需取回。
     actor_id: 鉴权用户 id(匿名=None) — 仅用于 CAS-miss 入队限流身份。
+    threshold: similarity 模式阈值(0.4-1.0, 默认 0.7), 与 /chemicals/{id}/similarity 同语义。
     """
     chemicals: list[dict[str, Any]] = []
     total: int | None = None
@@ -43,28 +44,36 @@ async def run_search_query(
             if not canonical:
                 raise HTTPException(400, "无法识别该 SMILES 结构")
             canonical = bounded_substructure_smiles(canonical)
-            await db.execute(text("SET LOCAL statement_timeout = '8s'"))
-            chemicals = await fetch_chemicals(db, f"""
-                SELECT {CHEMICAL_SELECT}
-                FROM chemistry.chemicals c
-                WHERE c.mol @> mol_from_smiles(:smiles)
-                ORDER BY c.id
-                LIMIT :limit OFFSET :offset
-            """, {"smiles": canonical, "limit": page_size, "offset": offset})
-            chemicals.sort(key=lambda item: item["id"])
+            # P0(0912): 有上限 GiST snapshot + Redis(同 chemicals.substructure_page) —
+            # 无序 GiST 必被 planner 选中, 深页不再重扫候选集, TTL 内分页确定。
+            from .chemicals import (SUBSTRUCTURE_SNAPSHOT_CAP, hydrate_chemicals,
+                                    substructure_snapshot)
+            from .chemicals import _snapshot_total
+            ids = await substructure_snapshot(db, canonical)
+            total = _snapshot_total(ids, offset, page_size)
+            chemicals = await hydrate_chemicals(db, ids[offset:offset + page_size])
         elif mode == "similarity":
             if not canonical:
                 raise HTTPException(400, "无法识别该 SMILES 结构")
             await db.execute(text("SET LOCAL statement_timeout = '8s'"))
+            # KNN GiST 保持; threshold 后过滤 + Python 侧分页(同 similarity_page)。
+            window = offset + page_size
             chemicals = await fetch_chemicals(db, f"""
                 SELECT {CHEMICAL_SELECT},
                        1 - (c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles)))
                 FROM chemistry.chemicals c
                 WHERE c.mol IS NOT NULL
                 ORDER BY c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles))
-                LIMIT :limit OFFSET :offset
-            """, {"smiles": canonical, "limit": page_size, "offset": offset})
-            chemicals.sort(key=lambda item: item.get("similarity") or 0, reverse=True)
+                LIMIT :window
+            """, {"smiles": canonical, "window": window})
+            qualifying = [item for item in chemicals if (item.get("similarity") or 0) >= threshold]
+            qualifying.sort(key=lambda item: item.get("similarity") or 0, reverse=True)
+            # total 语义(0912): prefix 内已跌破 threshold/prefix 未满 ⇒ 精确总数;
+            # 否则 None("更多结果")。禁止用本页条数冒充总数。
+            cut_inside = len(chemicals) < window or bool(
+                chemicals and (chemicals[-1].get("similarity") or 0) < threshold)
+            total = offset + len(qualifying) if cut_inside else None
+            chemicals = qualifying[offset:offset + page_size]
         else:
             clauses = []
             params = {"q": query, "uq": query.upper(), "limit": page_size, "offset": offset}
@@ -260,11 +269,6 @@ async def run_search_query(
                 except Exception:
                     await db.rollback()  # 判定/入列失败不阻塞搜索响应
 
-        # 结构模式不跑全量 count: similarity 的 count 与查询词无关(count mol 行),
-        # substructure 巨命中 count 在 143 万 mol 行上必超时 — 两者都是注定 3s 白烧.
-        # total 语义: 结果不足一页 = 免费精确值(offset+len); 满一页 = None("更多结果").
-        if mode in {"substructure", "similarity"}:
-            total = offset + len(chemicals) if len(chemicals) < page_size else None
         try:
             if mode == "exact" and not canonical and name_query_width(query) >= MIN_FUZZY_NAME_LENGTH:
                 if name_index_hit:

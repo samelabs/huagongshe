@@ -14,6 +14,7 @@ from rdkit import Chem
 from sqlalchemy import text
 
 from ..chemistry import normalize_doi
+from ..core.cache import cache_get, cache_set
 
 def clean_float(value: Any, round_digits: int | None = None) -> float | None:
     """Convert to float, mapping NaN/Infinity to None.
@@ -363,6 +364,69 @@ async def load_synonyms_page(db: Any, chemical_id: int, offset: int, page_size: 
     return int(row[0]), row[1]
 
 
+SUBSTRUCTURE_SNAPSHOT_CAP = 250
+
+SUBSTRUCTURE_SNAPSHOT_TTL = 300
+
+
+def _snapshot_total(ids: list[int], offset: int, page_size: int) -> int | None:
+    """snapshot 分页 total 语义(0912, 只修元数据):
+
+    - snapshot 未满 cap ⇒ 它就是本次检索的完整匹配集 → total 恒为 len(ids);
+    - snapshot 满 cap(=产品上限) ⇒ 中途页 None("更多结果" = 上限内还有);
+      到 snapshot 尾部必须收敛: 最后一页给 len(ids), 即"本次结构检索返回的
+      匹配数(已达上限)"。绝不把 250 冒充数据库真实匹配总数 — 上限标记由响应
+      的 capped 字段单独承载。
+    """
+    capped = len(ids) >= SUBSTRUCTURE_SNAPSHOT_CAP
+    end_of_snapshot = len(ids[offset:offset + page_size]) < page_size or \
+        offset + page_size >= len(ids)
+    if not capped or end_of_snapshot:
+        return len(ids)
+    return None
+
+
+async def substructure_snapshot(db: Any, smiles: str,
+                                cap: int = SUBSTRUCTURE_SNAPSHOT_CAP) -> list[int]:
+    """有上限的子结构候选 ID snapshot(无序 GiST + Python 排序 + Redis 缓存)。
+
+    P0(0912 审计): 任何 `mol @> ... ORDER BY c.id` 形态都会被 planner 换成
+    pkey 顺序扫(1.24 亿行), GiST 失效 → 高选择性/深页 8s 超时。这里去掉 SQL
+    排序: GiST 无 ORDER BY 必被选中(生产 EXPLAIN 实证), 排序在 Python 做。
+
+    分页语义随之改变(0912): 不再用 SQL OFFSET 逐页重扫候选集(深页必然重复
+    做昂贵计算), 而是首次 cache miss 取一次 snapshot 并整体缓存 TTL 300s,
+    后续页只对同一 snapshot 切片 → 页间无重叠/无漏项, TTL 内分页完全确定。
+    """
+    key = f"v3:substructure-snapshot:{cap}:{smiles}"
+    cached = await cache_get(key)
+    if isinstance(cached, list):
+        return [int(value) for value in cached]
+    await db.execute(text("SET LOCAL statement_timeout = '8s'"))
+    rows = (await db.execute(text("""
+        SELECT id FROM chemistry.chemicals c
+        WHERE c.mol @> mol_from_smiles(:smiles)
+        LIMIT :cap
+    """), {"smiles": smiles, "cap": cap})).fetchall()
+    ids = sorted(int(row[0]) for row in rows)
+    await cache_set(key, ids, ttl=SUBSTRUCTURE_SNAPSHOT_TTL)
+    return ids
+
+
+async def hydrate_chemicals(db: Any, ids: list[int]) -> list[dict[str, Any]]:
+    """按给定 ID 顺序 hydrate 化学行(snapshot 分页用; 主键点查, 无 OFFSET 扫描)。"""
+    if not ids:
+        return []
+    items = await fetch_chemicals(db, f"""
+        SELECT {CHEMICAL_SELECT}
+        FROM chemistry.chemicals c
+        WHERE c.id = ANY(:ids)
+    """, {"ids": list(ids)})
+    order = {value: index for index, value in enumerate(ids)}
+    items.sort(key=lambda item: order.get(item["id"], len(order)))
+    return items
+
+
 async def substructure_page(db: Any, chemical_id: int, page: int, page_size: int) -> tuple[int, list[dict[str, Any]]]:
     """子结构检索分页; total=-1 表示无结构(调用方转 404)。自 routes.chemical_substructure 下沉, 逻辑零改动(批次5a)。"""
     smiles = (await db.execute(text(
@@ -371,23 +435,19 @@ async def substructure_page(db: Any, chemical_id: int, page: int, page_size: int
     if not smiles:
         return -1, []
     smiles = bounded_substructure_smiles(smiles)
+    ids = await substructure_snapshot(db, smiles)
+    # 排除查询结构自身(原 SQL 的 c.id<>:id); snapshot 按 smiles 共享缓存, 故在 Python 侧排除。
+    ids = [value for value in ids if value != chemical_id]
     offset = (page - 1) * page_size
-    await db.execute(text("SET LOCAL statement_timeout = '8s'"))
-    items = await fetch_chemicals(db, f"""
-        SELECT {CHEMICAL_SELECT}
-        FROM chemistry.chemicals c
-        WHERE c.mol @> mol_from_smiles(:smiles) AND c.id<>:id
-        ORDER BY c.id
-        LIMIT :limit OFFSET :offset
-    """, {"id": chemical_id, "smiles": smiles, "limit": page_size, "offset": offset})
-    # Preserve the RDKit GiST plan; see the same rule in the public search.
-    items.sort(key=lambda item: item["id"])
-    # 不跑全量 count(143 万 mol 行上巨命中必超时白烧): 不足一页=免费精确值, 满页=None("更多结果").
-    total = offset + len(items) if len(items) < page_size else None
-    return total, items
+    window_ids = ids[offset:offset + page_size]
+    total = _snapshot_total(ids, offset, page_size)
+    if not window_ids:
+        return total, []
+    return total, await hydrate_chemicals(db, window_ids)
 
 
-async def similarity_page(db: Any, chemical_id: int, threshold: float, page: int, page_size: int) -> list[dict[str, Any]] | None:
+async def similarity_page(db: Any, chemical_id: int, threshold: float, page: int,
+                         page_size: int) -> tuple[int | None, list[dict[str, Any]]] | None:
     """相似度检索分页; None=无结构(调用方转 404)。自 routes.chemical_similarity 下沉, 逻辑零改动(批次5a)。"""
     smiles = (await db.execute(text(
         "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
@@ -396,15 +456,25 @@ async def similarity_page(db: Any, chemical_id: int, threshold: float, page: int
         return None
     offset = (page - 1) * page_size
     await db.execute(text("SET LOCAL statement_timeout = '8s'"))
+    # KNN GiST(chemicals_morgan_bfp_gist_idx) 保持不动 — 审计证实真实命中。
+    # threshold 后过滤(语义: 有序结果的 threshold 截断前缀); offset 在 Python
+    # 侧跳过(threshold 过滤后行数不确定, SQL OFFSET 会截错窗口)。
+    window = offset + page_size
     items = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT},
                1 - (c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles)))
         FROM chemistry.chemicals c
         WHERE c.mol IS NOT NULL AND c.id<>:id
         ORDER BY c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles))
-        LIMIT :limit OFFSET :offset
-    """, {"id": chemical_id, "smiles": smiles, "limit": page_size, "offset": offset})
-    return [item for item in items if (item.get("similarity") or 0) >= threshold]
+        LIMIT :window
+    """, {"id": chemical_id, "smiles": smiles, "window": window})
+    qualifying = [item for item in items if (item.get("similarity") or 0) >= threshold]
+    # total 语义(0912 收口): KNN prefix 里已跌破 threshold(或 prefix 未满) ⇒
+    # qualifying 即全部合格项, 精确 total = offset + len(qualifying);
+    # 否则后面可能还有合格项 → None("更多结果")。禁止用本页条数冒充总数。
+    cut_inside = len(items) < window or bool(items and (items[-1].get("similarity") or 0) < threshold)
+    total = offset + len(qualifying) if cut_inside else None
+    return total, qualifying[offset:offset + page_size]
 
 
 async def fill_detail_context(db: Any, result: dict[str, Any], chemical_id: int, user_id: int) -> None:

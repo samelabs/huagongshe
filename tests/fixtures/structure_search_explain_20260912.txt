@@ -1,0 +1,13 @@
+=== 结构检索 snapshot 方案 · 生产只读基准 2026-09-12 (statement_timeout=8s, 只读 EXPLAIN ANALYZE) ===
+
+--- 1) snapshot SQL(无序 GiST + LIMIT cap=250): 中等选择性 CCOCCO ---
+  ->  Index Scan using chemicals_mol_gist_idx on chemicals c  (cost=0.41..150743.36 rows=130054 width=4) (actual rows=250 loops=1)
+Execution Time: 591.047 ms
+--- 2) 复杂/高选择性 CC(C)c1nc2ccccc2n1C1CCC(CC1)O ---
+  ->  Index Scan using chemicals_mol_gist_idx on chemicals c  (cost=0.41..150743.36 rows=130054 width=4) (actual rows=0 loops=1)
+Execution Time: 1238.671 ms
+--- 3) 低选择性合法(13 重原子) c1ccc(cc1)CCOCCO ---
+ERROR:  canceling statement due to statement timeout
+--- 4) hydrate(按 snapshot ID 点查, 无 OFFSET) ---
+Index Only Scan using chemicals_pkey on chemicals c  (cost=0.57..9.53 rows=5 width=4) (actual rows=4 loops=1)
+Execution Time: 1.476 ms

@@ -90,13 +90,16 @@ def build_mcp_server() -> MCPServer:
     async def search_chemistry_data(
         q: str,
         mode: str = "exact",
+        threshold: float = 0.7,
         page: int = 1,
         page_size: int = 30,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """按名称、CAS、HCID、CID、InChIKey、DOI、SMILES 或结构查询化合物和反应。
 
-        mode: exact(默认) / substructure / similarity。返回 total(可能为 None 表示更多结果)与分页结果。
+        mode: exact(默认) / substructure / similarity。
+        threshold: similarity 模式阈值(0.4-1.0, 默认 0.7), 与 REST 同语义。
+        返回 total(可能为 None 表示更多结果)与分页结果。
         """
         from . import routes as routes_module
 
@@ -107,6 +110,7 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("q 必填且不超过 4000 字符")
         page = min(max(page, 1), 20)
         page_size = min(max(page_size, 1), 100)
+        threshold = min(max(threshold, 0.4), 1.0)
         # 结构检索登录墙与 REST 一致: mode!=exact 需 Bearer token, 匿名 ToolError.
         # exact 保持原样(匿名, 不透传 actor).
         actor = None
@@ -116,7 +120,8 @@ def build_mcp_server() -> MCPServer:
                 raise ToolError("结构检索（子结构/相似度）需要 AI Key；exact 模式可匿名使用")
         async with async_session() as session:
             return await routes_module.search(
-                actor=actor, q=q, mode=mode, page=page, page_size=page_size, db=session
+                actor=actor, q=q, mode=mode, threshold=threshold,
+                page=page, page_size=page_size, db=session,
             )
 
     @server.tool(name="get_chemical", title="化合物详情")

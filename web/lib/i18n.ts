@@ -111,7 +111,7 @@ const t = {
     resultSuffix: '结果',
     basedOnStructure: '以 ',
     queryStructure: ' 为查询结构的',
-    similarityThreshold: '（相似度 ≥ 70%）',
+    similarityThreshold: (v: number) => `（相似度 ≥ ${Math.round(v * 100)}%）`,
     substructure: '子结构匹配',
     similarity: '相似结构',
     similarityScore: (v: number) => `结构相似度 ${v.toFixed(1)}%`,

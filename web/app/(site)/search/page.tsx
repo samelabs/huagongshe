@@ -23,6 +23,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   let total: number | null = null;
   let error = "";
   let fetchPending = false;
+  let similarityThreshold: number | null = null;
   let redirectTarget: string | null = null;
   // 结构检索登录墙: mode!=exact 需要会话, SSR 转发浏览器 cookie 供 API 鉴权
   // P0(0902): exact 也透传 — 登录用户 CB miss 入列拿 80 分(此前 exact 匿名 50 分)
@@ -33,15 +34,22 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   try {
     if (chemicalId && mode !== "exact") {
-      const related = await apiGet<{ chemicals: Chemical[]; total: number | null }>(
+      type RelatedResponse = { chemicals: Chemical[]; total: number | null; threshold?: number };
+      const related = await apiGet<RelatedResponse>(
         `/chemicals/${chemicalId}/${mode}?page=${page}&page_size=${PAGE_SIZE}`, sessionHeaders
       );
       chemicals = related.chemicals;
       total = related.total ?? null;
+      if (mode === "similarity" && typeof related.threshold === "number") {
+        similarityThreshold = related.threshold;
+      }
     } else if (q) {
       const data = await apiGet<SearchResponse>(
-        `/search?q=${encodeURIComponent(q)}&mode=${mode}&page=${page}&page_size=${PAGE_SIZE}`, sessionHeaders
+        `/search?q=${encodeURIComponent(q)}&mode=${mode}&threshold=0.7&page=${page}&page_size=${PAGE_SIZE}`, sessionHeaders
       );
+      if (mode === "similarity" && typeof data.threshold === "number") {
+        similarityThreshold = data.threshold;
+      }
       chemicals = data.chemicals;
       reactions = data.reactions || [];
       total = data.total ?? null;
@@ -87,7 +95,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         <p className="page-kicker">DATA FINDER</p>
         <h1>{chemicalId ? `${relationLabel}${t.search.resultSuffix}` : t.search.title}</h1>
         <GlobalSearch initial={q} compact />
-        {chemicalId && <p className="context-line">{t.search.basedOnStructure}<Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link>{t.search.queryStructure}{relationLabel}{mode === "similarity" ? t.search.similarityThreshold : ""}</p>}
+        {chemicalId && <p className="context-line">{t.search.basedOnStructure}<Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link>{t.search.queryStructure}{relationLabel}{mode === "similarity" && similarityThreshold !== null ? t.search.similarityThreshold(similarityThreshold) : ""}</p>}
       </header>
       {error && <div className="notice error">{error}</div>}
       {chemicals.length > 0 && (

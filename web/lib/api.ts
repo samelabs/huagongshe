@@ -170,6 +170,7 @@ export type ReactionLookup = {
 };
 
 export type SearchResponse = {
+  threshold?: number;
   query: string;
   mode: string;
   canonical_smiles: string | null;

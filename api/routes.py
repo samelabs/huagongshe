@@ -57,6 +57,7 @@ async def search(
     actor: Actor | None = Depends(public_or_actor),
     q: str = Query(..., min_length=1, max_length=4000),
     mode: str = Query("exact", pattern="^(exact|substructure|similarity)$"),
+    threshold: float = Query(0.7, ge=0.4, le=1.0),
     page: int = Query(1, ge=1, le=20),
     page_size: int = Query(30, ge=1, le=100),
     db=Depends(get_db),
@@ -69,11 +70,18 @@ async def search(
     if mode != "exact" and actor is None:
         raise HTTPException(401, "结构检索（子结构/相似度）需要登录或提供 API Token")
     offset = (page - 1) * page_size
-    cache_key = f"v2:unified-search:{mode}:{page}:{page_size}:{query}"
+    held: list[str] | None = None  # 结构检索闸门句柄(exact 模式不取)
+    cache_key = f"v2:unified-search:{mode}:{round(threshold,3)}:{page}:{page_size}:{query}"
     if mode != "exact":
         cached = await cache_get(cache_key)
         if cached:
             return cached
+        # 结构检索资源闸门(0912): cache miss 才进入。两层 —
+        # ① fixed-window 限频(actor 6/min + global 30/min)
+        # ② in-flight 租约(actor 2 + global 4) — 依据 pool 5+5=10 连接 /
+        # similarity 冷查 ~5s / statement_timeout 8s: 最坏 4 个昂贵结构查询
+        # 同时占连接, 至少 6 个留给普通请求。超限立即 429, 不占连接等 503。
+        held = await structure_enter(actor.id if actor is not None else None)
     # Exact searches can include user-created reactions. Keep them live so a
     # create, edit or delete is reflected immediately. Only expensive
     # structure searches use the short-lived shared cache.
@@ -82,16 +90,19 @@ async def search(
     try:
         chemicals, total, reactions, cas_fetch_pending, canonical, cas_fetch_hit_id = await run_search_query(
             db, query, mode, canonical, page, page_size, offset,
-            actor_id=actor.id if actor else None,
+            actor_id=actor.id if actor else None, threshold=threshold,
         )
     except HTTPException:
         raise
     except Exception as exc:
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
+    finally:
+        await structure_exit(held)
 
     data: dict[str, Any] = {
         "query": query, "mode": mode, "canonical_smiles": canonical,
+        "threshold": threshold,
         "page": page, "page_size": page_size, "total": total,
         "chemicals": chemicals, "reactions": reactions,
     }
@@ -103,6 +114,9 @@ async def search(
     if mode != "exact":
         await cache_set(cache_key, data, ttl=300)
     return data
+
+
+from .core.rate_limit import structure_enter, structure_exit  # noqa: E402  (结构检索闸门, 0912)
 
 
 @router.get(
@@ -267,6 +281,7 @@ async def chemical_substructure(
     cached = await cache_get(cache_key)
     if cached:
         return cached
+    held = await structure_enter(actor.id)
 
     try:
         total, items = await substructure_page(db, chemical_id, page, page_size)
@@ -277,9 +292,16 @@ async def chemical_substructure(
         # 500(09-03 日志×19)。转 503, 文案口径同 /search 端点。
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的结构或稍后重试") from exc
+    finally:
+        await structure_exit(held)
     if total == -1:
         raise HTTPException(404, "化合物没有可检索结构")
-    data = {"page": page, "page_size": page_size, "total": total, "chemicals": items}
+    # capped: 命中数已达产品上限(最多返回 SUBSTRUCTURE_SNAPSHOT_CAP 条) —
+    # 用来区分"上限"与"真实匹配总数"; total 不是全库匹配总数。
+    from .services.chemicals import SUBSTRUCTURE_SNAPSHOT_CAP
+    capped = (total is None) or total >= SUBSTRUCTURE_SNAPSHOT_CAP
+    data = {"page": page, "page_size": page_size, "total": total,
+            "capped": capped, "chemicals": items}
     await cache_set(cache_key, data, ttl=300)
     return data
 
@@ -300,17 +322,23 @@ async def chemical_similarity(
     cached = await cache_get(cache_key)
     if cached:
         return cached
+    held = await structure_enter(actor.id)
 
     try:
-        items = await similarity_page(db, chemical_id, threshold, page, page_size)
+        result = await similarity_page(db, chemical_id, threshold, page, page_size)
     except HTTPException:
         raise
     except Exception as exc:
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的结构或稍后重试") from exc
-    if items is None:
+    finally:
+        await structure_exit(held)
+    if result is None:
         raise HTTPException(404, "化合物没有可检索结构")
-    data = {"threshold": threshold, "page": page, "page_size": page_size, "total": len(items), "chemicals": items}
+    # total 语义由 service 给出(0912 收口): KNN prefix 内跌破 threshold = 精确值,
+    # 否则 None("更多结果") — 不再由路由用本页条数推算。
+    total, items = result
+    data = {"threshold": threshold, "page": page, "page_size": page_size, "total": total, "chemicals": items}
     await cache_set(cache_key, data, ttl=300)
     return data
 
