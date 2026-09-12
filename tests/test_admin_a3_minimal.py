@@ -148,10 +148,13 @@ class SkillsPanelTests(unittest.TestCase):
 
 class BackendUntouchedTests(unittest.TestCase):
     def test_no_new_endpoint_and_self_protection_intact(self):
-        """验收7+无新 endpoint: 后端 admin.py 本轮零改动(与 base 比)。"""
+        """验收7+无新 endpoint: 后端 admin.py 本轮零改动(与 base 比)。
+        回合制守卫: 比对端固定为 A3 验收 HEAD 7bb67df(而非滚动 HEAD),
+        后续轮次(如 P1 缓存)合法改动 api/** 不再误伤本断言。"""
         import subprocess
         diff = subprocess.run(
-            ["git", "diff", "--name-only", "ea8fe8b125e751bc5e4e4838e00cb98f5dfd80b9", "HEAD"],
+            ["git", "diff", "--name-only", "ea8fe8b125e751bc5e4e4838e00cb98f5dfd80b9",
+             "7bb67df28a104749f448903ade273f898d49180d"],
             cwd=ROOT, capture_output=True, text=True,
         ).stdout.strip()
         self.assertEqual("", diff.replace("web/components/samelabs/UsersPanel.tsx", "")

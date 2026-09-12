@@ -567,6 +567,11 @@ async def _pipeline_refresh_stats(db) -> dict:
                 "value": await fn(db),
             }
         except Exception as exc:  # noqa: BLE001 — 逐块降级, 必须吞
+            # P1 (0912 生产事故): 单 section 超时(SQLQueryCanceled)后事务进入
+            # aborted 态, 不 rollback 会连锁炸掉后续所有 section + generated_at,
+            # 导致后台 refresh 永远失败、缓存停在 LKG。rollback 后本 session
+            # 开新事务继续, 该 section 单独降级 available=false。
+            await db.rollback()
             logger.exception("pipeline stats section=%s failed", section)
             snapshot["optional"][section] = {
                 "available": False,
