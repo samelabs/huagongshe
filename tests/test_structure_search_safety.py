@@ -29,6 +29,10 @@ import unittest
 
 os.environ.setdefault("HGS_DATABASE_URL", os.environ.get("TEST_DATABASE_URL", ""))
 
+# 确定性 fixture: 12 重原子(满足子结构 ≥10 下限), test DB 里按需创建/复用 —
+# 测试不依赖任何本机 test DB 的具体 chemical id。
+FIXTURE_SMILES = "CCOCCCOCCCO"
+
 try:
     from tests.db_gate import test_db_or_skip  # noqa: E402
 
@@ -188,6 +192,53 @@ class GateWiringTests(unittest.TestCase):
         self.assertIn("INCR", rate_limit._ACQUIRE_LEASE)
 
 
+async def _ensure_fixture_chemical(engine) -> tuple[int, bool]:
+    """确保 test DB 里存在一个确定性的 fixture 化合物(有 smiles + mol + morgan_bfp)。
+
+    返回 (chemical_id, created)。已存在则复用(不写库), 不存在则创建 —
+    测试因此不依赖任何本机 test DB 的具体 id(similarity 需要 morgan_bfp,
+    子结构需要 ≥10 重原子, FIXTURE_SMILES 同时满足)。
+    """
+    from sqlalchemy import text as sql_text
+
+    async with engine.begin() as conn:
+        row = (await conn.execute(sql_text(
+            "SELECT id FROM chemistry.chemicals WHERE smiles=:s AND mol IS NOT NULL "
+            "AND morgan_bfp IS NOT NULL ORDER BY id LIMIT 1"
+        ), {"s": FIXTURE_SMILES})).fetchone()
+        if row:
+            return int(row[0]), False
+        created = (await conn.execute(sql_text("""
+            INSERT INTO chemistry.chemicals (smiles, mol, morgan_bfp)
+            VALUES (:s, mol_from_smiles(:s), morganbv_fp(mol_from_smiles(:s)))
+            RETURNING id
+        """), {"s": FIXTURE_SMILES})).fetchone()
+        return int(created[0]), True
+
+
+async def _drop_fixture_chemical(engine, chemical_id: int) -> None:
+    from sqlalchemy import text as sql_text
+
+    async with engine.begin() as conn:
+        await conn.execute(sql_text(
+            "DELETE FROM chemistry.chemicals WHERE id=:id AND smiles=:s"
+        ), {"id": chemical_id, "s": FIXTURE_SMILES})
+
+
+def _build_test_app():
+    """最小 ASGI app: 只挂 API router。
+
+    刻意不挂 api.main.app — 它的 MCP streamable-http session manager 会起后台
+    任务, 在 IsolatedAsyncioTestCase 的逐用例事件循环之间泄漏(Future attached
+    to a different loop / Event loop is closed)。结构检索路由本身不需要 MCP。
+    """
+    from fastapi import FastAPI
+
+    test_app = FastAPI()
+    test_app.include_router(routes.router, prefix="/api")
+    return test_app
+
+
 class LoopLocalRedisMixin:
     """IsolatedAsyncioTestCase 每个用例独立事件循环; 共享的全局连接池里可能
     残留别的 loop 的连接 → "attached to a different loop"。本 mixin 在用例内
@@ -206,6 +257,17 @@ class LoopLocalRedisMixin:
         self._orig_pools = tuple(module.pool for module in self._pools)
         for module in self._pools:
             module.pool = self._own_pool
+
+    async def _wipe_limits(self, bucket: str) -> None:
+        """清掉本用例要用的 lease/rate 键 — 测试共用 Redis DB, 残留的
+        fixed-window 计数会让后续用例拿到 429 而不是预期的 403/503。"""
+        import redis.asyncio as redis
+
+        client = redis.Redis(connection_pool=self._own_pool)
+        for pattern in (f"lease:{bucket}:*", f"rate:{bucket}:*"):
+            async for key in client.scan_iter(match=pattern):
+                await client.delete(key)
+        await client.aclose()
 
     async def _release_own_redis_pool(self):
         for module, original in zip(self._pools, self._orig_pools):
@@ -231,8 +293,9 @@ class LeaseLayerTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase):
         return redis.Redis(connection_pool=self._own_pool)
 
     async def _clear(self):
+        await self._wipe_limits(self.BUCKET)
         client = self._client()
-        for identity in ("actor:1", "actor:2", "actor:3", "actor:4", "actor:5", "global"):
+        for identity in ("actor:1", "actor:2", "actor:3", "actor:4", "actor:5", "actor:9", "global"):
             await client.delete(f"lease:{self.BUCKET}:{identity}")
 
     async def _count(self, identity: str) -> int:
@@ -260,6 +323,28 @@ class LeaseLayerTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(1.2)
         self.assertTrue(await rate_limit.acquire_lease(self.BUCKET, "global", 1),
                         "stale 租约未随 TTL 释放")
+
+    async def test_global_acquire_503_releases_actor_lease_immediately(self):
+        """global 侧 acquire 抛 503(fail-closed)时, 已持有的 actor 租约必须当场
+        释放, 不能等 TTL — 否则故障窗口内该 actor 的槽位被白锁 30s。"""
+        from fastapi import HTTPException
+
+        original = rate_limit.acquire_lease
+
+        async def flaky(bucket, identity, limit, ttl_seconds=rate_limit.LEASE_TTL_SECONDS):
+            if identity == "global":
+                raise HTTPException(503, "结构检索限流服务暂时不可用，请稍后重试")
+            return await original(bucket, identity, limit, ttl_seconds)
+
+        rate_limit.acquire_lease = flaky
+        try:
+            with self.assertRaises(HTTPException) as ctx:
+                await rate_limit.structure_enter(9, bucket=self.BUCKET)
+            self.assertEqual(ctx.exception.status_code, 503)
+        finally:
+            rate_limit.acquire_lease = original
+        self.assertEqual(await self._count("actor:9"), 0,
+                         "global acquire 失败后 actor 租约未立即释放(要等 TTL)")
 
     async def test_enter_raises_429_when_full(self):
         """global 并发满(4)后, 新 actor 即使自身有空槽也必须 429。"""
@@ -291,8 +376,7 @@ class LeaseLayerTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase):
 class SnapshotAndSimilarityDbTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase):
     """真实 DB 行为: snapshot 分页稳定 / similarity total 边界。"""
 
-    SAMPLE_ID = 1887   # test_hgs 里 smiles='CCO' 的化合物(similarity 用, 无重原子下限)
-    SMILES = "CCO"
+    SMILES = FIXTURE_SMILES
 
     async def _pick_substructure_sample(self, session, need: int = 20) -> tuple[int, str]:
         """选一个 ≥10 重原子(产品下限)且 snapshot 至少 need 条的样本 —
@@ -321,10 +405,16 @@ class SnapshotAndSimilarityDbTests(LoopLocalRedisMixin, unittest.IsolatedAsyncio
         self.engine = create_async_engine(DB_URL)
         self.Session = async_sessionmaker(self.engine, expire_on_commit=False)
         self.snapshot_keys = []
+        self.fixture_id, self._fixture_created = await _ensure_fixture_chemical(self.engine)
 
     async def asyncTearDown(self):
         await cache_delete(*self.snapshot_keys)
-        await cache_delete("v2:substructure:1887:1:10", "v2:substructure:1887:2:10")
+        await cache_delete(f"v2:substructure:{self.fixture_id}:1:10",
+                           f"v2:substructure:{self.fixture_id}:2:10",
+                           f"v2:similarity:{self.fixture_id}:0.4:1:10",
+                           f"v2:similarity:{self.fixture_id}:0.4:2:10")
+        if self._fixture_created:
+            await _drop_fixture_chemical(self.engine, self.fixture_id)
         await self.engine.dispose()
         await self._release_own_redis_pool()
 
@@ -371,10 +461,11 @@ class SnapshotAndSimilarityDbTests(LoopLocalRedisMixin, unittest.IsolatedAsyncio
         self.assertTrue(total1 is None or total1 >= len(ids1))
 
     async def test_similarity_total_is_exact_or_none(self):
-        await cache_delete("v2:similarity:1887:0.4:1:10", "v2:similarity:1887:0.4:2:10")
+        await cache_delete(f"v2:similarity:{self.fixture_id}:0.4:1:10",
+                           f"v2:similarity:{self.fixture_id}:0.4:2:10")
         async with self.Session() as session:
             for page in (1, 2):
-                result = await chemicals_service.similarity_page(session, self.SAMPLE_ID, 0.4, page, 10)
+                result = await chemicals_service.similarity_page(session, self.fixture_id, 0.4, page, 10)
                 self.assertIsNotNone(result)
                 total, items = result
                 offset = (page - 1) * 10
@@ -388,7 +479,7 @@ class SnapshotAndSimilarityDbTests(LoopLocalRedisMixin, unittest.IsolatedAsyncio
 
     async def test_high_threshold_gives_exact_total(self):
         async with self.Session() as session:
-            result = await chemicals_service.similarity_page(session, self.SAMPLE_ID, 1.0, 1, 30)
+            result = await chemicals_service.similarity_page(session, self.fixture_id, 1.0, 1, 30)
         self.assertIsNotNone(result)
         total, items = result
         self.assertIsNotNone(total, "threshold=1.0 时 prefix 必已跌破, total 应为精确值")
@@ -405,7 +496,6 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
     def setUpClass(cls):
         try:
             import httpx  # noqa: F401
-            from api.main import app  # noqa: F401
 
             cls.APP_READY = True
         except Exception:  # pragma: no cover
@@ -416,19 +506,32 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
             self.skipTest("httpx/app 不可用")
         await self._bind_own_redis_pool()
         import httpx
-        from api.core.security import Actor
-        from api.main import app as fastapi_app
-        from api.core.security import public_or_actor
+        from api.core.security import Actor, public_or_actor
 
         self.Actor = Actor
-        self.app = fastapi_app
+        self.app = _build_test_app()
         self.client = httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=fastapi_app), base_url="http://test"
+            transport=httpx.ASGITransport(app=self.app), base_url="http://test"
         )
-        fastapi_app.dependency_overrides[public_or_actor] = lambda: Actor(
+        self.app.dependency_overrides[public_or_actor] = lambda: Actor(
             id=77, username="tester", display_name="tester", email="t@example.com",
             role="user", avatar_path=None, auth_kind="test",
         )
+        # app 的 DB engine 是模块级共享的, 在别的 loop 里建过连接 → 本 loop 用
+        # 自己的 engine(用完还原+dispose), 避免 "attached to a different loop"。
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        from api.core import database as database_module
+
+        self._database = database_module
+        self._orig_engine = database_module.engine
+        self._orig_session = database_module.async_session
+        self.app_engine = create_async_engine(DB_URL)
+        self._original_session_factory = database_module.async_session
+        database_module.engine = self.app_engine
+        database_module.async_session = async_sessionmaker(self.app_engine, expire_on_commit=False)
+        self.fixture_id, self._fixture_created = await _ensure_fixture_chemical(self.app_engine)
+
         self._patched = routes.substructure_page
         self._rate = (rate_limit.STRUCTURE_ACTOR_RATE_LIMIT,
                       rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT)
@@ -444,17 +547,23 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         rate_limit.STRUCTURE_ACTOR_RATE_LIMIT, rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT = self._rate
         self.app.dependency_overrides.clear()
         await cache_delete(*self._cache_keys)
+        await cache_delete(f"v2:substructure:{self.fixture_id}:1:30")
         await self.client.aclose()
-        # 本用例在自己的事件循环里跑过 ASGI app(其 DB engine 是模块级共享的),
-        # 必须在 loop 关闭前 dispose 连接, 否则后续用例(自己的 loop)拿到
-        # 绑定到已关闭 loop 的连接 → "attached to a different loop"。
-        from api.core import database as database_module
+        if self._fixture_created:
+            await _drop_fixture_chemical(self.app_engine, self.fixture_id)
+        # 恢复共享 engine/factory 后再 dispose 本 loop 的 engine — 不碰全局实现。
+        self._database.engine = self._orig_engine
+        self._database.async_session = self._orig_session
+        await self.app_engine.dispose()
+        # 清理本用例占用的租约键 — 必须在还原本 loop 池之前做, 否则会落到
+        # 共享池(绑定别的 loop)上, 报 "attached to a different loop"。
+        import redis.asyncio as redis
 
-        await database_module.engine.dispose()
+        own_client = redis.Redis(connection_pool=self._own_pool)
+        for identity in ("global", "actor:77"):
+            await own_client.delete(f"lease:structure-search:{identity}")
+        await own_client.aclose()
         await self._release_own_redis_pool()
-        await rate_limit.structure_exit(["global"], bucket="structure-search")
-        for identity in [f"actor:{value}" for value in (77,)]:
-            await rate_limit.release_lease("structure-search", identity)
 
     def _slow(self, tracker: dict, delay: float = 0.4):
         async def slow(db, chemical_id, page, page_size):
@@ -547,7 +656,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         ])
         await asyncio.sleep(0.15)  # 让结构查询先占住槽位
         started = time.monotonic()
-        ordinary = await self.client.get("/api/chemicals/1887")
+        ordinary = await self.client.get(f"/api/chemicals/{self.fixture_id}")
         elapsed = time.monotonic() - started
         self.assertEqual(ordinary.status_code, 200)
         self.assertLess(elapsed, 3.0, f"普通请求被结构检索拖慢: {elapsed:.2f}s")
@@ -596,6 +705,8 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
 
     async def asyncSetUp(self):
         await self._bind_own_redis_pool()
+        await self._wipe_limits(self.BUCKET)
+        await self._wipe_limits("structure-search")
 
     async def asyncTearDown(self):
         await self._release_own_redis_pool()
@@ -649,7 +760,6 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
         import httpx
         from api.core import database as database_module
         from api.core.security import Actor, public_or_actor
-        from api.main import app as fastapi_app
 
         calls = []
 
@@ -659,7 +769,8 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
 
         original_service = routes.substructure_page
         routes.substructure_page = spy
-        fastapi_app.dependency_overrides[public_or_actor] = lambda: Actor(
+        test_app = fastapi_app = _build_test_app()
+        test_app.dependency_overrides[public_or_actor] = lambda: Actor(
             id=88, username="fc", display_name="fc", email="fc@example.com",
             role="user", avatar_path=None, auth_kind="test")
         broken = self._broken_pool()
