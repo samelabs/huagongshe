@@ -23,7 +23,6 @@ export default async function Home() {
           <Link className="button secondary" href="/aichem">{t.home.entryWorkbench}</Link>
           <Link className="button secondary" href="/me/settings/api-tokens">{t.home.entryKey}</Link>
         </nav>
-        <p className="home-entry-note">{t.home.entryNote}</p>
       </section>
 
       <p className="home-aux"><Link href="/skills">{t.home.skillsAux} →</Link></p>

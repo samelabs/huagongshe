@@ -76,7 +76,7 @@ const t = {
   /* ── 首页 ────────────────────────────────────────────── */
   home: {
     hero: 'AI化学工作台',
-    subtitle: '查询化合物与反应数据；AI 助手可经 MCP 或 HTTP API 接入',
+    subtitle: '从这里开始你的AI化学',  // 冻结品牌文案: 不因入口/SEO/Agent 接入治理而修改
     searchPlaceholder: '中英文名称、CAS、SMILES、CID、ORD记录号或DOI',
     searchButton: '查询',
     /* ── 第一屏接入入口 ── */
@@ -86,9 +86,8 @@ const t = {
     entryApi: 'HTTP API / Agent guide',
     entryWorkbench: '网页工作台',
     entryKey: '创建 AI Key',
-    entryNote: '公开查询无需认证直接调用；写操作（保存反应、技能）需要 AI Key。文档：/mcp-guide · API 契约：/api/agent-guide · /llms.txt',
     /* ── 辅助入口 ── */
-    skillsAux: 'Agent 技能库（可安装的规则文件，辅助入口）',
+    skillsAux: 'Agent 技能库',
   },
 
   /* ── 搜索 ────────────────────────────────────────────── */
