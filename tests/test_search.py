@@ -93,50 +93,129 @@ class StructureSearchContractTests(unittest.TestCase):
 
 
 class CjkTwoCharExactTierTests(unittest.TestCase):
-    """两字 CJK exact 超时 hotfix 的判别测试(源码契约, 无 DB)。"""
+    """两字 CJK exact 超时 hotfix 的判别测试(纯逻辑 + mock DB 行为断言)。"""
 
-    def _tier3_source(self) -> str:
+    # ---- 纯逻辑: 是否禁止 substring fallback ----
+
+    def test_pure_two_cjk_blocks_fallback(self) -> None:
+        from api.services.search import is_two_cjk_query
+
+        self.assertTrue(is_two_cjk_query("甲醇"))
+        self.assertTrue(is_two_cjk_query("乙醇"))
+
+    def test_mixed_queries_keep_fallback(self) -> None:
+        from api.services.search import is_two_cjk_query
+
+        self.assertFalse(is_two_cjk_query("甲醇a"))  # normalize 后 甲醇a
+        self.assertFalse(is_two_cjk_query("a甲醇"))
+        self.assertFalse(is_two_cjk_query("甲醇-d4"))
+        self.assertFalse(is_two_cjk_query("苯甲酸钠"))
+
+    def test_allows_substring_fallback_matrix(self) -> None:
+        from api.services.search import allows_substring_fallback
+
+        self.assertFalse(allows_substring_fallback("甲醇"))  # 纯两字 CJK: 禁
+        self.assertFalse(allows_substring_fallback("乙醇"))
+        self.assertTrue(allows_substring_fallback("甲醇a"))  # 混合: 允许
+        self.assertTrue(allows_substring_fallback("甲醇-d4"))
+        self.assertTrue(allows_substring_fallback("苯甲酸钠"))  # ≥3 字: 允许
+        self.assertFalse(allows_substring_fallback("ab"))  # 原最短长度门槛不变: 禁
+
+    # ---- mock DB: exact miss 后第二条 substring SQL 是否执行 ----
+
+    def _run_tier3(self, query: str, exact_ids: list):
+        """直接调用 run_search_query 的 tier3 路径, mock db.execute 记录 SQL。"""
+        import asyncio
+        from api.services import search as search_service
+
+        executed: list[str] = []
+
+        class FakeResult:
+            def __init__(self, ids):
+                self._ids = ids
+
+            def scalars(self):
+                return self
+
+            def all(self):
+                return list(self._ids)
+
+        class FakeDB:
+            async def execute(self, sql_text, params=None):
+                sql = str(sql_text)
+                executed.append(sql)
+                if "normalized = :nq" in sql:
+                    return FakeResult(exact_ids)
+                if "LIKE '%' || :nq" in sql:
+                    return FakeResult([999999])
+                return FakeResult([])
+
+            async def rollback(self):
+                pass
+
+            async def commit(self):
+                pass
+
+        async def fetch_chemicals_stub(db, sql, params=None):
+            return []
+
+        db = FakeDB()
+        real_fetch = search_service.fetch_chemicals
+        search_service.fetch_chemicals = fetch_chemicals_stub
+        try:
+            chemicals, total, reactions, pending, canon, hit_id = asyncio.run(
+                search_service.run_search_query(
+                    db, query=query, mode="exact", canonical=None,
+                    page=1, page_size=30, offset=0,
+                )
+            )
+        finally:
+            search_service.fetch_chemicals = real_fetch
+        return executed, {"chemicals": chemicals, "total": total}
+
+    def test_methanol_exact_hit_does_not_run_substring(self) -> None:
+        # exact equality 命中(178719118) -> 不再执行 substring SQL
+        executed, _ = self._run_tier3("甲醇", exact_ids=[178719118])
+        self.assertTrue(any("normalized = :nq" in s for s in executed))
+        self.assertFalse(any("LIKE '%' || :nq" in s for s in executed))
+
+    def test_two_cjk_exact_miss_stops_before_substring(self) -> None:
+        # 纯两字 CJK exact miss -> 不执行 substring, 快速空返回
+        executed, result = self._run_tier3("囧氘", exact_ids=[])
+        self.assertTrue(any("normalized = :nq" in s for s in executed))
+        self.assertFalse(any("LIKE '%' || :nq" in s for s in executed))
+        self.assertEqual(result.get("chemicals") or [], [])
+
+    def test_mixed_query_exact_miss_runs_substring(self) -> None:
+        # 甲醇-d4: 混合查询 exact miss -> substring fallback 执行
+        executed, _ = self._run_tier3("甲醇-d4", exact_ids=[])
+        self.assertTrue(any("normalized = :nq" in s for s in executed))
+        self.assertTrue(any("LIKE '%' || :nq" in s for s in executed))
+
+    def test_three_plus_cjk_exact_miss_runs_substring(self) -> None:
+        # 苯甲酸钠: ≥3 字 exact miss -> substring fallback 执行
+        executed, _ = self._run_tier3("苯甲酸钠", exact_ids=[])
+        self.assertTrue(any("normalized = :nq" in s for s in executed))
+        self.assertTrue(any("LIKE '%' || :nq" in s for s in executed))
+
+    def test_exact_precedes_substring_in_source_order(self) -> None:
         import inspect
         from api.services import search as search_service
 
-        return inspect.getsource(search_service.run_search_query)
-
-    def test_tier3_runs_exact_normalized_before_substring(self) -> None:
-        source = self._tier3_source()
-        exact_pos = source.index("WHERE normalized = :nq")
-        like_pos = source.index("WHERE normalized LIKE '%' || :nq || '%'")
-        self.assertLess(exact_pos, like_pos, "exact equality 必须先于 substring 执行")
-
-    def test_two_char_cjk_blocks_substring_fallback(self) -> None:
-        source = self._tier3_source()
-        self.assertIn("cjk_len != 2", source)
-
-    def test_two_char_cjk_exact_miss_returns_without_substring(self) -> None:
-        source = self._tier3_source()
-        self.assertIn("if not tertiary_ids and len(nq) >= 3 and cjk_len != 2:", source)
-
-    def test_longer_names_still_use_substring_fallback(self) -> None:
-        source = self._tier3_source()
-        self.assertIn("len(nq) >= 3", source)
+        source = inspect.getsource(search_service.run_search_query)
+        self.assertLess(
+            source.index("WHERE normalized = :nq"),
+            source.index("WHERE normalized LIKE '%' || :nq || '%'"),
+            "exact equality 必须先于 substring 执行",
+        )
 
     def test_no_new_identifier_logic_or_canonical_change(self) -> None:
-        source = self._tier3_source()
-        self.assertNotIn("hcid:", source)
-        # canonical name 未被重定义: normalize_name 仍为唯一归一入口
-        self.assertIn("nq = normalize_name(query)", source)
+        import inspect
+        from api.services import search as search_service
 
-    def test_cjk_length_computation(self) -> None:
-        def cjk_len(s: str) -> int:
-            return sum(
-                1 for ch in s
-                if "\u4e00" <= ch <= "\u9fff" or "\u3040" <= ch <= "\u30ff"
-                or "\uac00" <= ch <= "\ud7af"
-            )
-        self.assertEqual(cjk_len("甲醇"), 2)
-        self.assertEqual(cjk_len("乙醇"), 2)
-        self.assertEqual(cjk_len("苯甲酸钠"), 4)
-        self.assertEqual(cjk_len("Aspirin"), 0)
-        self.assertEqual(cjk_len("甲醇A"), 2)
+        source = inspect.getsource(search_service.run_search_query)
+        self.assertNotIn("hcid:", source)
+        self.assertIn("nq = normalize_name(query)", source)
 
 
 if __name__ == "__main__":

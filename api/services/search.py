@@ -19,6 +19,25 @@ from .chemicals import (
 from .name_index import normalize_name
 
 
+def cjk_char_count(value: str) -> int:
+    """CJK 字符计数(Han/Hiragana-Katakana/Hangul), 与 name_query_width 同字符域。"""
+    return sum(
+        1 for ch in value
+        if "\u4e00" <= ch <= "\u9fff" or "\u3040" <= ch <= "\u30ff"
+        or "\uac00" <= ch <= "\ud7af"
+    )
+
+
+def is_two_cjk_query(nq: str) -> bool:
+    """normalized query 恰好由两个 CJK 字符组成(如 甲醇)。混合查询(甲醇A/甲醇-d4)为 False。"""
+    return len(nq) == 2 and cjk_char_count(nq) == 2
+
+
+def allows_substring_fallback(nq: str) -> bool:
+    """是否允许 tier3 substring fallback: 满足原最短长度, 且非纯两字 CJK。"""
+    return len(nq) >= 3 and not is_two_cjk_query(nq)
+
+
 async def run_search_query(
     db: Any, query: str, mode: str, canonical: Any, page: int, page_size: int,
     offset: int,
@@ -231,17 +250,14 @@ async def run_search_query(
                     # 只作为 fallback —— exact 永远先于 substring, 与 canonical name
                     # 定义无关。
                     nq = normalize_name(query)
-                    cjk_len = sum(
-                        1 for ch in query
-                        if "\u4e00" <= ch <= "\u9fff" or "\u3040" <= ch <= "\u30ff"
-                        or "\uac00" <= ch <= "\ud7af"
-                    )
+                    # 仅「整个 query 恰好由两个 CJK 字符组成」禁止 substring;
+                    # 混合查询(甲醇A/A甲醇/甲醇-d4)不受此限, 保留原 fallback。
                     tertiary_ids = (await db.execute(text("""
                         SELECT DISTINCT chemical_id FROM chemistry.name_index
                         WHERE normalized = :nq
                         ORDER BY chemical_id LIMIT :limit
                     """), {"nq": nq, "limit": page_size})).scalars().all()
-                    if not tertiary_ids and len(nq) >= 3 and cjk_len != 2:
+                    if not tertiary_ids and allows_substring_fallback(nq):
                         # 两字 CJK 禁止 substring fallback: 2 字 trigram 选择性崩塌,
                         # planner 为 ORDER BY+LIMIT 弃 GIN 走 chemical_id 索引全扫
                         # (甲醇实测滤 173 万行 ~700ms, 并发下逼 5s statement_timeout);
