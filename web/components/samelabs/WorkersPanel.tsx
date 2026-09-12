@@ -160,7 +160,7 @@ export function SamelabsWorkers() {
           </div>
           <div className="admin-user-badges">
             <span className={`status ${w.enabled ? "active" : "disabled"}`}>
-              {w.enabled ? t.admin.statusActive : t.admin.statusDisabled}
+              {w.enabled ? t.admin.workerEnabled : t.admin.workerDisabled}
             </span>
           </div>
           <div className="admin-user-actions">

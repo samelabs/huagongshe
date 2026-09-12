@@ -852,6 +852,8 @@ const t = {
     workerMaxLease: (n: number) => `单次最多租约 ${n}`,
     workerLastSeen: (v: string) => `最近活跃 ${v}`,
     workerNeverSeen: '从未上线',
+    workerEnabled: '已启用',
+    workerDisabled: '已停权',
     /* 仪表盘 */
     dashboardKicker: 'DASHBOARD',
     dashboardTitle: '仪表盘',
