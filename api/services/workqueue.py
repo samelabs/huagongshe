@@ -68,24 +68,6 @@ async def find_completion_receipt(
     return row is not None
 
 
-async def complete_with_receipt(
-    db: Any, *, family: str, job_id: int, worker_id: str,
-    lease_token: str, scope: str, terminal_status: str,
-    chemical_id: int | None, delete_sql: str, delete_params: dict,
-) -> None:
-    """receipt + job DELETE 一起(调用方随后 commit 一次)。
-
-    complete 的 verified_*lease 已持 FOR UPDATE 行锁并校验
-    owner+token_hash+expiry — 与 receipt 写入之间无竞态窗口。
-    """
-    await record_completion_receipt(
-        db, family=family, job_id=job_id, worker_id=worker_id,
-        lease_token=lease_token, scope=scope,
-        terminal_status=terminal_status, chemical_id=chemical_id)
-    await db.execute(text(delete_sql), delete_params)
-
-
-
 async def verified_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock: bool = True):
     suffix = " FOR UPDATE" if lock else ""
     row = (await db.execute(text(f"""

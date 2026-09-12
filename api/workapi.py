@@ -34,36 +34,33 @@ NONCE_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 
 # ---------------------------------------------------------------------------
 # P0 fail-closed scope gate (0912 Worker trusted plane 审计 P0-1):
-# 显式 route-family → scope 映射; 未匹配的 path 一律 403, 禁止 else→pubchem。
 # identity discovery 按业务定义走 pubchem scope(不新增 identity scope)。
 # ---------------------------------------------------------------------------
-ROUTE_FAMILY_SCOPE: dict[tuple[str, str, str], str] = {
-    # (method, first_seg, second_seg) → scope
-    ("POST", "jobs", "lease"): "pubchem",
-    ("POST", "jobs", "complete"): "pubchem",
-    ("POST", "jobs", "error"): "pubchem",
-    ("POST", "cas", "jobs"): "cas",
-    ("POST", "identity", "jobs"): "pubchem",
+# P0-1(0912 correction): 精确 (method, exact path) → scope 映射。
+# 严禁 prefix/family 继承 — 未逐条列出的 path 一律 None(fail-closed 403)。
+ROUTE_SCOPE: dict[tuple[str, str], str] = {
+    ("POST", "/workapi/v1/jobs/lease"): "pubchem",
+    ("POST", "/workapi/v1/jobs/complete"): "pubchem",
+    ("POST", "/workapi/v1/jobs/error"): "pubchem",
+    ("POST", "/workapi/v1/cas/jobs/lease"): "cas",
+    ("POST", "/workapi/v1/cas/jobs/heartbeat"): "cas",
+    ("POST", "/workapi/v1/cas/jobs/complete"): "cas",
+    ("POST", "/workapi/v1/cas/jobs/error"): "cas",
+    ("POST", "/workapi/v1/identity/jobs/lease"): "pubchem",
+    ("POST", "/workapi/v1/identity/jobs/complete"): "pubchem",
+    ("POST", "/workapi/v1/identity/jobs/error"): "pubchem",
 }
 
 
 def resolve_route_scope(method: str, path: str) -> str | None:
-    """显式 route-family 判定; 无匹配 → None(调用方 403 fail-closed)。
+    """精确 method+path → scope; 无精确匹配 → None(调用方 403 fail-closed)。
 
-    path 形如 /workapi/v1/<a>/<b>[/<c>...]: jobs|cas|identity 三族按
-    (method, a, b) 定位; b 不是 jobs 的(cas/identity)按 (method, a) 前缀。
+    显式枚举全部 10 个 WorkAPI 端点, 不做 prefix/family 推导:
+    /workapi/v1/jobs/admin、/cas/jobs/admin、/identity/jobs/admin、
+    /workapi/v1/jobs/<未列出子路径>、/workapi/v2/*、GET 已知 path
+    全部 → None。新增端点必须同步登记本表, 否则默认拒绝。
     """
-    parts = path.strip("/").split("/")
-    # parts: ['workapi','v1', <a>, <b>, ...]
-    if len(parts) < 4 or parts[0] != "workapi" or parts[1] != "v1":
-        return None
-    method = method.upper()
-    a, b = parts[2], parts[3]
-    if (method, a, b) in ROUTE_FAMILY_SCOPE:
-        return ROUTE_FAMILY_SCOPE[(method, a, b)]
-    if a in ("cas", "identity") and b == "jobs":
-        return "cas" if a == "cas" else "pubchem"
-    return None
+    return ROUTE_SCOPE.get((method.upper(), path))
 
 
 

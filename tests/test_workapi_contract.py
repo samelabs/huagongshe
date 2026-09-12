@@ -6,10 +6,12 @@
 import hashlib
 import hmac
 import json
+import os
 import time
 import unittest
 import uuid
 
+from fastapi.testclient import TestClient
 
 # 0909 测试库闸: DB 契约测试必须显式测试库; 未设置则整模块 skip
 import unittest as _ut
@@ -21,7 +23,8 @@ except Exception:
     _GATE_OK = False
 
 if _GATE_OK:
-    from tests.shared_client import get_shared_client
+    from api.core.config import settings
+    from api.main import app
 
 TOKEN = "it_contract_" + "a" * 32  # >=32字符哑token
 WORKER_ID = "it-contract-test-worker"
@@ -68,17 +71,15 @@ class WorkApiContractTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # 0912: 共享单 lifespan TestClient(见 tests/shared_client.py) —
-        # MCP StreamableHTTPSessionManager 每实例只允许 run 一次,
-        # 第二个 TestClient(app) 会二次进 lifespan 而 RuntimeError。
-        cls.client = get_shared_client()
+        cls._cm = TestClient(app)
+        cls.client = cls._cm.__enter__()
 
     @classmethod
     def tearDownClass(cls):
         # 测试凭据自清: 不在生产库留 it-contract-test-worker(2026-08-31 污染事故)
         try:
             # 独立临时 engine(避免与 TestClient portal 的 app engine 跨 loop)
-            import asyncio as _aio
+            import asyncio as _aio, os as _os
             from sqlalchemy.ext.asyncio import create_async_engine as _ce
             from sqlalchemy import text as _t
             async def _cleanup():
@@ -106,7 +107,7 @@ class WorkApiContractTests(unittest.TestCase):
             _aio.new_event_loop().run_until_complete(_cleanup())
         except Exception as exc:  # noqa: BLE001
             print(f"[contract-test] 凭据清理失败(需手工删 {WORKER_ID}): {exc}")
-        # 0912: client 为进程级共享(见 shared_client.py), 此处不再 __exit__
+        cls._cm.__exit__(None, None, None)
 
     def setUp(self):
         self._ensure_registered()

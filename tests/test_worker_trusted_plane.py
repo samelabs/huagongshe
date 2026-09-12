@@ -16,6 +16,7 @@
 import hashlib
 import hmac
 import json
+import logging
 import os
 import time
 import uuid
@@ -31,10 +32,67 @@ except Exception:
     _GATE_OK = False
 
 if _GATE_OK:
+    import httpx
+
+    from api.main import app as _app
     from api.workapi import resolve_route_scope
-    from tests.shared_client import get_shared_client
     from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+
+async def _reset_app_pools():
+    """丢弃 app 级连接池中由别的 event loop 建立的连接。
+
+    app engine / redis pool 都是模块级单例; 之前的测试模块在各自的 portal
+    loop 上建立过连接, 本模块在自己的 loop 上复用会触发
+    "Future attached to a different loop" / "Event loop is closed"。
+
+    Redis 不能用 disconnect(): 旧连接的 writer 绑定在已关闭的 loop 上,
+    ``close()`` 直接抛 RuntimeError('Event loop is closed')。改为整体换一个
+    新池(构造参数与 api/core/cache.py:12 完全一致), 旧池随引用释放。
+    只重置进程内连接池, 不改任何 production 生命周期代码。
+    """
+    from api.core import cache as _cache
+    from api.core.database import engine as _app_engine
+
+    try:
+        await _app_engine.dispose()
+    except Exception as exc:  # noqa: BLE001 - 旧 loop 的连接无法关闭时直接丢弃
+        print(f"[lifecycle] app engine dispose 跳过(旧 loop 连接): "
+              f"{type(exc).__name__}: {exc}")
+    old_pool = _cache.pool
+    _cache.pool = _cache.redis.ConnectionPool.from_url(
+        _cache.settings.redis_url, decode_responses=True)
+    print(f"[lifecycle] redis pool 已换新 (丢弃旧池 {type(old_pool).__name__})")
+
+
+class _NoLifespanClient:
+    """ASGI 直调客户端(httpx.ASGITransport) — 从不已启动 app lifespan。
+
+    本模块刻意不构造 TestClient: app lifespan 内 mcp_session_lifespan 会
+    启动 StreamableHTTPSessionManager, 而该 manager 每实例只允许 run() 一次;
+    同进程第二个 TestClient 必抛 "run() can only be called once"。ASGITransport
+    只发 http scope, 不发 lifespan scope → 零 startup/shutdown 副作用,
+    与 test_workapi_contract 原有的 TestClient/lifespan 并存互不干扰。
+
+    所有请求都跑在调用方给定的同一 event loop 上(与直连 DB 的引擎同 loop),
+    不产生跨 loop 的 async client。
+    """
+
+    def __init__(self, app, loop):
+        self._loop = loop
+        self._async = httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://testserver",
+            follow_redirects=True,  # 与 starlette TestClient 默认一致
+        )
+
+    def post(self, path, *, content=None, headers=None):
+        return self._loop.run_until_complete(
+            self._async.post(path, content=content, headers=headers))
+
+    def aclose(self):
+        self._loop.run_until_complete(self._async.aclose())
 
 TOK = "sec_wtp_" + "9" * 32
 TOK_CAS = "sec_wtp_cas_" + "8" * 32
@@ -65,9 +123,12 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.LOOP = asyncio.new_event_loop()
+        # 静音 httpx 每请求 INFO 日志(CI 输出噪声), 不影响任何断言
+        logging.getLogger("httpx").setLevel(logging.WARNING)
         u = os.environ["TEST_DATABASE_URL"].split("?")[0].replace(
             "postgresql://", "postgresql+asyncpg://")
         cls.eng = create_async_engine(u)
+        cls.Session = async_sessionmaker(cls.eng, expire_on_commit=False)
 
         async def _reg():
             async with cls.eng.begin() as c:
@@ -86,7 +147,7 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
                 await c.execute(text(
                     "DELETE FROM maintenance.workapi_completion_receipts WHERE worker_id LIKE 'sec-wtp-%'"))
                 await c.execute(text(
-                    "DELETE FROM maintenance.pubchem_jobs WHERE query_value='-42'"))
+                    "DELETE FROM maintenance.pubchem_jobs WHERE query_value IN ('-42','42')"))
                 await c.execute(text(
                     "INSERT INTO chemistry.chemicals (id) VALUES (420042) ON CONFLICT DO NOTHING"))
                 await c.execute(text("""
@@ -95,7 +156,10 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
                     VALUES (420042,'-42','queued',100,'sec-wtp-1')
                 """))
         cls.LOOP.run_until_complete(_reg())
-        cls.client = get_shared_client()  # 0912: 进程级单 lifespan(见 shared_client.py)
+        # 先清掉其他测试模块(app engine / redis pool)在别的 event loop 上留下的
+        # 连接, 避免本模块请求复用到跨 loop 的 async 连接。
+        cls.LOOP.run_until_complete(_reset_app_pools())
+        cls.client = _NoLifespanClient(_app, cls.LOOP)
 
     @classmethod
     def tearDownClass(cls):
@@ -105,7 +169,7 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
                     "UPDATE maintenance.pubchem_jobs SET status='queued', lease_owner=NULL,"
                     " lease_token_hash=NULL, lease_expires_at=NULL WHERE lease_owner LIKE 'sec-wtp-%'"))
                 await c.execute(text(
-                    "DELETE FROM maintenance.pubchem_jobs WHERE query_value='-42'"))
+                    "DELETE FROM maintenance.pubchem_jobs WHERE query_value IN ('-42','42')"))
                 await c.execute(text(
                     "DELETE FROM chemistry.chemical_pubchem WHERE chemical_id=420042"))
                 await c.execute(text(
@@ -118,13 +182,27 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
         try:
             cls.LOOP.run_until_complete(_clean())
         finally:
-            pass  # 0912: client 进程级共享, 不 __exit__(由后续模块继续用)
+            cls.client.aclose()  # 只关本模块的 ASGI client, 不碰 app lifespan
+            cls.LOOP.run_until_complete(_reset_app_pools())
+            cls.LOOP.close()
 
     # ── helpers ──
     def post(self, path, payload, token=TOK, wid=WID, **kw):
         body = json.dumps(payload).encode()
         h = _sign("POST", path, body, token, wid, **kw)
         return self.client.post(path, content=body, headers=h)
+
+    def post_concurrent(self, path, payload, times=2, token=TOK, wid=WID):
+        """同一 loop 上并发发同一请求(替代多线程: 单 loop 不可被两线程 run)。"""
+        body = json.dumps(payload).encode()
+        h = _sign("POST", path, body, token, wid)
+
+        async def _g():
+            return await asyncio.gather(*[
+                self.client._async.post(path, content=body, headers=h)
+                for _ in range(times)])
+
+        return self.LOOP.run_until_complete(_g())
 
     def _mk_job(self, key):
         async def _m():
@@ -143,27 +221,123 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
         self.assertTrue(mine, "audit job not leased")
         return mine[0]
 
-    # ════ 1. Scope gate ════
-    def test_scope_route_resolution_matrix(self):
+    # ── receipt 取证 helpers (family-scoped; CI #73 根因) ──
+    def _receipts_for(self, job_id, family="pubchem"):
+        """返回 (本 family receipt 行, 同 job_id 的其他 family 撞号行)。"""
+        async def _q():
+            async with self.eng.connect() as c:
+                rows = (await c.execute(text(
+                    "SELECT family, job_id, worker_id, terminal_status,"
+                    " encode(lease_token_hash,'hex'), completed_at"
+                    " FROM maintenance.workapi_completion_receipts"
+                    " WHERE family=:f AND job_id=:j ORDER BY completed_at"),
+                    {"f": family, "j": job_id})).fetchall()
+                foreign = (await c.execute(text(
+                    "SELECT family, job_id, worker_id, terminal_status,"
+                    " encode(lease_token_hash,'hex'), completed_at"
+                    " FROM maintenance.workapi_completion_receipts"
+                    " WHERE job_id=:j AND family<>:f ORDER BY completed_at"),
+                    {"f": family, "j": job_id})).fetchall()
+                return [tuple(r) for r in rows], [tuple(r) for r in foreign]
+        return self.LOOP.run_until_complete(_q())
+
+    def _dump_receipt_evidence(self, phase, job, rows, foreign):
+        """打印 receipt 取证行(CI #73 所需字段全量)。"""
+        import hashlib as _h
+
+        lh = _h.sha256(job["lease_token"].encode()).hexdigest()
+        print(f"[receipt-evidence:{phase}] lease family=pubchem job_id={job['job_id']} "
+              f"worker_id={WID} lease_token_hash={lh}")
+        print(f"[receipt-evidence:{phase}] same(family=pubchem,job_id={job['job_id']}) rows={len(rows)}")
+        for r in rows:
+            print(f"[receipt-evidence:{phase}]   row family={r[0]} job_id={r[1]} "
+                  f"worker_id={r[2]} terminal={r[3]} lease_token_hash={r[4]} completed_at={r[5]}")
+        print(f"[receipt-evidence:{phase}] same job_id, other family rows={len(foreign)}")
+        for r in foreign:
+            print(f"[receipt-evidence:{phase}]   foreign family={r[0]} job_id={r[1]} "
+                  f"worker_id={r[2]} terminal={r[3]} lease_token_hash={r[4]} completed_at={r[5]}")
+
+    def _receipts_by_lease(self, job):
+        """该 lease(family+job_id+worker_id+token_hash) 在 receipt 表中的行数。"""
+        import hashlib as _h
+
+        lh = _h.sha256(job["lease_token"].encode()).digest()
+        async def _q():
+            async with self.eng.connect() as c:
+                return (await c.execute(text(
+                    "SELECT count(*) FROM maintenance.workapi_completion_receipts"
+                    " WHERE family='pubchem' AND job_id=:j AND worker_id=:w"
+                    " AND lease_token_hash=:h"),
+                    {"j": job["job_id"], "w": WID, "h": lh})).scalar()
+        return self.LOOP.run_until_complete(_q())
+
+    def _job_status(self, job_id):
+        async def _q():
+            async with self.eng.connect() as c:
+                return (await c.execute(text(
+                    "SELECT status FROM maintenance.pubchem_jobs WHERE id=:j"),
+                    {"j": job_id})).scalar()
+        return _q()
+
+    # ════ 1. Scope gate (exact route mapping) ════
+    def test_scope_exact_route_matrix(self):
+        """10 个 WorkAPI 端点逐条精确映射; 任何非精确 path → None。"""
         cases = [
-            ("/workapi/v1/jobs/lease", "pubchem"),
-            ("/workapi/v1/jobs/complete", "pubchem"),
-            ("/workapi/v1/jobs/error", "pubchem"),
-            ("/workapi/v1/cas/jobs/lease", "cas"),
-            ("/workapi/v1/cas/jobs/heartbeat", "cas"),
-            ("/workapi/v1/cas/jobs/complete", "cas"),
-            ("/workapi/v1/cas/jobs/error", "cas"),
-            ("/workapi/v1/identity/jobs/lease", "pubchem"),
-            ("/workapi/v1/identity/jobs/complete", "pubchem"),
-            ("/workapi/v1/identity/jobs/error", "pubchem"),
+            ("POST", "/workapi/v1/jobs/lease", "pubchem", True),
+            ("POST", "/workapi/v1/jobs/complete", "pubchem", True),
+            ("POST", "/workapi/v1/jobs/error", "pubchem", True),
+            ("POST", "/workapi/v1/cas/jobs/lease", "cas", True),
+            ("POST", "/workapi/v1/cas/jobs/heartbeat", "cas", True),
+            ("POST", "/workapi/v1/cas/jobs/complete", "cas", True),
+            ("POST", "/workapi/v1/cas/jobs/error", "cas", True),
+            ("POST", "/workapi/v1/identity/jobs/lease", "pubchem", True),
+            ("POST", "/workapi/v1/identity/jobs/complete", "pubchem", True),
+            ("POST", "/workapi/v1/identity/jobs/error", "pubchem", True),
         ]
-        for path, want in cases:
-            self.assertEqual(resolve_route_scope("POST", path), want, path)
-        # 未映射 → None (fail-closed)
-        for path in ("/workapi/v1/admin/jobs/lease", "/workapi/v1/jobs/admin",
-                     "/workapi/v1/newthing/x", "/workapi/v2/jobs/lease",
-                     "/other/v1/jobs/lease", "/workapi/v1/"):
-            self.assertIsNone(resolve_route_scope("POST", path), path)
+        for method, path, want, mapped in cases:
+            self.assertEqual(resolve_route_scope(method, path), want, path)
+
+    def test_scope_no_family_fallback(self):
+        """显式负例: 无精确映射一律 None(禁止 prefix/family 继承)。"""
+        negatives = [
+            ("POST", "/workapi/v1/jobs/admin"),
+            ("POST", "/workapi/v1/cas/jobs/admin"),
+            ("POST", "/workapi/v1/identity/jobs/admin"),
+            ("POST", "/workapi/v1/jobs/lease/extra"),
+            ("POST", "/workapi/v1/jobs"),
+            ("POST", "/workapi/v1/jobs/"),
+            ("POST", "/workapi/v1/cas/jobs/"),
+            ("POST", "/workapi/v2/jobs/lease"),
+            ("POST", "/workapi/v2/cas/jobs/lease"),
+            ("POST", "/workapi/v2/identity/jobs/lease"),
+            ("POST", "/workapi/v3/jobs/complete"),
+            ("GET", "/workapi/v1/jobs/lease"),
+            ("GET", "/workapi/v1/jobs/complete"),
+            ("GET", "/workapi/v1/cas/jobs/lease"),
+            ("GET", "/workapi/v1/identity/jobs/lease"),
+            ("GET", "/workapi/v1/cas/jobs/heartbeat"),
+            ("PUT", "/workapi/v1/jobs/lease"),
+            ("POST", "/workapi/v1/admin/jobs/lease"),
+            ("POST", "/other/v1/jobs/lease"),
+            ("POST", "/workapi/v1/"),
+            ("POST", "/"),
+        ]
+        for method, path in negatives:
+            self.assertIsNone(resolve_route_scope(method, path), f"{method} {path}")
+
+    def test_scope_gate_matches_router_registration(self):
+        """不变量: 映射表必须与 workapi router 真实注册端点逐条一致。
+
+        任何新增/改名端点若未登记 → 本测试失败(默认拒绝, 不允许静默继承)。
+        """
+        from api.workapi import router as _r
+        registered = {
+            (m, r.path)
+            for r in _r.routes if hasattr(r, "path")
+            for m in getattr(r, "methods", ())
+        }
+        from api.workapi import ROUTE_SCOPE
+        self.assertEqual(set(ROUTE_SCOPE), registered)
 
     def test_scope_cross_access(self):
         # pubchem token: pubchem PASS
@@ -193,16 +367,37 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
                       {"max_jobs": 1, "capabilities": ["cas", "identity"]})
         self.assertEqual(r.status_code, 401)
 
-    def test_unmapped_route_403(self):
-        # 有效签名 + 有效 token, 但 path 无路由 → FastAPI 404(路由层先挡);
-        # fail-closed 判定本身由 resolve_route_scope 单元矩阵覆盖。
-        # 再验真实依赖路径: 已注册路由 + 未映射方法变体。
-        body = b"{}"
-        h = _sign("POST", "/workapi/v1/jobs/unknown", body, TOK, WID)
-        r = self.client.post("/workapi/v1/jobs/unknown", content=body, headers=h)
-        self.assertIn(r.status_code, (403, 404))  # 不存在路由即不可达(fail-closed)
-        # 未映射但格式真实的 path 族: GET 不在映射(method 白名单)
-        self.assertIsNone(resolve_route_scope("GET", "/workapi/v1/jobs/lease"))
+    def test_unmapped_route_403_at_auth_layer(self):
+        """真实注册但未登记 scope 的 route → 认证层 403(fail-closed)。
+
+        临注册一个 /workapi/v1/jobs/admin 探针(测完移除), 用有效 token +
+        有效签名打它: 签名通过后 resolver 返回 None → 必须 403, 不得因
+        "/jobs/ 家族" 继承到 pubchem。
+        """
+        from fastapi import Depends
+        from fastapi.routing import APIRoute
+
+        from api.workapi import authenticated_worker
+
+        async def _probe():  # pragma: no cover - 403 在依赖层已拦, 不可达
+            return {"unreachable": True}
+
+        # 注意: app.router 末尾挂有 path='' 的 Mount(前端静态), 后加的普通路由会被
+        # 它吞成 404 → 必须插到 routes 最前(该 path 与既有路由无冲突)。
+        probe = APIRoute("/workapi/v1/jobs/admin", _probe, methods=["POST"],
+                         dependencies=[Depends(authenticated_worker)])
+        _app.router.routes.insert(0, probe)
+        try:
+            body = b"{}"
+            h = _sign("POST", "/workapi/v1/jobs/admin", body, TOK, WID)
+            r = self.client.post("/workapi/v1/jobs/admin", content=body, headers=h)
+            self.assertEqual(r.status_code, 403)
+            # 未注册的真实路径族 → 路由层 404(同样不可达)
+            h2 = _sign("POST", "/workapi/v1/jobs/unknown", body, TOK, WID)
+            r2 = self.client.post("/workapi/v1/jobs/unknown", content=body, headers=h2)
+            self.assertEqual(r2.status_code, 404)
+        finally:
+            _app.router.routes.remove(probe)
 
     # ════ 2. Auth / replay ════
     def test_replay_immediate_409(self):
@@ -272,13 +467,11 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
         self.assertEqual(r.status_code, 409)
 
     def test_concurrent_duplicate_complete_single_effect(self):
-        from concurrent.futures import ThreadPoolExecutor
         self._mk_job("sec-wtp-dup")
         j = self._lease_one()
         payload = {"job_id": j["job_id"], "lease_token": j["lease_token"], "result": {}}
-        with ThreadPoolExecutor(2) as ex:
-            codes = sorted(f.result().status_code for f in [
-                ex.submit(self.post, "/workapi/v1/jobs/complete", payload) for _ in range(2)])
+        codes = sorted(r.status_code for r in self.post_concurrent(
+            "/workapi/v1/jobs/complete", payload, times=2))
         # 恰一个 primary 成功; 另一个合法终态: 409(receipt 未及可见) /
         # 200 idempotent(P0-2 幂等 ack) / 503(replay-protection Redis 瞬断,
         # fail-closed 在鉴权层挡下, 零业务效应)。数据零重复(下方)才是硬判据。
@@ -293,15 +486,58 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
         self.assertEqual(self.LOOP.run_until_complete(_count()), 0)  # 空 result 零数据写入
 
     # ════ 4. Revocation / recovery ════
+    def _patch_worker(self, enabled, worker_id=None):
+        """走真实 admin patch_worker 生产代码路径(非测试手写 UPDATE)。"""
+        from api.admin import WorkerPatchBody, patch_worker
+
+        async def _p():
+            async with self.Session() as db:
+                return await patch_worker(worker_id or WID,
+                                          WorkerPatchBody(enabled=enabled),
+                                          actor=None, db=db)
+        return self.LOOP.run_until_complete(_p())
+
+    def _worker_row(self, worker_id=None):
+        async def _q():
+            async with self.eng.connect() as c:
+                r = (await c.execute(text(
+                    "SELECT enabled, disabled_at FROM maintenance.worker_clients"
+                    " WHERE worker_id=:w"), {"w": worker_id or WID})).fetchone()
+                return (r[0], r[1])
+        return self.LOOP.run_until_complete(_q())
+
+    def test_patch_worker_enabled_tristate(self):
+        """P1 三态: false→首次写 now(); true→清 NULL; NULL→逐值完全不动。
+
+        旧实现 disabled_at=CASE WHEN coalesce(:enabled,enabled)=false ...
+        在 :enabled IS NULL 且当前 enabled=false 时会重写 now(), 把首次停权
+        时刻抹掉 — 本测试逐值锁定四态。
+        """
+        # true: clean 起点(disabled_at=NULL)
+        self._patch_worker(True)
+        self.assertEqual(self._worker_row(), (True, None))
+        # true → false: 首次停权写 now()
+        row = self._patch_worker(False)
+        self.assertFalse(row["enabled"])
+        e, d1 = self._worker_row()
+        self.assertFalse(e)
+        self.assertIsNotNone(d1)
+        # 重复 disable: 不重置首次 disabled_at
+        self._patch_worker(False)
+        self.assertEqual(self._worker_row(), (False, d1))
+        # enabled=None + 当前 enabled=false: disabled_at 逐值不变
+        self._patch_worker(None)
+        self.assertEqual(self._worker_row(), (False, d1))
+        # false → true: 清 NULL(恢复)
+        self._patch_worker(True)
+        self.assertEqual(self._worker_row(), (True, None))
+        # enabled=None + 当前 enabled=true: 逐值不变
+        self._patch_worker(None)
+        self.assertEqual(self._worker_row(), (True, None))
+
     def test_disable_then_reenable(self):
         def set_enabled(flag):
-            async def _s():
-                async with self.eng.begin() as c:
-                    await c.execute(text(
-                        "UPDATE maintenance.worker_clients SET enabled=:e,"
-                        " disabled_at=CASE WHEN :e THEN NULL ELSE now() END"
-                        " WHERE worker_id=:w"), {"e": flag, "w": WID})
-            self.LOOP.run_until_complete(_s())
+            self._patch_worker(flag)
 
         self._mk_job("sec-wtp-revoke")
         j = self._lease_one()
@@ -408,25 +644,25 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
             # raise_server_exceptions 拿真实 500 响应
             body_b = json.dumps(payload).encode()
             h = _sign("POST", "/workapi/v1/jobs/complete", body_b, TOK, WID)
-            transport = self.client._transport
-            transport.raise_server_exceptions = False
-            try:
-                r = self.client.post("/workapi/v1/jobs/complete", content=body_b, headers=h)
-            finally:
-                transport.raise_server_exceptions = True
+            # 客户端 transport 已固定 raise_app_exceptions=False → 真实 500 响应
+            r = self.client.post("/workapi/v1/jobs/complete", content=body_b, headers=h)
             self.assertEqual(r.status_code, 500)
 
-            async def _state():
-                async with self.eng.connect() as c:
-                    rc = (await c.execute(text(
-                        "SELECT count(*) FROM maintenance.workapi_completion_receipts"
-                        " WHERE job_id=:j"), {"j": j["job_id"]})).scalar()
-                    js = (await c.execute(text(
-                        "SELECT status FROM maintenance.pubchem_jobs WHERE id=:j"),
-                        {"j": j["job_id"]})).scalar()
-                    return rc, js
-            rc, js = self.LOOP.run_until_complete(_state())
-            self.assertEqual(rc, 0)          # 无 receipt
+            # CI #73 根因定位: 旧断言 "WHERE job_id=:j" 不带 family, 会把其他
+            # family(cas) 数字撞号的残留 receipt 计入 → expected 0 / actual 1 假阳性。
+            # 现按 (family, job_id) 精确定位, 并单列跨 family 行作为证据。
+            pre, foreign_pre = self._receipts_for(j["job_id"])
+            self._dump_receipt_evidence("pre", j, pre, foreign_pre)
+            self.assertEqual(pre, [], f"请求前本 family 已有 receipt(隔离泄漏): {pre}")
+            rows, foreign = self._receipts_for(j["job_id"])
+            self._dump_receipt_evidence("post", j, rows, foreign)
+            self.assertEqual([tuple(x) for x in rows], [],
+                             f"primary 失败后出现本 family receipt: {rows}")
+            self.assertEqual(self._receipts_by_lease(j), 0,
+                             "本次 lease 的 token 不得出现在任何 receipt 中")
+            if foreign:
+                print(f"[diag] job_id={j['job_id']} 跨 family 撞号残留: {foreign}")
+            js = self.LOOP.run_until_complete(self._job_status(j["job_id"]))
             self.assertEqual(js, "leased")   # job 未错误 terminal
         finally:
             wa.sync_chemical_core = orig

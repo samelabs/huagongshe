@@ -112,9 +112,14 @@ async def patch_worker(
             scopes=coalesce(CAST(:scopes AS text[]),scopes),
             max_lease_jobs=coalesce(:max_lease_jobs,max_lease_jobs),
             enabled=coalesce(:enabled,enabled),
+            -- P1 三态(0912 correction): 不依赖 coalesce 推导。
+            -- :enabled IS FALSE 且当前 disabled_at IS NULL → 首次停权时刻 now();
+            -- 重复 disable(disabled_at 已有值) 保持原值, 不重置首次停权时间。
+            -- :enabled IS TRUE → 清 NULL(恢复)。 :enabled IS NULL → 两者完全不动。
             disabled_at=CASE
-                        WHEN coalesce(:enabled,enabled)=false THEN now()
-                        WHEN coalesce(:enabled,enabled)=true  THEN NULL
+                        WHEN CAST(:enabled AS boolean) IS FALSE
+                             AND disabled_at IS NULL THEN now()
+                        WHEN CAST(:enabled AS boolean) IS TRUE  THEN NULL
                         ELSE disabled_at END
         WHERE worker_id=:worker_id
         RETURNING worker_id,display_name,scopes,max_lease_jobs,enabled,created_at,last_seen_at,disabled_at
