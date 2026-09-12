@@ -173,7 +173,7 @@ def _run_db(scenario):
 @unittest.skipUnless(DB_URL, "无 test DB: 跳过 name_cn 挂载用例")
 class LocalizedNameAttachTests(unittest.TestCase):
     async def _fixture(self, session, *, name: str, name_cn: str | None = None,
-                       extra_names: list[tuple[str, str, str]] | None = None) -> int:
+                       extra_names: list[tuple[str, str, str, str]] | None = None) -> int:
         from sqlalchemy import text
 
         chemical_id = (await session.execute(text("""
@@ -182,12 +182,12 @@ class LocalizedNameAttachTests(unittest.TestCase):
         """), {"name": name})).scalar_one()
         rows = list(extra_names or [])
         if name_cn:
-            rows.insert(0, ("name_cn", "cn", name_cn))
-        for kind, lang, value in rows:
+            rows.insert(0, ("name_cn", "cn", "cb", name_cn))
+        for kind, lang, source, value in rows:
             await session.execute(text("""
                 INSERT INTO chemistry.name_index (chemical_id, name, lang, normalized, source, kind)
-                VALUES (:cid, :name, :lang, lower(:name), 'cb', :kind)
-            """), {"cid": chemical_id, "name": value, "lang": lang, "kind": kind})
+                VALUES (:cid, :name, :lang, lower(:name), :source, :kind)
+            """), {"cid": chemical_id, "name": value, "lang": lang, "source": source, "kind": kind})
         return chemical_id
 
     async def _cleanup(self, session, chemical_id: int) -> None:
@@ -219,10 +219,10 @@ class LocalizedNameAttachTests(unittest.TestCase):
     def test_alias_and_supplier_kinds_are_not_display_names(self):
         async def scenario(session):
             cid = await self._fixture(session, name="Alias Fixture", extra_names=[
-                ("alias_cn", "cn", "别名乙醇"),
-                ("alias_en", "en", "Alias Ethanol"),
-                ("synonym_en", "en", "Ethyl alcohol"),
-                ("supplier", "cn", "某供应商货名"),
+                ("alias_cn", "cn", "cb", "别名乙醇"),
+                ("alias_en", "en", "cb", "Alias Ethanol"),
+                ("synonym_en", "en", "pubchem", "Ethyl alcohol"),
+                ("supplier", "cn", "cb", "某供应商货名"),
             ])
             await session.commit()
             filled = await chemicals_service.attach_localized_names(session, [{"id": cid}])
@@ -231,6 +231,26 @@ class LocalizedNameAttachTests(unittest.TestCase):
             return value
 
         self.assertIsNone(_run_db(scenario), "别名/供应商名不得冒充主标题")
+
+    def test_only_cb_cn_name_cn_row_is_used(self):
+        """契约: (kind,lang,source)=('name_cn','cn','cb') 三位一体。
+
+        同名 kind 的其他 source、错 lang 的行都必须被拒; 且非法行按字典序更靠前
+        (AAA/BBB < ZZZ), 保证"唯一入选"不是靠排序侥幸。
+        """
+        async def scenario(session):
+            cid = await self._fixture(session, name="Contract Fixture", extra_names=[
+                ("name_cn", "cn", "cb", "ZZZ CB 主中文名"),
+                ("name_cn", "cn", "pubchem", "AAA 其他 source 同 kind"),
+                ("name_cn", "en", "cb", "BBB 错 lang 同 kind"),
+            ])
+            await session.commit()
+            filled = await chemicals_service.attach_localized_names(session, [{"id": cid}])
+            value = filled[0]["name_cn"]
+            await self._cleanup(session, cid)
+            return value
+
+        self.assertEqual("ZZZ CB 主中文名", _run_db(scenario))
 
     def test_empty_items_skip_query(self):
         async def scenario(session):
@@ -298,6 +318,9 @@ class SingleResolverInvariantTests(unittest.TestCase):
     def test_api_attaches_locale_names_at_single_point(self):
         source = _read("api/services/chemicals.py")
         self.assertIn('LOCALIZED_NAME_KIND = "name_cn"', source)
+        self.assertIn('LOCALIZED_NAME_LANG = "cn"', source)
+        self.assertIn('LOCALIZED_NAME_SOURCE = "cb"', source)
+        self.assertIn("AND kind = :kind AND lang = :lang AND source = :source", source)
         self.assertIn("await attach_localized_names(db, items)", source)
         self.assertIn('"name_cn": None', source)
         reactions = _read("api/services/reactions.py")

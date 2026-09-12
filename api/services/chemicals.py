@@ -57,10 +57,14 @@ MIN_SUBSTRUCTURE_HEAVY_ATOMS = 10
 # (乙醇=4 单位)选择性极高, 不再误拦; 单字"醇"(2 单位)仍拦。
 # 例外：完整 CAS 号/标识符走精确分支，不受此限。
 MIN_FUZZY_NAME_LENGTH = 3
-# locale 名称的唯一来源: name_index 中 kind='name_cn' 的行, 镜像 chemical_cb.entry.identity.cn
-# (CB 主中文名, 每化合物至多一条 —— 172,801 行 / 172,801 chemical_id)。
+# locale 名称的唯一来源: name_index 中 (kind, lang, source) = ('name_cn','cn','cb') 的行,
+# 镜像 chemical_cb.entry.identity.cn(CB 主中文名, 每化合物至多一条 —— 172,801 行 /
+# 172,801 chemical_id)。三元组一起收紧: 将来任何其他 source/lang 落同名 kind 的数据
+# 都不得进入主标题, 也不能靠字典序(DISTINCT ON ... ORDER BY name)抢占。
 # alias_cn/synonym_en/supplier 是别名/供应商名, 不参与主标题解析。
 LOCALIZED_NAME_KIND = "name_cn"
+LOCALIZED_NAME_LANG = "cn"
+LOCALIZED_NAME_SOURCE = "cb"
 
 
 def name_query_width(query: str) -> int:
@@ -106,10 +110,12 @@ def chemical_dict(row: Any, score: float | None = None) -> dict[str, Any]:
 
 
 async def attach_localized_names(db: Any, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """批量补 locale 名称(name_cn)到化学 payload, 一次查询覆盖整页。
+    """批量补 locale 名称到化学 payload, 一次查询覆盖整页。
 
-    只按返回的 id 列表取 kind='name_cn' 的行(走 name_index_chemical_id_idx),
-    不下发 name_index 全量, 不改变搜索/结构检索既有 SQL。
+    只按返回的 id 列表取 (kind,lang,source)=('name_cn','cn','cb') 的行(走
+    name_index_chemical_id_idx), 不下发 name_index 全量, 不改变搜索/结构检索
+    既有 SQL。三元组缺一不可: 定义里 name_cn 就是"CB identity.cn 主中文名",
+    不能由未来其他 source 的同 kind 数据经字典序决定主标题。
     """
     if not items:
         return items
@@ -119,9 +125,15 @@ async def attach_localized_names(db: Any, items: list[dict[str, Any]]) -> list[d
     rows = (await db.execute(text("""
         SELECT DISTINCT ON (chemical_id) chemical_id, name
         FROM chemistry.name_index
-        WHERE chemical_id = ANY(:ids) AND kind = :kind
+        WHERE chemical_id = ANY(:ids)
+          AND kind = :kind AND lang = :lang AND source = :source
         ORDER BY chemical_id, name
-    """), {"ids": ids, "kind": LOCALIZED_NAME_KIND})).fetchall()
+    """), {
+        "ids": ids,
+        "kind": LOCALIZED_NAME_KIND,
+        "lang": LOCALIZED_NAME_LANG,
+        "source": LOCALIZED_NAME_SOURCE,
+    })).fetchall()
     localized = {row[0]: row[1] for row in rows}
     for row in items:
         row["name_cn"] = localized.get(row["id"])
