@@ -34,8 +34,11 @@ def is_two_cjk_query(nq: str) -> bool:
 
 
 def allows_substring_fallback(nq: str) -> bool:
-    """是否允许 tier3 substring fallback: 满足原最短长度, 且非纯两字 CJK。"""
-    return len(nq) >= 3 and not is_two_cjk_query(nq)
+    """是否允许 tier3 substring fallback: 复用既有最短名称契约(width), 且非纯两字 CJK。"""
+    return (
+        name_query_width(nq) >= MIN_FUZZY_NAME_LENGTH
+        and not is_two_cjk_query(nq)
+    )
 
 
 async def run_search_query(

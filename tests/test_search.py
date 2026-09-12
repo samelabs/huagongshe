@@ -113,13 +113,24 @@ class CjkTwoCharExactTierTests(unittest.TestCase):
 
     def test_allows_substring_fallback_matrix(self) -> None:
         from api.services.search import allows_substring_fallback
+        from api.services.chemicals import MIN_FUZZY_NAME_LENGTH, name_query_width
 
-        self.assertFalse(allows_substring_fallback("甲醇"))  # 纯两字 CJK: 禁
+        # 甲醇 width=4, 但 pure-two-CJK -> 禁
+        self.assertEqual(name_query_width("甲醇"), 4)
+        self.assertFalse(allows_substring_fallback("甲醇"))
         self.assertFalse(allows_substring_fallback("乙醇"))
-        self.assertTrue(allows_substring_fallback("甲醇a"))  # 混合: 允许
+        # width=3 的既有契约行为不变
+        self.assertEqual(name_query_width("a甲"), 3)
+        self.assertTrue(allows_substring_fallback("a甲"))  # A甲
+        self.assertTrue(allows_substring_fallback("甲a"))  # 甲A
+        self.assertTrue(allows_substring_fallback("甲醇a"))  # 甲醇A
+        self.assertTrue(allows_substring_fallback("a甲醇"))  # A甲醇
         self.assertTrue(allows_substring_fallback("甲醇-d4"))
-        self.assertTrue(allows_substring_fallback("苯甲酸钠"))  # ≥3 字: 允许
-        self.assertFalse(allows_substring_fallback("ab"))  # 原最短长度门槛不变: 禁
+        self.assertTrue(allows_substring_fallback("苯甲酸钠"))
+        # width=2 -> 禁(既有最短长度门槛)
+        self.assertEqual(name_query_width("ab"), 2)
+        self.assertFalse(allows_substring_fallback("ab"))
+        self.assertLess(2, MIN_FUZZY_NAME_LENGTH)
 
     # ---- mock DB: exact miss 后第二条 substring SQL 是否执行 ----
 
@@ -182,6 +193,19 @@ class CjkTwoCharExactTierTests(unittest.TestCase):
     def test_two_cjk_exact_miss_stops_before_substring(self) -> None:
         # 纯两字 CJK exact miss -> 不执行 substring, 快速空返回
         executed, result = self._run_tier3("囧氘", exact_ids=[])
+        self.assertTrue(any("normalized = :nq" in s for s in executed))
+        self.assertFalse(any("LIKE '%' || :nq" in s for s in executed))
+        self.assertEqual(result.get("chemicals") or [], [])
+
+    def test_width_three_mixed_query_exact_miss_runs_substring(self) -> None:
+        # A甲: width=3(len=2) 既有契约允许 -> substring 必须执行
+        executed, _ = self._run_tier3("A甲", exact_ids=[])
+        self.assertTrue(any("normalized = :nq" in s for s in executed))
+        self.assertTrue(any("LIKE '%' || :nq" in s for s in executed))
+
+    def test_methanol_exact_miss_never_runs_substring(self) -> None:
+        # 甲醇: 纯两字 CJK -> exact miss 时 LIKE 不执行
+        executed, result = self._run_tier3("甲醇", exact_ids=[])
         self.assertTrue(any("normalized = :nq" in s for s in executed))
         self.assertFalse(any("LIKE '%' || :nq" in s for s in executed))
         self.assertEqual(result.get("chemicals") or [], [])
