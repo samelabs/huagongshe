@@ -10,11 +10,14 @@ export function SamelabsUsers() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [q, setQ] = useState("");
+  const [pendingDisable, setPendingDisable] = useState<UserRow | null>(null);
 
-  async function reload() {
+  async function load(query: string) {
+    const params = new URLSearchParams({ limit: "100" });
+    if (query.trim()) params.set("q", query.trim());
     try {
-      const data = await apiGet<UserRow[]>(`/admin/users?limit=100`);
-      setUsers(data);
+      setUsers(await apiGet<UserRow[]>(`/admin/users?${params}`));
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
     }
@@ -22,19 +25,35 @@ export function SamelabsUsers() {
 
   useEffect(() => {
     let active = true;
-    apiGet<UserRow[]>(`/admin/users?limit=100`).then((data) => {
-      if (active) setUsers(data);
-    }).catch((err) => {
-      if (!active) return;
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setError(t.admin.noPermission);
-    });
+    (async () => {
+      const params = new URLSearchParams({ limit: "100" });
+      try {
+        const data = await apiGet<UserRow[]>(`/admin/users?${params}`);
+        if (active) setUsers(data);
+      } catch (e) {
+        if (!active) return;
+        if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
+      }
+    })();
     return () => { active = false; };
   }, []);
 
-  async function toggle(id: number, status: "active" | "disabled") {
+  async function reload() { await load(q); }
+
+  async function confirmDisable() {
+    if (!pendingDisable) return;
+    setError(""); setBusyId(pendingDisable.id);
+    try {
+      await apiPatch(`/admin/users/${pendingDisable.id}/status`, JSON.stringify({ status: "disabled" }));
+      setPendingDisable(null);
+      await reload();
+    } catch { setError(t.admin.errOperation); } finally { setBusyId(null); }
+  }
+
+  async function enable(id: number) {
     setError(""); setBusyId(id);
     try {
-      await apiPatch(`/admin/users/${id}/status`, JSON.stringify({ status: status === "active" ? "disabled" : "active" }));
+      await apiPatch(`/admin/users/${id}/status`, JSON.stringify({ status: "active" }));
       await reload();
     } catch { setError(t.admin.errOperation); } finally { setBusyId(null); }
   }
@@ -60,8 +79,16 @@ export function SamelabsUsers() {
         <section className="dashboard-section">
           <div className="section-heading">
             <div><h2>{t.admin.usersAll}</h2></div>
-            <span>{t.admin.userCount(users.length)}</span>
+            <span>{t.admin.userShownCount(users.length, q.trim() ? q.trim() : null)}</span>
           </div>
+          <form className="admin-search" onSubmit={(e) => { e.preventDefault(); load(q); }}>
+            <input
+              value={q}
+              placeholder={t.admin.userSearchPlaceholder}
+              onChange={(e) => { setQ(e.target.value); if (e.target.value === "") load(""); }}
+            />
+            <button type="submit" className="button small">{t.admin.userSearch}</button>
+          </form>
           <div className="admin-table">
             {users.map((u) => <article key={u.id}>
               <div>
@@ -76,12 +103,26 @@ export function SamelabsUsers() {
                 <button className="text-button" disabled={busyId === u.id} onClick={() => toggleRole(u.id, u.role)}>
                   {busyId === u.id ? "…" : u.role === "admin" ? t.admin.actionRemoveAdmin : t.admin.actionSetAdmin}
                 </button>
-                <button className="text-button" disabled={busyId === u.id} onClick={() => toggle(u.id, u.status)}>
+                <button className="text-button" disabled={busyId === u.id}
+                  onClick={() => u.status === "active" ? setPendingDisable(u) : enable(u.id)}>
                   {busyId === u.id ? "…" : u.status === "active" ? t.admin.actionDisable : t.admin.actionEnable}
                 </button>
               </div>
             </article>)}
           </div>
         </section>
+        {pendingDisable && (
+          <div className="pipe-confirm" role="dialog" aria-modal onClick={() => setPendingDisable(null)}>
+            <div className="pipe-confirm-box" onClick={(e) => e.stopPropagation()}>
+              <p>{t.admin.userDisableConfirm(pendingDisable.username, pendingDisable.email)}</p>
+              <p>{t.admin.userDisableEffect}</p>
+              <div className="pipe-confirm-actions">
+                <button type="button" className="button small" onClick={() => setPendingDisable(null)}>{t.admin.cancel}</button>
+                <button type="button" className="button danger small" disabled={busyId === pendingDisable.id}
+                  onClick={confirmDisable}>{t.admin.actionDisable}</button>
+              </div>
+            </div>
+          </div>
+        )}
   </>;
 }

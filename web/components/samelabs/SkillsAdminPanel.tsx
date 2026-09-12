@@ -36,6 +36,7 @@ export function SamelabsSkills() {
   const [cats, setCats] = useState<CategoryRow[]>([]);
   const [newCat, setNewCat] = useState({ name: "", abbr: "", color: "#1e90ff", sort_order: 100 });
   const [catBusy, setCatBusy] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<SkillRow | null>(null);
   const [catError, setCatError] = useState("");
 
   async function reload(vis: "all" | "public" | "private" = visibility) {
@@ -151,7 +152,7 @@ export function SamelabsSkills() {
                   {busyId === s.id ? "…" : s.visibility === "public" ? t.admin.skillUnpublish : t.admin.skillPublish}
                 </button>
                 <button className="text-button" disabled={busyId === s.id}
-                  onClick={() => removeSkill(s.id)}>
+                  onClick={() => setPendingDelete(s)}>
                   {t.admin.skillDelete}
                 </button>
               </div>
@@ -198,5 +199,20 @@ export function SamelabsSkills() {
             </button>
           </div>
         </section>
+    {pendingDelete && (
+      <div className="pipe-confirm" role="dialog" aria-modal onClick={() => setPendingDelete(null)}>
+        <div className="pipe-confirm-box" onClick={(e) => e.stopPropagation()}>
+          <p>{t.admin.skillDeleteConfirm(pendingDelete.title, pendingDelete.slug)}</p>
+          <p>{t.admin.skillDeleteIrreversible}</p>
+          <div className="pipe-confirm-actions">
+            <button type="button" className="button small" onClick={() => setPendingDelete(null)}>{t.admin.cancel}</button>
+            <button type="button" className="button danger small" disabled={busyId === pendingDelete.id}
+              onClick={() => { removeSkill(pendingDelete.id).finally(() => setPendingDelete(null)); }}>
+              {t.admin.skillDelete}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </>;
 }
