@@ -27,6 +27,65 @@ def lease_hash(value: str) -> bytes:
     return hashlib.sha256(value.encode()).digest()
 
 
+# ── P0-2 completion receipt(0912 trusted plane): 幂等 ack + 最小成功归因 ──
+# 与业务写入 + job terminal 同一事务提交; 只存协议事实, 无 payload/明文 token。
+
+RECEIPT_INSERT = text("""
+    INSERT INTO maintenance.workapi_completion_receipts
+        (family, job_id, worker_id, lease_token_hash, scope, terminal_status, chemical_id)
+    VALUES (:family, :job_id, :worker_id, :lease_hash, :scope, :status, :chemical_id)
+    ON CONFLICT (family, job_id) DO NOTHING
+""")
+
+
+async def record_completion_receipt(
+    db: Any, *, family: str, job_id: int, worker_id: str,
+    lease_token: str, scope: str, terminal_status: str,
+    chemical_id: int | None,
+) -> None:
+    """complete 主事务内调用(与 DELETE job 同 commit)。幂等插入。"""
+    await db.execute(RECEIPT_INSERT, {
+        "family": family, "job_id": job_id, "worker_id": worker_id,
+        "lease_hash": lease_hash(lease_token), "scope": scope,
+        "status": terminal_status, "chemical_id": chemical_id,
+    })
+
+
+async def find_completion_receipt(
+    db: Any, *, family: str, job_id: int, worker_id: str, lease_token: str,
+) -> bool:
+    """active lease 已不存在时的重试判定:
+    family+job_id+worker_id+lease_token_hash 全一致 → True(幂等 ack)。"""
+    row = (await db.execute(text("""
+        SELECT 1 FROM maintenance.workapi_completion_receipts
+        WHERE family=:family AND job_id=:job_id
+          AND worker_id=:worker_id AND lease_token_hash=:lease_hash
+        LIMIT 1
+    """), {
+        "family": family, "job_id": job_id, "worker_id": worker_id,
+        "lease_hash": lease_hash(lease_token),
+    })).fetchone()
+    return row is not None
+
+
+async def complete_with_receipt(
+    db: Any, *, family: str, job_id: int, worker_id: str,
+    lease_token: str, scope: str, terminal_status: str,
+    chemical_id: int | None, delete_sql: str, delete_params: dict,
+) -> None:
+    """receipt + job DELETE 一起(调用方随后 commit 一次)。
+
+    complete 的 verified_*lease 已持 FOR UPDATE 行锁并校验
+    owner+token_hash+expiry — 与 receipt 写入之间无竞态窗口。
+    """
+    await record_completion_receipt(
+        db, family=family, job_id=job_id, worker_id=worker_id,
+        lease_token=lease_token, scope=scope,
+        terminal_status=terminal_status, chemical_id=chemical_id)
+    await db.execute(text(delete_sql), delete_params)
+
+
+
 async def verified_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock: bool = True):
     suffix = " FOR UPDATE" if lock else ""
     row = (await db.execute(text(f"""

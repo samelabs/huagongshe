@@ -288,9 +288,12 @@ class PubChemWriteOrderTests(unittest.TestCase):
         resp1 = self._complete(job, self._payload(cid=CID_SHARED))
         survivor1 = resp1.get("chemical_id")
         self.assertIn(survivor1, (me, other))
-        # 重放同一结果: job 已出表, complete 必须 409(租约不存在) — 不再触碰数据
-        with self.assertRaises(Exception):
-            self._complete(job, self._payload(cid=CID_SHARED))
+        # 重放同一结果: job 已出表。P0-2(0912 trusted plane) 后语义更新:
+        # 同 worker + 同 lease_token 的重试 → 幂等 ack(200/idempotent),
+        # 绝不第二次执行业务写入 — 判据 = merge 仍恰 1 次(下方)。
+        resp2 = self._complete(job, self._payload(cid=CID_SHARED))
+        self.assertTrue(resp2.get("idempotent") is True or resp2 == resp1,
+                        "重放必须是幂等 ack, 不得二次执行")
         from sqlalchemy import text
         async def count_merges():
             async with self.engine.begin() as db:

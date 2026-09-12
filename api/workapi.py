@@ -21,6 +21,7 @@ from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, ErrorBody, Cas
 from .services.workqueue import (
     lease_hash, verified_lease, as_json_object, sync_chemical_core,
     upsert_details, verified_cas_lease,
+    find_completion_receipt, record_completion_receipt,
 )
 from .services.gate import (
     gate_silence_remaining, gate_record_error, gate_record_success,
@@ -30,6 +31,40 @@ from .services.gate import (
 router = APIRouter(prefix="/workapi/v1", tags=["workapi"])
 
 NONCE_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
+
+# ---------------------------------------------------------------------------
+# P0 fail-closed scope gate (0912 Worker trusted plane 审计 P0-1):
+# 显式 route-family → scope 映射; 未匹配的 path 一律 403, 禁止 else→pubchem。
+# identity discovery 按业务定义走 pubchem scope(不新增 identity scope)。
+# ---------------------------------------------------------------------------
+ROUTE_FAMILY_SCOPE: dict[tuple[str, str, str], str] = {
+    # (method, first_seg, second_seg) → scope
+    ("POST", "jobs", "lease"): "pubchem",
+    ("POST", "jobs", "complete"): "pubchem",
+    ("POST", "jobs", "error"): "pubchem",
+    ("POST", "cas", "jobs"): "cas",
+    ("POST", "identity", "jobs"): "pubchem",
+}
+
+
+def resolve_route_scope(method: str, path: str) -> str | None:
+    """显式 route-family 判定; 无匹配 → None(调用方 403 fail-closed)。
+
+    path 形如 /workapi/v1/<a>/<b>[/<c>...]: jobs|cas|identity 三族按
+    (method, a, b) 定位; b 不是 jobs 的(cas/identity)按 (method, a) 前缀。
+    """
+    parts = path.strip("/").split("/")
+    # parts: ['workapi','v1', <a>, <b>, ...]
+    if len(parts) < 4 or parts[0] != "workapi" or parts[1] != "v1":
+        return None
+    method = method.upper()
+    a, b = parts[2], parts[3]
+    if (method, a, b) in ROUTE_FAMILY_SCOPE:
+        return ROUTE_FAMILY_SCOPE[(method, a, b)]
+    if a in ("cas", "identity") and b == "jobs":
+        return "cas" if a == "cas" else "pubchem"
+    return None
+
 
 
 @dataclass(frozen=True)
@@ -73,7 +108,10 @@ async def authenticated_worker(
         raise HTTPException(401, "invalid worker signature")
 
     token_hash = hashlib.sha256(token.encode()).digest()
-    scope_needed = "cas" if request.url.path.startswith("/workapi/v1/cas/") else "pubchem"
+    # P0-1: 显式 route-family → scope; 未知 path → 403(fail-closed)
+    scope_needed = resolve_route_scope(request.method, request.url.path)
+    if scope_needed is None:
+        raise HTTPException(403, "workapi route is not mapped to any scope")
     row = (await db.execute(text("""
         SELECT worker_id,max_lease_jobs
         FROM maintenance.worker_clients
@@ -176,9 +214,20 @@ async def complete_job(
     worker: WorkerContext = Depends(authenticated_worker),
 ):
     """整包入库(0901 定案): 拉到就 update, 全字段覆盖, 无校验。
-    result 空 → job 出表, 数据层零动作。"""
+    result 空 → job 出表, 数据层零动作。
+    P0-2: active lease 缺失时查 completion receipt — 同 worker+同
+    lease_token_hash 的重试返回幂等 ack, 不再 409(协议确认幂等)。"""
     try:
-        job = await verified_lease(db, body, worker.worker_id)
+        try:
+            job = await verified_lease(db, body, worker.worker_id)
+        except HTTPException as exc:
+            if exc.status_code != 409:
+                raise
+            if await find_completion_receipt(
+                    db, family="pubchem", job_id=body.job_id,
+                    worker_id=worker.worker_id, lease_token=body.lease_token):
+                return {"status": "ok", "idempotent": True}
+            raise
         result = body.result
         # 0906 身份机制: job 携带的行 id 可能已被合并删除(异步执行期间
         # absorb), 先过 redirect 解析 canonical, 无记录返回原值
@@ -256,17 +305,29 @@ async def complete_job(
                         identity_grant=grant,
                     )
         # 出表: complete 即 DELETE, job 是纯队列不承载历史。
+        # P0-2/P1-5: receipt 与 DELETE 同事务(先 receipt 后 delete, 一次 commit)。
+        await record_completion_receipt(
+            db, family="pubchem", job_id=body.job_id, worker_id=worker.worker_id,
+            lease_token=body.lease_token, scope="pubchem",
+            terminal_status=("empty" if not payload else "ok"), chemical_id=chemical_id)
         await db.execute(text("""
             DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
         """), {"job_id": body.job_id})
         await db.commit()
-        # 闸门归零: 一次成功 = 通道连击清零 + error 行复活回队。
-        redis = await get_cache()
-        await gate_record_success(redis, "pubchem")
-        await gate_unlock_error_rows(db, "pubchem")
-        await db.commit()
-        if chemical_id is not None:
-            await cache_delete(f"v1:chemical:{chemical_id}")
+        # ── P0-3 post-commit housekeeping: primary commit 即 authoritative 终点。
+        # Redis/gate/cache 失败只记结构化 warning, 不得改报 Worker failure。
+        try:
+            redis = await get_cache()
+            await gate_record_success(redis, "pubchem")
+            await gate_unlock_error_rows(db, "pubchem")
+            await db.commit()
+            if chemical_id is not None:
+                await cache_delete(f"v1:chemical:{chemical_id}")
+        except Exception as exc:
+            logger.warning(
+                "workapi_housekeeping_failed family=pubchem job_id=%s "
+                "worker_id=%s chemical_id=%s — completion already committed: %s",
+                body.job_id, worker.worker_id, chemical_id, exc)
         return {"status": "ok", "chemical_id": chemical_id, "empty": not payload}
     except HTTPException:
         raise
@@ -513,7 +574,16 @@ async def cas_complete_job(
     from .services.cb import CACHE_KEY, apply_structure_fill, resolve_structure, upsert_externals
     from .services.cb import clear_negative, negative_is_fresh, record_negative
     try:
-        job = await verified_cas_lease(db, body, worker.worker_id)
+        try:
+            job = await verified_cas_lease(db, body, worker.worker_id)
+        except HTTPException as exc:
+            if exc.status_code != 409:
+                raise
+            if await find_completion_receipt(
+                    db, family="cas", job_id=body.job_id,
+                    worker_id=worker.worker_id, lease_token=body.lease_token):
+                return {"status": "ok", "idempotent": True}
+            raise
         chemical_id = job[1]
         cas_number = job[2]
         unbound_bound = False  # B-safe: unbound OK bind 成功标记
@@ -546,6 +616,11 @@ async def cas_complete_job(
                     # "CAS 不存在"的 negative fact 必须失效(与 job DELETE
                     # 同事务); 候选零 canonical 写。
                     await clear_negative(db, "cas_locator", cas_number=cas_number)
+                    await record_completion_receipt(
+                        db, family="cas", job_id=body.job_id,
+                        worker_id=worker.worker_id, lease_token=body.lease_token,
+                        scope="cas", terminal_status="standalone_unresolved",
+                        chemical_id=None)
                     await db.execute(text("""
                         DELETE FROM maintenance.cas_jobs WHERE id=:job_id
                     """), {"job_id": body.job_id})
@@ -553,6 +628,11 @@ async def cas_complete_job(
                     return {"status": status, "standalone": True,
                             "resolved": False}
             else:
+                await record_completion_receipt(
+                    db, family="cas", job_id=body.job_id,
+                    worker_id=worker.worker_id, lease_token=body.lease_token,
+                    scope="cas", terminal_status="standalone",
+                    chemical_id=None)
                 await db.execute(text("""
                     DELETE FROM maintenance.cas_jobs WHERE id=:job_id
                 """), {"job_id": body.job_id})
@@ -686,15 +766,27 @@ async def cas_complete_job(
                         source_cb_number=payload.cb_number,
                     )
         # 出表(§3): complete 即 DELETE; 闸门归零(§4) cb 通道。
+        # P0-2/P1-5: receipt 与 DELETE 同事务。
+        await record_completion_receipt(
+            db, family="cas", job_id=body.job_id, worker_id=worker.worker_id,
+            lease_token=body.lease_token, scope="cas",
+            terminal_status=status, chemical_id=chemical_id)
         await db.execute(text("""
             DELETE FROM maintenance.cas_jobs WHERE id=:job_id
         """), {"job_id": body.job_id})
         await db.commit()
-        redis = await get_cache()
-        await gate_record_success(redis, "cb")
-        await gate_unlock_error_rows(db, "cb")
-        await db.commit()
-        await cache_delete(CACHE_KEY.format(chemical_id=chemical_id))
+        # ── P0-3 post-commit housekeeping: 失败仅结构化 warning, 不改报失败。──
+        try:
+            redis = await get_cache()
+            await gate_record_success(redis, "cb")
+            await gate_unlock_error_rows(db, "cb")
+            await db.commit()
+            await cache_delete(CACHE_KEY.format(chemical_id=chemical_id))
+        except Exception as exc:
+            logger.warning(
+                "workapi_housekeeping_failed family=cas job_id=%s "
+                "worker_id=%s chemical_id=%s — completion already committed: %s",
+                body.job_id, worker.worker_id, chemical_id, exc)
         return summary
     except HTTPException:
         raise
@@ -831,24 +923,55 @@ async def complete_identity_job(
 ):
     """discovery complete: 0→not_found / >1→ambiguous / 1→candidate handoff
     (canonicalize → freshness recheck → 原子入 pubchem_jobs → candidate,
-    任一步失败整事务 rollback — §3 修正3)。闸门成功归零与 pubchem 同源。"""
+    任一步失败整事务 rollback — §3 修正3)。闸门成功归零与 pubchem 同源。
+    P0-2: 结果行保留(审计+负缓存), 另记 completion receipt 供重试幂等 ack。"""
     try:
-        job = await _verified_identity_lease(db, body, worker.worker_id)
+        try:
+            job = await _verified_identity_lease(db, body, worker.worker_id)
+        except HTTPException as exc:
+            if exc.status_code != 409:
+                raise
+            if await find_completion_receipt(
+                    db, family="identity", job_id=body.job_id,
+                    worker_id=worker.worker_id, lease_token=body.lease_token):
+                return {"status": "idempotent", "chemical_id": None}
+            raise
         from .services.discovery import complete_discovery
         status = await complete_discovery(
             db, job_id=int(job[0]), cid_list=body.cid_list)
         # 结果行保留(审计+负缓存), 不是 DELETE。
+        await record_completion_receipt(
+            db, family="identity", job_id=int(job[0]), worker_id=worker.worker_id,
+            lease_token=body.lease_token, scope="pubchem",
+            terminal_status=status, chemical_id=int(job[1]))
         await db.commit()
-        redis = await get_cache()
-        await gate_record_success(redis, "pubchem")
-        await gate_unlock_error_rows(db, "pubchem")
-        await db.commit()
+        # ── P0-3 post-commit housekeeping: 失败仅结构化 warning。──
+        try:
+            redis = await get_cache()
+            await gate_record_success(redis, "pubchem")
+            await gate_unlock_error_rows(db, "pubchem")
+            await db.commit()
+        except Exception as exc:
+            logger.warning(
+                "workapi_housekeeping_failed family=identity job_id=%s "
+                "worker_id=%s — completion already committed: %s",
+                body.job_id, worker.worker_id, exc)
         return {"status": status, "chemical_id": int(job[1])}
     except HTTPException:
         raise
     except Exception:
         await db.rollback()
         raise
+
+
+# ---------------------------------------------------------------------------
+# P1-5 retention: completion receipt 简单时间保留。
+# 保留窗 = 30 天(协议重试窗口 nonce TTL 600s × 安全余量 + 故障调查窗口)。
+# 删除语句常驻于此, 巡检/维护时手动执行; 不建 daemon/service/cron。
+#   DELETE FROM maintenance.workapi_completion_receipts
+#    WHERE completed_at < now() - interval '30 days';
+# 行量级: 每完成一个 job 一行, 与队列吞吐同阶, 30 天窗内 ~百万行级以内。
+# ---------------------------------------------------------------------------
 
 
 @router.post("/identity/jobs/error")

@@ -102,7 +102,9 @@ async def patch_worker(
     body: WorkerPatchBody,
     actor: Actor = Depends(admin), db=Depends(get_db),
 ):
-    """编辑 Worker 元数据/停权. 停权后 worker 下次 lease 即 401; 不提供 DELETE(保留审计轨迹)."""
+    """编辑 Worker 元数据/停权. 停权后 worker 下次 lease 即 401; 不提供 DELETE(保留审计轨迹).
+    P1 三态(0912): enabled=false → 写 disabled_at; enabled=true → 清 disabled_at;
+    enabled=None → 两者不动。auth 要求 enabled AND disabled_at IS NULL。"""
     scopes = _validated_scopes(body.scopes) if body.scopes is not None else None
     result = (await db.execute(text("""
         UPDATE maintenance.worker_clients
@@ -110,8 +112,10 @@ async def patch_worker(
             scopes=coalesce(CAST(:scopes AS text[]),scopes),
             max_lease_jobs=coalesce(:max_lease_jobs,max_lease_jobs),
             enabled=coalesce(:enabled,enabled),
-            disabled_at=CASE WHEN coalesce(:enabled,enabled)=false AND disabled_at IS NULL
-                        THEN now() ELSE disabled_at END
+            disabled_at=CASE
+                        WHEN coalesce(:enabled,enabled)=false THEN now()
+                        WHEN coalesce(:enabled,enabled)=true  THEN NULL
+                        ELSE disabled_at END
         WHERE worker_id=:worker_id
         RETURNING worker_id,display_name,scopes,max_lease_jobs,enabled,created_at,last_seen_at,disabled_at
     """), {
