@@ -41,15 +41,165 @@ def allows_substring_fallback(nq: str) -> bool:
     )
 
 
+# ---- 名称搜索统一契约(Search System Governance, 2026-09-13) ----
+# fuzzy substring 的 DB 侧资格: normalize 后实际字符数 >= 3(trigram 选择性下限)。
+# 与 query acceptance(name_query_width >= MIN_FUZZY_NAME_LENGTH)分开:
+# A甲/甲A/甲醇 合法但 exact-only; AB 在入口即拒; 苯甲酸/benzoic 可 fuzzy。
+MIN_FUZZY_SUBSTR_CHARS = 3
+
+# fuzzy/exact 候选窗口的绝对上限。
+# 推导自真实 API 上限(2026-09-13 取证): REST /search page≤20 × page_size≤100
+# → 最大 offset=1900, 最大翻页边界=2000; MCP search_chemistry_data 同钳制
+# (page≤20, page_size≤100)。上限 = 2000 + 1(has_more 探测) = 2001。
+# 实际每页窗口是动态 deterministic 前缀: window = min(offset+page_size+1,
+# 上限) —— page1 只付 31 的成本, 深页按需增长, 稳定性由 source SQL 的
+# ORDER BY id 前缀契约保证(W31 ⊆ W61 ⊆ W91, 生产实测锁), 不是无序窗口。
+FUZZY_CANDIDATE_CAP = 2001
+
+
+def allows_fuzzy_substring(nq: str) -> bool:
+    """fuzzy substring 的数据库资格: normalize 后实际字符数 >= 3。"""
+    return len(nq) >= MIN_FUZZY_SUBSTR_CHARS
+
+
+def candidate_window(offset: int, page_size: int) -> int:
+    """deterministic 候选前缀窗口: offset+page_size+1, 受 API 最大边界约束。"""
+    return min(offset + page_size + 1, FUZZY_CANDIDATE_CAP)
+
+
+async def run_name_search(
+    db: Any, query: str, page_size: int, offset: int,
+) -> tuple[list[dict[str, Any]], bool]:
+    """统一名称候选流: exact 聚合短路 → fuzzy deterministic 统一分页。
+
+    返回 (chemicals, has_more)。
+    - exact 阶段: 三个来源(preferred/iupac/name_index)全部独立 bounded 等值
+      查询(窗口=offset+page_size+1 的 deterministic 前缀), union → dedupe
+      chemical_id → tier rank → chemical_id 确定性排序; 任意来源有 exact
+      候选即返回 exact stream, 不进 fuzzy(字段 tier 只决定 rank, 不决定
+      集合资格 —— 不同实体可通过不同字段 exact 命中)。
+    - fuzzy 阶段(仅 exact 全 miss 且 allows_fuzzy_substring): 三个来源各取
+      同一 deterministic 前缀窗口(window=offset+page_size+1 ≤ cap, ID-only
+      + ORDER BY id, 生产实测热态 90-800ms), Python 侧 去重 → tier rank →
+      chemical_id 升序 → 统一 pagination。与旧实现的根本区别: 旧版是无
+      ORDER BY 的动态 LIMIT(依赖 planner 返回顺序, 不稳定); 本版 ORDER BY
+      前缀契约保证 W_n ⊆ W_{n+1}(生产实测锁), 深页只是更长前缀。
+      page1 只付 window=31 的成本, 不为理论深页预付; 深页(2001 级)冷缓存
+      可能撞 5s 闸, 属 deep-page bounded debt(现有 503 兜底), 不引入 cache。
+    - has_more = 统一候选流长度 > offset+page_size, 无第二条 count SQL。
+    """
+    nq = normalize_name(query)
+    window = candidate_window(offset, page_size)
+
+    # ---- 阶段 1: exact-name candidate aggregation (等值, bounded 前缀) ----
+    exact_ranked: list[tuple[int, int]] = []  # (tier_rank, chemical_id)
+    exact_seen: set[int] = set()
+
+    async def _ids(sql: str, params: dict[str, Any]) -> list[int]:
+        rows = (await db.execute(text(sql), params)).scalars().all()
+        return [int(r) for r in rows]
+
+    # 三个来源全部独立查询(不 short-circuit 跳过); exact 同样只取前缀窗口。
+    preferred_exact = await _ids(
+        "SELECT c.id FROM chemistry.chemicals c"
+        " WHERE c.preferred_name = ANY(:variants) ORDER BY c.id LIMIT :window",
+        {"variants": _exact_variants(query), "window": window},
+    )
+    iupac_exact = await _ids(
+        "SELECT c.id FROM chemistry.chemicals c"
+        " WHERE c.iupac_name = ANY(:variants) ORDER BY c.id LIMIT :window",
+        {"variants": _exact_variants(query), "window": window},
+    )
+    name_index_exact = await _ids(
+        "SELECT DISTINCT chemical_id FROM chemistry.name_index"
+        " WHERE normalized = :nq ORDER BY chemical_id LIMIT :window",
+        {"nq": nq, "window": window},
+    )
+    for rank, tier_ids in enumerate((preferred_exact, iupac_exact, name_index_exact), start=1):
+        for cid in tier_ids:
+            if cid not in exact_seen:
+                exact_seen.add(cid)
+                exact_ranked.append((rank, cid))
+    exact_ranked.sort(key=lambda item: (item[0], item[1]))
+
+    if exact_ranked:
+        page_rows = [cid for _rank, cid in exact_ranked[offset:offset + page_size]]
+        has_more = len(exact_ranked) > offset + page_size
+        if page_rows:
+            hydrated = await fetch_chemicals(db, f"""
+                SELECT {CHEMICAL_SELECT}
+                FROM chemistry.chemicals c
+                WHERE c.id = ANY(:ids)
+                ORDER BY c.id
+            """, {"ids": page_rows})
+            return hydrated, has_more
+        return [], False
+
+    # ---- 阶段 2: fuzzy deterministic 统一候选流 (仅 exact 全 miss) ----
+    if not allows_fuzzy_substring(nq):
+        return [], False
+
+    # ID-only deterministic 前缀: 每来源 ORDER BY id + 动态窗口(≤cap), 不取宽行。
+    tier1 = await _ids(
+        "SELECT c.id FROM chemistry.chemicals c"
+        " WHERE c.preferred_name ILIKE '%' || :q || '%'"
+        " ORDER BY c.id LIMIT :window",
+        {"q": query, "window": window},
+    )
+    tier2 = await _ids(
+        "SELECT c.id FROM chemistry.chemicals c"
+        " WHERE c.iupac_name ILIKE '%' || :q || '%'"
+        " ORDER BY c.id LIMIT :window",
+        {"q": query, "window": window},
+    )
+    tier3 = await _ids(
+        "SELECT DISTINCT chemical_id FROM chemistry.name_index"
+        " WHERE normalized LIKE '%' || :nq || '%'"
+        " ORDER BY chemical_id LIMIT :window",
+        {"nq": nq, "window": window},
+    )
+    # 去重 → rank(tier 顺序) → chemical_id 升序 → 统一 pagination
+    ranked: list[tuple[int, int]] = []  # (rank, chemical_id)
+    dedup: set[int] = set()
+    for rank, tier_ids in enumerate((tier1, tier2, tier3), start=1):
+        for cid in tier_ids:
+            if cid not in dedup:
+                dedup.add(cid)
+                ranked.append((rank, cid))
+    ranked.sort(key=lambda item: (item[0], item[1]))
+    page_rows = [cid for _rank, cid in ranked[offset:offset + page_size]]
+    has_more = len(ranked) > offset + page_size
+    if page_rows:
+        hydrated = await fetch_chemicals(db, f"""
+            SELECT {CHEMICAL_SELECT}
+            FROM chemistry.chemicals c
+            WHERE c.id = ANY(:ids)
+            ORDER BY c.id
+        """, {"ids": page_rows})
+        return hydrated, has_more
+    return [], False
+
+
+def _exact_variants(query: str) -> list[str]:
+    """等值命中的大小写变体(存储为原大小写; title/lower/upper 覆盖主流形态)。
+
+    不新建索引、不改存储; equality 走现有 trgm 索引(实测 7-266ms)。
+    """
+    base = query.strip()
+    return list({base, base.lower(), base.upper(), base.title()})
+
+
 async def run_search_query(
     db: Any, query: str, mode: str, canonical: Any, page: int, page_size: int,
     offset: int,
     *, actor_id: int | None = None, threshold: float = 0.7,
-) -> tuple[list[dict[str, Any]], int | None, list[dict[str, Any]], bool, Any]:
+) -> tuple[list[dict[str, Any]], int | None, list[dict[str, Any]], bool, Any, bool]:
     """执行搜索主体(化合物命中/total/反应/cas_fetch_pending/canonical 回写)。
 
-    返回 (chemicals, total, reactions, cas_fetch_pending, canonical)。
+    返回 (chemicals, total, reactions, cas_fetch_pending, canonical, has_more)。
     canonical 可能被 substructure 分支重新赋值(bounded), 调用方需取回。
+    has_more: 名称路径来自 run_name_search 的同一候选窗口(权威翻页字段);
+    identifier 路径由 total/page 推导; 其余模式 False。
     actor_id: 鉴权用户 id(匿名=None) — 仅用于 CAS-miss 入队限流身份。
     threshold: similarity 模式阈值(0.4-1.0, 默认 0.7), 与 /chemicals/{id}/similarity 同语义。
     """
@@ -99,7 +249,7 @@ async def run_search_query(
         else:
             clauses = []
             params = {"q": query, "uq": query.upper(), "limit": page_size, "offset": offset}
-            name_index_hit = False
+            name_has_more = False
             prefix, sep, raw_value = query.partition(":")
             if sep and prefix.lower() in IDENTIFIER_ARRAYS:
                 clauses.append(f"c.{IDENTIFIER_ARRAYS[prefix.lower()]} @> ARRAY[:qv]")
@@ -165,38 +315,23 @@ async def run_search_query(
                     try:
                         from .cb import (
                             cas_search_state, enqueue_cas_search_fetch,
-                            sync_fetch_and_store,
                         )
                         # rate 拒绝时跳过 state 询问, state 保持 "miss" 之外的
                         # 平价值: 只是不入队, 不对 CB 收录下任何结论(与
                         # cas_search_state 的 miss=终态负缓存语义区分)。
                         state = "throttled" if rate_state == "miss" else await cas_search_state(db, query)
                         if state == "new":
-                            # 0902 P3b: 同步拉首屏 — 占行后当场抓 CB(3s 预算,
-                            # 路径B实测 ~1.5s), 命中即本次响应带回 chemical_id,
-                            # 前端直接跳详情页, 零轮询。失败/超时降级入列(80 分)。
-                            # 治理不变: 治理交互不治理总量, dedupe 活跃窗防重复。
-                            # 0907 门禁收口: resolver 裁定结果直接穿透 —
-                            # chemical_id 非空(EXACT/EQUIVALENT/NEW 占位行)才
-                            # 同步拉; None(AMBIGUOUS/CONFLICT)不落到任何候选行,
-                            # 旧 cas_numbers LIMIT 1 任意选行旁路已删除。
-                            enqueued, _res_status, row_id = await enqueue_cas_search_fetch(
+                            # Search System Governance(2026-09-13): CAS miss 保持
+                            # 受控入队(rate/dedupe/governance 原样), 但响应不再
+                            # 同步等待外部 CB fetch —— sync_fetch_and_store 的 3s
+                            # 预算从 critical path 移除, 由后台 worker 消化队列。
+                            # 0907 门禁不变: resolver 裁定穿透, chemical_id 非空
+                            # 才占行; None(AMBIGUOUS/CONFLICT)不落任何候选行。
+                            enqueued, _res_status, _row_id = await enqueue_cas_search_fetch(
                                 db, cas_number=query,
                             )
                             await db.commit()
-                            if enqueued:
-                                synced = None
-                                if row_id is not None:
-                                    synced = await sync_fetch_and_store(
-                                        db, chemical_id=int(row_id), cas_number=query,
-                                    )
-                                if row_id is not None and synced and synced.get("status") == "ok":
-                                    cas_fetch_hit_id = int(row_id)
-                                    state = "hit"
-                                else:
-                                    state = "pending"
-                            else:
-                                state = "miss"
+                            state = "pending" if enqueued else "miss"
                     except Exception:
                         await db.rollback()  # 入队失败不阻塞搜索响应
                         state = "new"
@@ -222,70 +357,15 @@ async def run_search_query(
                 except Exception:
                     await db.rollback()  # 建行失败不阻塞搜索响应
             if not chemicals and not canonical and name_query_width(query) >= MIN_FUZZY_NAME_LENGTH:
-                # Keep the two trigram indexes independent. A cross-column OR on
-                # 124M rows is both slower and less predictable than two bounded scans.
-                # CJK 短语跳过前两段: preferred_name/iupac 全英文, 2 字中文的 trigram
-                # 索引选择性崩塌(乙醇 bitmap 吐 42 万候选 91s); 中文名只活在这段。
-                has_cjk = name_query_width(query) > len(query)
-                if not has_cjk:
-                    chemicals = await fetch_chemicals(db, f"""
-                        SELECT {CHEMICAL_SELECT}
-                        FROM chemistry.chemicals c
-                        WHERE c.preferred_name ILIKE '%' || :q || '%'
-                        ORDER BY c.id LIMIT :limit OFFSET :offset
-                    """, {"q": query, "limit": page_size, "offset": offset})
-                    if len(chemicals) < page_size:
-                        secondary = await fetch_chemicals(db, f"""
-                            SELECT {CHEMICAL_SELECT}
-                            FROM chemistry.chemicals c
-                            WHERE c.iupac_name ILIKE '%' || :q || '%'
-                            ORDER BY c.id LIMIT :limit OFFSET :offset
-                        """, {"q": query, "limit": page_size, "offset": offset})
-                        seen = {item["id"] for item in chemicals}
-                        # 相关性排序: preferred_name 命中段排在前, iupac 段追加在后.
-                        # 不再按 id 归并排序(id 排序会让低段位命中挤掉精确名匹配).
-                        chemicals.extend(item for item in secondary if item["id"] not in seen)
-                        chemicals = chemicals[:page_size]
-                # 第三段: name_index(中文名/别名/供应商名/synonyms 的派生镜像)。
-                # 只在前两段不足一页时下探, 前两路零改动。
-                if (has_cjk or len(chemicals) < page_size) and offset == 0:
-                    # tier3 重排(2026-09-13): 先 exact normalized 等值命中, substring
-                    # 只作为 fallback —— exact 永远先于 substring, 与 canonical name
-                    # 定义无关。
-                    nq = normalize_name(query)
-                    # 仅「整个 query 恰好由两个 CJK 字符组成」禁止 substring;
-                    # 混合查询(甲醇A/A甲醇/甲醇-d4)不受此限, 保留原 fallback。
-                    tertiary_ids = (await db.execute(text("""
-                        SELECT DISTINCT chemical_id FROM chemistry.name_index
-                        WHERE normalized = :nq
-                        ORDER BY chemical_id LIMIT :limit
-                    """), {"nq": nq, "limit": page_size})).scalars().all()
-                    if not tertiary_ids and allows_substring_fallback(nq):
-                        # 两字 CJK 禁止 substring fallback: 2 字 trigram 选择性崩塌,
-                        # planner 为 ORDER BY+LIMIT 弃 GIN 走 chemical_id 索引全扫
-                        # (甲醇实测滤 173 万行 ~700ms, 并发下逼 5s statement_timeout);
-                        # exact equality 走 GIN 索引 40ms。≥3 字保留 substring 下探。
-                        tertiary_ids = (await db.execute(text("""
-                            SELECT DISTINCT chemical_id FROM chemistry.name_index
-                            WHERE normalized LIKE '%' || :nq || '%'
-                            ORDER BY chemical_id LIMIT :limit
-                        """), {"nq": nq, "limit": page_size})).scalars().all()
-                    if tertiary_ids:
-                        name_index_hit = True
-                        # 合并而非替换: 前两段结果保留, 去重后追加(与第二段同型).
-                        # 相关性排序: 段位顺序 = preferred_name > iupac > name_index;
-                        # 同义词层(如"Aspirin Impurity C")不得越过精确名命中.
-                        seen = {item["id"] for item in chemicals}
-                        fresh_ids = [i for i in tertiary_ids if i not in seen]
-                        if fresh_ids:
-                            more = await fetch_chemicals(db, f"""
-                                SELECT {CHEMICAL_SELECT}
-                                FROM chemistry.chemicals c
-                                WHERE c.id = ANY(:ids)
-                                ORDER BY c.id
-                            """, {"ids": fresh_ids})
-                            chemicals.extend(more)
-                            chemicals = chemicals[:page_size]
+                # Search System Governance(2026-09-13): 名称查询走统一候选服务
+                # run_name_search —— exact 短路(preferred>iupac>name_index 等值,
+                # benzoic acid 本体先于 substring 命中), exact 全 miss 才 fuzzy,
+                # fuzzy substring 仅当 normalize 后 >=3 字符(A甲/甲A/甲醇 exact-only),
+                # 三来源统一候选流分页(无 per-tier OFFSET / 无 offset==0 闸门),
+                # has_more 来自同一窗口(offset+page_size+1), 名称面零 count SQL。
+                chemicals, name_has_more = await run_name_search(
+                    db, query, page_size, offset,
+                )
             elif not chemicals and not canonical and name_query_width(query) < MIN_FUZZY_NAME_LENGTH:
                 raise HTTPException(422, "名称查询至少需要 3 个字符（中文至少 2 个字）")
             # 搜索命中卡片 → 同时查 zh 记录态和时间(准线§1 统一触发, 2026-08-30):
@@ -309,20 +389,16 @@ async def run_search_query(
 
         try:
             if mode == "exact" and not canonical and name_query_width(query) >= MIN_FUZZY_NAME_LENGTH:
-                if name_index_hit:
-                    pass  # 第三段贡献结果: 两列 count 不覆盖 name_index, 保持 None(更多结果)
-                elif clauses:
+                if clauses:
+                    # strong-identity exact: 唯一允许保留 exact total 的路径
+                    # (与召回同 clause, 实测 count 1-6ms)。
                     total = (await db.execute(text(f"""
                         SELECT count(*) FROM chemistry.chemicals c
                         WHERE {' OR '.join(clauses)}
                     """), params)).scalar()
-                else:
-                    await db.execute(text("SET LOCAL statement_timeout = '3s'"))
-                    total = (await db.execute(text("""
-                        SELECT count(*) FROM chemistry.chemicals c
-                        WHERE c.preferred_name ILIKE '%' || :q || '%'
-                           OR c.iupac_name ILIKE '%' || :q || '%'
-                    """), {"q": query})).scalar()
+                # 名称路径: 彻底删除 fuzzy/name exact 的 count(*)(Search System
+                # Governance 2026-09-13) —— total 保持 None, has_more 由
+                # run_name_search 的同一候选窗口给出, 不允许第二条 count SQL。
         except Exception:
             total = None
 
@@ -349,4 +425,10 @@ async def run_search_query(
     except Exception as exc:
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
-    return chemicals, total, reactions, cas_fetch_pending, canonical, cas_fetch_hit_id
+    # identifier 路径: has_more 由 exact total/page 推导(契约: total 可保留);
+    # 名称路径: name_has_more 来自 run_name_search 的候选窗口(权威)。
+    if clauses and total is not None:
+        has_more = (page * page_size) < total
+    else:
+        has_more = name_has_more
+    return chemicals, total, reactions, cas_fetch_pending, canonical, cas_fetch_hit_id, has_more

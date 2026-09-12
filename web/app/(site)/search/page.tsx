@@ -21,6 +21,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   let chemicals: Chemical[] = [];
   let reactions: ReactionLookup[] = [];
   let total: number | null = null;
+  let hasMore = false;
   let error = "";
   let fetchPending = false;
   let similarityThreshold: number | null = null;
@@ -53,6 +54,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       chemicals = data.chemicals;
       reactions = data.reactions || [];
       total = data.total ?? null;
+      // Search System Governance: 翻页入口只消费 API 的权威 has_more,
+      // 不再用 total===null && len===PAGE_SIZE 猜测。
+      hasMore = data.has_more === true;
       fetchPending = data.cas_fetch_pending === true;
       // 0902 P3b: 库外 CAS 同步拉命中 — 数据已落库, 服务端直达详情页(零轮询)
       // redirect() 以抛 NEXT_REDIRECT 异常实现, 必须在 try 外执行,
@@ -84,7 +88,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   }
 
   const relationLabel = mode === "substructure" ? t.search.substructure : t.search.similarity;
-  const hasMore = total === null ? chemicals.length === PAGE_SIZE : page * PAGE_SIZE < total;
+  // 结构模式(chemical_id 相关检索)无 has_more, 沿用 total 推导; 名称搜索已由
+  // API has_more 权威给出(上方赋值), 不再猜测。
+  if (chemicalId) {
+    hasMore = total === null ? chemicals.length === PAGE_SIZE : page * PAGE_SIZE < total;
+  }
   const start = (page - 1) * PAGE_SIZE + 1;
   const shown = start + chemicals.length - 1;
 

@@ -179,6 +179,8 @@ export type SearchResponse = {
   page: number;
   page_size: number;
   total: number | null;
+  /** 权威翻页字段(Search System Governance): 能否继续翻页只认它 */
+  has_more?: boolean;
   chemicals: Chemical[];
   reactions: ReactionLookup[];
   /** CAS 未命中且已入队自动获取时为 true（2026-08-27 起后端返回） */

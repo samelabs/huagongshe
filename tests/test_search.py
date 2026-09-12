@@ -92,50 +92,49 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertEqual(len(original["toxicity"]["entries"]), 20)
 
 
-class CjkTwoCharExactTierTests(unittest.TestCase):
-    """两字 CJK exact 超时 hotfix 的判别测试(纯逻辑 + mock DB 行为断言)。"""
+class SearchSystemGovernanceTests(unittest.TestCase):
+    """Search System Governance 判别测试: exact 短路 / fuzzy 资格 / 统一分页 / has_more / 零 count。"""
 
-    # ---- 纯逻辑: 是否禁止 substring fallback ----
+    # ---- 纯逻辑: fuzzy substring 资格(normalize 后 >= 3 字符) ----
 
-    def test_pure_two_cjk_blocks_fallback(self) -> None:
-        from api.services.search import is_two_cjk_query
+    def test_fuzzy_eligibility_matrix(self) -> None:
+        from api.services.search import allows_fuzzy_substring
 
-        self.assertTrue(is_two_cjk_query("甲醇"))
-        self.assertTrue(is_two_cjk_query("乙醇"))
+        # 两字符(无论 CJK/混合/拉丁)一律不进 substring
+        self.assertFalse(allows_fuzzy_substring("甲醇"))
+        self.assertFalse(allows_fuzzy_substring("a甲"))
+        self.assertFalse(allows_fuzzy_substring("甲a"))
+        self.assertFalse(allows_fuzzy_substring("ab"))
+        # >=3 字符可 fuzzy
+        self.assertTrue(allows_fuzzy_substring("苯甲酸"))
+        self.assertTrue(allows_fuzzy_substring("苯甲酸钠"))
+        self.assertTrue(allows_fuzzy_substring("benzoic"))
+        self.assertTrue(allows_fuzzy_substring("甲醇-d4"))
 
-    def test_mixed_queries_keep_fallback(self) -> None:
-        from api.services.search import is_two_cjk_query
-
-        self.assertFalse(is_two_cjk_query("甲醇a"))  # normalize 后 甲醇a
-        self.assertFalse(is_two_cjk_query("a甲醇"))
-        self.assertFalse(is_two_cjk_query("甲醇-d4"))
-        self.assertFalse(is_two_cjk_query("苯甲酸钠"))
-
-    def test_allows_substring_fallback_matrix(self) -> None:
-        from api.services.search import allows_substring_fallback
+    def test_query_acceptance_unchanged(self) -> None:
+        # 入口规则仍是 name_query_width >= MIN_FUZZY_NAME_LENGTH
         from api.services.chemicals import MIN_FUZZY_NAME_LENGTH, name_query_width
 
-        # 甲醇 width=4, 但 pure-two-CJK -> 禁
-        self.assertEqual(name_query_width("甲醇"), 4)
-        self.assertFalse(allows_substring_fallback("甲醇"))
-        self.assertFalse(allows_substring_fallback("乙醇"))
-        # width=3 的既有契约行为不变
-        self.assertEqual(name_query_width("a甲"), 3)
-        self.assertTrue(allows_substring_fallback("a甲"))  # A甲
-        self.assertTrue(allows_substring_fallback("甲a"))  # 甲A
-        self.assertTrue(allows_substring_fallback("甲醇a"))  # 甲醇A
-        self.assertTrue(allows_substring_fallback("a甲醇"))  # A甲醇
-        self.assertTrue(allows_substring_fallback("甲醇-d4"))
-        self.assertTrue(allows_substring_fallback("苯甲酸钠"))
-        # width=2 -> 禁(既有最短长度门槛)
         self.assertEqual(name_query_width("ab"), 2)
-        self.assertFalse(allows_substring_fallback("ab"))
-        self.assertLess(2, MIN_FUZZY_NAME_LENGTH)
+        self.assertLess(name_query_width("ab"), MIN_FUZZY_NAME_LENGTH)  # AB 入口即拒
+        self.assertGreaterEqual(name_query_width("a甲"), MIN_FUZZY_NAME_LENGTH)  # A甲 合法
 
-    # ---- mock DB: exact miss 后第二条 substring SQL 是否执行 ----
+    def test_fuzzy_window_dynamic_prefix_bounded(self) -> None:
+        # 动态 deterministic 前缀窗口: page1→31, page2→61, page3→91,
+        # page_size=100/page1→101; 上限 2001(API page≤20×page_size≤100)
+        from api.services.search import FUZZY_CANDIDATE_CAP, candidate_window
 
-    def _run_tier3(self, query: str, exact_ids: list):
-        """直接调用 run_search_query 的 tier3 路径, mock db.execute 记录 SQL。"""
+        self.assertEqual(candidate_window(0, 30), 31)
+        self.assertEqual(candidate_window(30, 30), 61)
+        self.assertEqual(candidate_window(60, 30), 91)
+        self.assertEqual(candidate_window(0, 100), 101)
+        self.assertEqual(candidate_window(1900, 100), 2001)
+        self.assertEqual(candidate_window(10_000, 100), FUZZY_CANDIDATE_CAP)
+
+    # ---- mock DB: run_name_search 行为断言 ----
+
+    def _run_name_search(self, query: str, page=1, page_size=30, exact_hit=None, fuzzy_hit=None):
+        """mock db: exact 阶段三查询 / fuzzy 阶段三查询分别可注入结果。"""
         import asyncio
         from api.services import search as search_service
 
@@ -151,14 +150,25 @@ class CjkTwoCharExactTierTests(unittest.TestCase):
             def all(self):
                 return list(self._ids)
 
+        exact_hit = exact_hit or {}
+        fuzzy_hit = fuzzy_hit or {}
+
         class FakeDB:
             async def execute(self, sql_text, params=None):
                 sql = str(sql_text)
                 executed.append(sql)
+                if "preferred_name = ANY" in sql:
+                    return FakeResult(exact_hit.get("preferred", []))
+                if "iupac_name = ANY" in sql:
+                    return FakeResult(exact_hit.get("iupac", []))
                 if "normalized = :nq" in sql:
-                    return FakeResult(exact_ids)
-                if "LIKE '%' || :nq" in sql:
-                    return FakeResult([999999])
+                    return FakeResult(exact_hit.get("name_index", []))
+                if "preferred_name ILIKE" in sql:
+                    return FakeResult(fuzzy_hit.get("preferred", []))
+                if "iupac_name ILIKE" in sql:
+                    return FakeResult(fuzzy_hit.get("iupac", []))
+                if "normalized LIKE" in sql:
+                    return FakeResult(fuzzy_hit.get("name_index", []))
                 return FakeResult([])
 
             async def rollback(self):
@@ -168,78 +178,120 @@ class CjkTwoCharExactTierTests(unittest.TestCase):
                 pass
 
         async def fetch_chemicals_stub(db, sql, params=None):
-            return []
+            ids = params.get("ids") if params else None
+            return [{"id": i} for i in (ids or [])]
 
         db = FakeDB()
         real_fetch = search_service.fetch_chemicals
         search_service.fetch_chemicals = fetch_chemicals_stub
         try:
-            chemicals, total, reactions, pending, canon, hit_id = asyncio.run(
-                search_service.run_search_query(
-                    db, query=query, mode="exact", canonical=None,
-                    page=1, page_size=30, offset=0,
-                )
-            )
+            chemicals, has_more = asyncio.run(search_service.run_name_search(
+                db, query, page_size, (page - 1) * page_size,
+            ))
         finally:
             search_service.fetch_chemicals = real_fetch
-        return executed, {"chemicals": chemicals, "total": total}
+        return executed, chemicals, has_more
 
-    def test_methanol_exact_hit_does_not_run_substring(self) -> None:
-        # exact equality 命中(178719118) -> 不再执行 substring SQL
-        executed, _ = self._run_tier3("甲醇", exact_ids=[178719118])
-        self.assertTrue(any("normalized = :nq" in s for s in executed))
-        self.assertFalse(any("LIKE '%' || :nq" in s for s in executed))
-
-    def test_two_cjk_exact_miss_stops_before_substring(self) -> None:
-        # 纯两字 CJK exact miss -> 不执行 substring, 快速空返回
-        executed, result = self._run_tier3("囧氘", exact_ids=[])
-        self.assertTrue(any("normalized = :nq" in s for s in executed))
-        self.assertFalse(any("LIKE '%' || :nq" in s for s in executed))
-        self.assertEqual(result.get("chemicals") or [], [])
-
-    def test_width_three_mixed_query_exact_miss_runs_substring(self) -> None:
-        # A甲: width=3(len=2) 既有契约允许 -> substring 必须执行
-        executed, _ = self._run_tier3("A甲", exact_ids=[])
-        self.assertTrue(any("normalized = :nq" in s for s in executed))
-        self.assertTrue(any("LIKE '%' || :nq" in s for s in executed))
-
-    def test_methanol_exact_miss_never_runs_substring(self) -> None:
-        # 甲醇: 纯两字 CJK -> exact miss 时 LIKE 不执行
-        executed, result = self._run_tier3("甲醇", exact_ids=[])
-        self.assertTrue(any("normalized = :nq" in s for s in executed))
-        self.assertFalse(any("LIKE '%' || :nq" in s for s in executed))
-        self.assertEqual(result.get("chemicals") or [], [])
-
-    def test_mixed_query_exact_miss_runs_substring(self) -> None:
-        # 甲醇-d4: 混合查询 exact miss -> substring fallback 执行
-        executed, _ = self._run_tier3("甲醇-d4", exact_ids=[])
-        self.assertTrue(any("normalized = :nq" in s for s in executed))
-        self.assertTrue(any("LIKE '%' || :nq" in s for s in executed))
-
-    def test_three_plus_cjk_exact_miss_runs_substring(self) -> None:
-        # 苯甲酸钠: ≥3 字 exact miss -> substring fallback 执行
-        executed, _ = self._run_tier3("苯甲酸钠", exact_ids=[])
-        self.assertTrue(any("normalized = :nq" in s for s in executed))
-        self.assertTrue(any("LIKE '%' || :nq" in s for s in executed))
-
-    def test_exact_precedes_substring_in_source_order(self) -> None:
-        import inspect
-        from api.services import search as search_service
-
-        source = inspect.getsource(search_service.run_search_query)
-        self.assertLess(
-            source.index("WHERE normalized = :nq"),
-            source.index("WHERE normalized LIKE '%' || :nq || '%'"),
-            "exact equality 必须先于 substring 执行",
+    def test_exact_hit_short_circuits_no_substring(self) -> None:
+        # exact 命中 -> 三个 LIKE substring SQL 一个都不执行
+        executed, chemicals, has_more = self._run_name_search(
+            "benzoic acid", exact_hit={"preferred": [243]},
         )
+        self.assertEqual([c["id"] for c in chemicals], [243])
+        self.assertFalse(has_more)
+        self.assertFalse(any("ILIKE" in s for s in executed))
 
-    def test_no_new_identifier_logic_or_canonical_change(self) -> None:
+    def test_exact_miss_two_char_no_substring(self) -> None:
+        # 甲醇 / 囧氘 / A甲 / 甲A: exact miss -> 无 LIKE, 快速空
+        for q in ("甲醇", "囧氘", "A甲", "甲A"):
+            executed, chemicals, _ = self._run_name_search(q)
+            self.assertEqual(chemicals, [], q)
+            self.assertFalse(any("ILIKE" in s for s in executed), q)
+
+    def test_exact_miss_three_char_runs_fuzzy(self) -> None:
+        # 苯甲酸 / benzoic: exact miss -> fuzzy 执行, 且全部 fuzzy SQL 为
+        # deterministic ID 流(ORDER BY id + 固定 cap, 不依赖无序窗口)
+        for q in ("苯甲酸", "benzoic"):
+            executed, chemicals, has_more = self._run_name_search(
+                q, fuzzy_hit={"preferred": list(range(31))},
+            )
+            self.assertTrue(any("preferred_name ILIKE" in s for s in executed), q)
+            self.assertEqual(len(chemicals), 30)
+            self.assertTrue(has_more)
+            for s in executed:
+                if "ILIKE" in s:
+                    self.assertIn("ORDER BY", s)  # deterministic candidate stream
+
+    def test_fuzzy_rank_tier_order_and_dedup(self) -> None:
+        # tier1(preferred={1,3,5}) 全排 tier2({2}) 前, tier3({9}) 最后; 跨 tier 去重(3,1)
+        executed, chemicals, _ = self._run_name_search(
+            "benzoic", page=1, page_size=30,
+            fuzzy_hit={"preferred": [5, 3, 1], "iupac": [3, 2], "name_index": [9, 1]},
+        )
+        self.assertEqual([c["id"] for c in chemicals], [1, 3, 5, 2, 9])
+
+    def test_fuzzy_all_sources_deterministic_and_no_offset(self) -> None:
+        # 每页三条 fuzzy SQL 均为 deterministic 前缀(ORDER BY id + :window 动态),
+        # 无 source OFFSET; merged pagination 稳定(page1/page2 同语义连续切页)
+        e1, p1_chem, p1_more = self._run_name_search(
+            "benzoic", page=1, page_size=30, fuzzy_hit={"preferred": list(range(2001))},
+        )
+        e2, p2_chem, p2_more = self._run_name_search(
+            "benzoic", page=2, page_size=30, fuzzy_hit={"preferred": list(range(2001))},
+        )
+        self.assertEqual([c["id"] for c in p1_chem], list(range(0, 30)))
+        self.assertEqual([c["id"] for c in p2_chem], list(range(30, 60)))
+        self.assertTrue(p1_more) and self.assertTrue(p2_more)
+        for executed in (e1, e2):
+            for s in executed:
+                if "ILIKE" in s:
+                    self.assertIn("ORDER BY", s)  # deterministic candidate stream
+                self.assertNotIn("OFFSET", s)
+
+    def test_has_more_comes_from_prefix_window(self) -> None:
+        # has_more 语义 = 窗口(offset+page_size+1)内是否还有下一页
+        # fuzzy 只回 30 条(< window 31) -> has_more=False
+        _, _, more = self._run_name_search(
+            "benzoic", page=1, page_size=30, fuzzy_hit={"preferred": list(range(30))},
+        )
+        self.assertFalse(more)
+        # fuzzy 回 31 条(== window) -> has_more=True
+        _, _, more = self._run_name_search(
+            "benzoic", page=1, page_size=30, fuzzy_hit={"preferred": list(range(31))},
+        )
+        self.assertTrue(more)
+
+    def test_no_count_sql_in_name_search(self) -> None:
+        # 名称路径不允许任何 count(*) SQL
+        executed, _, _ = self._run_name_search("苯甲酸")
+        self.assertFalse(any("count(" in s for s in executed))
+
+    # ---- run_search_query 契约: has_more / total ----
+
+    def test_run_search_query_name_count_removed(self) -> None:
         import inspect
         from api.services import search as search_service
 
-        source = inspect.getsource(search_service.run_search_query)
-        self.assertNotIn("hcid:", source)
-        self.assertIn("nq = normalize_name(query)", source)
+        src = inspect.getsource(search_service.run_search_query)
+        # 名称双列 OR count 已删除; identifier count 保留
+        self.assertNotIn("OR c.iupac_name ILIKE", src)
+        self.assertIn("SELECT count(*) FROM chemistry.chemicals c", src)
+
+    def test_routes_response_includes_has_more(self) -> None:
+        import inspect
+        from api import routes as routes_module
+
+        src = inspect.getsource(routes_module.search)
+        self.assertIn('"has_more": has_more', src)
+
+    def test_cas_miss_no_sync_fetch_in_critical_path(self) -> None:
+        import inspect
+        from api.services import search as search_service
+
+        src = inspect.getsource(search_service.run_search_query)
+        # 同步外呼已从 CAS miss 分支移除(仅注释提及); import 面不再引入
+        self.assertNotIn("import sync_fetch_and_store", src.replace("(\n", "("))
+        self.assertNotIn("await sync_fetch_and_store", src)
 
 
 if __name__ == "__main__":

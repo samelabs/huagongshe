@@ -88,7 +88,8 @@ async def search(
 
     canonical = canonicalize_smiles(query)
     try:
-        chemicals, total, reactions, cas_fetch_pending, canonical, cas_fetch_hit_id = await run_search_query(
+        (chemicals, total, reactions, cas_fetch_pending, canonical,
+         cas_fetch_hit_id, has_more) = await run_search_query(
             db, query, mode, canonical, page, page_size, offset,
             actor_id=actor.id if actor else None, threshold=threshold,
         )
@@ -104,6 +105,7 @@ async def search(
         "query": query, "mode": mode, "canonical_smiles": canonical,
         "threshold": threshold,
         "page": page, "page_size": page_size, "total": total,
+        "has_more": has_more,
         "chemicals": chemicals, "reactions": reactions,
     }
     if cas_fetch_pending:

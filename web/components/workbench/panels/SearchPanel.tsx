@@ -21,6 +21,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
   const [chemicals, setChemicals] = useState<Chemical[]>([]);
   const [reactions, setReactions] = useState<ReactionLookup[]>([]);
   const [total, setTotal] = useState<number | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [state, setState] = useState<LoadState>(initialQuery ? "loading" : "idle");
   const [submitted, setSubmitted] = useState(!!initialQuery);
   const [error, setError] = useState<unknown>(null);
@@ -40,6 +41,8 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
         setChemicals(data.chemicals);
         setReactions(data.reactions || []);
         setTotal(data.total ?? null);
+        // Search System Governance: 继续入口只认 API 权威 has_more
+        setHasMore(data.has_more === true);
         setState("ready");
       })
       .catch((err: unknown) => {
@@ -125,10 +128,10 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
         </div>
       )}
 
-      {/* 更多结果跳主站搜索页 */}
-      {submitted && state === "ready" && total != null && total > 30 && (
+      {/* 更多结果跳主站搜索页: 只认 API has_more(名称搜索 total 恒 null) */}
+      {submitted && state === "ready" && hasMore && (
         <Link className="wb-home-more-search" href={`/search?q=${encodeURIComponent(query)}&mode=${mode}`}>
-          {t.me.homeViewAll} ({total})
+          {t.me.homeViewAll}{total != null ? ` (${total})` : ""}
         </Link>
       )}
     </section>
