@@ -227,11 +227,30 @@ async def run_search_query(
                 # 第三段: name_index(中文名/别名/供应商名/synonyms 的派生镜像)。
                 # 只在前两段不足一页时下探, 前两路零改动。
                 if (has_cjk or len(chemicals) < page_size) and offset == 0:
+                    # tier3 重排(2026-09-13): 先 exact normalized 等值命中, substring
+                    # 只作为 fallback —— exact 永远先于 substring, 与 canonical name
+                    # 定义无关。
+                    nq = normalize_name(query)
+                    cjk_len = sum(
+                        1 for ch in query
+                        if "\u4e00" <= ch <= "\u9fff" or "\u3040" <= ch <= "\u30ff"
+                        or "\uac00" <= ch <= "\ud7af"
+                    )
                     tertiary_ids = (await db.execute(text("""
                         SELECT DISTINCT chemical_id FROM chemistry.name_index
-                        WHERE normalized LIKE '%' || :nq || '%'
+                        WHERE normalized = :nq
                         ORDER BY chemical_id LIMIT :limit
-                    """), {"nq": normalize_name(query), "limit": page_size})).scalars().all()
+                    """), {"nq": nq, "limit": page_size})).scalars().all()
+                    if not tertiary_ids and len(nq) >= 3 and cjk_len != 2:
+                        # 两字 CJK 禁止 substring fallback: 2 字 trigram 选择性崩塌,
+                        # planner 为 ORDER BY+LIMIT 弃 GIN 走 chemical_id 索引全扫
+                        # (甲醇实测滤 173 万行 ~700ms, 并发下逼 5s statement_timeout);
+                        # exact equality 走 GIN 索引 40ms。≥3 字保留 substring 下探。
+                        tertiary_ids = (await db.execute(text("""
+                            SELECT DISTINCT chemical_id FROM chemistry.name_index
+                            WHERE normalized LIKE '%' || :nq || '%'
+                            ORDER BY chemical_id LIMIT :limit
+                        """), {"nq": nq, "limit": page_size})).scalars().all()
                     if tertiary_ids:
                         name_index_hit = True
                         # 合并而非替换: 前两段结果保留, 去重后追加(与第二段同型).

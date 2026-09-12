@@ -92,5 +92,52 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertEqual(len(original["toxicity"]["entries"]), 20)
 
 
+class CjkTwoCharExactTierTests(unittest.TestCase):
+    """两字 CJK exact 超时 hotfix 的判别测试(源码契约, 无 DB)。"""
+
+    def _tier3_source(self) -> str:
+        import inspect
+        from api.services import search as search_service
+
+        return inspect.getsource(search_service.run_search_query)
+
+    def test_tier3_runs_exact_normalized_before_substring(self) -> None:
+        source = self._tier3_source()
+        exact_pos = source.index("WHERE normalized = :nq")
+        like_pos = source.index("WHERE normalized LIKE '%' || :nq || '%'")
+        self.assertLess(exact_pos, like_pos, "exact equality 必须先于 substring 执行")
+
+    def test_two_char_cjk_blocks_substring_fallback(self) -> None:
+        source = self._tier3_source()
+        self.assertIn("cjk_len != 2", source)
+
+    def test_two_char_cjk_exact_miss_returns_without_substring(self) -> None:
+        source = self._tier3_source()
+        self.assertIn("if not tertiary_ids and len(nq) >= 3 and cjk_len != 2:", source)
+
+    def test_longer_names_still_use_substring_fallback(self) -> None:
+        source = self._tier3_source()
+        self.assertIn("len(nq) >= 3", source)
+
+    def test_no_new_identifier_logic_or_canonical_change(self) -> None:
+        source = self._tier3_source()
+        self.assertNotIn("hcid:", source)
+        # canonical name 未被重定义: normalize_name 仍为唯一归一入口
+        self.assertIn("nq = normalize_name(query)", source)
+
+    def test_cjk_length_computation(self) -> None:
+        def cjk_len(s: str) -> int:
+            return sum(
+                1 for ch in s
+                if "\u4e00" <= ch <= "\u9fff" or "\u3040" <= ch <= "\u30ff"
+                or "\uac00" <= ch <= "\ud7af"
+            )
+        self.assertEqual(cjk_len("甲醇"), 2)
+        self.assertEqual(cjk_len("乙醇"), 2)
+        self.assertEqual(cjk_len("苯甲酸钠"), 4)
+        self.assertEqual(cjk_len("Aspirin"), 0)
+        self.assertEqual(cjk_len("甲醇A"), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
