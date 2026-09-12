@@ -1227,6 +1227,24 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .pipe-revive-btn:disabled { opacity: .5; cursor: wait; }
 .pipe-chip.silent { color: #8a6d00; border-color: #e0c56e; background: #fdf6e3; }
 .pipe-chip.error { color: #b33; border-color: #e6b3b3; background: #fdf0f0; }
+/* A1: stale-while-refresh + 健康语义 + optional 降级(复用既有 token, 无新视觉体系) */
+.pipe-dot.warn { background: #8a6d00; }
+.pipe-aging { font-size: var(--text-xs); color: var(--muted); }
+.pipe-health-reasons { margin-left: 6px; color: var(--muted); }
+.pipe-snapshot-line { margin-top: 10px; font-size: var(--text-xs); color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
+.pipe-phase { color: #8a6d00; }
+.pipe-stale-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pipe-stale-banner.warn { border-color: #e0c56e; background: #fdf6e3; color: #8a6d00; }
+.pipe-retry-btn { font-size: var(--text-xs); border: 1px solid var(--blue-border); color: var(--blue); background: transparent; border-radius: 999px; padding: 2px 12px; cursor: pointer; }
+.pipe-retry-btn:hover { background: var(--blue-pale); }
+.pipe-secondary { opacity: .92; }
+.pipe-section-unavailable { margin-top: 6px; font-size: var(--text-xs); color: #8a6d00; border: 1px dashed #e0c56e; border-radius: 8px; padding: 6px 10px; }
+.pipe-revive-note { font-size: var(--text-xs); color: var(--muted); }
+.pipe-tr-5 { grid-template-columns: 130px 1fr 130px 120px 90px; }
+.pipe-confirm { position: fixed; inset: 0; background: rgba(0,0,0,.32); display: flex; align-items: center; justify-content: center; z-index: 60; }
+.pipe-confirm-box { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; max-width: 420px; box-shadow: 0 8px 30px rgba(0,0,0,.12); }
+.pipe-confirm-box p { margin: 0 0 14px; font-size: var(--text-sm); color: var(--heading); }
+.pipe-confirm-actions { display: flex; gap: 10px; }
 .pipe-tr-4 { grid-template-columns: 140px 1fr 1fr 1fr; }
 /* 最新 10 条: 链/HCID/来源/编号/标题(弹性)/时间 —— 标题独占宽列, 不再被挤 */
 .pipe-tr-latest { grid-template-columns: 44px 96px 72px 104px minmax(0, 1fr) 78px; }

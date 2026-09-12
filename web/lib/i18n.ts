@@ -821,6 +821,14 @@ const t = {
     pipelineKicker: 'PIPELINE',
     pipelineTitle: '数据管道',
     pipelineDesc: (s: number, at: string) => `队列健康、今日吞吐与最新入库, 每 ${s} 秒自动刷新 · 数据时刻 ${at}`,
+    /* A1: stale-while-refresh / 健康语义 / optional 降级 */
+    retryNow: '立即重试',
+    refreshing: '刷新中…',
+    refreshFailed: (at: string) => `刷新失败，当前显示 ${at} 的最近成功数据`,
+    statsAge: (s: number) => `${s} 秒前生成`,
+    statsStale: '统计为旧快照',
+    sectionUnavailable: '该数据源暂不可用',
+    reviveConfirm: (chain: string, n: string) => `确认将 ${chain} 链全部 ${n} 条 error 留痕翻回 queued？`,
     /* Worker 凭据 */
     workersKicker: 'WORKERS',
     workersTitle: 'Worker 凭据',
