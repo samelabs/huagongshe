@@ -34,7 +34,7 @@ type Pipeline = {
   pb: ChainBlock & { rows: { today: number; total: number } };
   gates: Record<string, Gate>;
   gates_meta: { available: boolean; error: string | null };
-  supplier: Optional<{ today_rows: number; today_chemicals: number; total_rows: number; total_chemicals: number; profiles: number; today_profiles: number }>;
+  supplier: Optional<{ today_rows: number; total_rows: number; profiles: number; today_profiles: number }>;
   latest: { cb: LatestRow[]; pb: LatestRow[] };
   workers: { worker_id: string; display_name: string | null; enabled: boolean; scopes: string[]; runtime: string; last_seen_at: string | null; last_seen_age_s: number | null }[];
   stats: { generated_at: string; stale: boolean; age_seconds: number; ttl_seconds: number };
@@ -337,7 +337,6 @@ export function SamelabsPipeline() {
           <Group title="供应侧" note="listing + profile">
             <Metric label="供应信息" total={sup ? sup.total_rows : null} today={sup ? sup.today_rows : null} />
             <Metric label="供应商" total={sup ? sup.profiles : null} today={sup ? sup.today_profiles : null} />
-            <Metric label="今日覆盖化合物" total={sup ? sup.today_chemicals : null} />
           </Group>
           {!supWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}{supWrap.error ? `（${supWrap.error}）` : ""}</div>}
         </div>

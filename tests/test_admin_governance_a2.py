@@ -181,17 +181,25 @@ class FixtureTests(GovBase):
         self.assertIsInstance(idg["acquisition_pending"]["ambiguous_seeds"], int)
 
     def test_supplier_kind_not_canonical_name(self):
-        """验收9: 分布里 supplier kind 标注'供应商货名, 非展示名', 不混 canonical name。
-        (服务端层面: name_cn kind 与 supplier kind 分开统计; 前端渲染 note。)"""
+        """验收9: 分布里 supplier kind 与 canonical name 分开统计, 不混账。
+        P0 (admin-data-p0) 后该 section 为样本口径: value={exact,sample_size,
+        matched,ratio,groups:[{kind,lang,source,matched}]}, mode='sample';
+        groups 是抽样结果, 故只断言"出现即分账", 不要求每个 kind 必现。"""
         snap = self._gov()
-        dist = snap["name_index_distribution"]["value"]
-        kinds = {d["kind"] for d in dist}
-        self.assertIn("supplier", kinds)
-        self.assertIn("name_cn", kinds)
-        # supplier 行 lang=cn 不应被计为 name_cn 口径
-        for d in dist:
-            if d["kind"] == "supplier":
-                self.assertNotEqual("name_cn", d["kind"])
+        sec = snap["name_index_distribution"]
+        self.assertTrue(sec["available"], sec["error"])
+        self.assertEqual("sample", sec["mode"])
+        val = sec["value"]
+        self.assertFalse(val["exact"])
+        self.assertIsInstance(val["sample_size"], int)
+        self.assertIsInstance(val["groups"], list)
+        for g in val["groups"]:
+            self.assertEqual({"kind", "lang", "source", "matched"}, set(g))
+            # 样本内计数, 不是全库 count(旧 contract 的 key 必须消失)
+            self.assertNotIn("count", g)
+            if g["kind"] == "supplier":
+                self.assertNotEqual("name_cn", g["kind"])
+        self.assertEqual(val["matched"], sum(g["matched"] for g in val["groups"]))
 
     def test_orphan_zero_is_real_zero(self):
         """验收6: orphan=0(样本无孤儿)时 value=0 而非 unavailable。"""
@@ -239,7 +247,7 @@ class IssueModeMappingTests(unittest.TestCase):
         "pb_canonical_sync_gap": "sample",
         "pb_cid_no_source_record": "sample",
         "name_index_orphan": "sample",
-        "name_index_distribution": "exact",
+        "name_index_distribution": "sample",
         "canonical_name_coverage": "sample",
         "identity_governance": "exact",
         "seed_enqueued_no_job": "deferred",

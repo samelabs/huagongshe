@@ -1167,7 +1167,9 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .admin-content { min-width: 0; max-width: var(--content-wide); }
 @media (max-width: 900px) {
   .admin-shell { grid-template-columns: 1fr; gap: 18px; }
-  .admin-nav { position: static; flex-direction: row; overflow-x: auto; padding: 6px; border-radius: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  /* P0 (admin-data-p0): ≤900px 8 个入口必须直接可见 —— 允许换行,
+     不再靠横滑发现(旧版 overflow-x:auto + 隐藏滚动条 → 末尾项裁出视口)。 */
+  .admin-nav { position: static; flex-direction: row; flex-wrap: wrap; overflow-x: visible; padding: 6px; border-radius: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .admin-nav::-webkit-scrollbar { display: none; }
   .admin-nav::before { display: none; }
   .admin-nav a { white-space: nowrap; padding: 8px 14px; }

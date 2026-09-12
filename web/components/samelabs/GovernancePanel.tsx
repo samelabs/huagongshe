@@ -192,10 +192,13 @@ export function SamelabsGovernance() {
             <Block label="pubchem_cid" value={`${(cov.pubchem_cid_rate * 100).toFixed(1)}%`} layer="canonical_entity" />
           </> : <Block label="覆盖" value="暂不可用" />}
         </Section>
-        <Section title="派生索引 name_index" note="derived_index · kind/lang/source">
-          {nidist ? nidist.slice(0, 8).map((d: any) => (
-            <Block key={`${d.kind}-${d.lang}-${d.source}`} label={`${d.kind}·${d.lang}·${d.source}`} value={fmt(d.count)} layer="derived_index" note={d.kind === "supplier" ? "供应商货名, 非展示名" : undefined} />
-          )) : <Block label="分布" value="暂不可用" />}
+        <Section title="派生索引 name_index" note="derived_index · kind/lang/source · 样本口径">
+          {nidist ? <>
+            {(nidist.groups ?? []).slice(0, 8).map((d: any) => (
+              <Block key={`${d.kind}-${d.lang}-${d.source}`} label={`${d.kind}·${d.lang}·${d.source}`} value={fmt(d.matched)} layer="derived_index" note={d.kind === "supplier" ? "供应商货名, 非展示名" : undefined} />
+            ))}
+            <Block label="样本" value={fmt(nidist.sample_size)} layer="derived_index" />
+          </> : <Block label="分布" value="暂不可用" />}
         </Section>
       </div>
     </section>

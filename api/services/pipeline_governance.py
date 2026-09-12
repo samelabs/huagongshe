@@ -44,9 +44,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger("admin.governance")
 
 # 缓存: 进程内 last-known-good + 单飞(与 A1 _PIPELINE_STATS_* 同模式)
-_GOV_CACHE: dict = {}          # {"v": snapshot, "ts": monotonic}
+_GOV_CACHE: dict = {}          # {"v": snapshot, "ts": monotonic, "generated_at": iso}
 _GOV_TTL = 300.0               # 治理指标 5 分钟新鲜度足够(只读诊断)
 _GOV_LOCK = asyncio.Lock()
+
+
+def _snapshot_stamp() -> str:
+    """snapshot 生成时刻的 wall clock(格式沿用前端 hm() 既有解析)。"""
+    return _time.strftime("%Y-%m-%dT%H:%M:%S%z")
 
 # P1 (0912) stale-while-revalidate: 与 admin._PIPELINE_STATS_* 同语义 —
 # TTL 过期但已有 last-known-good → 立即返回旧 snapshot, 后台独立 session
@@ -64,7 +69,8 @@ async def _gov_refresh_bg() -> None:
         async with async_session() as db:
             try:
                 _GOV_CACHE["v"] = {"v": await governance_snapshot(db),
-                                   "ts": _time.monotonic()}
+                                   "ts": _time.monotonic(),
+                                   "generated_at": _snapshot_stamp()}
             except Exception:  # noqa: BLE001 — last-known-good 语义
                 logger.exception("governance background refresh failed (keep last-known-good)")
 
@@ -229,15 +235,21 @@ async def name_index_orphan(db: AsyncSession) -> dict:
 
 
 async def name_index_distribution(db: AsyncSession) -> dict:
-    """Search readiness: kind/lang/source 分布(全量聚合, name_index 850万,
-    可走一次 GROUP BY, EXPLAIN 后缓存 5 分钟)。"""
-    rows = await _q(db, """
-        SELECT kind, lang, source, count(*) FROM chemistry.name_index
-        GROUP BY kind, lang, source ORDER BY count(*) DESC LIMIT 30
+    """Search readiness: kind/lang/source 分布(样本口径)。
+    P0 (admin-data-p0): 旧实现对 9.28M 行 name_index 直接 GROUP BY → 实测
+    8,034ms 撞 8s statement_timeout, 该 section 恒 unavailable(错误日志持续刷)。
+    改为 TABLESAMPLE SYSTEM_ROWS 抽样, 只报样本数据事实: sample_size +
+    groups(kind/lang/source/matched); 不把样本 matched 冒充全库 count。"""
+    rows = await _q(db, f"""
+        SELECT kind, lang, source, count(*) AS matched
+        FROM chemistry.name_index TABLESAMPLE SYSTEM_ROWS({SAMPLE_ROWS})
+        GROUP BY kind, lang, source ORDER BY matched DESC LIMIT 30
     """)
-    dist = [{"kind": r[0], "lang": r[1], "source": r[2], "count": int(r[3])}
-            for r in rows]
-    return _wrap(True, dist, mode="exact")
+    groups = [{"kind": r[0], "lang": r[1], "source": r[2], "matched": int(r[3])}
+              for r in rows]
+    matched = sum(g["matched"] for g in groups)
+    return _wrap(True, _sample_payload(SAMPLE_ROWS, matched, groups=groups),
+                 mode="sample")
 
 
 async def canonical_name_coverage(db: AsyncSession) -> dict:
@@ -280,6 +292,9 @@ async def identity_governance(db: AsyncSession) -> dict:
                    "merged_last_24h": int(merged_24h or 0),
                    "redirect_total": int(redirect_total or 0)}
     except Exception as exc:  # noqa: BLE001 — merge/redirect 缺席时账本仍可示
+        # P0 (admin-data-p0 事务隔离): 该 SELECT 失败同样置事务 aborted 态,
+        # 必须 rollback, 否则 section 之后的语句/调用方 session 全部连锁失败。
+        await db.rollback()
         logger.warning("identity merge/redirect tables unreadable: %r", exc)
         history = None
     return _wrap(True, {
@@ -310,12 +325,17 @@ _SECTIONS: dict[str, Any] = {
 
 
 async def governance_snapshot(db: AsyncSession) -> dict:
-    """每个 section 独立 try/except: 单块失败 → available=false, 不拖垮整体。"""
+    """每个 section 独立 try/except: 单块失败 → available=false, 不拖垮整体。
+    P0 (admin-data-p0 事务隔离): section 内 SQL 报错会把 PostgreSQL 事务置为
+    aborted 态, 不 rollback 则后续每个 section 连锁 InFailedSQLTransactionError
+    (与 admin._pipeline_refresh_stats 同语义)。catch 里先 rollback 再继续。"""
     out: dict = {}
     for name, fn in _SECTIONS.items():
         try:
             out[name] = await fn(db)
         except Exception as exc:  # noqa: BLE001
+            # rollback 后本 session 开新事务继续, 该 section 单独降级
+            await db.rollback()
             logger.exception("governance section %s failed", name)
             out[name] = _wrap(False, error=str(exc)[:200], mode="error")
     return out
@@ -340,7 +360,8 @@ async def get_governance(db: AsyncSession) -> dict:
                 else:
                     try:
                         snap = await governance_snapshot(db)
-                        _GOV_CACHE["v"] = {"v": snap, "ts": _time.monotonic()}
+                        _GOV_CACHE["v"] = {"v": snap, "ts": _time.monotonic(),
+                                           "generated_at": _snapshot_stamp()}
                         cached = _GOV_CACHE["v"]
                     except Exception:
                         logger.exception("governance snapshot failed")
@@ -350,7 +371,11 @@ async def get_governance(db: AsyncSession) -> dict:
                         stale = True
     return {
         "sections": cached["v"],
-        "generated_at": _time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        # P0 (admin-data-p0): generated_at = snapshot 生成时刻(cache 内存的),
+        # 不是请求时刻 —— fresh/stale 都返回同一个 snapshot 时间, stale 不得
+        # 伪装成刚生成。仅在无 cache 戳(理论不可达)时退回当前时刻。
+        "generated_at": cached.get("generated_at")
+        or _time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "monotonic_ts": cached["ts"],
         "stale": stale,
         "ttl_seconds": int(_GOV_TTL),

@@ -516,19 +516,21 @@ async def _scan_critical(db) -> tuple:
     return cb_locales, int(pb_today), int(pb_last_1h), int(pb_total_rows)
 
 async def _scan_supplier(db) -> dict:
+    # P0 (admin-data-p0): 收敛 contract —— 只留 listing/profile 的行级计数。
+    # 删除 count(DISTINCT chemical_id) 两条: 对 4.52M 行 listing 分别实扫
+    # 6.08s / >8s(statement_timeout) 且 DISTINCT 无索引可用 → 该 optional
+    # section 恒降级。口径不变: 供应信息 total/today = 行数, 供应商 total/today
+    # = profile 行数; 不再提供"覆盖化合物数"(该数字页面亦不展示)。
     sup = (await db.execute(text("""
         SELECT
           count(*) FILTER (WHERE fetched_at >= current_date),
-          count(DISTINCT chemical_id) FILTER (WHERE fetched_at >= current_date),
           count(*),
-          count(DISTINCT chemical_id),
           (SELECT count(*) FROM chemistry.chemical_supplier_profile),
           (SELECT count(*) FROM chemistry.chemical_supplier_profile WHERE fetched_at >= current_date)
         FROM chemistry.chemical_supplier_listing
     """))).fetchone()
-    return {"today_rows": int(sup[0]), "today_chemicals": int(sup[1]),
-            "total_rows": int(sup[2]), "total_chemicals": int(sup[3]),
-            "profiles": int(sup[4]), "today_profiles": int(sup[5])}
+    return {"today_rows": int(sup[0]), "total_rows": int(sup[1]),
+            "profiles": int(sup[2]), "today_profiles": int(sup[3])}
 
 async def _scan_seed(db) -> dict:
     # CB 上游账本 (89万 cb_number 种子) —— 按 status 索引扫描, 快
