@@ -508,6 +508,26 @@ async def _scan_negative(db) -> dict:
 
 
 
+# ── A2 数据治理 (0912): 只读诊断, 独立端点, 不塞主 pipeline ──
+
+@router.get("/pipeline/governance")
+async def pipeline_governance(actor: Actor = Depends(admin), db=Depends(get_db)):
+    """较慢治理指标(样本+缓存 300s)。主 /pipeline 保持轻。"""
+    from .services.pipeline_governance import get_governance
+    return await get_governance(db)
+
+
+@router.get("/pipeline/governance/drilldown/{key}")
+async def pipeline_governance_drilldown(
+    key: str, actor: Actor = Depends(admin), db=Depends(get_db),
+):
+    """关键异常数字 → 样本列表(LIMIT 50)。无持久化证据的 key 明确拒绝。"""
+    from .services.pipeline_governance import DRILL_UNSUPPORTED, drill_down
+    if key in DRILL_UNSUPPORTED:
+        raise HTTPException(400, f"当前没有持久化证据或该指标无 drill-down 语义: {DRILL_UNSUPPORTED[key]}")
+    return await drill_down(db, key)
+
+
 @router.get("/pipeline")
 async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     """数据管道运行时(0911 定稿口径): CB/PB 分链独立展示。

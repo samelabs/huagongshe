@@ -829,6 +829,11 @@ const t = {
     statsStale: '统计为旧快照',
     sectionUnavailable: '该数据源暂不可用',
     reviveConfirm: (chain: string, n: string) => `确认将 ${chain} 链全部 ${n} 条 error 留痕翻回 queued？`,
+    /* A2: 数据治理控制台 */
+    navGovernance: '数据治理',
+    govTitle: '数据治理',
+    govDesc: '链路漏点、identity 治理与覆盖率 —— 只读诊断, 样本口径如实标注',
+    govLoadFailed: '治理指标加载失败',
     /* Worker 凭据 */
     workersKicker: 'WORKERS',
     workersTitle: 'Worker 凭据',

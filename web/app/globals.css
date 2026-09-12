@@ -1245,6 +1245,17 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .pipe-confirm-box { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; max-width: 420px; box-shadow: 0 8px 30px rgba(0,0,0,.12); }
 .pipe-confirm-box p { margin: 0 0 14px; font-size: var(--text-sm); color: var(--heading); }
 .pipe-confirm-actions { display: flex; gap: 10px; }
+/* A2 governance */
+.gov-section { min-width: 0; }
+.gov-layer { display: inline-block; margin-left: 6px; font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.gov-drillable { cursor: pointer; text-decoration: underline dotted; }
+.gov-sev { font-size: var(--text-xs); }
+.gov-sev.bad { color: #b33; }
+.gov-sev.warn { color: #8a6d00; }
+.gov-tr-gov, .pipe-tr-gov { grid-template-columns: 48px 1fr 160px 80px 70px; }
+.gov-gap-note { margin-top: 8px; font-size: var(--text-xs); color: var(--muted); border-top: 1px dashed var(--line); padding-top: 6px; }
+.gov-drill-box { max-width: 720px; width: 92vw; max-height: 70vh; overflow: auto; }
+.gov-drill-table .pipe-tr { grid-template-columns: repeat(var(--cols, 5), minmax(80px, 1fr)); }
 .pipe-tr-4 { grid-template-columns: 140px 1fr 1fr 1fr; }
 /* 最新 10 条: 链/HCID/来源/编号/标题(弹性)/时间 —— 标题独占宽列, 不再被挤 */
 .pipe-tr-latest { grid-template-columns: 44px 96px 72px 104px minmax(0, 1fr) 78px; }

@@ -324,10 +324,11 @@ export function SamelabsPipeline() {
       <div className="section-heading"><h2>CB 诊断</h2><span>supplier · seed · negative —— 失败时标"暂不可用"</span></div>
       <div className="dashboard-grid pipe-grid-2">
         <div className="dashboard-card pipe-chain">
-          <Group title="上游账本" note="chemicalbook_seed">
+          <Group title="上游账本" note="chemicalbook_seed · 来源未命中">
             <Metric label="待处理" total={seed ? seed.accepted : null} />
             <Metric label="已入队" total={seed ? seed.enqueued : null} />
             <Metric label="悬案" total={seed ? seed.ambiguous : null} />
+            <Metric label="来源未命中" total={neg ? neg.total : null} today={neg ? neg.today : null} />
           </Group>
           {!seedWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}{seedWrap.error ? `（${seedWrap.error}）` : ""}</div>}
         </div>
@@ -336,7 +337,6 @@ export function SamelabsPipeline() {
             <Metric label="供应信息" total={sup ? sup.total_rows : null} today={sup ? sup.today_rows : null} />
             <Metric label="供应商" total={sup ? sup.profiles : null} today={sup ? sup.today_profiles : null} />
             <Metric label="今日覆盖化合物" total={sup ? sup.today_chemicals : null} />
-            <Metric label="负面观测" total={neg ? neg.total : null} today={neg ? neg.today : null} />
           </Group>
           {!supWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}{supWrap.error ? `（${supWrap.error}）` : ""}</div>}
           {supWrap.available && !negWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}{negWrap.error ? `（${negWrap.error}）` : ""}</div>}
