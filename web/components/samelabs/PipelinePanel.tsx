@@ -5,7 +5,7 @@ import { apiGet, apiPost, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 /* ── A1 数据契约 ──────────────────────────────────────────
-   optional sections (supplier/seed/negative) 形状:
+   optional sections 形状: seed/negative(来源未命中)属 CB 上游账本, supplier 属供应侧:
    { available: boolean; error: string | null; value: T | null }
    available=false → 渲染"暂不可用", 绝不把 0 冒充数据。 */
 
@@ -321,7 +321,7 @@ export function SamelabsPipeline() {
 
     {/* ── CB secondary diagnostics(降级区): 供应商 / 账本 / 负面 ── */}
     <section className="dashboard-section pipe-secondary">
-      <div className="section-heading"><h2>CB 诊断</h2><span>supplier · seed · negative —— 失败时标"暂不可用"</span></div>
+      <div className="section-heading"><h2>CB 诊断</h2><span>上游账本(seed · 来源未命中) + 供应侧(supplier) —— 失败各自标"暂不可用"</span></div>
       <div className="dashboard-grid pipe-grid-2">
         <div className="dashboard-card pipe-chain">
           <Group title="上游账本" note="chemicalbook_seed · 来源未命中">
@@ -331,6 +331,7 @@ export function SamelabsPipeline() {
             <Metric label="来源未命中" total={neg ? neg.total : null} today={neg ? neg.today : null} />
           </Group>
           {!seedWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}{seedWrap.error ? `（${seedWrap.error}）` : ""}</div>}
+          {negWrap && !negWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}（来源未命中）{negWrap.error ? `（${negWrap.error}）` : ""}</div>}
         </div>
         <div className="dashboard-card pipe-chain">
           <Group title="供应侧" note="listing + profile">
@@ -339,7 +340,6 @@ export function SamelabsPipeline() {
             <Metric label="今日覆盖化合物" total={sup ? sup.today_chemicals : null} />
           </Group>
           {!supWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}{supWrap.error ? `（${supWrap.error}）` : ""}</div>}
-          {supWrap.available && !negWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}{negWrap.error ? `（${negWrap.error}）` : ""}</div>}
         </div>
       </div>
     </section>

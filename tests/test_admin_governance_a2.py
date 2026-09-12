@@ -227,6 +227,59 @@ class FixtureTests(GovBase):
         self.assertTrue(s["error"])
 
 
+class IssueModeMappingTests(unittest.TestCase):
+    """修正3回归: 每个 issue 的口径标签必须取自真实 section key,
+    错把 'sample' 当 key 会得到空口径(旧 bug)。"""
+
+    SECTION_MODES = {
+        "cb_name_index_missing": "sample",
+        "cb_canonical_cb_number_null": "sample",
+        "cb_locale_gaps": "sample",
+        "supplier_listing_orphan": "sample",
+        "pb_canonical_sync_gap": "sample",
+        "pb_cid_no_source_record": "sample",
+        "name_index_orphan": "sample",
+        "name_index_distribution": "exact",
+        "canonical_name_coverage": "sample",
+        "identity_governance": "exact",
+        "seed_enqueued_no_job": "deferred",
+    }
+    # GovernancePanel issues 里声明的 modeK(与组件源同步维护)
+    ISSUE_MODE_KEYS = {
+        "ambiguous": "identity_governance",
+        "ni_missing": "cb_name_index_missing",
+        "sup_orphan": "supplier_listing_orphan",
+        "ni_orphan": "name_index_orphan",
+        "cb_num_null": "cb_canonical_cb_number_null",
+        "pb_norec": "pb_cid_no_source_record",
+        "pb_gap": "pb_canonical_sync_gap",
+        "seed_nj": "seed_enqueued_no_job",
+    }
+
+    def test_no_fake_sample_key(self):
+        src = open("web/components/samelabs/GovernancePanel.tsx", encoding="utf-8").read()
+        self.assertNotIn('modeNote(i.key === "seed_nj" ? "seed_enqueued_no_job" : "sample")', src,
+                         "禁止把字面 'sample' 当 section key 传给 modeNote")
+        self.assertIn("modeNote(i.modeK ?? i.key)", src)
+
+    def test_every_issue_mode_key_is_real_section(self):
+        for issue, key in self.ISSUE_MODE_KEYS.items():
+            self.assertIn(key, self.SECTION_MODES, f"{issue} 引用了不存在的 section: {key}")
+            # 抽样类 issue 必须映射到 sample 模式 section, 不得拿到空口径;
+            # ambiguous=账本精确计数, seed_nj=deferred, 两者不属抽样
+            if issue not in ("seed_nj", "ambiguous"):
+                self.assertEqual("sample", self.SECTION_MODES[key],
+                                 f"{issue} 应为样本口径 section")
+        self.assertEqual("exact", self.SECTION_MODES[self.ISSUE_MODE_KEYS["ambiguous"]])
+        self.assertEqual("deferred", self.SECTION_MODES[self.ISSUE_MODE_KEYS["seed_nj"]])
+
+    def test_mode_label_mapping_complete(self):
+        # GovernancePanel modeNote 的分支必须覆盖 deferred/exact, 且 sample→'样本口径'
+        src = open("web/components/samelabs/GovernancePanel.tsx", encoding="utf-8").read()
+        self.assertIn('"sample" ? "样本口径"', src)
+        self.assertIn('"deferred" ? "暂缓"', src)
+
+
 class CacheSemanticsTests(GovBase):
     """验收3: 缓存 + 单飞。"""
 
