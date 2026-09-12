@@ -8,6 +8,7 @@ import { Molecule } from "@/components/Molecule";
 import { ReactionOwnerActions } from "@/components/ReactionOwnerActions";
 import { apiGet, isApiNotFound, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
 import t from "@/lib/i18n";
+import { resolveChemicalName } from "@/lib/chemicalName";
 
 const roleNames: Record<string, string> = {
   REACTANT: t.submit.roles.reactant, REAGENT: t.submit.roles.reagent, CATALYST: t.submit.roles.catalyst, SOLVENT: t.submit.roles.solvent,
@@ -245,7 +246,7 @@ function buildSummary(reactants: Chemical[], products: Chemical[], auxiliaries: 
 
 /** 最多带 2 个名字, 更多时只保留计数(不臆造 kind 名)。 */
 function namedTail(items: Chemical[]): string {
-  const names = items.slice(0, 2).map((item) => item.preferred_name || item.iupac_name).filter(Boolean) as string[];
+  const names = items.slice(0, 2).map((item) => resolveChemicalName(item, t.common.hcidLabel).title);
   if (names.length === 0) return "";
   return ` ${names.join("、")}${items.length > names.length ? ` ${t.reaction.summaryMore(items.length - names.length)}` : ""}`;
 }
@@ -258,11 +259,11 @@ function ParticipantRoleGroup({ title, items, showRole = false }: {
       <h3 className="chem-subhead">{title} <span className="chem-subhead-note">{items.length}</span></h3>
       {items.length > 0 ? <div className="participant-grid">{items.map((chemical) => (
         <Link className="participant-card" href={`/chemical/${chemical.id}`} key={`${chemical.role}-${chemical.id}`}>
-          <div className="participant-structure"><Molecule chemicalId={chemical.id} label={chemical.preferred_name || chemical.iupac_name} width={220} height={140} /></div>
+          <div className="participant-structure"><Molecule chemicalId={chemical.id} label={resolveChemicalName(chemical, t.common.hcidLabel).title} width={220} height={140} /></div>
           <div>
             {showRole && <span className="role-label">{roleNames[chemical.role || ""] || chemical.role}</span>}
             <EntityId kind="chemical" id={chemical.id} compact />
-            <h3>{chemical.preferred_name || chemical.iupac_name || t.common.unnamedCompound}</h3>
+            <h3>{resolveChemicalName(chemical, t.common.hcidLabel).title}</h3>
             {chemical.molecular_formula && <p>{chemical.molecular_formula}</p>}
             {((chemical.occurrence_count != null && chemical.occurrence_count > 1) || chemical.amount_value != null || chemical.equivalents != null || chemical.concentration_value != null) && <p className="participant-measure-summary">{[
               chemical.occurrence_count != null && chemical.occurrence_count > 1 ? `${chemical.occurrence_count} 次` : null,

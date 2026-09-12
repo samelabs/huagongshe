@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EntityId } from "@/components/shared/EntityId";
 import { apiGet } from "@/lib/api";
 import t from "@/lib/i18n";
+import { resolveChemicalName } from "@/lib/chemicalName";
 import { WbEmpty, Pagination, PanelError, PanelHeading, PanelLoading, ReactionCards } from "../shared";
 import type { ChemicalFollow, LoadState, PageResponse, PanelProps, Reaction, SavedKind } from "../types";
 
@@ -59,7 +60,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
             {chemicals.items.map((item) => (
               <Link href={`/chemical/${item.id}`} key={item.id}>
                 <EntityId kind="chemical" id={item.id} compact />
-                <span><strong>{item.preferred_name || item.iupac_name || t.common.unnamedCompound}</strong>{item.smiles && <small>{item.smiles}</small>}</span>
+                <span><strong>{resolveChemicalName(item, t.common.hcidLabel).title}</strong>{item.smiles && <small>{item.smiles}</small>}</span>
               </Link>
             ))}
           </div>

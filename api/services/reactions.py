@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy import text
 
-from .chemicals import CHEMICAL_SELECT, chemical_dict, clean_float
+from .chemicals import CHEMICAL_SELECT, attach_localized_names, chemical_dict, clean_float
 
 
 async def load_reaction_detail(
@@ -68,6 +68,7 @@ async def load_reaction_detail(
             yield_percent=clean_float(row[24]),
         )
         compounds.append(item)
+    await attach_localized_names(db, compounds)
 
     temperature = (await db.execute(text("""
         SELECT t.value, t.units::text

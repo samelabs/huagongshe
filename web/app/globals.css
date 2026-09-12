@@ -365,7 +365,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .chemical-result-copy > .entity-id { margin-bottom: 6px; }
 .chemical-result h3, .reaction-result h3 { margin: 0 0 6px; font-size: var(--text-lg); font-weight: var(--section-weight); line-height: 1.35; }
 .chemical-result h3 a { color: var(--heading); }
-.record-meta { margin: 0 0 6px; color: var(--muted); font-size: var(--text); line-height: 1.5; }
+.record-meta { margin: 0 0 6px; color: var(--muted); font-size: var(--text); line-height: 1.5; overflow-wrap: anywhere; }
 .structure-code { margin: 0; max-width: 580px; overflow: hidden; color: var(--quiet); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; word-break: normal; }
 .match-score { margin: 6px 0 0; color: var(--success); font-size: var(--text); }
 .record-open { position: absolute; right: 16px; top: 16px; color: var(--blue); font-size: var(--text-sm); font-weight: 600; }

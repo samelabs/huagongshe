@@ -128,6 +128,7 @@ const t = {
   chemical: {
     detail: '化合物详情',
     desc: '化合物结构、身份、性质与相关反应',
+    descFor: (name: string) => `${name}｜化合物结构、身份、性质与相关反应`,
     home: '首页',
     structureIdentity: '结构与身份',
     relatedReactions: '相关反应',

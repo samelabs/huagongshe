@@ -14,6 +14,7 @@ import { cbInFlight } from "@/components/chemicalStatus";
 import { evidenceSectionKeys, isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
 import { apiGet, isApiNotFound, type Chemical, type ChemicalDetails, type EnrichmentState, type ReactionSummary } from "@/lib/api";
 import t from "@/lib/i18n";
+import { resolveChemicalName } from "@/lib/chemicalName";
 
 /**
  * Chemical Detail — semantic-first (Design System v2, Issue #4)。
@@ -31,24 +32,25 @@ const SYN_PREVIEW = 10; // Names 默认展示条数(8–12 区间取 10)
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const canonical = `/chemical/${id}`;
-  let title = `HCID ${id}｜${t.brand.name}`;
   const chemical = await apiGet<Chemical>(`/chemicals/${id}?display=true`).catch(() => null);
-  const name = chemical?.preferred_name || chemical?.iupac_name;
-  if (name) title = `${name} (HCID ${id})｜${t.brand.name}`;
+  // 与页面 H1 同源: 同一 resolver、同一 locale, 不允许 SEO 自己再写一套 fallback
+  const { title: displayName } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel);
+  const pageTitle = `${displayName} (HCID ${id})`;
+  const description = t.chemical.descFor(displayName);
   return {
-    title: `HCID ${id}`,
-    description: t.chemical.desc,
+    title: pageTitle,
+    description,
     alternates: { canonical },
     openGraph: {
       url: canonical,
-      title,
-      description: t.chemical.desc,
-      images: [{ url: `/api/mol/${id}/png`, width: 500, height: 375, alt: `${name || `HCID ${id}`} 分子结构式` }],
+      title: `${pageTitle}｜${t.brand.name}`,
+      description,
+      images: [{ url: `/api/mol/${id}/png`, width: 500, height: 375, alt: `${displayName} 分子结构式` }],
     },
     twitter: {
       card: "summary_large_image",
-      title,
-      description: t.chemical.desc,
+      title: `${pageTitle}｜${t.brand.name}`,
+      description,
       images: [`/api/mol/${id}/png`],
     },
   };
@@ -89,7 +91,10 @@ export default async function ChemicalPage({ params }: {
   const cbPending = cbInFlight(externals?.state);
   const refreshActive = details.enrichment.status === "queued" || cbPending;
 
-  const title = chemical.preferred_name || chemical.iupac_name || pb?.record_title || t.common.unnamedCompound;
+  // 名称解析唯一出口(与搜索结果/SEO 同规则); pb.record_title 不再入链 ——
+  // 数据事实: PubChem 摄入时 preferred_name = properties.Title or record_title,
+  // 抽样 6/6 record_title 与 preferred_name 同值, 单独入链只会制造第二套 fallback。
+  const { title, secondary } = resolveChemicalName(chemical, t.common.hcidLabel);
   const identifiers = identifierGroups(chemical);
   const names = cbNameGroups(externals, [chemical.preferred_name, chemical.iupac_name].filter((v): v is string => Boolean(v)));
   const props = propertyGroups(externals);
@@ -127,6 +132,7 @@ export default async function ChemicalPage({ params }: {
     "@context": "https://schema.org",
     "@type": "MolecularEntity",
     name: title,
+    ...(secondary ? { alternateName: secondary } : {}),
     ...(chemical.iupac_name ? { iupacName: chemical.iupac_name } : {}),
     ...(chemical.molecular_formula ? { molecularFormula: chemical.molecular_formula } : {}),
     ...(chemical.molecular_formula ? { molecularWeight: chemical.average_mass ? String(chemical.average_mass) : undefined } : {}),
@@ -153,11 +159,14 @@ export default async function ChemicalPage({ params }: {
 
       {/* ── Chemical Entity Header ── */}
       <header className="chemical-identity">
-        <div className="chemical-structure"><Molecule chemicalId={chemical.id} label={chemical.preferred_name || chemical.iupac_name} width={360} height={280} /></div>
+        <div className="chemical-structure"><Molecule chemicalId={chemical.id} label={title} width={360} height={280} /></div>
         <div className="chemical-title-block">
           <EntityId kind="chemical" id={chemical.id} />
           <h1>{title}</h1>
-          {chemical.iupac_name && chemical.iupac_name.toLowerCase() !== title.toLowerCase() && <p className="iupac-name">{chemical.iupac_name}</p>}
+          {secondary && <p className="iupac-name">{secondary}</p>}
+          {chemical.iupac_name && chemical.iupac_name.toLowerCase() !== title.toLowerCase()
+            && chemical.iupac_name.toLowerCase() !== (secondary || "").toLowerCase()
+            && <p className="iupac-name">{chemical.iupac_name}</p>}
           <div className="identity-primary">
             {chemical.molecular_formula && <span>{chemical.molecular_formula}</span>}
             {chemical.average_mass != null && <span>{formatNumber(chemical.average_mass)} g/mol</span>}

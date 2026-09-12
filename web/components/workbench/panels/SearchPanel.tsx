@@ -5,6 +5,7 @@ import Link from "next/link";
 import { apiGet, molSvgUrl, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import { EntityId } from "@/components/shared/EntityId";
 import t from "@/lib/i18n";
+import { resolveChemicalName } from "@/lib/chemicalName";
 import { PanelHeading, WbEmpty, PanelLoading, PanelError } from "../shared";
 import type { LoadState } from "../types";
 
@@ -100,7 +101,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img loading="lazy" src={molSvgUrl(chem.id, 160, 110)} alt="" />
                 <div>
-                  <strong>{chem.preferred_name || chem.iupac_name || chem.cas_numbers[0]}</strong>
+                  <strong>{resolveChemicalName(chem, t.common.hcidLabel).title}</strong>
                   <EntityId kind="chemical" id={chem.id} compact />
                   <span>{chem.molecular_formula || chem.inchikey || ""}</span>
                 </div>

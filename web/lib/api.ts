@@ -88,6 +88,8 @@ export type Chemical = {
   pubchem_smiles: string | null;
   preferred_name: string | null;
   iupac_name: string | null;
+  /** locale 名称(name_index kind='name_cn', 镜像 CB identity.cn)。见 lib/chemicalName.ts */
+  name_cn: string | null;
   molecular_formula: string | null;
   average_mass: number | null;
   monoisotopic_mass: number | null;

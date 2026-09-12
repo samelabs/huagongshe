@@ -56,6 +56,8 @@ export type ChemicalFollow = {
   id: number;
   preferred_name: string | null;
   iupac_name: string | null;
+  name_cn: string | null;
+  molecular_formula: string | null;
   smiles: string | null;
 };
 
