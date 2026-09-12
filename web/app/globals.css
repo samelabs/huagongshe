@@ -114,7 +114,7 @@ h2, h3 { font-weight: var(--section-weight); }
 
 .site-header { z-index: 30; border-bottom: 1px solid var(--line); background: var(--paper); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
 .header-inner { width: min(var(--max), calc(100% - 40px)); min-width: 0; height: 64px; margin: 0 auto; display: flex; align-items: center; }
-.brand { display: inline-flex; align-items: center; }
+.brand { display: inline-flex; align-items: center; padding: 12px 0; }  /* 44px 级触控区, 不改 header 高度 */
 .brand-domain { display: inline-flex; align-items: baseline; color: var(--blue-strong); font-family: var(--font-ui); font-size: 16px; line-height: 1; letter-spacing: -.01em; font-weight: 700; }
 nav[aria-label="主导航"] { min-width: 0; margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 22px; color: var(--muted); font-size: var(--text); white-space: nowrap; }
 .login-link { border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 13px; min-height: 38px; display: inline-flex; align-items: center; color: var(--ink); }
@@ -225,6 +225,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .search-input-box input {
   flex: 1;
   min-width: 0;
+  align-self: stretch;  /* 撑满 44/52px 外壳: 整框可点/可聚焦, 而非只有 20px 文字行 */
   border: 0;
   outline: 0;
   background: none;
@@ -360,7 +361,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 }
 .chemical-result-structure { height: 120px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .chemical-result-structure img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.chemical-result-copy { min-width: 0; }
+.chemical-result-copy { min-width: 0; overflow-wrap: anywhere; }
 .chemical-result-copy > .entity-id { margin-bottom: 6px; }
 .chemical-result h3, .reaction-result h3 { margin: 0 0 6px; font-size: var(--text-lg); font-weight: var(--section-weight); line-height: 1.35; }
 .chemical-result h3 a { color: var(--heading); }
@@ -920,6 +921,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 }
 .kdense-cat {
   display: inline-flex; align-items: center; gap: 5px;
+  min-height: 32px;
   padding: 6px 13px; border: 1px solid var(--line-strong);
   border-radius: 20px; background: var(--paper);
   font-size: var(--text-sm); color: var(--heading-soft);
