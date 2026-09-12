@@ -93,7 +93,7 @@ export function SamelabsUsers() {
             />
             <button type="submit" className="button small">{t.admin.userSearch}</button>
           </form>
-          <div className="admin-table">
+          <div className="admin-table admin-actions-min">
             {users.map((u) => <article key={u.id}>
               <div>
                 <strong>{u.display_name}</strong>

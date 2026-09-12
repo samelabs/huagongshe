@@ -135,7 +135,7 @@ export function SamelabsSkills() {
               </button>
             ))}
           </div>
-          <div className="admin-table">
+          <div className="admin-table admin-actions-min">
             {skills.map((s) => <article key={s.id}>
               <div>
                 <strong>{s.title}</strong>
@@ -166,7 +166,7 @@ export function SamelabsSkills() {
             <span>{t.admin.categoryCount(cats.length)}</span>
           </div>
           {catError && <div className="notice error">{catError}</div>}
-          <div className="admin-table">
+          <div className="admin-table admin-actions-min">
             {cats.map((c) => <article key={c.id}>
               <div>
                 <strong><span style={{ color: c.color }}>{c.abbr}</span> {c.name}</strong>

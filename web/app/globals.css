@@ -560,6 +560,8 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .form-fields.two-columns { grid-template-columns: 1fr 1fr; }
 .form-fields .wide { grid-column: 1 / -1; }
 .form-fields textarea { resize: vertical; }
+/* 后台配置页: label 与字段分离(不改 DOM/文案/保存机制); 公众表单不受影响 */
+.admin-content .form-fields label { display: grid; gap: 7px; }
 .editing-context { border-left: 3px solid var(--blue); padding: 10px 13px; display: flex; align-items: center; gap: 9px; color: var(--muted); background: var(--wash); font-size: var(--text); }
 .participant-editor-cards { display: grid; gap: 10px; }
 .participant-input-card { min-width: 0; border: 1px solid var(--line); padding: 13px; }
@@ -692,6 +694,21 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .admin-table article { border-bottom: 1px solid var(--line); padding: 13px 0; display: grid; grid-template-columns: 1fr auto auto; gap: 15px; align-items: center; }
 .admin-table article > div { min-width: 0; display: grid; gap: 4px; }
 .admin-table article > div > span { overflow: hidden; color: var(--quiet); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+/* 窄桌面/平板: 状态与操作列的最小宽度 —— 本轮仅 Users/Reactions/Skills 三页行表(Worker 行未动) */
+@media (min-width: 681px) {
+  .admin-table.admin-actions-min article,
+  .admin-table.reaction-admin-list article { grid-template-columns: minmax(0, 1fr) minmax(88px, auto) minmax(88px, auto); }
+  /* 这两格被 .admin-table article > div{display:grid} 压成单列 → 天然竖排;
+     仅加宽度解不了竖堆, 故显式改横向 flex(不改 DOM/文案/按钮, 不换 UI) */
+  .admin-table.admin-actions-min article > .admin-user-badges,
+  .admin-table.admin-actions-min article > .admin-user-actions {
+    display: flex; flex-flow: row nowrap; align-items: center; gap: 6px; justify-content: flex-end;
+  }
+  .admin-table.admin-actions-min article > .admin-user-actions .text-button,
+  .admin-table.reaction-admin-list article > button { white-space: nowrap; }
+  .admin-table.reaction-admin-list article > .status { justify-self: end; white-space: nowrap; }
+  .admin-table.reaction-admin-list article > button { justify-self: end; }
+}
 .admin-user-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .admin-user-actions { display: flex; gap: 6px; }
 .status.admin { color: var(--blue-strong); font-weight: 600; }
@@ -1253,6 +1270,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .gov-sev { font-size: var(--text-xs); }
 .gov-sev.bad { color: #b33; }
 .gov-sev.warn { color: #8a6d00; }
+.gov-sev.quiet { color: var(--quiet); }
 .gov-tr-gov, .pipe-tr-gov { grid-template-columns: 48px 1fr 160px 80px 70px; }
 .gov-gap-note { margin-top: 8px; font-size: var(--text-xs); color: var(--muted); border-top: 1px dashed var(--line); padding-top: 6px; }
 .gov-drill-box { max-width: 720px; width: 92vw; max-height: 70vh; overflow: auto; }

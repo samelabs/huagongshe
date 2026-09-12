@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
+import { severityClass, statusFromCount, statusFromSection } from "@/lib/govSeverity";
 
 /* ── A2 治理契约 ──────────────────────────────────────────
    三层语义: source_record / canonical_entity / derived_index — 界面文案钉死。
@@ -110,15 +111,17 @@ export function SamelabsGovernance() {
 
   // 抽样指标统一文案: "样本 matched/size (ratio)" — 禁写成全库异常总数
   const sv = (x: any) => (x ? `${fmt(x.matched)}/${fmt(x.sample_size)}（${((x.ratio ?? 0) * 100).toFixed(1)}%）` : null);
-  const issues: { key: string; sev: string; label: string; val: string | null; drill?: string; modeK?: string }[] = [
-    { key: "ambiguous", sev: "高", label: "CB 采集/身份悬案 (seed AMBIGUOUS)", val: idg ? fmt(idg.acquisition_pending.ambiguous_seeds) : null, drill: "identity_ambiguous_seeds", modeK: "identity_governance" },
-    { key: "ni_missing", sev: "高", label: "CB 中文名未镜像 name_index（样本）", val: sv(nim), drill: "cb_name_index_missing", modeK: "cb_name_index_missing" },
-    { key: "sup_orphan", sev: "高", label: "Supplier listing 指向不存在主档（样本）", val: supor ? `${fmt(supor.matched)}/${fmt(supor.sample_size)}` : null, drill: "supplier_listing_orphan", modeK: "supplier_listing_orphan" },
-    { key: "ni_orphan", sev: "中", label: "name_index 指向不存在主档（样本）", val: nior ? `${fmt(nior.matched)}/${fmt(nior.sample_size)}` : null, drill: "name_index_orphan", modeK: "name_index_orphan" },
-    { key: "cb_num_null", sev: "中", label: "源记录有但主档 cb_number 空（样本）", val: sv(cbnull), drill: "cb_canonical_cb_number_null", modeK: "cb_canonical_cb_number_null" },
-    { key: "pb_norec", sev: "中", label: "主档有 CID 但无 PB 源记录（样本）", val: sv(pbnorec), drill: "pb_cid_no_source_record", modeK: "pb_cid_no_source_record" },
-    { key: "pb_gap", sev: "中", label: "PB 源记录未同步主档字段（样本）", val: sv(pbgap), modeK: "pb_canonical_sync_gap" },
-    { key: "seed_nj", sev: "低", label: "Seed ENQUEUED 但无活跃 job", val: seednj.available ? fmt(seednj.value ?? 0) : null, modeK: "seed_enqueued_no_job" },
+  // 严重度是否"激活"只由原始数据决定(见 lib/govSeverity.ts), 不解析格式化后的 val 字符串
+  const st = (k: string) => statusFromSection(w(k));
+  const issues: { key: string; sev: string; label: string; val: string | null; drill?: string; modeK?: string; available: boolean; active: boolean }[] = [
+    { key: "ambiguous", sev: "高", label: "CB 采集/身份悬案 (seed AMBIGUOUS)", val: idg ? fmt(idg.acquisition_pending.ambiguous_seeds) : null, drill: "identity_ambiguous_seeds", modeK: "identity_governance", ...statusFromCount(idg?.acquisition_pending?.ambiguous_seeds) },
+    { key: "ni_missing", sev: "高", label: "CB 中文名未镜像 name_index（样本）", val: sv(nim), drill: "cb_name_index_missing", modeK: "cb_name_index_missing", ...st("cb_name_index_missing") },
+    { key: "sup_orphan", sev: "高", label: "Supplier listing 指向不存在主档（样本）", val: supor ? `${fmt(supor.matched)}/${fmt(supor.sample_size)}` : null, drill: "supplier_listing_orphan", modeK: "supplier_listing_orphan", ...st("supplier_listing_orphan") },
+    { key: "ni_orphan", sev: "中", label: "name_index 指向不存在主档（样本）", val: nior ? `${fmt(nior.matched)}/${fmt(nior.sample_size)}` : null, drill: "name_index_orphan", modeK: "name_index_orphan", ...st("name_index_orphan") },
+    { key: "cb_num_null", sev: "中", label: "源记录有但主档 cb_number 空（样本）", val: sv(cbnull), drill: "cb_canonical_cb_number_null", modeK: "cb_canonical_cb_number_null", ...st("cb_canonical_cb_number_null") },
+    { key: "pb_norec", sev: "中", label: "主档有 CID 但无 PB 源记录（样本）", val: sv(pbnorec), drill: "pb_cid_no_source_record", modeK: "pb_cid_no_source_record", ...st("pb_cid_no_source_record") },
+    { key: "pb_gap", sev: "中", label: "PB 源记录未同步主档字段（样本）", val: sv(pbgap), modeK: "pb_canonical_sync_gap", ...st("pb_canonical_sync_gap") },
+    { key: "seed_nj", sev: "低", label: "Seed ENQUEUED 但无活跃 job", val: seednj.available ? fmt(seednj.value ?? 0) : null, modeK: "seed_enqueued_no_job", ...st("seed_enqueued_no_job") },
   ];
 
   return <>
@@ -164,7 +167,7 @@ export function SamelabsGovernance() {
         <div className="pipe-tr pipe-th pipe-tr-gov" role="row"><span>级别</span><span>问题</span><span>数值</span><span>口径</span><span></span></div>
         {issues.map(i => (
           <div className="pipe-tr pipe-tr-gov" role="row" key={i.key}>
-            <span className={"gov-sev " + (i.sev === "高" ? "bad" : "warn")}>{i.sev}</span>
+            <span className={"gov-sev " + severityClass(i.sev, i.active)}>{i.sev}</span>
             <span className="pipe-detail">{i.label}</span>
             <span className="pipe-num">{i.val ?? "暂不可用"}</span>
             <span className="pipe-metric-label">{modeNote(i.modeK ?? i.key)}</span>
