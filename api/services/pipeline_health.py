@@ -8,9 +8,12 @@ backlogged queued>0 且 worker 在线(仍有处理能力)
 stalled    queued>0 且 无在线 worker 覆盖该链(或全 worker 离线)
 degraded   error>0 或 gate 静默中 或 该链关键指标不可用
 
-优先级: unavailable > stalled > backlogged > degraded > healthy > idle。
-(一个链既 backlogged 又在报错 → backlogged: 队列堆积是更需操作的信号;
- 但指标不可用时绝不能伪装 healthy。)
+优先级(0912 PM 修正): unavailable > stalled > degraded > backlogged > healthy/idle。
+- 指标不可用 → unavailable
+- queued>0 且无可用 worker → stalled
+- error>0 或 gate 静默 → degraded(压过 backlogged: 异常必须显形)
+- queued>0 且有可用 worker、且无上述异常 → backlogged
+- 其余再判 healthy(近期有写入) / idle
 
 在线阈值依据(代码事实, 非拍脑袋):
 - worker 每次请求 workapi 都会刷新 last_seen, 但持久化被 redis 节流
@@ -129,35 +132,32 @@ def chain_health(
         recent_success = (nw - ls).total_seconds() <= RECENT_SUCCESS_S
 
     reasons: list[str] = []
+    # 优先级判定链(0912 PM 修正): unavailable > stalled > degraded >
+    # backlogged > healthy/idle。degraded 压过 backlogged 与 idle:
+    # error/gate 异常必须显形, 不被"堆积消化中/空闲"掩盖。
     if not metrics_available:
         status = "unavailable"
         reasons.append("关键指标不可用")
     elif queued > 0 and not has_worker:
         status = "stalled"
         reasons.append(f"队列 {queued} 条积压, 无在线 worker 覆盖 {scope} 链")
+    elif error > 0:
+        status = "degraded"
+        reasons.append(f"error 留痕 {error} 条")
+    elif gate_silent:
+        status = "degraded"
+        reasons.append("闸门静默中")
     elif queued > 0 and has_worker:
         status = "backlogged"
         reasons.append(f"队列 {queued} 条积压, worker 在线消化中")
-    elif not has_worker and queued == 0:
-        # 无 worker 但也无积压: 不慌, 但也不是 healthy(没有处理能力)
-        status = "idle" if not recent_success else "idle"
-        reasons.append("无积压, 无在线 worker")
     elif recent_success:
         status = "healthy"
     else:
         status = "idle"
-        reasons.append("无积压, 近期无写入")
-
-    # degraded 叠加: error 留痕 / gate 静默 —— 只把 healthy 降级;
-    # backlogged 保留(堆积比报错更需操作, error 信息仍在 error_buckets 可见),
-    # idle 不降级(空闲期旧留痕不代表当前异常)。
-    if status == "healthy":
-        if error > 0:
-            status = "degraded"
-            reasons.append(f"error 留痕 {error} 条")
-        elif gate_silent:
-            status = "degraded"
-            reasons.append("闸门静默中")
+        if not has_worker:
+            reasons.append("无积压, 无在线 worker")
+        else:
+            reasons.append("无积压, 近期无写入")
 
     return {
         "status": status,

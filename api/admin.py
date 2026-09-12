@@ -581,10 +581,13 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     cached = _PIPELINE_STATS_CACHE.get("v")
     stats_stale = False
     if cached is None or _time.monotonic() - cached["ts"] > _PIPELINE_STATS_TTL:
-        if _PIPELINE_STATS_LOCK.locked():
-            # 已有并发刷新在跑: 直接用旧 snapshot(如有), 标 stale —— 不排队不重扫
-            stats_stale = cached is not None
+        if _PIPELINE_STATS_LOCK.locked() and cached is not None:
+            # 有旧缓存 + 别人在刷新: 立即返回旧 snapshot 标 stale —— 不排队不重扫
+            stats_stale = True
         else:
+            # 无缓存(冷启动)或锁空闲: 走锁。冷启动时若别人正在首次刷新,
+            # 本请求在锁上等待(single-flight), 其完成后读取其结果 —— 不会
+            # 带着 cached=None 走下去, 也不会各自重扫。
             async with _PIPELINE_STATS_LOCK:
                 # 双查: 排队期间别人已刷新完就不再扫
                 cached2 = _PIPELINE_STATS_CACHE.get("v")
@@ -599,8 +602,9 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
                         cached = _PIPELINE_STATS_CACHE["v"]
                     except Exception:
                         logger.exception("pipeline stats critical refresh failed")
-                        if cached is None:
-                            raise   # 从无成功 snapshot: 无法降级
+                        if _PIPELINE_STATS_CACHE.get("v") is None:
+                            raise   # 从无成功 snapshot: 明确失败, 不造 0
+                        cached = _PIPELINE_STATS_CACHE["v"]
                         stats_stale = True  # last-known-good: 旧 snapshot 继续, 标 stale
     stats = cached["v"]
     stats_generated_at = stats.get("generated_at") or cached.get("wall") or now_iso

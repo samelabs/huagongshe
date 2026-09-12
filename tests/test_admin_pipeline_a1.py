@@ -101,13 +101,21 @@ class ChainHealthModelTests(unittest.TestCase):
         self.assertEqual("degraded", chain_health(error=0, gate_silent=True, **base)["status"])
         self.assertEqual("healthy", chain_health(error=0, gate_silent=False, **base)["status"])
 
-    def test_backlogged_wins_over_degraded(self):
-        """堆积比报错更需操作: queued>0+error>0 → backlogged(带 reasons)。"""
+    def test_degraded_wins_over_backlogged(self):
+        """(0912 PM 修正) queued + worker + error → degraded, 不再是 backlogged。"""
         h = chain_health(scope="cas", queued=10, leased=0, error=5,
                          latest_success_at=NOW, gate_silent=False,
                          metrics_available=True,
                          worker_runtimes=self._online_cas(), now=NOW)
-        self.assertEqual("backlogged", h["status"])
+        self.assertEqual("degraded", h["status"])
+
+    def test_gate_silent_degrades_idle(self):
+        """(0912 PM 修正) idle + gate 静默 → degraded(空闲不掩盖闸门异常)。"""
+        h = chain_health(scope="cas", queued=0, leased=0, error=0,
+                         latest_success_at=NOW - timedelta(seconds=4 * 3600),
+                         gate_silent=True, metrics_available=True,
+                         worker_runtimes=self._online_cas(), now=NOW)
+        self.assertEqual("degraded", h["status"])
 
     def test_scope_coverage_matters(self):
         """只覆盖 pubchem 的在线 worker 救不了 cas 链。"""
@@ -282,6 +290,59 @@ class PipelineEndpointTests(unittest.TestCase):
         self.assertGreater(d2["stats"]["age_seconds"], 9000)
         # 数据仍在(不是 0 冒充)
         self.assertTrue(d2["supplier"]["available"])
+
+    def test_cold_start_single_flight_no_crash_no_double_scan(self):
+        """验收(0912 blocker2): 两个冷启动请求并发 → _scan_critical 只跑一次,
+        两个请求都拿到结果, 无一因 cached=None 崩溃。"""
+        import api.admin as admin_mod
+        admin_mod._PIPELINE_STATS_CACHE.clear()
+        calls = {"n": 0, "evt": asyncio.Event()}
+        orig = admin_mod._scan_critical
+        async def slow_scan(db):
+            calls["n"] += 1
+            await calls["evt"].wait()      # 挂住首次刷新, 直到第二请求到位
+            return await orig(db)
+
+        async def scenario():
+            admin_mod._scan_critical = slow_scan
+            try:
+                engine, _ = admin_mod_engine()
+                try:
+                    async def hit():
+                        async with sessionmaker(engine)() as db:
+                            return await admin_mod.pipeline(actor=self._admin(), db=db)
+                    # 请求A先起跑(进入慢刷新持锁), 让出后请求B再进入
+                    tA = asyncio.create_task(hit())
+                    await asyncio.sleep(0.3)   # A 已持锁在扫
+                    tB = asyncio.create_task(hit())
+                    await asyncio.sleep(0.3)   # B 已在锁上等待(冷启动不抢跑)
+                    calls["evt"].set()         # 放行首次刷新
+                    return await asyncio.gather(tA, tB)
+                finally:
+                    await engine.dispose()
+            finally:
+                admin_mod._scan_critical = orig
+
+        ra, rb = asyncio.run(scenario())
+        self.assertEqual(1, calls["n"], "冷启动并发必须只执行一次 _scan_critical")
+        for r in (ra, rb):
+            self.assertIn("stats", r)
+            self.assertFalse(r["stats"]["stale"])
+            self.assertTrue(r["supplier"]["available"])
+
+    def test_cold_start_first_refresh_failure_raises(self):
+        """(0912 blocker2) 首次刷新失败且无 snapshot → 明确抛错, 不造 0。"""
+        import api.admin as admin_mod
+        admin_mod._PIPELINE_STATS_CACHE.clear()
+        orig = admin_mod._scan_critical
+        async def boom(db):
+            raise RuntimeError("cold start fail")
+        admin_mod._scan_critical = boom
+        try:
+            with self.assertRaises(RuntimeError):
+                self._payload()
+        finally:
+            admin_mod._scan_critical = orig
 
     def test_concurrent_refresh_single_flight(self):
         """验收4: 刷新锁占用时直接用旧 snapshot —— 不重复重扫。"""
