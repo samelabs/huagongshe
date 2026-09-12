@@ -73,6 +73,56 @@ class UsersPanelTests(unittest.TestCase):
         self.assertIn("userDisableEffect: '停用后将注销该用户会话并撤销 AI Key。'", i18n)
 
 
+class UsersSearchStateContractTests(unittest.TestCase):
+    """q(draft)/appliedQ(已应用) 双状态契约 — 修正未提交输入污染计数语义。"""
+
+    def setUp(self):
+        self.src = read("web/components/samelabs/UsersPanel.tsx")
+
+    def _between(self, start_marker: str, end_marker: str) -> str:
+        i = self.src.index(start_marker)
+        return self.src[i:self.src.index(end_marker, i)]
+
+    def test_two_states_declared(self):
+        """draft 与 applied 是两个独立 state。"""
+        self.assertIn('const [q, setQ] = useState("");', self.src)
+        self.assertIn('const [appliedQ, setAppliedQ] = useState("");', self.src)
+
+    def test_draft_edit_does_not_apply(self):
+        """契约1: 仅编辑输入框(非空)不发请求、不改 appliedQ。"""
+        onchange = [l for l in self.src.split("\n") if "onChange" in l and "setQ" in l][0]
+        self.assertIn('if (e.target.value === "") load("");', onchange)
+        self.assertNotIn('load(e.target.value)', onchange)  # 非空编辑不触发 load
+
+    def test_appliedq_advances_only_on_success(self):
+        """契约2+3: setAppliedQ 只出现在 apiGet 成功之后(同一 try, data 赋值后);
+        catch 分支不推进 appliedQ → submit 失败保持旧值。"""
+        load_fn = self._between("async function load", "useEffect")
+        self.assertIn("const data = await apiGet", load_fn)
+        # setAppliedQ 必须在 try 内、data 成功拿到后
+        try_block = load_fn[load_fn.index("try {"):load_fn.index("catch")]
+        self.assertIn("setUsers(data)", try_block)
+        self.assertIn("setAppliedQ(query.trim())", try_block)
+        catch_block = load_fn[load_fn.index("catch"):]
+        self.assertNotIn("setAppliedQ", catch_block)
+
+    def test_count_uses_appliedq_not_draft(self):
+        """契约5: 计数文案只依赖 appliedQ。"""
+        count_line = [l for l in self.src.split("\n") if "userShownCount" in l][0]
+        self.assertIn("appliedQ || null", count_line)
+        self.assertNotIn("q.trim()", count_line)
+
+    def test_reload_uses_appliedq(self):
+        """reload 与当前列表一致, 不被 draft 污染。"""
+        self.assertIn("await load(appliedQ)", self.src)
+        self.assertNotIn("await load(q)", self.src)
+
+    def test_clear_restores_default(self):
+        """契约4: 清空输入 → load("") → 成功后 appliedQ=""(setAppliedQ(query.trim()))。"""
+        load_fn = self._between("async function load", "useEffect")
+        self.assertIn("setAppliedQ(query.trim())", load_fn)  # query="" → appliedQ=""
+
+
 class SkillsPanelTests(unittest.TestCase):
     def setUp(self):
         self.src = read("web/components/samelabs/SkillsAdminPanel.tsx")

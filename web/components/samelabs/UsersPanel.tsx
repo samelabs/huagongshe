@@ -10,14 +10,18 @@ export function SamelabsUsers() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState("");                       // draft: 输入框当前值
+  const [appliedQ, setAppliedQ] = useState("");          // 已应用: 成功加载所对应的搜索条件
   const [pendingDisable, setPendingDisable] = useState<UserRow | null>(null);
 
+  // 仅成功才推进 appliedQ; 失败保持旧值(draft 不参与计数文案)
   async function load(query: string) {
     const params = new URLSearchParams({ limit: "100" });
     if (query.trim()) params.set("q", query.trim());
     try {
-      setUsers(await apiGet<UserRow[]>(`/admin/users?${params}`));
+      const data = await apiGet<UserRow[]>(`/admin/users?${params}`);
+      setUsers(data);
+      setAppliedQ(query.trim());
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
     }
@@ -38,7 +42,7 @@ export function SamelabsUsers() {
     return () => { active = false; };
   }, []);
 
-  async function reload() { await load(q); }
+  async function reload() { await load(appliedQ); }
 
   async function confirmDisable() {
     if (!pendingDisable) return;
@@ -79,7 +83,7 @@ export function SamelabsUsers() {
         <section className="dashboard-section">
           <div className="section-heading">
             <div><h2>{t.admin.usersAll}</h2></div>
-            <span>{t.admin.userShownCount(users.length, q.trim() ? q.trim() : null)}</span>
+            <span>{t.admin.userShownCount(users.length, appliedQ || null)}</span>
           </div>
           <form className="admin-search" onSubmit={(e) => { e.preventDefault(); load(q); }}>
             <input
