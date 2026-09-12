@@ -21,7 +21,7 @@ import logging
 
 from .core.cache import cache_delete
 from .core.config import settings
-from .core.database import get_db
+from .core.database import async_session, get_db
 from .core.security import Actor, current_session
 from .schemas.admin import UserStatusBody, UserRoleBody, ModerationBody, WorkerCreateBody, WorkerPatchBody, SkillVisibilityBody, CategoryBody, WORKER_SCOPES
 
@@ -444,6 +444,48 @@ _PIPELINE_STATS_CACHE: dict = {}      # {"v": snapshot, "ts": monotonic, "wall":
 _PIPELINE_STATS_TTL = 60.0            # 秒: 管理端"总量"类精确统计的新鲜度
 _PIPELINE_STATS_LOCK = asyncio.Lock()  # 单飞: 同一进程内只允许一个刷新在跑
 
+# P1 (0912): stale-while-revalidate — TTL 过期但已有 last-known-good 时,
+# 请求立即返回旧 snapshot 并只在后台触发一次刷新(独立 DB session, 绝不用
+# request-scoped session, 其生命周期在响应后结束)。刷新成功原子替换 cache,
+# 失败保留 last-known-good(下一请求可再触发)。只有冷启动(无任何 snapshot)
+# 才允许同步等待 single-flight 首扫 —— 那是唯一一次付费。
+_PIPELINE_STATS_BG: set[asyncio.Task] = set()  # 强引用, 防 GC 中断后台刷新
+
+
+async def _pipeline_stats_refresh_bg() -> None:
+    """后台刷新 pipeline stats: 独立 session + 与请求路径同一把单飞锁。"""
+    async with _PIPELINE_STATS_LOCK:
+        # 双查: 排队期间可能已被别人刷好
+        cached2 = _PIPELINE_STATS_CACHE.get("v")
+        if cached2 is not None and _time.monotonic() - cached2["ts"] <= _PIPELINE_STATS_TTL:
+            return
+        # 持锁期间持有独立 session(请求 session 早已随响应关闭)
+        async with async_session() as db:
+            try:
+                fresh = await _pipeline_refresh_stats(db)
+                _PIPELINE_STATS_CACHE["v"] = {"v": fresh, "ts": _time.monotonic()}
+            except Exception:  # noqa: BLE001 — last-known-good 语义: 留旧 snapshot
+                logger.exception("pipeline stats background refresh failed (keep last-known-good)")
+
+
+def _pipeline_stats_spawn_refresh() -> None:
+    """启动后台刷新(调用方已确认 stale)。真正的 single-flight 门:
+    _PIPELINE_STATS_BG 非空 = 已有一个后台刷新在跑(排队锁上也算占用) →
+    直接返回, 不产生第二个昂贵任务; 与锁双保险(锁防重入扫描, 集合防任务堆积)。
+    done_callback 消费 task 结果并移出集合: 异常已在 bg 内被捕获记录,
+    这里再 await 一次以消灭 "Task exception was never retrieved" 告警。"""
+    if _PIPELINE_STATS_BG:
+        return
+    task = asyncio.get_running_loop().create_task(_pipeline_stats_refresh_bg())
+    _PIPELINE_STATS_BG.add(task)
+
+    def _reap(t: asyncio.Task) -> None:
+        _PIPELINE_STATS_BG.discard(t)
+        if not t.cancelled():
+            _ = t.exception()   # 已在 bg 内记录; 这里显式消费, 防 never-retrieved
+
+    task.add_done_callback(_reap)
+
 
 class _SectionFailure(RuntimeError):
     """optional section 刷新失败 —— 降级, 不炸整页。携带 section 名。"""
@@ -505,6 +547,35 @@ async def _scan_negative(db) -> dict:
         FROM maintenance.cb_negative_observations
     """))).fetchone()
     return {"total": int(neg[0]), "today": int(neg[1])}
+
+
+async def _pipeline_refresh_stats(db) -> dict:
+    """全量重扫描(critical 串行 + optional 各自容错), 返回 snapshot dict。
+    P1 (0912): 提升为模块级 —— 同一段扫描逻辑供请求路径(冷启动同步)与
+    后台刷新任务(stale-while-revalidate, 独立 session)共用, 单一实现无分叉。
+    critical 失败向上抛(调用方决定降级路径); optional 失败埋 available=False。"""
+    snapshot: dict[str, Any] = {}
+    cb_locales, pb_today, pb_last_1h, pb_total_rows = await _scan_critical(db)
+    snapshot["critical"] = (cb_locales, pb_today, pb_last_1h, pb_total_rows)
+    snapshot["optional"] = {}
+    for section, fn in (("supplier", _scan_supplier),
+                        ("seed", _scan_seed),
+                        ("negative", _scan_negative)):
+        try:
+            snapshot["optional"][section] = {
+                "available": True, "error": None,
+                "value": await fn(db),
+            }
+        except Exception as exc:  # noqa: BLE001 — 逐块降级, 必须吞
+            logger.exception("pipeline stats section=%s failed", section)
+            snapshot["optional"][section] = {
+                "available": False,
+                "error": str(exc)[:200],
+                "value": None,
+            }
+    snapshot["generated_at"] = (await db.execute(text("SELECT now()"))).scalar().isoformat()
+    return snapshot
+
 
 
 
@@ -571,43 +642,20 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     # 每个 section 独立 try/except: 单块失败 log section+exception, 绝不 0 冒充。
     # 缓存治理: last-known-good + 单飞(asyncio.Lock) + stale 标记, 见模块头注释。
 
-    def _fresh_optional(section: str, value, snapshot: dict) -> dict:
-        # 成功: available=true + 值
-        return {"available": True, "error": None, "value": value}
-
-    async def _refresh_stats(db) -> dict:
-        """全量重扫描(critical 串行 + optional 各自容错), 返回 snapshot dict。
-        critical 失败向上抛(调用方决定降级路径); optional 失败埋 available=False。"""
-        snapshot: dict[str, Any] = {}
-        cb_locales, pb_today, pb_last_1h, pb_total_rows = await _scan_critical(db)
-        snapshot["critical"] = (cb_locales, pb_today, pb_last_1h, pb_total_rows)
-        snapshot["optional"] = {}
-        for section, fn in (("supplier", _scan_supplier),
-                            ("seed", _scan_seed),
-                            ("negative", _scan_negative)):
-            try:
-                snapshot["optional"][section] = _fresh_optional(
-                    section, await fn(db), snapshot)
-            except Exception as exc:  # noqa: BLE001 — 逐块降级, 必须吞
-                logger.exception("pipeline stats section=%s failed", section)
-                snapshot["optional"][section] = {
-                    "available": False,
-                    "error": str(exc)[:200],
-                    "value": None,
-                }
-        snapshot["generated_at"] = (await db.execute(text("SELECT now()"))).scalar().isoformat()
-        return snapshot
-
     cached = _PIPELINE_STATS_CACHE.get("v")
     stats_stale = False
     if cached is None or _time.monotonic() - cached["ts"] > _PIPELINE_STATS_TTL:
-        if _PIPELINE_STATS_LOCK.locked() and cached is not None:
-            # 有旧缓存 + 别人在刷新: 立即返回旧 snapshot 标 stale —— 不排队不重扫
+        if cached is not None:
+            # P1 (0912) stale-while-revalidate: 已有 last-known-good → 立即返回
+            # 旧 snapshot 标 stale; 锁空闲则后台(独立 session)补一次刷新,
+            # 本请求绝不等待。锁被占(后台刷新已在跑)则连任务都不建。
             stats_stale = True
+            if not _PIPELINE_STATS_LOCK.locked():
+                _pipeline_stats_spawn_refresh()
         else:
-            # 无缓存(冷启动)或锁空闲: 走锁。冷启动时若别人正在首次刷新,
-            # 本请求在锁上等待(single-flight), 其完成后读取其结果 —— 不会
-            # 带着 cached=None 走下去, 也不会各自重扫。
+            # 冷启动(无任何 snapshot): 唯一允许同步等待的路径。走锁;
+            # 若别人正在首次刷新, 本请求在锁上等待(single-flight), 其
+            # 完成后读取其结果 —— 不会各自重扫。
             async with _PIPELINE_STATS_LOCK:
                 # 双查: 排队期间别人已刷新完就不再扫
                 cached2 = _PIPELINE_STATS_CACHE.get("v")
@@ -615,7 +663,7 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
                     cached = cached2
                 else:
                     try:
-                        fresh = await _refresh_stats(db)
+                        fresh = await _pipeline_refresh_stats(db)
                         _PIPELINE_STATS_CACHE["v"] = {
                             "v": fresh, "ts": _time.monotonic(),
                         }

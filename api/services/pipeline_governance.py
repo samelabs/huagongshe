@@ -48,6 +48,42 @@ _GOV_CACHE: dict = {}          # {"v": snapshot, "ts": monotonic}
 _GOV_TTL = 300.0               # 治理指标 5 分钟新鲜度足够(只读诊断)
 _GOV_LOCK = asyncio.Lock()
 
+# P1 (0912) stale-while-revalidate: 与 admin._PIPELINE_STATS_* 同语义 —
+# TTL 过期但已有 last-known-good → 立即返回旧 snapshot, 后台独立 session
+# 补一次刷新(单飞锁共用); 只有冷启动同步等待首扫。
+_GOV_BG: set[asyncio.Task] = set()
+
+
+async def _gov_refresh_bg() -> None:
+    """后台刷新 governance snapshot: 独立 DB session, 请求 session 不入 task。"""
+    async with _GOV_LOCK:
+        c2 = _GOV_CACHE.get("v")
+        if c2 is not None and _time.monotonic() - c2["ts"] <= _GOV_TTL:
+            return
+        from ..core.database import async_session
+        async with async_session() as db:
+            try:
+                _GOV_CACHE["v"] = {"v": await governance_snapshot(db),
+                                   "ts": _time.monotonic()}
+            except Exception:  # noqa: BLE001 — last-known-good 语义
+                logger.exception("governance background refresh failed (keep last-known-good)")
+
+
+def _gov_spawn_refresh() -> None:
+    """真正的 single-flight 门(同 admin._pipeline_stats_spawn_refresh):
+    集合非空即已有后台刷新在跑 → 不再建任务; done_callback 消费异常。"""
+    if _GOV_BG:
+        return
+    task = asyncio.get_running_loop().create_task(_gov_refresh_bg())
+    _GOV_BG.add(task)
+
+    def _reap(t: asyncio.Task) -> None:
+        _GOV_BG.discard(t)
+        if not t.cancelled():
+            _ = t.exception()
+
+    task.add_done_callback(_reap)
+
 SAMPLE_ROWS = 3000             # 样本行数(所有 sample 指标统一)
 DRILL_LIMIT = 50               # drill-down 上限(任务书 20-50)
 
@@ -286,12 +322,16 @@ async def governance_snapshot(db: AsyncSession) -> dict:
 
 
 async def get_governance(db: AsyncSession) -> dict:
-    """last-known-good + 单飞(冷启动等待首个 single-flight, 同 A1 语义)。"""
+    """last-known-good + stale-while-revalidate(冷启动同步等首个 single-flight,
+    与 A1/P1 admin._PIPELINE_STATS_* 同语义)。"""
     cached = _GOV_CACHE.get("v")
     stale = False
     if cached is None or _time.monotonic() - cached["ts"] > _GOV_TTL:
-        if _GOV_LOCK.locked() and cached is not None:
+        if cached is not None:
+            # 已有 snapshot: 立即返回旧值标 stale, 锁空闲则后台补一次刷新
             stale = True
+            if not _GOV_LOCK.locked():
+                _gov_spawn_refresh()
         else:
             async with _GOV_LOCK:
                 c2 = _GOV_CACHE.get("v")
