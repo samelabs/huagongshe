@@ -67,7 +67,8 @@ class UsersPanelTests(unittest.TestCase):
     def test_disable_confirm_names_user(self):
         i18n = read("web/lib/i18n.ts")
         self.assertIn("userDisableConfirm: (username: string, email: string)", i18n)
-        self.assertIn("userDisableEffect: '停用后将注销该用户会话并撤销 AI Key。'", i18n)
+        # 事实语义: 注销全部会话 + 删除 AI Key + 重新启用不恢复
+        self.assertIn("userDisableEffect: '停用会注销该用户全部会话并删除其现有 AI Key；重新启用账号不会恢复这些 Key。'", i18n)
 
 
 class UsersSearchStateContractTests(unittest.TestCase):

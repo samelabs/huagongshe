@@ -34,6 +34,7 @@ export function SamelabsWorkers() {
   const [scopes, setScopes] = useState<string[]>(["pubchem"]);
   const [issued, setIssued] = useState<IssueResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pendingDisableWorker, setPendingDisableWorker] = useState<WorkerRow | null>(null);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -85,6 +86,13 @@ export function SamelabsWorkers() {
       await apiPatch(`/admin/workers/${row.worker_id}`, JSON.stringify({ enabled }));
       await reload();
     } catch { setError(t.admin.errOperation); } finally { setBusyId(null); }
+  }
+
+  async function confirmDisableWorker() {
+    if (!pendingDisableWorker) return;
+    const row = pendingDisableWorker;
+    setPendingDisableWorker(null);
+    await setEnabled(row, false);
   }
 
   async function copyEnv() {
@@ -165,12 +173,26 @@ export function SamelabsWorkers() {
           </div>
           <div className="admin-user-actions">
             <button className="text-button" disabled={busyId === w.worker_id}
-              onClick={() => setEnabled(w, !w.enabled)}>
+              onClick={() => w.enabled ? setPendingDisableWorker(w) : setEnabled(w, true)}>
               {busyId === w.worker_id ? "…" : w.enabled ? t.admin.actionDisable : t.admin.actionEnable}
             </button>
           </div>
         </article>)}
       </div>
     </section>
+
+    {pendingDisableWorker && (
+      <div className="pipe-confirm" role="dialog" aria-modal onClick={() => setPendingDisableWorker(null)}>
+        <div className="pipe-confirm-box" onClick={(e) => e.stopPropagation()}>
+          <p>{t.admin.workerDisableConfirm(pendingDisableWorker.display_name, pendingDisableWorker.worker_id)}</p>
+          <p>{t.admin.workerDisableEffect}</p>
+          <div className="pipe-confirm-actions">
+            <button type="button" className="button small" onClick={() => setPendingDisableWorker(null)}>{t.admin.cancel}</button>
+            <button type="button" className="button danger small" disabled={busyId === pendingDisableWorker.worker_id}
+              onClick={confirmDisableWorker}>{t.admin.actionDisable}</button>
+          </div>
+        </div>
+      </div>
+    )}
   </>;
 }

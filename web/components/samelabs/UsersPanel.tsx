@@ -25,6 +25,7 @@ export function SamelabsUsers() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [q, setQ] = useState(appliedQ);          // draft: 输入框当前值
   const [pendingDisable, setPendingDisable] = useState<UserRow | null>(null);
+  const [pendingRole, setPendingRole] = useState<UserRow | null>(null);
 
   // draft 与 URL 同步: 返回/前进后退到新 q 时刷新输入框
   useEffect(() => { setQ(appliedQ); }, [appliedQ]);
@@ -188,7 +189,7 @@ export function SamelabsUsers() {
                 <span className={`status ${u.role === "admin" ? "admin" : ""}`}>{u.role === "admin" ? t.admin.roleAdmin : t.admin.roleMember}</span>
               </div>
               <div className="admin-user-actions">
-                <button className="text-button" disabled={busyId === u.id} onClick={() => toggleRole(u.id, u.role)}>
+                <button className="text-button" disabled={busyId === u.id} onClick={() => setPendingRole(u)}>
                   {busyId === u.id ? "…" : u.role === "admin" ? t.admin.actionRemoveAdmin : t.admin.actionSetAdmin}
                 </button>
                 <button className="text-button" disabled={busyId === u.id}
@@ -213,6 +214,26 @@ export function SamelabsUsers() {
                 <button type="button" className="button small" onClick={() => setPendingDisable(null)}>{t.admin.cancel}</button>
                 <button type="button" className="button danger small" disabled={busyId === pendingDisable.id}
                   onClick={confirmDisable}>{t.admin.actionDisable}</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {pendingRole && (
+          <div className="pipe-confirm" role="dialog" aria-modal onClick={() => setPendingRole(null)}>
+            <div className="pipe-confirm-box" onClick={(e) => e.stopPropagation()}>
+              <p>{t.admin.userRoleConfirm(
+                pendingRole.display_name,
+                pendingRole.username,
+                pendingRole.role === "admin" ? t.admin.roleAdmin : t.admin.roleMember,
+                pendingRole.role === "admin" ? t.admin.roleMember : t.admin.roleAdmin,
+              )}</p>
+              <p>{pendingRole.role === "admin" ? t.admin.userDemoteEffect : t.admin.userPromoteEffect}</p>
+              <div className="pipe-confirm-actions">
+                <button type="button" className="button small" onClick={() => setPendingRole(null)}>{t.admin.cancel}</button>
+                <button type="button" className="button danger small" disabled={busyId === pendingRole.id}
+                  onClick={() => { const row = pendingRole; setPendingRole(null); toggleRole(row.id, row.role); }}>
+                  {pendingRole.role === "admin" ? t.admin.actionRemoveAdmin : t.admin.actionSetAdmin}
+                </button>
               </div>
             </div>
           </div>
