@@ -5,9 +5,11 @@ import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type UserRow = { id: number; username: string; display_name: string; email: string; role: string; status: "active" | "disabled"; created_at: string; last_login_at: string | null };
+type AdminUsersResponse = { total: number; items: UserRow[] };
 
 export function SamelabsUsers() {
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [total, setTotal] = useState(0); // Batch 2 分页控件使用, 本轮不展示
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [q, setQ] = useState("");                       // draft: 输入框当前值
@@ -16,11 +18,12 @@ export function SamelabsUsers() {
 
   // 仅成功才推进 appliedQ; 失败保持旧值(draft 不参与计数文案)
   async function load(query: string) {
-    const params = new URLSearchParams({ limit: "100" });
+    const params = new URLSearchParams({ limit: "100", offset: "0" });
     if (query.trim()) params.set("q", query.trim());
     try {
-      const data = await apiGet<UserRow[]>(`/admin/users?${params}`);
-      setUsers(data);
+      const data = await apiGet<AdminUsersResponse>(`/admin/users?${params}`);
+      setUsers(data.items);
+      setTotal(data.total);
       setAppliedQ(query.trim());
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
@@ -30,10 +33,10 @@ export function SamelabsUsers() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const params = new URLSearchParams({ limit: "100" });
+      const params = new URLSearchParams({ limit: "100", offset: "0" });
       try {
-        const data = await apiGet<UserRow[]>(`/admin/users?${params}`);
-        if (active) setUsers(data);
+        const data = await apiGet<AdminUsersResponse>(`/admin/users?${params}`);
+        if (active) { setUsers(data.items); setTotal(data.total); }
       } catch (e) {
         if (!active) return;
         if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);

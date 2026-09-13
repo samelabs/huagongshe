@@ -7,16 +7,19 @@ import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type ReactionRow = { id: number; reaction_smiles: string; visibility: string; moderation_status: "visible" | "hidden"; username: string; display_name: string; created_at: string };
+type AdminReactionsResponse = { total: number; items: ReactionRow[] };
 
 export function SamelabsReactions() {
   const [reactions, setReactions] = useState<ReactionRow[]>([]);
+  const [total, setTotal] = useState(0); // Batch 2 分页控件使用, 本轮不展示
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
 
   async function reload() {
     try {
-      const data = await apiGet<ReactionRow[]>(`/admin/reactions?limit=100`);
-      setReactions(data);
+      const data = await apiGet<AdminReactionsResponse>(`/admin/reactions?limit=100&offset=0`);
+      setReactions(data.items);
+      setTotal(data.total);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
     }
@@ -24,8 +27,8 @@ export function SamelabsReactions() {
 
   useEffect(() => {
     let active = true;
-    apiGet<ReactionRow[]>(`/admin/reactions?limit=100`).then((data) => {
-      if (active) setReactions(data);
+    apiGet<AdminReactionsResponse>(`/admin/reactions?limit=100&offset=0`).then((data) => {
+      if (active) { setReactions(data.items); setTotal(data.total); }
     }).catch((err) => {
       if (!active) return;
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setError(t.admin.noPermission);

@@ -101,7 +101,8 @@ class UsersSearchStateContractTests(unittest.TestCase):
         self.assertIn("const data = await apiGet", load_fn)
         # setAppliedQ 必须在 try 内、data 成功拿到后
         try_block = load_fn[load_fn.index("try {"):load_fn.index("catch")]
-        self.assertIn("setUsers(data)", try_block)
+        # Batch1 后 response 为 {total, items}; setUsers(data.items) 即成功消费
+        self.assertIn("setUsers(data.items)", try_block)
         self.assertIn("setAppliedQ(query.trim())", try_block)
         catch_block = load_fn[load_fn.index("catch"):]
         self.assertNotIn("setAppliedQ", catch_block)

@@ -139,27 +139,37 @@ async def patch_worker(
 @router.get("/users")
 async def list_users(
     q: str | None = Query(default=None, max_length=100), limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     actor: Actor = Depends(admin), db=Depends(get_db),
 ):
     search = (q or "").strip()
     if search:
+        # total 与 items 必须使用完全相同的 WHERE (username/email ILIKE OR),
+        # 禁止另起一套 normalize 或多余条件, 否则 total 与列表口径分叉。
+        total = (await db.execute(text("""
+            SELECT count(*) FROM community.users u
+            WHERE u.username ILIKE '%' || :q || '%' OR u.email ILIKE '%' || :q || '%'
+        """), {"q": search})).scalar_one()
         rows = (await db.execute(text("""
             SELECT u.id,u.username,u.display_name,u.email,u.role,u.status,u.avatar_path,
                    u.created_at,u.last_login_at,
                    (SELECT count(*) FROM chemistry.reactions WHERE created_by_user_id=u.id)
             FROM community.users u
             WHERE u.username ILIKE '%' || :q || '%' OR u.email ILIKE '%' || :q || '%'
-            ORDER BY u.id DESC LIMIT :limit
-        """), {"q": search, "limit": limit})).mappings().all()
+            ORDER BY u.id DESC LIMIT :limit OFFSET :offset
+        """), {"q": search, "limit": limit, "offset": offset})).mappings().all()
     else:
+        total = (await db.execute(text(
+            "SELECT count(*) FROM community.users"
+        ))).scalar_one()
         rows = (await db.execute(text("""
             SELECT u.id,u.username,u.display_name,u.email,u.role,u.status,u.avatar_path,
                    u.created_at,u.last_login_at,
                    (SELECT count(*) FROM chemistry.reactions WHERE created_by_user_id=u.id)
             FROM community.users u
-            ORDER BY u.id DESC LIMIT :limit
-        """), {"limit": limit})).mappings().all()
-    return [dict(row) for row in rows]
+            ORDER BY u.id DESC LIMIT :limit OFFSET :offset
+        """), {"limit": limit, "offset": offset})).mappings().all()
+    return {"total": int(total), "items": [dict(row) for row in rows]}
 
 
 @router.patch("/users/{user_id}/status")
@@ -199,25 +209,36 @@ async def set_user_role(
 @router.get("/reactions")
 async def list_user_reactions(
     status: Literal["all", "visible", "hidden"] = Query("all"),
-    limit: int = Query(50, ge=1, le=100), actor: Actor = Depends(admin), db=Depends(get_db),
+    limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+    actor: Actor = Depends(admin), db=Depends(get_db),
 ):
+    # total 与 items 必须同口径: created_by_user_id IS NOT NULL (+ status filter)。
+    # status=all 也不得把系统/ORD 反应计入 total。
+    base_where = "WHERE r.created_by_user_id IS NOT NULL"
+    params: dict = {"limit": limit, "offset": offset}
+    if status != "all":
+        base_where += " AND r.moderation_status=:status"
+        params["status"] = status
+    total = (await db.execute(text(
+        f"SELECT count(*) FROM chemistry.reactions r {base_where}"
+    ), params)).scalar_one()
     if status == "all":
         rows = (await db.execute(text("""
             SELECT r.id,r.reaction_smiles,r.visibility,r.moderation_status,r.created_at,r.updated_at,
                    u.username,u.display_name
             FROM chemistry.reactions r JOIN community.users u ON u.id=r.created_by_user_id
             WHERE r.created_by_user_id IS NOT NULL
-            ORDER BY r.id DESC LIMIT :limit
-        """), {"limit": limit})).mappings().all()
+            ORDER BY r.id DESC LIMIT :limit OFFSET :offset
+        """), {"limit": limit, "offset": offset})).mappings().all()
     else:
         rows = (await db.execute(text("""
             SELECT r.id,r.reaction_smiles,r.visibility,r.moderation_status,r.created_at,r.updated_at,
                    u.username,u.display_name
             FROM chemistry.reactions r JOIN community.users u ON u.id=r.created_by_user_id
             WHERE r.created_by_user_id IS NOT NULL AND r.moderation_status=:status
-            ORDER BY r.id DESC LIMIT :limit
-        """), {"status": status, "limit": limit})).mappings().all()
-    return [dict(row) for row in rows]
+            ORDER BY r.id DESC LIMIT :limit OFFSET :offset
+        """), {"status": status, "limit": limit, "offset": offset})).mappings().all()
+    return {"total": int(total), "items": [dict(row) for row in rows]}
 
 
 @router.patch("/reactions/{reaction_id}/moderation")
