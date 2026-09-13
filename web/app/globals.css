@@ -1165,7 +1165,8 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .admin-nav { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 1px; padding: 10px; border-radius: 14px; background: linear-gradient(180deg, #16283c 0%, #101d2c 100%); box-shadow: 0 6px 24px rgba(16,29,44,.16); }
 .admin-nav::before { content: "管理控制台"; padding: 6px 12px 10px; color: #7fa3c9; font-size: 11px; font-weight: 800; letter-spacing: .18em; }
 .admin-nav a { padding: 10px 12px; border-radius: 9px; color: #b9c9dc; font-size: var(--text-sm); line-height: 1.4; text-decoration: none; transition: background .12s, color .12s; }
-.admin-nav a.active { color: #fff; background: var(--blue); font-weight: 700; box-shadow: 0 2px 8px rgba(30,144,255,.35); }
+/* active = 结构性位置指示, 不是按钮按下/功能卡: 透明底+左侧 2px 蓝线 */
+.admin-nav a.active { color: #fff; background: transparent; font-weight: 700; box-shadow: none; border-left: 2px solid var(--blue); padding-left: 10px; }
 /* ── 数据管道(samelabs/pipeline) ── */
 .pipe-chip { font-size: var(--text-xs); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
 .pipe-chip.retry { color: #8a6d00; border-color: #e0c56e; background: #fdf6e3; }
@@ -1184,7 +1185,8 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .admin-nav::-webkit-scrollbar { display: none; }
   .admin-nav::before { display: none; }
   .admin-nav a { white-space: nowrap; padding: 8px 14px; }
-  .admin-nav a.active { box-shadow: none; }
+  /* mobile: 横向 tab — 取消左侧线, 改底部 2px 蓝线, 透明底 */
+  .admin-nav a.active { box-shadow: none; background: transparent; border-left: none; padding-left: 14px; border-bottom: 2px solid var(--blue); }
 }
 
 /* ── 全站滚动条基线 — 细 6px 圆角，line-strong 滑块，透明轨道 ── */
