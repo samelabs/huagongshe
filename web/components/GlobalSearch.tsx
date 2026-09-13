@@ -32,7 +32,6 @@ export function GlobalSearch({ initial = "", compact = false }: {
             value={query}
             onChange={(e) => { setQuery(e.target.value); }}
             placeholder={compact ? t.search.hintNameShort : t.home.searchPlaceholder}
-            aria-label={t.search.title}
           />
           {query && (
             <button type="button" className="search-input-box__clear" aria-label={t.search.clearQuery} onClick={() => { setQuery(""); inputRef.current?.focus(); }}>
