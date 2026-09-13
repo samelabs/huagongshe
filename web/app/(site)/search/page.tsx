@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ChemicalResult } from "@/components/ChemicalResult";
 import { EntityId } from "@/components/shared/EntityId";
-import { GlobalSearch } from "@/components/GlobalSearch";
+import { OpaqueSearch } from "@/components/OpaqueSearch";
 import { ReactionResult } from "@/components/ReactionResult";
 import { apiGet, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import t from "@/lib/i18n";
@@ -102,7 +102,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       <header className="search-head">
         <p className="page-kicker">DATA FINDER</p>
         <h1>{chemicalId ? `${relationLabel}${t.search.resultSuffix}` : t.search.title}</h1>
-        <GlobalSearch initial={q} compact />
+        <OpaqueSearch compact />
         {chemicalId && <p className="context-line">{t.search.basedOnStructure}<Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link>{t.search.queryStructure}{relationLabel}{mode === "similarity" && similarityThreshold !== null ? t.search.similarityThreshold(similarityThreshold) : ""}</p>}
       </header>
       {error && <div className="notice error">{error}</div>}

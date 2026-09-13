@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { GlobalSearch } from "@/components/GlobalSearch";
+import { OpaqueSearch } from "@/components/OpaqueSearch";
 import t from "@/lib/i18n";
 
 export default async function Home() {
@@ -8,7 +8,7 @@ export default async function Home() {
       <section className="hero">
         <h1>{t.home.hero}</h1>
         <p className="hero-subtitle">{t.home.subtitle}</p>
-        <GlobalSearch />
+        <OpaqueSearch />
       </section>
 
       {/* ── AI 接入入口: 第一屏直接给出地址与三条主入口 ── */}
