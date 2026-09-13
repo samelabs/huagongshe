@@ -118,9 +118,7 @@ h2, h3 { font-weight: var(--section-weight); }
 .brand-domain { display: inline-flex; align-items: baseline; color: var(--blue-strong); font-family: var(--font-ui); font-size: 16px; line-height: 1; letter-spacing: -.01em; font-weight: 700; }
 nav[aria-label="主导航"] { min-width: 0; margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 22px; color: var(--muted); font-size: var(--text); white-space: nowrap; }
 .login-link { border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 13px; min-height: 38px; display: inline-flex; align-items: center; color: var(--ink); }
-.nav-guide { border: 1px solid var(--blue-border); border-radius: 8px; padding: 6px 8px; min-height: 38px; display: inline-flex; align-items: center; color: var(--blue-strong); background: var(--blue-tint); font-weight: 650; white-space: nowrap; }
-.guide-full { display: inline; }
-.guide-short { display: none; }
+.nav-guide { border: 1px solid var(--green-border); border-radius: 8px; padding: 6px 8px; min-height: 38px; display: inline-flex; align-items: center; color: var(--green-strong); background: var(--green-tint); font-weight: 650; white-space: nowrap; }
 /* 用户身份菜单样式统一在 app/account-menu.css（AccountMenu 组件专用） */
 
 main { min-height: auto; background: var(--wash); }
@@ -773,9 +771,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .brand { min-width: 0; }
   .brand-domain { font-size: var(--text-lg); }
   nav[aria-label="主导航"] { gap: 8px; font-size: var(--text); }
-  .guide-full { display: none; }
-  .guide-short { display: inline; }
-  .nav-guide { width: 38px; height: 38px; padding: 0; justify-content: center; }
+  .nav-guide { height: 38px; padding: 0 10px; justify-content: center; }
   .login-link { padding: 7px 9px; }
   footer { padding: 18px 14px; }
   .hero { padding: 44px 0 36px; }
@@ -1120,7 +1116,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 
 @media (hover:hover) {
   nav[aria-label="主导航"] > a:hover { color: var(--blue); }
-  .nav-guide:hover { border-color: var(--blue-border); color: var(--blue-deep); background: var(--blue-pale); }
+  nav[aria-label="主导航"] > a.nav-guide:hover { border-color: var(--green); color: var(--green-deep); background: var(--green-pale); }
   footer a:hover { color: var(--blue); }
   .button.primary:hover { background: var(--blue-deep); }
   .button.secondary:hover { border-color: var(--blue); color: var(--blue); }

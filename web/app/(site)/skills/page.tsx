@@ -26,14 +26,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
   title: "开放技能库",
   description:
-    `${count}开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域。数据来自 K-Dense-AI/scientific-agent-skills 开源项目与化工社AIchem官方技能。`,
+    `${count}开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域。数据来自 K-Dense-AI/scientific-agent-skills 开源项目与化工社官方技能。`,
   alternates: { canonical: "https://huagongshe.com/skills" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "科学 AI 开放技能库｜化工社AIchem",
+    title: "科学 AI 开放技能库｜化工社",
     description: `${count}开源科学 AI Agent 技能，覆盖化学、生物、机器学习等研究领域。`,
     url: "/skills",
-    siteName: "化工社AIchem",
+    siteName: "化工社",
     locale: "zh_CN",
     type: "website",
   },

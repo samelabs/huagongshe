@@ -10,8 +10,8 @@ export function HeaderAccount() {
 
   return (
     <nav aria-label={t.nav.mainNav}>
-      <Link href="/guide" className="nav-guide" aria-label={t.nav.guide}>
-        <span className="guide-full">{t.nav.guide}</span><span className="guide-short">AI</span>
+      <Link href="/mcp-guide" className="nav-guide" aria-label="MCP">
+        MCP
       </Link>
       {user ? (
         <AccountMenu user={user} variant="header" showWorkbenchEntry />

@@ -15,7 +15,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://huagongshe.com"),
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, title: "化工社AIchem", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: t.brand.name, statusBarStyle: "default" },
   title: { default: t.brand.seoTitle, template: `%s｜${t.brand.name}` },
   description: t.brand.seoDesc,
   keywords: [...t.brand.keywords, "AI Chemistry Workspace", "Chemical Knowledge Base", "Reaction Library"],

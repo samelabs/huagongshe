@@ -25,7 +25,7 @@ export default async function Home() {
         </nav>
       </section>
 
-      <p className="home-aux"><Link href="/skills">{t.home.skillsAux} →</Link></p>
+      <p className="home-aux"><Link href="/skills">{t.home.skillsAux}</Link></p>
     </div>
   );
 }

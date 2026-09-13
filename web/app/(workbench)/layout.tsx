@@ -40,7 +40,7 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
     <div className="wb-shell">
       <header className="wb-topbar">
         <div className="wb-topbar-inner">
-          <Link href="/" className="wb-logo">化工社AIchem</Link>
+          <Link href="/" className="wb-logo">{t.brand.name}</Link>
 
           <WbTopnav />
 

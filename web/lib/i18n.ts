@@ -5,22 +5,23 @@
  *         <h1>{t.home.hero}</h1>
  *
  * 规则：
- *   1. 所有用户可见文案必须通过 t.xxx 引用，禁止硬编码
- *   2. 新增文案先在此文件对应 domain 下添加 key
- *   3. key 用 camelCase，按场景 domain 分组
- *   4. 品牌定位文案集中在 brand domain，确保全站一致
- *   5. 函数类型用于含变量的文案：t.skills.heroSubtitle(159)
+ *   1. 可本地化、会变化的产品文案集中在 t，通过 t.xxx 引用；同一产品文案禁止在多个组件各自维护不同版本
+ *   2. 品牌名称集中在 t.brand，确保全站一致
+ *   3. 固定协议名、化学标识符（MCP、CAS、SMILES、InChIKey 等）与固定英文搜索提示等技术词允许组件内直接使用，不为形式制造语言 key
+ *   4. 新增文案先在此文件对应 domain 下添加 key
+ *   5. key 用 camelCase，按场景 domain 分组
+ *   6. 函数类型用于含变量的文案：t.skills.heroSubtitle(159)
  */
 
 const t = {
 
   /* ── 品牌 ────────────────────────────────────────────── */
   brand: {
-    name: '化工社AIchem',
-    seoTitle: '化工社AIchem｜你的AI化学工作台',
-    seoDesc: '化工社AIchem是你的AI化学工作台。查化合物、找反应、算投料，构建可持续积累的个人化学工作台。',
+    name: '化工社',
+    seoTitle: '化工社｜你的AI化学工作台',
+    seoDesc: '化工社是你的AI化学工作台。查化合物、找反应、算投料，构建可持续积累的个人化学工作台。',
     seoDescShort: '查化合物、找反应、算投料，构建你的化学工作台。',
-    ogAlt: '化工社AIchem',
+    ogAlt: '化工社',
     keywords: ['AI化学工作台', '化合物查询', '化学反应', '化学工作台', '反应记录', 'CAS号查询', 'SMILES', '化学文献', 'InChIKey'],
   },
 
@@ -56,7 +57,6 @@ const t = {
   nav: {
     home: 'huagongshe.com 首页',
     mainNav: '主导航',
-    guide: 'AI接入',
     login: '登录 / 注册',
     logout: '退出登录',
     openMenu: '打开用户菜单',
@@ -70,14 +70,13 @@ const t = {
     tabMe: '我的',
     bottomNav: '底部导航',
     workbenchNav: '工作台导航',
-    footer: '化工社AIchem开放计划',
+    footer: '化工社开放计划',
   },
 
   /* ── 首页 ────────────────────────────────────────────── */
   home: {
     hero: 'AI化学工作台',
     subtitle: '从这里开始你的AI化学',  // 冻结品牌文案: 不因入口/SEO/Agent 接入治理而修改
-    searchPlaceholder: '中英文名称、CAS、SMILES、CID、ORD记录号或DOI',
     searchButton: '查询',
     /* ── 第一屏接入入口 ── */
     entryLabel: 'AI 接入',
@@ -93,7 +92,6 @@ const t = {
   /* ── 搜索 ────────────────────────────────────────────── */
   search: {
     title: '查询化学数据',
-    hintNameShort: '中英文名称、CAS、SMILES、PubChem CID、InChIKey 等',
     noResults: '没有匹配结果',
     noResultsFor: (query: string) => `没有找到与「${query}」匹配的记录`,
     noResultsHint: '可以尝试以下方式：',
@@ -344,7 +342,6 @@ const t = {
     homeGuideDesc: 'MCP 服务器 https://huagongshe.com/mcp；写操作（保存反应、技能）在账户设置创建 AI Key',
     homeGuideCta: '查看 MCP 接入方法 →',
     searchHint: '在化学数据库中查询化合物和反应',
-    searchPlaceholder: '中英文名称、CAS、SMILES、PubChem CID、InChIKey…',
     searchButton: '查询',
     searchModeExact: '精确查询',
     searchModeSubstructure: '子结构',
@@ -529,7 +526,7 @@ const t = {
   auth: {
     title: '登录',
     registerTitle: '注册',
-    loginTitle: '登录化工社AIchem',
+    loginTitle: '登录化工社',
     kicker: '我的工作台',
     intro: '保存个人反应、收藏化学数据，并接入你的AI工具。',
     features: [
@@ -626,7 +623,7 @@ const t = {
     openLibrary: '开放技能库',
     heroTitle: '科学 AI 开放技能库',
     heroSubtitle: (n: number) => `${n} 个开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域，可按需下载使用。`,
-    heroSource: '数据来源：K-Dense-AI/scientific-agent-skills (MIT) 与化工社AIchem官方技能 · 由化工社整理提供',
+    heroSource: '数据来源：K-Dense-AI/scientific-agent-skills (MIT) 与化工社官方技能 · 由化工社整理提供',
     searchPlaceholder: '搜索技能名称或关键词…',
     categoriesLabel: '技能分类',
     allCategories: '全部',
@@ -722,7 +719,7 @@ const t = {
   /* ── AI 指南页 ───────────────────────────────────────── */
   guide: {
     title: 'AI化学工作台',
-    desc: '化工社AIchem是你的AI化学工作台。接入后，把文献、专利和实验记录交给AI，即可提取反应、校验结构、保存到你的工作台。',
+    desc: '化工社是你的AI化学工作台。接入后，把文献、专利和实验记录交给AI，即可提取反应、校验结构、保存到你的工作台。',
     hero: 'AI化学工作台',
     heroBody: '先把 AI 接进来：支持远程 MCP 的客户端用 MCP 服务器；需要 HTTP 调用的 Agent 读 API 契约。写操作需要 AI Key。',
     /* ── 接入入口(第一屏) ── */
@@ -750,7 +747,7 @@ const t = {
     fallbackTitle: '没有工具接入？',
     fallbackDesc: '如果当前 AI 不支持 MCP 或 HTTP 工具调用，可以复制提示词让 AI 先整理结构化草稿，再由你在化工社网页保存。这不是 API/MCP 连接。',
     copyPrompt: (copied: boolean) => copied ? '已复制' : '复制提示词',
-    aiPrompt: `请作为我的化工社AIchem助手。
+    aiPrompt: `请作为我的化工社助手。
 
 我会提供网页、文献、专利、实验文档、图片或一段文字。请完成：
 1. 只提取资料中明确存在的反应事实，不猜测 SMILES、条件、用量、收率或来源。
@@ -758,13 +755,13 @@ const t = {
 3. 保留 DOI、专利号、网址、文献题目或“本人实验”等来源证据。
 4. 未知的可选字段留空；结构或身份有歧义时先问我。
 5. 先向我展示结构化草稿；未确认前不要保存。需要保存时默认仅自己可见。
-6. 得到我确认后，先调用化工社AIchem验证接口，再使用唯一 Idempotency-Key 保存。
+6. 得到我确认后，先调用化工社验证接口，再使用唯一 Idempotency-Key 保存。
 7. 成功后告诉我 HRID、页面链接、新建的 HCID 和可见范围；未经成功响应不要声称已经保存。
 
-如果你暂时不能调用化工社AIchem API，请仍按相同字段输出草稿，并指导我在网页保存。`,
+如果你暂时不能调用化工社 API，请仍按相同字段输出草稿，并指导我在网页保存。`,
     /* ── 接入文件 ── */
     refKicker: '接入文件',
-    refIntro: '化工社AIchem已发布以下接入文件，支持的 AI 工具可按需读取。',
+    refIntro: '化工社已发布以下接入文件，支持的 AI 工具可按需读取。',
     refLlmsTxt: 'llms.txt',
     refLlmsTxtDesc: '面向 AI/LLM 的网站发现文件',
     refAgentGuide: 'agent-guide',
@@ -786,7 +783,7 @@ const t = {
   /* ── 用户主页 ────────────────────────────────────────── */
   user: {
     title: '@{username}',
-    desc: '化工社AIchem用户主页',
+    desc: '化工社用户主页',
     followers: '粉丝',
     following: '关注',
     publicReactions: '公开反应',

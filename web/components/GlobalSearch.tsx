@@ -32,7 +32,7 @@ export function GlobalSearch({ initial = "", compact = false }: {
             enterKeyHint="search"
             value={query}
             onChange={(e) => { setQuery(e.target.value); }}
-            placeholder="Name, CAS, SMILES, InChIKey"
+            placeholder="CAS, Name, SMILES, InChIKey"
             autoComplete="off"
             spellCheck={false}
             maxLength={4000}
