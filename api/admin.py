@@ -798,21 +798,16 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     pb_latest_at = latest_pb[0]["at"] if latest_pb else None
 
     # ── 队列老化(critical: 小表快查) —— 健康判定的真实依据 ──
-    # 注: extract(...) FILTER 不是合法语法, 用子查询聚合(小表, 无代价)。
+    # 事实口径: 只算排队年龄。lease 侧无 leased_at 列, lease_expires_at 是
+    # 截止时间不是开始时间(心跳会续写), 任何"租约年龄"都是推测 → 不输出。
     async def queue_aging(table: str) -> dict:
         row = (await db.execute(text(f"""
             SELECT
               (SELECT extract(epoch from now() - min(created_at))
-                 FROM maintenance.{table} WHERE status='queued'),
-              (SELECT extract(epoch from now() - min(lease_expires_at))
-                 FROM maintenance.{table} WHERE status='leased'),
-              (SELECT min(lease_expires_at)
-                 FROM maintenance.{table} WHERE status='leased')
+                 FROM maintenance.{table} WHERE status='queued')
         """))).fetchone()
         return {
             "oldest_queued_age_s": int(row[0]) if row[0] is not None else None,
-            "oldest_leased_age_s": int(row[1]) if row[1] is not None else None,
-            "oldest_lease_expires_at": row[2].isoformat() if row[2] else None,
         }
 
     cb_aging = await queue_aging("cas_jobs")

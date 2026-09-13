@@ -58,7 +58,7 @@ class ChainHealthModelTests(unittest.TestCase):
                          gate_silent=False, metrics_available=True,
                          worker_runtimes=[], now=NOW)
         self.assertEqual("stalled", h["status"])
-        self.assertFalse(h["has_online_worker"])
+        self.assertFalse(h["has_recent_worker"])
 
     def test_queued_live_worker_is_backlogged(self):
         """验收6: queued + live worker → backlogged。"""
@@ -67,7 +67,7 @@ class ChainHealthModelTests(unittest.TestCase):
                          gate_silent=False, metrics_available=True,
                          worker_runtimes=self._online_cas(), now=NOW)
         self.assertEqual("backlogged", h["status"])
-        self.assertTrue(h["has_online_worker"])
+        self.assertTrue(h["has_recent_worker"])
 
     def test_no_queue_live_worker_idle_is_reasonable(self):
         """验收7: 无队列 + 在线 worker + 近期无写入 → idle(不冒充 healthy)。"""
@@ -116,6 +116,64 @@ class ChainHealthModelTests(unittest.TestCase):
                          gate_silent=True, metrics_available=True,
                          worker_runtimes=self._online_cas(), now=NOW)
         self.assertEqual("degraded", h["status"])
+
+    def test_backlogged_online_reason_is_factual(self):
+        """事实语义: online worker 的 backlogged reason 不得声称"消化中"类行为。"""
+        h = chain_health(scope="cas", queued=100, leased=2, error=0,
+                         latest_success_at=NOW - timedelta(seconds=60),
+                         gate_silent=False, metrics_available=True,
+                         worker_runtimes=self._online_cas(), now=NOW)
+        self.assertEqual("backlogged", h["status"])
+        joined = "".join(h["reasons"])
+        for banned in ("消化中", "正在处理", "正在消费", "正常处理"):
+            self.assertNotIn(banned, joined)
+        self.assertIn("在线 worker", joined)
+
+    def test_backlogged_stale_only_reason_states_uncertain(self):
+        """stale-only: backlogged + has_recent_worker=true, reason 必须说
+        "近期心跳/状态待确认", 不得声称 online。"""
+        stale = [_worker(last_seen=NOW - timedelta(seconds=400), runtime="stale",
+                         age=400.0)]
+        h = chain_health(scope="cas", queued=50, leased=0, error=0,
+                         latest_success_at=NOW - timedelta(seconds=60),
+                         gate_silent=False, metrics_available=True,
+                         worker_runtimes=stale, now=NOW)
+        self.assertEqual("backlogged", h["status"])
+        self.assertTrue(h["has_recent_worker"])
+        joined = "".join(h["reasons"])
+        self.assertIn("近期心跳", joined)
+        self.assertIn("状态待确认", joined)
+        self.assertNotIn("在线 worker 覆盖", joined)
+
+    def test_no_queue_recent_success_without_worker_is_idle_not_healthy(self):
+        """无积压+近期有写入+无近期 worker → 不得 healthy, 保持 idle 如实说明。"""
+        h = chain_health(scope="cas", queued=0, leased=0, error=0,
+                         latest_success_at=NOW - timedelta(seconds=60),
+                         gate_silent=False, metrics_available=True,
+                         worker_runtimes=[], now=NOW)
+        self.assertEqual("idle", h["status"])
+        self.assertFalse(h["has_recent_worker"])
+        self.assertTrue(h["recent_success"])
+        self.assertIn("无近期 worker 心跳", "".join(h["reasons"]))
+
+    def test_healthy_requires_recent_success_and_recent_worker(self):
+        """healthy = recent_success AND has_recent_worker。"""
+        h = chain_health(scope="cas", queued=0, leased=0, error=0,
+                         latest_success_at=NOW - timedelta(seconds=60),
+                         gate_silent=False, metrics_available=True,
+                         worker_runtimes=self._online_cas(), now=NOW)
+        self.assertEqual("healthy", h["status"])
+        self.assertTrue(h["has_recent_worker"])
+        self.assertTrue(h["recent_success"])
+
+    def test_health_payload_has_no_has_online_worker(self):
+        """payload 契约: 不再有 has_online_worker, 只有 has_recent_worker。"""
+        h = chain_health(scope="cas", queued=0, leased=0, error=0,
+                         latest_success_at=NOW, gate_silent=False,
+                         metrics_available=True,
+                         worker_runtimes=self._online_cas(), now=NOW)
+        self.assertNotIn("has_online_worker", h)
+        self.assertIn("has_recent_worker", h)
 
     def test_scope_coverage_matters(self):
         """只覆盖 pubchem 的在线 worker 救不了 cas 链。"""
@@ -238,6 +296,10 @@ class PipelineEndpointTests(unittest.TestCase):
         # optional 三块都是 {available, error, value}
         for wrap in (d["supplier"], d["cb"]["seed"], d["cb"]["negative"]):
             self.assertEqual({"available", "error", "value"}, set(wrap))
+        # aging 事实口径: 只有排队年龄; 租约年龄字段已删除(无 leased_at, 纯推测)
+        for chain in ("cb", "pb"):
+            self.assertEqual({"oldest_queued_age_s"}, set(d[chain]["aging"]))
+            self.assertNotIn("has_online_worker", d[chain]["health"])
 
     def test_optional_failure_degrades_not_500(self):
         """验收2: optional stats 查询失败 → 仍 200, section available=False, 不冒充 0。"""
@@ -423,6 +485,26 @@ class SamelabsAccessBoundaryTests(unittest.TestCase):
         # optional section 渲染"暂不可用"而非 0
         self.assertIn("sectionUnavailable", src)
         self.assertIn("暂不可用", src)
+
+    def test_frontend_wording_is_factual(self):
+        """前端事实文案契约: 禁止无吞吐证据的行为措辞与已删字段名。"""
+        src = PANEL.read_text(encoding="utf-8")
+        for banned in ("积压消化中", "worker 在线消化中", "最老租约",
+                       "oldest_leased_age_s", "oldest_lease_expires_at",
+                       "has_online_worker"):
+            self.assertNotIn(banned, src, f"PipelinePanel 不得包含: {banned}")
+        self.assertIn("has_recent_worker", src)
+        self.assertIn("最老排队任务等待时间", src)
+        self.assertIn("排队最久", src)
+
+    def test_backend_pipeline_wording_is_factual(self):
+        """后端事实文案契约: health 模型不得声称消费行为, admin 不得再算租约年龄。"""
+        src = (ROOT / "api/services/pipeline_health.py").read_text(encoding="utf-8")
+        self.assertNotIn("worker 在线消化中", src)
+        self.assertNotIn("has_online_worker\": has_worker", src)
+        api_src = (ROOT / "api/admin.py").read_text(encoding="utf-8")
+        self.assertNotIn("oldest_leased_age_s", api_src)
+        self.assertNotIn("oldest_lease_expires_at", api_src)
 
     def test_admin_dependency_exists_in_api(self):
         """API 侧: admin() 依赖仍是 role 检查(403), SSR 与 API 双层。"""

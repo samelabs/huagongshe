@@ -2,11 +2,12 @@
 
 语义(输入全部来自真实数据, 不凭感觉):
 
-healthy    worker 在线(覆盖该链 scope 且心跳新鲜) 且 近期有成功写入(成功窗口内)
-idle       无 backlog、无 active lease、worker 在线但近期无写入 —— 正常
-backlogged queued>0 且 worker 在线(仍有处理能力)
-stalled    queued>0 且 无在线 worker 覆盖该链(或全 worker 离线)
+healthy    近期有成功写入 且 有近期心跳的 worker 覆盖该链 scope
+idle       无 backlog、无近期写入; 或近期有写入但当前无近期 worker 心跳 —— 如实降级
+backlogged queued>0 且有近期心跳(enabled 且 runtime ∈ {online,stale})的 worker 覆盖
+stalled    queued>0 且 无近期心跳 worker 覆盖该链(或全 worker 离线)
 degraded   error>0 或 gate 静默中 或 该链关键指标不可用
+unavailable 指标不可用
 
 优先级(0912 PM 修正): unavailable > stalled > degraded > backlogged > healthy/idle。
 - 指标不可用 → unavailable
@@ -91,16 +92,28 @@ def build_worker_runtimes(
     return out
 
 
-def _chain_has_online_worker(
+def _chain_has_recent_worker(
     runtimes: list[WorkerRuntime], scope: str,
 ) -> bool:
     """存在 enabled 且 runtime ∈ {online, stale} 且 scopes 覆盖该链的 worker。
 
-    stale 也算"可能在线": 600s 内仍可能只是节流窗没落库;
+    事实语义: 这只说明"近期(≤600s)有该 scope 的 worker 心跳",
+    不声称 worker 此刻在线, 更不声称正在消费队列。
+    stale 也算"近期心跳": 600s 内仍可能只是节流窗没落库;
     判 stalled 需要更强证据(>10 分钟无心跳)。
     """
     return any(
         w.enabled and w.runtime in ("online", "stale") and scope in w.scopes
+        for w in runtimes
+    )
+
+
+def _chain_has_online_worker(
+    runtimes: list[WorkerRuntime], scope: str,
+) -> bool:
+    """存在 enabled 且 runtime=online 且 scopes 覆盖该链的 worker(可用于 reason 事实分级)。"""
+    return any(
+        w.enabled and w.runtime == "online" and scope in w.scopes
         for w in runtimes
     )
 
@@ -117,12 +130,13 @@ def chain_health(
     worker_runtimes: list[WorkerRuntime],
     now: datetime,
 ) -> dict[str, Any]:
-    """单链健康判定。返回 {status, has_online_worker, recent_success,
-    oldest_queued_age_s?(透传), reasons[]}。
+    """单链健康判定。返回 {status, has_recent_worker, recent_success,
+    reasons[]}。
 
     依据字段全部显式传入, 本函数零 I/O → 可直接单测。
     """
-    has_worker = _chain_has_online_worker(worker_runtimes, scope)
+    has_worker = _chain_has_recent_worker(worker_runtimes, scope)
+    has_online = _chain_has_online_worker(worker_runtimes, scope)
 
     recent_success = False
     if latest_success_at is not None:
@@ -134,13 +148,13 @@ def chain_health(
     reasons: list[str] = []
     # 优先级判定链(0912 PM 修正): unavailable > stalled > degraded >
     # backlogged > healthy/idle。degraded 压过 backlogged 与 idle:
-    # error/gate 异常必须显形, 不被"堆积消化中/空闲"掩盖。
+    # error/gate 异常必须显形, 不被"有积压/空闲"掩盖。
     if not metrics_available:
         status = "unavailable"
         reasons.append("关键指标不可用")
     elif queued > 0 and not has_worker:
         status = "stalled"
-        reasons.append(f"队列 {queued} 条积压, 无在线 worker 覆盖 {scope} 链")
+        reasons.append(f"队列 {queued} 条积压, 无近期心跳的 worker 覆盖 {scope} 链")
     elif error > 0:
         status = "degraded"
         reasons.append(f"error 留痕 {error} 条")
@@ -149,19 +163,27 @@ def chain_health(
         reasons.append("闸门静默中")
     elif queued > 0 and has_worker:
         status = "backlogged"
-        reasons.append(f"队列 {queued} 条积压, worker 在线消化中")
-    elif recent_success:
+        # reason 按事实分级: online 是事实; 只有 stale 时如实说"状态待确认"。
+        # 禁止"消化中/正在处理"类措辞 — 无吞吐证据不得声称消费行为。
+        if has_online:
+            reasons.append(f"队列 {queued} 条积压, 有在线 worker 覆盖 {scope} 链")
+        else:
+            reasons.append(f"队列 {queued} 条积压, 有近期心跳的 worker 覆盖 {scope} 链, 运行状态待确认")
+    elif recent_success and has_worker:
         status = "healthy"
+    elif recent_success:
+        status = "idle"
+        reasons.append("无积压, 近期有写入, 但当前无近期 worker 心跳")
     else:
         status = "idle"
         if not has_worker:
-            reasons.append("无积压, 无在线 worker")
+            reasons.append("无积压, 无近期心跳 worker")
         else:
             reasons.append("无积压, 近期无写入")
 
     return {
         "status": status,
-        "has_online_worker": has_worker,
+        "has_recent_worker": has_worker,
         "recent_success": recent_success,
         "reasons": reasons,
     }

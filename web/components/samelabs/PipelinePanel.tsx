@@ -10,8 +10,8 @@ import t from "@/lib/i18n";
    available=false → 渲染"暂不可用", 绝不把 0 冒充数据。 */
 
 type ChainQueue = { queued: number; leased: number; error: number };
-type Aging = { oldest_queued_age_s: number | null; oldest_leased_age_s: number | null; oldest_lease_expires_at: string | null };
-type Health = { status: string; has_online_worker: boolean; recent_success: boolean; reasons: string[] };
+type Aging = { oldest_queued_age_s: number | null };
+type Health = { status: string; has_recent_worker: boolean; recent_success: boolean; reasons: string[] };
 type Gate = { streak: number; silent: boolean; silent_remaining_s: number } | null;
 type ChainBlock = {
   queue: ChainQueue;
@@ -60,7 +60,7 @@ const dur = (s: number | null) => {
 
 /* 健康状态 → 展示(颜色语义收敛到既有 token, 不加新视觉体系) */
 const HEALTH_LABEL: Record<string, string> = {
-  healthy: "正常", idle: "空闲", backlogged: "积压消化中",
+  healthy: "正常", idle: "空闲", backlogged: "有积压",
   stalled: "停滞", degraded: "降级", unavailable: "不可用",
 };
 const HEALTH_CLASS: Record<string, string> = {
@@ -235,8 +235,8 @@ export function SamelabsPipeline() {
       <span className="dashboard-card-label">{label}</span>
       {gateChip(gate)}
       {healthBadge(h)}
-      <span className="pipe-aging" title="最老排队年龄 / 最老租约">
-        积压 {aging.oldest_queued_age_s != null ? dur(aging.oldest_queued_age_s) : "—"}
+      <span className="pipe-aging" title="最老排队任务等待时间">
+        排队最久 {aging.oldest_queued_age_s != null ? dur(aging.oldest_queued_age_s) : "—"}
       </span>
     </div>
   );
