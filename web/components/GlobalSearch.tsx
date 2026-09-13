@@ -22,12 +22,19 @@ export function GlobalSearch({ initial = "", compact = false }: {
     <div className={`search-wrap${compact ? " search-wrap--compact" : ""}`}>
       <form className="search-row" onSubmit={(e) => { e.preventDefault(); submit(); }}>
         <div className="search-input-box" onClick={() => inputRef.current?.focus()}>
+          <label
+            className="sr-only"
+            htmlFor={compact ? "site-query-compact" : "site-query"}
+          >
+            {t.search.title}
+          </label>
           <svg className="search-input-box__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="7" />
             <line x1="21" y1="21" x2="16.5" y2="16.5" />
           </svg>
           <input
             ref={inputRef}
+            id={compact ? "site-query-compact" : "site-query"}
             type="text"
             enterKeyHint="search"
             value={query}

@@ -1317,3 +1317,18 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .guide-fallback { margin-top: 18px; padding: 14px 16px; border: 1px dashed var(--line-strong); border-radius: 8px; opacity: .85; }
 .guide-fallback h4 { margin: 0 0 6px; font-size: var(--text-sm); color: var(--muted); }
 .guide-fallback p { margin: 0 0 10px; font-size: var(--text-sm); color: var(--muted); }
+
+/* Visually-hidden utility (clip method; NOT display:none/visibility:hidden
+   so the element stays in a11y tree and layout). Carries the real
+   associated <label> for the search input. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
