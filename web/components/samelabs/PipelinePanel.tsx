@@ -321,7 +321,7 @@ export function SamelabsPipeline() {
 
     {/* ── CB secondary diagnostics(降级区): 供应商 / 账本 / 负面 ── */}
     <section className="dashboard-section pipe-secondary">
-      <div className="section-heading"><h2>CB 诊断</h2><span>上游账本(seed · 来源未命中) + 供应侧(supplier) —— 失败各自标"暂不可用"</span></div>
+      <div className="section-heading"><h2>CB 诊断</h2></div>
       <div className="dashboard-grid pipe-grid-2">
         <div className="dashboard-card pipe-chain">
           <Group title="上游账本" note="chemicalbook_seed · 来源未命中">
