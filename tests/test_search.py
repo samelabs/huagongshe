@@ -178,6 +178,7 @@ class SearchSystemGovernanceTests(unittest.TestCase):
                 pass
 
         async def fetch_chemicals_stub(db, sql, params=None):
+            executed.append(str(sql))
             ids = params.get("ids") if params else None
             return [{"id": i} for i in (ids or [])]
 
@@ -229,6 +230,32 @@ class SearchSystemGovernanceTests(unittest.TestCase):
             fuzzy_hit={"preferred": [5, 3, 1], "iupac": [3, 2], "name_index": [9, 1]},
         )
         self.assertEqual([c["id"] for c in chemicals], [1, 3, 5, 2, 9])
+
+    def test_hydrate_preserves_rank_order_across_tiers(self) -> None:
+        # hydrate 不得用 ORDER BY c.id 抹平候选 rank: 跨 tier 且 id 逆序
+        # (preferred=[900], iupac=[10], name_index=[5]) 最终顺序必须是
+        # 900, 10, 5 —— 不能被 SQL 顺序改成 5, 10, 900。
+        # fuzzy 锁一例:
+        executed, chemicals, _ = self._run_name_search(
+            "benzoic", page=1, page_size=30,
+            fuzzy_hit={"preferred": [900], "iupac": [10], "name_index": [5]},
+        )
+        self.assertEqual([c["id"] for c in chemicals], [900, 10, 5])
+        # hydrate SQL 本身不得再 ORDER BY c.id 决定最终顺序
+        hydrate_sqls = [s for s in executed if "id = ANY" in s]
+        self.assertTrue(hydrate_sqls)
+        for s in hydrate_sqls:
+            self.assertNotIn("ORDER BY", s)
+        # exact 同锁一例:
+        executed, chemicals, _ = self._run_name_search(
+            "苯甲酸钠", page=1, page_size=30,
+            exact_hit={"preferred": [900], "iupac": [10], "name_index": [5]},
+        )
+        self.assertEqual([c["id"] for c in chemicals], [900, 10, 5])
+        hydrate_sqls = [s for s in executed if "id = ANY" in s]
+        self.assertTrue(hydrate_sqls)
+        for s in hydrate_sqls:
+            self.assertNotIn("ORDER BY", s)
 
     def test_fuzzy_all_sources_deterministic_and_no_offset(self) -> None:
         # 每页三条 fuzzy SQL 均为 deterministic 前缀(ORDER BY id + :window 动态),
@@ -292,6 +319,62 @@ class SearchSystemGovernanceTests(unittest.TestCase):
         # 同步外呼已从 CAS miss 分支移除(仅注释提及); import 面不再引入
         self.assertNotIn("import sync_fetch_and_store", src.replace("(\n", "("))
         self.assertNotIn("await sync_fetch_and_store", src)
+
+    def test_structure_modes_has_more_semantics(self) -> None:
+        # substructure/similarity 调 run_search_query: ①不依赖 name_has_more
+        # (无 unbound variable); ②has_more 恢复本轮前语义:
+        # total!=None → page*page_size < total; total=None → 当前页满则可能还有
+        import asyncio
+        from unittest.mock import patch, MagicMock, AsyncMock
+        from api.services import search as search_service
+
+        def run(mode, snapshot_ids, chemicals_len, page=1, page_size=30, sim=0.9):
+            # similarity 行需带 similarity 字段(阈值过滤用); 满窗全过阈值且
+            # 窗外未知 → cut_inside=False → total=None。
+            fake_rows = [
+                {"id": i, "similarity": sim} if mode == "similarity" else {"id": i}
+                for i in range(chemicals_len)
+            ]
+            db = MagicMock()
+            db.execute = AsyncMock(return_value=MagicMock(scalar=lambda: 0))
+            # 阿司匹林 SMILES(13 重原子) — 过 bounded_substructure_smiles 的
+            # ≥10 重原子闸门, CCO(3) 会被 422 挡。
+            smiles = "CC(=O)Oc1ccccc1C(=O)O"
+            if mode == "substructure":
+                # snapshot: (db, canonical) -> ids; hydrate: rows
+                # total 由 _snapshot_total(真实函数)从 ids 长度推导, 不 mock。
+                with patch.object(search_service, "fetch_chemicals", new=AsyncMock(return_value=fake_rows)), \
+                     patch("api.services.chemicals.substructure_snapshot", new=AsyncMock(return_value=list(snapshot_ids))), \
+                     patch("api.services.chemicals.hydrate_chemicals", new=AsyncMock(return_value=fake_rows)):
+                    return asyncio.run(search_service.run_search_query(
+                        db, smiles, mode, smiles, page, page_size,
+                        (page - 1) * page_size,
+                    ))
+            else:  # similarity
+                with patch.object(search_service, "fetch_chemicals", new=AsyncMock(return_value=fake_rows)), \
+                     patch("api.services.search.reaction_lookup", new=AsyncMock(return_value=[])):
+                    return asyncio.run(search_service.run_search_query(
+                        db, smiles, mode, smiles, page, page_size,
+                        (page - 1) * page_size,
+                    ))
+
+        # substructure: snapshot 100 ids(未满 cap) -> total=100, has_more=1*30<100=True
+        result = run("substructure", range(100), 30)
+        self.assertEqual(result[1], 100)
+        self.assertTrue(result[6])
+        # substructure: snapshot 恰 30 ids -> total=30, has_more=1*30<30=False
+        result = run("substructure", range(30), 30)
+        self.assertEqual(result[1], 30)
+        self.assertFalse(result[6])
+        # similarity: total=None(prefix 满窗未 cut) + 当前页满 -> 保守 True
+        result = run("similarity", None, 30)
+        self.assertIsNone(result[1])
+        self.assertTrue(result[6])
+        # similarity: total=None(prefix 不满 → 精确 total) + 当前页不满 -> False
+        # (10 行 < window 30 → cut_inside → total=10, has_more=1*30<10=False)
+        result = run("similarity", None, 10)
+        self.assertEqual(result[1], 10)
+        self.assertFalse(result[6])
 
 
 if __name__ == "__main__":

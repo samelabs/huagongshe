@@ -126,12 +126,15 @@ async def run_name_search(
         page_rows = [cid for _rank, cid in exact_ranked[offset:offset + page_size]]
         has_more = len(exact_ranked) > offset + page_size
         if page_rows:
-            hydrated = await fetch_chemicals(db, f"""
+            # hydrate 保留候选 rank 顺序: SQL 不再决定最终顺序, 取回后按
+            # page_rows(tier rank + id)原顺序重组 —— 跨 tier id 逆序不被抹平。
+            rows = await fetch_chemicals(db, f"""
                 SELECT {CHEMICAL_SELECT}
                 FROM chemistry.chemicals c
                 WHERE c.id = ANY(:ids)
-                ORDER BY c.id
             """, {"ids": page_rows})
+            by_id = {row["id"]: row for row in rows}
+            hydrated = [by_id[cid] for cid in page_rows if cid in by_id]
             return hydrated, has_more
         return [], False
 
@@ -170,12 +173,14 @@ async def run_name_search(
     page_rows = [cid for _rank, cid in ranked[offset:offset + page_size]]
     has_more = len(ranked) > offset + page_size
     if page_rows:
-        hydrated = await fetch_chemicals(db, f"""
+        # hydrate 保留候选 rank 顺序(与 exact 阶段同法): SQL 顺序不参与最终排序。
+        rows = await fetch_chemicals(db, f"""
             SELECT {CHEMICAL_SELECT}
             FROM chemistry.chemicals c
             WHERE c.id = ANY(:ids)
-            ORDER BY c.id
         """, {"ids": page_rows})
+        by_id = {row["id"]: row for row in rows}
+        hydrated = [by_id[cid] for cid in page_rows if cid in by_id]
         return hydrated, has_more
     return [], False
 
@@ -193,13 +198,19 @@ async def run_search_query(
     db: Any, query: str, mode: str, canonical: Any, page: int, page_size: int,
     offset: int,
     *, actor_id: int | None = None, threshold: float = 0.7,
-) -> tuple[list[dict[str, Any]], int | None, list[dict[str, Any]], bool, Any, bool]:
+) -> tuple[list[dict[str, Any]], int | None, list[dict[str, Any]], bool, Any, int | None, bool]:
     """执行搜索主体(化合物命中/total/反应/cas_fetch_pending/canonical 回写)。
 
-    返回 (chemicals, total, reactions, cas_fetch_pending, canonical, has_more)。
+    返回 7 元组:
+        (chemicals, total, reactions, cas_fetch_pending, canonical,
+         cas_fetch_hit_id, has_more)
     canonical 可能被 substructure 分支重新赋值(bounded), 调用方需取回。
-    has_more: 名称路径来自 run_name_search 的同一候选窗口(权威翻页字段);
-    identifier 路径由 total/page 推导; 其余模式 False。
+    has_more 按 mode:
+        exact 名称路径 = run_name_search 候选窗口(权威翻页字段);
+        exact strong-identity(clauses) = exact total/page 推导;
+        substructure/similarity = 本轮前语义(total!=None 按 total/page,
+        total=None 当前页满则可能还有);
+        其余 False。
     actor_id: 鉴权用户 id(匿名=None) — 仅用于 CAS-miss 入队限流身份。
     threshold: similarity 模式阈值(0.4-1.0, 默认 0.7), 与 /chemicals/{id}/similarity 同语义。
     """
@@ -425,10 +436,24 @@ async def run_search_query(
     except Exception as exc:
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
-    # identifier 路径: has_more 由 exact total/page 推导(契约: total 可保留);
-    # 名称路径: name_has_more 来自 run_name_search 的候选窗口(权威)。
-    if clauses and total is not None:
-        has_more = (page * page_size) < total
+    # has_more 按 mode 收口(correction 2026-09-13): name_has_more 不得作为
+    # 全 mode 兜底 —— substructure/similarity 保留本轮前的分页语义。
+    if mode == "exact":
+        if clauses and total is not None:
+            # strong-identity exact: exact total 契约保留, has_more 由 total/page 推导
+            has_more = (page * page_size) < total
+        else:
+            # 名称路径: name_has_more 来自 run_name_search 候选窗口(权威)
+            has_more = name_has_more
+    elif mode in ("substructure", "similarity"):
+        # structure search 算法/snapshot/threshold/total 定义不动;
+        # has_more 恢复本轮前的推导语义:
+        #   total != None → page*page_size < total
+        #   total is None → 当前页满则可能还有(保守继续入口)
+        if total is not None:
+            has_more = (page * page_size) < total
+        else:
+            has_more = len(chemicals) == page_size
     else:
-        has_more = name_has_more
+        has_more = False
     return chemicals, total, reactions, cas_fetch_pending, canonical, cas_fetch_hit_id, has_more
