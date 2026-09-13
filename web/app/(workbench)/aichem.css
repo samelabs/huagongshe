@@ -43,12 +43,13 @@
 }
 
 .wb-logo {
-  font-size: var(--wb-fs-lg);
-  font-weight: var(--wb-w-bold);
-  letter-spacing: -.02em;
-  color: var(--wb-blue-strong);
+  font-size: var(--wb-fs);
+  font-weight: var(--wb-w-semibold);
+  letter-spacing: -.015em;
+  color: var(--wb-muted);
   white-space: nowrap;
 }
+.wb-logo:hover { color: var(--wb-blue); }
 
 /* ── 顶部导航 ── */
 .wb-topnav {
