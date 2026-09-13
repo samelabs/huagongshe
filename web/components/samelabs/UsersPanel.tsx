@@ -1,51 +1,130 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
+import { PAGE_SIZE, parseAdminPage, adminOffset, adminTotalPages } from "@/lib/adminPagination";
+import { AdminPagination } from "@/components/samelabs/AdminPagination";
 
 type UserRow = { id: number; username: string; display_name: string; email: string; role: string; status: "active" | "disabled"; created_at: string; last_login_at: string | null };
 type AdminUsersResponse = { total: number; items: UserRow[] };
 
 export function SamelabsUsers() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // URL 是唯一已应用真相源: q / page
+  const appliedQ = searchParams.get("q") ?? "";
+  const page = parseAdminPage(searchParams.get("page"));
+
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [total, setTotal] = useState(0); // Batch 2 分页控件使用, 本轮不展示
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [q, setQ] = useState("");                       // draft: 输入框当前值
-  const [appliedQ, setAppliedQ] = useState("");          // 已应用: 成功加载所对应的搜索条件
+  const [q, setQ] = useState(appliedQ);          // draft: 输入框当前值
   const [pendingDisable, setPendingDisable] = useState<UserRow | null>(null);
 
-  // 仅成功才推进 appliedQ; 失败保持旧值(draft 不参与计数文案)
-  async function load(query: string) {
-    const params = new URLSearchParams({ limit: "100", offset: "0" });
-    if (query.trim()) params.set("q", query.trim());
-    try {
-      const data = await apiGet<AdminUsersResponse>(`/admin/users?${params}`);
+  // draft 与 URL 同步: 返回/前进后退到新 q 时刷新输入框
+  useEffect(() => { setQ(appliedQ); }, [appliedQ]);
+
+  // 请求竞态防护: 只接受最新一次请求的结果
+  const seqRef = useRef(0);
+
+  const appliedQRef = useRef(appliedQ);
+  const pageRef = useRef(page);
+  appliedQRef.current = appliedQ;
+  pageRef.current = page;
+
+  // URL 状态驱动加载; 超界时 clamp 到最后有效页(通过 URL 导航, 不直接 set)
+  useEffect(() => {
+    const seq = ++seqRef.current;
+    setLoading(true);
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(adminOffset(page)) });
+    if (appliedQ.trim()) params.set("q", appliedQ.trim());
+    apiGet<AdminUsersResponse>(`/admin/users?${params}`).then((data) => {
+      if (seq !== seqRef.current) return; // 过期响应丢弃
       setUsers(data.items);
       setTotal(data.total);
-      setAppliedQ(query.trim());
-    } catch (e) {
+      setError("");
+      const totalPages = adminTotalPages(data.total, PAGE_SIZE);
+      if (data.total > 0 && page > totalPages) {
+        // 超界: 导航到最后有效页, 由 URL 变化触发重载 (不会死循环: 页数只减不增)
+        const next = new URLSearchParams();
+        if (appliedQ.trim()) next.set("q", appliedQ.trim());
+        next.set("page", String(totalPages));
+        router.replace(`/samelabs/users?${next}`);
+        return;
+      }
+      if (data.total === 0 && page > 1) {
+        // 空集合: canonical 回第 1 页 (total=0 时 totalPages=1, 只 replace 一次)
+        const next = new URLSearchParams();
+        if (appliedQ.trim()) next.set("q", appliedQ.trim());
+        const qs = next.toString();
+        router.replace(qs ? `/samelabs/users?${qs}` : "/samelabs/users");
+        return;
+      }
+    }).catch((e) => {
+      if (seq !== seqRef.current) return;
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
-    }
+      else setError(t.admin.errLoadFailed);
+    }).finally(() => {
+      if (seq === seqRef.current) setLoading(false);
+    });
+  }, [appliedQ, page, router]);
+
+  // URL 写入: 只维护本页已知参数, 默认值省略
+  function navigateTo(nextQ: string, nextPage: number, push = false) {
+    const next = new URLSearchParams();
+    if (nextQ.trim()) next.set("q", nextQ.trim());
+    if (nextPage > 1) next.set("page", String(nextPage));
+    const qs = next.toString();
+    const url = qs ? `/samelabs/users?${qs}` : "/samelabs/users";
+    if (push) router.push(url); else router.replace(url);
   }
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const params = new URLSearchParams({ limit: "100", offset: "0" });
-      try {
-        const data = await apiGet<AdminUsersResponse>(`/admin/users?${params}`);
-        if (active) { setUsers(data.items); setTotal(data.total); }
-      } catch (e) {
-        if (!active) return;
-        if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
-      }
-    })();
-    return () => { active = false; };
-  }, []);
+  // 搜索提交: 应用 draft, 回第 1 页
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault();
+    navigateTo(q, 1);
+  }
 
-  async function reload() { await load(appliedQ); }
+  // mutation 后 reload 当前 URL filter/page (URL 未变, 直接重拉)
+  async function reload() {
+    const seq = ++seqRef.current;
+    setLoading(true);
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(adminOffset(pageRef.current)) });
+    if (appliedQRef.current.trim()) params.set("q", appliedQRef.current.trim());
+    try {
+      const data = await apiGet<AdminUsersResponse>(`/admin/users?${params}`);
+      if (seq !== seqRef.current) return;
+      setUsers(data.items);
+      setTotal(data.total);
+      setError("");
+      // mutation 可能清空当前页(如最后一条被停用不影响集合, 但搜索词变化场景): clamp
+      const totalPages = adminTotalPages(data.total, PAGE_SIZE);
+      if (data.total > 0 && pageRef.current > totalPages) {
+        const next = new URLSearchParams();
+        if (appliedQRef.current.trim()) next.set("q", appliedQRef.current.trim());
+        next.set("page", String(totalPages));
+        router.replace(`/samelabs/users?${next}`);
+        return;
+      }
+      if (data.total === 0 && pageRef.current > 1) {
+        const next = new URLSearchParams();
+        if (appliedQRef.current.trim()) next.set("q", appliedQRef.current.trim());
+        const qs = next.toString();
+        router.replace(qs ? `/samelabs/users?${qs}` : "/samelabs/users");
+      }
+    } catch (e) {
+      if (seq !== seqRef.current) return;
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
+      else setError(t.admin.errOperation);
+    } finally {
+      if (seq === seqRef.current) setLoading(false);
+    }
+  }
 
   async function confirmDisable() {
     if (!pendingDisable) return;
@@ -75,7 +154,9 @@ export function SamelabsUsers() {
     } finally { setBusyId(null); }
   }
 
-  if (error && users.length === 0) return <div className="notice error">{error}</div>;
+  if (error && users.length === 0 && !loading) return <div className="notice error">{error}</div>;
+
+  const totalPages = adminTotalPages(total, PAGE_SIZE);
 
   return <>
     <header className="page-title">
@@ -86,13 +167,13 @@ export function SamelabsUsers() {
         <section className="dashboard-section">
           <div className="section-heading">
             <div><h2>{t.admin.usersAll}</h2></div>
-            <span>{t.admin.userShownCount(users.length, appliedQ || null)}</span>
+            <span>{appliedQ ? `搜索 "${appliedQ}" · 共 ${total} 条` : `共 ${total} 条`}</span>
           </div>
-          <form className="admin-search" onSubmit={(e) => { e.preventDefault(); load(q); }}>
+          <form className="admin-search" onSubmit={submitSearch}>
             <input
               value={q}
               placeholder={t.admin.userSearchPlaceholder}
-              onChange={(e) => { setQ(e.target.value); if (e.target.value === "") load(""); }}
+              onChange={(e) => setQ(e.target.value)}
             />
             <button type="submit" className="button small">{t.admin.userSearch}</button>
           </form>
@@ -116,7 +197,12 @@ export function SamelabsUsers() {
                 </button>
               </div>
             </article>)}
+            {!loading && users.length === 0 && (
+              <div className="admin-empty">{appliedQ ? "没有匹配的用户" : "暂无用户"}</div>
+            )}
           </div>
+          <AdminPagination page={page} total={total} pageSize={PAGE_SIZE} loading={loading}
+            onPageChange={(p) => navigateTo(appliedQ, p, p > page)} />
         </section>
         {pendingDisable && (
           <div className="pipe-confirm" role="dialog" aria-modal onClick={() => setPendingDisable(null)}>

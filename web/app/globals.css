@@ -1139,6 +1139,20 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .admin-filters input:focus { border-color: var(--blue); }
 .admin-filters button { padding: 7px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--muted); font-size: var(--text-sm); cursor: pointer; }
 .admin-filters button.active { border-color: var(--blue); color: var(--blue); background: var(--blue-tint); }
+/* ── 后台·列表分页/筛选/空态 (Batch 2) ───────────────── */
+.admin-filters-search { display: flex; gap: 8px; flex: 1; min-width: 0; max-width: 360px; }
+.admin-filters-search input { flex: 1; min-width: 0; }
+.admin-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.admin-pagination-btn { min-height: 38px; min-width: 76px; padding: 8px 16px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--paper); color: var(--ink); font-size: var(--text-sm); cursor: pointer; touch-action: manipulation; }
+.admin-pagination-btn:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
+.admin-pagination-btn:disabled { opacity: .45; cursor: default; }
+.admin-pagination-meta { font-size: var(--text-sm); color: var(--muted); text-align: center; flex: 1; min-width: 0; }
+@media (max-width: 480px) {
+  .admin-pagination { justify-content: center; }
+  .admin-pagination-meta { flex-basis: 100%; order: 3; }
+  .admin-pagination-btn { flex: 1; }
+}
+.admin-empty { padding: 26px 16px; text-align: center; color: var(--muted); font-size: var(--text-sm); }
 .admin-cat-create { display: grid; grid-template-columns: 1fr 90px 52px 90px auto; gap: 8px; margin-top: 14px; align-items: center; }
 .admin-cat-create input { min-width: 0; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: var(--text-sm); color: var(--ink); background: var(--paper); outline: none; }
 .admin-cat-create input:focus { border-color: var(--blue); }

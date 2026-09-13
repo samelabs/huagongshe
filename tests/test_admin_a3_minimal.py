@@ -35,21 +35,18 @@ class UsersPanelTests(unittest.TestCase):
 
     def test_q_wired_to_existing_endpoint(self):
         """验收1: q 传入现有 GET /users?q=, 不新增后端。"""
-        self.assertIn('params.set("q", query.trim())', self.src)
+        self.assertIn('params.set("q", appliedQ.trim())', self.src)
         self.assertIn("`/admin/users?${params}`", self.src)
 
     def test_empty_q_default_list(self):
         """验收2: 空 q 不带参数(默认列表)。"""
-        self.assertIn('if (e.target.value === "") load("");', self.src)
-        self.assertIn('if (query.trim()) params.set', self.src)
+        self.assertIn('if (appliedQ.trim()) params.set("q", appliedQ.trim())', self.src)
 
-    def test_count_not_total(self):
-        """验收3: 计数语义=当前显示 N 条, 不称总数。"""
-        self.assertIn("userShownCount(users.length", self.src)
-        self.assertNotIn("userCount(users.length)", self.src)
-        i18n = read("web/lib/i18n.ts")
-        self.assertIn("当前显示 ${n} 条", i18n)
-        self.assertIn("当前显示 ${n} 条搜索结果", i18n)
+    def test_count_uses_total_not_pagelen(self):
+        """验收3(Batch2 修订): 计数语义 = URL 条件下 total, 不用页内长度冒充。"""
+        self.assertIn('搜索 "${appliedQ}" · 共 ${total} 条', self.src)
+        self.assertIn('共 ${total} 条', self.src)
+        self.assertNotIn("userShownCount", self.src)
 
     def test_disable_requires_confirm(self):
         """验收4+5: disable 先 setPendingDisable; cancel 只关对话框。"""
@@ -74,7 +71,7 @@ class UsersPanelTests(unittest.TestCase):
 
 
 class UsersSearchStateContractTests(unittest.TestCase):
-    """q(draft)/appliedQ(已应用) 双状态契约 — 修正未提交输入污染计数语义。"""
+    """q(draft)/URL q(已应用) 双状态契约 — Batch 2 后 URL 是唯一已应用真相源。"""
 
     def setUp(self):
         self.src = read("web/components/samelabs/UsersPanel.tsx")
@@ -84,44 +81,37 @@ class UsersSearchStateContractTests(unittest.TestCase):
         return self.src[i:self.src.index(end_marker, i)]
 
     def test_two_states_declared(self):
-        """draft 与 applied 是两个独立 state。"""
-        self.assertIn('const [q, setQ] = useState("");', self.src)
-        self.assertIn('const [appliedQ, setAppliedQ] = useState("");', self.src)
+        """draft 是 state; applied 来自 URL (不是第二套 state)。"""
+        self.assertIn('const [q, setQ] = useState(appliedQ);', self.src)
+        self.assertIn('searchParams.get("q")', self.src)
+        self.assertNotIn('const [appliedQ, setAppliedQ] = useState', self.src,
+                         "appliedQ 不得再是独立 state (URL 是唯一真相源)")
 
     def test_draft_edit_does_not_apply(self):
-        """契约1: 仅编辑输入框(非空)不发请求、不改 appliedQ。"""
+        """契约1: 仅编辑输入框不发请求。"""
         onchange = [l for l in self.src.split("\n") if "onChange" in l and "setQ" in l][0]
-        self.assertIn('if (e.target.value === "") load("");', onchange)
-        self.assertNotIn('load(e.target.value)', onchange)  # 非空编辑不触发 load
+        self.assertNotIn("load(", onchange)
+        self.assertNotIn("navigateTo(", onchange)
 
-    def test_appliedq_advances_only_on_success(self):
-        """契约2+3: setAppliedQ 只出现在 apiGet 成功之后(同一 try, data 赋值后);
-        catch 分支不推进 appliedQ → submit 失败保持旧值。"""
-        load_fn = self._between("async function load", "useEffect")
-        self.assertIn("const data = await apiGet", load_fn)
-        # setAppliedQ 必须在 try 内、data 成功拿到后
-        try_block = load_fn[load_fn.index("try {"):load_fn.index("catch")]
-        # Batch1 后 response 为 {total, items}; setUsers(data.items) 即成功消费
-        self.assertIn("setUsers(data.items)", try_block)
-        self.assertIn("setAppliedQ(query.trim())", try_block)
-        catch_block = load_fn[load_fn.index("catch"):]
-        self.assertNotIn("setAppliedQ", catch_block)
+    def test_draft_syncs_from_url(self):
+        """契约: 返回/前进后退时 draft 跟随 URL q。"""
+        self.assertIn("useEffect(() => { setQ(appliedQ); }, [appliedQ]);", self.src)
 
-    def test_count_uses_appliedq_not_draft(self):
-        """契约5: 计数文案只依赖 appliedQ。"""
-        count_line = [l for l in self.src.split("\n") if "userShownCount" in l][0]
-        self.assertIn("appliedQ || null", count_line)
-        self.assertNotIn("q.trim()", count_line)
+    def test_search_submit_resets_page(self):
+        """契约: 搜索提交 = 应用 draft + 回第 1 页, 走 URL。"""
+        submit_fn = self._between("function submitSearch", "async function reload")
+        self.assertIn("navigateTo(q, 1)", submit_fn)
 
-    def test_reload_uses_appliedq(self):
-        """reload 与当前列表一致, 不被 draft 污染。"""
-        self.assertIn("await load(appliedQ)", self.src)
-        self.assertNotIn("await load(q)", self.src)
+    def test_reload_uses_url_state(self):
+        """reload 与当前 URL 一致, 不被 draft 污染。"""
+        self.assertIn("params.set(\"q\", appliedQRef.current.trim())", self.src)
+        self.assertNotIn('params.set("q", q.trim())', self.src)
 
-    def test_clear_restores_default(self):
-        """契约4: 清空输入 → load("") → 成功后 appliedQ=""(setAppliedQ(query.trim()))。"""
-        load_fn = self._between("async function load", "useEffect")
-        self.assertIn("setAppliedQ(query.trim())", load_fn)  # query="" → appliedQ=""
+    def test_empty_q_url_clean(self):
+        """契约: 默认值不写 URL (page=1/q 空时 URL 干净)。"""
+        nav = self._between("function navigateTo", "function submitSearch")
+        self.assertIn("if (nextQ.trim()) next.set", nav)
+        self.assertIn("if (nextPage > 1) next.set", nav)
 
 
 class SkillsPanelTests(unittest.TestCase):

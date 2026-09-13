@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
+import { PAGE_SIZE, parseAdminPage, adminOffset, adminTotalPages } from "@/lib/adminPagination";
+import { AdminPagination } from "@/components/samelabs/AdminPagination";
 
 type SkillRow = {
   id: number; slug: string; title: string; description: string | null;
@@ -19,6 +22,8 @@ type CategoryRow = {
 
 type AdminSkillsResponse = { total: number; items: SkillRow[] };
 
+type VisFilter = "all" | "public" | "private";
+
 function fmtSize(n: number) {
   if (n >= 1048576) return `${(n / 1048576).toFixed(1)}MB`;
   if (n >= 1024) return `${(n / 1024).toFixed(0)}KB`;
@@ -26,12 +31,21 @@ function fmtSize(n: number) {
 }
 
 export function SamelabsSkills() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // URL 是唯一已应用真相源: q / visibility / page
+  const appliedQ = searchParams.get("q") ?? "";
+  const rawVis = searchParams.get("visibility");
+  const visibility: VisFilter = rawVis === "public" || rawVis === "private" ? rawVis : "all";
+  const page = parseAdminPage(searchParams.get("page"));
+
   const [skills, setSkills] = useState<SkillRow[]>([]);
   const [total, setTotal] = useState(0);
-  const [visibility, setVisibility] = useState<"all" | "public" | "private">("all");
-  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [q, setQ] = useState(appliedQ);          // draft: 输入框当前值
 
   const [cats, setCats] = useState<CategoryRow[]>([]);
   const [newCat, setNewCat] = useState({ name: "", abbr: "", color: "#1e90ff", sort_order: 100 });
@@ -39,19 +53,55 @@ export function SamelabsSkills() {
   const [pendingDelete, setPendingDelete] = useState<SkillRow | null>(null);
   const [catError, setCatError] = useState("");
 
-  async function reload(vis: "all" | "public" | "private" = visibility) {
-    setError("");
-    const params = new URLSearchParams({ visibility: vis, limit: "100" });
-    if (q.trim()) params.set("q", q.trim());
-    try {
-      const data = await apiGet<AdminSkillsResponse>(`/admin/skills?${params}`);
+  // draft 与 URL 同步
+  useEffect(() => { setQ(appliedQ); }, [appliedQ]);
+
+  // 请求竞态防护
+  const seqRef = useRef(0);
+  const appliedQRef = useRef(appliedQ);
+  const visRef = useRef(visibility);
+  const pageRef = useRef(page);
+  appliedQRef.current = appliedQ;
+  visRef.current = visibility;
+  pageRef.current = page;
+
+  // URL 状态驱动加载; 超界 clamp
+  useEffect(() => {
+    const seq = ++seqRef.current;
+    setLoading(true);
+    const params = new URLSearchParams({ visibility, limit: String(PAGE_SIZE), offset: String(adminOffset(page)) });
+    if (appliedQ.trim()) params.set("q", appliedQ.trim());
+    apiGet<AdminSkillsResponse>(`/admin/skills?${params}`).then((data) => {
+      if (seq !== seqRef.current) return;
       setSkills(data.items);
       setTotal(data.total);
-    } catch (e) {
+      setError("");
+      const totalPages = adminTotalPages(data.total, PAGE_SIZE);
+      if (data.total > 0 && page > totalPages) {
+        const next = new URLSearchParams();
+        if (visibility !== "all") next.set("visibility", visibility);
+        if (appliedQ.trim()) next.set("q", appliedQ.trim());
+        next.set("page", String(totalPages));
+        router.replace(`/samelabs/skills?${next}`);
+        return;
+      }
+      if (data.total === 0 && page > 1) {
+        // 空集合: canonical 回第 1 页 (只 replace 一次)
+        const next = new URLSearchParams();
+        if (visibility !== "all") next.set("visibility", visibility);
+        if (appliedQ.trim()) next.set("q", appliedQ.trim());
+        const qs = next.toString();
+        router.replace(qs ? `/samelabs/skills?${qs}` : "/samelabs/skills");
+        return;
+      }
+    }).catch((e) => {
+      if (seq !== seqRef.current) return;
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
       else setError(t.admin.errLoadFailed);
-    }
-  }
+    }).finally(() => {
+      if (seq === seqRef.current) setLoading(false);
+    });
+  }, [appliedQ, visibility, page, router]);
 
   async function reloadCats() {
     try {
@@ -60,17 +110,65 @@ export function SamelabsSkills() {
   }
 
   useEffect(() => {
-    let active = true;
-    apiGet<AdminSkillsResponse>(`/admin/skills?visibility=all&limit=100`).then((data) => {
-      if (active) { setSkills(data.items); setTotal(data.total); }
-    }).catch((err) => {
-      if (!active) return;
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) setError(t.admin.noPermission);
-      else setError(t.admin.errLoadFailed);
-    });
-    apiGet<CategoryRow[]>(`/admin/skill-categories`).then((data) => { if (active) setCats(data); }).catch(() => {});
-    return () => { active = false; };
+    reloadCats();
   }, []);
+
+  function navigateTo(nextQ: string, nextVis: VisFilter, nextPage: number, push = false) {
+    const next = new URLSearchParams();
+    if (nextQ.trim()) next.set("q", nextQ.trim());
+    if (nextVis !== "all") next.set("visibility", nextVis);
+    if (nextPage > 1) next.set("page", String(nextPage));
+    const qs = next.toString();
+    const url = qs ? `/samelabs/skills?${qs}` : "/samelabs/skills";
+    if (push) router.push(url); else router.replace(url);
+  }
+
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault();
+    navigateTo(q, visibility, 1); // 搜索提交回第 1 页
+  }
+
+  function setVisFilter(v: VisFilter) {
+    if (v === visibility) return;
+    navigateTo(appliedQ, v, 1); // 切 filter 回第 1 页
+  }
+
+  // mutation 后 reload 当前 URL state; 当前页超界(如删完最后一行)回最后有效页
+  async function reload() {
+    const seq = ++seqRef.current;
+    setLoading(true);
+    const params = new URLSearchParams({ visibility: visRef.current, limit: String(PAGE_SIZE), offset: String(adminOffset(pageRef.current)) });
+    if (appliedQRef.current.trim()) params.set("q", appliedQRef.current.trim());
+    try {
+      const data = await apiGet<AdminSkillsResponse>(`/admin/skills?${params}`);
+      if (seq !== seqRef.current) return;
+      setSkills(data.items);
+      setTotal(data.total);
+      setError("");
+      const totalPages = adminTotalPages(data.total, PAGE_SIZE);
+      if (data.total > 0 && pageRef.current > totalPages) {
+        const next = new URLSearchParams();
+        if (visRef.current !== "all") next.set("visibility", visRef.current);
+        if (appliedQRef.current.trim()) next.set("q", appliedQRef.current.trim());
+        next.set("page", String(totalPages));
+        router.replace(`/samelabs/skills?${next}`);
+        return;
+      }
+      if (data.total === 0 && pageRef.current > 1) {
+        const next = new URLSearchParams();
+        if (visRef.current !== "all") next.set("visibility", visRef.current);
+        if (appliedQRef.current.trim()) next.set("q", appliedQRef.current.trim());
+        const qs = next.toString();
+        router.replace(qs ? `/samelabs/skills?${qs}` : "/samelabs/skills");
+      }
+    } catch (e) {
+      if (seq !== seqRef.current) return;
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
+      else setError(t.admin.errOperation);
+    } finally {
+      if (seq === seqRef.current) setLoading(false);
+    }
+  }
 
   async function setVis(id: number, vis: "private" | "public") {
     setError(""); setBusyId(id);
@@ -107,7 +205,7 @@ export function SamelabsSkills() {
     } finally { setCatBusy(false); }
   }
 
-  if (error && skills.length === 0) return <div className="notice error">{error}</div>;
+  if (error && skills.length === 0 && !loading) return <div className="notice error">{error}</div>;
 
   return <>
     <header className="page-title">
@@ -119,18 +217,20 @@ export function SamelabsSkills() {
         <section className="dashboard-section">
           <div className="section-heading">
             <div><h2>{t.admin.skillsAll}</h2></div>
-            <span>{t.admin.skillCount(total)}</span>
+            <span>{appliedQ || visibility !== "all" ? `当前条件下共 ${total} 个技能` : t.admin.skillCount(total)}</span>
           </div>
           <div className="admin-filters">
-            <input
-              value={q}
-              placeholder={t.admin.skillsSearchPlaceholder}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            <button onClick={() => reload()}>{t.admin.skillsFilterApply}</button>
+            <form className="admin-filters-search" onSubmit={submitSearch}>
+              <input
+                value={q}
+                placeholder={t.admin.skillsSearchPlaceholder}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <button type="submit">{t.admin.skillsFilterApply}</button>
+            </form>
             {(["all", "public", "private"] as const).map((v) => (
               <button key={v} className={visibility === v ? "active" : ""}
-                onClick={() => { setVisibility(v); reload(v); }}>
+                onClick={() => setVisFilter(v)}>
                 {v === "all" ? t.admin.visAll : v === "public" ? t.admin.publicLabel : t.admin.privateLabel}
               </button>
             ))}
@@ -157,7 +257,12 @@ export function SamelabsSkills() {
                 </button>
               </div>
             </article>)}
+            {!loading && skills.length === 0 && (
+              <div className="admin-empty">{appliedQ || visibility !== "all" ? "当前条件下没有技能" : "暂无技能"}</div>
+            )}
           </div>
+          <AdminPagination page={page} total={total} pageSize={PAGE_SIZE} loading={loading}
+            onPageChange={(p) => navigateTo(appliedQ, visibility, p, p > page)} />
         </section>
 
         <section className="dashboard-section">
