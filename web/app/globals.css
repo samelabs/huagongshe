@@ -1181,12 +1181,17 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .admin-shell { grid-template-columns: 1fr; gap: 18px; }
   /* P0 (admin-data-p0): ≤900px 8 个入口必须直接可见 —— 允许换行,
      不再靠横滑发现(旧版 overflow-x:auto + 隐藏滚动条 → 末尾项裁出视口)。 */
-  .admin-nav { position: static; flex-direction: row; flex-wrap: wrap; overflow-x: visible; padding: 6px; border-radius: 12px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .admin-nav { position: static; flex-direction: row; flex-wrap: wrap; overflow-x: visible; padding: 2px 0 6px; border-radius: 0; background: transparent; box-shadow: none; border-bottom: 1px solid var(--line); scrollbar-width: none; }
   .admin-nav::-webkit-scrollbar { display: none; }
   .admin-nav::before { display: none; }
-  .admin-nav a { white-space: nowrap; padding: 8px 14px; }
-  /* mobile: 横向 tab — 取消左侧线, 改底部 2px 蓝线, 透明底 */
-  .admin-nav a.active { box-shadow: none; background: transparent; border-left: none; padding-left: 14px; border-bottom: 2px solid var(--blue); }
+  /* 浅色导航: 深色 token → 现有浅色语义 token; 无胶囊无圆角 */
+  .admin-nav a { white-space: nowrap; padding: 8px 12px; border-radius: 0; color: var(--muted); }
+  .admin-nav a.active { box-shadow: none; background: transparent; border-left: none; border-bottom: 2px solid var(--blue); border-radius: 0; color: var(--heading); font-weight: 700; padding-left: 12px; }
+  /* mobile Dashboard: 两列紧凑数据 tile — 取代一行一大胶囊 */
+  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .dashboard-card { border-radius: var(--radius-sm); padding: 12px 14px; gap: 3px; }
+  .dashboard-card-value { font-size: 22px; }
+  .dashboard-card-label { letter-spacing: .08em; }
 }
 
 /* ── 全站滚动条基线 — 细 6px 圆角，line-strong 滑块，透明轨道 ── */
