@@ -31,7 +31,7 @@ export function GlobalSearch({ initial = "", compact = false }: {
             type="text"
             value={query}
             onChange={(e) => { setQuery(e.target.value); }}
-            placeholder={compact ? t.search.hintNameShort : t.home.searchPlaceholder}
+            placeholder="请输入内容"
           />
           {query && (
             <button type="button" className="search-input-box__clear" aria-label={t.search.clearQuery} onClick={() => { setQuery(""); inputRef.current?.focus(); }}>
