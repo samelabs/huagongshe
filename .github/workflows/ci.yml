@@ -49,6 +49,12 @@ jobs:
         working-directory: web
         run: npx tsc --noEmit
 
+      - name: Admin pagination pure-function tests (tsc+node)
+        # 真测 web/lib/adminPagination.ts: tsc 编译 + node 执行产物。
+        # 必须在 npm ci 之后 (需要 web/node_modules/.bin/tsc)。
+        # integration job 无 web deps → 同一测试在那里明确 skip, 见 skipUnless。
+        run: python -m unittest tests.test_admin_pagination_ui -v
+
       - name: Build frontend
         working-directory: web
         run: npm run build

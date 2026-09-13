@@ -1,13 +1,13 @@
-"""Batch 1 (admin-list-contracts): users/reactions 列表契约验收测试。
+"""Admin list contract tests: users + reactions (hermetic fixtures).
 
-契约 (本轮正式统一, 不保留旧裸数组 shape):
-  GET /admin/users?q=&limit=&offset=      -> {"total": N, "items": [...]}
+契约 (Batch 1 起, 不保留旧裸数组 shape):
+  GET /admin/users?q=&limit=&offset=          -> {"total": N, "items": [...]}
   GET /admin/reactions?status=&limit=&offset= -> {"total": N, "items": [...]}
 
-审计纠偏口径 (必须锁住):
-  users 默认列表只能浏览最近 limit 个; 老用户不是绝对不可达 ——
-  q 会对全表过滤。正确表述: older users are not reachable through
-  list browsing beyond the first page (不是 never accessible)。
+Hermetic 原则 (本轮收口):
+  - 两套测试均自造唯一 RUN marker 数据, 不依赖测试库任何存量;
+    GitHub fresh test_hgs 与服务器共享 test_hgs (含历史数据) 都必须通过。
+  - reactions 期望值 = 真实 DB 过滤 count + marker 差值, 不写死环境快照数字。
 
 运行: . /tmp/hgs_test_env.sh && ./venv/bin/python -m unittest tests.test_admin_list_contracts
 """
@@ -30,12 +30,18 @@ except Exception:  # pragma: no cover - 无 test DB 时跳过 DB 用例
 RUN = os.urandom(3).hex()
 
 
+def _engine():
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    return create_async_engine(DB_URL)
+
+
 async def _seed_users(n: int) -> list[int]:
     """造 n 个 marker 用户 (旧 id 区间在前), 返回 ids。清理由 _cleanup 负责。"""
     from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    eng = create_async_engine(DB_URL)
+    eng = _engine()
     ids: list[int] = []
     try:
         async with async_sessionmaker(eng, expire_on_commit=False)() as db:
@@ -53,14 +59,89 @@ async def _seed_users(n: int) -> list[int]:
 
 async def _cleanup_users(ids: list[int]) -> None:
     from sqlalchemy import text
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
-    eng = create_async_engine(DB_URL)
+    eng = _engine()
     try:
         async with async_sessionmaker(eng, expire_on_commit=False)() as db:
             for uid in ids:
                 await db.execute(text("DELETE FROM community.users WHERE id=:i"), {"i": uid})
             await db.commit()
+    finally:
+        await eng.dispose()
+
+
+# ---- reactions hermetic fixture -------------------------------------------
+# marker owner 1 个 + 7 条 user reactions (5 visible / 2 hidden) + 1 条 system
+# reaction (created_by_user_id NULL)。全部带 reaction_smiles = RUN marker,
+# 清理按 marker 前缀删除, 不碰库内任何其它行。
+
+_SMILES = f"{RUN}>>C(=O)O"  # 非法化学也无妨: 列是裸 text, 契约不解析
+
+
+async def _seed_reactions() -> tuple[int, list[int]]:
+    """返回 (owner_user_id, reaction_ids)。7 user (5 visible/2 hidden) + 1 system。"""
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    eng = _engine()
+    try:
+        async with async_sessionmaker(eng, expire_on_commit=False)() as db:
+            owner = (await db.execute(text("""
+                INSERT INTO community.users (username,email,password_hash,role,display_name)
+                VALUES (:u,:e,'x','member','R') RETURNING id
+            """), {"u": f"rc{RUN}own", "e": f"rc{RUN}@t.example"})).scalar()
+            rids: list[int] = []
+            for i, status in enumerate(
+                ["visible", "visible", "visible", "visible", "visible", "hidden", "hidden"]
+            ):
+                rid = (await db.execute(text("""
+                    INSERT INTO chemistry.reactions
+                        (reaction_smiles, created_by_user_id, source_type,
+                         visibility, moderation_status)
+                    VALUES (:s, :u, 'self', 'public', :m) RETURNING id
+                """), {"s": _SMILES, "u": owner, "m": status})).scalar()
+                rids.append(int(rid))
+            # system row: created_by_user_id NULL → 任何 status 的 total/items 都不得含它
+            sys_rid = (await db.execute(text("""
+                INSERT INTO chemistry.reactions (reaction_smiles, created_by_user_id)
+                VALUES (:s, NULL) RETURNING id
+            """), {"s": _SMILES})).scalar()
+            rids.append(int(sys_rid))
+            await db.commit()
+            return int(owner), rids
+    finally:
+        await eng.dispose()
+
+
+async def _cleanup_reactions(owner: int, rids: list[int]) -> None:
+    """按 id 精确删除 marker reactions + owner; 再按 smiles marker 兜底清残。"""
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    eng = _engine()
+    try:
+        async with async_sessionmaker(eng, expire_on_commit=False)() as db:
+            await db.execute(text(
+                "DELETE FROM chemistry.reactions WHERE id = ANY(:ids) OR reaction_smiles = :s"
+            ), {"ids": rids, "s": _SMILES})
+            await db.execute(text("DELETE FROM community.users WHERE id=:i"), {"i": owner})
+            await db.commit()
+    finally:
+        await eng.dispose()
+
+
+async def _db_count(where: str) -> int:
+    """真实 DB count (真实过滤条件, 不含 marker 差值)。"""
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    eng = _engine()
+    try:
+        async with async_sessionmaker(eng)() as db:
+            return int((await db.execute(text(
+                f"SELECT count(*) FROM chemistry.reactions {where}"
+            ))).scalar_one())
     finally:
         await eng.dispose()
 
@@ -109,7 +190,7 @@ async def _call_admin(path: str, actor_id: int):
 
 @unittest.skipUnless(DB_URL, "需要 test DB")
 class UsersListContractTests(unittest.IsolatedAsyncioTestCase):
-    """U1-U4: users 分页/total/search nuance/参数边界。"""
+    """U1-U4: users 分页/total/search nuance/参数边界 (hermetic marker)。"""
 
     SEED = 7   # seed 7 个 marker 用户, 用 limit=3 窗口化
     ids: list[int] = []
@@ -180,57 +261,77 @@ class UsersListContractTests(unittest.IsolatedAsyncioTestCase):
 class ReactionsListContractTests(unittest.IsolatedAsyncioTestCase):
     """R1-R4: reactions 窗口/total 口径/status filter/参数边界。
 
-    测试库 reactions 总量 293 (其中 user-reactions 288, visible 192, hidden 96),
-    直接对全量断言窗口与口径, 不另造 reaction fixture。
+    Hermetic: 自造 marker (owner + 7 user-reactions 5 visible/2 hidden + 1 system row)。
+    total 断言 = DB 真实 count + marker 差值 (不依赖库存量, fresh/共享库都成立)。
     """
 
+    MARKER_USER_ROWS = 7      # 5 visible + 2 hidden
+    MARKER_VISIBLE = 5
+    MARKER_HIDDEN = 2
+
+    owner: int = 0
+    rids: list[int] = []
+
+    @classmethod
+    def setUpClass(cls):
+        cls.owner, cls.rids = asyncio_run(_seed_reactions())
+
+    @classmethod
+    def tearDownClass(cls):
+        asyncio_run(_cleanup_reactions(cls.owner, cls.rids))
+
     async def test_r1_offset_window_stable(self):
-        code, w1 = await _call_admin("/admin/reactions?limit=50&offset=0", 0)
+        """R1: API 窗口 = DB 同 WHERE/ORDER/LIMIT/OFFSET 直查结果 (fresh/共享库都成立)。"""
+        from sqlalchemy import text as _t
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+
+        eng = _engine()
+        try:
+            async with async_sessionmaker(eng)() as db:
+                db_w1 = (await db.execute(_t(
+                    "SELECT id FROM chemistry.reactions "
+                    "WHERE created_by_user_id IS NOT NULL "
+                    "ORDER BY id DESC LIMIT 3 OFFSET 0"))).scalars().all()
+                db_w2 = (await db.execute(_t(
+                    "SELECT id FROM chemistry.reactions "
+                    "WHERE created_by_user_id IS NOT NULL "
+                    "ORDER BY id DESC LIMIT 3 OFFSET 3"))).scalars().all()
+        finally:
+            await eng.dispose()
+
+        code, w1 = await _call_admin("/admin/reactions?status=all&limit=3&offset=0", 0)
         self.assertEqual(200, code)
-        self.assertEqual(50, len(w1["items"]))
-        code, w2 = await _call_admin("/admin/reactions?limit=50&offset=50", 0)
+        self.assertEqual([int(x) for x in db_w1], [r["id"] for r in w1["items"]],
+                         "API 第一窗口必须与 DB 直查完全一致")
+        code, w2 = await _call_admin("/admin/reactions?status=all&limit=3&offset=3", 0)
         self.assertEqual(200, code)
         ids1 = [r["id"] for r in w1["items"]]
         ids2 = [r["id"] for r in w2["items"]]
+        self.assertEqual([int(x) for x in db_w2], ids2)
         self.assertFalse(set(ids1) & set(ids2), "窗口不得重叠")
         self.assertEqual(ids1, sorted(ids1, reverse=True), "ORDER BY id DESC")
 
     async def test_r2_total_excludes_system_rows(self):
-        """R2: status=all 的 total 必须只含 created_by_user_id IS NOT NULL。"""
-        from sqlalchemy import text
-        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-        eng = create_async_engine(DB_URL)
-        try:
-            async with async_sessionmaker(eng)() as db:
-                expect = (await db.execute(text(
-                    "SELECT count(*) FROM chemistry.reactions WHERE created_by_user_id IS NOT NULL"
-                ))).scalar_one()
-        finally:
-            await eng.dispose()
+        """R2: status=all 的 total = DB 真实 user-reactions count (含 marker, 排除 system)。"""
+        expect = await _db_count("WHERE created_by_user_id IS NOT NULL")
         code, body = await _call_admin("/admin/reactions?status=all&limit=1", 0)
         self.assertEqual(200, code)
         self.assertEqual(expect, body["total"])
-        self.assertLess(len(body["items"]), body["total"], "total > len(items) (limit=1)")
+        if expect > 1:
+            self.assertLess(len(body["items"]), body["total"], "total > len(items) (limit=1)")
+        # system marker row (created_by_user_id NULL) 不得出现在 items/total 口径内:
+        # 直接对 marker sys id 做 q 不存在 → 用窗口全量验证: sys rid 不在任何 user-reaction 集合
+        marker_total = await _db_count(
+            f"WHERE created_by_user_id IS NOT NULL AND reaction_smiles = '{_SMILES}'")
+        self.assertEqual(self.MARKER_USER_ROWS, marker_total,
+                         "marker user-reactions 应全部计入 total 口径")
 
     async def test_r3_status_filter_total_same_set(self):
-        """R3: visible/hidden 的 total 与 items 同一过滤集合; visible+hidden=all。"""
-        from sqlalchemy import text
-        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-        eng = create_async_engine(DB_URL)
-        try:
-            async with async_sessionmaker(eng)() as db:
-                exp_v = (await db.execute(text(
-                    "SELECT count(*) FROM chemistry.reactions "
-                    "WHERE created_by_user_id IS NOT NULL AND moderation_status='visible'"
-                ))).scalar_one()
-                exp_h = (await db.execute(text(
-                    "SELECT count(*) FROM chemistry.reactions "
-                    "WHERE created_by_user_id IS NOT NULL AND moderation_status='hidden'"
-                ))).scalar_one()
-        finally:
-            await eng.dispose()
+        """R3: visible/hidden total = DB 各自真实过滤集合; visible+hidden==all。"""
+        exp_v = await _db_count(
+            "WHERE created_by_user_id IS NOT NULL AND moderation_status='visible'")
+        exp_h = await _db_count(
+            "WHERE created_by_user_id IS NOT NULL AND moderation_status='hidden'")
         code, v = await _call_admin("/admin/reactions?status=visible&limit=1", 0)
         code2, h = await _call_admin("/admin/reactions?status=hidden&limit=1", 0)
         self.assertEqual(200, code); self.assertEqual(200, code2)
@@ -238,6 +339,15 @@ class ReactionsListContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(exp_h, h["total"])
         code, a = await _call_admin("/admin/reactions?status=all&limit=1", 0)
         self.assertEqual(exp_v + exp_h, a["total"], "visible + hidden == all")
+        # marker 口径自检: visible=5 / hidden=2 (fixture 确定性)
+        mv = await _db_count(
+            f"WHERE created_by_user_id IS NOT NULL AND moderation_status='visible'"
+            f" AND reaction_smiles = '{_SMILES}'")
+        mh = await _db_count(
+            f"WHERE created_by_user_id IS NOT NULL AND moderation_status='hidden'"
+            f" AND reaction_smiles = '{_SMILES}'")
+        self.assertEqual(self.MARKER_VISIBLE, mv)
+        self.assertEqual(self.MARKER_HIDDEN, mh)
 
     async def test_r4_param_boundaries(self):
         code, _ = await _call_admin("/admin/reactions?limit=101", 0)

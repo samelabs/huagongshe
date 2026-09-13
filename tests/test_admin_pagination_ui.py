@@ -1,12 +1,14 @@
-"""Batch 2 (admin pagination UI + URL state) 契约测试。
+"""Admin pagination UI + URL state 契约测试。
 
 分层:
-1. 纯函数 (lib/adminPagination.ts) — Node 直跑 tsc 输出后的 JS
-2. 三面板源码契约 — URL 真相源 / PAGE_SIZE=50 / offset 换算 / clamp / mutation reload / 竞态
-3. 共享 AdminPagination 组件 — 边界禁用契约
+1. 纯函数 (lib/adminPagination.ts) — tsc 编译 + node 执行真实产物。
+   需要 web/node_modules (tsc) 与 node; 缺任一 → 整类 skip (NOT 无条件 skip):
+   core job (npm ci 后) 显式运行本模块 → 真测;
+   integration job (无 web deps, full python discover) → 明确 skip, 不报错。
+2. 三面板源码契约 — 纯文本断言, 无任何外部依赖。
+3. 共享 AdminPagination 组件 — 边界禁用契约。
 
-运行: python3 -m unittest tests.test_admin_pagination_ui -v
-(纯函数部分先 npx tsc 编译 adminPagination.ts 到临时 JS 再 import)
+运行: python -m unittest tests.test_admin_pagination_ui -v
 """
 
 from __future__ import annotations
@@ -21,6 +23,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
 
+# Node-only 层的硬依赖: tsc 二进制 + node 可执行。缺失时 skipClass (非 fail)。
+TSC_BIN = WEB / "node_modules" / ".bin" / "tsc"
+NODE_BIN = shutil.which("node")
+
 
 def read(p: str) -> str:
     return (WEB / p).read_text(encoding="utf-8")
@@ -33,12 +39,11 @@ def load_pagination_module():
     不改生产源码; 每次调用重新编译, 保证测的是当前源码。
     """
     src = WEB / "lib" / "adminPagination.ts"
-    tsc_bin = WEB / "node_modules" / ".bin" / "tsc"
     out_dir = Path("/tmp/hgs-admin-pagination-test")
     if out_dir.exists():
         shutil.rmtree(out_dir)
     js = subprocess.run(
-        [str(tsc_bin), "lib/adminPagination.ts", "--target", "ES2020",
+        [str(TSC_BIN), "lib/adminPagination.ts", "--target", "ES2020",
          "--module", "commonjs", "--esModuleInterop", "--skipLibCheck",
          "--outDir", str(out_dir)],
         cwd=WEB, capture_output=True, text=True, timeout=120,
@@ -56,7 +61,7 @@ def load_pagination_module():
             f"const m = require({json.dumps(str(dst))});\n"
             "console.log(JSON.stringify([" + ",".join(exprs) + "]));"
         )
-        r = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=30)
+        r = subprocess.run([NODE_BIN, "-e", code], capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
             raise RuntimeError(f"node 执行失败: {r.stderr[:300]}")
         return json.loads(r.stdout.strip())
@@ -64,6 +69,9 @@ def load_pagination_module():
     return run
 
 
+@unittest.skipUnless(TSC_BIN.exists() and NODE_BIN,
+                     "需要 web/node_modules(tsc) + node — core job 显式运行; "
+                     "integration(无 web deps)跳过, 见 ci.yml 分层")
 class PureFunctionTests(unittest.TestCase):
     """parseAdminPage / adminOffset / adminTotalPages (跑真实 tsc 编译产物)。"""
 
@@ -214,36 +222,25 @@ class SkillsPanelContractTests(unittest.TestCase):
         self.assertIn("adminOffset(pageRef.current)", self.src)
 
 
-class NoTouchGuardTests(unittest.TestCase):
-    """Batch 2 禁改清单守卫。"""
+class AdminApiContractTests(unittest.TestCase):
+    """Batch 1 契约仍成立的行为守卫 (源码级, 不依赖 git history)。
 
-    def test_forbidden_files_untouched_vs_batch1(self):
-        diff = subprocess.run(
-            ["git", "diff", "--name-only",
-             "d621cd78ba1e849474542c343c3c9aad3d747a4d", "HEAD"],
-            cwd=ROOT, capture_output=True, text=True,
-        ).stdout.split()
-        allowed = {
-            "web/components/samelabs/UsersPanel.tsx",
-            "web/components/samelabs/ReactionsPanel.tsx",
-            "web/components/samelabs/SkillsAdminPanel.tsx",
-            "web/components/samelabs/AdminPagination.tsx",
-            "web/lib/adminPagination.ts",
-            "web/app/globals.css",
-            "tests/test_admin_a3_minimal.py",
-            "tests/test_admin_pagination_ui.py",
-        }
-        illegal = [f for f in diff if f not in allowed]
-        self.assertEqual([], illegal, f"超出 Batch 2 范围的文件改动: {illegal}")
+    旧的 NoTouchGuardTests (固定 base→HEAD git diff 白名单) 已删除:
+    "某历史 Batch 当时只改哪些文件"是一次性验收约束, 不是永久 runtime contract;
+    fetch-depth=1 checkout 下历史 commit 缺失还会产生假绿。
+    """
 
-    def test_admin_api_unchanged(self):
-        """api/admin.py 本轮零改动 (Batch 1 契约冻结)。"""
-        diff = subprocess.run(
-            ["git", "diff", "--stat",
-             "d621cd78ba1e849474542c343c3c9aad3d747a4d", "HEAD", "--", "api/"],
-            cwd=ROOT, capture_output=True, text=True,
-        ).stdout.strip()
-        self.assertEqual("", diff, f"api/ 不得改动: {diff}")
+    def test_admin_api_list_contract_shape(self):
+        """/admin/users 与 /admin/reactions 仍是 {total, items} + limit/offset 契约。"""
+        admin = (ROOT / "api" / "admin.py").read_text(encoding="utf-8")
+        self.assertIn('"total"', admin)
+        self.assertIn('"items"', admin)
+        self.assertIn("offset: int = Query(0, ge=0)", admin)
+
+    def test_self_protection_intact(self):
+        admin = (ROOT / "api" / "admin.py").read_text(encoding="utf-8")
+        self.assertIn("不能停用当前管理员账号", admin)
+        self.assertIn("不能移除自己的管理员权限", admin)
 
 
 if __name__ == "__main__":

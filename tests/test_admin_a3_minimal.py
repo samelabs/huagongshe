@@ -137,25 +137,24 @@ class SkillsPanelTests(unittest.TestCase):
         self.assertIn("删除不可恢复", i18n)
 
 
-class BackendUntouchedTests(unittest.TestCase):
-    def test_no_new_endpoint_and_self_protection_intact(self):
-        """验收7+无新 endpoint: 后端 admin.py 本轮零改动(与 base 比)。
-        回合制守卫: 比对端固定为 A3 验收 HEAD 7bb67df(而非滚动 HEAD),
-        后续轮次(如 P1 缓存)合法改动 api/** 不再误伤本断言。"""
-        import subprocess
-        diff = subprocess.run(
-            ["git", "diff", "--name-only", "ea8fe8b125e751bc5e4e4838e00cb98f5dfd80b9",
-             "7bb67df28a104749f448903ade273f898d49180d"],
-            cwd=ROOT, capture_output=True, text=True,
-        ).stdout.strip()
-        self.assertEqual("", diff.replace("web/components/samelabs/UsersPanel.tsx", "")
-                         .replace("web/components/samelabs/SkillsAdminPanel.tsx", "")
-                         .replace("web/lib/i18n.ts", "").replace("web/app/globals.css", "")
-                         .replace("tests/test_admin_a3_minimal.py", "").strip(),
-                         f"超出授权范围的文件改动: {diff}")
+class BackendContractTests(unittest.TestCase):
+    """A3 后端守卫 — 直接源码契约, 不做历史 git-diff 断言。
+
+    旧的 BackendUntouchedTests 用固定 base ea8fe8b -> 7bb67df 的 git diff 白名单:
+    属于当轮验收约束而非永久 contract, 且 Actions fetch-depth=1 下历史 commit
+    缺失 + subprocess 不查 returncode 会产生假绿。已删除, 保留真实业务断言:
+    """
+
+    def test_self_protection_intact(self):
+        """验收7: 管理员自保规则仍在后端。"""
         admin = read("api/admin.py")
         self.assertIn("不能停用当前管理员账号", admin)
         self.assertIn("不能移除自己的管理员权限", admin)
+
+    def test_no_soft_delete_in_skills_delete(self):
+        """A3 技能删除仍是硬删除 (无 soft-delete 第二套状态)。"""
+        admin = read("api/admin.py")
+        self.assertIn("@router.delete(\"/skills/{skill_id}\"", admin)
 
 
 if __name__ == "__main__":
