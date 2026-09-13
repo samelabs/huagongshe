@@ -9,7 +9,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <header className="site-header">
         <div className="header-inner">
           <Link href="/" className="brand" aria-label={t.nav.home}>
-            <span className="brand-domain">{t.brand.name}</span>
+            <span className="brand-domain">huagongshe.com</span>
           </Link>
           <HeaderAccount />
         </div>
