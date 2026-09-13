@@ -1328,7 +1328,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .profile-edit-link:hover { background: var(--blue-pale); }
 .dashboard-card:hover { border-color: var(--blue-border); box-shadow: 0 4px 16px rgba(30,144,255,.10); transform: translateY(-1px); }
 .dashboard-card:hover::after { opacity: 1; }
-.admin-nav a:hover { color: #fff; background: rgba(255,255,255,.06); }
+.admin-nav a:hover { color: var(--blue-deep); background: var(--blue-tint); }
 *::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 .pipe-revive-btn:hover { background: rgba(30,144,255,.08); }
 }
