@@ -20,7 +20,7 @@ export function GlobalSearch({ initial = "", compact = false }: {
 
   return (
     <div className={`search-wrap${compact ? " search-wrap--compact" : ""}`}>
-      <form className="search-row" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <div className="search-row">
         <div className="search-input-box" onClick={() => inputRef.current?.focus()}>
           <svg className="search-input-box__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="7" />
@@ -29,14 +29,8 @@ export function GlobalSearch({ initial = "", compact = false }: {
           <input
             ref={inputRef}
             type="text"
-            enterKeyHint="search"
             value={query}
             onChange={(e) => { setQuery(e.target.value); }}
-            placeholder={compact ? t.search.hintNameShort : t.home.searchPlaceholder}
-            autoComplete="off"
-            spellCheck={false}
-            maxLength={4000}
-            aria-label={t.search.title}
           />
           {query && (
             <button type="button" className="search-input-box__clear" aria-label={t.search.clearQuery} onClick={() => { setQuery(""); inputRef.current?.focus(); }}>
@@ -44,8 +38,8 @@ export function GlobalSearch({ initial = "", compact = false }: {
             </button>
           )}
         </div>
-        <button type="submit" className="search-submit-btn">{t.home.searchButton}</button>
-      </form>
+        <button type="button" className="search-submit-btn" onClick={submit}>{t.home.searchButton}</button>
+      </div>
     </div>
   );
 }
