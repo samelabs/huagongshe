@@ -855,7 +855,7 @@ const t = {
     dashboardKicker: 'DASHBOARD',
     dashboardTitle: '仪表盘',
     statUsers: '注册用户',
-    statSessions: '活跃会话',
+    statSessions: '有效会话',
     statTokens: 'AI Key',
     statTokensSub: (n: number) => `共 ${n} 个`,
     statUserReactions: '用户反应',

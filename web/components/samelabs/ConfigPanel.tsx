@@ -19,17 +19,6 @@ export function SamelabsConfig() {
   const [saved, setSaved] = useState("");
   const [busyKey, setBusyKey] = useState("");
 
-  async function reload() {
-    setError("");
-    try {
-      const data = await apiGet<ConfigEntry[]>(`/admin/config`);
-      setEntries(data);
-    } catch (e) {
-      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) setError(t.admin.noPermission);
-      else setError(t.admin.errConfigLoad);
-    }
-  }
-
   useEffect(() => {
     let active = true;
     apiGet<ConfigEntry[]>(`/admin/config`).then((data) => {
@@ -55,8 +44,9 @@ export function SamelabsConfig() {
     setBusyKey(key); setSaved("");
     try {
       await apiPut(`/admin/config/${entry.namespace}/${entry.key}`, JSON.stringify(entry.value));
+      // 只标记已保存: 本地 value 已是刚提交的值, 不做全量 reload
+      // (全量 reload 会整体替换 entries, 覆盖其他 entry 未保存的 draft)
       setSaved(t.admin.saved(key));
-      await reload();
     } catch {
       setError(t.admin.errSaveFailed);
     } finally {
