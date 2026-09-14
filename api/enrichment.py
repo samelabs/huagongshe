@@ -1,8 +1,9 @@
 """Public, read-oriented access to sparse chemical enrichment state.
 
-This router is mounted below ``/api``.  Cache-fill jobs are enqueued only for
-loopback (internal) requests; public reads never trigger processing.  Remote
-workers use ``/workapi``.
+This router is mounted below ``/api``.  Chemical detail is a product use case
+where read-driven refresh is allowed: routes explicitly pass
+``allow_refresh=True`` as product policy — transport (loopback or not) is
+never authorization evidence.  Remote workers use ``/workapi``.
 """
 
 from __future__ import annotations

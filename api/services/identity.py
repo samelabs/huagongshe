@@ -10,8 +10,11 @@
   永不参与身份裁定(不定位、不裁_equiv、不建 merge 证据)。
 - 硬原则: AMBIGUOUS 不猜(禁止无证据 hottest-row 选择写入目标),
   CONFLICT 不吞(强键冲突不覆盖不合并), NEW 才建行。
-- can_merge(): 独立硬闸。同 CID 可并; 同 IK 且无不同非空 CID 可并;
-  不同非空 CID 禁止; 不同非空 IK 禁止; CAS/CB 单独永不构成 merge 证据。
+- can_merge(): 独立硬闸 (0906 终审收紧版)。destructive merge 唯一
+  entity proof = 一致非空 CID: 同 CID 可并; 不同非空 CID 禁止;
+  不同非空 IK 禁止; 仅同 IK 而无 CID entity proof 禁止
+  (same_inchikey_without_entity_proof); CAS/CB 单独永不构成 merge 证据;
+  evidence_ik 仅辅助定位/结构一致性记录, 不单独放行。
 - absorb(): 公开入口, 内部强制过 can_merge(), 不过闸抛 MergeBlockedError;
   真正执行删除的是 _absorb_verified(), 不对外导出 — 调用方无法绕闸。
 - survivor selection 与 identity judgement 分离: 热度分只在已证明等价后

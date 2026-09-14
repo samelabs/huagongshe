@@ -120,37 +120,32 @@ resolve_chemical(identity_evidence)
 
 ## 四、实现现状与差距
 
-**已实现**（工作区暂存 +370/−29，**不作为正式机制版本 commit**——正式提交在 AMBIGUOUS 分支与 can_merge 闸加入之后，避免 git 历史出现"统一 resolver 已上线但会静默猜测/冲突吞并"的中间版本）：
+**已实现并上线**（统一 resolver + merge 基建为正式机制版本，后续演进见 git history）：
 
-- `resolve_chemical()` 定位/建行 + advisory 锁
-- `absorb_placeholder()` 键并集+子表改指+DELETE
+- `resolve_chemical()` 五状态 resolver（EXACT / EQUIVALENT / AMBIGUOUS / CONFLICT / NEW），advisory 锁
+- 无 hottest-row 身份猜测（AMBIGUOUS 不猜、CONFLICT 不吞）
+- `can_merge()` 独立硬闸（0906 终审收紧：唯一 entity proof = 一致非空 CID）
+- `absorb()` 强制过 `can_merge()`，不过闸抛 `MergeBlockedError`（fail-closed）
+- 引用表 registry `CHEMICAL_REFERENCE_TABLES` + per-table merge strategy（REKEY_MANY / MERGE_ONE_TO_ONE / DEDUPE_REKEY）+ PG FK 元数据覆盖断言
+- `maintenance.identity_merge_log`（JSONB snapshot 审计）
+- `maintenance.chemical_identity_redirect` + `canonicalize_id()` 运行时旧 id 兼容
+- name_index 改指去重（collision-aware rekey）
 - 三入口接入（cb.py / workapi.py / reactions.py）
 
-**与规范的差距（即代码改造清单）**：
+**数据库实际 schema**：`maintenance.identity_merge_log`、`maintenance.chemical_identity_redirect`（均位于 maintenance schema，非 chemistry schema）。
 
-| # | 项 | 对应规范 |
-|---|---|---|
-| A | 删除 `_pick_from_multi` 的无证据 hottest-row 裁定 | 3.3 |
-| B | 引入 AMBIGUOUS / CONFLICT 返回路径 | 3.2 |
-| C | `can_merge()` 独立硬闸 | 3.5 |
-| D | `absorb()` 必须先过 `can_merge()` | 3.5 |
-| E | `chemical_identity_redirect` 表 + canonicalize_id | 3.6.3 |
-| F | `identity_merge_log` 表（含 JSONB snapshot） | 3.6.2 |
-| G | 引用表 registry + PG FK 元数据覆盖测试 | 3.6.1 |
-| H | name_index 改指去重 | 3.6.4 |
-| I | 2,866 组 can_merge dry-run（输出 SAFE/CONFLICT 分布，要求 SAFE≈2866/CONFLICT=0 才开自动） | 3.5 |
-| J | 41 组历史 SMILES 重复 reconciliation（RDKit 重算 ik → 过 merge gate） | 3.1 |
+**与规范的差距**：无已知实现性差距；后续差距按轮次任务单独立项，不在本文混写。
 
-## 五、执行计划（冻结顺序）
+## 五、历史实施记录（非当前行为契约）
 
-1. **resolver 上线，关闭 destructive absorb**——先停止无序建行；absorb 删除面在 merge 基建完成前禁用
-2. **merge 基础设施**：引用表注册+FK 断言测试、name_index 去重、identity_merge_log、chemical_identity_redirect
-3. **2,866 组 can_merge dry-run**：输出 SAFE/CONFLICT，不直接执行
-4. **SAFE 组断点 absorb**（逐组断点跑，凭证落 merge_log，redirect 生效）
-5. **41 组 SMILES 历史重复**走同一 reconciliation
-6. **sqlite 89.6 万导入**：单 CAS 多命中一律 AMBIGUOUS，不允许 hottest-row guessing；AMBIGUOUS 数据入队等结构判据
-7. **388 组 CAS 双行**：不专项强行消重，不按 CAS 批量合并；后续任一侧获得 CID entity proof（IK 仅辅助）时进入统一 reconciliation，符合 merge gate 的自动吸收，其余保持并存
-8. **歧义 review**：量级起来后加，非首发阻断项
+以下为 0906–0907 治理上线时的执行记录与当时排期，**仅作历史存档**；数量反映当时 production cohort 的实际状态，不是永久规范事实，当前行为以第三节机制与代码为准：
+
+- 引用表注册+FK 断言测试、name_index 去重、identity_merge_log、chemical_identity_redirect（merge 基建）
+- 2,866 组 can_merge dry-run（SAFE/CONFLICT 分布验证后才开自动 absorb）
+- 41 组历史 SMILES 重复 reconciliation（RDKit 重算 ik → 过 merge gate）
+- sqlite 89.6 万导入：单 CAS 多命中一律 AMBIGUOUS，AMBIGUOUS 数据入队等结构判据
+- 388 组 CAS 双行：不专项强行消重、不按 CAS 批量合并；任一侧获得 CID entity proof 时进入统一 reconciliation，符合 merge gate 的自动吸收，其余保持并存
+- 歧义 review：量级起来后加，非首发阻断项
 
 ## 六、不变式（既往裁定，作为机制前提）
 
