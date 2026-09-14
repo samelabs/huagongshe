@@ -3,6 +3,15 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [1.5.0] — 2026-09-14
+
+- 搜索系统治理：名称 exact/fuzzy 候选流统一；分页 deterministic bounded，has_more 语义事实化；CJK 短查询性能与排序正确性修复
+- Worker trusted plane：method+exact-path scope 校验 fail-closed；completion receipt 幂等确认；worker enable/disable 生命周期语义明确（停权不删记录）；post-commit housekeeping 不再反转成功事务
+- Schema/CI：baseline + forward migration runner 上线，migration checksum/tracking 落库；CI 迁移到全新 PostgreSQL/RDKit/Redis hermetic 环境，覆盖前后端 build/typecheck 与 full test suite
+- Admin 工作台：Users / Reactions / Skills 分页、筛选与 URL state；Workers / Pipeline / Governance 面板；Pipeline 健康度改为事实语义；危险操作（停用 worker、角色变更）二次确认；Config 保存不再覆盖其他未保存草稿；Dashboard 会话统计改为事实标签
+- Web/mobile：Admin 移动端导航与 dashboard 紧凑布局；huagongshe.com wordmark；PWA 搜索输入兼容性修复；favicon 资产契约固化
+- 生产治理：统一 production checkout / PM2 runtime / 干净环境变量；清除测试库环境变量与历史开发运行残留
+
 ## [1.4.1] — 2026-09-09
 
 - 工作台反应模块：列表头部常驻「新建反应」入口
