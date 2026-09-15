@@ -144,6 +144,17 @@ class McpRenderSmilesBoundTests(unittest.TestCase):
     """512 guard 只管用户直传 smiles; chemical_id(DB) 路径不套用;
     guard 在 RDKit 之前。renderer 全程 mock — 不烧真 CPU。"""
 
+    def setUp(self):
+        # render 闸门走 Redis; 本类每个用例各自 asyncio.run 新 loop,
+        # 模块级 pool(api.core.cache) 里属于旧 loop 的连接会让闸门
+        # fail-closed 503 → 按 PasswordChangeRateLimitTests 的既有约定,
+        # 每个用例换一个只在本次 loop 内使用的 pool。
+        import redis.asyncio as aioredis
+        from api.core import rate_limit
+
+        rate_limit.pool = aioredis.ConnectionPool.from_url(
+            os.environ["HGS_REDIS_URL"], decode_responses=True)
+
     def _tool(self):
         from api.mcp_server import build_mcp_server
         server = build_mcp_server()
