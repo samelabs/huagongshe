@@ -78,7 +78,7 @@ async def agent_guide(
                 "path": "/api/search",
                 "auth": "public_or_bearer",
                 "purpose": "按名称、CAS、HCID、CID、InChIKey、DOI、SMILES 或结构查询化合物和反应",
-                "input": "q 必填；mode 为 exact、substructure 或 similarity；page 默认1最大20；page_size 默认30最大100；返回 total 总数和分页结果",
+                "input": "q 必填；mode 为 exact、substructure 或 similarity；page 默认1最大20；page_size 默认30最大100；total=None 表示当前查询模式未计算完整总数，has_more 是下一页存在性的权威字段",
             },
             {
                 "id": "get_chemical",
@@ -164,7 +164,7 @@ async def agent_guide(
                 "id": "validate_skill",
                 "method": "POST",
                 "path": "/api/skills/validate",
-                "auth": "bearer",
+                "auth": "bearer:skill:write",
                 "purpose": "校验技能 zip 草稿（不保存）：结构、配额、文件数、frontmatter、脚本语法与危险调用警告",
                 "input": "multipart 字段 file=<技能 zip>",
             },

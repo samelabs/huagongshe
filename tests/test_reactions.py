@@ -183,8 +183,10 @@ class ApiTokenBoundaryTests(unittest.TestCase):
         self.assertEqual(
             guide["authentication"]["header"], "Authorization: Bearer <AI Key>")
         ops = {item["id"]: item for item in guide["operations"]}
-        # A-fix: validate_skill = bearer (REST current_actor, 无 skill:write scope)
-        self.assertEqual(ops["validate_skill"]["auth"], "bearer")
+        # MCP-15 B: validate_skill 要求 skill:write scope(REST/MCP 一致); 其他操作仍为 bearer
+        self.assertEqual(ops["validate_skill"]["auth"], "bearer:skill:write")
+        self.assertEqual(ops["create_skill"]["auth"], "bearer:skill:write")
+        self.assertEqual(ops["validate_reaction"]["auth"], "bearer:reaction:write")
         # 已认证状态
         actor = Actor(
             7, "chemist", "Chemist", "chemist@example.test", "member", None,
