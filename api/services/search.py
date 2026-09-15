@@ -199,13 +199,16 @@ async def run_search_query(
     db: Any, query: str, mode: str, canonical: Any, page: int, page_size: int,
     offset: int,
     *, actor_id: int | None = None, threshold: float = 0.7,
-) -> tuple[list[dict[str, Any]], int | None, list[dict[str, Any]], bool, Any, int | None, bool]:
+) -> tuple[list[dict[str, Any]], int | None, list[dict[str, Any]], bool, Any, int | None, bool, bool]:
     """执行搜索主体(化合物命中/total/反应/cas_fetch_pending/canonical 回写)。
 
-    返回 7 元组:
+    返回 8 元组:
         (chemicals, total, reactions, cas_fetch_pending, canonical,
-         cas_fetch_hit_id, has_more)
+         cas_fetch_hit_id, has_more, capped)
     canonical 可能被 substructure 分支重新赋值(bounded), 调用方需取回。
+    capped(0915): 仅 substructure 模式可能为 True — snapshot 达到产品上限
+    SUBSTRUCTURE_SNAPSHOT_CAP(250)。语义: "达到产品返回上限; 数据库真实总匹配
+    数未知", 消费方(UI/Agent)不得把 total 冒充数据库真实总数。
     has_more 按 mode:
         exact 名称路径 = run_name_search 候选窗口(权威翻页字段);
         exact strong-identity(clauses) = exact total/page 推导;
@@ -219,6 +222,7 @@ async def run_search_query(
     total: int | None = None
     cas_fetch_pending = False
     cas_fetch_hit_id: int | None = None  # 0902 P3b: 同步拉命中, 前端直跳详情页
+    capped = False  # 0915: substructure snapshot 达到产品上限(250)
     clauses: list[str] = []
     params: dict[str, Any] = {}
     try:
@@ -235,6 +239,7 @@ async def run_search_query(
             from .chemicals import _snapshot_total
             ids = await substructure_snapshot(db, canonical)
             total = _snapshot_total(ids, offset, page_size)
+            capped = len(ids) >= SUBSTRUCTURE_SNAPSHOT_CAP
             chemicals = await hydrate_chemicals(db, ids[offset:offset + page_size])
         elif mode == "similarity":
             if not canonical:
@@ -466,4 +471,4 @@ async def run_search_query(
             has_more = len(chemicals) == page_size
     else:
         has_more = False
-    return chemicals, total, reactions, cas_fetch_pending, canonical, cas_fetch_hit_id, has_more
+    return chemicals, total, reactions, cas_fetch_pending, canonical, cas_fetch_hit_id, has_more, capped

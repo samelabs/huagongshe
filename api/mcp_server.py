@@ -209,6 +209,8 @@ def build_mcp_server() -> MCPServer:
         threshold: similarity 模式阈值(0.4-1.0, 默认 0.7), 与 REST 同语义。
         total=None 表示当前查询模式未计算完整 total；has_more 是下一页是否存在
         的权威字段(不要用 total 反推是否还有下一页)。
+        capped=true 仅 substructure 模式出现: 已达产品返回上限(250), 数据库
+        真实总匹配数未知 — 此时 total 不是数据库真实总数, 不得如此描述。
         """
         from . import routes as routes_module
 

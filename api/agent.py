@@ -78,7 +78,7 @@ async def agent_guide(
                 "path": "/api/search",
                 "auth": "public_or_bearer",
                 "purpose": "按名称、CAS、HCID、CID、InChIKey、DOI、SMILES 或结构查询化合物和反应",
-                "input": "q 必填；mode 为 exact、substructure 或 similarity；page 默认1最大20；page_size 默认30最大100；total=None 表示当前查询模式未计算完整总数，has_more 是下一页存在性的权威字段",
+                "input": "q 必填；mode 为 exact、substructure 或 similarity；page 默认1最大20；page_size 默认30最大100；total=None 表示当前查询模式未计算完整总数，has_more 是下一页存在性的权威字段；capped=true 仅 substructure 模式出现，表示已达产品返回上限（250），数据库真实总匹配数未知，total 不得当作数据库真实总数",
             },
             {
                 "id": "get_chemical",

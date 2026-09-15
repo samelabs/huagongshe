@@ -208,9 +208,54 @@ class InvariantsTests(unittest.TestCase):
     """I/J/K: 限流/会话/Worker 契约不变。"""
 
     def test_i_cas_anonymous_global_budget_unchanged(self):
-        src = inspect.getsource(search_service.run_search_query)
-        self.assertIn('enforce("cas-search-fetch", "anonymous-global", 30, 60)', src)
-        self.assertIn('enforce("cas-search-fetch", str(actor_id), 10, 60)', src)
+        """行为契约(0915 改写): 不再审计源码字面 `enforce(...)` — 函数局部
+        alias 名不是 contract。直接驱动 run_search_query 的 CAS-miss 分支,
+        断言落进 rate_limit 的 (bucket, identity, limit, window):
+        anonymous → cas-search-fetch / anonymous-global / 30 / 60;
+        authenticated → cas-search-fetch / actor id / 10 / 60。
+        """
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from api.core import rate_limit
+
+        cas_query = "7732-18-5"  # 合法 CAS 形态; chemicals 命中 mocked 为空 → miss 分支
+
+        def run(actor_id):
+            calls: list[tuple] = []
+
+            async def consume(bucket, identity, limit, window_seconds):
+                calls.append((bucket, identity, limit, window_seconds))
+                return 1, 0, True
+
+            db = MagicMock()
+            db.execute = AsyncMock(return_value=MagicMock(scalar=lambda: 0))
+            db.rollback = AsyncMock()
+            db.commit = AsyncMock()
+            with patch.object(rate_limit, "consume", consume), \
+                 patch.object(search_service, "fetch_chemicals", new=AsyncMock(return_value=[])), \
+                 patch.object(search_service, "run_name_search", new=AsyncMock(return_value=([], False))), \
+                 patch.object(search_service, "reaction_lookup", new=AsyncMock(return_value=[])):
+                result = asyncio.run(search_service.run_search_query(
+                    db, cas_query, "exact", None, 1, 30, 0, actor_id=actor_id,
+                ))
+            return calls, result
+
+        calls, _ = run(actor_id=None)
+        cas_calls = [c for c in calls if c[0] == "cas-search-fetch"]
+        self.assertEqual(
+            [(c[1], c[2], c[3]) for c in cas_calls],
+            [("anonymous-global", 30, 60)],
+            "匿名 CAS miss 必须落 cas-search-fetch / anonymous-global / 30 / 60",
+        )
+
+        calls, _ = run(actor_id=12345)
+        cas_calls = [c for c in calls if c[0] == "cas-search-fetch"]
+        self.assertEqual(
+            [(c[1], c[2], c[3]) for c in cas_calls],
+            [("12345", 10, 60)],
+            "鉴权 CAS miss 必须落 cas-search-fetch / actor id / 10 / 60",
+        )
 
     def test_j_session_and_admin_dependencies_unchanged(self):
         from api import admin, users

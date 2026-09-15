@@ -2,13 +2,12 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ChemicalResult } from "@/components/ChemicalResult";
-import { EntityId } from "@/components/shared/EntityId";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ReactionResult } from "@/components/ReactionResult";
 import { apiGet, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import t from "@/lib/i18n";
 
-type SearchParams = { q?: string; mode?: string; chemical_id?: string; page?: string };
+type SearchParams = { q?: string; mode?: string; page?: string };
 
 const PAGE_SIZE = 30;
 
@@ -16,7 +15,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const params = await searchParams;
   const q = (params.q || "").trim();
   const mode = ["exact", "substructure", "similarity"].includes(params.mode || "") ? params.mode! : "exact";
-  const chemicalId = /^\d+$/.test(params.chemical_id || "") ? Number(params.chemical_id) : null;
   const page = Math.max(1, Math.min(20, Number.parseInt(params.page || "1", 10) || 1));
   let chemicals: Chemical[] = [];
   let reactions: ReactionLookup[] = [];
@@ -25,6 +23,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   let error = "";
   let fetchPending = false;
   let similarityThreshold: number | null = null;
+  let capped = false;
   let redirectTarget: string | null = null;
   // 结构检索登录墙: mode!=exact 需要会话, SSR 转发浏览器 cookie 供 API 鉴权
   // P0(0902): exact 也透传 — 登录用户 CB miss 入列拿 80 分(此前 exact 匿名 50 分)
@@ -34,17 +33,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     : undefined;
 
   try {
-    if (chemicalId && mode !== "exact") {
-      type RelatedResponse = { chemicals: Chemical[]; total: number | null; threshold?: number };
-      const related = await apiGet<RelatedResponse>(
-        `/chemicals/${chemicalId}/${mode}?page=${page}&page_size=${PAGE_SIZE}`, sessionHeaders
-      );
-      chemicals = related.chemicals;
-      total = related.total ?? null;
-      if (mode === "similarity" && typeof related.threshold === "number") {
-        similarityThreshold = related.threshold;
-      }
-    } else if (q) {
+    if (q) {
       const data = await apiGet<SearchResponse>(
         `/search?q=${encodeURIComponent(q)}&mode=${mode}&threshold=0.7&page=${page}&page_size=${PAGE_SIZE}`, sessionHeaders
       );
@@ -57,6 +46,9 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       // Search System Governance: 翻页入口只消费 API 的权威 has_more,
       // 不再用 total===null && len===PAGE_SIZE 猜测。
       hasMore = data.has_more === true;
+      // capped(0915): substructure snapshot 达到产品上限 — 展示层禁把 total
+      // 冒充数据库真实总数, 文案切 capped 语义。
+      capped = data.capped === true;
       fetchPending = data.cas_fetch_pending === true;
       // 0902 P3b: 库外 CAS 同步拉命中 — 数据已落库, 服务端直达详情页(零轮询)
       // redirect() 以抛 NEXT_REDIRECT 异常实现, 必须在 try 外执行,
@@ -88,11 +80,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   }
 
   const relationLabel = mode === "substructure" ? t.search.substructure : t.search.similarity;
-  // 结构模式(chemical_id 相关检索)无 has_more, 沿用 total 推导; 名称搜索已由
-  // API has_more 权威给出(上方赋值), 不再猜测。
-  if (chemicalId) {
-    hasMore = total === null ? chemicals.length === PAGE_SIZE : page * PAGE_SIZE < total;
-  }
   const start = (page - 1) * PAGE_SIZE + 1;
   const shown = start + chemicals.length - 1;
 
@@ -101,21 +88,31 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     <div className="content-page search-page">
       <header className="search-head">
         <p className="page-kicker">DATA FINDER</p>
-        <h1>{chemicalId ? `${relationLabel}${t.search.resultSuffix}` : t.search.title}</h1>
+        <h1>{mode !== "exact" ? `${relationLabel}${t.search.resultSuffix}` : t.search.title}</h1>
         <GlobalSearch initial={q} compact />
-        {chemicalId && <p className="context-line">{t.search.basedOnStructure}<Link href={`/chemical/${chemicalId}`}><EntityId kind="chemical" id={chemicalId} compact /></Link>{t.search.queryStructure}{relationLabel}{mode === "similarity" && similarityThreshold !== null ? t.search.similarityThreshold(similarityThreshold) : ""}</p>}
+        {mode !== "exact" && q && (
+          <p className="context-line">
+            {t.search.queryStructurePrefix}<code>{q}</code>{t.search.queryStructure}{relationLabel}{mode === "similarity" && similarityThreshold !== null ? t.search.similarityThreshold(similarityThreshold) : ""}{capped ? t.search.cappedHint : ""}
+          </p>
+        )}
       </header>
       {error && <div className="notice error">{error}</div>}
       {chemicals.length > 0 && (
         <section className="results-section">
           <div className="section-heading">
-            <div><p>CHEMICALS</p><h2>{chemicalId ? relationLabel : t.search.chemicalResults}</h2></div>
-            <span>{total !== null ? t.search.showingRange(start, shown, total) : t.search.showingResults(chemicals.length)}</span>
+            <div><p>CHEMICALS</p><h2>{mode !== "exact" ? relationLabel : t.search.chemicalResults}</h2></div>
+            <span>
+              {capped
+                ? t.search.showingCappedRange(start, shown, total ?? chemicals.length)
+                : total !== null
+                  ? t.search.showingRange(start, shown, total)
+                  : t.search.showingResults(chemicals.length)}
+            </span>
           </div>
           <div className="chemical-results">{chemicals.map((chemical) => <ChemicalResult chemical={chemical} key={chemical.id} />)}</div>
           {hasMore && (
             <div className="load-more">
-              <Link className="load-more-btn" href={`/search?${chemicalId ? `chemical_id=${chemicalId}&mode=${mode}` : `q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}`}&page=${page + 1}`}>
+              <Link className="load-more-btn" href={`/search?q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}&page=${page + 1}`}>
                 {t.search.loadMore}
               </Link>
             </div>
@@ -128,7 +125,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <div className="reaction-results">{reactions.map((reaction) => <ReactionResult reaction={reaction} key={reaction.id} />)}</div>
         </section>
       )}
-      {!error && (q || chemicalId) && chemicals.length === 0 && reactions.length === 0 && (
+      {!error && q && chemicals.length === 0 && reactions.length === 0 && (
         <div className="empty-state empty-state--search">
           {fetchPending ? (
             <>

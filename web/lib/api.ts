@@ -181,6 +181,8 @@ export type SearchResponse = {
   total: number | null;
   /** 权威翻页字段(Search System Governance): 能否继续翻页只认它 */
   has_more?: boolean;
+  /** substructure snapshot 达到产品上限 250 时 true — total 不是数据库真实总数 */
+  capped?: boolean;
   chemicals: Chemical[];
   reactions: ReactionLookup[];
   /** CAS 未命中且已入队自动获取时为 true（2026-08-27 起后端返回） */

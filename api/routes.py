@@ -88,7 +88,7 @@ async def search(
     canonical = await asyncio.to_thread(canonicalize_smiles, query)
     try:
         (chemicals, total, reactions, cas_fetch_pending, canonical,
-         cas_fetch_hit_id, has_more) = await run_search_query(
+         cas_fetch_hit_id, has_more, capped) = await run_search_query(
             db, query, mode, canonical, page, page_size, offset,
             actor_id=actor.id if actor else None, threshold=threshold,
         )
@@ -107,6 +107,10 @@ async def search(
         # has_more 收口(0914 #2): page 已达契约上限(le=20)时无合法 page+1,
         # has_more 必须 False — 否则 Web(页面 clamp 回 20)形成第 20 页自循环。
         "has_more": has_more and page < 20,
+        # capped(0915): substructure snapshot 达到产品上限 250 时 True。
+        # 语义: 达到产品返回上限, 数据库真实总匹配数未知 — total 不得被
+        # 消费方当成数据库真实总数。
+        "capped": capped,
         "chemicals": chemicals, "reactions": reactions,
     }
     if cas_fetch_pending:

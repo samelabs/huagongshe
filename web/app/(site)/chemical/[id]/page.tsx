@@ -177,10 +177,10 @@ export default async function ChemicalPage({ params }: {
             <ShareButton title={title} />
           </div>
           <div className="context-secondary-actions">
-            {hasSession ? (<>
-              <Link className="text-button" href={`/search?chemical_id=${chemical.id}&mode=substructure`}>{t.chemical.substructure}</Link>
-              <Link className="text-button" href={`/search?chemical_id=${chemical.id}&mode=similarity`}>{t.chemical.similarity}</Link>
-            </>) : (
+            {hasSession ? (chemical.smiles ? (<>
+              <Link className="text-button" href={`/search?q=${encodeURIComponent(chemical.smiles)}&mode=substructure`}>{t.chemical.substructure}</Link>
+              <Link className="text-button" href={`/search?q=${encodeURIComponent(chemical.smiles)}&mode=similarity`}>{t.chemical.similarity}</Link>
+            </>) : null) : (
               <Link className="text-button" href={`/login?next=${encodeURIComponent(`/chemical/${chemical.id}`)}`}>{t.chemical.structureLogin}</Link>
             )}
           </div>
