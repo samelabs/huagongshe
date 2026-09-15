@@ -61,7 +61,6 @@ class SubstructureSqlInvariantTests(unittest.TestCase):
     def setUp(self):
         self.snapshot_sql = "\n".join(_sql_blocks(inspect.getsource(
             chemicals_service.substructure_snapshot)))
-        self.page_src = inspect.getsource(chemicals_service.substructure_page)
         self.unified_src = inspect.getsource(search_service.run_search_query)
         self.unified_sub = next((b for b in _sql_blocks(self.unified_src) if "@>" in b), None)
 
@@ -79,14 +78,6 @@ class SubstructureSqlInvariantTests(unittest.TestCase):
     def test_snapshot_cap_is_250(self):
         """产品语义: 最多返回前 250 条子结构匹配(生产只读基准见报告)。"""
         self.assertEqual(chemicals_service.SUBSTRUCTURE_SNAPSHOT_CAP, 250)
-
-    def test_page_slices_snapshot_and_hydrates(self):
-        self.assertIn("ids[offset:offset + page_size]", self.page_src)
-        self.assertIn("hydrate_chemicals(db, window_ids)", self.page_src)
-
-    def test_no_sql_offset_in_substructure_page(self):
-        self.assertNotIn("OFFSET", self.page_src,
-                         "P0 复发: 深页 SQL OFFSET 会重扫候选集")
 
     def test_unified_substructure_uses_snapshot(self):
         """统一搜索的 substructure 分支必须走同一 snapshot, 且全仓不再有
@@ -111,9 +102,12 @@ class SimilaritySemanticsTests(unittest.TestCase):
     """KNN GiST 不动 + threshold 单一语义 + total 不冒充本页条数。"""
 
     def setUp(self):
-        self.sim_sql = "\n".join(_sql_blocks(inspect.getsource(
-            chemicals_service.similarity_page)))
-        self.sim_src = inspect.getsource(chemicals_service.similarity_page)
+        full = inspect.getsource(search_service.run_search_query)
+        start = full.find('elif mode == "similarity"')
+        end = full.find('else:', start)
+        branch = full[start:end if end > -1 else len(full)]
+        self.sim_sql = "\n".join(_sql_blocks(branch))
+        self.sim_src = branch
 
     def test_knn_index_path_preserved(self):
         self.assertIn("ORDER BY c.morgan_bfp <%> morganbv_fp", self.sim_sql)
@@ -169,8 +163,6 @@ class GateWiringTests(unittest.TestCase):
     def test_all_structure_handlers_gated_after_cache(self):
         for name, source in (
             ("search", inspect.getsource(routes.search)),
-            ("chemical_substructure", inspect.getsource(routes.chemical_substructure)),
-            ("chemical_similarity", inspect.getsource(routes.chemical_similarity)),
         ):
             cache_pos = source.find("cached = await cache_get(cache_key)")
             gate_pos = source.find("structure_enter(")
@@ -442,49 +434,6 @@ class SnapshotAndSimilarityDbTests(LoopLocalRedisMixin, unittest.IsolatedAsyncio
         self.assertEqual(first, second)
         self.assertEqual(await cache_get(key), first, "snapshot 未进缓存")
 
-    async def test_pages_are_disjoint_and_repeatable(self):
-        async with self.Session() as session:
-            sample_id, smiles = await self._pick_substructure_sample(session)
-            self.snapshot_keys.append(
-                f"v3:substructure-snapshot:{chemicals_service.SUBSTRUCTURE_SNAPSHOT_CAP}:{smiles}")
-            total1, page1 = await chemicals_service.substructure_page(session, sample_id, 1, 10)
-            _, page2 = await chemicals_service.substructure_page(session, sample_id, 2, 10)
-            _, page1_again = await chemicals_service.substructure_page(session, sample_id, 1, 10)
-            for page in (1, 2):
-                await cache_delete(f"v2:substructure:{sample_id}:{page}:10")
-        ids1 = [item["id"] for item in page1]
-        ids2 = [item["id"] for item in page2]
-        self.assertEqual(len(ids1), 10)
-        self.assertEqual(len(ids2), 10)
-        self.assertFalse(set(ids1) & set(ids2), "page1/page2 重叠 — snapshot 分页被破坏")
-        self.assertEqual(ids1, [item["id"] for item in page1_again], "重复请求 page1 结果不一致")
-        self.assertNotIn(sample_id, ids1, "查询结构自身未排除")
-        self.assertTrue(total1 is None or total1 >= len(ids1))
-
-    async def test_similarity_total_is_exact_or_none(self):
-        await cache_delete(f"v2:similarity:{self.fixture_id}:0.4:1:10",
-                           f"v2:similarity:{self.fixture_id}:0.4:2:10")
-        async with self.Session() as session:
-            for page in (1, 2):
-                result = await chemicals_service.similarity_page(session, self.fixture_id, 0.4, page, 10)
-                self.assertIsNotNone(result)
-                total, items = result
-                offset = (page - 1) * 10
-                for item in items:
-                    self.assertGreaterEqual(item.get("similarity") or 0, 0.4)
-                if total is not None:
-                    self.assertEqual(total, offset + len(items),
-                                     "total 与本页条数/offset 不一致 — 假总数复发")
-                else:
-                    self.assertEqual(len(items), 10, "total=None 必须是满页(KNN 后面还有)")
-
-    async def test_high_threshold_gives_exact_total(self):
-        async with self.Session() as session:
-            result = await chemicals_service.similarity_page(session, self.fixture_id, 1.0, 1, 30)
-        self.assertIsNotNone(result)
-        total, items = result
-        self.assertIsNotNone(total, "threshold=1.0 时 prefix 必已跌破, total 应为精确值")
-        self.assertEqual(total, len(items))
 
 
 @unittest.skipUnless(DB_URL, "需要 test_hgs")
@@ -533,18 +482,18 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         database_module.async_session = async_sessionmaker(self.app_engine, expire_on_commit=False)
         self.fixture_id, self._fixture_created = await _ensure_fixture_chemical(self.app_engine)
 
-        self._patched = routes.substructure_page
+        self._patched = search_service.run_search_query
         self._rate = (rate_limit.STRUCTURE_ACTOR_RATE_LIMIT,
                       rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT)
         # 本组只验并发层: 把 fixed-window 抬高, 免得两层混在一起
         rate_limit.STRUCTURE_ACTOR_RATE_LIMIT = 10_000
         rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT = 10_000
         self._ids = list(range(9_100_001, 9_100_041))
-        self._cache_keys = [f"v2:substructure:{value}:1:30" for value in self._ids]
+        self._cache_keys = [f"v2:unified-search:substructure:0.7:1:30:C{value}CO" for value in self._ids]
         await cache_delete(*self._cache_keys)
 
     async def asyncTearDown(self):
-        routes.substructure_page = self._patched
+        search_service.run_search_query = self._patched
         rate_limit.STRUCTURE_ACTOR_RATE_LIMIT, rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT = self._rate
         self.app.dependency_overrides.clear()
         await cache_delete(*self._cache_keys)
@@ -567,7 +516,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         await self._release_own_redis_pool()
 
     def _slow(self, tracker: dict, delay: float = 0.4):
-        async def slow(db, chemical_id, page, page_size):
+        async def slow(db, query, mode, canonical, page, page_size, offset, **kw):
             tracker["live"] += 1
             tracker["max"] = max(tracker["max"], tracker["live"])
             try:
@@ -579,9 +528,9 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
 
     async def test_single_actor_concurrency_capped_at_2(self):
         tracker = {"live": 0, "max": 0}
-        routes.substructure_page = self._slow(tracker)
+        search_service.run_search_query = self._slow(tracker)
         results = await asyncio.gather(*[
-            self.client.get(f"/api/chemicals/{value}/substructure")
+            self.client.get(f"/api/search?q=C{value}CO&mode=substructure")
             for value in self._ids[:10]
         ])
         codes = sorted(response.status_code for response in results)
@@ -593,7 +542,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
 
     async def test_multi_actor_global_cap_4(self):
         tracker = {"live": 0, "max": 0}
-        routes.substructure_page = self._slow(tracker)
+        search_service.run_search_query = self._slow(tracker)
 
         from api.core.security import Actor, public_or_actor
 
@@ -608,7 +557,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         async def fire(actor_id: int, values: list):
             self.app.dependency_overrides[public_or_actor] = make_override(actor_id)
             return await asyncio.gather(*[
-                self.client.get(f"/api/chemicals/{value}/substructure") for value in values
+                self.client.get(f"/api/search?q=C{value}CO&mode=substructure") for value in values
             ])
 
         batches = await asyncio.gather(*[
@@ -623,22 +572,22 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
 
     async def test_cache_hit_does_not_take_slot(self):
         tracker = {"live": 0, "max": 0}
-        routes.substructure_page = self._slow(tracker)
+        search_service.run_search_query = self._slow(tracker)
         payload = {"page": 1, "page_size": 30, "total": 0, "chemicals": []}
         for value in self._ids[:6]:
-            await cache_set(f"v2:substructure:{value}:1:30", payload, ttl=60)
+            await cache_set(f"v2:unified-search:substructure:0.7:1:30:C{value}CO", payload, ttl=60)
         results = await asyncio.gather(*[
-            self.client.get(f"/api/chemicals/{value}/substructure") for value in self._ids[:6]
+            self.client.get(f"/api/search?q=C{value}CO&mode=substructure") for value in self._ids[:6]
         ])
         self.assertEqual([response.status_code for response in results], [200] * 6)
         self.assertEqual(tracker["max"], 0, "cache hit 仍进了 DB/占了并发槽")
 
     async def test_failure_releases_slot(self):
-        async def boom(db, chemical_id, page, page_size):
+        async def boom(db, query, mode, canonical, page, page_size, offset, **kw):
             raise RuntimeError("simulated failure")
 
-        routes.substructure_page = boom
-        response = await self.client.get(f"/api/chemicals/{self._ids[0]}/substructure")
+        search_service.run_search_query = boom
+        response = await self.client.get(f"/api/search?q=C{self._ids[0]}CO&mode=substructure")
         self.assertEqual(response.status_code, 503)
         import redis.asyncio as redis
 
@@ -651,9 +600,9 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
     async def test_ordinary_request_not_starved(self):
         """结构查询压满时, 普通化合物详请仍能拿到连接并快速返回。"""
         tracker = {"live": 0, "max": 0}
-        routes.substructure_page = self._slow(tracker, delay=0.6)
+        search_service.run_search_query = self._slow(tracker, delay=0.6)
         heavy = asyncio.gather(*[
-            self.client.get(f"/api/chemicals/{value}/substructure") for value in self._ids[:10]
+            self.client.get(f"/api/search?q=C{value}CO&mode=substructure") for value in self._ids[:10]
         ])
         await asyncio.sleep(0.15)  # 让结构查询先占住槽位
         started = time.monotonic()
@@ -692,11 +641,6 @@ class SnapshotPaginationEndTests(unittest.TestCase):
         beyond = offset + 10                            # 越过 snapshot 尾部
         self.assertEqual(chemicals_service._snapshot_total(ids, beyond, 10), self.CAP)
 
-    def test_route_exposes_capped_metadata_not_fake_total(self):
-        src = inspect.getsource(routes.chemical_substructure)
-        self.assertIn('"capped": capped', src)
-        self.assertIn("total >= SUBSTRUCTURE_SNAPSHOT_CAP", src)
-        self.assertIn("SUBSTRUCTURE_SNAPSHOT_CAP", inspect.getsource(routes))
 
 
 class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase):
@@ -764,12 +708,12 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
 
         calls = []
 
-        async def spy(db, chemical_id, page, page_size):
-            calls.append(chemical_id)
-            return 0, []
+        async def spy(db, query, mode, canonical, page, page_size, offset, **kw):
+            calls.append(query)
+            return [], 0, [], False, canonical, None, False
 
-        original_service = routes.substructure_page
-        routes.substructure_page = spy
+        original_service = search_service.run_search_query
+        search_service.run_search_query = spy
         test_app = fastapi_app = _build_test_app()
         test_app.dependency_overrides[public_or_actor] = lambda: Actor(
             id=88, username="fc", display_name="fc", email="fc@example.com",
@@ -781,13 +725,13 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=fastapi_app), base_url="http://test"
             ) as client:
-                response = await client.get("/api/chemicals/9100099/substructure")
+                response = await client.get("/api/search?q=CCO&mode=substructure")
             self.assertEqual(response.status_code, 503)
             self.assertEqual(calls, [], "Redis 故障时仍进入了结构查询")
         finally:
             rate_limit.pool = original_pool
             await broken.disconnect()
-            routes.substructure_page = original_service
+            search_service.run_search_query = original_service
             fastapi_app.dependency_overrides.clear()
             await database_module.engine.dispose()
 

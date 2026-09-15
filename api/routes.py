@@ -20,7 +20,7 @@ from .services.chemicals import (
     CHEMICAL_SELECT,
     fetch_chemicals, reaction_summaries,
     load_public_config, load_datasets, load_sitemap_reactions,
-    load_synonyms_page, substructure_page, similarity_page, fill_detail_context,
+    load_synonyms_page, fill_detail_context,
 )
 
 router = APIRouter(tags=["chemistry"])
@@ -267,87 +267,6 @@ async def chemical_reactions(
 ):
     total, items = await reaction_summaries(db, [chemical_id], role, page, page_size)
     return {"total": total, "page": page, "page_size": page_size, "reactions": items}
-
-
-@router.get("/chemicals/{chemical_id}/substructure")
-async def chemical_substructure(
-    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
-    page: int = Query(1, ge=1, le=20),
-    page_size: int = Query(30, ge=1, le=100),
-    actor: Actor | None = Depends(public_or_actor),
-    db=Depends(get_db),
-):
-    cache_key = f"v2:substructure:{chemical_id}:{page}:{page_size}"
-    # 结构检索登录墙: 同 /api/search 的 mode!=exact 分支(见该处注释)
-    if actor is None:
-        raise HTTPException(401, "结构检索（子结构）需要登录或提供 API Token")
-    cached = await cache_get(cache_key)
-    if cached:
-        return cached
-    held = await structure_enter(actor.id)
-
-    try:
-        total, items = await substructure_page(db, chemical_id, page, page_size)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        # 0904 敞口收口: 8s statement timeout 此前 QueryCanceledError 裸冒泡
-        # 500(09-03 日志×19)。转 503, 文案口径同 /search 端点。
-        await db.rollback()
-        raise HTTPException(503, "查询超时，请使用更精确的结构或稍后重试") from exc
-    finally:
-        await structure_exit(held)
-    if total == -1:
-        raise HTTPException(404, "化合物没有可检索结构")
-    # capped: 命中数已达产品上限(最多返回 SUBSTRUCTURE_SNAPSHOT_CAP 条) —
-    # 用来区分"上限"与"真实匹配总数"; total 不是全库匹配总数。
-    from .services.chemicals import SUBSTRUCTURE_SNAPSHOT_CAP
-    capped = (total is None) or total >= SUBSTRUCTURE_SNAPSHOT_CAP
-    data = {"page": page, "page_size": page_size, "total": total,
-            "capped": capped, "chemicals": items}
-    await cache_set(cache_key, data, ttl=300)
-    return data
-
-
-@router.get("/chemicals/{chemical_id}/similarity")
-async def chemical_similarity(
-    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
-    threshold: float = Query(0.7, ge=0.4, le=1.0),
-    # threshold 契约限定 3 位小数(0914 #6): 同 /api/search 的口径约束。
-    page: int = Query(1, ge=1, le=20),
-    page_size: int = Query(30, ge=1, le=100),
-    actor: Actor | None = Depends(public_or_actor),
-    db=Depends(get_db),
-):
-    cache_key = f"v2:similarity:{chemical_id}:{threshold}:{page}:{page_size}"
-    # 0914 #6: 同 /api/search — 超精度 threshold 显式 422, 键与过滤值同一口径。
-    if round(threshold, 3) != threshold:
-        raise HTTPException(422, "threshold 仅支持 3 位小数 (0.400–1.000)")
-    # 结构检索登录墙: 同 /api/search 的 mode!=exact 分支(见该处注释)
-    if actor is None:
-        raise HTTPException(401, "结构检索（相似度）需要登录或提供 API Token")
-    cached = await cache_get(cache_key)
-    if cached:
-        return cached
-    held = await structure_enter(actor.id)
-
-    try:
-        result = await similarity_page(db, chemical_id, threshold, page, page_size)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        await db.rollback()
-        raise HTTPException(503, "查询超时，请使用更精确的结构或稍后重试") from exc
-    finally:
-        await structure_exit(held)
-    if result is None:
-        raise HTTPException(404, "化合物没有可检索结构")
-    # total 语义由 service 给出(0912 收口): KNN prefix 内跌破 threshold = 精确值,
-    # 否则 None("更多结果") — 不再由路由用本页条数推算。
-    total, items = result
-    data = {"threshold": threshold, "page": page, "page_size": page_size, "total": total, "chemicals": items}
-    await cache_set(cache_key, data, ttl=300)
-    return data
 
 
 @router.get(

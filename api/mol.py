@@ -33,27 +33,6 @@ def smiles_to_svg(smiles: str, width: int = 400, height: int = 300) -> str:
     return svg
 
 
-def smiles_to_png(smiles: str, width: int = 400, height: int = 300) -> bytes | None:
-    """Render a SMILES string to PNG bytes (Cairo backend).
-
-    Used for share-card (Open Graph) images: social platforms do not
-    accept SVG as og:image.
-    """
-    mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
-        return None
-
-    AllChem.Compute2DCoords(mol)
-    drawer = Draw.rdMolDraw2D.MolDraw2DCairo(width, height)
-    opts = drawer.drawOptions()
-    opts.bondLineWidth = 2
-    opts.scaleBondWidth = False
-    opts.padding = 0.12
-    drawer.DrawMolecule(mol)
-    drawer.FinishDrawing()
-    return drawer.GetDrawingText()
-
-
 
 def reaction_to_svg(reaction_smiles: str, width: int = 1200, height: int = 300) -> str | None:
     """Render a reaction SMILES as a clean, atom-map-free SVG equation."""
@@ -112,36 +91,6 @@ async def render_molecule(
 
     return Response(content=svg, media_type="image/svg+xml", headers=headers)
 
-
-@router.get("/mol/{chemical_id}/png")
-async def render_molecule_png(
-    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
-    w: int = 500,
-    h: int = 375,
-    actor: Actor | None = Depends(public_or_actor),
-    db=Depends(get_db),
-):
-    """Render a chemical structure to PNG by HCID (share-card image).
-
-    Same semantics and caching policy as the SVG endpoint; PNG because
-    social platforms do not accept SVG as og:image.
-    """
-    w = min(max(w, 50), 1200)
-    h = min(max(h, 50), 1200)
-
-    row = (await db.execute(text("""
-        SELECT smiles FROM chemistry.chemicals WHERE id=:id
-    """), {"id": chemical_id})).fetchone()
-    if not row or not row[0]:
-        raise HTTPException(status_code=404, detail="化合物没有可渲染的结构表达")
-
-    smiles = row[0]
-    headers = {"Cache-Control": "public, max-age=31536000, immutable"}
-    png = await asyncio.to_thread(smiles_to_png, smiles, w, h)
-    if png is None:
-        raise HTTPException(status_code=400, detail="Invalid SMILES")
-
-    return Response(content=png, media_type="image/png", headers=headers)
 
 
 @router.get("/reactions/{reaction_id}/svg")

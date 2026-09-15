@@ -50,17 +50,4 @@ async def chemical_details(
     }
 
 
-@router.get("/enrichment/jobs/{job_id}")
-async def enrichment_job(
-    job_id: int,
-    actor: Actor | None = Depends(public_or_actor),
-    db=Depends(get_db),
-):
-    row = (await db.execute(text("""
-        SELECT id,chemical_id,status,last_error_code,last_error_detail,
-               created_at,updated_at
-        FROM maintenance.pubchem_jobs WHERE id=:job_id
-    """), {"job_id": job_id})).mappings().fetchone()
-    if not row:
-        raise HTTPException(404, "补全任务不存在")
-    return dict(row)
+

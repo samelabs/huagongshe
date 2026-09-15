@@ -492,59 +492,6 @@ async def hydrate_chemicals(db: Any, ids: list[int]) -> list[dict[str, Any]]:
     return items
 
 
-async def substructure_page(db: Any, chemical_id: int, page: int, page_size: int) -> tuple[int, list[dict[str, Any]]]:
-    """子结构检索分页; total=-1 表示无结构(调用方转 404)。自 routes.chemical_substructure 下沉, 逻辑零改动(批次5a)。"""
-    smiles = (await db.execute(text(
-        "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
-    ), {"id": chemical_id})).scalar()
-    if not smiles:
-        return -1, []
-    smiles = bounded_substructure_smiles(smiles)
-    ids = await substructure_snapshot(db, smiles)
-    # 排除查询结构自身(原 SQL 的 c.id<>:id); snapshot 按 smiles 共享缓存, 故在 Python 侧排除。
-    # (0914 #4: cap 判定先于排除 — snapshot 满额 250 即使排除后剩 249 也算触顶。)
-    snapshot_capped = len(ids) >= SUBSTRUCTURE_SNAPSHOT_CAP
-    ids = [value for value in ids if value != chemical_id]
-    offset = (page - 1) * page_size
-    window_ids = ids[offset:offset + page_size]
-    total = _snapshot_total(ids, offset, page_size, snapshot_capped=snapshot_capped)
-    if not window_ids:
-        return total, []
-    return total, await hydrate_chemicals(db, window_ids)
-
-
-async def similarity_page(db: Any, chemical_id: int, threshold: float, page: int,
-                         page_size: int) -> tuple[int | None, list[dict[str, Any]]] | None:
-    """相似度检索分页; None=无结构(调用方转 404)。自 routes.chemical_similarity 下沉, 逻辑零改动(批次5a)。"""
-    smiles = (await db.execute(text(
-        "SELECT smiles FROM chemistry.chemicals WHERE id=:id AND mol IS NOT NULL"
-    ), {"id": chemical_id})).scalar()
-    if not smiles:
-        return None
-    offset = (page - 1) * page_size
-    await db.execute(text("SET LOCAL statement_timeout = '8s'"))
-    # KNN GiST(chemicals_morgan_bfp_gist_idx) 保持不动 — 审计证实真实命中。
-    # threshold 后过滤(语义: 有序结果的 threshold 截断前缀); offset 在 Python
-    # 侧跳过(threshold 过滤后行数不确定, SQL OFFSET 会截错窗口)。
-    window = offset + page_size
-    items = await fetch_chemicals(db, f"""
-        SELECT {CHEMICAL_SELECT},
-               1 - (c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles)))
-        FROM chemistry.chemicals c
-        WHERE c.mol IS NOT NULL AND c.id<>:id
-        ORDER BY c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles))
-        LIMIT :window
-    """, {"id": chemical_id, "smiles": smiles, "window": window})
-    qualifying = [item for item in items if (item.get("similarity") or 0) >= threshold]
-    # total 语义(0912 收口): KNN prefix 里已跌破 threshold(或 prefix 未满) ⇒
-    # 否则后面可能还有合格项 → None("更多结果")。禁止用本页条数冒充总数。
-    # cut_inside ⇒ qualifying 已含全部合格项(检索无 SQL 偏移, 从第 1 条起的
-    # 前缀) ⇒ 精确 total = len(qualifying), 与页码无关。
-    cut_inside = len(items) < window or bool(items and (items[-1].get("similarity") or 0) < threshold)
-    total = len(qualifying) if cut_inside else None
-    return total, qualifying[offset:offset + page_size]
-
-
 async def fill_detail_context(db: Any, result: dict[str, Any], chemical_id: int, user_id: int) -> None:
     """详情页上下文填充(synonyms/reaction_count/follows)。自 routes.chemical_detail 下沉, 逻辑零改动(批次5a)。"""
     synonym_row = (await db.execute(text("""

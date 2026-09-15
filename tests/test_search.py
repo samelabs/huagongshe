@@ -66,10 +66,6 @@ class StructureSearchContractTests(unittest.TestCase):
         """
         source = inspect.getsource(routes.search)
         self.assertIn('if mode != "exact" and actor is None', source)
-        for endpoint in (routes.chemical_substructure, routes.chemical_similarity):
-            src = inspect.getsource(endpoint)
-            self.assertIn("Depends(public_or_actor)", src)
-            self.assertIn("actor is None", src)
 
     def test_chemical_reaction_counts_avoid_visible_reaction_point_lookups(self) -> None:
         summary_source = inspect.getsource(routes.reaction_summaries)
