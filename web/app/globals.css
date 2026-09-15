@@ -1242,9 +1242,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .home-entry { margin-top: 26px; border: 1px solid var(--line); border-radius: 9px; padding: 16px 18px; background: var(--wash); display: grid; gap: 10px; }
 .home-entry-mcp { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .home-entry .guide-actions { margin-top: 0; }
-.home-aux { margin: 14px 0 0; text-align: center; font-size: var(--text-sm); }
-.home-aux a { color: var(--muted); }
-.home-aux a:hover { color: var(--blue); }
 
 /* ── 数据看板 v2 (0911) ── */
 .pipe-grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }

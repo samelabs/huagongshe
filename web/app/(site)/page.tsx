@@ -20,12 +20,11 @@ export default async function Home() {
         <nav className="guide-actions">
           <Link className="button primary" href="/mcp-guide">{t.home.entryMcp}</Link>
           <Link className="button secondary" href="/api/agent-guide">{t.home.entryApi}</Link>
+          <Link className="button secondary" href="/skills">{t.home.entrySkills}</Link>
           <Link className="button secondary" href="/aichem">{t.home.entryWorkbench}</Link>
           <Link className="button secondary" href="/me/settings/api-tokens">{t.home.entryKey}</Link>
         </nav>
       </section>
-
-      <p className="home-aux"><Link href="/skills">{t.home.skillsAux}</Link></p>
     </div>
   );
 }

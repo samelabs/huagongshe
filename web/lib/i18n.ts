@@ -82,11 +82,10 @@ const t = {
     entryLabel: 'AI 接入',
     entryMcpLabel: 'MCP 服务器',
     entryMcp: 'MCP 接入',
-    entryApi: 'HTTP API / Agent guide',
+    entryApi: 'Agent API',
     entryWorkbench: '网页工作台',
     entryKey: '创建 AI Key',
-    /* ── 辅助入口 ── */
-    skillsAux: 'Agent 技能库',
+    entrySkills: 'Skills',
   },
 
   /* ── 搜索 ────────────────────────────────────────────── */
