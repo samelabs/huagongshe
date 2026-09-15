@@ -27,7 +27,6 @@
 | 反应详情 | `GET /api/reactions/{id}` | 参与物、条件、产率、来源、操作步骤 |
 | 分子渲染 | `GET /api/mol/{hcid}/svg?w=&h=` | HCID → SVG 结构图 |
 | 投料计算 | `POST /api/stoichiometry/scale` | 角色化组分 + 基准投料量 → 整表投料量/理论收率/溶剂定容（RDKit）|
-| 统计数据 | `GET /api/stats` | 化合物/反应/数据集总数 |
 | 数据集列表 | `GET /api/datasets` | 反应来源数据集 |
 
 ### 需要 AI Key 的操作

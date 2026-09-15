@@ -326,21 +326,6 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
 
 
 
-async def load_stats(db: Any) -> dict[str, Any]:
-    """站点统计(counts)。自 routes.stats 下沉, 逻辑零改动(批次5a)。"""
-    row = (await db.execute(text("""
-        SELECT
-          (SELECT exact_count FROM chemistry.statistics WHERE metric='chemicals'),
-          (SELECT exact_count FROM chemistry.statistics WHERE metric='reactions'),
-          (SELECT count(*) FROM ord.dataset),
-          (SELECT count(*) FROM ingest.reaction_rdkit_failures)
-    """))).one()
-    return {
-        "chemicals": max(row[0], 0), "reactions": max(row[1], 0),
-        "datasets": row[2], "rdkit_failures": row[3],
-    }
-
-
 async def load_public_config(db: Any) -> dict[str, dict[str, Any]]:
     """公开系统配置(analytics/ads/site/branding)。自 routes.public_config 下沉, 逻辑零改动(批次5a)。"""
     rows = (await db.execute(text("""

@@ -19,22 +19,12 @@ from .services.search import run_search_query
 from .services.chemicals import (
     CHEMICAL_SELECT,
     fetch_chemicals, reaction_summaries,
-    load_stats, load_public_config, load_datasets, load_sitemap_reactions,
+    load_public_config, load_datasets, load_sitemap_reactions,
     load_synonyms_page, substructure_page, similarity_page, fill_detail_context,
 )
 
 router = APIRouter(tags=["chemistry"])
 
-
-
-@router.get("/stats")
-async def stats(actor: Actor | None = Depends(public_or_actor), db=Depends(get_db)):
-    cached = await cache_get("v1:stats:exact")
-    if cached:
-        return cached
-    data = await load_stats(db)
-    await cache_set("v1:stats:exact", data, ttl=3600)
-    return data
 
 
 @router.get("/config")

@@ -46,7 +46,7 @@ class SessionBoundaryTests(unittest.TestCase):
             routes.search, routes.chemical_detail, routes.chemical_externals,
             routes.chemical_synonyms, routes.chemical_reactions,
             routes.chemical_substructure, routes.chemical_similarity,
-            routes.reaction_detail, routes.stats, routes.datasets,
+            routes.reaction_detail, routes.datasets,
         ):
             self.assertIn("Depends(public_or_actor)", inspect.getsource(endpoint))
 

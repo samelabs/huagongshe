@@ -287,7 +287,6 @@ async def create_reaction(
     await db.commit()
     if body.visibility == "public":
         await notify_new_reaction_safely(db, actor.id, reaction_id)
-    await cache_delete("v1:stats:exact")
     return await reaction_response(db, reaction_id, created_chemicals)
 
 
@@ -340,8 +339,7 @@ async def update_reaction(
     if body.visibility == "public" and current[1] == "private":
         await notify_new_reaction_safely(db, actor.id, reaction_id)
     if current[1] != body.visibility:
-        await cache_delete("v1:stats:exact")
-    return await reaction_response(db, reaction_id, created_chemicals)
+        return await reaction_response(db, reaction_id, created_chemicals)
 
 
 @router.delete("/reactions/{reaction_id}", status_code=204)
@@ -366,7 +364,6 @@ async def delete_reaction(reaction_id: int = Path(..., ge=1), actor: Actor = Dep
             WHERE metric='reactions'
         """))
     await db.commit()
-    await cache_delete("v1:stats:exact")
 
 
 @router.get(

@@ -125,7 +125,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertEqual(settings.api_version, "1.0.0")
 
         routes_source = inspect.getsource(__import__("api.routes", fromlist=["unified_search"]))
-        self.assertIn('"v1:stats:exact"', routes_source)
+        self.assertNotIn('"v1:stats:exact"', routes_source)  # /api/stats 已剥离
         self.assertIn('f"v2:unified-search', routes_source)
 
     def test_agent_guide_is_a_bounded_connection_and_operation_surface(self) -> None:

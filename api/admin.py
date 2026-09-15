@@ -263,8 +263,6 @@ async def moderate_reaction(
     if body.status == "hidden":
         await db.execute(text("DELETE FROM community.reaction_follows WHERE reaction_id=:id"), {"id": reaction_id})
     await db.commit()
-    if current[1] == "public" and current[0] != body.status:
-        await cache_delete("v1:stats:exact")
     return {"id": reaction_id, "moderation_status": body.status}
 
 
