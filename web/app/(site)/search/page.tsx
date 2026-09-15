@@ -115,7 +115,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <div className="chemical-results">{chemicals.map((chemical) => <ChemicalResult chemical={chemical} key={chemical.id} />)}</div>
           {hasMore && (
             <div className="load-more">
-              <Link className="load-more-btn" href={`/search?${chemicalId ? `chemical_id=${chemicalId}&mode=${mode}` : `q=${encodeURIComponent(q)}`}&page=${page + 1}`}>
+              <Link className="load-more-btn" href={`/search?${chemicalId ? `chemical_id=${chemicalId}&mode=${mode}` : `q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}`}&page=${page + 1}`}>
                 {t.search.loadMore}
               </Link>
             </div>
