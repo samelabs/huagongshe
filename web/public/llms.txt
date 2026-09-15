@@ -7,17 +7,16 @@
 - **MCP 服务器（推荐）**: `https://huagongshe.com/mcp` — Streamable HTTP
 - **MCP 接入说明**: https://huagongshe.com/mcp-guide
 - **Agent API 契约**: https://huagongshe.com/api/agent-guide
-- **AI Key**: 登录后在 https://huagongshe.com/me/settings/api-tokens 创建，请求头 `Authorization: Bearer <AI Key>`
+- **AI Key**: 登录后在 https://huagongshe.com/me/settings/api-tokens 创建，请求头 `Authorization: Bearer <AI Key>`；MCP 与 HTTP API 共用同一凭据
 
-**匿名可用**（无需认证）: 统一搜索、化合物详情、反应详情、分子/反应 SVG、统计数据、数据集列表、投料计算
+**匿名可用**: 统一搜索、化合物详情、反应详情、分子/反应 SVG、统计数据、数据集列表、投料计算
 **需要 AI Key**: 读取我的反应、校验草稿、创建反应、技能校验/保存
 
 ## 能调用什么
 
 ### MCP 工具（14 个）
 
-统一搜索、化合物详情、中文扩展、反应详情、分子/反应 SVG 渲染、技能库浏览、投料计算、
-我的反应、反应校验/保存、技能校验/保存。公开查询无需登录；写操作需要 AI Key（reaction:write / skill:write）。
+统一搜索、化合物详情、中文扩展、反应详情、分子/反应 SVG 渲染、技能库浏览、投料计算、我的反应、反应校验/保存、技能校验/保存。写操作需要 AI Key（reaction:write / skill:write）。
 
 ### HTTP API
 
@@ -26,7 +25,7 @@
 | 统一搜索 | `GET /api/search` | 名称、CAS、InChIKey、SMILES、结构检索（精确/子结构/相似度）|
 | 化合物详情 | `GET /api/chemicals/{id}` | 结构、标识符、性质、关联反应 |
 | 反应详情 | `GET /api/reactions/{id}` | 参与物、条件、产率、来源、操作步骤 |
-| 分子渲染 | `GET /api/mol/{hcid}/svg/{w}x{h}.svg` | HCID → SVG 结构图 |
+| 分子渲染 | `GET /api/mol/{hcid}/svg?w=&h=` | HCID → SVG 结构图 |
 | 投料计算 | `POST /api/stoichiometry/scale` | 角色化组分 + 基准投料量 → 整表投料量/理论收率/溶剂定容（RDKit）|
 | 统计数据 | `GET /api/stats` | 化合物/反应/数据集总数 |
 | 数据集列表 | `GET /api/datasets` | 反应来源数据集 |
@@ -43,29 +42,27 @@
 ## 认证
 
 - **公开数据**（搜索、化合物、反应读取）: 无需认证，直接调用。
-- **Agent 操作**（读取/创建用户反应记录）: 需要 AI Key。
-  - 格式: `Authorization: Bearer <AI Key>`
+- **Agent 操作**: 需要 AI Key。格式: `Authorization: Bearer <AI Key>`。
   - AI Key 仅发送给 `huagongshe.com`，不写入公开提示词、代码或日志。
   - 创建/校验反应时，先展示草稿给用户确认，再保存。默认 `private`，公开需用户明确确认。
 
 ## 速率限制
 
+按身份计数，超限返回 `429` + `Retry-After` 头。
+
 | 类型 | 限制 |
 |------|------|
-| 常规查询 | 60 次/分钟（从 loopback 访问不受限）|
-| 结构搜索（子结构/相似度）| 20 次/分钟 |
+| 结构检索（子结构/相似度）| 每身份 6 次/分钟；全局 30 次/分钟；同时在跑 2（身份）/ 4（全局）|
+| 反应校验 | 20 次/分钟 |
 | 反应写入 | 10 次/分钟，200 次/天 |
-| 分子 SVG 渲染 | 120 次/分钟 |
-
-超限时返回 `429` + `Retry-After` 头。
+| 投料计算 | 30 次/分钟 |
+| 技能保存 | 20 次/小时 |
 
 ## 标识符说明
 
-化工社使用以下稳定标识符：
-
 - **HCID** (Huagongshe Chemical ID): 化合物内部 ID，如 `12345678`
 - **HRID** (Huagongshe Reaction ID): 反应内部 ID，如 `8765432`
-- 搜索时支持前缀写法: `id:12345`, `cid:2244`, `cas:64-17-5`, `inchikey:LFQSCWFLJHTTHZ-UHFFFAOYSA-N`
+- 搜索支持前缀写法: `id:12345`, `cid:2244`, `cas:64-17-5`, `inchikey:LFQSCWFLJHTTHZ-UHFFFAOYSA-N`
 
 ## Links
 
@@ -73,4 +70,4 @@
 - [MCP 接入说明](https://huagongshe.com/mcp-guide)
 - [MCP 服务器](https://huagongshe.com/mcp)
 - [API Connection Guide](https://huagongshe.com/api/agent-guide)
-- [Skills Registry](https://huagongshe.com/api/skills?scope=public)（含 Reaction Publisher Skill，可经 /api/skills/{id}/archive 下载）
+- [Skills Registry](https://huagongshe.com/api/skills?scope=public)

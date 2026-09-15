@@ -40,7 +40,6 @@
 - `/api/agent-guide`：AI/Agent 的公开自描述连接入口；携带 Token 时确认所属账号，并返回真实可用操作、字段要求、安全规则和调用顺序。
 - `/mcp`：MCP 连接入口。
 - `/guide`：面向用户的网页记录、AI 对话提示词与 Skill 使用指南。
-- `/skills/huagongshe-reaction-publisher/SKILL.md`：可直接交给 AI 的反应提取与保存 Skill。
 - `/workapi/*`：worker HMAC 面，只服务受信任 PubChem worker，与用户 Agent 完全无关。
 
 网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 AI Key（即 API Token，Bearer 传输）：Key 属于用户账号，用于 Agent/API 调用；列表仅已认证本人可读，响应带 `Cache-Control: private, no-store`；当前产品允许本人后续重新查看和复制自己的 Key。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。

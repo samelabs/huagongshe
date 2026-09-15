@@ -122,7 +122,9 @@ nav[aria-label="主导航"] { min-width: 0; margin-left: auto; display: flex; al
 .nav-guide { border: 1px solid var(--green-border); border-radius: 8px; padding: 6px 8px; min-height: 38px; display: inline-flex; align-items: center; color: var(--green-strong); background: var(--green-tint); font-weight: 650; white-space: nowrap; }
 /* 用户身份菜单样式统一在 app/account-menu.css（AccountMenu 组件专用） */
 
-main { min-height: auto; background: var(--wash); }
+/* sticky footer: 短页面(main 不足一屏)时 footer 贴视口底, 不再悬在半途 */
+.app-container { min-height: 100dvh; display: flex; flex-direction: column; }
+main { flex: 1; background: var(--wash); }
 footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2)) env(safe-area-inset-bottom); display: flex; justify-content: center; align-items: center; color: var(--quiet); font-size: var(--text); text-align: center; background: var(--paper); border-top: 1px solid var(--line); }
 .footer-link { color: var(--blue); }
 

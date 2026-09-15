@@ -728,7 +728,6 @@ const t = {
     connectKeyLabel: 'AI Key',
     connectKeyDesc: '公开查询（搜索、化合物、反应）无需认证直接调用；读取或保存你自己的反应记录需要 AI Key。',
     keyCta: '创建 AI Key →',
-    llmsCta: 'llms.txt',
     /* ── 用AI做什么 ── */
     capabilityKicker: '用AI做什么',
     cap1Title: '查数据',
@@ -743,7 +742,6 @@ const t = {
     cap4Desc: '确认后保存到你的工作台，默认私有。返回HRID和页面链接。',
     cap4Badge: '需AI Key',
     mcpCta: '查看 MCP 接入方法 →',
-    apiCta: '查看 HTTP API 契约 →',
     fallbackTitle: '没有工具接入？',
     fallbackDesc: '如果当前 AI 不支持 MCP 或 HTTP 工具调用，可以复制提示词让 AI 先整理结构化草稿，再由你在化工社网页保存。这不是 API/MCP 连接。',
     copyPrompt: (copied: boolean) => copied ? '已复制' : '复制提示词',
@@ -759,17 +757,6 @@ const t = {
 7. 成功后告诉我 HRID、页面链接、新建的 HCID 和可见范围；未经成功响应不要声称已经保存。
 
 如果你暂时不能调用化工社 API，请仍按相同字段输出草稿，并指导我在网页保存。`,
-    /* ── 接入文件 ── */
-    refKicker: '接入文件',
-    refIntro: '化工社已发布以下接入文件，支持的 AI 工具可按需读取。',
-    refLlmsTxt: 'llms.txt',
-    refLlmsTxtDesc: '面向 AI/LLM 的网站发现文件',
-    refAgentGuide: 'agent-guide',
-    refAgentGuideDesc: 'AI读取后知道全部操作能力、字段、规则和速率限制',
-    refSkill: 'Skill',
-    refSkillDesc: '可安装到AI工具的规则文件',
-    refView: '查看',
-    refDownload: '下载',
     /* ── 数据与授权 ── */
     trustKicker: '数据与授权',
     trust1: '反应记录默认私有，公开需要你明确确认',

@@ -20,7 +20,7 @@ export default function GuidePage() {
       <p>{t.guide.heroBody}</p>
     </header>
 
-    {/* ── 接入入口: 第一屏直出 MCP 地址 / MCP 说明 / API 契约 / AI Key ── */}
+    {/* ── 接入入口: 第一屏直出 MCP 地址 / AI Key ── */}
     <section className="guide-section">
       <div className="section-heading"><div><p className="page-kicker">{t.guide.connectKicker}</p></div></div>
       <div className="mcp-connect">
@@ -35,9 +35,7 @@ export default function GuidePage() {
         <p className="mcp-connect-desc">{t.guide.connectKeyDesc}</p>
         <div className="guide-actions">
           <Link className="button primary" href="/mcp-guide">{t.guide.mcpCta}</Link>
-          <Link className="button secondary" href="/api/agent-guide">{t.guide.apiCta}</Link>
           <Link className="button secondary" href="/me/settings/api-tokens">{t.guide.keyCta}</Link>
-          <a className="button secondary" href="/llms.txt">{t.guide.llmsCta}</a>
         </div>
       </div>
     </section>
@@ -73,30 +71,6 @@ export default function GuidePage() {
         <p>{t.guide.fallbackDesc}</p>
         <AiSubmissionPrompt />
       </div>
-    </section>
-
-    <section className="guide-section">
-      <div className="section-heading"><div><p className="page-kicker">{t.guide.refKicker}</p></div></div>
-      <p className="guide-ref-intro">{t.guide.refIntro}</p>
-      <table className="guide-ref-table">
-        <tbody>
-          <tr>
-            <td className="guide-ref-name"><code>{t.guide.refLlmsTxt}</code></td>
-            <td className="guide-ref-desc">{t.guide.refLlmsTxtDesc}</td>
-            <td className="guide-ref-link"><a href="/llms.txt">{t.guide.refView}</a></td>
-          </tr>
-          <tr>
-            <td className="guide-ref-name"><code>{t.guide.refAgentGuide}</code></td>
-            <td className="guide-ref-desc">{t.guide.refAgentGuideDesc}</td>
-            <td className="guide-ref-link"><a href="/api/agent-guide">{t.guide.refView}</a></td>
-          </tr>
-          <tr>
-            <td className="guide-ref-name"><code>{t.guide.refSkill}</code></td>
-            <td className="guide-ref-desc">{t.guide.refSkillDesc}</td>
-            <td className="guide-ref-link"><a href="/skills/huagongshe-reaction-publisher/SKILL.md" download>{t.guide.refDownload}</a></td>
-          </tr>
-        </tbody>
-      </table>
     </section>
 
     <section className="guide-section guide-trust">
