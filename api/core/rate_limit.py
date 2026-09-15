@@ -151,10 +151,15 @@ async def structure_enter(actor_id: int | None, bucket: str = "structure-search"
     return held
 
 
-async def structure_exit(held: list[str] | None, bucket: str = "structure-search") -> None:
-    """释放租约(finally 调用)。异常吞掉, 不影响响应。"""
+async def release_leases(held: list[str] | None, bucket: str) -> None:
+    """按身份列表释放租约(任意 bucket)。异常吞掉, 不影响响应。"""
     for identity in held or []:
         await release_lease(bucket, identity)
+
+
+async def structure_exit(held: list[str] | None, bucket: str = "structure-search") -> None:
+    """释放租约(finally 调用)。异常吞掉, 不影响响应。"""
+    await release_leases(held, bucket)
 
 
 @asynccontextmanager

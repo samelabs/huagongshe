@@ -1,4 +1,12 @@
-"""MCP server: the agent-facing capability surface (M1).
+"""MCP server: the curated agent-facing capability surface (M1).
+
+认知模型(与 /api/agent-guide 的关系, 不得再表述为 1:1):
+- /api/agent-guide = HTTP Agent contract(自描述连接契约)。
+- /mcp = curated MCP tool surface(人工挑选、显式命名的工具面)。
+- MCP 工具**不从** OpenAPI / agent-guide 自动生成, 二者只是共享同一批业务
+  服务函数与同一套授权规则(resolve_actor / scopes)。
+- HTTP 能力允许比 MCP 多(例: 技能 zip 二进制下载 /skills/{id}/archive 只有
+  HTTP 面, 不映射为 MCP 工具)。工具数量不作对齐目标。
 
 设计锚点(全部基于已核实事实):
 - mcp SDK 2.1.1: MCPServer + streamable_http_app() -> Starlette, mount 进 FastAPI.
@@ -9,26 +17,97 @@
   走 resolve_actor(与 REST 同一张 user_api_tokens 表, 同一套 scopes).
 - DNS rebinding 防护: host 默认 127.0.0.1 会触发 localhost-only Host 校验,
   挂在公网域名后必 403 — 传 transport_security 显式关闭(nginx 层已有真实边界).
-- 工具面 = agent-guide operations 一比一白名单映射, 硬编码, 不自动发现.
 - thin wrapper 直调服务层函数(与 REST handler 共享同一函数), 不自调 HTTP.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.context import Context
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from sqlalchemy import text
 
+from .core import rate_limit
 from .core.config import settings
 from .core.database import async_session
 from .schemas.reactions import ReactionBody
 from .core.security import Actor, resolve_actor
 from .schemas.stoichiometry import ScaleInput
+
+# ---------------------------------------------------------------------------
+# MCP 渲染资源闸门(B5)
+# ---------------------------------------------------------------------------
+# 两个 render tool 共用同一资源池: render_molecule_svg / render_reaction_svg。
+# RDKit 渲染是 CPU-bound(外部直传 SMILES 可占分钟级), 复用与结构检索同一组
+# 原语: enforce(fixed-window 限频) + acquire_lease/release_lease(in-flight 租约)。
+# - actor / anon 各 120 次/分钟
+# - 已认证 actor in-flight ≤ 2(匿名不额外持 actor 租约)
+# - 全局 in-flight ≤ 4
+# - Redis acquire 失败 fail-closed(503 → ToolError), 不放行
+# - 闸门必须在 RDKit to_thread 之前, finally 必释放
+MCP_RENDER_BUCKET = "mcp-render"
+MCP_RENDER_RATE_LIMIT = 120
+MCP_RENDER_ACTOR_INFLIGHT = 2
+MCP_RENDER_GLOBAL_INFLIGHT = 4
+
+
+def _render_busy() -> ToolError:
+    return ToolError("渲染并发已达上限，请稍后重试")
+
+
+async def _render_enter(actor: Actor | None) -> list[str]:
+    """进入渲染闸门, 返回已持有租约的身份列表(交给 _render_exit 释放)。"""
+    identity = f"actor:{actor.id}" if actor is not None else "anon"
+    held: list[str] = []
+    try:
+        await rate_limit.enforce(MCP_RENDER_BUCKET, identity, MCP_RENDER_RATE_LIMIT, 60)
+        if actor is not None:
+            if await rate_limit.acquire_lease(MCP_RENDER_BUCKET, identity, MCP_RENDER_ACTOR_INFLIGHT):
+                held.append(identity)
+            else:
+                raise _render_busy()
+        if await rate_limit.acquire_lease(MCP_RENDER_BUCKET, "global", MCP_RENDER_GLOBAL_INFLIGHT):
+            held.append("global")
+        else:
+            raise _render_busy()
+        return held
+    except ToolError:
+        await rate_limit.release_leases(held, MCP_RENDER_BUCKET)
+        raise
+    except HTTPException as exc:
+        # enforce/lease 侧 fail-closed 的 503 与 429 统一转成 MCP ToolError。
+        await rate_limit.release_leases(held, MCP_RENDER_BUCKET)
+        raise ToolError(str(exc.detail)) from exc
+
+
+async def _render_exit(held: list[str]) -> None:
+    await rate_limit.release_leases(held, MCP_RENDER_BUCKET)
+
+
+# ---------------------------------------------------------------------------
+# MCP serverInfo.version(B6)
+# ---------------------------------------------------------------------------
+
+def _release_version() -> str:
+    """MCP serverInfo.version = 仓库根 VERSION(产品发布版本)。
+
+    与 settings.api_version 不是同一版本轴: 后者是 HTTP API contract version
+    (1.0.0), 保持不变。这里只读文件, 不硬编码第二份版本号。
+    """
+    version_file = Path(__file__).resolve().parents[1] / "VERSION"
+    try:
+        value = version_file.read_text(encoding="utf-8").strip()
+    except OSError as exc:  # pragma: no cover - 文件缺失即发布产物不完整
+        raise RuntimeError("仓库根 VERSION 文件缺失: MCP serverInfo.version 无权威来源") from exc
+    if not value:
+        raise RuntimeError("仓库根 VERSION 文件为空: MCP serverInfo.version 无权威来源")
+    return value
+
 
 # ---------------------------------------------------------------------------
 # 工具实现
@@ -71,11 +150,40 @@ def _require_login(actor: Actor | None) -> Actor:
     return actor
 
 
+async def _resolve_skill_slug(candidate: str, actor: Actor | None) -> int:
+    """slug → skill id。真实约束只有 UNIQUE(owner_id, slug), slug 全库不唯一。
+
+    - anonymous: 只在 visibility='public' 内解析。
+    - authenticated: 候选集 = visibility='public' OR owner_id=actor.id。
+    - 0 命中 → not found; 1 命中 → 返回; >1 命中 → ToolError(要求用 numeric skill_id)。
+    禁止 ORDER BY 取首条、owner 优先、public 优先、hottest/newest; 错误信息不得
+    泄露存在但不可访问的 private 技能。
+    """
+    if actor is None:
+        sql = "SELECT id FROM community.skills WHERE slug=:slug AND visibility='public'"
+        params: dict[str, Any] = {"slug": candidate}
+    else:
+        sql = ("SELECT id FROM community.skills WHERE slug=:slug "
+               "AND (visibility='public' OR owner_id=:actor_id)")
+        params = {"slug": candidate, "actor_id": actor.id}
+    async with async_session() as session:
+        rows = (await session.execute(text(sql), params)).scalars().all()
+    if not rows:
+        raise ToolError(f"slug 不存在或不可访问: {candidate!r}")
+    if len(rows) > 1:
+        raise ToolError(
+            f"slug {candidate!r} 存在多个可访问技能，请改用 numeric skill_id 指定"
+        )
+    return int(rows[0])
+
+
 def build_mcp_server() -> MCPServer:
     server = MCPServer(
         name="huagongshe-aichem",
         title="化工社AIchem MCP",
-        version=settings.api_version,
+        # serverInfo.version = 产品发布版本(仓库根 VERSION), 不是 HTTP API
+        # contract version(settings.api_version)。
+        version=_release_version(),
         instructions=(
             "你是化工社AIchem助手：查询化合物与反应数据、计算投料、保存反应记录。"
             "部分公开工具可匿名使用；访问个人数据、结构检索及受授权操作需要 AI Key。"
@@ -99,7 +207,8 @@ def build_mcp_server() -> MCPServer:
 
         mode: exact(默认) / substructure / similarity。
         threshold: similarity 模式阈值(0.4-1.0, 默认 0.7), 与 REST 同语义。
-        返回 total(可能为 None 表示更多结果)与分页结果。
+        total=None 表示当前查询模式未计算完整 total；has_more 是下一页是否存在
+        的权威字段(不要用 total 反推是否还有下一页)。
         """
         from . import routes as routes_module
 
@@ -196,6 +305,7 @@ def build_mcp_server() -> MCPServer:
         chemical_id(库内化合物)或 smiles(任意结构)二选一。"""
         from . import mol as mol_module
 
+        actor = await _actor_from_headers(ctx.headers if ctx else None)
         width = min(max(width, 50), 800)
         height = min(max(height, 50), 800)
         target_smiles: str | None = None
@@ -221,7 +331,12 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("没有可渲染的结构表达")
         import asyncio as _asyncio
 
-        svg = await _asyncio.to_thread(mol_module.smiles_to_svg, target_smiles, width, height)
+        # 资源闸门在 RDKit to_thread 之前; 与 render_reaction_svg 共用同一池。
+        held = await _render_enter(actor)
+        try:
+            svg = await _asyncio.to_thread(mol_module.smiles_to_svg, target_smiles, width, height)
+        finally:
+            await _render_exit(held)
         if svg is None:
             raise ToolError("SMILES 无法渲染")
         return svg
@@ -254,7 +369,12 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("反应不存在或没有可渲染的表达")
         import asyncio as _asyncio
 
-        svg = await _asyncio.to_thread(mol_module.reaction_to_svg, row[0], width, height)
+        # 资源闸门在 RDKit to_thread 之前; 与 render_molecule_svg 共用同一池。
+        held = await _render_enter(actor)
+        try:
+            svg = await _asyncio.to_thread(mol_module.reaction_to_svg, row[0], width, height)
+        finally:
+            await _render_exit(held)
         if svg is None:
             raise ToolError("反应 SMILES 无法渲染")
         return svg
@@ -297,21 +417,12 @@ def build_mcp_server() -> MCPServer:
         from . import skills as skills_module
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
-        # MCP 适配层 slug 解析: 内核 skills.get_skill 保持纯数字 id(REST 两路共用不污染)。
-        # slug 全库唯一(159/159 实测), 无 owner 歧义。
-        resolved_id: int
         if isinstance(skill_id, str):
             candidate = skill_id.strip()
             if candidate.isdigit():
                 resolved_id = int(candidate)
             else:
-                async with async_session() as session:
-                    row = (await session.execute(text(
-                        "SELECT id FROM community.skills WHERE slug=:slug"
-                    ), {"slug": candidate})).fetchone()
-                if not row:
-                    raise ToolError(f"slug 不存在: {candidate!r}")
-                resolved_id = row[0]
+                resolved_id = await _resolve_skill_slug(candidate, actor)
         else:
             resolved_id = skill_id
         if not 1 <= resolved_id <= 2_147_483_647:

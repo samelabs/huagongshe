@@ -468,6 +468,9 @@ async def validate_skill(
     file: UploadFile = File(...),
     actor: Actor = Depends(current_actor),
 ):
+    # REST 与 MCP 对齐(B4): validate_skill 统一要求 skill:write。
+    # require_scope 只收紧 agent token, web session 行为不变。
+    require_scope(actor, "skill:write")
     raw = await file.read(settings.skill_zip_max_bytes + 1)
     if len(raw) > settings.skill_zip_max_bytes:
         raise HTTPException(400, f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
