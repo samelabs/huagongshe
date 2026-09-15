@@ -7,22 +7,22 @@
 - **MCP 服务器（推荐）**: `https://huagongshe.com/mcp` — Streamable HTTP
 - **MCP 接入说明**: https://huagongshe.com/mcp-guide
 - **Agent API 契约**: https://huagongshe.com/api/agent-guide
-- **AI Key**: 登录后在 https://huagongshe.com/me/settings/api-tokens 创建，请求头 `Authorization: Bearer <AI Key>`；MCP 与 HTTP API 共用同一凭据
+- **AI Key**: 登录后在 https://huagongshe.com/me/settings/api-tokens 创建，请求头 `Authorization: Bearer <你的 AI Key>`；MCP 与 HTTP API 共用同一凭据
 
-**匿名可用**: 统一搜索、化合物详情、反应详情、分子/反应 SVG、统计数据、数据集列表、投料计算
-**需要 AI Key**: 读取我的反应、校验草稿、创建反应、技能校验/保存
+**匿名可用**: 统一搜索（精确）、化合物详情、反应详情、分子/反应 SVG、数据集列表、投料计算
+**需要 AI Key**: 结构检索（子结构/相似度）、读取我的反应、校验/创建反应、技能校验/保存
 
 ## 能调用什么
 
 ### MCP 工具（14 个）
 
-统一搜索、化合物详情、中文扩展、反应详情、分子/反应 SVG 渲染、技能库浏览、投料计算、我的反应、反应校验/保存、技能校验/保存。写操作需要 AI Key（reaction:write / skill:write）。
+统一搜索、化合物详情、中文扩展、反应详情、分子/反应 SVG 渲染、技能库浏览、投料计算、我的反应、反应校验/保存、技能校验/保存。权限要求同上。
 
 ### HTTP API
 
 | 能力 | 端点 | 说明 |
 |------|------|------|
-| 统一搜索 | `GET /api/search` | 名称、CAS、InChIKey、SMILES、结构检索（精确/子结构/相似度）|
+| 统一搜索 | `GET /api/search` | 名称、CAS、InChIKey、SMILES、结构检索（精确匿名可用；子结构/相似度需 AI Key）|
 | 化合物详情 | `GET /api/chemicals/{id}` | 结构、标识符、性质、关联反应 |
 | 反应详情 | `GET /api/reactions/{id}` | 参与物、条件、产率、来源、操作步骤 |
 | 分子渲染 | `GET /api/mol/{hcid}/svg?w=&h=` | HCID → SVG 结构图 |
@@ -33,17 +33,14 @@
 
 | 能力 | 端点 | 说明 |
 |------|------|------|
-| 连接确认 | `GET /api/agent-guide` | 操作契约 + 身份验证 |
 | 我的反应 | `GET /api/users/me/reactions` | 读取 AI Key 所属用户的反应库 |
 | 校验草稿 | `POST /api/reactions/validate` | RDKit 标准化校验，不保存 |
 | 创建反应 | `POST /api/reactions` | 保存到用户反应库（需 Idempotency-Key）|
 
-## 认证
+## 安全规则
 
-- **公开数据**（搜索、化合物、反应读取）: 无需认证，直接调用。
-- **Agent 操作**: 需要 AI Key。格式: `Authorization: Bearer <AI Key>`。
-  - AI Key 仅发送给 `huagongshe.com`，不写入公开提示词、代码或日志。
-  - 创建/校验反应时，先展示草稿给用户确认，再保存。默认 `private`，公开需用户明确确认。
+- AI Key 仅发送给 `huagongshe.com`，不写入公开提示词、代码或日志。
+- 创建/校验反应时，先展示草稿给用户确认，再保存。默认 `private`，公开需用户明确确认。
 
 ## 速率限制
 
