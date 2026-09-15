@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy import text
 
 from ..chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE
+from ..core.rate_limit import enforce  # smiles-create 副作用闸门(0914 #5)
 from .chemicals import (
     CHEMICAL_SELECT, IDENTIFIER_ARRAYS, MIN_FUZZY_NAME_LENGTH,
     bounded_substructure_smiles, fetch_chemicals, name_query_width,
@@ -318,11 +319,11 @@ async def run_search_query(
                     # 绝不阻塞搜索响应(注释原语义); 只挡占行+入队副作用面。
                     rate_state = "ok"
                     try:
-                        from ..core.rate_limit import enforce
+                        from ..core.rate_limit import enforce as _enforce_cas
                         if actor_id is not None:
-                            await enforce("cas-search-fetch", str(actor_id), 10, 60)
+                            await _enforce_cas("cas-search-fetch", str(actor_id), 10, 60)
                         else:
-                            await enforce("cas-search-fetch", "anonymous-global", 30, 60)
+                            await _enforce_cas("cas-search-fetch", "anonymous-global", 30, 60)
                     except Exception:
                         rate_state = "miss"
                     try:
@@ -352,11 +353,18 @@ async def run_search_query(
                         cas_fetch_pending = True
             # SMILES miss -> 建行入库(2026-08-29): canonical 校验通过但库内无行时,
             # 复用反应侧 resolve_or_create_chemical 同套逻辑(本地 RDKit 算结构三件),
-            # 本次响应即返回该行. 结构行与反应创建同形态, 不新增入队/限流(结构合法
-            # 即行合法, 延伸字段留 PB/CB 自然演进). 建行失败降级为空结果, 不阻塞.
+            # 本次响应即返回该行. 结构行与反应创建同形态, 延伸字段留 PB/CB 自然演进.
+            # 建行失败降级为空结果, 不阻塞.
+            # 副作用闸门(0914 #5): 建行=写 chemistry.chemicals + discovery 入队,
+            # 与 CAS miss 同口径限流(鉴权 10/min/actor, 匿名共享 30/min);
+            # 超限/限速服务异常降级为不建行(返回空结果), 不阻塞搜索响应。
             if not chemicals and page == 1 and canonical and len(query) <= 4000:
                 try:
-                    from .reactions import resolve_or_create_chemical
+                    if actor_id is not None:
+                        await enforce("smiles-create", str(actor_id), 10, 60)
+                    else:
+                        await enforce("smiles-create", "anonymous-global", 30, 60)
+                    from ..reactions import resolve_or_create_chemical
                     chemical_id, _created = await resolve_or_create_chemical(db, canonical)
                     created = await fetch_chemicals(db, f"""
                         SELECT {CHEMICAL_SELECT}
