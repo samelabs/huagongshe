@@ -412,16 +412,20 @@ SUBSTRUCTURE_SNAPSHOT_CAP = 250
 SUBSTRUCTURE_SNAPSHOT_TTL = 300
 
 
-def _snapshot_total(ids: list[int], offset: int, page_size: int) -> int | None:
+def _snapshot_total(ids: list[int], offset: int, page_size: int,
+                    snapshot_capped: bool | None = None) -> int | None:
     """snapshot 分页 total 语义(0912, 只修元数据):
 
     - snapshot 未满 cap ⇒ 它就是本次检索的完整匹配集 → total 恒为 len(ids);
+      (0914 #4: cap 判定必须用排除自身前的 snapshot 长度 — 排除后 249 会被
+      误判成"未触顶的精确总数", 而真实匹配可能远超 cap。)
     - snapshot 满 cap(=产品上限) ⇒ 中途页 None("更多结果" = 上限内还有);
       到 snapshot 尾部必须收敛: 最后一页给 len(ids), 即"本次结构检索返回的
       匹配数(已达上限)"。绝不把 250 冒充数据库真实匹配总数 — 上限标记由响应
       的 capped 字段单独承载。
     """
-    capped = len(ids) >= SUBSTRUCTURE_SNAPSHOT_CAP
+    capped = snapshot_capped if snapshot_capped is not None \
+        else len(ids) >= SUBSTRUCTURE_SNAPSHOT_CAP
     end_of_snapshot = len(ids[offset:offset + page_size]) < page_size or \
         offset + page_size >= len(ids)
     if not capped or end_of_snapshot:
@@ -480,10 +484,12 @@ async def substructure_page(db: Any, chemical_id: int, page: int, page_size: int
     smiles = bounded_substructure_smiles(smiles)
     ids = await substructure_snapshot(db, smiles)
     # 排除查询结构自身(原 SQL 的 c.id<>:id); snapshot 按 smiles 共享缓存, 故在 Python 侧排除。
+    # (0914 #4: cap 判定先于排除 — snapshot 满额 250 即使排除后剩 249 也算触顶。)
+    snapshot_capped = len(ids) >= SUBSTRUCTURE_SNAPSHOT_CAP
     ids = [value for value in ids if value != chemical_id]
     offset = (page - 1) * page_size
     window_ids = ids[offset:offset + page_size]
-    total = _snapshot_total(ids, offset, page_size)
+    total = _snapshot_total(ids, offset, page_size, snapshot_capped=snapshot_capped)
     if not window_ids:
         return total, []
     return total, await hydrate_chemicals(db, window_ids)
