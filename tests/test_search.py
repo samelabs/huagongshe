@@ -375,6 +375,17 @@ class SearchSystemGovernanceTests(unittest.TestCase):
         result = run("similarity", None, 10)
         self.assertEqual(result[1], 10)
         self.assertFalse(result[6])
+        # similarity page>=2(收口 0914 #1): qualifying 是从第 1 条起的完整
+        # 前缀, cut_inside 时精确 total=len(qualifying), 与页码无关 —
+        # 旧实现 offset+len(qualifying) 每页虚增 page_size(35 条 p2 报 65)。
+        result = run("similarity", None, 35, page=2)
+        self.assertEqual(result[1], 35)
+        self.assertFalse(result[6])
+        self.assertEqual(len(result[0]), 5)
+        # similarity page>=2 满窗未 cut 语义不变: total 仍 None
+        result = run("similarity", None, 100, page=2)
+        self.assertIsNone(result[1])
+        self.assertTrue(result[6])
 
 
 if __name__ == "__main__":
