@@ -410,6 +410,22 @@ async def load_synonyms_page(db: Any, chemical_id: int, offset: int, page_size: 
 SUBSTRUCTURE_SNAPSHOT_CAP = 250
 
 SUBSTRUCTURE_SNAPSHOT_TTL = 300
+SUBSTRUCTURE_SNAPSHOT_SLOW_TTL = 60   # 0915: 超时负缓存窗口
+
+
+def _is_statement_timeout(exc: Exception) -> bool:
+    """语句超时判定: asyncpg QueryCanceledError 经 SQLAlchemy 包装成
+    DBAPIError, 检查链条(orig / __cause__)上任意一层。"""
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if type(cur).__name__ in ("QueryCanceledError", "QueryCanceled"):
+            return True
+        if getattr(cur, "code", None) == "57014":  # PG SQLSTATE query_canceled
+            return True
+        cur = getattr(cur, "orig", None) or cur.__cause__ or cur.__context__
+    return False
 
 
 def _snapshot_total(ids: list[int], offset: int, page_size: int,
@@ -449,12 +465,29 @@ async def substructure_snapshot(db: Any, smiles: str,
     cached = await cache_get(key)
     if isinstance(cached, list):
         return [int(value) for value in cached]
+    # 0915 性能收口(超时负缓存): 稀疏/中低选择性查询在 1.24 亿行 GiST 上
+    # 凑满 cap 可能 >8s(生产 EXPLAIN 实证 6.5s@250, 冷缓存更差)。旧形态
+    # 打满 8s → 503 且零缓存, TTL 300s 内同一 SMILES 每次请求都全价重扫,
+    # 慢查询可连环占满结构租约(全局并发 4)。注意语句被 cancel 时已扫行全部
+    # 丢弃(asyncpg QueryCanceledError), 部分结果不可得 — 只能负缓存:
+    # 打满一次后 60s 内同 SMILES 直接快速 503, 不再进库。数据不变、缓存
+    # 变热后自然恢复(60s 窗口滑过即重试)。
+    slow = await cache_get(key + ":slow")
+    if slow:
+        raise HTTPException(503, "该子结构检索过慢，请稍后重试或使用更精确的结构")
     await db.execute(text("SET LOCAL statement_timeout = '8s'"))
-    rows = (await db.execute(text("""
-        SELECT id FROM chemistry.chemicals c
-        WHERE c.mol @> mol_from_smiles(:smiles)
-        LIMIT :cap
-    """), {"smiles": smiles, "cap": cap})).fetchall()
+    try:
+        rows = (await db.execute(text("""
+            SELECT id FROM chemistry.chemicals c
+            WHERE c.mol @> mol_from_smiles(:smiles)
+            LIMIT :cap
+        """), {"smiles": smiles, "cap": cap})).fetchall()
+    except Exception as exc:
+        if not _is_statement_timeout(exc):
+            raise
+        await db.rollback()
+        await cache_set(key + ":slow", True, ttl=SUBSTRUCTURE_SNAPSHOT_SLOW_TTL)
+        raise HTTPException(503, "查询超时，请使用更精确的结构")
     ids = sorted(int(row[0]) for row in rows)
     await cache_set(key, ids, ttl=SUBSTRUCTURE_SNAPSHOT_TTL)
     return ids
