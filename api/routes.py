@@ -58,6 +58,8 @@ async def search(
     q: str = Query(..., min_length=1, max_length=4000),
     mode: str = Query("exact", pattern="^(exact|substructure|similarity)$"),
     threshold: float = Query(0.7, ge=0.4, le=1.0),
+    # threshold 契约限定 3 位小数(0914 #6): 缓存键与过滤值必须同一口径,
+    # 否则 round(t,3) 同键不同结果(TTL 300s 内串页)。URI 传 0.70004 → 422。
     page: int = Query(1, ge=1, le=20),
     page_size: int = Query(30, ge=1, le=100),
     db=Depends(get_db),
@@ -72,6 +74,10 @@ async def search(
     offset = (page - 1) * page_size
     held: list[str] | None = None  # 结构检索闸门句柄(exact 模式不取)
     cache_key = f"v2:unified-search:{mode}:{round(threshold,3)}:{page}:{page_size}:{query}"
+    # 0914 #6: threshold 超 3 位小数时 round 进缓存键会同键不同结果(TTL 300s
+    # 内串页), 显式 422 — 契约即 3 位(0.400–1.000), 而非静默吸附。
+    if mode == "similarity" and round(threshold, 3) != threshold:
+        raise HTTPException(422, "threshold 仅支持 3 位小数 (0.400–1.000)")
     if mode != "exact":
         cached = await cache_get(cache_key)
         if cached:
@@ -314,12 +320,16 @@ async def chemical_substructure(
 async def chemical_similarity(
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     threshold: float = Query(0.7, ge=0.4, le=1.0),
+    # threshold 契约限定 3 位小数(0914 #6): 同 /api/search 的口径约束。
     page: int = Query(1, ge=1, le=20),
     page_size: int = Query(30, ge=1, le=100),
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
     cache_key = f"v2:similarity:{chemical_id}:{threshold}:{page}:{page_size}"
+    # 0914 #6: 同 /api/search — 超精度 threshold 显式 422, 键与过滤值同一口径。
+    if round(threshold, 3) != threshold:
+        raise HTTPException(422, "threshold 仅支持 3 位小数 (0.400–1.000)")
     # 结构检索登录墙: 同 /api/search 的 mode!=exact 分支(见该处注释)
     if actor is None:
         raise HTTPException(401, "结构检索（相似度）需要登录或提供 API Token")
