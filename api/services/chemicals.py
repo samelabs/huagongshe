@@ -514,7 +514,7 @@ async def similarity_page(db: Any, chemical_id: int, threshold: float, page: int
     qualifying = [item for item in items if (item.get("similarity") or 0) >= threshold]
     # total 语义(0912 收口): KNN prefix 里已跌破 threshold(或 prefix 未满) ⇒
     # 否则后面可能还有合格项 → None("更多结果")。禁止用本页条数冒充总数。
-    # cut_inside ⇒ qualifying 已含全部合格项(SQL 无 OFFSET, 从第 1 条起的
+    # cut_inside ⇒ qualifying 已含全部合格项(检索无 SQL 偏移, 从第 1 条起的
     # 前缀) ⇒ 精确 total = len(qualifying), 与页码无关。
     cut_inside = len(items) < window or bool(items and (items[-1].get("similarity") or 0) < threshold)
     total = len(qualifying) if cut_inside else None

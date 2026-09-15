@@ -124,7 +124,8 @@ class SimilaritySemanticsTests(unittest.TestCase):
 
     def test_total_semantics_are_explicit(self):
         self.assertIn("cut_inside", self.sim_src)
-        self.assertIn("total = offset + len(qualifying) if cut_inside else None", self.sim_src)
+        # 0914 #1: qualifying 是无 OFFSET 的完整前缀, 精确 total 与页码无关
+        self.assertIn("total = len(qualifying) if cut_inside else None", self.sim_src)
 
     def test_unified_search_accepts_threshold(self):
         sig = str(inspect.signature(search_service.run_search_query))

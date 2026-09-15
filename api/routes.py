@@ -105,7 +105,9 @@ async def search(
         "query": query, "mode": mode, "canonical_smiles": canonical,
         "threshold": threshold,
         "page": page, "page_size": page_size, "total": total,
-        "has_more": has_more,
+        # has_more 收口(0914 #2): page 已达契约上限(le=20)时无合法 page+1,
+        # has_more 必须 False — 否则 Web(页面 clamp 回 20)形成第 20 页自循环。
+        "has_more": has_more and page < 20,
         "chemicals": chemicals, "reactions": reactions,
     }
     if cas_fetch_pending:

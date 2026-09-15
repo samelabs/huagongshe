@@ -253,7 +253,7 @@ async def run_search_query(
             qualifying.sort(key=lambda item: item.get("similarity") or 0, reverse=True)
             # total 语义(0912): prefix 内已跌破 threshold/prefix 未满 ⇒ 精确总数;
             # 否则 None("更多结果")。禁止用本页条数冒充总数。
-            # cut_inside ⇒ qualifying 已含全部合格项(SQL 无 OFFSET, 从第 1 条
+            # cut_inside ⇒ qualifying 已含全部合格项(检索无 SQL 偏移, 从第 1 条
             # 起的前缀) ⇒ 精确 total = len(qualifying), 与页码无关。
             cut_inside = len(chemicals) < window or bool(
                 chemicals and (chemicals[-1].get("similarity") or 0) < threshold)
