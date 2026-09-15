@@ -103,7 +103,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             <div><p>CHEMICALS</p><h2>{mode !== "exact" ? relationLabel : t.search.chemicalResults}</h2></div>
             <span>
               {capped
-                ? t.search.showingCappedRange(start, shown, total ?? chemicals.length)
+                ? t.search.showingCappedRange(start, shown)
                 : total !== null
                   ? t.search.showingRange(start, shown, total)
                   : t.search.showingResults(chemicals.length)}

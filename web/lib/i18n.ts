@@ -100,7 +100,7 @@ const t = {
     clearQuery: '清空查询',
     showingResults: (n: number) => `显示 ${n} 条匹配记录`,
     showingRange: (start: number, end: number, total: number) => `第 ${start}-${end} 条，共 ${total} 条`,
-    showingCappedRange: (start: number, end: number, total: number) => `第 ${start}-${end} 条，已展示结构搜索上限 ${total} 条（数据库真实匹配数未知）`,
+    showingCappedRange: (start: number, end: number) => `第 ${start}-${end} 条；结果集已触及结构搜索返回上限（数据库真实匹配数未知）`,
     loadMore: '加载更多',
     chemicalResults: '化合物',
     reactionResults: '反应记录',

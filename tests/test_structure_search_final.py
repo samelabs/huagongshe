@@ -143,7 +143,43 @@ class CappedUiWordingTests(unittest.TestCase):
 
     def test_capped_wording_present_and_factual(self):
         i18n = _read(os.path.join("web", "lib", "i18n.ts"))
-        self.assertIn("已展示结构搜索上限", i18n, "必须有 capped 事实语义文案")
+        self.assertIn("结果集已触及结构搜索返回上限", i18n, "必须有 capped 事实语义文案")
+        # capped 文案不得把任何数字包装成产品上限(不得依赖 total/页长度冒充)
+        capped_line = next(
+            line for line in i18n.splitlines() if "showingCappedRange" in line
+        )
+        self.assertNotIn("${total}", capped_line)
+        self.assertNotIn("${n}", capped_line)
+
+    def test_search_page_capped_call_has_no_total_fallback(self):
+        """capped=true && total=null && 页满 30 条时不得显示"上限 30 条":
+        调用点禁止 total ?? chemicals.length 兜底(页长度≠产品上限)。"""
+        source = _read(os.path.join("web", "app", "(site)", "search", "page.tsx"))
+        self.assertIn(
+            "t.search.showingCappedRange(start, shown)",
+            source,
+            "capped 文案只接收 start/end, 不传 total 兜底",
+        )
+        self.assertNotIn(
+            "showingCappedRange(start, shown, total",
+            source,
+            "capped 调用不得携带 total/页长度",
+        )
+
+    def test_capped_first_page_30_items_never_shows_cap_30(self):
+        """行为渲染: capped=true + total=null + 第一页 30 条 → 文案不得出现
+        "上限 30 条"(页长度冒充产品上限)。直接以 i18n 模板渲染验证。"""
+        import re as _re
+
+        i18n = _read(os.path.join("web", "lib", "i18n.ts"))
+        match = _re.search(
+            r"showingCappedRange:\s*\(start: number, end: number\)\s*=>\s*`([^`]*)`", i18n
+        )
+        self.assertIsNotNone(match, "showingCappedRange 必须只接收 (start, end)")
+        rendered = match.group(1).replace("${start}", "1").replace("${end}", "30")
+        self.assertNotIn("上限 30 条", rendered, f"capped 首页 30 条不得冒充产品上限: {rendered}")
+        self.assertIn("结构搜索返回上限", rendered)
+        self.assertIn("未知", rendered)
 
     def test_search_page_uses_capped_wording_when_capped(self):
         source = _read(os.path.join("web", "app", "(site)", "search", "page.tsx"))
