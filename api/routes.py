@@ -1,6 +1,7 @@
 """Public read API for the autonomous chemicals and reactions data model."""
 
 from __future__ import annotations
+import asyncio
 
 from typing import Any
 
@@ -92,7 +93,9 @@ async def search(
     # create, edit or delete is reflected immediately. Only expensive
     # structure searches use the short-lived shared cache.
 
-    canonical = canonicalize_smiles(query)
+    # RDKit 解析/canonical 化是 CPU 计算, 丢线程池避免卡事件循环
+    # (0915 裁定; 同款先例=resolve_or_create 的 chemical_properties)。
+    canonical = await asyncio.to_thread(canonicalize_smiles, query)
     try:
         (chemicals, total, reactions, cas_fetch_pending, canonical,
          cas_fetch_hit_id, has_more) = await run_search_query(
