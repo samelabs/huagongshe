@@ -182,14 +182,6 @@ async def chemical_externals(
     """
     from .services.cb import ensure_externals, negative_is_fresh, sync_fetch_and_store
 
-    # P1修复: 匿名同步外呼入口限流(照抄 smiles-create 口径) — ensure 分支
-    # 会同步外呼上游(3s预算)且全程持有 DB 连接(pool 仅 5+5), 爬虫顺序扫
-    # HCID 可打满连接池。10/min 鉴权、30/min 匿名全局。
-    if actor is not None:
-        await enforce("externals-fetch", str(actor.id), 10, 60)
-    else:
-        await enforce("externals-fetch", "anonymous-global", 30, 60)
-
     row = (await db.execute(text("""
         SELECT id, cas_numbers[1] AS cas FROM chemistry.chemicals WHERE id=:id
     """), {"id": chemical_id})).fetchone()
@@ -221,6 +213,16 @@ async def chemical_externals(
                 "entry": None, "suppliers": [], "job_id": None,
                 "negative": True,  # 内部 decision; 不扩前端公开 state 协议
             }
+        # P1修复(II): 同步外呼限流只覆盖"即将发生同步上游外呼"的分支(照抄
+        # smiles-create 口径) — 同步外呼有 3s 预算且全程持有 DB 连接(pool 仅
+        # 5+5), 爬虫顺序扫 HCID 可打满连接池。额度不变: 10/min 鉴权、
+        # 30/min 匿名全局。不得放 handler 入口: fresh cache/fresh DB/
+        # fresh negative/stale enqueue/no_cas/404 这些零外呼路径不消耗配额,
+        # Redis 故障时也不该把正常读取打成 503。
+        if actor is not None:
+            await enforce("externals-fetch", str(actor.id), 10, 60)
+        else:
+            await enforce("externals-fetch", "anonymous-global", 30, 60)
         # 首访: 同步拉取(3s 预算); 失败入队,本响应出空
         sync = await sync_fetch_and_store(db, chemical_id=chemical_id, cas_number=cas_number)
         if sync and sync["status"] == "ok":
