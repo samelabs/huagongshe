@@ -141,9 +141,21 @@ async def fetch_cas(
                      cb, len(body2), state2)
             if state2 == "ok":
                 cpp_html = body2
-            # error(小页): CPP 段缺失, CAS 页 entry 仍完整 → ok 不降级
+            else:
+                # 2026-09-16 收口: CPP 已确认收录(号在手)但拿到小页/质询页
+                # = 没问成, 与路径A同判 error(可复活重试), 不落 not_found。
+                return FetchResult("error", error="cpp_error_page", cb_number=cb,
+                                   stats=stats)
         else:
-            log.info("cpp cb=%s loc=zh status=%s state=error", cb, status2)
+            # 2026-09-16 收口: 非200(超时/5xx/404) = 没问成, 与路径A同判
+            # error。旧行为"ok 不降级"是 0905 前 CAS 页内容还落库时的语义,
+            # 0905 起 CAS 页职能只剩提号, ok+None 会走 not_found 污染
+            # cas_locator negative(180天不重问)。
+            log.info("cpp cb=%s loc=zh status=%s bytes=%s state=error",
+                     cb, status2, len(body2) if body2 else 0)
+            return FetchResult("error",
+                               error=f"http_{status2}" if status2 else "network_fail",
+                               cb_number=cb, stats=stats)
         return FetchResult(
             "ok", cas_html=body, cpp_html=cpp_html,
             cb_number=cb, stats=stats,

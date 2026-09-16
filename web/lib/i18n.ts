@@ -46,7 +46,6 @@ const t = {
     pageNav: '分页',
     pageOf: (cur: number, total: number) => `第 ${cur} / ${total} 页`,
     networkError: '网络错误，稍后重试',
-    unnamedCompound: '未命名化合物',
     hcidLabel: (id: number | string) => `Huagongshe 化合物记录 HCID ${id}`,
     hridLabel: (id: number | string) => `Huagongshe 反应记录 HRID ${id}`,
     breadcrumb: '面包屑',
@@ -91,7 +90,6 @@ const t = {
   /* ── 搜索 ────────────────────────────────────────────── */
   search: {
     title: '查询化学数据',
-    noResults: '没有匹配结果',
     noResultsFor: (query: string) => `没有找到与「${query}」匹配的记录`,
     noResultsHint: '可以尝试以下方式：',
     noResultsHints: ['检查名称、CAS、SMILES、CID 的拼写', '换用更精确的标识符（如 CAS 号）', '化合物可用英文名或分子式再试'],
@@ -107,7 +105,6 @@ const t = {
     reactionFacts: (reactants: number, products: number) => `${reactants} 个反应物 → ${products} 个产物`,
     resultSuffix: '结果',
     queryStructurePrefix: '以 ',
-    basedOnStructure: '以 ',
     cappedHint: '；已展示结构搜索上限，数据库真实匹配数未知',
     queryStructure: ' 为查询结构的',
     similarityThreshold: (v: number) => `（相似度 ≥ ${Math.round(v * 100)}%）`,
@@ -126,10 +123,8 @@ const t = {
   /* ── 化合物详情 ──────────────────────────────────────── */
   chemical: {
     detail: '化合物详情',
-    desc: '化合物结构、身份、性质与相关反应',
     descFor: (name: string) => `${name}｜化合物结构、身份、性质与相关反应`,
     home: '首页',
-    structureIdentity: '结构与身份',
     relatedReactions: '相关反应',
     substructure: '子结构检索',
     similarity: '查找相似结构',
@@ -185,7 +180,6 @@ const t = {
       heavyAtoms: '重原子',
       charge: '形式电荷',
       complexity: '复杂度',
-      enriching: '补全中',
       noData: (section: string) => `暂无${section}数据。`,
     },
     synonyms: {
@@ -195,12 +189,6 @@ const t = {
       expandMore: '展开更多名称',
     },
     casext: {
-      identity: '标识信息',
-      nameCn: '中文名',
-      nameEn: '英文名',
-      formula: '分子式',
-      mw: '分子量',
-      aliases: '名称与别名',
       props: '物理化学性质',
       safety: '安全数据',
       price: '试剂价格',
@@ -423,7 +411,6 @@ const t = {
   settings: {
     title: '账户设置',
     nav: {
-      ai: 'AI Key',
       profile: '个人资料',
       avatar: '头像',
       security: '密码安全',
@@ -443,17 +430,17 @@ const t = {
       created: 'AI Key 已创建',
       copied: '已复制',
       copyFailed: '复制失败，请手动复制。',
-      copyHint: 'AI Key 可在账户设置中查看、复制或撤销。请勿将 AI Key 发送给 huagongshe.com 以外的服务。',
+      copyHint: 'AI Key 可在账户设置中查看、复制或删除。请勿将 AI Key 发送给 huagongshe.com 以外的服务。',
       loadFailed: 'AI Key 列表读取失败，请稍后重试。',
       createFailed: 'AI Key 创建失败。',
-      revokeFailed: '撤销失败，请稍后重试。',
-      limitReached: '已达到上限：每个账号最多 5 个有效 AI Key。请先撤销一个再创建。',
+      revokeFailed: '删除失败，请稍后重试。',
+      limitReached: '已达到上限：每个账号最多 5 个有效 AI Key。请先删除一个再创建。',
       relogin: '登录已过期，请重新登录后再试。',
       upstreamDown: '服务暂时不可用，请稍后重试。',
       copyToken: '复制',
       copiedShort: '已复制',
-      revoke: '撤销',
-      revoking: '撤销中…',
+      revoke: '删除',
+      revoking: '删除中…',
       guideLink: 'HTTP API 使用指南',
       mcpGuideLink: 'MCP 使用指南',
       statusValid: '有效',
@@ -511,7 +498,7 @@ const t = {
     security: {
       title: '修改密码',
       kicker: 'SECURITY',
-      desc: '修改后将注销全部会话并撤销现有 AI Key。',
+      desc: '修改后将注销全部会话并删除现有 AI Key。',
       current: '当前密码',
       new: '新密码',
       confirm: '确认新密码',
@@ -648,7 +635,7 @@ const t = {
     connectKicker: '连接信息',
     connectUrlLabel: 'MCP Server',
     connectTokenLabel: 'AI Key（按需）',
-    connectTokenDesc: '公开能力匿名可用；个人数据、结构检索及写操作需要 AI Key。在 账户设置 → AI Key 创建，随时可撤销。Token 栏只粘贴 AI Key 本身；自定义 Header 才写全 Authorization: Bearer <你的AI Key>。',
+    connectTokenDesc: '公开能力匿名可用；个人数据、结构检索及写操作需要 AI Key。在 账户设置 → AI Key 创建，随时可删除。Token 栏只粘贴 AI Key 本身；自定义 Header 才写全 Authorization: Bearer *** Key>。',
     connectTokenCta: '创建 AI Key',
     /* ── 三大智能体 ── */
     agentsKicker: '主流智能体接入',
@@ -713,7 +700,7 @@ const t = {
     trustKicker: '数据与授权',
     trust1: '反应记录默认私有，公开需要你明确确认',
     trust2: '保存前 AI 必须向你展示草稿并取得确认',
-    trust3: 'AI Key 随时可撤销，只发送给 huagongshe.com',
+    trust3: 'AI Key 随时可删除，只发送给 huagongshe.com',
     trust4: '每次保存使用唯一 Idempotency-Key，重试不会产生重复记录',
     copyJson: (copied: boolean) => copied ? '已复制' : '复制 JSON',
   },
@@ -762,7 +749,7 @@ const t = {
     /* ── 数据与授权 ── */
     trustKicker: '数据与授权',
     trust1: '反应记录默认私有，公开需要你明确确认',
-    trust2: 'AI Key 可在账户设置中查看、复制或撤销',
+    trust2: 'AI Key 可在账户设置中查看、复制或删除',
     trust3: 'AI Key 只发送给huagongshe.com',
     /* ── 分享 ── */
     share: '分享',

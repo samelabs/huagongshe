@@ -45,13 +45,15 @@ from .schemas.stoichiometry import ScaleInput
 # 两个 render tool 共用同一资源池: render_molecule_svg / render_reaction_svg。
 # RDKit 渲染是 CPU-bound(外部直传 SMILES 可占分钟级), 复用与结构检索同一组
 # 原语: enforce(fixed-window 限频) + acquire_lease/release_lease(in-flight 租约)。
-# - actor / anon 各 120 次/分钟
+# - 已认证 actor 120 次/分钟, 匿名按来源 IP 各 120 次/分钟(x-forwarded-for),
+#   匿名全局兜底 600 次/分钟(防分布式刷)
 # - 已认证 actor in-flight ≤ 2(匿名不额外持 actor 租约)
 # - 全局 in-flight ≤ 4
 # - Redis acquire 失败 fail-closed(503 → ToolError), 不放行
 # - 闸门必须在 RDKit to_thread 之前, finally 必释放
 MCP_RENDER_BUCKET = "mcp-render"
 MCP_RENDER_RATE_LIMIT = 120
+MCP_RENDER_ANON_GLOBAL_LIMIT = 600
 MCP_RENDER_ACTOR_INFLIGHT = 2
 MCP_RENDER_GLOBAL_INFLIGHT = 4
 
@@ -60,11 +62,24 @@ def _render_busy() -> ToolError:
     return ToolError("渲染并发已达上限，请稍后重试")
 
 
-async def _render_enter(actor: Actor | None) -> list[str]:
+def _client_ip(headers: Any) -> str:
+    """匿名限流分桶键: 取 x-forwarded-for 首段(nginx 注入), 缺省 unknown。"""
+    if not headers:
+        return "unknown"
+    xff = headers.get("x-forwarded-for") or headers.get("X-Forwarded-For")
+    if xff:
+        return xff.split(",")[0].strip() or "unknown"
+    return "unknown"
+
+
+async def _render_enter(actor: Actor | None, headers: Any = None) -> list[str]:
     """进入渲染闸门, 返回已持有租约的身份列表(交给 _render_exit 释放)。"""
-    identity = f"actor:{actor.id}" if actor is not None else "anon"
+    identity = f"actor:{actor.id}" if actor is not None else f"anon:{_client_ip(headers)}"
     held: list[str] = []
     try:
+        if actor is None:
+            # 匿名拆桶(按来源IP)后加全局兜底, 防分布式刷
+            await rate_limit.enforce(MCP_RENDER_BUCKET, "anon-global", MCP_RENDER_ANON_GLOBAL_LIMIT, 60)
         await rate_limit.enforce(MCP_RENDER_BUCKET, identity, MCP_RENDER_RATE_LIMIT, 60)
         if actor is not None:
             if await rate_limit.acquire_lease(MCP_RENDER_BUCKET, identity, MCP_RENDER_ACTOR_INFLIGHT):
@@ -221,7 +236,9 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("q 必填且不超过 4000 字符")
         page = min(max(page, 1), 20)
         page_size = min(max(page_size, 1), 100)
-        threshold = min(max(threshold, 0.4), 1.0)
+        # threshold 3位小数契约(与 REST routes.py 0914 #6 同口径): 不round则
+        # 0.70004 穿透到 REST 层吃 422, 错误信息对 MCP 客户端不可解。
+        threshold = round(min(max(threshold, 0.4), 1.0), 3)
         # 结构检索登录墙与 REST 一致: mode!=exact 需 Bearer token, 匿名 ToolError.
         # exact 保持原样(匿名, 不透传 actor).
         actor = None
@@ -334,7 +351,7 @@ def build_mcp_server() -> MCPServer:
         import asyncio as _asyncio
 
         # 资源闸门在 RDKit to_thread 之前; 与 render_reaction_svg 共用同一池。
-        held = await _render_enter(actor)
+        held = await _render_enter(actor, ctx.headers if ctx else None)
         try:
             svg = await _asyncio.to_thread(mol_module.smiles_to_svg, target_smiles, width, height)
         finally:
@@ -372,7 +389,7 @@ def build_mcp_server() -> MCPServer:
         import asyncio as _asyncio
 
         # 资源闸门在 RDKit to_thread 之前; 与 render_molecule_svg 共用同一池。
-        held = await _render_enter(actor)
+        held = await _render_enter(actor, ctx.headers if ctx else None)
         try:
             svg = await _asyncio.to_thread(mol_module.reaction_to_svg, row[0], width, height)
         finally:

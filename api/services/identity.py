@@ -579,15 +579,6 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
     return int(merge_id)
 
 
-# 向后兼容旧名 (cb.py / workapi.py 历史调用面) — 语义=absorb 的薄包装。
-# 旧签名 placeholder_id/target_id 假定 survivor=target; 现由 survivor 分决定,
-# 返回 survivor_id, 调用方必须以返回值为准改写持有的行 id。
-async def absorb_placeholder(db: Any, *, placeholder_id: int, target_id: int) -> int:
-    """兼容入口: 占位行并入目标行。gate 未过抛 MergeBlockedError。返回 survivor_id。"""
-    return await absorb(db, source_id=placeholder_id, target_id=target_id,
-                        reason="workapi-relocation", trigger="absorb_placeholder")
-
-
 async def canonicalize_id(db: Any, chemical_id: int) -> int:
     """旧 id → canonical id (规范3.6.3)。无 redirect 记录时返回原 id。
 

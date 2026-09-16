@@ -27,7 +27,7 @@ async def agent_guide(
     """Return the complete, bounded operation guide; a Bearer token also confirms its owner."""
     bearer_supplied = bool(authorization and authorization.lower().startswith("bearer "))
     if bearer_supplied and actor is None:
-        raise HTTPException(401, "AI Key 无效、已过期或已撤销")
+        raise HTTPException(401, "AI Key 无效、已过期或已删除")
 
     agent = actor if actor and actor.auth_kind == "agent" else None
     origin = settings.public_base_url.rstrip("/")
@@ -226,7 +226,7 @@ async def agent_guide(
         ],
         "errors": {
             "400_or_422": "按 detail 修正字段或结构后重新校验，不补猜缺失事实",
-            "401": "停止操作；AI Key 无效、已过期或已撤销，请用户重新授权",
+            "401": "停止操作；AI Key 无效、已过期或已删除，请用户重新授权",
             "403": "停止操作；当前授权不允许该动作，不尝试其他接口绕过",
             "404": "核对稳定标识符，不推测相邻 ID",
             "409": "按 detail 处理重复参与物或幂等冲突",

@@ -10,6 +10,8 @@ theoretical (100% conversion).
 from __future__ import annotations
 
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from rdkit import Chem
 from rdkit.Chem import Descriptors
@@ -51,6 +53,13 @@ async def calculate_stoichiometry(
     if body.concentration_mol_per_l is not None and len(solvent_rows) > 1:
         raise HTTPException(400, "按浓度定容仅支持单一溶剂行")
 
+    # P1修复: RDKit 解析/分子量计算丢线程池 — schemas 允许 20000 字符×30
+    # 组分, 病态 SMILES 同步解析会阻塞整个事件循环(两 worker 全卡)。
+    # 与 1fb9daa 对 canonicalize_smiles 的处理同口径。
+    return await asyncio.to_thread(_compute, body)
+
+
+def _compute(body: ScaleInput) -> dict:
     mols = []
     for i, c in enumerate(body.components):
         mols.append(_parse(c.smiles, f"组分 {i + 1}（{c.role}）"))

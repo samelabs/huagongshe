@@ -10,20 +10,6 @@ from fastapi import HTTPException, Request
 from sqlalchemy import text
 
 
-ALLOWED_SECTIONS = frozenset(
-    {
-        "computed",
-        "identifiers",
-        "synonyms",
-        "physical",
-        "safety",
-        "toxicity",
-        "regulatory",
-        "pharmacology",
-        "uses",
-    }
-)
-DEFAULT_SECTIONS = ("computed", "identifiers", "synonyms")
 DISPLAY_EVIDENCE_SECTIONS = (
     "physical_properties", "ghs_classification", "hazards", "safety_measures",
     "toxicity", "regulatory", "pharmacology", "uses_and_manufacturing",
@@ -111,7 +97,6 @@ async def enqueue_chemical_if_needed(
     db: Any,
     chemical_id: int,
     *,
-    sections: tuple[str, ...] = DEFAULT_SECTIONS,
     priority: int = 70,
     allow_refresh: bool = True,
     actor: Any = None,
@@ -119,7 +104,6 @@ async def enqueue_chemical_if_needed(
 ) -> tuple[dict[str, Any] | None, int | None, bool]:
     """pb_decide(0901 整记录化, 对齐 cb_decide 形态):
     无 cid=skip / 无行或 fetched_at 超 100 天窗=enqueue / 新鲜=serve_fresh。
-    sections 参数保留签名兼容(路由层还在传), 判定不再使用。
 
     H1 方案 D: refresh 是产品 use-case policy, 不是 transport privilege ——
     由调用方显式传 allow_refresh; 不再读取 request.client.host/loopback。

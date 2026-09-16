@@ -45,7 +45,8 @@ def chemical_properties(smiles: str) -> dict[str, Any]:
 async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
     # 锁键用 canonical 形式: 同一分子的不同写法(CCO/OCC)必须落在同一把锁上,
     # 否则并发双写可各建一行(缝只开一次, 但没必要留). 入参已是 canonical 时零开销.
-    canonical = canonicalize_smiles(smiles) or smiles
+    # RDKit 解析是 CPU-bound, 下沉线程池防卡事件循环(与 :50 chemical_properties 同口径).
+    canonical = await asyncio.to_thread(canonicalize_smiles, smiles) or smiles
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:smiles,0))"), {"smiles": canonical})
     props = await asyncio.to_thread(chemical_properties, canonical)
     inchikey = props.get("inchikey")

@@ -831,7 +831,8 @@ async def ensure_externals(
             if payload.get("state") == "fresh":
                 return payload
     except Exception:
-        pass
+        # 降级直查DB是设计; 但Redis故障必须留痕, 防静默打穿连接池无人知
+        logger.warning("externals cache read unavailable, fallback to db", exc_info=True)
 
     row = await get_externals_row(db, chemical_id)
     if row is None:
@@ -849,5 +850,6 @@ async def ensure_externals(
         await redis.set(cache_key, json.dumps(payload, ensure_ascii=False,
                                               default=str), ex=CACHE_TTL_S)
     except Exception:
-        pass
+        # 返回无缓存是设计; 写失败留痕与读路径同口径
+        logger.warning("externals cache write unavailable", exc_info=True)
     return payload

@@ -119,6 +119,8 @@ async def authenticated_worker(
         raise HTTPException(401, "unknown or disabled worker")
 
     redis = await get_cache()
+    # 防重放自洽性: 时间闸(skew±300s)已拦下所有晚期重放, nonce只需覆盖
+    # 300s窗; TTL=600s=2×skew是冗余设计。改 skew 时必须保持 TTL ≥ 2×skew。
     nonce_key = f"workapi:nonce:{x_worker_id}:{x_work_nonce}"
     try:
         accepted = await redis.set(nonce_key, "1", ex=600, nx=True)

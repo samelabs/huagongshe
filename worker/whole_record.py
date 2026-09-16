@@ -238,7 +238,6 @@ def parse_whole_record(payload: dict[str, Any]) -> dict[str, Any] | None:
     for heading in _DESCRIPTORS:
         section = _find_one(record, heading)
         if section:
-            text = (section.get("Information") or [{}])[0].get("Value") or {}
             value = _swm_string((section.get("Information") or [{}])[0].get("Value") or {})
             if heading == "Molecular Formula":
                 core["MolecularFormula"] = value

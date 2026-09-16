@@ -123,7 +123,7 @@ async def search(
     return data
 
 
-from .core.rate_limit import structure_enter, structure_exit  # noqa: E402  (结构检索闸门, 0912)
+from .core.rate_limit import enforce, structure_enter, structure_exit  # noqa: E402  (结构检索闸门 0912 + externals 限流)
 
 
 @router.get(
@@ -181,6 +181,14 @@ async def chemical_externals(
     entry/suppliers 为空 = 该化合物无 CAS 或源站无数据(非错误)。
     """
     from .services.cb import ensure_externals, negative_is_fresh, sync_fetch_and_store
+
+    # P1修复: 匿名同步外呼入口限流(照抄 smiles-create 口径) — ensure 分支
+    # 会同步外呼上游(3s预算)且全程持有 DB 连接(pool 仅 5+5), 爬虫顺序扫
+    # HCID 可打满连接池。10/min 鉴权、30/min 匿名全局。
+    if actor is not None:
+        await enforce("externals-fetch", str(actor.id), 10, 60)
+    else:
+        await enforce("externals-fetch", "anonymous-global", 30, 60)
 
     row = (await db.execute(text("""
         SELECT id, cas_numbers[1] AS cas FROM chemistry.chemicals WHERE id=:id

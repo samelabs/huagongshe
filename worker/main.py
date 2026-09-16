@@ -10,6 +10,7 @@ import logging
 import os
 import random
 import secrets
+import sys
 import time
 from typing import Any
 
@@ -35,6 +36,9 @@ class WorkApiClient:
         timestamp = str(int(time.time()))
         nonce = secrets.token_urlsafe(24)
         body_hash = hashlib.sha256(body).hexdigest()
+        # 签名含 path(相对路径), 服务端按 request.url.path 重组校验 — 部署耦合:
+        # worker 必须直连(或反代不改写路径前缀)。若 workapi 挂到带前缀的子路径,
+        # 两端签名域不一致 → 恒 401。当前直连 127.0.0.1:8000, 无前缀。
         signed = "\n".join((timestamp, nonce, "POST", path, body_hash)).encode()
         signature = hmac.new(self.token.encode(), signed, hashlib.sha256).hexdigest()
         headers = {
@@ -487,7 +491,9 @@ async def run() -> None:
                     loops.append(_cb_loop(workapi, cb_proxy_session, PubChemRateController(cb_rps)))
             if not loops:
                 log.error("no scopes enabled (HGS_WORKER_SCOPES=%r) — exiting", scopes)
-                return
+                # 配置错误必须显式失败: exit 0 会被 PM2 当正常退出无限拉起,
+                # 表现为"一直 restart 却无人报警"。非零退出让 PM2 标记 errored。
+                sys.exit(1)
             await asyncio.gather(*loops)
         finally:
             if pb_session is not None:

@@ -216,7 +216,8 @@ async def run_search_query(
         total=None 当前页满则可能还有);
         其余 False。
     actor_id: 鉴权用户 id(匿名=None) — 仅用于 CAS-miss 入队限流身份。
-    threshold: similarity 模式阈值(0.4-1.0, 默认 0.7), 与 /chemicals/{id}/similarity 同语义。
+    threshold: similarity 模式阈值(0.4-1.0, 默认 0.7)。similarity 唯一入口
+        是本 search 端点(/chemicals/{id}/similarity 已随 20dfdbc 剥离)。
     """
     chemicals: list[dict[str, Any]] = []
     total: int | None = None
