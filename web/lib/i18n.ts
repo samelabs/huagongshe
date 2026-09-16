@@ -635,7 +635,7 @@ const t = {
     connectKicker: '连接信息',
     connectUrlLabel: 'MCP Server',
     connectTokenLabel: 'AI Key（按需）',
-    connectTokenDesc: '公开能力匿名可用；个人数据、结构检索及写操作需要 AI Key。在 账户设置 → AI Key 创建，随时可删除。Token 栏只粘贴 AI Key 本身；自定义 Header 才写全 Authorization: Bearer *** Key>。',
+    connectTokenDesc: '公开能力匿名可用；个人数据、结构检索及写操作需要 AI Key。在 账户设置 → AI Key 创建，随时可删除。Token 栏只粘贴 AI Key 本身；自定义 Header 才写全 Authorization: Bearer <你的AI Key>。',
     connectTokenCta: '创建 AI Key',
     /* ── 三大智能体 ── */
     agentsKicker: '主流智能体接入',

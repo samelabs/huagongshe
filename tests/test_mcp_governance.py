@@ -384,17 +384,47 @@ class RenderResourceGate(unittest.TestCase):
                 self.assertEqual(kinds[-1], "release_leases", "租约必须 finally 释放")
 
     def test_both_tools_share_single_pool(self):
+        """两工具共用同一资源池; 匿名限流为两层: 600/min 全局兜底 → 120/min 按IP。"""
         for tool, args, row in self.CASES:
-            with self.subTest(tool=tool):
+            with self.subTest(tool=f"{tool}/anonymous"):
                 patch_runtime(row=row)
                 asyncio.run(build_server().call_tool(tool, args, context=FakeCtx()))
                 buckets = {step[1] for step in ORDER
                            if step[0] in ("enforce", "acquire", "release_leases")}
                 self.assertEqual(buckets, {mcp_server.MCP_RENDER_BUCKET})
                 self.assertEqual(mcp_server.MCP_RENDER_BUCKET, "mcp-render")
-                for step in ORDER:
-                    if step[0] == "enforce":
-                        self.assertEqual(step[3], 120)
+                # 匿名: 600/min 全局兜底先执行, 120/min render gate 随后执行。
+                self.assertEqual(
+                    [(step[2], step[3]) for step in ORDER if step[0] == "enforce"],
+                    [("anon-global", 600), ("anon:unknown", 120)],
+                    "600 全局 gate 必须先于 120 render gate",
+                )
+                # 常量即外部契约: 不得为迁就旧断言把 600 改回 120。
+                self.assertEqual(mcp_server.MCP_RENDER_ANON_GLOBAL_LIMIT, 600)
+                self.assertEqual(mcp_server.MCP_RENDER_RATE_LIMIT, 120)
+                kinds = [step[0] for step in ORDER]
+                self.assertLess(max(i for i, k in enumerate(kinds) if k == "enforce"),
+                                min(i for i, k in enumerate(kinds) if k == "acquire"),
+                                "限频必须先于租约")
+                self.assertEqual(kinds[-1], "release_leases", "租约必须 finally 释放")
+            with self.subTest(tool=f"{tool}/anonymous+forwarded-for"):
+                patch_runtime(row=row)
+                asyncio.run(build_server().call_tool(
+                    tool, args, context=FakeCtx({"x-forwarded-for": "203.0.113.9, 10.0.0.1"})))
+                self.assertEqual(
+                    [step[2] for step in ORDER if step[0] == "enforce"],
+                    ["anon-global", "anon:203.0.113.9"],
+                    "匿名按来源 IP 拆桶(取 x-forwarded-for 首段)",
+                )
+            with self.subTest(tool=f"{tool}/authenticated"):
+                patch_runtime(row=row, auth=True)
+                asyncio.run(build_server().call_tool(
+                    tool, args, context=FakeCtx(AUTH_HEADERS)))
+                self.assertEqual(
+                    [(step[2], step[3]) for step in ORDER if step[0] == "enforce"],
+                    [("actor:7", 120)],
+                    "已认证身份不吃匿名全局兜底, 仍为 120 次/分钟",
+                )
 
     def test_actor_inflight_and_global_inflight_bounds(self):
         """认证身份持 actor 租约(≤2)+ global 租约(≤4); 匿名只持 global 租约。"""
