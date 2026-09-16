@@ -1,0 +1,23 @@
+-- 0916 第三阶段生产搜索修复: name_index exact B-tree。
+--
+-- 背景(生产实测 2026-09-16, main@672ea49, 前两阶段 preferred/iupac 索引后):
+--   名称 exact 三源串行全查中的第三路 name_index.normalized 等值仍走
+--   trgm GIN, benzene EXPLAIN before: Bitmap Index Scan 扫出 46,103 假阳性
+--   候选 → 回表 27,854 heap blocks(recheck 剔 45,003, 真命中 0) →
+--   410.7ms(热态); 冷态/IO 争抢下单条 5,131ms(生产实测), 打满 5s 局部闸
+--   → /api/search?q=benzene 503(5.03s) 的主因。
+--
+-- 注意: 本索引为**非部分**索引(覆盖 name_index 全部 1413 万行, 含所有
+-- normalized 非空行), 与前两阶段的部分索引不同 —— 服务裸等值谓词
+-- `normalized = $1` 不受部分条件限制。
+--
+-- 生产执行方式: CREATE INDEX CONCURRENTLY 已于生产直接先行执行(不锁写),
+-- 之后 migration runner 对本文件为幂等 no-op(IF NOT EXISTS)。
+-- fresh DB: 本文件即唯一来源, 通过 forward migration 正常创建索引。
+--
+-- 本文件不带 BEGIN/COMMIT, 也不含 CREATE INDEX CONCURRENTLY ——
+-- runner 在单事务块内执行迁移, 而 CONCURRENTLY 不能运行在事务块中;
+-- 故此处登记幂等形式(IF NOT EXISTS 的普通 CREATE INDEX), 与
+-- 20260911_01 / 20260916_01 / 20260916_02 先例同款。
+CREATE INDEX IF NOT EXISTS name_index_normalized_exact_idx
+    ON chemistry.name_index (normalized, chemical_id);
