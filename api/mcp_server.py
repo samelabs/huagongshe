@@ -322,7 +322,7 @@ def build_mcp_server() -> MCPServer:
     ) -> str:
         """获取化合物的 2D 结构图(SVG 文本)，width/height 指定像素尺寸(50-800)。
         chemical_id(库内化合物)或 smiles(任意结构)二选一。"""
-        from . import mol as mol_module
+        from .services import rendering as render_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         width = min(max(width, 50), 800)
@@ -330,12 +330,10 @@ def build_mcp_server() -> MCPServer:
         target_smiles: str | None = None
         if chemical_id is not None:
             async with async_session() as session:
-                row = (await session.execute(text(
-                    "SELECT smiles FROM chemistry.chemicals WHERE id=:id"
-                ), {"id": chemical_id})).fetchone()
-            if not row or not row[0]:
+                target_smiles = await render_service.lookup_molecule_smiles(
+                    session, chemical_id)
+            if target_smiles is None:
                 raise ToolError("化合物不存在或没有可渲染的结构表达")
-            target_smiles = row[0]
         elif smiles:
             target_smiles = smiles.strip()
             # 外部直传 SMILES 的 resource bound: 实测 ~4000 字符合法
@@ -353,7 +351,7 @@ def build_mcp_server() -> MCPServer:
         # 资源闸门在 RDKit to_thread 之前; 与 render_reaction_svg 共用同一池。
         held = await _render_enter(actor, ctx.headers if ctx else None)
         try:
-            svg = await _asyncio.to_thread(mol_module.smiles_to_svg, target_smiles, width, height)
+            svg = await _asyncio.to_thread(render_service.smiles_to_svg, target_smiles, width, height)
         finally:
             await _render_exit(held)
         if svg is None:
@@ -368,30 +366,26 @@ def build_mcp_server() -> MCPServer:
         ctx: Context = None,  # type: ignore[assignment]
     ) -> str:
         """获取反应方程式的 2D 结构图(SVG 文本)。"""
-        from . import mol as mol_module
+        from .services import rendering as render_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         width = min(max(width, 50), 800)
         height = min(max(height, 50), 800)
         async with async_session() as session:
-            row = (await session.execute(text("""
-                SELECT reaction_smiles FROM chemistry.reactions
-                WHERE id=:id AND reaction_smiles IS NOT NULL
-                  AND (:is_admin OR created_by_user_id=:viewer_id
-                       OR (visibility='public' AND moderation_status='visible'))
-            """), {
-                "id": reaction_id,
-                "viewer_id": actor.id if actor else 0,
-                "is_admin": bool(actor and actor.role == "admin"),
-            })).fetchone()
-        if not row or not row[0]:
+            source = await render_service.lookup_reaction_render_source(
+                session, reaction_id,
+                viewer_id=actor.id if actor else 0,
+                is_admin=bool(actor and actor.role == "admin"))
+        if source is None:
             raise ToolError("反应不存在或没有可渲染的表达")
         import asyncio as _asyncio
 
         # 资源闸门在 RDKit to_thread 之前; 与 render_molecule_svg 共用同一池。
         held = await _render_enter(actor, ctx.headers if ctx else None)
         try:
-            svg = await _asyncio.to_thread(mol_module.reaction_to_svg, row[0], width, height)
+            svg = await _asyncio.to_thread(
+                render_service.reaction_to_svg, source.reaction_smiles,
+                width, height)
         finally:
             await _render_exit(held)
         if svg is None:

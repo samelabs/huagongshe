@@ -35,6 +35,7 @@ os.environ.setdefault(
 import api.core.rate_limit as rate_limit  # noqa: E402
 import api.mcp_server as mcp_server  # noqa: E402
 import api.mol as mol  # noqa: E402
+import api.services.rendering as render_service  # noqa: E402
 import api.routes as routes  # noqa: E402
 import api.skills as skills  # noqa: E402
 from api.core.security import Actor  # noqa: E402
@@ -110,8 +111,8 @@ def _save_originals() -> None:
             "release_leases": rate_limit.release_leases,
             "actor_from_headers": mcp_server._actor_from_headers,
             "async_session": mcp_server.async_session,
-            "smiles_to_svg": mol.smiles_to_svg,
-            "reaction_to_svg": mol.reaction_to_svg,
+            "smiles_to_svg": render_service.smiles_to_svg,
+            "reaction_to_svg": render_service.reaction_to_svg,
         }
     )
 
@@ -125,8 +126,8 @@ def restore_runtime() -> None:
     rate_limit.release_leases = _ORIGINALS["release_leases"]
     mcp_server._actor_from_headers = _ORIGINALS["actor_from_headers"]
     mcp_server.async_session = _ORIGINALS["async_session"]
-    mol.smiles_to_svg = _ORIGINALS["smiles_to_svg"]
-    mol.reaction_to_svg = _ORIGINALS["reaction_to_svg"]
+    render_service.smiles_to_svg = _ORIGINALS["smiles_to_svg"]
+    render_service.reaction_to_svg = _ORIGINALS["reaction_to_svg"]
     _ORIGINALS.clear()
 
 
@@ -171,8 +172,8 @@ def patch_runtime(row=None, deny=False, enforce_503=False, forbid_fake_sql=None,
             return FAKE_SVG
         return inner
 
-    mol.smiles_to_svg = track("smiles_to_svg")
-    mol.reaction_to_svg = track("reaction_to_svg")
+    render_service.smiles_to_svg = track("smiles_to_svg")
+    render_service.reaction_to_svg = track("reaction_to_svg")
     mcp_server.async_session = fake_session_factory([], row if row is not None else ())
 
 
@@ -478,7 +479,7 @@ class RenderResourceGate(unittest.TestCase):
             ORDER.append(("rdkit", "boom"))
             raise RuntimeError("rdkit exploded")
 
-        mol.smiles_to_svg = boom
+        render_service.smiles_to_svg = boom
         with self.assertRaises(Exception):
             asyncio.run(build_server().call_tool(
                 "render_molecule_svg", {"smiles": "CCO"}, context=FakeCtx()))

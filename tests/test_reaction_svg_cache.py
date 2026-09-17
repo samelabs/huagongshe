@@ -190,14 +190,23 @@ class ReactionSvgCacheTests(unittest.TestCase):
         self.assertEqual(self._status(resp), 200)
         self.assertEqual(self._cc(resp), "public, max-age=300")
 
-    # 静态断言: reaction SVG 响应不再出现 immutable
+    # 结构断言(G2.2 relocation 后): visibility 领域判断唯一 owner=rendering
+    # service, HTTP adapter 只依领域事实分 cache 分支, 不重写 visibility SQL。
     def test_6_no_immutable_in_reaction_svg_path(self):
         import api.mol as mol
+        from api.services import rendering as render_service
         src = inspect.getsource(mol.render_reaction)
         self.assertNotIn("immutable", src)
-        # shared-cache 判定必须同时看 visibility 和 moderation_status
-        self.assertIn('row[2] == "public" and row[3] == "visible"', src)
-        # molecule svg/png 端点(108/139 行)不在本函数内 — 不受影响
+        # adapter 必须调用 service 的 visibility-aware lookup(不是自己写 SQL)
+        self.assertIn("render_service.lookup_reaction_render_source", src)
+        # HTTP cache 分支必须依据 service 暴露的领域可见性事实
+        self.assertIn("source.is_public_visible", src)
+        # adapter 不得重新实现 reaction visibility SQL
+        self.assertNotIn("FROM chemistry.reactions", src)
+        # 领域规则唯一 owner: service 属性 public AND moderation visible
+        svc_src = inspect.getsource(render_service.ReactionRenderSource)
+        self.assertIn('self.visibility == "public"', svc_src)
+        self.assertIn('self.moderation_status == "visible"', svc_src)
 
 
 if __name__ == "__main__":

@@ -163,10 +163,10 @@ class McpRenderSmilesBoundTests(unittest.TestCase):
 
     def test_direct_513_rejected_before_rdkit(self):
         from mcp.server.mcpserver.exceptions import ToolError
-        from api import mol as mol_module
+        from api.services import rendering as render_svc
 
         calls: list[str] = []
-        mol_module.smiles_to_svg = lambda *a, **k: calls.append(a[0]) or "<svg/>"
+        render_svc.smiles_to_svg = lambda *a, **k: calls.append(a[0]) or "<svg/>"
         try:
             with self.assertRaises(ToolError) as raised:
                 asyncio.run(self._tool().fn(
@@ -175,14 +175,14 @@ class McpRenderSmilesBoundTests(unittest.TestCase):
             self.assertEqual(calls, [], "RDKit renderer 不得被调用")
         finally:
             from importlib import reload
-            reload(mol_module)
+            reload(render_svc)
 
     def test_direct_512_passes_length_guard(self):
         from mcp.server.mcpserver.exceptions import ToolError
-        from api import mol as mol_module
+        from api.services import rendering as render_svc
 
         calls: list[str] = []
-        mol_module.smiles_to_svg = lambda *a, **k: calls.append(a[0]) or "<svg/>"
+        render_svc.smiles_to_svg = lambda *a, **k: calls.append(a[0]) or "<svg/>"
         try:
             out = asyncio.run(self._tool().fn(
                 smiles="C" * 512, width=400, height=300, ctx=None))
@@ -190,7 +190,7 @@ class McpRenderSmilesBoundTests(unittest.TestCase):
             self.assertEqual(len(calls), 1, "512 边界值应到达 renderer(mock)")
         finally:
             from importlib import reload
-            reload(mol_module)
+            reload(render_svc)
 
     def test_chemical_id_path_not_bounded_by_512(self):
         """DB 路径 SMILES(受写入校验)不套 direct-input 512 限制:
@@ -198,14 +198,15 @@ class McpRenderSmilesBoundTests(unittest.TestCase):
         from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
         from sqlalchemy.pool import NullPool
         from sqlalchemy import text
-        from api import mol as mol_module
+        from api.services import rendering as render_svc
         import random
 
         calls: list[str] = []
-        mol_module.smiles_to_svg = lambda *a, **k: calls.append(a[0]) or "<svg/>"
+        render_svc.smiles_to_svg = lambda *a, **k: calls.append(a[0]) or "<svg/>"
         long_smiles = "C" * 700
         run = random.randint(10_000_000, 99_000_000)
 
+        from api.services import rendering as render_svc
         from api import mcp_server as mcp_mod
         from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -243,7 +244,7 @@ class McpRenderSmilesBoundTests(unittest.TestCase):
                              "DB 路径 SMILES 不受 512 direct-input 限制")
         finally:
             from importlib import reload
-            reload(mol_module)
+            reload(render_svc)
 
 
 if __name__ == "__main__":
