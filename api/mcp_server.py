@@ -323,15 +323,22 @@ def build_mcp_server() -> MCPServer:
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """读取一个 HRID。携带 Token 时也可读取自己的私有记录。"""
-        from . import routes as routes_module
+        from .services.reactions import load_reaction_detail
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         if not 1 <= reaction_id <= 2_147_483_647:
             raise ToolError("reaction_id 超出范围")
+        # G2.5B: 直调 transport-neutral service(None=不存在或不可见);
+        # auth 行为冻结: 无/无效 credential → anonymous(viewer_id=0)。
         async with async_session() as session:
-            return await routes_module.reaction_detail(
-                reaction_id=reaction_id, actor=actor, db=session
+            data = await load_reaction_detail(
+                session, reaction_id,
+                viewer_id=actor.id if actor else 0,
+                viewer_is_admin=bool(actor and actor.role == "admin"),
             )
+            if data is None:
+                raise ToolError("反应不存在")
+            return data
 
     @server.tool(name="render_molecule_svg", title="分子结构图")
     async def render_molecule_svg(
