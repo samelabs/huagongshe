@@ -272,24 +272,25 @@ def build_mcp_server() -> MCPServer:
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """读取一个 HCID 的结构、标识符、性质和关联反应概况。"""
-        from . import routes as routes_module
-
         if enrich not in ("core", "full"):
             raise ToolError("enrich 只能是 core 或 full")
         if not 1 <= chemical_id <= 2_147_483_647:
             raise ToolError("chemical_id 超出范围")
+        # G2.4B: 直调 shared detail orchestration(services/chemicals)。
+        # auth 行为冻结: 恒匿名(actor 不解析), priority=50 与基线一致。
+        from .services.chemicals import (
+            ChemicalNotFoundError as _ChemicalNotFoundError,
+            get_chemical_detail as _get_chemical_detail,
+        )
+
         async with async_session() as session:
-            # H1 方案 D: refresh 由 use-case policy 决定(chemical_detail 显式
-            # allow_refresh=True), transport/loopback 不再参与; request 仅存于
-            # 签名兼容。
-            return await routes_module.chemical_detail(
-                request=None,  # type: ignore[arg-type]
-                chemical_id=chemical_id,
-                enrich=enrich,
-                display=False,
-                actor=None,
-                db=session,
-            )
+            try:
+                return await _get_chemical_detail(
+                    session, chemical_id,
+                    actor_id=None, priority=50,
+                )
+            except _ChemicalNotFoundError as exc:
+                raise ToolError(str(exc)) from exc
 
     @server.tool(name="get_chemical_externals", title="化合物中文扩展")
     async def get_chemical_externals(

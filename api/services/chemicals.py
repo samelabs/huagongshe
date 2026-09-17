@@ -551,3 +551,54 @@ async def fill_detail_context(db: Any, result: dict[str, Any], chemical_id: int,
     """), {"id": chemical_id, "user_id": user_id})).fetchone()
     result["follower_count"] = int(follow_row[0])
     result["is_following"] = bool(follow_row[1])
+
+
+# --- Chemical Detail 共享编排(G2.4B) ------------------------------------
+# HTTP/MCP 唯一 application flow; adapter 只保留 transport 解析/auth/
+# projection/错误映射。fetch 顺序与 c30dfe8 基线逐字一致。
+
+
+class ChemicalNotFoundError(Exception):
+    """chemical_id 无对应行的 neutral 语义错误(detail 固定基线原文)。"""
+
+
+async def get_chemical_detail(
+    db: Any,
+    chemical_id: int,
+    *,
+    actor_id: int | None,
+    priority: int,
+) -> dict[str, Any]:
+    """返回 canonical full business detail(未做 display 投影)。
+
+    flow(基线原文顺序):
+      fetch_chemicals → not-found → fill_detail_context(actor_id|0)
+      → enqueue_chemical_if_needed(priority, allow_refresh=True)
+      → job commit → details → enrichment status/job_id 组装。
+    priority 由 adapter 按既有 policy(80=actor/50=匿名)显式传入;
+    MCP 当前恒匿名 priority=50。
+    """
+    from .enrichment import enqueue_chemical_if_needed
+
+    rows = await fetch_chemicals(db, f"""
+        SELECT {CHEMICAL_SELECT} FROM chemistry.chemicals c WHERE c.id=:id
+    """, {"id": chemical_id})
+    if not rows:
+        raise ChemicalNotFoundError("化合物不存在")
+    result = rows[0]
+    await fill_detail_context(db, result, chemical_id,
+                               actor_id if actor_id is not None else 0)
+    details, job_id, needs_refresh = await enqueue_chemical_if_needed(
+        db,
+        chemical_id,
+        priority=priority,
+        allow_refresh=True,
+    )
+    if job_id is not None:
+        await db.commit()
+    result["details"] = details
+    result["enrichment"] = {
+        "status": "queued" if job_id is not None else ("stale" if needs_refresh else "current"),
+        "job_id": job_id,
+    }
+    return result

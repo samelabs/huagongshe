@@ -6,8 +6,12 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import HTTPException, Request
 from sqlalchemy import text
+
+
+class EnrichmentChemicalNotFoundError(Exception):
+    """chemical 行不存在(PubChem 维护前置条件缺失)的 neutral 语义错误。"""
+
 
 
 DISPLAY_EVIDENCE_SECTIONS = (
@@ -100,20 +104,19 @@ async def enqueue_chemical_if_needed(
     priority: int = 70,
     allow_refresh: bool = True,
     actor: Any = None,
-    request: Request | None = None,
 ) -> tuple[dict[str, Any] | None, int | None, bool]:
     """pb_decide(0901 整记录化, 对齐 cb_decide 形态):
     无 cid=skip / 无行或 fetched_at 超 100 天窗=enqueue / 新鲜=serve_fresh。
 
     H1 方案 D: refresh 是产品 use-case policy, 不是 transport privilege ——
-    由调用方显式传 allow_refresh; 不再读取 request.client.host/loopback。
+    由调用方显式传 allow_refresh(不读取任何 transport 上下文)。
     默认 True 仅因现存调用点都是详情 use case; 新调用点必须显式传值。
     """
     chemical = (await db.execute(text("""
         SELECT pubchem_cid FROM chemistry.chemicals WHERE id=:chemical_id
     """), {"chemical_id": chemical_id})).fetchone()
     if not chemical:
-        raise HTTPException(404, "化合物不存在")
+        raise EnrichmentChemicalNotFoundError("化合物不存在")
     details = await fetch_details(db, chemical_id)
     cid = chemical[0]
     if cid is None:

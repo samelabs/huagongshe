@@ -99,8 +99,10 @@ class RefreshUseCasePolicyTests(unittest.TestCase):
         self.assertNotIn("request.client", body)
         self.assertIn("allow_refresh: bool", full)
         self.assertIn("if not allow_refresh:", body)
-        # 两个详情调用点
-        for endpoint in (routes.chemical_detail, enrichment_router.chemical_details):
+        # 两个详情调用点(G2.4B: chemical_detail 编排下沉 services/chemicals)
+        from api.services import chemicals as chemicals_service
+        for endpoint in (chemicals_service.get_chemical_detail,
+                         enrichment_router.chemical_details):
             esrc = inspect.getsource(endpoint)
             self.assertIn("allow_refresh=True", esrc)
         self.assertIn(

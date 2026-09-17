@@ -8,12 +8,13 @@ never authorization evidence.  Remote workers use ``/workapi``.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import text
+from fastapi import APIRouter, Depends, HTTPException
 
 from .core.database import get_db
 from .core.security import Actor, public_or_actor
-from .services.enrichment import enqueue_chemical_if_needed
+from .services.enrichment import (
+    EnrichmentChemicalNotFoundError, enqueue_chemical_if_needed,
+)
 
 router = APIRouter(tags=["enrichment"])
 
@@ -26,18 +27,20 @@ router = APIRouter(tags=["enrichment"])
 
 @router.get("/chemicals/{chemical_id}/details")
 async def chemical_details(
-    request: Request,
     chemical_id: int,
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
-    details, job_id, needs_refresh = await enqueue_chemical_if_needed(
-        db, chemical_id,
-        priority=80 if actor is not None else 50,
-        # H1: 详情 use case 允许读驱动回补(产品策略), 与 transport 无关。
-        allow_refresh=True,
-        actor=actor, request=request,
-    )
+    try:
+        details, job_id, needs_refresh = await enqueue_chemical_if_needed(
+            db, chemical_id,
+            priority=80 if actor is not None else 50,
+            # H1: 详情 use case 允许读驱动回补(产品策略), 与 transport 无关。
+            allow_refresh=True,
+            actor=actor,
+        )
+    except EnrichmentChemicalNotFoundError as exc:
+        raise HTTPException(404, "化合物不存在") from exc
     if job_id is not None:
         await db.commit()
     return {

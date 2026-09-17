@@ -9,7 +9,6 @@ from sqlalchemy import text
 
 from .core.cache import cache_get, cache_set
 from .core.database import get_db
-from .enrichment import enqueue_chemical_if_needed
 from .services.enrichment import display_details
 from .core.security import Actor, public_or_actor
 from .services.reactions import load_reaction_detail
@@ -31,6 +30,7 @@ _STATUS_BY_KIND = {
 }
 from .services.chemicals import (
     CHEMICAL_SELECT,
+    ChemicalNotFoundError, get_chemical_detail,
     fetch_chemicals, reaction_summaries,
     load_public_config, load_datasets, load_sitemap_reactions,
     load_synonyms_page, fill_detail_context,
@@ -103,38 +103,25 @@ async def search(
     summary="读取一个化合物记录",
 )
 async def chemical_detail(
-    request: Request,
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     enrich: str = Query("core", pattern="^(core|full)$"),
     display: bool = Query(False),
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
-    rows = await fetch_chemicals(db, f"""
-        SELECT {CHEMICAL_SELECT} FROM chemistry.chemicals c WHERE c.id=:id
-    """, {"id": chemical_id})
-    if not rows:
-        raise HTTPException(404, "化合物不存在")
-    result = rows[0]
-    await fill_detail_context(db, result, chemical_id, actor.id if actor else 0)
-    details, job_id, needs_refresh = await enqueue_chemical_if_needed(
-        db,
-        chemical_id,
-        # 优先级对齐 CB 定论: 80=用户(登录) / 50=后台. 匿名 SSR(爬虫翻页)
-        # 不是用户, 不占用户位(2026-08-27 血案: 匿名流量曾以 80 插队灌队列).
-        priority=80 if actor is not None else 50,
-        # H1: 详情页读驱动回补 = 产品 use-case policy, 匿名/登录一律允许。
-        allow_refresh=True,
-        actor=actor,
-        request=request,
-    )
-    if job_id is not None:
-        await db.commit()
-    result["details"] = display_details(details) if display else details
-    result["enrichment"] = {
-        "status": "queued" if job_id is not None else ("stale" if needs_refresh else "current"),
-        "job_id": job_id,
-    }
+    # G2.4B: 编排下沉 services/chemicals.get_chemical_detail; adapter 只保留
+    # 参数解析/auth/priority policy/display 投影/404 映射。
+    try:
+        result = await get_chemical_detail(
+            db, chemical_id,
+            actor_id=actor.id if actor else None,
+            # 优先级对齐 CB 定论: 80=用户(登录) / 50=后台. 匿名 SSR(爬虫翻页)
+            # 不是用户, 不占用户位(2026-08-27 血案: 匿名流量曾以 80 插队灌队列).
+            priority=80 if actor is not None else 50,
+        )
+    except ChemicalNotFoundError as exc:
+        raise HTTPException(404, "化合物不存在") from exc
+    result["details"] = display_details(result["details"]) if display else result["details"]
     return result
 
 
