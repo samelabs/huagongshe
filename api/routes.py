@@ -15,7 +15,7 @@ from .enrichment import enqueue_chemical_if_needed
 from .services.enrichment import display_details
 from .core.security import Actor, public_or_actor
 from .services.reactions import load_reaction_detail
-from .services.search import run_search_query
+from .services.search import SearchError, run_search_query
 from .services.chemicals import (
     CHEMICAL_SELECT,
     fetch_chemicals, reaction_summaries,
@@ -93,7 +93,9 @@ async def search(
             actor_id=actor.id if actor else None, threshold=threshold,
         )
     except HTTPException:
-        raise
+        raise  # entrypoint policy(429/503 闸门)直接透出 HTTP
+    except SearchError as exc:  # service 领域错误(G2.3): 映射回原 status/detail
+        raise HTTPException(exc.status, exc.detail) from exc
     except Exception as exc:
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc

@@ -171,11 +171,24 @@ class GateWiringTests(unittest.TestCase):
             self.assertIn("structure_exit(", source, f"{name} 未释放租约")
 
     def test_mcp_has_no_bypass(self):
+        """G2.3 后: MCP 直调 transport-neutral service, 但结构闸门/缓存口径
+        与 HTTP 相同 —— 无 cache-before-gate 旁路, 也不经 HTTP handler。"""
         with open("api/mcp_server.py") as handle:
             mcp = handle.read()
-        self.assertIn("routes_module.search(", mcp)
+        # 不得经 HTTP handler(G2.3 目标), 不得直连底层分页实现绕过闸门
+        self.assertNotIn("routes_module.search(", mcp)
         self.assertNotIn("substructure_page(", mcp)
         self.assertNotIn("similarity_page(", mcp)
+        # search tool 必须自带同款闸门与缓存(cache-before-gate)
+        start = mcp.index('@server.tool(name="search_chemistry_data"')
+        block = mcp[start:mcp.index("@server.tool", start + 10)]
+        cache_pos = block.find("await _cache_get(_cache_key)")
+        gate_pos = block.find("await _structure_enter(")
+        self.assertGreater(cache_pos, -1, "MCP search 缺 cache 查询")
+        self.assertGreater(gate_pos, cache_pos, "MCP search: 闸门必须在 cache miss 之后")
+        self.assertIn("await _structure_exit(", block, "MCP search 未释放租约")
+        # 与 HTTP 共享同一 service 业务查询内核
+        self.assertIn("run_search_query", block)
 
     def test_lease_is_atomic_and_ttl_bounded(self):
         src = inspect.getsource(rate_limit.acquire_lease)

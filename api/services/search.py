@@ -1,13 +1,15 @@
 """统一搜索查询构造服务层 — 自 api/routes.py 下沉, 逻辑零改动(批次5a)。
+G2.3: transport-neutral 化 —— HTTPException → SearchError(status, detail),
+      run_search_query 的 DB 查询/分页/领域校验主体不变。
 
-外部引用者: routes.search。
+外部引用者: routes.search(HTTP adapter)/ mcp_server.search_chemistry_data(MCP)。
+禁止 import: fastapi/mcp/HTTPException/Request/Response/ToolError/Context。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import HTTPException
 from sqlalchemy import text
 
 from ..chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE
@@ -19,6 +21,16 @@ from .chemicals import (
 )
 from .name_index import normalize_name
 
+
+class SearchError(Exception):
+    """transport-neutral 搜索业务错误(G2.3): HTTP adapter 映射回
+    HTTPException(status, detail), MCP adapter 映射为 ToolError(detail)。
+    status 语义与基线 HTTP 契约逐字一致(400/422/503)。"""
+
+    def __init__(self, status: int, detail: str):
+        super().__init__(detail)
+        self.status = status
+        self.detail = detail
 
 def cjk_char_count(value: str) -> int:
     """CJK 字符计数(Han/Hiragana-Katakana/Hangul), 与 name_query_width 同字符域。"""
@@ -231,7 +243,7 @@ async def run_search_query(
             await db.execute(text("SET LOCAL statement_timeout = '5s'"))
         if mode == "substructure":
             if not canonical:
-                raise HTTPException(400, "无法识别该 SMILES 结构")
+                raise SearchError(400, "无法识别该 SMILES 结构")
             canonical = bounded_substructure_smiles(canonical)
             # P0(0912): 有上限 GiST snapshot + Redis(同 chemicals.substructure_page) —
             # 无序 GiST 必被 planner 选中, 深页不再重扫候选集, TTL 内分页确定。
@@ -244,7 +256,7 @@ async def run_search_query(
             chemicals = await hydrate_chemicals(db, ids[offset:offset + page_size])
         elif mode == "similarity":
             if not canonical:
-                raise HTTPException(400, "无法识别该 SMILES 结构")
+                raise SearchError(400, "无法识别该 SMILES 结构")
             await db.execute(text("SET LOCAL statement_timeout = '8s'"))
             # KNN GiST 保持; threshold 后过滤 + Python 侧分页(同 similarity_page)。
             window = offset + page_size
@@ -394,7 +406,7 @@ async def run_search_query(
                     db, query, page_size, offset,
                 )
             elif not chemicals and not canonical and name_query_width(query) < MIN_FUZZY_NAME_LENGTH:
-                raise HTTPException(422, "名称查询至少需要 3 个字符（中文至少 2 个字）")
+                raise SearchError(422, "名称查询至少需要 3 个字符（中文至少 2 个字）")
             # 搜索命中卡片 → 同时查 zh 记录态和时间(准线§1 统一触发, 2026-08-30):
             # 命中行六态判定, enqueue 态真实入列(超窗刷新/超窗重问/error)。
             # 首问/负缓存内不动作。命中多行只判第一页首行(卡片=代表行)。
@@ -447,11 +459,11 @@ async def run_search_query(
             )
             if unambiguous:
                 cas_fetch_hit_id = chemicals[0]["id"]
-    except HTTPException:
+    except SearchError:
         raise
     except Exception as exc:
         await db.rollback()
-        raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
+        raise SearchError(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
     # has_more 按 mode 收口(correction 2026-09-13): name_has_more 不得作为
     # 全 mode 兜底 —— substructure/similarity 保留本轮前的分页语义。
     if mode == "exact":
