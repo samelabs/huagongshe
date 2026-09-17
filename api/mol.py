@@ -89,7 +89,7 @@ def reaction_to_svg(reaction_smiles: str, width: int = 1200, height: int = 300) 
         return None
 
 
-@router.get("/mol/{chemical_id}/svg")
+@router.get("/mol/{chemical_id}/svg", operation_id="render_molecule_svg")
 async def render_molecule(
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     w: int = 400,
@@ -151,7 +151,7 @@ async def render_molecule_png(
     return Response(content=png, media_type="image/png", headers=headers)
 
 
-@router.get("/reactions/{reaction_id}/svg")
+@router.get("/reactions/{reaction_id}/svg", operation_id="render_reaction_svg")
 async def render_reaction(
     reaction_id: int = Path(..., ge=1, le=2_147_483_647),
     w: int = 1200,
