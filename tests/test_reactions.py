@@ -113,13 +113,20 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn("return await reaction_response(db, int(existing))", source)
 
     def test_all_owned_reactions_use_bounded_visibility_branches(self) -> None:
-        source = inspect.getsource(reactions.my_reactions)
+        # G2.5C: SQL 下沉至 services/reactions.list_my_reactions(bounded
+        # UNION ALL 是硬 contract), 断言迁新 owner。
+        from api.services.reactions import list_my_reactions as _svc
+        source = inspect.getsource(_svc)
         self.assertIn("WITH owned AS MATERIALIZED", source)
         self.assertIn("visibility='public'", source)
         self.assertIn("visibility='private'", source)
         self.assertIn("LIMIT :window", source)
         self.assertIn('"items": [dict(row) for row in rows]', source)
         self.assertIn('"all": sum(counts.values())', source)
+        adapter_source = inspect.getsource(reactions.my_reactions)
+        self.assertNotIn("WITH owned", adapter_source)
+        self.assertNotIn("OFFSET", adapter_source)
+        self.assertIn("list_my_reactions(", adapter_source)
 
     def test_public_api_starts_at_version_one(self) -> None:
         self.assertEqual(settings.api_version, "1.0.0")

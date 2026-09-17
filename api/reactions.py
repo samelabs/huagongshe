@@ -20,6 +20,7 @@ from .core.config import settings
 from .core.database import get_db
 from .rate_limit_http import enforce_http
 from .core.security import Actor, current_actor, public_or_actor, require_scope
+from .services.reactions import list_my_reactions
 
 router = APIRouter(tags=["reactions"])
 logger = logging.getLogger(__name__)
@@ -377,53 +378,10 @@ async def my_reactions(
     page: int = Query(1, ge=1, le=500), page_size: int = Query(20, ge=1, le=50),
     actor: Actor = Depends(current_actor), db=Depends(get_db),
 ):
-    offset = (page - 1) * page_size
-    params = {
-        "user_id": actor.id, "visibility": visibility, "limit": page_size,
-        "offset": offset, "window": offset + page_size,
-    }
-    if visibility == "all":
-        # Keep each branch on (created_by_user_id, visibility, id DESC). Without
-        # these bounded branches PostgreSQL may walk the 2.4M-row primary key
-        # backwards to satisfy ORDER BY before it applies the owner filter.
-        query = text("""
-            WITH owned AS MATERIALIZED (
-              (SELECT id,reaction_smiles,visibility,moderation_status,created_at,updated_at
-               FROM chemistry.reactions
-               WHERE created_by_user_id=:user_id AND visibility='public'
-               ORDER BY id DESC LIMIT :window)
-              UNION ALL
-              (SELECT id,reaction_smiles,visibility,moderation_status,created_at,updated_at
-               FROM chemistry.reactions
-               WHERE created_by_user_id=:user_id AND visibility='private'
-               ORDER BY id DESC LIMIT :window)
-            )
-            SELECT r.*,
-              (SELECT count(*) FROM community.reaction_follows WHERE reaction_id=r.id) AS followers
-            FROM owned r ORDER BY id DESC LIMIT :limit OFFSET :offset
-        """)
-    else:
-        query = text("""
-            SELECT r.id,r.reaction_smiles,r.visibility,r.moderation_status,r.created_at,r.updated_at,
-              (SELECT count(*) FROM community.reaction_follows WHERE reaction_id=r.id) AS followers
-            FROM chemistry.reactions r
-            WHERE r.created_by_user_id=:user_id AND r.visibility=:visibility
-            ORDER BY r.id DESC LIMIT :limit OFFSET :offset
-        """)
-    rows = (await db.execute(query, params)).mappings().all()
-    count_rows = (await db.execute(text("""
-        SELECT visibility,count(*)
-        FROM chemistry.reactions
-        WHERE created_by_user_id=:user_id
-        GROUP BY visibility
-    """), {"user_id": actor.id})).all()
-    counts = {"public": 0, "private": 0}
-    for value, count in count_rows:
-        counts[value] = int(count)
-    return {
-        "items": [dict(row) for row in rows], "counts": {**counts, "all": sum(counts.values())},
-        "page": page, "page_size": page_size,
-    }
+    return await list_my_reactions(
+        db, actor_id=actor.id, visibility=visibility,
+        page=page, page_size=page_size,
+    )
 
 
 @router.get("/users/{username}/reactions")

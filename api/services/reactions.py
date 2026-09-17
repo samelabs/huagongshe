@@ -138,3 +138,67 @@ async def load_reaction_detail(
         ],
     }
 
+
+
+async def list_my_reactions(
+    db, *,
+    actor_id: int,
+    visibility: str,
+    page: int,
+    page_size: int,
+) -> dict:
+    """我的反应列表(G2.5C 自 api/reactions.py::my_reactions 下沉)。
+
+    transport-neutral: 只消费 adapter 已 validated/clamp 的
+    visibility/page/page_size; offset 计算属 shared query semantics。
+    bounded UNION ALL SQL 是硬 contract(防 2.4M 行 PK 反向扫), 逐字迁移;
+    counts 只统计当前 actor 自己的全量 reactions(不受 visibility/page 影响)。
+    无记录 → 正常 empty items(无业务 not-found error)。
+    """
+    offset = (page - 1) * page_size
+    params = {
+        "user_id": actor_id, "visibility": visibility, "limit": page_size,
+        "offset": offset, "window": offset + page_size,
+    }
+    if visibility == "all":
+        # Keep each branch on (created_by_user_id, visibility, id DESC). Without
+        # these bounded branches PostgreSQL may walk the 2.4M-row primary key
+        # backwards to satisfy ORDER BY before it applies the owner filter.
+        query = text("""
+            WITH owned AS MATERIALIZED (
+              (SELECT id,reaction_smiles,visibility,moderation_status,created_at,updated_at
+               FROM chemistry.reactions
+               WHERE created_by_user_id=:user_id AND visibility='public'
+               ORDER BY id DESC LIMIT :window)
+              UNION ALL
+              (SELECT id,reaction_smiles,visibility,moderation_status,created_at,updated_at
+               FROM chemistry.reactions
+               WHERE created_by_user_id=:user_id AND visibility='private'
+               ORDER BY id DESC LIMIT :window)
+            )
+            SELECT r.*,
+              (SELECT count(*) FROM community.reaction_follows WHERE reaction_id=r.id) AS followers
+            FROM owned r ORDER BY id DESC LIMIT :limit OFFSET :offset
+        """)
+    else:
+        query = text("""
+            SELECT r.id,r.reaction_smiles,r.visibility,r.moderation_status,r.created_at,r.updated_at,
+              (SELECT count(*) FROM community.reaction_follows WHERE reaction_id=r.id) AS followers
+            FROM chemistry.reactions r
+            WHERE r.created_by_user_id=:user_id AND r.visibility=:visibility
+            ORDER BY r.id DESC LIMIT :limit OFFSET :offset
+        """)
+    rows = (await db.execute(query, params)).mappings().all()
+    count_rows = (await db.execute(text("""
+        SELECT visibility,count(*)
+        FROM chemistry.reactions
+        WHERE created_by_user_id=:user_id
+        GROUP BY visibility
+    """), {"user_id": actor_id})).all()
+    counts = {"public": 0, "private": 0}
+    for value, count in count_rows:
+        counts[value] = int(count)
+    return {
+        "items": [dict(row) for row in rows], "counts": {**counts, "all": sum(counts.values())},
+        "page": page, "page_size": page_size,
+    }

@@ -522,7 +522,7 @@ def build_mcp_server() -> MCPServer:
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """读取 AI Key 所属用户自己的反应记录(需 AI Key)。"""
-        from . import reactions as reactions_module
+        from .services.reactions import list_my_reactions as _list_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         # 与 REST 契约一致(agent-guide: bearer 即可), 不做额外 scope 收紧.
@@ -531,10 +531,11 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("visibility 只能是 all、public 或 private")
         page = min(max(page, 1), 500)
         page_size = min(max(page_size, 1), 50)
+        # G2.5C: 直调 shared service(clamp 保持, 不改 ToolError/拒绝).
         async with async_session() as session:
-            return await reactions_module.my_reactions(
-                visibility=visibility, page=page, page_size=page_size,
-                actor=actor, db=session,
+            return await _list_service(
+                session, actor_id=actor.id, visibility=visibility,
+                page=page, page_size=page_size,
             )
 
     @server.tool(name="validate_reaction", title="校验反应草稿")
