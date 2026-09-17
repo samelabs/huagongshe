@@ -23,6 +23,7 @@ from sqlalchemy import text
 logger = logging.getLogger(__name__)
 
 from ..core.cache import cache_delete, get_cache
+from ..core.rate_limit import enforce
 from .name_index import ingest_from_entry_cn
 
 # 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环拆除。
@@ -853,3 +854,85 @@ async def ensure_externals(
         # 返回无缓存是设计; 写失败留痕与读路径同口径
         logger.warning("externals cache write unavailable", exc_info=True)
     return payload
+
+
+# --- Chemical Externals 共享编排(G2.4C) ----------------------------------
+# HTTP/MCP 唯一 application flow; adapter 只保留 transport 解析/auth/
+# 错误映射。状态机/限流位置/负缓存/入队顺序与基线 routes.chemical_externals
+# 逐分支一致。
+
+
+class ChemicalExternalsNotFoundError(Exception):
+    """chemical_id 无对应行的 neutral 语义错误(detail 固定基线原文)。"""
+
+
+async def get_chemical_externals(db: Any, chemical_id: int, *, actor_id: int | None) -> dict[str, Any]:
+    """CB 扩展读: 读库+ensure 驱动(新 CAS 首访同步拉, 超期 worker 刷)。
+
+    actor_id 仅作 externals-fetch 限流 identity policy(actor=10/min,
+    anonymous-global=30/min); 限流只覆盖即将同步外呼的 absent-not-neg 分支,
+    纯读路径(fresh cache/DB/negative/stale enqueue/no_cas)零消耗。
+    """
+    row = (await db.execute(text("""
+        SELECT id, cas_numbers[1] AS cas FROM chemistry.chemicals WHERE id=:id
+    """), {"id": chemical_id})).fetchone()
+    if not row:
+        raise ChemicalExternalsNotFoundError("化合物不存在")
+    cas_number = row[1]
+    if not cas_number:
+        return {"chemical_id": chemical_id, "state": "no_cas",
+                "entry": None, "suppliers": []}
+    outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
+    if outcome["state"] == "stale":
+        # 六态判定需再问(超窗刷新/超窗重问/error): 出旧数据同时入列
+        job_id = await enqueue_cas_job(
+            db, chemical_id=chemical_id, cas_number=cas_number, priority=40,
+            request_context={"reason": "stale_refresh"},
+        )
+        await db.commit()
+        outcome = {"state": "fresh", "entry": outcome.get("entry"),
+                   "suppliers": outcome.get("suppliers") or [], "job_id": job_id}
+    if outcome["state"] == "absent":
+        # B-minimal: fresh cas_locator negative → 明确 not_found 在重问窗内,
+        # 零同步 fetch 零 enqueue(此前每次页面访问=1次同步外呼+1次入列重抓)。
+        # expired → 允许现有同步验证链继续。
+        if await negative_is_fresh(db, "cas_locator", cas_number=cas_number):
+            return {
+                "chemical_id": chemical_id,
+                "state": "fresh",
+                "entry": None, "suppliers": [], "job_id": None,
+                "negative": True,  # 内部 decision; 不扩前端公开 state 协议
+            }
+        # P1修复(II): 同步外呼限流只覆盖"即将发生同步上游外呼"的分支(照抄
+        # smiles-create 口径) — 同步外呼有 3s 预算且全程持有 DB 连接(pool 仅
+        # 5+5), 爬虫顺序扫 HCID 可打满连接池。额度不变: 10/min 鉴权、
+        # 30/min 匿名全局。不得放入口: fresh cache/fresh DB/
+        # fresh negative/stale enqueue/no_cas/404 这些零外呼路径不消耗配额,
+        # Redis 故障时也不该把正常读取打成 503。
+        if actor_id is not None:
+            await enforce("externals-fetch", str(actor_id), 10, 60)
+        else:
+            await enforce("externals-fetch", "anonymous-global", 30, 60)
+        # 首访: 同步拉取(3s 预算); 失败入队,本响应出空
+        sync = await sync_fetch_and_store(db, chemical_id=chemical_id, cas_number=cas_number)
+        if sync and sync["status"] == "ok":
+            outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
+        elif sync and sync["status"] == "not_found":
+            # 明确 not_found: negative 已在 sync 内记录 — 不 enqueue
+            # (二连击修复: 一次访问最多一次上游验证, 不再排队重抓)
+            outcome = {"state": "fresh", "entry": None, "suppliers": [],
+                       "job_id": None}
+        else:
+            job_id = await enqueue_cas_job(
+                db, chemical_id=chemical_id, cas_number=cas_number, priority=80,
+                request_context={"reason": "sync_failed"},
+            )
+            await db.commit()
+            outcome = {"state": "queued", "entry": None, "suppliers": [],
+                       "job_id": job_id}
+    return {
+        "chemical_id": chemical_id,
+        "state": outcome["state"],
+        "entry": outcome.get("entry"),
+        "suppliers": outcome.get("suppliers") or [],
+    }

@@ -262,7 +262,7 @@ def build_mcp_server() -> MCPServer:
                 )
             except _SearchError as exc:
                 raise ToolError(exc.detail) from exc
-            except _RateLimitError as exc:
+            except RateLimitError as exc:
                 raise ToolError(exc.detail) from exc
 
     @server.tool(name="get_chemical", title="化合物详情")
@@ -298,17 +298,24 @@ def build_mcp_server() -> MCPServer:
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """读取一个 HCID 的中文扩展条目(物化性质/安全/应用/制备/上下游)与供应商列表。"""
-        from . import routes as routes_module
+        from .services.cb import (
+            ChemicalExternalsNotFoundError as _ChemicalExternalsNotFoundError,
+            get_chemical_externals as _get_chemical_externals,
+        )
 
         if not 1 <= chemical_id <= 2_147_483_647:
             raise ToolError("chemical_id 超出范围")
+        # G2.4C: 直调 shared externals orchestration(services/cb)。
+        # auth 行为冻结: 恒匿名(actor 不解析) → anonymous-global 30/min。
         async with async_session() as session:
-            return await routes_module.chemical_externals(
-                request=None,  # type: ignore[arg-type]
-                chemical_id=chemical_id,
-                actor=None,
-                db=session,
-            )
+            try:
+                return await _get_chemical_externals(
+                    session, chemical_id, actor_id=None,
+                )
+            except _ChemicalExternalsNotFoundError as exc:
+                raise ToolError(str(exc)) from exc
+            except RateLimitError as exc:
+                raise ToolError(exc.detail) from exc
 
     @server.tool(name="get_reaction", title="反应详情")
     async def get_reaction(

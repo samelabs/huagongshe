@@ -1,7 +1,7 @@
-"""externals-fetch 限流位置契约(0916 收口).
+"""externals-fetch 限流位置契约(0916 收口; G2.4C 迁 owner 到 services/cb).
 
-修复的问题: ``chemical_externals()`` 曾把 externals-fetch 限流放在 handler 入口,
-于是所有不发生同步上游外呼的路径(fresh DB / fresh negative / stale enqueue /
+修复的问题: 编排入口曾把 externals-fetch 限流放在 handler 入口, 于是所有
+不发生同步上游外呼的路径(fresh DB / fresh negative / stale enqueue /
 no_cas / 404)也消耗配额(登录 10/min、匿名全局 30/min), 并且 Redis 限流后端
 故障时这些正常读取会被 fail-closed 打成 503。限流只应保护"即将执行
 sync_fetch_and_store(...)"的分支。
@@ -10,10 +10,11 @@ sync_fetch_and_store(...)"的分支。
   1) 不发生同步外呼的路径, 一次都不调用 enforce("externals-fetch", ...);
   2) absent 且即将同步外呼时, 恰好一次, 且在 sync_fetch_and_store 之前;
      额度不变: actor 10/min, anonymous-global 30/min;
-  3) 限流失败(503/429)时 sync_fetch_and_store 一次都不得执行。
+  3) 限流失败(RateLimited/LimiterUnavailable)时 sync_fetch_and_store
+     一次都不得执行。
 
-注: 本端点(读库 + ensure 驱动)自身没有 cache 层, 故"零外呼路径"覆盖
-fresh DB / fresh negative / stale enqueue / no_cas / 404 五种。
+G2.4C: 状态机下沉 services/cb.get_chemical_externals(actor_id), 限流用
+G2.R neutral core enforce(非 enforce_http); HTTP/MCP adapter 只做映射。
 """
 
 import unittest
@@ -22,7 +23,11 @@ from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
 
 from api import routes
+from api.core.rate_limit import LimiterUnavailable, RateLimited
 from api.services import cb as cb_module
+from api.services.cb import (
+    ChemicalExternalsNotFoundError, get_chemical_externals,
+)
 
 ROW_EXISTS = (1, "7732-18-5")
 
@@ -36,7 +41,7 @@ class _Row:
 
 
 class _Db:
-    """最小 db 替身: 只回答 handler 的第一条 SELECT(id, cas)。"""
+    """最小 db 替身: 只回答编排的第一条 SELECT(id, cas)。"""
 
     def __init__(self, row):
         self._row = row
@@ -49,16 +54,10 @@ class _Db:
         self.commits += 1
 
 
-def _actor(actor_id=42):
-    actor = MagicMock()
-    actor.id = actor_id
-    return actor
-
-
 class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
-    async def _call(self, *, actor=None, row=ROW_EXISTS, ensure_seq=(),
+    async def _call(self, *, actor_id=None, row=ROW_EXISTS, ensure_seq=(),
                     negative_fresh=False, sync_result=None, enforce_exc=None):
-        """直调 endpoint; 返回 (结果或 HTTPException, 事件序列)。"""
+        """直调 shared orchestration; 返回 (结果或异常, 事件序列)。"""
         events: list[tuple] = []
 
         async def spy_enforce(bucket, identity, limit, window_seconds):
@@ -87,14 +86,15 @@ class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
             return 999
 
         db = _Db(row)
-        with patch.object(routes, "enforce_http", spy_enforce), \
+        with patch.object(cb_module, "enforce", spy_enforce), \
              patch.object(cb_module, "ensure_externals", fake_ensure), \
              patch.object(cb_module, "negative_is_fresh", fake_negative), \
              patch.object(cb_module, "sync_fetch_and_store", fake_sync), \
              patch.object(cb_module, "enqueue_cas_job", fake_enqueue):
             try:
-                result = await routes.chemical_externals(MagicMock(), 1, actor=actor, db=db)
-            except HTTPException as exc:
+                result = await get_chemical_externals(db, 1, actor_id=actor_id)
+            except (ChemicalExternalsNotFoundError, RateLimited,
+                    LimiterUnavailable) as exc:
                 return exc, events
         return result, events
 
@@ -105,9 +105,9 @@ class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
     # ---- 契约 1: 零外呼路径不吃配额 ----------------------------------
 
     async def test_fresh_db_read_never_touches_externals_fetch_budget(self):
-        for actor in (None, _actor(42)):
+        for actor_id in (None, 42):
             result, events = await self._call(
-                actor=actor,
+                actor_id=actor_id,
                 ensure_seq=[{"state": "fresh", "entry": {"zh": "水"}, "suppliers": []}],
             )
             self.assertEqual(result["state"], "fresh")
@@ -119,25 +119,27 @@ class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
     async def test_zero_outbound_paths_never_touch_budget(self):
         # (a) fresh negative: 明确 not_found 在重问窗内 → 零外呼零入列
         result, events = await self._call(
-            actor=None, ensure_seq=[{"state": "absent"}], negative_fresh=True)
+            actor_id=None, ensure_seq=[{"state": "absent"}], negative_fresh=True)
         self.assertTrue(result.get("negative"))
         self.assertEqual(self._enforce_calls(events), [])
         self.assertEqual([e for e in events if e[0] in ("sync", "enqueue")], [])
 
         # (b) no_cas: 化合物无 CAS → 直接返回
         result, events = await self._call(
-            actor=None, row=(1, None), ensure_seq=[{"state": "fresh"}])
+            actor_id=None, row=(1, None), ensure_seq=[{"state": "fresh"}])
         self.assertEqual(result["state"], "no_cas")
         self.assertEqual(self._enforce_calls(events), [])
 
-        # (c) 404: 化合物不存在
-        got, events = await self._call(actor=None, row=None, ensure_seq=[{"state": "fresh"}])
-        self.assertEqual(got.status_code, 404)
+        # (c) 404: 化合物不存在 → neutral 异常
+        got, events = await self._call(actor_id=None, row=None,
+                                       ensure_seq=[{"state": "fresh"}])
+        self.assertIsInstance(got, ChemicalExternalsNotFoundError)
+        self.assertEqual(str(got), "化合物不存在")
         self.assertEqual(self._enforce_calls(events), [])
 
         # (d) stale: 出旧数据 + 入列(worker 刷), 本身零同步外呼
         result, events = await self._call(
-            actor=None,
+            actor_id=None,
             ensure_seq=[{"state": "stale", "entry": {"zh": "水"}, "suppliers": ["s"]}],
         )
         self.assertEqual(result["state"], "fresh")
@@ -148,7 +150,7 @@ class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_absent_sync_path_enforces_once_with_unchanged_budget(self):
         result, events = await self._call(
-            actor=_actor(4711),
+            actor_id=4711,
             ensure_seq=[{"state": "absent"},
                         {"state": "fresh", "entry": {"zh": "水"}, "suppliers": []}],
             sync_result={"status": "ok"},
@@ -161,7 +163,7 @@ class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["state"], "fresh")
 
         result, events = await self._call(
-            actor=None,
+            actor_id=None,
             ensure_seq=[{"state": "absent"},
                         {"state": "fresh", "entry": None, "suppliers": []}],
             sync_result={"status": "ok"},
@@ -173,14 +175,16 @@ class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_sync_failed_enqueues_after_single_enforce(self):
         result, events = await self._call(
-            actor=None, ensure_seq=[{"state": "absent"}], sync_result={"status": "error"})
+            actor_id=None, ensure_seq=[{"state": "absent"}],
+            sync_result={"status": "error"})
         self.assertEqual([e[0] for e in events], ["enforce", "sync", "enqueue"])
         self.assertEqual(events[-1], ("enqueue", "sync_failed"))
         self.assertEqual(result["state"], "queued")
 
     async def test_sync_not_found_enforces_once_and_never_enqueues(self):
         result, events = await self._call(
-            actor=None, ensure_seq=[{"state": "absent"}], sync_result={"status": "not_found"})
+            actor_id=None, ensure_seq=[{"state": "absent"}],
+            sync_result={"status": "not_found"})
         self.assertEqual(len(self._enforce_calls(events)), 1)
         self.assertEqual([e[0] for e in events], ["enforce", "sync"])
         self.assertEqual(result["state"], "fresh")
@@ -188,37 +192,50 @@ class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
     # ---- 契约 3: 限流失败不得外呼 -------------------------------------
 
     async def test_rate_limit_failure_blocks_sync_fetch_and_store(self):
-        for exc, code in (
-            (HTTPException(503, "限速服务暂时不可用，请稍后重试"), 503),
-            (HTTPException(429, "请求过于频繁，请稍后重试", headers={"Retry-After": "5", "X-RateLimit-Remaining": "0"}), 429),
+        for exc in (
+            LimiterUnavailable("限速服务暂时不可用，请稍后重试"),
+            RateLimited("请求过于频繁，请稍后重试", retry_after=5),
         ):
-            with self.subTest(status=code):
+            with self.subTest(exc=type(exc).__name__):
                 got, events = await self._call(
-                    actor=None, ensure_seq=[{"state": "absent"}], enforce_exc=exc)
-                self.assertEqual(got.status_code, code)
+                    actor_id=None, ensure_seq=[{"state": "absent"}], enforce_exc=exc)
+                self.assertIsInstance(got, type(exc))
                 self.assertEqual([e[0] for e in events], ["enforce"],
                                  "限流失败时不得执行 sync_fetch_and_store")
 
-    async def test_redis_outage_no_longer_breaks_fresh_reads(self):
-        """限流后端故障(fail-closed 503)只应影响需同步外呼的 absent 路径;
-        fresh/negative/stale/no_cas 正常读取不得被 503 打死。"""
-        # fresh: 配额未被触碰 → 连 enforce 都不调用
-        for actor in (None, _actor(7)):
-            result, events = await self._call(
-                actor=actor, enforce_exc=HTTPException(503, "down"),
-                ensure_seq=[{"state": "fresh", "entry": None, "suppliers": []}])
-            self.assertEqual(result["state"], "fresh")
-            self.assertEqual(self._enforce_calls(events), [])
 
-        # stale / no_cas: 同样不受影响
-        result, _ = await self._call(
-            actor=None, enforce_exc=HTTPException(503, "down"),
-            ensure_seq=[{"state": "stale", "entry": None, "suppliers": []}])
-        self.assertEqual(result["state"], "fresh")
-        result, _ = await self._call(
-            actor=None, row=(1, None), enforce_exc=HTTPException(503, "down"),
-            ensure_seq=[{"state": "fresh"}])
+class AdapterMappingTests(unittest.IsolatedAsyncioTestCase):
+    """§11/§12: adapter 只做映射; enforce/状态机不在 handler。"""
+
+    async def test_http_not_found_maps_404_and_bridges_rate_error(self):
+        import inspect
+        src = inspect.getsource(routes.chemical_externals)
+        self.assertIn("get_chemical_externals", src)
+        self.assertIn('raise HTTPException(404, "化合物不存在")', src)
+        self.assertIn("to_http_exception", src)
+        for banned in ("enforce_http", "ensure_externals", "sync_fetch_and_store",
+                       "enqueue_cas_job", "negative_is_fresh"):
+            self.assertNotIn(banned, src)
+
+    async def test_http_stale_and_negative_flow_unchanged(self):
+        """HTTP 全链路(handler→orchestration)stale/negative 映射。"""
+        events = []
+
+        async def fake_get(db, cid, *, actor_id=None):
+            events.append(("get", cid, actor_id))
+            return {"chemical_id": cid, "state": "no_cas",
+                    "entry": None, "suppliers": []}
+
+        with patch.object(cb_module, "get_chemical_externals", fake_get):
+            result = await routes.chemical_externals(1, actor=None, db=MagicMock())
         self.assertEqual(result["state"], "no_cas")
+        self.assertEqual(events, [("get", 1, None)])
+
+        actor = MagicMock()
+        actor.id = 7
+        with patch.object(cb_module, "get_chemical_externals", fake_get):
+            await routes.chemical_externals(1, actor=actor, db=MagicMock())
+        self.assertEqual(events[-1], ("get", 1, 7))
 
 
 if __name__ == "__main__":

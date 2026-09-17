@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy import text
 
 from .core.cache import cache_get, cache_set
@@ -17,7 +17,7 @@ from .services.search import (
     QUERY_TOO_SHORT, BACKEND_UNAVAILABLE,
     SearchError, execute_search,
 )
-from .rate_limit_http import enforce_http, to_http_exception  # noqa: E402  (externals 限流; G2.R HTTP bridge)
+from .rate_limit_http import to_http_exception  # noqa: E402  (G2.R HTTP bridge)
 from .core.rate_limit import RateLimitError  # noqa: E402
 
 # service 语义类别 → 基线 HTTP status 唯一映射(G2.3 final; detail 逐字不变)
@@ -128,83 +128,25 @@ async def chemical_detail(
 @router.get("/chemicals/{chemical_id}/externals", operation_id="get_chemical_externals",
             summary="化合物的中文扩展信息与供应商")
 async def chemical_externals(
-    request: Request,
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
-    """CB 扩展读端点: 读库+ensure 驱动(新 CAS 首访同步拉, 超期 worker 刷).
+    """CB 扩展读端点: 编排已下沉 services/cb(G2.4C)。
 
     遵循公开读口径: 无原站标识; 404 = 化合物不存在;
     entry/suppliers 为空 = 该化合物无 CAS 或源站无数据(非错误)。
     """
-    from .services.cb import ensure_externals, negative_is_fresh, sync_fetch_and_store
+    from .services.cb import ChemicalExternalsNotFoundError, get_chemical_externals
 
-    row = (await db.execute(text("""
-        SELECT id, cas_numbers[1] AS cas FROM chemistry.chemicals WHERE id=:id
-    """), {"id": chemical_id})).fetchone()
-    if not row:
-        raise HTTPException(404, "化合物不存在")
-    cas_number = row[1]
-    if not cas_number:
-        return {"chemical_id": chemical_id, "state": "no_cas",
-                "entry": None, "suppliers": []}
-    outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
-    if outcome["state"] == "stale":
-        # 六态判定需再问(超窗刷新/超窗重问/error): 出旧数据同时入列
-        from .services.cb import enqueue_cas_job
-        job_id = await enqueue_cas_job(
-            db, chemical_id=chemical_id, cas_number=cas_number, priority=40,
-            request_context={"reason": "stale_refresh"},
+    try:
+        return await get_chemical_externals(
+            db, chemical_id, actor_id=actor.id if actor else None,
         )
-        await db.commit()
-        outcome = {"state": "fresh", "entry": outcome.get("entry"),
-                   "suppliers": outcome.get("suppliers") or [], "job_id": job_id}
-    if outcome["state"] == "absent":
-        # B-minimal: fresh cas_locator negative → 明确 not_found 在重问窗内,
-        # 零同步 fetch 零 enqueue(此前每次页面访问=1次同步外呼+1次入列重抓)。
-        # expired → 允许现有同步验证链继续。
-        if await negative_is_fresh(db, "cas_locator", cas_number=cas_number):
-            return {
-                "chemical_id": chemical_id,
-                "state": "fresh",
-                "entry": None, "suppliers": [], "job_id": None,
-                "negative": True,  # 内部 decision; 不扩前端公开 state 协议
-            }
-        # P1修复(II): 同步外呼限流只覆盖"即将发生同步上游外呼"的分支(照抄
-        # smiles-create 口径) — 同步外呼有 3s 预算且全程持有 DB 连接(pool 仅
-        # 5+5), 爬虫顺序扫 HCID 可打满连接池。额度不变: 10/min 鉴权、
-        # 30/min 匿名全局。不得放 handler 入口: fresh cache/fresh DB/
-        # fresh negative/stale enqueue/no_cas/404 这些零外呼路径不消耗配额,
-        # Redis 故障时也不该把正常读取打成 503。
-        if actor is not None:
-            await enforce_http("externals-fetch", str(actor.id), 10, 60)
-        else:
-            await enforce_http("externals-fetch", "anonymous-global", 30, 60)
-        # 首访: 同步拉取(3s 预算); 失败入队,本响应出空
-        sync = await sync_fetch_and_store(db, chemical_id=chemical_id, cas_number=cas_number)
-        if sync and sync["status"] == "ok":
-            outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
-        elif sync and sync["status"] == "not_found":
-            # 明确 not_found: negative 已在 sync 内记录 — 不 enqueue
-            # (二连击修复: 一次访问最多一次上游验证, 不再排队重抓)
-            outcome = {"state": "fresh", "entry": None, "suppliers": [],
-                       "job_id": None}
-        else:
-            from .services.cb import enqueue_cas_job
-            job_id = await enqueue_cas_job(
-                db, chemical_id=chemical_id, cas_number=cas_number, priority=80,
-                request_context={"reason": "sync_failed"},
-            )
-            await db.commit()
-            outcome = {"state": "queued", "entry": None, "suppliers": [],
-                       "job_id": job_id}
-    return {
-        "chemical_id": chemical_id,
-        "state": outcome["state"],
-        "entry": outcome.get("entry"),
-        "suppliers": outcome.get("suppliers") or [],
-    }
+    except ChemicalExternalsNotFoundError as exc:
+        raise HTTPException(404, "化合物不存在") from exc
+    except RateLimitError as exc:  # G2.R neutral 限流异常 → HTTP bridge
+        raise to_http_exception(exc) from exc
 
 
 @router.get("/chemicals/{chemical_id}/synonyms")
