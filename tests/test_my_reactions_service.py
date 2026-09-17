@@ -104,6 +104,41 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
             visibility="all", page=1, page_size=20)
         self.assertEqual(result["counts"], {"public": 7, "private": 0, "all": 7})
 
+
+    async def test_visibility_private_branch_sql(self):
+        db = _FakeDB()
+        captured = {}
+
+        class _SpyDB(_FakeDB):
+            async def execute(self, sql, params=None):
+                key = "counts" if "GROUP BY visibility" in str(sql) else "items"
+                captured[key] = {"sql": str(sql), "params": dict(params or {})}
+                return await super().execute(sql, params)
+
+        await reactions_service.list_my_reactions(
+            _SpyDB(), actor_id=3, visibility="private", page=1, page_size=10)
+        q = captured["items"]["sql"]
+        # 单分支: 不走 UNION, visibility 走绑定参数
+        self.assertNotIn("UNION ALL", q)
+        self.assertIn("r.visibility=:visibility", q)
+        self.assertEqual(captured["items"]["params"]["visibility"], "private")
+        self.assertEqual(captured["items"]["params"]["limit"], 10)
+        self.assertEqual(captured["items"]["params"]["offset"], 0)
+
+    async def test_ordering_id_desc_in_both_branches(self):
+        for vis in ("all", "public"):
+            captured = {}
+
+            class _SpyDB(_FakeDB):
+                async def execute(self, sql, params=None):
+                    key = "counts" if "GROUP BY visibility" in str(sql) else "items"
+                    captured[key] = str(sql)
+                    return await super().execute(sql, params)
+
+            await reactions_service.list_my_reactions(
+                _SpyDB(), actor_id=1, visibility=vis, page=1, page_size=10)
+            self.assertRegex(captured["items"], r"ORDER BY (?:r\.)?id DESC")
+
     def test_service_transport_neutral(self):
         source = inspect.getsource(reactions_service)
         for token in ("fastapi", "HTTPException", "ToolError",
@@ -141,6 +176,160 @@ class AdapterTests(unittest.TestCase):
         self.assertIn("min(max(page, 1), 500)", seg)
         self.assertIn("min(max(page_size, 1), 50)", seg)
         self.assertIn("ToolError", seg)  # visibility validation 保持
+
+
+
+class HttpAdapterTests(unittest.IsolatedAsyncioTestCase):
+    """§18: handler 调 service 一次、参数逐项正确、empty 正常 200。"""
+
+    async def test_handler_passes_actor_and_params_to_service(self):
+        from unittest.mock import MagicMock
+
+        from api import reactions as reactions_api
+        actor = MagicMock(); actor.id = 77
+        captured = {}
+
+        async def fake_service(db, *, actor_id, visibility, page, page_size):
+            captured.update(actor_id=actor_id, visibility=visibility,
+                            page=page, page_size=page_size, calls=1)
+            return {"items": [], "counts": {"public": 0, "private": 0, "all": 0},
+                    "page": page, "page_size": page_size}
+
+        with patch.object(reactions_api, "list_my_reactions", fake_service):
+            result = await reactions_api.my_reactions(
+                visibility="public", page=2, page_size=15,
+                actor=actor, db=object())
+        self.assertEqual(captured["actor_id"], 77)
+        self.assertEqual(captured["visibility"], "public")
+        self.assertEqual(captured["page"], 2)
+        self.assertEqual(captured["page_size"], 15)
+        self.assertEqual(captured["calls"], 1)  # service 被调用一次
+        self.assertEqual(result["items"], [])
+
+    def test_http_validation_contract_unchanged(self):
+        """§18: 422 由 FastAPI Query/Literal validation 保障(签名冻结)。"""
+        from api import reactions as reactions_api
+        import inspect
+        sig = inspect.signature(reactions_api.my_reactions)
+        self.assertIn("visibility", sig.parameters)
+        self.assertIn("page", sig.parameters)
+        self.assertIn("page_size", sig.parameters)
+        # Query constraint 留在签名(源码级)
+        src = inspect.getsource(reactions_api.my_reactions)
+        self.assertIn('Query(1, ge=1, le=500)', src)
+        self.assertIn('Query(20, ge=1, le=50)', src)
+        self.assertIn('Literal["all", "public", "private"]', src)
+
+
+class McpBehaviorTests(unittest.IsolatedAsyncioTestCase):
+    """§19: MCP 行为 — 无 credential ToolError / actor 传播 / clamp / 原样返回。"""
+
+    @staticmethod
+    async def _tool_fn():
+        import api.mcp_server as mcp
+        server = mcp.build_mcp_server()
+        tools = getattr(getattr(server, "_tool_manager", None), "_tools", {})
+        entry = tools.get("list_my_reactions")
+        if entry is None:
+            raise AssertionError("list_my_reactions not found in registry")
+        fn = getattr(entry, "fn", None) or entry
+        if not callable(fn):
+            raise AssertionError(f"tool entry not callable: {type(entry)}")
+        return fn
+
+    async def _call(self, *, actor="UNSET", captured=None, result=None,
+                    headers=None, **kwargs):
+        from mcp.server.mcpserver.exceptions import ToolError
+        import api.mcp_server as mcp
+
+        class _Ctx:
+            def __init__(self):
+                self.headers = headers if headers is not None else {}
+
+        if actor == "UNSET":
+            async def fake_actor(headers):
+                return None
+        else:
+            async def fake_actor(headers):
+                return actor
+
+        async def fake_service(db, *, actor_id, visibility, page, page_size):
+            if captured is not None:
+                captured.update(actor_id=actor_id, visibility=visibility,
+                                page=page, page_size=page_size)
+            return result if result is not None else {"items": [], "counts": {},
+                                                       "page": page,
+                                                       "page_size": page_size}
+
+        from api.services import reactions as svc
+        with patch.object(mcp, "_actor_from_headers", fake_actor), \
+             patch.object(svc, "list_my_reactions", fake_service):
+            try:
+                return await (await self._tool_fn())(ctx=_Ctx(), **kwargs)
+            except ToolError as exc:
+                return exc
+
+    async def test_no_credential_tool_error_exact(self):
+        from mcp.server.mcpserver.exceptions import ToolError
+        r = await self._call(actor=None)
+        self.assertIsInstance(r, ToolError)
+        self.assertTrue(str(r).startswith("此操作需要 AI Key"))
+
+    async def test_actor_id_and_params_propagated(self):
+        from unittest.mock import MagicMock
+        actor = MagicMock(); actor.id = 4242
+        captured = {}
+        svc_result = {"items": [{"id": 1}], "counts": {"all": 1},
+                      "page": 1, "page_size": 20}
+        r = await self._call(actor=actor, captured=captured,
+                             result=svc_result,
+                             visibility="private", page=3, page_size=25)
+        self.assertEqual(r, svc_result)  # 原 dict 原样返回
+        self.assertEqual(captured["actor_id"], 4242)
+        self.assertEqual(captured["visibility"], "private")
+        self.assertEqual(captured["page"], 3)
+        self.assertEqual(captured["page_size"], 25)
+
+    async def test_invalid_visibility_tool_error(self):
+        from mcp.server.mcpserver.exceptions import ToolError
+        from unittest.mock import MagicMock
+        actor = MagicMock(); actor.id = 1
+        r = await self._call(actor=actor, visibility="secret")
+        self.assertIsInstance(r, ToolError)
+        self.assertIn("visibility", str(r))
+
+    async def test_page_clamp_both_directions(self):
+        from unittest.mock import MagicMock
+        actor = MagicMock(); actor.id = 1
+        captured = {}
+        await self._call(actor=actor, captured=captured, page=0)
+        self.assertEqual(captured["page"], 1)
+        await self._call(actor=actor, captured=captured, page=99999)
+        self.assertEqual(captured["page"], 500)
+
+    async def test_page_size_clamp_both_directions(self):
+        from unittest.mock import MagicMock
+        actor = MagicMock(); actor.id = 1
+        captured = {}
+        await self._call(actor=actor, captured=captured, page_size=0)
+        self.assertEqual(captured["page_size"], 1)
+        await self._call(actor=actor, captured=captured, page_size=999)
+        self.assertEqual(captured["page_size"], 50)
+
+    async def test_no_http_exception_leakage(self):
+        """§19: tool body 无 HTTPException import/raise。"""
+        import api.mcp_server as mcp
+        import inspect as _i
+        full = _i.getsource(mcp)
+        import ast as _ast
+        for node in _ast.walk(_ast.parse(full)):
+            if (isinstance(node, _ast.AsyncFunctionDef)
+                    and node.name == "list_my_reactions"):
+                seg = _ast.get_source_segment(full, node)
+        self.assertIsNotNone(seg)
+        self.assertNotIn("HTTPException", seg)
+        self.assertNotIn("reactions_module", seg)
+        self.assertNotIn("request=None", seg)
 
 
 if __name__ == "__main__":
