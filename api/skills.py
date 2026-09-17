@@ -25,6 +25,7 @@ from .core.config import settings
 from .core.database import get_db
 from .rate_limit_http import enforce_http
 from .core.security import Actor, current_actor, public_or_actor, require_scope
+from .services.skills import list_skills as list_skills_service
 
 router = APIRouter(tags=["skills"])
 
@@ -320,56 +321,22 @@ async def list_skills(
     scope: str = Query("public", pattern="^(public|mine)$"),
     q: str = Query("", max_length=120),
     category: str = Query("", max_length=40),
-    page: int = Query(1, ge=1, le=500),
-    page_size: int = Query(30, ge=1, le=100),
+    page: int = Query(1, ge=1, le=500), page_size: int = Query(30, ge=1, le=100),
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
     if scope == "mine":
         if actor is None:
             raise HTTPException(401, "列出自己的技能需要登录或 API Token")
-        owner_id = actor.id
+        owner_id: int | None = actor.id
     else:
         owner_id = None
-
-    conditions = ["s.visibility='public'"] if owner_id is None else ["s.owner_id=:owner"]
-    params: dict[str, Any] = {"limit": page_size, "offset": (page - 1) * page_size}
-    if owner_id is not None:
-        params["owner"] = owner_id
-    if q.strip():
-        conditions.append("(s.slug ILIKE :q OR s.title ILIKE :q OR s.description ILIKE :q)")
-        params["q"] = f"%{q.strip()}%"
-    if category.strip():
-        conditions.append("s.category=:category")
-        params["category"] = category.strip()
-    where = " AND ".join(conditions)
-
-    total = (await db.execute(text(f"""
-        SELECT count(*) FROM community.skills s WHERE {where}
-    """), params)).scalar() or 0
-    rows = (await db.execute(text(f"""
-        SELECT s.id,s.slug,s.title,s.description,s.category,s.origin,s.visibility,
-               s.has_scripts,s.file_count,s.size_bytes,s.updated_at,
-               u.username,u.display_name
-        FROM community.skills s JOIN community.users u ON u.id=s.owner_id
-        WHERE {where}
-        ORDER BY s.updated_at DESC, s.id DESC
-        LIMIT :limit OFFSET :offset
-    """), params)).mappings().all()
-    return {
-        "total": int(total), "page": page, "page_size": page_size,
-        "items": [
-            {
-                "id": row["id"], "slug": row["slug"], "title": row["title"],
-                "description": row["description"], "category": row["category"],
-                "origin": row["origin"], "visibility": row["visibility"],
-                "has_scripts": row["has_scripts"], "file_count": row["file_count"],
-                "size_bytes": int(row["size_bytes"]), "updated_at": row["updated_at"],
-                "owner": {"username": row["username"], "display_name": row["display_name"]},
-            }
-            for row in rows
-        ],
-    }
+    # G2.6B: query kernel 下沉 services/skills.list_skills
+    # (skill.query.list), adapter 只余 validation+登录墙。
+    return await list_skills_service(
+        db, scope=scope, owner_id=owner_id, q=q, category=category,
+        page=page, page_size=page_size,
+    )
 
 
 @router.get(

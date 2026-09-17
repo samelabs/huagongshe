@@ -430,7 +430,7 @@ def build_mcp_server() -> MCPServer:
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """列出技能。scope=public 匿名可用; scope=mine 需要 AI Key。"""
-        from . import skills as skills_module
+        from .services.skills import list_skills as _list_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         if scope not in ("public", "mine"):
@@ -442,10 +442,11 @@ def build_mcp_server() -> MCPServer:
         category = (category or "")[:40]
         page = min(max(page, 1), 500)
         page_size = min(max(page_size, 1), 100)
+        # G2.6B: 直调 shared service(skill.query.list kernel)。
         async with async_session() as session:
-            return await skills_module.list_skills(
-                scope=scope, q=q, category=category, page=page, page_size=page_size,
-                actor=actor, db=session,
+            return await _list_service(
+                session, scope=scope, owner_id=actor.id if scope == "mine" else None,
+                q=q, category=category, page=page, page_size=page_size,
             )
 
     @server.tool(name="get_skill", title="技能详情")
