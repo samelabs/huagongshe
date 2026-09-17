@@ -23,7 +23,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .core.config import settings
 from .core.database import get_db
-from .core.rate_limit import enforce
+from .rate_limit_http import enforce_http
 from .core.security import Actor, current_actor, public_or_actor, require_scope
 
 router = APIRouter(tags=["skills"])
@@ -503,7 +503,7 @@ async def create_skill(
     db=Depends(get_db),
 ):
     require_scope(actor, "skill:write")
-    await enforce("skill-write-hour", str(actor.id), settings.api_skill_write_limit_per_hour, 3600)
+    await enforce_http("skill-write-hour", str(actor.id), settings.api_skill_write_limit_per_hour, 3600)
 
     # 规范：发布默认私有；公开态仅后台管理动作设置，创建时不存在公开路径
     category = await validate_category(db, category)

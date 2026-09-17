@@ -207,8 +207,8 @@ class McpSearchContractTests(unittest.TestCase):
                          role="user", avatar_path=None, auth_kind="web")
 
         async def gate_429(actor_id, bucket="structure-search"):
-            raise HTTPException(429, "结构检索并发已达上限，请稍后重试",
-                                headers={"Retry-After": "5"})
+            from api.core.rate_limit import ResourceBusy
+            raise ResourceBusy("结构检索并发已达上限，请稍后重试", retry_after=5)
 
         with patch.object(m, "_actor_from_headers", actor7), \
                 patch("api.core.rate_limit.structure_enter", gate_429):

@@ -338,11 +338,14 @@ async def run_search_query(
                     rate_state = "ok"
                     try:
                         from ..core.rate_limit import enforce as _enforce_cas
+                        from ..core.rate_limit import RateLimitError as _RateLimitError
                         if actor_id is not None:
                             await _enforce_cas("cas-search-fetch", str(actor_id), 10, 60)
                         else:
                             await _enforce_cas("cas-search-fetch", "anonymous-global", 30, 60)
-                    except Exception:
+                    except _RateLimitError:
+                        # G2.R: 只降级限流语义异常(超限/限流不可用→不入队)。
+                        # 该 try 块仅含 enforce 调用, 无业务副作用需要兜底。
                         rate_state = "miss"
                     try:
                         from .cb import (
@@ -377,24 +380,31 @@ async def run_search_query(
             # 与 CAS miss 同口径限流(鉴权 10/min/actor, 匿名共享 30/min);
             # 超限/限速服务异常降级为不建行(返回空结果), 不阻塞搜索响应。
             if not chemicals and page == 1 and canonical and len(query) <= 4000:
+                from ..core.rate_limit import RateLimitError as _RateLimitError
+                _rate_limited = False
                 try:
                     if actor_id is not None:
                         await enforce("smiles-create", str(actor_id), 10, 60)
                     else:
                         await enforce("smiles-create", "anonymous-global", 30, 60)
-                    from ..reactions import resolve_or_create_chemical
-                    chemical_id, _created = await resolve_or_create_chemical(db, canonical)
-                    created = await fetch_chemicals(db, f"""
-                        SELECT {CHEMICAL_SELECT}
-                        FROM chemistry.chemicals c WHERE c.id = :id
-                    """, {"id": chemical_id})
-                    if created:
-                        await db.commit()
-                        chemicals = created
-                    else:
-                        await db.rollback()
-                except Exception:
-                    await db.rollback()  # 建行失败不阻塞搜索响应
+                except _RateLimitError:
+                    # G2.R: 限流语义异常显式降级为不建行(原 except Exception 语义)。
+                    _rate_limited = True
+                if not _rate_limited:
+                    try:
+                        from ..reactions import resolve_or_create_chemical
+                        chemical_id, _created = await resolve_or_create_chemical(db, canonical)
+                        created = await fetch_chemicals(db, f"""
+                            SELECT {CHEMICAL_SELECT}
+                            FROM chemistry.chemicals c WHERE c.id = :id
+                        """, {"id": chemical_id})
+                        if created:
+                            await db.commit()
+                            chemicals = created
+                        else:
+                            await db.rollback()
+                    except Exception:
+                        await db.rollback()  # 建行失败不阻塞搜索响应(业务容错保持)
             if not chemicals and not canonical and name_query_width(query) >= MIN_FUZZY_NAME_LENGTH:
                 # Search System Governance(2026-09-13): 名称查询走统一候选服务
                 # run_name_search —— exact 短路(preferred>iupac>name_index 等值,

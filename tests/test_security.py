@@ -80,10 +80,10 @@ class SessionBoundaryTests(unittest.TestCase):
         import api.users as users
         import api.core.rate_limit as rate_limit
         login_source = inspect.getsource(users.login)
-        self.assertIn('enforce("login"', login_source)
+        self.assertIn('enforce_http("login"', login_source)
         self.assertIn("sha256(account", login_source)
         self.assertNotIn("request_identity", login_source)
-        self.assertIn('enforce("register", "global", 60, 3600)', inspect.getsource(users.register))
+        self.assertIn('enforce_http("register", "global", 60, 3600)', inspect.getsource(users.register))
         self.assertFalse(hasattr(rate_limit, "request_identity"))
 
 

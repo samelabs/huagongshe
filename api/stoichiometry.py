@@ -10,7 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from .core.config import settings
-from .core.rate_limit import enforce
+from .rate_limit_http import enforce_http
 from .core.security import Actor, public_or_actor
 from .schemas.stoichiometry import ScaleInput
 from .services import stoichiometry as stoich_service
@@ -25,7 +25,7 @@ async def calculate_stoichiometry(
 ) -> dict:
     """Scale a batch from a chosen basis component to a full role-based dosing table."""
     identity = f"u{actor.id}" if actor else "anon"
-    await enforce("stoich", identity, settings.api_stoich_limit_per_minute, 60)
+    await enforce_http("stoich", identity, settings.api_stoich_limit_per_minute, 60)
 
     try:
         return await stoich_service.compute(body)

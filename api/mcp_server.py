@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from .core.rate_limit import RateLimitError
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.context import Context
 from mcp.server.mcpserver.exceptions import ToolError
@@ -94,10 +95,11 @@ async def _render_enter(actor: Actor | None, headers: Any = None) -> list[str]:
     except ToolError:
         await rate_limit.release_leases(held, MCP_RENDER_BUCKET)
         raise
-    except HTTPException as exc:
-        # enforce/lease 侧 fail-closed 的 503 与 429 统一转成 MCP ToolError。
+    except RateLimitError as exc:
+        # enforce/lease 侧 fail-closed 的 LimiterUnavailable 与 RateLimited
+        # 统一转成 MCP ToolError(G2.R: core 已 neutral, 此处捕语义异常)。
         await rate_limit.release_leases(held, MCP_RENDER_BUCKET)
-        raise ToolError(str(exc.detail)) from exc
+        raise ToolError(exc.detail) from exc
 
 
 async def _render_exit(held: list[str]) -> None:
@@ -254,11 +256,11 @@ def build_mcp_server() -> MCPServer:
         from .services.search import run_search_query as _run_search_query
         from .chemistry import canonicalize_smiles as _canonicalize_smiles
         from .core.cache import cache_get as _cache_get, cache_set as _cache_set
+        from .core.rate_limit import RateLimitError as _RateLimitError
         from .core.rate_limit import (
             structure_enter as _structure_enter,
             structure_exit as _structure_exit,
         )
-        from fastapi import HTTPException as _HTTPException
         import asyncio as _asyncio
 
         offset = (page - 1) * page_size
@@ -281,8 +283,8 @@ def build_mcp_server() -> MCPServer:
                 )
             except _SearchError as exc:
                 raise ToolError(exc.detail) from exc
-            except _HTTPException as exc:
-                raise ToolError(str(exc.detail)) from exc
+            except _RateLimitError as exc:
+                raise ToolError(exc.detail) from exc
             finally:
                 await _structure_exit(held)
 
@@ -508,7 +510,8 @@ def build_mcp_server() -> MCPServer:
 
         示例(arguments): {"components":[{"role":"REACTANT","smiles":"O=C(O)c1ccccc1O","eq":1},{"role":"REAGENT","smiles":"CC(=O)OC(=O)C","eq":1.05},{"role":"PRODUCT","smiles":"CC(=O)Oc1ccccc1C(=O)O","eq":1}],"basis":{"index":0,"amount_value":10,"amount_unit":"g"}}
         """
-        from .core.rate_limit import enforce as _enforce
+        from .core import rate_limit as _rate_limit
+        from .core.rate_limit import RateLimitError as _RateLimitError
         from .core.config import settings as _settings
         from .services import stoichiometry as stoich_service
 
@@ -521,18 +524,17 @@ def build_mcp_server() -> MCPServer:
         # 直调 transport-neutral service, 限流作为 entrypoint policy 在本
         # adapter 显式执行, 与 HTTP adapter 同桶同身份方案(行为不变)。
         _identity = f"u{actor.id}" if actor else "anon"
-        # 限流(429/503 HTTPException)与业务校验(ValueError)都在 MCP 边界
-        # 转成 ToolError —— 与写工具/_render_enter 既有模式同款: 客户端可读
-        # detail 原文, 而不是让 HTTPException 穿透成框架级 crash。
-        from fastapi import HTTPException as _HTTPException
+        # 限流(RateLimited/LimiterUnavailable)与业务校验(ValueError)都在
+        # MCP 边界转成 ToolError —— 客户端可读 detail 原文(G2.R: 捕 neutral
+        # 语义异常, 不再捕 FastAPI HTTPException)。
         try:
-            await _enforce("stoich", _identity,
-                           _settings.api_stoich_limit_per_minute, 60)
+            await _rate_limit.enforce("stoich", _identity,
+                                      _settings.api_stoich_limit_per_minute, 60)
             return await stoich_service.compute(body)
         except ValueError as exc:
             raise ToolError(str(exc)) from exc
-        except _HTTPException as exc:
-            raise ToolError(str(exc.detail)) from exc
+        except _RateLimitError as exc:
+            raise ToolError(exc.detail) from exc
 
     # ---------------- 写工具(需要 AI Key) ----------------
 

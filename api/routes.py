@@ -78,7 +78,7 @@ async def search(
         # ② in-flight 租约(actor 2 + global 4) — 依据 pool 5+5=10 连接 /
         # similarity 冷查 ~5s / statement_timeout 8s: 最坏 4 个昂贵结构查询
         # 同时占连接, 至少 6 个留给普通请求。超限立即 429, 不占连接等 503。
-        held = await structure_enter(actor.id if actor is not None else None)
+        held = await structure_enter_http(actor.id if actor is not None else None)
     # Exact searches can include user-created reactions. Keep them live so a
     # create, edit or delete is reflected immediately. Only expensive
     # structure searches use the short-lived shared cache.
@@ -125,7 +125,8 @@ async def search(
     return data
 
 
-from .core.rate_limit import enforce, structure_enter, structure_exit  # noqa: E402  (结构检索闸门 0912 + externals 限流)
+from .rate_limit_http import enforce_http, structure_enter_http  # noqa: E402  (结构检索闸门 0912 + externals 限流; G2.R HTTP bridge)
+from .core.rate_limit import structure_exit  # noqa: E402  (释放无异常, neutral 直用)
 
 
 @router.get(
@@ -222,9 +223,9 @@ async def chemical_externals(
         # fresh negative/stale enqueue/no_cas/404 这些零外呼路径不消耗配额,
         # Redis 故障时也不该把正常读取打成 503。
         if actor is not None:
-            await enforce("externals-fetch", str(actor.id), 10, 60)
+            await enforce_http("externals-fetch", str(actor.id), 10, 60)
         else:
-            await enforce("externals-fetch", "anonymous-global", 30, 60)
+            await enforce_http("externals-fetch", "anonymous-global", 30, 60)
         # 首访: 同步拉取(3s 预算); 失败入队,本响应出空
         sync = await sync_fetch_and_store(db, chemical_id=chemical_id, cas_number=cas_number)
         if sync and sync["status"] == "ok":

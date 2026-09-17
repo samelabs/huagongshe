@@ -234,7 +234,7 @@ class StructureHasMorePage20Tests(unittest.TestCase):
         with patch.object(routes_module, "run_search_query", fake_run), \
              patch.object(routes_module, "cache_get", fake_cache_get), \
              patch.object(routes_module, "cache_set", fake_cache_set), \
-             patch.object(routes_module, "structure_enter", _AsyncMock(return_value=["h"])), \
+             patch.object(routes_module, "structure_enter_http", _AsyncMock(return_value=["h"])), \
              patch.object(routes_module, "structure_exit", _AsyncMock()):
             data = asyncio.run(routes_module.search(
                 actor=actor, q="CC(=O)Oc1ccccc1C(=O)O", mode="substructure",

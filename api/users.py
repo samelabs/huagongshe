@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .core.config import settings
 from .core.database import get_db
-from .core.rate_limit import enforce
+from .rate_limit_http import enforce_http
 from .core.security import (
     Actor, actor_payload, current_actor, current_session, public_or_actor,
     password_hash, password_matches,
@@ -68,7 +68,7 @@ async def check_username(username: str = Query(min_length=4, max_length=30), db=
     0904 ⑱: 枚举敞口 — 原无限流, 脚本可批量探测已注册用户名。
     匿名共享桶 30/min(BFF 后无真实 IP, 与 cas-search-fetch 同口径);
     超限 429, 注册表单降级为提交时校验(不阻塞正常使用)。"""
-    await enforce("check-username", "global", 30, 60)
+    await enforce_http("check-username", "global", 30, 60)
     if not USERNAME_RE.fullmatch(username):
         return {"available": False, "reason": "用户名仅支持 4–30 位小写字母、数字或下划线"}
     exists = (await db.execute(text(
@@ -81,7 +81,7 @@ async def check_username(username: str = Query(min_length=4, max_length=30), db=
 async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
     # 注册界=全局宽松上限: 只防批量灌号; 真实流量(个位数/天)永远不可见.
     # per-IP 对代理池无效(B2 后应用层也拿不到真实 IP), 不做地址维度.
-    await enforce("register", "global", 60, 3600)
+    await enforce_http("register", "global", 60, 3600)
     encoded_password = await asyncio.to_thread(password_hash, body.password)
     try:
         row = (await db.execute(text("""
@@ -107,7 +107,7 @@ async def login(body: LoginBody, response: Response, db=Depends(get_db)):
     account = body.account.strip().lower()
     # 限流键=账号本身: 换 IP(代理池)无效; 换账号打的是廉价未命中查询, 不触发 scrypt.
     # 真实账号的猜解被账号桶封死 → scrypt(~50ms/次) CPU 消耗有界.
-    await enforce("login", hashlib.sha256(account.encode()).hexdigest()[:24], 15, 900)
+    await enforce_http("login", hashlib.sha256(account.encode()).hexdigest()[:24], 15, 900)
     row = (await db.execute(text("""
         SELECT id,username,display_name,email,role,password_hash,avatar_path
         FROM community.users
@@ -218,7 +218,7 @@ async def change_password(
 ):
     # scrypt 验证昂贵: 认证会话重复错误 current_password = CPU 放大,
     # 简单 actor bucket (LOW-PATCH, 与 login account bucket 同风格)
-    await enforce("password-change", str(actor.id), 10, 900)
+    await enforce_http("password-change", str(actor.id), 10, 900)
     encoded = (await db.execute(text(
         "SELECT password_hash FROM community.users WHERE id=:id"
     ), {"id": actor.id})).scalar_one()
@@ -239,7 +239,7 @@ async def change_password(
 async def upload_avatar(
     image: UploadFile = File(...), actor: Actor = Depends(current_session), db=Depends(get_db)
 ):
-    await enforce("avatar", str(actor.id), settings.api_avatar_limit_per_hour, 3600)
+    await enforce_http("avatar", str(actor.id), settings.api_avatar_limit_per_hour, 3600)
     raw = await image.read(settings.avatar_max_bytes + 1)
     if len(raw) > settings.avatar_max_bytes:
         raise HTTPException(413, "头像文件不能超过 5 MB")

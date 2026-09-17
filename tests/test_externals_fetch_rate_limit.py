@@ -87,7 +87,7 @@ class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
             return 999
 
         db = _Db(row)
-        with patch.object(routes, "enforce", spy_enforce), \
+        with patch.object(routes, "enforce_http", spy_enforce), \
              patch.object(cb_module, "ensure_externals", fake_ensure), \
              patch.object(cb_module, "negative_is_fresh", fake_negative), \
              patch.object(cb_module, "sync_fetch_and_store", fake_sync), \
@@ -190,7 +190,7 @@ class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
     async def test_rate_limit_failure_blocks_sync_fetch_and_store(self):
         for exc, code in (
             (HTTPException(503, "限速服务暂时不可用，请稍后重试"), 503),
-            (HTTPException(429, "请求过于频繁，请稍后重试"), 429),
+            (HTTPException(429, "请求过于频繁，请稍后重试", headers={"Retry-After": "5", "X-RateLimit-Remaining": "0"}), 429),
         ):
             with self.subTest(status=code):
                 got, events = await self._call(

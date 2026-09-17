@@ -142,7 +142,7 @@ class HttpContractTests(unittest.TestCase):
         import api.stoichiometry as mod
         async def boom(bucket, identity, limit, window):
             return None
-        with patch.object(mod, "enforce", boom):
+        with patch.object(mod, "enforce_http", boom):
             with self.assertRaises(HTTPException) as ctx:
                 asyncio.run(mod.calculate_stoichiometry(
                     body=_input(basis={"index": 9, "amount_value": 1,
@@ -163,7 +163,7 @@ class HttpContractTests(unittest.TestCase):
             calls.append("compute")
             return {"basis": {}, "components": [], "note": ""}
 
-        with patch.object(mod, "enforce", fake_enforce), \
+        with patch.object(mod, "enforce_http", fake_enforce), \
                 patch.object(mod.stoich_service, "compute", fake_compute):
             out = asyncio.run(mod.calculate_stoichiometry(
                 body=_input(), actor=None))
@@ -258,9 +258,9 @@ class McpErrorBoundaryTests(unittest.TestCase):
         m, fn = self._tool_fn()
 
         async def raise_429(bucket, identity, limit, window):
-            raise HTTPException(
-                429, "请求过于频繁，请稍后重试",
-                headers={"Retry-After": "30", "X-RateLimit-Remaining": "0"})
+            # G2.R: core 现抛 neutral RateLimited(retry_after 元数据)
+            from api.core.rate_limit import RateLimited
+            raise RateLimited("请求过于频繁，请稍后重试", retry_after=30)
 
         computed = []
 
@@ -283,7 +283,8 @@ class McpErrorBoundaryTests(unittest.TestCase):
         m, fn = self._tool_fn()
 
         async def raise_503(bucket, identity, limit, window):
-            raise HTTPException(503, "限速服务暂时不可用，请稍后重试")
+            from api.core.rate_limit import LimiterUnavailable
+            raise LimiterUnavailable("限速服务暂时不可用，请稍后重试")
 
         computed = []
 

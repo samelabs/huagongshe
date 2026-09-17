@@ -18,7 +18,7 @@ from .chemistry import canonicalize_smiles
 from .schemas.reactions import ReactionBody
 from .core.config import settings
 from .core.database import get_db
-from .core.rate_limit import enforce
+from .rate_limit_http import enforce_http
 from .core.security import Actor, current_actor, public_or_actor, require_scope
 
 router = APIRouter(tags=["reactions"])
@@ -205,7 +205,7 @@ async def reaction_response(db, reaction_id: int, created_chemicals: list[int] |
 )
 async def validate_reaction(body: ReactionBody, actor: Actor = Depends(current_actor)):
     require_scope(actor, "reaction:write")
-    await enforce("reaction-validate", str(actor.id), 20, 60)
+    await enforce_http("reaction-validate", str(actor.id), 20, 60)
     participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
     return {
         "valid": True, "reaction_smiles": reaction_smiles,
@@ -231,8 +231,8 @@ async def create_reaction(
     db=Depends(get_db),
 ):
     require_scope(actor, "reaction:write")
-    await enforce("reaction-write-minute", str(actor.id), settings.api_reaction_write_limit_per_minute, 60)
-    await enforce("reaction-write-day", str(actor.id), settings.api_reaction_write_limit_per_day, 86400)
+    await enforce_http("reaction-write-minute", str(actor.id), settings.api_reaction_write_limit_per_minute, 60)
+    await enforce_http("reaction-write-day", str(actor.id), settings.api_reaction_write_limit_per_day, 86400)
     if actor.auth_kind == "agent" and not idempotency_key:
         raise HTTPException(400, "使用 API Token 提交必须提供 Idempotency-Key")
     if idempotency_key and len(idempotency_key) > 200:
@@ -297,7 +297,7 @@ async def update_reaction(
 ):
     if actor.auth_kind == "agent":
         raise HTTPException(403, "API Token 当前不开放反应编辑，请使用网页登录会话")
-    await enforce("reaction-write-minute", str(actor.id), settings.api_reaction_write_limit_per_minute, 60)
+    await enforce_http("reaction-write-minute", str(actor.id), settings.api_reaction_write_limit_per_minute, 60)
     current = (await db.execute(text("""
         SELECT created_by_user_id,visibility,moderation_status
         FROM chemistry.reactions WHERE id=:id FOR UPDATE

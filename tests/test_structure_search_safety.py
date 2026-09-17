@@ -165,7 +165,7 @@ class GateWiringTests(unittest.TestCase):
             ("search", inspect.getsource(routes.search)),
         ):
             cache_pos = source.find("cached = await cache_get(cache_key)")
-            gate_pos = source.find("structure_enter(")
+            gate_pos = source.find("structure_enter_http(")
             self.assertGreater(cache_pos, -1, f"{name} 缺 cache 查询")
             self.assertGreater(gate_pos, cache_pos, f"{name}: 闸门必须在 cache miss 之后")
             self.assertIn("structure_exit(", source, f"{name} 未释放租约")
@@ -333,20 +333,19 @@ class LeaseLayerTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase):
     async def test_global_acquire_503_releases_actor_lease_immediately(self):
         """global 侧 acquire 抛 503(fail-closed)时, 已持有的 actor 租约必须当场
         释放, 不能等 TTL — 否则故障窗口内该 actor 的槽位被白锁 30s。"""
-        from fastapi import HTTPException
+        from api.core.rate_limit import LimiterUnavailable
 
         original = rate_limit.acquire_lease
 
         async def flaky(bucket, identity, limit, ttl_seconds=rate_limit.LEASE_TTL_SECONDS):
             if identity == "global":
-                raise HTTPException(503, "结构检索限流服务暂时不可用，请稍后重试")
+                raise LimiterUnavailable("结构检索限流服务暂时不可用，请稍后重试")
             return await original(bucket, identity, limit, ttl_seconds)
 
         rate_limit.acquire_lease = flaky
         try:
-            with self.assertRaises(HTTPException) as ctx:
+            with self.assertRaises(LimiterUnavailable) as ctx:
                 await rate_limit.structure_enter(9, bucket=self.BUCKET)
-            self.assertEqual(ctx.exception.status_code, 503)
         finally:
             rate_limit.acquire_lease = original
         self.assertEqual(await self._count("actor:9"), 0,
@@ -354,25 +353,25 @@ class LeaseLayerTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase):
 
     async def test_enter_raises_429_when_full(self):
         """global 并发满(4)后, 新 actor 即使自身有空槽也必须 429。"""
-        from fastapi import HTTPException
+        from api.core.rate_limit import ResourceBusy
 
         held = [await rate_limit.structure_enter(value, bucket=self.BUCKET) for value in (1, 2, 3, 4)]
-        with self.assertRaises(HTTPException) as ctx:
+        with self.assertRaises(ResourceBusy) as ctx:
             await rate_limit.structure_enter(5, bucket=self.BUCKET)
-        self.assertEqual(ctx.exception.status_code, 429)
+        self.assertEqual(ctx.exception.retry_after, 5)
         self.assertEqual(await self._count("actor:5"), 0, "被拒后 actor 槽位泄漏")
         for item in held:
             await rate_limit.structure_exit(item, bucket=self.BUCKET)
 
     async def test_failed_global_acquire_releases_actor_slot(self):
         """global 拿不到时必须回滚已持有的 actor 租约, 否则 actor 槽位泄漏。"""
-        from fastapi import HTTPException
+        from api.core.rate_limit import ResourceBusy
 
         held = await rate_limit.structure_enter(1, bucket=self.BUCKET)
         await rate_limit.structure_enter(2, bucket=self.BUCKET)
         await rate_limit.structure_enter(3, bucket=self.BUCKET)   # 3/4 global
         await rate_limit.structure_enter(4, bucket=self.BUCKET)   # 4/4 global
-        with self.assertRaises(HTTPException):
+        with self.assertRaises(ResourceBusy):
             await rate_limit.structure_enter(5, bucket=self.BUCKET)  # global 满
         self.assertEqual(await self._count("actor:5"), 0, "actor 租约泄漏")
         await rate_limit.structure_exit(held, bucket=self.BUCKET)
@@ -682,29 +681,27 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
             "redis://127.0.0.1:6399/15", socket_connect_timeout=0.2, socket_timeout=0.2)
 
     async def test_acquire_lease_503_on_redis_failure(self):
-        from fastapi import HTTPException
+        from api.core.rate_limit import LimiterUnavailable
 
         broken = self._broken_pool()
         original = rate_limit.pool
         rate_limit.pool = broken
         try:
-            with self.assertRaises(HTTPException) as ctx:
+            with self.assertRaises(LimiterUnavailable) as ctx:
                 await rate_limit.acquire_lease(self.BUCKET, "global", 4)
-            self.assertEqual(ctx.exception.status_code, 503)
         finally:
             rate_limit.pool = original
             await broken.disconnect()
 
     async def test_structure_enter_fails_closed(self):
-        from fastapi import HTTPException
+        from api.core.rate_limit import LimiterUnavailable
 
         broken = self._broken_pool()
         original = rate_limit.pool
         rate_limit.pool = broken
         try:
-            with self.assertRaises(HTTPException) as ctx:
+            with self.assertRaises(LimiterUnavailable) as ctx:
                 await rate_limit.structure_enter(1, bucket=self.BUCKET)
-            self.assertEqual(ctx.exception.status_code, 503)
         finally:
             rate_limit.pool = original
             await broken.disconnect()

@@ -151,8 +151,8 @@ def patch_runtime(row=None, deny=False, enforce_503=False, forbid_fake_sql=None,
     async def fake_enforce(bucket, identity, limit, window):
         ORDER.append(("enforce", bucket, identity, limit))
         if enforce_503:
-            from fastapi import HTTPException
-            raise HTTPException(503, "rate limit backend unavailable")
+            from api.core.rate_limit import LimiterUnavailable
+            raise LimiterUnavailable("rate limit backend unavailable")
 
     async def fake_acquire(bucket, identity, limit, ttl=None):
         ORDER.append(("acquire", bucket, identity, limit))
@@ -517,7 +517,8 @@ class StructureGateCompat(unittest.TestCase):
         self.assertIn("structure_exit", slot)
 
     def test_routes_still_imports_the_same_names(self):
-        self.assertIn("structure_enter", dir(routes))
+        # G2.R: routes 经 HTTP bridge(structure_enter_http), 释放仍用 neutral exit
+        self.assertIn("structure_enter_http", dir(routes))
         src = (REPO / "api" / "routes.py").read_text(encoding="utf-8")
         self.assertIn("structure_exit", src)
         self.assertNotIn("release_leases", src, "api/routes.py 不应因 MCP batch 改写")

@@ -1,4 +1,13 @@
-"""Small Redis-backed fixed-window limits for people and their API tokens."""
+"""Small Redis-backed fixed-window limits for people and their API tokens.
+
+G2.R(2026-09-17): transport-neutral 化 —— 本文件不再产生
+transport-specific exception, 改抛 neutral 语义异常(RateLimited / LimiterUnavailable /
+ResourceBusy)。HTTP status/header 由 HTTP transport bridge
+(api/rate_limit_http.py)映射; MCP adapter 自行映射 ToolError。
+
+单一 limiter engine: consume 的 fixed-window INCR/EXPIRE 与 Lua lease
+实现自始未变, 本轮只改异常语义层。
+"""
 
 from __future__ import annotations
 
@@ -10,9 +19,36 @@ from contextlib import asynccontextmanager
 logger = logging.getLogger(__name__)
 
 import redis.asyncio as redis
-from fastapi import HTTPException
 
 from .cache import pool
+
+
+# ---------------------------------------------------------------------------
+# neutral 语义异常(G2.R): 只携带 detail + retry_after, 不含 HTTP status/header。
+# ---------------------------------------------------------------------------
+
+class RateLimitError(Exception):
+    """中性基类: 限流体系内可预期的失败(便于调用方统一捕获)。"""
+
+    detail: str
+    retry_after: int | None
+
+    def __init__(self, detail: str, retry_after: int | None = None):
+        super().__init__(detail)
+        self.detail = detail
+        self.retry_after = retry_after
+
+
+class RateLimited(RateLimitError):
+    """固定窗口超限(原 HTTP 429 + Retry-After 路径)。"""
+
+
+class LimiterUnavailable(RateLimitError):
+    """限流基础设施不可用(Redis 故障 fail-closed, 原 HTTP 503 路径)。"""
+
+
+class ResourceBusy(RateLimitError):
+    """in-flight 资源饱和(原结构闸门 429 Retry-After:5 路径)。"""
 
 
 def is_loopback_host(host: str | None) -> bool:
@@ -41,15 +77,10 @@ async def enforce(bucket: str, identity: str, limit: int, window_seconds: int) -
     try:
         remaining, reset, allowed = await consume(bucket, identity, limit, window_seconds)
     except Exception as exc:
-        raise HTTPException(503, "限速服务暂时不可用，请稍后重试") from exc
+        raise LimiterUnavailable("限速服务暂时不可用，请稍后重试") from exc
     if not allowed:
         retry_after = max(reset - int(time.time()), 1)
-        raise HTTPException(
-            429,
-            "请求过于频繁，请稍后重试",
-            headers={"Retry-After": str(retry_after), "X-RateLimit-Remaining": "0"},
-        )
-
+        raise RateLimited("请求过于频繁，请稍后重试", retry_after=retry_after)
 
 
 
@@ -58,7 +89,7 @@ async def enforce(bucket: str, identity: str, limit: int, window_seconds: int) -
 # 两层: ① fixed-window 限频 ② in-flight 租约(并发上限)。
 # 依据生产事实: DB pool 5+5=10 连接 / similarity 冷查 ~5s / statement_timeout 8s /
 # substructure 低选择性 motif 冷查可吃满 8s。全局并发 4 → 最坏 4 个昂贵结构查询
-# 同时占连接, 至少 6 个连接留给普通请求; 超限立即 429, 不占着连接等到 503。
+# 同时占连接, 至少 6 个连接留给普通请求; 超限立即拒绝, 不占着连接等 503。
 STRUCTURE_ACTOR_RATE_LIMIT = 6      # actor 6 次/分钟
 STRUCTURE_GLOBAL_RATE_LIMIT = 30    # 全局 30 次/分钟
 STRUCTURE_ACTOR_INFLIGHT = 2        # actor 并发 2
@@ -84,19 +115,20 @@ async def acquire_lease(bucket: str, identity: str, limit: int,
                         ttl_seconds: int = LEASE_TTL_SECONDS) -> bool:
     """原子获取 in-flight 租约(INCR + PEXPIRE 同一 Lua)。
 
-    fail-closed(0912): Redis 异常时抛 503, 不放行 — 限流/记账服务故障不能
-    同时撤掉昂贵结构查询的最后一道 DB 并发保护(宁可结构检索不可用, 也不能让
-    1.24 亿行上的 GiST 扫描无上限涌进 5+5 连接池)。release 侧相反: 异常只记
-    日志, 靠 TTL 自愈(进程崩溃同理)。
+    fail-closed(0912): Redis 异常时抛 LimiterUnavailable, 不放行 —
+    限流/记账服务故障不能同时撤掉昂贵结构查询的最后一道 DB 并发保护
+    (宁可结构检索不可用, 也不能让 1.24 亿行上的 GiST 扫描无上限涌进
+    5+5 连接池)。release 侧相反: 异常只记日志, 靠 TTL 自愈(进程崩溃同理)。
+    busy(已满)仍返回 False, 不抛异常。
     """
     key = f"lease:{bucket}:{identity}"
     client = redis.Redis(connection_pool=pool)
     try:
         ok, _ = await client.eval(_ACQUIRE_LEASE, 1, key, limit, ttl_seconds * 1000)
     except Exception as exc:
-        logger.warning("lease acquire failed — fail-closed 503", exc_info=True,
+        logger.warning("lease acquire failed — fail-closed unavailable", exc_info=True,
                        extra={"lease_key": key})
-        raise HTTPException(503, "结构检索限流服务暂时不可用，请稍后重试") from exc
+        raise LimiterUnavailable("结构检索限流服务暂时不可用，请稍后重试") from exc
     return bool(int(ok))
 
 
@@ -111,21 +143,23 @@ async def release_lease(bucket: str, identity: str) -> None:
                        extra={"lease_key": key})
 
 
-def _over_limit() -> HTTPException:
-    return HTTPException(
-        429, "结构检索并发已达上限，请稍后重试",
-        headers={"Retry-After": "5", "X-RateLimit-Remaining": "0"},
+def _over_limit() -> ResourceBusy:
+    # 旧 _over_limit() HTTP 契约: 429 + Retry-After:5(原值保留, 由 HTTP bridge 重建)。
+    return ResourceBusy(
+        "结构检索并发已达上限，请稍后重试",
+        retry_after=5,
     )
 
 
 async def structure_enter(actor_id: int | None, bucket: str = "structure-search") -> list[str]:
     """进入结构检索闸门: 限频(第一层) → 获取 in-flight 租约(第二层)。
 
-    返回已持有的租约身份列表(交给 structure_exit 释放)。超限抛 429。
+    返回已持有的租约身份列表(交给 structure_exit 释放)。超限抛
+    RateLimited / ResourceBusy / LimiterUnavailable(neutral)。
     调用方必须已查过缓存 — cache hit 不进这里, 不占限流也不占租约。
     """
     identity = f"actor:{actor_id}" if actor_id is not None else None
-    # fixed-window 行为不变: enforce 限流服务异常 → 503(原口径), 超限 → 429。
+    # fixed-window 行为不变: enforce 限流服务异常 → LimiterUnavailable, 超限 → RateLimited。
     if identity is not None:
         await enforce(bucket, identity, STRUCTURE_ACTOR_RATE_LIMIT, 60)
     await enforce(bucket, "global", STRUCTURE_GLOBAL_RATE_LIMIT, 60)
@@ -138,8 +172,8 @@ async def structure_enter(actor_id: int | None, bucket: str = "structure-search"
             raise _over_limit()
     try:
         granted = await acquire_lease(bucket, "global", STRUCTURE_GLOBAL_INFLIGHT)
-    except HTTPException:
-        # global 侧 Redis 故障(fail-closed 503): 已持有的 actor 租约必须立刻释放,
+    except RateLimitError:
+        # global 侧 Redis 故障(fail-closed): 已持有的 actor 租约必须立刻释放,
         # 不能等 TTL(30s) — 否则单个 actor 的槽位被故障窗口白白锁住。
         await structure_exit(held, bucket)
         raise
