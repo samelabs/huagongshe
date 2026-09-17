@@ -13,9 +13,10 @@ from .enrichment import enqueue_chemical_if_needed
 from .services.enrichment import display_details
 from .core.security import Actor, public_or_actor
 from .services.reactions import load_reaction_detail
-from .services.search import SearchError, execute_search
 from .services.search import (
-    BACKEND_UNAVAILABLE, INVALID_STRUCTURE, QUERY_TOO_SHORT,
+    INVALID_DOI, INVALID_STRUCTURE, SUBSTRUCTURE_TOO_SMALL,
+    QUERY_TOO_SHORT, BACKEND_UNAVAILABLE,
+    SearchError, execute_search,
 )
 from .rate_limit_http import enforce_http, to_http_exception  # noqa: E402  (externals 限流; G2.R HTTP bridge)
 from .core.rate_limit import RateLimitError  # noqa: E402
@@ -23,6 +24,8 @@ from .core.rate_limit import RateLimitError  # noqa: E402
 # service 语义类别 → 基线 HTTP status 唯一映射(G2.3 final; detail 逐字不变)
 _STATUS_BY_KIND = {
     INVALID_STRUCTURE: 400,
+    SUBSTRUCTURE_TOO_SMALL: 422,
+    INVALID_DOI: 400,
     QUERY_TOO_SHORT: 422,
     BACKEND_UNAVAILABLE: 503,
 }

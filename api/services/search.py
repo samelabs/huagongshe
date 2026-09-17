@@ -16,6 +16,8 @@ from ..chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE
 from ..core.rate_limit import enforce  # smiles-create 副作用闸门(0914 #5)
 from .chemicals import (
     CHEMICAL_SELECT, IDENTIFIER_ARRAYS, MIN_FUZZY_NAME_LENGTH,
+    InvalidDoiError, InvalidSmilesError, SubstructureTooSmallError,
+    SubstructureUnavailableError,
     bounded_substructure_smiles, fetch_chemicals, name_query_width,
     reaction_lookup,
 )
@@ -24,6 +26,8 @@ from .name_index import normalize_name
 
 # 语义类别(G2.3 final): service 只表达业务语义, 不含 HTTP status/header。
 # HTTP adapter 维护唯一映射 kind→HTTP status; MCP 只用 detail。
+SUBSTRUCTURE_TOO_SMALL = "substructure_too_small"  # G2.3D: 合法结构但重原子过小(422 语义)
+INVALID_DOI = "invalid_doi"  # G2.3D: DOI 前缀输入格式不合法(400 语义)
 INVALID_STRUCTURE = "invalid_structure"    # 无法识别该 SMILES 结构
 QUERY_TOO_SHORT = "query_too_short"        # 名称查询长度不足
 BACKEND_UNAVAILABLE = "backend_unavailable"  # 查询超时/后端不可用
@@ -556,6 +560,18 @@ async def run_search_query(
                 cas_fetch_hit_id = chemicals[0]["id"]
     except SearchError:
         raise
+    # G2.3D: chemicals 查询内核 neutral 异常 → 语义 kind, detail 原文
+    # (c30dfe8 基线契约恢复; 禁止落入下方 generic 兜底被覆盖)。
+    except InvalidSmilesError as exc:
+        raise SearchError(INVALID_STRUCTURE, str(exc)) from exc
+    except SubstructureTooSmallError as exc:
+        raise SearchError(SUBSTRUCTURE_TOO_SMALL, str(exc)) from exc
+    except InvalidDoiError as exc:
+        raise SearchError(INVALID_DOI, str(exc)) from exc
+    except SubstructureUnavailableError as exc:
+        # snapshot 层已 rollback(statement-timeout 分支)或无未决写;
+        # slow-window 分支无 DB 状态变化, 不再重复 rollback。
+        raise SearchError(BACKEND_UNAVAILABLE, str(exc)) from exc
     except Exception as exc:
         await db.rollback()
         raise SearchError(BACKEND_UNAVAILABLE, "查询超时，请使用更精确的名称、标识符或结构") from exc

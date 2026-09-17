@@ -51,9 +51,11 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertEqual(bounded_substructure_smiles(smiles), smiles)
 
     def test_bounded_substructure_rejects_broad_structure(self) -> None:
-        with self.assertRaises(HTTPException) as raised:
+        # G2.3D: chemicals 内核 neutral 异常(422 语义在 HTTP adapter 映射)
+        from api.services.chemicals import SubstructureTooSmallError
+        with self.assertRaises(SubstructureTooSmallError) as raised:
             bounded_substructure_smiles("c1ccccc1")
-        self.assertEqual(raised.exception.status_code, 422)
+        self.assertIn("子结构过小", str(raised.exception))
 
     def test_only_real_loopback_addresses_are_trusted(self) -> None:
         self.assertTrue(is_loopback_host("127.0.0.1"))

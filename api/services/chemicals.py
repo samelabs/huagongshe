@@ -8,7 +8,30 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import HTTPException
+# --- Search-path 查询内核 neutral 异常(G2.3D) ---------------------------
+# transport-neutral: 只携带 detail, 无 status/header/HTTP 概念。
+# 映射唯一发生在 api/routes.py(HTTP)与 api/mcp_server.py(MCP)。
+# detail 文本为 c30dfe8 基线契约原文, 逐字保持。
+
+
+class QueryInputError(Exception):
+    """搜索查询输入不合法(结构/标识符)的最小公共基类。"""
+
+
+class InvalidSmilesError(QueryInputError):
+    pass
+
+
+class SubstructureTooSmallError(QueryInputError):
+    pass
+
+
+class InvalidDoiError(QueryInputError):
+    pass
+
+
+class SubstructureUnavailableError(Exception):
+    """结构检索后端暂不可用(慢窗/语句超时), detail 原文保留。"""
 
 from rdkit import Chem
 from sqlalchemy import text
@@ -77,9 +100,9 @@ def bounded_substructure_smiles(smiles: str) -> str:
     """Reject queries whose result set is effectively unbounded at PubChem scale."""
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
-        raise HTTPException(400, "无法识别该 SMILES 结构")
+        raise InvalidSmilesError("无法识别该 SMILES 结构")
     if mol.GetNumHeavyAtoms() < MIN_SUBSTRUCTURE_HEAVY_ATOMS:
-        raise HTTPException(422, f"子结构过小，请至少提供 {MIN_SUBSTRUCTURE_HEAVY_ATOMS} 个非氢原子")
+        raise SubstructureTooSmallError(f"子结构过小，请至少提供 {MIN_SUBSTRUCTURE_HEAVY_ATOMS} 个非氢原子")
     return smiles
 
 
@@ -228,7 +251,7 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
     ) else None
     doi_value = normalize_doi(doi_candidate)
     if normalized_prefix == "doi" and not doi_value:
-        raise HTTPException(400, "DOI 格式不正确")
+        raise InvalidDoiError("DOI 格式不正确")
 
     if doi_value:
         rows = (await db.execute(text("""
@@ -459,7 +482,7 @@ async def substructure_snapshot(db: Any, smiles: str,
     # 变热后自然恢复(60s 窗口滑过即重试)。
     slow = await cache_get(key + ":slow")
     if slow:
-        raise HTTPException(503, "该子结构检索过慢，请稍后重试或使用更精确的结构")
+        raise SubstructureUnavailableError("该子结构检索过慢，请稍后重试或使用更精确的结构")
     await db.execute(text("SET LOCAL statement_timeout = '8s'"))
     try:
         rows = (await db.execute(text("""
@@ -472,7 +495,7 @@ async def substructure_snapshot(db: Any, smiles: str,
             raise
         await db.rollback()
         await cache_set(key + ":slow", True, ttl=SUBSTRUCTURE_SNAPSHOT_SLOW_TTL)
-        raise HTTPException(503, "查询超时，请使用更精确的结构")
+        raise SubstructureUnavailableError("查询超时，请使用更精确的结构")
     ids = sorted(int(row[0]) for row in rows)
     await cache_set(key, ids, ttl=SUBSTRUCTURE_SNAPSHOT_TTL)
     return ids
