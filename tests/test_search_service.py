@@ -74,20 +74,20 @@ class ServiceTests(unittest.TestCase):
         with self.assertRaises(svc.SearchError) as ctx:
             asyncio.run(svc.run_search_query(
                 _FakeDB(), "not-a-smiles", "substructure", None, 1, 30, 0))
-        self.assertEqual(ctx.exception.status, 400)
+        self.assertEqual(ctx.exception.kind, "invalid_structure")
         self.assertEqual(ctx.exception.detail, "无法识别该 SMILES 结构")
 
     def test_similarity_requires_canonical(self):
         with self.assertRaises(svc.SearchError) as ctx:
             asyncio.run(svc.run_search_query(
                 _FakeDB(), "zzz", "similarity", None, 1, 30, 0))
-        self.assertEqual(ctx.exception.status, 400)
+        self.assertEqual(ctx.exception.kind, "invalid_structure")
 
     def test_short_name_query_rejected(self):
         with self.assertRaises(svc.SearchError) as ctx:
             asyncio.run(svc.run_search_query(
                 _FakeDB(), "ab", "exact", None, 1, 30, 0))
-        self.assertEqual(ctx.exception.status, 422)
+        self.assertEqual(ctx.exception.kind, "query_too_short")
         self.assertEqual(ctx.exception.detail,
                          "名称查询至少需要 3 个字符（中文至少 2 个字）")
 
@@ -102,7 +102,7 @@ class ServiceTests(unittest.TestCase):
         with self.assertRaises(svc.SearchError) as ctx:
             asyncio.run(svc.run_search_query(
                 _Boom(), "benzoic acid", "exact", None, 1, 30, 0))
-        self.assertEqual(ctx.exception.status, 503)
+        self.assertEqual(ctx.exception.kind, "backend_unavailable")
         self.assertEqual(ctx.exception.detail,
                          "查询超时，请使用更精确的名称、标识符或结构")
 
@@ -130,8 +130,8 @@ class HttpContractTests(unittest.TestCase):
     def test_search_error_maps_to_http_exception(self):
         from fastapi import HTTPException
         from api import routes as routes_module
-        with patch.object(routes_module, "run_search_query",
-                          side_effect=svc.SearchError(400, "无法识别该 SMILES 结构")):
+        with patch.object(routes_module, "execute_search",
+                          side_effect=svc.SearchError(svc.INVALID_STRUCTURE, "无法识别该 SMILES 结构")):
             with self.assertRaises(HTTPException) as ctx:
                 self._search(None, "exact")
         self.assertEqual(ctx.exception.status_code, 400)
@@ -185,8 +185,8 @@ class McpSearchContractTests(unittest.TestCase):
         async def anon(headers):
             return None
         with patch.object(m, "_actor_from_headers", anon), \
-                patch.object(svc, "run_search_query",
-                             side_effect=svc.SearchError(503, "查询超时，请使用更精确的名称、标识符或结构")):
+                patch.object(svc, "execute_search",
+                             side_effect=svc.SearchError(svc.BACKEND_UNAVAILABLE, "查询超时，请使用更精确的名称、标识符或结构")):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(q="CCO", mode="exact"))
         self.assertEqual(str(ctx.exception),
@@ -323,14 +323,14 @@ class ArchitectureTests(unittest.TestCase):
         tree = ast.parse(fn)
         srcs = {n.func.attr if isinstance(n.func, ast.Attribute) else n.func.id
                 for n in ast.walk(tree) if isinstance(n, ast.Call)}
-        self.assertIn("_run_search_query", srcs,
-                      "MCP search 必须直调 run_search_query(局部 alias)")
+        self.assertIn("_execute_search", srcs,
+                      "MCP search 必须直调 shared orchestration(局部 alias)")
 
     def test_http_and_mcp_share_search_service(self):
         mol = (REPO / "api" / "routes.py").read_text("utf-8")
         mcp = (REPO / "api" / "mcp_server.py").read_text("utf-8")
         self.assertIn("from .services.search import", mol)
-        self.assertIn("run_search_query", mcp)
+        self.assertIn("execute_search", mcp)
 
     def test_adapters_have_no_db_search_sql(self):
         """三 mode 的 DB 查询唯一 owner=service; adapter 不复制 SQL。"""

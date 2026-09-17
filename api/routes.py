@@ -1,7 +1,6 @@
 """Public read API for the autonomous chemicals and reactions data model."""
 
 from __future__ import annotations
-import asyncio
 
 from typing import Any
 
@@ -9,13 +8,24 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from sqlalchemy import text
 
 from .core.cache import cache_get, cache_set
-from .chemistry import canonicalize_smiles
 from .core.database import get_db
 from .enrichment import enqueue_chemical_if_needed
 from .services.enrichment import display_details
 from .core.security import Actor, public_or_actor
 from .services.reactions import load_reaction_detail
-from .services.search import SearchError, run_search_query
+from .services.search import SearchError, execute_search
+from .services.search import (
+    BACKEND_UNAVAILABLE, INVALID_STRUCTURE, QUERY_TOO_SHORT,
+)
+from .rate_limit_http import enforce_http, to_http_exception  # noqa: E402  (externals 限流; G2.R HTTP bridge)
+from .core.rate_limit import RateLimitError  # noqa: E402
+
+# service 语义类别 → 基线 HTTP status 唯一映射(G2.3 final; detail 逐字不变)
+_STATUS_BY_KIND = {
+    INVALID_STRUCTURE: 400,
+    QUERY_TOO_SHORT: 422,
+    BACKEND_UNAVAILABLE: 503,
+}
 from .services.chemicals import (
     CHEMICAL_SELECT,
     fetch_chemicals, reaction_summaries,
@@ -57,76 +67,31 @@ async def search(
 ):
     """One entry point for names, external identifiers, SMILES and structures."""
     query = q.strip()
-    cas_fetch_pending = False  # CAS miss 已入队CB获取(standalone任务)
     # 结构检索登录墙(2026-08-26): GIST 单路 ~400ms 但并发无上限, 爬虫 12 路并发
     # 曾把机器打进 swap 全站僵死. exact 保持匿名(SSR); 结构模式需已鉴权 actor.
     if mode != "exact" and actor is None:
         raise HTTPException(401, "结构检索（子结构/相似度）需要登录或提供 API Token")
-    offset = (page - 1) * page_size
-    held: list[str] | None = None  # 结构检索闸门句柄(exact 模式不取)
-    cache_key = f"v2:unified-search:{mode}:{round(threshold,3)}:{page}:{page_size}:{query}"
     # 0914 #6: threshold 超 3 位小数时 round 进缓存键会同键不同结果(TTL 300s
     # 内串页), 显式 422 — 契约即 3 位(0.400–1.000), 而非静默吸附。
     if mode == "similarity" and round(threshold, 3) != threshold:
         raise HTTPException(422, "threshold 仅支持 3 位小数 (0.400–1.000)")
-    if mode != "exact":
-        cached = await cache_get(cache_key)
-        if cached:
-            return cached
-        # 结构检索资源闸门(0912): cache miss 才进入。两层 —
-        # ① fixed-window 限频(actor 6/min + global 30/min)
-        # ② in-flight 租约(actor 2 + global 4) — 依据 pool 5+5=10 连接 /
-        # similarity 冷查 ~5s / statement_timeout 8s: 最坏 4 个昂贵结构查询
-        # 同时占连接, 至少 6 个留给普通请求。超限立即 429, 不占连接等 503。
-        held = await structure_enter_http(actor.id if actor is not None else None)
-    # Exact searches can include user-created reactions. Keep them live so a
-    # create, edit or delete is reflected immediately. Only expensive
-    # structure searches use the short-lived shared cache.
-
-    # RDKit 解析/canonical 化是 CPU 计算, 丢线程池避免卡事件循环
-    # (0915 裁定; 同款先例=resolve_or_create 的 chemical_properties)。
-    canonical = await asyncio.to_thread(canonicalize_smiles, query)
     try:
-        (chemicals, total, reactions, cas_fetch_pending, canonical,
-         cas_fetch_hit_id, has_more, capped) = await run_search_query(
-            db, query, mode, canonical, page, page_size, offset,
-            actor_id=actor.id if actor else None, threshold=threshold,
+        return await execute_search(
+            db, query, mode, threshold=threshold, page=page,
+            page_size=page_size,
+            actor_id=actor.id if actor else None,
         )
-    except HTTPException:
-        raise  # entrypoint policy(429/503 闸门)直接透出 HTTP
-    except SearchError as exc:  # service 领域错误(G2.3): 映射回原 status/detail
-        raise HTTPException(exc.status, exc.detail) from exc
+    except SearchError as exc:  # service 领域错误 → 原基线 status/detail
+        raise HTTPException(_STATUS_BY_KIND[exc.kind], exc.detail) from exc
+    except RateLimitError as exc:  # G2.R neutral 闸门异常 → HTTP bridge
+        raise to_http_exception(exc) from exc
     except Exception as exc:
         await db.rollback()
         raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
-    finally:
-        await structure_exit(held)
-
-    data: dict[str, Any] = {
-        "query": query, "mode": mode, "canonical_smiles": canonical,
-        "threshold": threshold,
-        "page": page, "page_size": page_size, "total": total,
-        # has_more 收口(0914 #2): page 已达契约上限(le=20)时无合法 page+1,
-        # has_more 必须 False — 否则 Web(页面 clamp 回 20)形成第 20 页自循环。
-        "has_more": has_more and page < 20,
-        # capped(0915): substructure snapshot 达到产品上限 250 时 True。
-        # 语义: 达到产品返回上限, 数据库真实总匹配数未知 — total 不得被
-        # 消费方当成数据库真实总数。
-        "capped": capped,
-        "chemicals": chemicals, "reactions": reactions,
-    }
-    if cas_fetch_pending:
-        data["cas_fetch_pending"] = True  # 前端提示: 正在获取该CAS数据
-    if cas_fetch_hit_id:
-        # 0902 P3b: 同步拉命中 — 数据已落库, 前端直接跳详情页
-        data["cas_fetch_chemical_id"] = cas_fetch_hit_id
-    if mode != "exact":
-        await cache_set(cache_key, data, ttl=300)
-    return data
 
 
-from .rate_limit_http import enforce_http, structure_enter_http  # noqa: E402  (结构检索闸门 0912 + externals 限流; G2.R HTTP bridge)
-from .core.rate_limit import structure_exit  # noqa: E402  (释放无异常, neutral 直用)
+
+
 
 
 @router.get(

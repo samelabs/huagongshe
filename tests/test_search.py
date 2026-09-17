@@ -18,7 +18,9 @@ from api.services.chemicals import bounded_substructure_smiles
 
 class StructureSearchContractTests(unittest.TestCase):
     def test_exact_search_is_not_cached_with_mutable_user_reactions(self) -> None:
-        source = inspect.getsource(routes.search)
+        # G2.3 final: cache 读/写守卫唯一 owner = shared orchestration
+        from api.services import search as search_service
+        source = inspect.getsource(search_service.execute_search)
         self.assertEqual(source.count('if mode != "exact":'), 2)
 
     def test_doi_lookup_uses_separate_indexable_sources(self) -> None:
@@ -302,9 +304,9 @@ class SearchSystemGovernanceTests(unittest.TestCase):
 
     def test_routes_response_includes_has_more(self) -> None:
         import inspect
-        from api import routes as routes_module
+        from api.services import search as search_service
 
-        src = inspect.getsource(routes_module.search)
+        src = inspect.getsource(search_service.execute_search)
         self.assertIn('"has_more": has_more', src)
 
     def test_cas_miss_no_sync_fetch_in_critical_path(self) -> None:

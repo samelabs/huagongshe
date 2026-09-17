@@ -128,7 +128,9 @@ class SimilaritySemanticsTests(unittest.TestCase):
     def test_route_threshold_param_and_cache_key(self):
         src = inspect.getsource(routes.search)
         self.assertIn("threshold: float = Query(0.7", src)
-        self.assertIn("round(threshold,3)", src, "cache key 必须含 threshold")
+        # G2.3 final: cache key 构造唯一 owner = shared orchestration
+        orch = inspect.getsource(search_service.execute_search)
+        self.assertIn("round(threshold, 3)", orch, "cache key 必须含 threshold")
 
     def test_route_no_fake_total(self):
         src = inspect.getsource(routes)
@@ -161,14 +163,14 @@ class GateWiringTests(unittest.TestCase):
         self.assertLessEqual(rate_limit.STRUCTURE_GLOBAL_INFLIGHT, 4)
 
     def test_all_structure_handlers_gated_after_cache(self):
-        for name, source in (
-            ("search", inspect.getsource(routes.search)),
-        ):
-            cache_pos = source.find("cached = await cache_get(cache_key)")
-            gate_pos = source.find("structure_enter_http(")
-            self.assertGreater(cache_pos, -1, f"{name} 缺 cache 查询")
-            self.assertGreater(gate_pos, cache_pos, f"{name}: 闸门必须在 cache miss 之后")
-            self.assertIn("structure_exit(", source, f"{name} 未释放租约")
+        # G2.3 final: cache-before-gate 顺序唯一 owner = shared orchestration;
+        # HTTP/MCP adapter 均经 execute_search 继承同一顺序。
+        source = inspect.getsource(search_service.execute_search)
+        cache_pos = source.find("await _cache_get(cache_key)")
+        gate_pos = source.find("await _structure_enter(")
+        self.assertGreater(cache_pos, -1, "orchestration 缺 cache 查询")
+        self.assertGreater(gate_pos, cache_pos, "闸门必须在 cache miss 之后")
+        self.assertIn("structure_exit", source, "orchestration 未释放租约")
 
     def test_mcp_has_no_bypass(self):
         """G2.3 后: MCP 直调 transport-neutral service, 但结构闸门/缓存口径
@@ -179,16 +181,16 @@ class GateWiringTests(unittest.TestCase):
         self.assertNotIn("routes_module.search(", mcp)
         self.assertNotIn("substructure_page(", mcp)
         self.assertNotIn("similarity_page(", mcp)
-        # search tool 必须自带同款闸门与缓存(cache-before-gate)
+        # G2.3 final: MCP 直调 shared orchestration(execute_search)——
+        # 闸门/缓存/cache-before-gate 顺序由 orchestration 唯一拥有,
+        # MCP adapter 不再自带任何编排原语。
         start = mcp.index('@server.tool(name="search_chemistry_data"')
         block = mcp[start:mcp.index("@server.tool", start + 10)]
-        cache_pos = block.find("await _cache_get(_cache_key)")
-        gate_pos = block.find("await _structure_enter(")
-        self.assertGreater(cache_pos, -1, "MCP search 缺 cache 查询")
-        self.assertGreater(gate_pos, cache_pos, "MCP search: 闸门必须在 cache miss 之后")
-        self.assertIn("await _structure_exit(", block, "MCP search 未释放租约")
-        # 与 HTTP 共享同一 service 业务查询内核
-        self.assertIn("run_search_query", block)
+        self.assertIn("execute_search(", block, "MCP search 必须直调 shared orchestration")
+        for banned in ("_cache_get", "_structure_enter", "_structure_exit",
+                       "run_search_query", "v2:unified-search",
+                       "canonicalize_smiles"):
+            self.assertNotIn(banned, block, f"MCP search 不应再含 {banned}")
 
     def test_lease_is_atomic_and_ttl_bounded(self):
         src = inspect.getsource(rate_limit.acquire_lease)

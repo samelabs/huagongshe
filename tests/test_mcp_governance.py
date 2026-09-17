@@ -517,11 +517,13 @@ class StructureGateCompat(unittest.TestCase):
         self.assertIn("structure_exit", slot)
 
     def test_routes_still_imports_the_same_names(self):
-        # G2.R: routes 经 HTTP bridge(structure_enter_http), 释放仍用 neutral exit
-        self.assertIn("structure_enter_http", dir(routes))
-        src = (REPO / "api" / "routes.py").read_text(encoding="utf-8")
+        # G2.3 final: HTTP/MCP 均经 shared orchestration(闸门 owner=
+        # services/search.execute_search); routes 不再持有结构闸门符号
+        from api.services import search as _search_service
+        self.assertIn("execute_search", dir(routes))
+        src = (REPO / "api" / "services" / "search.py").read_text(encoding="utf-8")
         self.assertIn("structure_exit", src)
-        self.assertNotIn("release_leases", src, "api/routes.py 不应因 MCP batch 改写")
+        self.assertNotIn("release_leases", src, "search service 不应因 MCP batch 改写")
 
 
 # ---------------------------------------------------------------------------

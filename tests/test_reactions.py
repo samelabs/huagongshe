@@ -126,7 +126,10 @@ class ReactionContractTests(unittest.TestCase):
 
         routes_source = inspect.getsource(__import__("api.routes", fromlist=["unified_search"]))
         self.assertNotIn('"v1:stats:exact"', routes_source)  # /api/stats 已剥离
-        self.assertIn('f"v2:unified-search', routes_source)
+        # G2.3 final: unified-search cache key 唯一 owner = shared orchestration
+        search_source = inspect.getsource(
+            __import__("api.services.search", fromlist=["execute_search"]))
+        self.assertIn('f"v2:unified-search', search_source)
 
     def test_agent_guide_is_a_bounded_connection_and_operation_surface(self) -> None:
         source = inspect.getsource(agent.agent_guide)

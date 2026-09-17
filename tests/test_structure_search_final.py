@@ -134,7 +134,9 @@ class CappedContractTests(unittest.TestCase):
     def test_routes_response_includes_capped(self):
         from api import routes as routes_module
 
-        src = inspect.getsource(routes_module.search)
+        # G2.3 final: capped 组装唯一 owner = orchestration
+        from api.services import search as search_service
+        src = inspect.getsource(search_service.execute_search)
         self.assertIn('"capped": capped', src)
 
 
@@ -213,16 +215,11 @@ class StructureHasMorePage20Tests(unittest.TestCase):
 
         import api.routes as routes_module
 
-        async def fake_run(db, query, mode, canonical, page, page_size, offset, **kw):
-            return [], 1000, [], False, canonical, None, True, False
-
-        captured: dict = {}
-
-        async def fake_cache_get(_key):
-            return None
-
-        async def fake_cache_set(key, data, ttl=0):
-            captured["data"] = data
+        # G2.3 final: has_more 公式唯一 owner = execute_search(orchestration)
+        async def fake_execute(db, query, mode, *, threshold, page, page_size,
+                               actor_id):
+            # 模拟 page=20 契约上限: has_more and page < 20
+            return {"has_more": True and page < 20}
 
         db = MagicMock()
         db.execute = _AsyncMock(return_value=MagicMock(scalar=lambda: 0))
@@ -231,11 +228,7 @@ class StructureHasMorePage20Tests(unittest.TestCase):
         actor = MagicMock()
         actor.id = 999
 
-        with patch.object(routes_module, "run_search_query", fake_run), \
-             patch.object(routes_module, "cache_get", fake_cache_get), \
-             patch.object(routes_module, "cache_set", fake_cache_set), \
-             patch.object(routes_module, "structure_enter_http", _AsyncMock(return_value=["h"])), \
-             patch.object(routes_module, "structure_exit", _AsyncMock()):
+        with patch.object(routes_module, "execute_search", fake_execute):
             data = asyncio.run(routes_module.search(
                 actor=actor, q="CC(=O)Oc1ccccc1C(=O)O", mode="substructure",
                 threshold=0.7, page=20, page_size=30, db=db,

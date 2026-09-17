@@ -229,8 +229,6 @@ def build_mcp_server() -> MCPServer:
         capped=true 仅 substructure 模式出现: 已达产品返回上限(250), 数据库
         真实总匹配数未知 — 此时 total 不是数据库真实总数, 不得如此描述。
         """
-        from . import routes as routes_module
-
         if mode not in ("exact", "substructure", "similarity"):
             raise ToolError("mode 只能是 exact、substructure 或 similarity")
         q = (q or "").strip()
@@ -248,61 +246,24 @@ def build_mcp_server() -> MCPServer:
             actor = await _actor_from_headers(ctx.headers if ctx else None)
             if actor is None:
                 raise ToolError("结构检索（子结构/相似度）需要 AI Key；exact 模式可匿名使用")
-        # G2.3: 直调 transport-neutral search service —— 与 HTTP adapter 共享
-        # 同一业务查询内核与同一结构闸门/缓存口径(cache-before-gate), 但不再
-        # 经 HTTP handler。领域错误(SearchError)映射 ToolError; structure gate
-        # 的 429/503 HTTPException 同样在 MCP 边界转 ToolError(G2.1 确认原则)。
+        # G2.3 final: 直调 shared search orchestration(services/search.py
+        # execute_search)—— cache/结构闸门/canonicalize/查询/结果组装唯一 owner。
+        # adapter 只保留: 参数验证/clamp、auth、会话获取、错误映射。
         from .services.search import SearchError as _SearchError
-        from .services.search import run_search_query as _run_search_query
-        from .chemistry import canonicalize_smiles as _canonicalize_smiles
-        from .core.cache import cache_get as _cache_get, cache_set as _cache_set
+        from .services.search import execute_search as _execute_search
         from .core.rate_limit import RateLimitError as _RateLimitError
-        from .core.rate_limit import (
-            structure_enter as _structure_enter,
-            structure_exit as _structure_exit,
-        )
-        import asyncio as _asyncio
 
-        offset = (page - 1) * page_size
-        _cache_key = (f"v2:unified-search:{mode}:{round(threshold, 3)}"
-                      f":{page}:{page_size}:{q}")
-        held: list[str] | None = None
         async with async_session() as _session:
             try:
-                if mode != "exact":
-                    _cached = await _cache_get(_cache_key)
-                    if _cached:
-                        return _cached
-                    held = await _structure_enter(
-                        actor.id if actor is not None else None)
-                _canonical = await _asyncio.to_thread(_canonicalize_smiles, q)
-                (chemicals, total, reactions, cas_fetch_pending, _canonical,
-                 cas_fetch_hit_id, has_more, capped) = await _run_search_query(
-                    _session, q, mode, _canonical, page, page_size, offset,
-                    actor_id=actor.id if actor else None, threshold=threshold,
+                return await _execute_search(
+                    _session, q, mode, threshold=threshold, page=page,
+                    page_size=page_size,
+                    actor_id=actor.id if actor else None,
                 )
             except _SearchError as exc:
                 raise ToolError(exc.detail) from exc
             except _RateLimitError as exc:
                 raise ToolError(exc.detail) from exc
-            finally:
-                await _structure_exit(held)
-
-        _data: dict[str, Any] = {
-            "query": q, "mode": mode, "canonical_smiles": _canonical,
-            "threshold": threshold,
-            "page": page, "page_size": page_size, "total": total,
-            "has_more": has_more and page < 20,
-            "capped": capped,
-            "chemicals": chemicals, "reactions": reactions,
-        }
-        if cas_fetch_pending:
-            _data["cas_fetch_pending"] = True
-        if cas_fetch_hit_id:
-            _data["cas_fetch_hit_id"] = cas_fetch_hit_id
-        if mode != "exact":
-            await _cache_set(_cache_key, _data, ttl=300)
-        return _data
 
     @server.tool(name="get_chemical", title="化合物详情")
     async def get_chemical(
