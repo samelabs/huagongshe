@@ -464,15 +464,31 @@ def build_mcp_server() -> MCPServer:
 
         示例(arguments): {"components":[{"role":"REACTANT","smiles":"O=C(O)c1ccccc1O","eq":1},{"role":"REAGENT","smiles":"CC(=O)OC(=O)C","eq":1.05},{"role":"PRODUCT","smiles":"CC(=O)Oc1ccccc1C(=O)O","eq":1}],"basis":{"index":0,"amount_value":10,"amount_unit":"g"}}
         """
-        from . import stoichiometry as stoich_module
+        from .core.rate_limit import enforce as _enforce
+        from .core.config import settings as _settings
+        from .services import stoichiometry as stoich_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         body = ScaleInput(
             components=components, basis=basis,
             concentration_mol_per_l=concentration_mol_per_l,
         )
-        # actor 透传: 限流桶与 REST 同构(登录=u{id} 桶, 匿名=anon 桶).
-        return await stoich_module.calculate_stoichiometry(body=body, actor=actor)
+        # 限流桶与 REST 同构(登录=u{id} 桶, 匿名=anon 桶) —— G2.1 起 MCP
+        # 直调 transport-neutral service, 限流作为 entrypoint policy 在本
+        # adapter 显式执行, 与 HTTP adapter 同桶同身份方案(行为不变)。
+        _identity = f"u{actor.id}" if actor else "anon"
+        # 限流(429/503 HTTPException)与业务校验(ValueError)都在 MCP 边界
+        # 转成 ToolError —— 与写工具/_render_enter 既有模式同款: 客户端可读
+        # detail 原文, 而不是让 HTTPException 穿透成框架级 crash。
+        from fastapi import HTTPException as _HTTPException
+        try:
+            await _enforce("stoich", _identity,
+                           _settings.api_stoich_limit_per_minute, 60)
+            return await stoich_service.compute(body)
+        except ValueError as exc:
+            raise ToolError(str(exc)) from exc
+        except _HTTPException as exc:
+            raise ToolError(str(exc.detail)) from exc
 
     # ---------------- 写工具(需要 AI Key) ----------------
 
