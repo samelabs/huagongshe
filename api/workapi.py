@@ -20,7 +20,7 @@ from .core.database import get_db
 from .schemas.workapi import LeaseBody, LeaseProof, CompleteBody, ErrorBody, CasLeaseBody, CasCompleteBody, IdentityCompleteBody
 from .services.workqueue import (
     lease_hash, verified_lease, as_json_object, sync_chemical_core,
-    upsert_details, verified_cas_lease,
+    upsert_details, verified_cas_lease, LeaseConflictError,
     find_completion_receipt, record_completion_receipt,
 )
 from .services.gate import (
@@ -31,6 +31,14 @@ from .services.gate import (
 router = APIRouter(prefix="/workapi/v1", tags=["workapi"])
 
 NONCE_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
+
+
+def _lease_conflict_http(exc: LeaseConflictError) -> HTTPException:
+    """E5: service 的 neutral 租约冲突 → 既有 HTTP 409 + 逐字 detail。
+
+    映射归 adapter 独占: service 只表达语义, 不 import transport 框架。
+    """
+    return HTTPException(409, exc.detail)
 
 # ---------------------------------------------------------------------------
 # P0 fail-closed scope gate (0912 Worker trusted plane 审计 P0-1):
@@ -219,14 +227,12 @@ async def complete_job(
     try:
         try:
             job = await verified_lease(db, body, worker.worker_id)
-        except HTTPException as exc:
-            if exc.status_code != 409:
-                raise
+        except LeaseConflictError as exc:
             if await find_completion_receipt(
                     db, family="pubchem", job_id=body.job_id,
                     worker_id=worker.worker_id, lease_token=body.lease_token):
                 return {"status": "ok", "idempotent": True}
-            raise
+            raise _lease_conflict_http(exc)
         result = body.result
         # 0906 身份机制: job 携带的行 id 可能已被合并删除(异步执行期间
         # absorb), 先过 redirect 解析 canonical, 无记录返回原值
@@ -362,6 +368,9 @@ async def error_job(
         })
         await db.commit()
         return {"status": "error", "streak": streak}
+    except LeaseConflictError as exc:
+        await db.rollback()
+        raise _lease_conflict_http(exc)
     except Exception:
         await db.rollback()
         raise
@@ -485,6 +494,9 @@ async def cas_heartbeat(
         """), {"seconds": settings.worker_job_lease_seconds, "job_id": body.job_id})
         await db.commit()
         return {"status": "leased", "lease_seconds": settings.worker_job_lease_seconds}
+    except LeaseConflictError as exc:
+        await db.rollback()
+        raise _lease_conflict_http(exc)
     except Exception:
         await db.rollback()
         raise
@@ -575,14 +587,12 @@ async def cas_complete_job(
     try:
         try:
             job = await verified_cas_lease(db, body, worker.worker_id)
-        except HTTPException as exc:
-            if exc.status_code != 409:
-                raise
+        except LeaseConflictError as exc:
             if await find_completion_receipt(
                     db, family="cas", job_id=body.job_id,
                     worker_id=worker.worker_id, lease_token=body.lease_token):
                 return {"status": "ok", "idempotent": True}
-            raise
+            raise _lease_conflict_http(exc)
         chemical_id = job[1]
         cas_number = job[2]
         unbound_bound = False  # B-safe: unbound OK bind 成功标记
@@ -818,6 +828,9 @@ async def cas_error_job(
         })
         await db.commit()
         return {"status": "error", "streak": streak}
+    except LeaseConflictError as exc:
+        await db.rollback()
+        raise _lease_conflict_http(exc)
     except Exception:
         await db.rollback()
         raise
@@ -956,6 +969,8 @@ async def complete_identity_job(
                 "worker_id=%s — completion already committed: %s",
                 body.job_id, worker.worker_id, exc)
         return {"status": status, "chemical_id": int(job[1])}
+    except LeaseConflictError as exc:
+        raise _lease_conflict_http(exc)
     except HTTPException:
         raise
     except Exception:

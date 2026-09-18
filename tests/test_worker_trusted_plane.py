@@ -675,6 +675,96 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
                         " WHERE id=:j"), {"j": j["job_id"]})
             self.LOOP.run_until_complete(_release())
 
+    # ════ E5. Transport neutrality: 409 逐字 detail(真实 app + test_hgs) ════
+    # service 抛 neutral(LeaseConflictError), adapter 独占映射 → 既有 409 +
+    # 逐字 detail。本段锁"HTTP status/detail 未漂移", 不覆盖 T001 的宽断言面。
+    E5_LEASE_DETAIL = "lease is missing, expired, or owned by another worker"
+
+    def test_e5_valid_lease_path_unchanged(self):
+        """合法租约路径不受 neutral 化影响(200 + 既有成功体)。"""
+        self._mk_job("sec-wtp-e5-ok")
+        j = self._lease_one()
+        r = self.post("/workapi/v1/jobs/complete",
+                      {"job_id": j["job_id"], "lease_token": j["lease_token"],
+                       "result": {}})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json().get("status"), "ok")
+
+    def test_e5_complete_wrong_owner_lease_exact_409_detail(self):
+        """错 owner/token → 409 且 detail 逐字(不是子串匹配)。"""
+        self._mk_job("sec-wtp-e5-c1")
+        j = self._lease_one()
+        r = self.post("/workapi/v1/jobs/complete",
+                      {"job_id": j["job_id"], "lease_token": "z" * 64,
+                       "result": {}})
+        self.assertEqual(r.status_code, 409, r.text)
+        self.assertEqual(r.json()["detail"], self.E5_LEASE_DETAIL)
+
+    def test_e5_error_wrong_owner_lease_exact_409_detail(self):
+        self._mk_job("sec-wtp-e5-e1")
+        j = self._lease_one()
+        r = self.post("/workapi/v1/jobs/error",
+                      {"job_id": j["job_id"], "lease_token": "z" * 64,
+                       "error_code": "E5_NET", "error_detail": "x"})
+        self.assertEqual(r.status_code, 409, r.text)
+        self.assertEqual(r.json()["detail"], self.E5_LEASE_DETAIL)
+
+    def test_e5_missing_job_exact_409_detail(self):
+        """无行 lease → 同一 neutral → 同一 409/detail(与错 owner 无差别)。"""
+        r = self.post("/workapi/v1/jobs/complete",
+                      {"job_id": 987654321, "lease_token": "z" * 64,
+                       "result": {}})
+        self.assertEqual(r.status_code, 409, r.text)
+        self.assertEqual(r.json()["detail"], self.E5_LEASE_DETAIL)
+
+    def test_e5_cas_heartbeat_exact_409_detail(self):
+        """cas 通道同一 neutral 类型(verified_cas_lease)→ 同一 409/detail。"""
+        good = "sec-wtp-e5-cas-tok-" + "7" * 32  # lease_token min_length=32
+        OTHER_TOKEN = "q" * 64                   # 另一 owner 持有的 token(错 token 用例)
+        async def _mk():
+            async with self.eng.begin() as c:
+                await c.execute(text("""
+                    INSERT INTO maintenance.cas_jobs
+                      (chemical_id,cas_number,status,priority,dedupe_key,
+                       lease_owner,lease_token_hash,lease_expires_at)
+                    VALUES (420042,'50-00-0','leased',100,'sec-wtp-e5-cas-ok',
+                            :w,:h,now()+interval '10 minutes')
+                """), {"w": WID_CAS,
+                       "h": hashlib.sha256(good.encode()).digest()})
+                await c.execute(text("""
+                    INSERT INTO maintenance.cas_jobs
+                      (chemical_id,cas_number,status,priority,dedupe_key,
+                       lease_owner,lease_token_hash,lease_expires_at)
+                    VALUES (420042,'50-00-0','leased',100,'sec-wtp-e5-cas-bad',
+                            :w,:h,now()+interval '10 minutes')
+                """), {"w": WID_CAS,
+                       "h": hashlib.sha256((OTHER_TOKEN).encode()).digest()})
+        self.LOOP.run_until_complete(_mk())
+        try:
+            async def _ids():
+                async with self.eng.connect() as c:
+                    rows = (await c.execute(text(
+                        "SELECT id,dedupe_key FROM maintenance.cas_jobs"
+                        " WHERE dedupe_key LIKE 'sec-wtp-e5-cas-%'"))).fetchall()
+                return {r[1]: r[0] for r in rows}
+            ids = self.LOOP.run_until_complete(_ids())
+            ok = self.post("/workapi/v1/cas/jobs/heartbeat",
+                           {"job_id": ids["sec-wtp-e5-cas-ok"], "lease_token": good},
+                           token=TOK_CAS, wid=WID_CAS)
+            self.assertEqual(ok.status_code, 200, ok.text)  # 合法 heartbeat 未变
+            r = self.post("/workapi/v1/cas/jobs/heartbeat",
+                          {"job_id": ids["sec-wtp-e5-cas-bad"], "lease_token": "z" * 64},
+                          token=TOK_CAS, wid=WID_CAS)
+            self.assertEqual(r.status_code, 409, r.text)
+            self.assertEqual(r.json()["detail"], self.E5_LEASE_DETAIL)
+        finally:
+            async def _clean():
+                async with self.eng.begin() as c:
+                    await c.execute(text(
+                        "DELETE FROM maintenance.cas_jobs"
+                        " WHERE dedupe_key LIKE 'sec-wtp-e5-cas-%'"))
+            self.LOOP.run_until_complete(_clean())
+
 
 if __name__ == "__main__":
     unittest.main()

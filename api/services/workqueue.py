@@ -12,7 +12,6 @@ import hashlib
 import json
 from typing import Any
 
-from fastapi import HTTPException
 from sqlalchemy import text
 
 from ..schemas.workapi import LeaseProof
@@ -22,6 +21,22 @@ import logging
 from ..pubchem_core import chemical_core_values, number_or_none, validate_synonyms
 
 logger = logging.getLogger(__name__)
+
+
+class LeaseConflictError(Exception):
+    """租约校验失败的 transport-neutral 表达(E5 transport neutrality)。
+
+    只承载语义: ``kind`` + ``detail``。HTTP status/detail 由 adapter 独占映射
+    (api/workapi.py ``_lease_conflict_http``) — 本 service 不 import 任何
+    transport 框架, 因此非 HTTP 调用方(MCP/脚本/测试)可直接捕获本类型。
+    """
+
+    kind = "lease_conflict"
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
+
 
 def lease_hash(value: str) -> bytes:
     return hashlib.sha256(value.encode()).digest()
@@ -81,7 +96,7 @@ async def verified_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock: bo
         "lease_hash": lease_hash(proof.lease_token),
     })).fetchone()
     if not row:
-        raise HTTPException(409, "lease is missing, expired, or owned by another worker")
+        raise LeaseConflictError("lease is missing, expired, or owned by another worker")
     return row
 
 def as_json_object(value: Any) -> dict[str, Any]:
@@ -478,5 +493,5 @@ async def verified_cas_lease(db: Any, proof: LeaseProof, worker_id: str, *, lock
         "lease_hash": lease_hash(proof.lease_token),
     })).fetchone()
     if not row:
-        raise HTTPException(409, "lease is missing, expired, or owned by another worker")
+        raise LeaseConflictError("lease is missing, expired, or owned by another worker")
     return row

@@ -25,6 +25,8 @@ from typing import Any
 
 from sqlalchemy import text
 
+from .workqueue import LeaseConflictError
+
 logger = logging.getLogger(__name__)
 
 INCHIKEY_ONLY = "inchikey"  # MVP 唯一 evidence 类型
@@ -124,8 +126,7 @@ async def complete_discovery(
         WHERE id=:job_id AND status='leased'
     """), {"job_id": job_id})).fetchone()
     if job is None:
-        from fastapi import HTTPException
-        raise HTTPException(409, "identity job is not leased")
+        raise LeaseConflictError("identity job is not leased")
 
     chem_raw = int(job[1])
     evidence_value = job[3]
