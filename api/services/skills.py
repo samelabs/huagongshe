@@ -14,9 +14,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import logging
+import os
 import re
 import shutil
 import subprocess
+import uuid
 import zipfile
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -26,6 +29,8 @@ from sqlalchemy.exc import IntegrityError
 
 from ..core.config import settings
 from ..core.rate_limit import enforce
+
+logger = logging.getLogger("api.services.skills")
 
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 SAFE_PATH_RE = re.compile(r"^[a-zA-Z0-9._-]+(?:/[a-zA-Z0-9._-]+)*$")
@@ -519,7 +524,17 @@ async def _create_skill_record(
         await db.commit()
     except Exception:
         await db.rollback()
-        await asyncio.to_thread(shutil.rmtree, skill_fs_dir(skill_id), True)
+        # E4: 补偿不再以 ignore_errors=True 静默吞掉清理失败。主异常(DB 失败)仍原样
+        # 抛出(E1 contract: create persistence failure leaves no DB residue 不变);
+        # 补偿清理若失败, 残留 canonical 目录以结构化日志暴露给 owner —— 与 delete
+        # 的差异是刻意的: create 已有主异常让调用方看到失败, delete 成功路径不允许
+        # 静默成功, 故 delete 侧直接抛 SkillFilesystemError。
+        try:
+            await asyncio.to_thread(_remove_skill_dir, skill_fs_dir(skill_id))
+        except OSError as purge_exc:
+            logger.warning(
+                "skill create 补偿清理失败 skill_id=%s path=%s: %s",
+                skill_id, skill_fs_dir(skill_id), purge_exc)
         raise
     return await load_accessible_skill(db, skill_id, actor_id=actor_id)
 
@@ -587,3 +602,254 @@ async def create_skill(
         raise
     created["warnings"] = manifest["warnings"]
     return created
+
+
+# ---------------------------------------------------------------------------
+# E4 — Skill lifecycle ownership: delete / update / archive / file read
+#
+# 唯一 owner 规则: 一个 Skill lifecycle operation 只有一个 application owner。
+# adapter 只保留 auth context / HTTP parsing / neutral error → HTTP 映射 /
+# 传输层响应构造(zip 字节 → 下载响应对象、Content-Disposition 头)。
+# 本层保持 transport-neutral: 不 import 任何 Web 框架/传输层异常与请求响应对象。
+# ---------------------------------------------------------------------------
+
+
+class SkillNotFoundError(Exception):
+    """lifecycle owner 内 skill 行不存在(neutral; HTTP 边界 404 "技能不存在")。
+
+    与 SkillNotAccessibleError 的区别: 后者表达 access predicate 判定结果
+    (missing 与 private-unreadable 故意不可区分, anti-enumeration); 本类只在
+    已授权的 lifecycle 事务内表达"行已不存在"(含并发 delete 竞态), 不参与
+    反枚举语义。
+    """
+
+    def __init__(self, detail: str = "技能不存在") -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+
+class SkillFilesystemError(Exception):
+    """skill 文件系统生命周期失败(neutral; HTTP 边界 500 显式暴露根因)。
+
+    kind:
+      STAGE_FAILED   — canonical → tombstone 原子 rename 失败(DB 与 canonical 均未动)
+      RESTORE_FAILED — DB 失败后 tombstone → canonical 回滚失败(detail 同时带 DB 失败原文)
+      PURGE_FAILED   — 行已删除、canonical 已不存在, 但 tombstone 物理清理失败
+    """
+
+    STAGE_FAILED = "stage_failed"
+    RESTORE_FAILED = "restore_failed"
+    PURGE_FAILED = "purge_failed"
+
+    def __init__(self, kind: str, detail: str) -> None:
+        super().__init__(detail)
+        self.kind = kind
+        self.detail = detail
+
+
+class SkillUpdateValidationError(Exception):
+    """PATCH 无有效字段(neutral; HTTP 边界 400, 原文与迁移前一致)。"""
+
+    def __init__(self, detail: str = "没有可更新的字段") -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+
+class SkillFileNotFoundError(Exception):
+    """技能内单文件不可读(neutral; HTTP 边界 404, detail 原文区分两种情形)。"""
+
+    def __init__(self, detail: str = "文件不存在") -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+
+class SkillArchiveUnavailableError(Exception):
+    """archive 组装所需文件不可读(neutral; HTTP 边界 500 显式暴露根因)。
+
+    kind: DIR_MISSING / FILE_MISSING / UNREADABLE
+    """
+
+    DIR_MISSING = "dir_missing"
+    FILE_MISSING = "file_missing"
+    UNREADABLE = "unreadable"
+
+    def __init__(self, kind: str, detail: str) -> None:
+        super().__init__(detail)
+        self.kind = kind
+        self.detail = detail
+
+
+def _remove_skill_dir(path: Path) -> None:
+    """canonical 目录物理清除(补偿路径用; 目录不存在视为已清理)。"""
+    if path.exists():
+        shutil.rmtree(path)
+
+
+def _stage_skill_dir(skill_id: int) -> Path | None:
+    """canonical skill dir → 同父目录 tombstone(同步; 由 asyncio.to_thread 调用)。
+
+    Pattern A(可逆 rename/staging): tombstone 与 canonical 同父目录, 同一
+    filesystem 内 rename 原子完成 —— 不假定 skill_root 与 /tmp 同 FS。
+    目录不存在 → None(FS 已无内容, 无需 stage)。
+    """
+    source = skill_fs_dir(skill_id)
+    if not source.exists():
+        return None
+    tombstone = source.parent / f".deleted-{skill_id}-{uuid.uuid4().hex}"
+    os.rename(source, tombstone)
+    return tombstone
+
+
+def _restore_skill_dir(tombstone: Path, skill_id: int) -> None:
+    """tombstone → canonical 回滚 rename(DB 事务失败时的补偿)。"""
+    os.rename(tombstone, skill_fs_dir(skill_id))
+
+
+def _purge_skill_dir(tombstone: Path) -> None:
+    """tombstone 物理清除 —— 刻意不使用 ignore_errors=True:
+    清理失败必须被 application owner 看见, 不允许假装成功。"""
+    shutil.rmtree(tombstone)
+
+
+async def delete_skill_lifecycle(db, skill_id: int) -> None:
+    """skill delete lifecycle 唯一 owner(user delete / admin delete 共用; E4)。
+
+    Lifecycle policy = staged filesystem mutation + DB transaction + explicit
+    compensation(不交换语句顺序, 也不接受"DB 已删 + FS 失败 = HTTP success"):
+
+      ① 行锁 SELECT ... FOR UPDATE: 并发第二个 delete 在此序列化后读不到行 →
+         SkillNotFoundError(404), 该请求不做任何 FS 动作;
+      ② stage: canonical dir --os.rename--> 同父 tombstone(原子)。失败 →
+         SkillFilesystemError(STAGE_FAILED): DB 与 canonical 均未改变 → 零分歧;
+      ③ DELETE community.skills(skill_files 由 ON DELETE CASCADE 随动)+ commit。
+         失败 → rollback + tombstone→canonical 回滚 rename; 回滚再失败 →
+         SkillFilesystemError(RESTORE_FAILED, detail 含 DB 失败原文), 不静默;
+      ④ purge tombstone。失败 → SkillFilesystemError(PURGE_FAILED) 显式暴露:
+         此刻行已删除、canonical 目录已不存在(成功契约仍成立), 残留仅为非 canonical
+         tombstone, 由 adapter 映射 500 —— 不假装成功。
+
+    成功返回契约: DB 行不再存在 AND canonical skill 目录不再存在。
+    """
+    locked = (await db.execute(text("""
+        SELECT id FROM community.skills WHERE id=:id FOR UPDATE
+    """), {"id": skill_id})).fetchone()
+    if locked is None:
+        raise SkillNotFoundError()
+    try:
+        tombstone = await asyncio.to_thread(_stage_skill_dir, skill_id)
+    except OSError as exc:
+        raise SkillFilesystemError(
+            SkillFilesystemError.STAGE_FAILED,
+            f"技能目录暂存失败（{skill_fs_dir(skill_id)}）：{exc}") from exc
+    try:
+        await db.execute(text("""
+            DELETE FROM community.skills WHERE id=:id
+        """), {"id": skill_id})
+        await db.commit()
+    except Exception as exc:
+        # 广捕 + 原样 re-raise: 这里只做补偿, 不改变异常类型/根因(§12 禁 catch-all 掩盖)。
+        await db.rollback()
+        if tombstone is not None:
+            try:
+                await asyncio.to_thread(_restore_skill_dir, tombstone, skill_id)
+            except OSError as restore_exc:
+                raise SkillFilesystemError(
+                    SkillFilesystemError.RESTORE_FAILED,
+                    f"删除失败后目录回滚失败（{tombstone} → {skill_fs_dir(skill_id)}）："
+                    f"{restore_exc}；原始 DB 失败：{exc}") from exc
+        raise
+    if tombstone is not None:
+        try:
+            await asyncio.to_thread(_purge_skill_dir, tombstone)
+        except OSError as exc:
+            raise SkillFilesystemError(
+                SkillFilesystemError.PURGE_FAILED,
+                f"技能已删除，但临时目录清理失败（{tombstone}）：{exc}") from exc
+
+
+async def update_skill_metadata(
+    db, skill_id: int, *, title: Any, description: Any, actor_id: int,
+) -> dict[str, Any]:
+    """skill metadata update 唯一 owner(PATCH /skills/{id}; E4)。
+
+    adapter 保留 agent 403 / access 404 桥 / owner 403 授权判定; 本函数拥有
+    validation + DB mutation + commit + readback。update 只改 title/description,
+    无 filesystem 参与 —— 因此不存在 FS staging / FS 补偿面(不发明 staging)。
+    """
+    if title is None and description is None:
+        raise SkillUpdateValidationError()
+    await db.execute(text("""
+        UPDATE community.skills SET
+          title=coalesce(:title,title),
+          description=coalesce(:description,description),
+          updated_at=now()
+        WHERE id=:id
+    """), {
+        "id": skill_id,
+        "title": str(title)[:120] if title is not None else None,
+        "description": str(description)[:500] if description is not None else None,
+    })
+    await db.commit()
+    return await load_accessible_skill(db, skill_id, actor_id=actor_id)
+
+
+async def read_skill_file(db, skill_id: int, *, file_path: str) -> dict[str, Any]:
+    """技能内单文件读取唯一 owner(E4; access 判定仍由 adapter 的 404 映射桥承担)。
+
+    行为与迁移前逐字一致: manifest 行缺失 → 404 "文件不存在"; 非文本行 →
+    404 "二进制文件请通过 archive 端点获取 zip"; FS 文件缺失 → 404 "文件不存在"。
+    path 解析只接受 community.skill_files 中登记的 path —— URL 传入的穿越串
+    不匹配任何行 → 404, 不触 FS(路径穿越防护不变)。
+    """
+    row = (await db.execute(text("""
+        SELECT is_text,size_bytes FROM community.skill_files
+        WHERE skill_id=:id AND path=:path
+    """), {"id": skill_id, "path": file_path})).fetchone()
+    if row is None:
+        raise SkillFileNotFoundError()
+    if not row[0]:
+        raise SkillFileNotFoundError("二进制文件请通过 archive 端点获取 zip")
+    target = skill_fs_dir(skill_id) / file_path
+    if not target.is_file():
+        raise SkillFileNotFoundError()
+    return {
+        "path": file_path,
+        "size_bytes": int(row[1]),
+        "content": target.read_text(encoding="utf-8", errors="replace"),
+    }
+
+
+async def build_skill_archive(db, skill_id: int) -> bytes:
+    """技能 zip 组装唯一 owner(E4; 响应构造 / Content-Disposition 留 adapter)。
+
+    manifest 行读取 + 目录/文件缺失判定 + 压缩均在 owner 内; 失败以
+    SkillArchiveUnavailableError 表达(DIR_MISSING / FILE_MISSING / UNREADABLE),
+    不再让 FileNotFoundError 冒到框架层变成无 detail 的 500。
+    """
+    rows = (await db.execute(text("""
+        SELECT path FROM community.skill_files WHERE skill_id=:id ORDER BY path
+    """), {"id": skill_id})).fetchall()
+
+    def _build() -> bytes:
+        root = skill_fs_dir(skill_id)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+            for (rel_path,) in rows:
+                if not root.is_dir():
+                    raise SkillArchiveUnavailableError(
+                        SkillArchiveUnavailableError.DIR_MISSING,
+                        f"技能目录不存在：{root}")
+                target = root / rel_path
+                if not target.is_file():
+                    raise SkillArchiveUnavailableError(
+                        SkillArchiveUnavailableError.FILE_MISSING,
+                        f"技能文件缺失：{rel_path}")
+                try:
+                    archive.write(target, rel_path)
+                except OSError as exc:
+                    raise SkillArchiveUnavailableError(
+                        SkillArchiveUnavailableError.UNREADABLE,
+                        f"技能文件不可读：{rel_path}（{exc}）") from exc
+        return buffer.getvalue()
+
+    return await asyncio.to_thread(_build)

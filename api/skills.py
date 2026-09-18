@@ -8,11 +8,8 @@
 from __future__ import annotations
 
 import asyncio
-import io
 import re
-import shutil
 import subprocess
-import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -26,13 +23,18 @@ from .core.rate_limit import RateLimitError
 from .core.security import Actor, current_actor, public_or_actor, require_scope
 from .services.skills import (list_skills as list_skills_service,
     SkillNotAccessibleError, get_skill_detail as get_skill_detail_service,
-    load_accessible_skill, skill_fs_dir)
+    load_accessible_skill)
 from .services.skills import (MissingSkillIdempotencyKeyError,
     SkillArchiveValidationError, SkillCategoryError,
     SkillIdempotencyKeyTooLongError, SkillSlugConflictError)
 from .services.skills import create_skill as create_skill_service
 from .services.skills import extract_skill_zip
 from .services.skills import validate_category
+# E4 lifecycle owner(唯一 owner): adapter 只做 neutral error → HTTP 映射。
+from .services.skills import (SkillArchiveUnavailableError, SkillFileNotFoundError,
+    SkillFilesystemError, SkillNotFoundError, SkillUpdateValidationError,
+    build_skill_archive, delete_skill_lifecycle, read_skill_file,
+    update_skill_metadata)
 
 router = APIRouter(tags=["skills"])
 
@@ -205,18 +207,12 @@ async def get_skill_file(
     db=Depends(get_db),
 ):
     await _load_accessible_skill_http(db, skill_id, actor)
-    row = (await db.execute(text("""
-        SELECT is_text,size_bytes FROM community.skill_files
-        WHERE skill_id=:id AND path=:path
-    """), {"id": skill_id, "path": file_path})).fetchone()
-    if row is None:
-        raise HTTPException(404, "文件不存在")
-    if not row[0]:
-        raise HTTPException(404, "二进制文件请通过 archive 端点获取 zip")
-    target = skill_fs_dir(skill_id) / file_path
-    if not target.is_file():
-        raise HTTPException(404, "文件不存在")
-    return {"path": file_path, "size_bytes": int(row[1]), "content": target.read_text(encoding="utf-8", errors="replace")}
+    # E4: manifest 行读取 + is_text 判定 + FS 读取归 services.skills.read_skill_file;
+    # adapter 只余 access 404 桥 + neutral → 404 原文映射。
+    try:
+        return await read_skill_file(db, skill_id, file_path=file_path)
+    except SkillFileNotFoundError as exc:
+        raise HTTPException(404, exc.detail) from exc
 
 
 @router.get(
@@ -230,19 +226,13 @@ async def download_skill_archive(
     db=Depends(get_db),
 ):
     manifest = await _load_accessible_skill_http(db, skill_id, actor)
-    rows = (await db.execute(text("""
-        SELECT path FROM community.skill_files WHERE skill_id=:id ORDER BY path
-    """), {"id": skill_id})).fetchall()
-
-    def build_zip() -> bytes:
-        buffer = io.BytesIO()
-        root = skill_fs_dir(skill_id)
-        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-            for (rel_path,) in rows:
-                archive.write(root / rel_path, rel_path)
-        return buffer.getvalue()
-
-    payload = await asyncio.to_thread(build_zip)
+    # E4: skill_files 查询 + 目录/文件缺失判定 + zip 组装归
+    # services.skills.build_skill_archive; adapter 只余 access 404 桥 +
+    # Response 构造(传输层: media_type / Content-Disposition)。
+    try:
+        payload = await build_skill_archive(db, skill_id)
+    except SkillArchiveUnavailableError as exc:
+        raise HTTPException(500, exc.detail) from exc
     return Response(
         content=payload,
         media_type="application/zip",
@@ -341,23 +331,14 @@ async def update_skill(
     current = await _load_accessible_skill_http(db, skill_id, actor)
     if current["owner_id"] != actor.id:
         raise HTTPException(403, "只能编辑自己创建的技能")
-    title = body.get("title")
-    description = body.get("description")
-    if title is None and description is None:
-        raise HTTPException(400, "没有可更新的字段")
-    await db.execute(text("""
-        UPDATE community.skills SET
-          title=coalesce(:title,title),
-          description=coalesce(:description,description),
-          updated_at=now()
-        WHERE id=:id
-    """), {
-        "id": skill_id,
-        "title": str(title)[:120] if title is not None else None,
-        "description": str(description)[:500] if description is not None else None,
-    })
-    await db.commit()
-    return await _load_accessible_skill_http(db, skill_id, actor)
+    # E4: validation + DB mutation + commit + readback 归
+    # services.skills.update_skill_metadata; adapter 只余授权判定 + neutral → HTTP 映射。
+    try:
+        return await update_skill_metadata(
+            db, skill_id, title=body.get("title"),
+            description=body.get("description"), actor_id=actor.id)
+    except SkillUpdateValidationError as exc:
+        raise HTTPException(400, exc.detail) from exc
 
 
 @router.delete(
@@ -376,6 +357,12 @@ async def delete_skill(
     current = await _load_accessible_skill_http(db, skill_id, actor)
     if current["owner_id"] != actor.id:
         raise HTTPException(403, "只能删除自己创建的技能")
-    await db.execute(text("DELETE FROM community.skills WHERE id=:id"), {"id": skill_id})
-    await db.commit()
-    await asyncio.to_thread(shutil.rmtree, skill_fs_dir(skill_id), True)
+    # E4: 行锁 / DB 删除 / FS staging / 补偿 / 清理归
+    # services.skills.delete_skill_lifecycle(user 与 admin 共用同一 owner)。
+    # SkillNotFoundError = 授权检查与行锁之间的并发 delete 竞态 → 404(与重复删除同语义)。
+    try:
+        await delete_skill_lifecycle(db, skill_id)
+    except SkillNotFoundError as exc:
+        raise HTTPException(404, exc.detail) from exc
+    except SkillFilesystemError as exc:
+        raise HTTPException(500, exc.detail) from exc

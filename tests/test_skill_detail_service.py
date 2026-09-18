@@ -225,11 +225,13 @@ class HttpMigrationTests(unittest.TestCase):
         from api import skills as api_skills
         source = inspect.getsource(api_skills)
         self.assertNotIn("skill_accessible", source)
-        # G3.1D 后: bridge 调用=5(get_file/archive/update×2/delete);
+        # E4 后: bridge 调用=4(get_file/archive/update 授权门/delete 授权门)。
+        # 原 5 = update 的 readback 也走 bridge; E4 把 readback 收进
+        # services.skills.update_skill_metadata(唯一 owner), adapter 只留授权门。
         # 原 create×2 + _create_skill_record 尾部共 3 处随 create service
         # 下沉, 在 services.skills 直调 neutral load_accessible_skill。
         calls = source.count("await _load_accessible_skill_http(db")
-        self.assertEqual(calls, 5)
+        self.assertEqual(calls, 4)
         from api.services import skills as svc_skills
         svc_src = inspect.getsource(svc_skills)
         self.assertGreaterEqual(
@@ -286,9 +288,17 @@ class HttpMigrationTests(unittest.TestCase):
         ar = inspect.getsource(api_skills.download_skill_archive)
         self.assertIn("_load_accessible_skill_http(db", gf)
         self.assertIn("_load_accessible_skill_http(db", ar)
-        # file-level 404 detail 保留
-        self.assertIn("文件不存在", gf)
-        self.assertIn("二进制文件请通过 archive 端点获取 zip", gf)
+        # E4: file-level 404 detail 不再由 adapter 持有, 而是 neutral error 的 detail
+        # 经 adapter 映射(唯一 owner = services.skills.read_skill_file);
+        # 两条原文仍在同一处被表达, 未丢失。
+        svc = inspect.getsource(skills_service)
+        self.assertIn("文件不存在", svc)
+        self.assertIn("二进制文件请通过 archive 端点获取 zip", svc)
+        self.assertIn("SkillFileNotFoundError", gf)
+        self.assertIn("HTTPException(404, exc.detail)", gf)
+        self.assertNotIn('"文件不存在"', gf)
+        self.assertIn("SkillArchiveUnavailableError", ar)
+        self.assertIn("HTTPException(500, exc.detail)", ar)
 
     def test_fs_dir_migrated_not_duplicated(self):
         from api import skills as api_skills

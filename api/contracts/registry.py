@@ -189,10 +189,15 @@ def _fams() -> list[Family]:
             S("archive", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/skills/{skill_id}/archive"),),
               contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
-                                X.STABLE_EXTERNAL, "download_skill_archive")),
+                                X.STABLE_EXTERNAL, "download_skill_archive"),
+              note="E4: skill_files 查询 + 目录/文件缺失判定 + zip 组装在 application "
+                   "service(build_skill_archive); adapter 只余 access 404 桥 + "
+                   "Response 构造"),
             S("read_file", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/skills/{skill_id}/content/{file_path:path}"),),
-              contract=Contract(frozenset({C.WEB}), X.NONE)),
+              contract=Contract(frozenset({C.WEB}), X.NONE),
+              note="E4: manifest 行读取 + is_text 判定 + FS 读取在 application "
+                   "service(read_skill_file); 404 原文不变"),
             S("categories", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/skills/categories"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
@@ -214,11 +219,14 @@ def _fams() -> list[Family]:
             S("update", A.ACTOR, entrypoints=(
                 I(T.HTTP, "PATCH /api/skills/{skill_id}"),),
               contract=Contract(frozenset({C.WEB}), X.NONE),
-              note="owner 检查在 endpoint; agent 403"),
+              note="E4: owner 检查/agent 403 在 endpoint; validation+DB mutation+"
+                   "commit+readback 在 application service(update_skill_metadata)"),
             S("delete", A.ACTOR, entrypoints=(
                 I(T.HTTP, "DELETE /api/skills/{skill_id}"),),
               contract=Contract(frozenset({C.WEB}), X.NONE),
-              note="owner 检查在 endpoint; agent 403"),
+              note="E4: owner 检查/agent 403 在 endpoint; 行锁+DB 删除+FS staging+"
+                   "补偿在 application service(delete_skill_lifecycle, 与 admin "
+                   "delete 共用同一 owner)"),
         ), kernels=(
             K("skill.tx.create", ("skill.write/create",)),
         )),
@@ -403,7 +411,9 @@ def _fams() -> list[Family]:
                 I(T.HTTP, "GET /api/admin/skills"),
                 I(T.HTTP, "DELETE /api/admin/skills/{skill_id}"),
                 I(T.HTTP, "PATCH /api/admin/skills/{skill_id}/visibility")),
-              contract=Contract(frozenset({C.ADMIN}), X.NONE)),
+              contract=Contract(frozenset({C.ADMIN}), X.NONE),
+              note="E4: DELETE 与 user delete 共用 application service "
+                   "delete_skill_lifecycle; 差异仅在授权 dep 与响应 shape"),
         )),
         Family("admin.skill_category", E.PRIVILEGED, scenarios=(
             S("manage", A.ADMIN_SESSION, entrypoints=(

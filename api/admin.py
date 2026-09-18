@@ -10,7 +10,6 @@ import hashlib
 from datetime import datetime
 import time as _time
 import secrets
-from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -24,6 +23,9 @@ from .core.config import settings
 from .core.database import async_session, get_db
 from .core.security import Actor, current_session
 from .schemas.admin import UserStatusBody, UserRoleBody, ModerationBody, WorkerCreateBody, WorkerPatchBody, SkillVisibilityBody, CategoryBody, WORKER_SCOPES
+# E4: skill delete lifecycle 唯一 owner(与 user delete 共用)。
+from .services.skills import (SkillFilesystemError, SkillNotFoundError,
+    delete_skill_lifecycle)
 
 router = APIRouter(prefix="/admin", tags=["administration"], include_in_schema=False)
 logger = logging.getLogger("api.admin")
@@ -334,14 +336,20 @@ async def set_skill_visibility(
 async def admin_delete_skill(
     skill_id: int, actor: Actor = Depends(admin), db=Depends(get_db),
 ):
-    row = (await db.execute(text("""
-        SELECT id FROM community.skills WHERE id=:id
-    """), {"id": skill_id})).fetchone()
-    if row is None:
-        raise HTTPException(404, "技能不存在")
-    await db.execute(text("DELETE FROM community.skills WHERE id=:id"), {"id": skill_id})
-    await db.commit()
-    await asyncio.to_thread(shutil.rmtree, Path(settings.skill_root) / str(skill_id), True)
+    """技能删除(admin 授权)。E4: lifecycle owner = services.skills.delete_skill_lifecycle。
+
+    与 user delete 共用同一 lifecycle owner —— user/admin 的业务差异只在
+    授权判定(admin dep vs owner 检查)与响应 shape(200 {"id","deleted"} vs 204)。
+    原实现自持 SELECT 预检 + DELETE + commit + rmtree(ignore_errors=True);
+    预检与 DELETE 之间的竞态窗口(并发删除后仍返回 200)由 lifecycle 行锁 +
+    SkillNotFoundError 关闭。
+    """
+    try:
+        await delete_skill_lifecycle(db, skill_id)
+    except SkillNotFoundError as exc:
+        raise HTTPException(404, exc.detail) from exc
+    except SkillFilesystemError as exc:
+        raise HTTPException(500, exc.detail) from exc
     return {"id": skill_id, "deleted": True}
 
 
