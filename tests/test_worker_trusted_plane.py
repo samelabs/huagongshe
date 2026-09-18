@@ -590,11 +590,12 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
         j = self._lease_one()
         # 注入: gate_record_success 抛错(模拟 Redis/gate 挂) — 但 monkeypatch 对
         # TestClient 同进程生效
-        import api.workapi as wa
-        orig = wa.gate_record_success
+        # E6: post-commit 序列已归 application service 拥有 → patch service owner
+        from api.services import workapi_jobs as jobs
+        orig = jobs.gate_record_success
         async def boom(*a, **k):
             raise RuntimeError("injected redis/gate failure")
-        wa.gate_record_success = boom
+        jobs.gate_record_success = boom
         try:
             r = self.post("/workapi/v1/jobs/complete",
                           {"job_id": j["job_id"], "lease_token": j["lease_token"], "result": {}})
@@ -607,7 +608,7 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
                         " WHERE job_id=:j AND family='pubchem'"), {"j": j["job_id"]})).scalar()
             self.assertEqual(self.LOOP.run_until_complete(_has()), 1)
         finally:
-            wa.gate_record_success = orig
+            jobs.gate_record_success = orig
 
     # ════ 7. Primary failure → 无 receipt ════
     def test_primary_failure_no_receipt(self):
@@ -618,11 +619,12 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
         # 因此注入点选 sync_chemical_core 也走不到 — 用 job[1] 行存在但令 record
         # receipt 之前唯一必经的写路径失败: 注入 record_completion_receipt 自身无意义,
         # 选 DELETE 前的业务写: 对空 result 路径直接注入 canonicalize_id。
-        import api.workapi as wa
-        orig = wa.sync_chemical_core
+        # E6: canonical 写路径归 application service 拥有 → patch service owner
+        from api.services import workapi_jobs as jobs
+        orig = jobs.sync_chemical_core
         async def boom(*a, **k):
             raise RuntimeError("injected primary failure")
-        wa.sync_chemical_core = boom
+        jobs.sync_chemical_core = boom
         try:
             # query_value 需为合法正整数才能进写入分支: 该 job '-42' 会 fail-closed
             # 直接出表(无写入)。改用真实合法 cid 的 job 验证 primary failure。
@@ -665,7 +667,7 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
             js = self.LOOP.run_until_complete(self._job_status(j["job_id"]))
             self.assertEqual(js, "leased")   # job 未错误 terminal
         finally:
-            wa.sync_chemical_core = orig
+            jobs.sync_chemical_core = orig
             # job 归还
             async def _release():
                 async with self.eng.begin() as c:
@@ -674,6 +676,85 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
                         " lease_owner=NULL, lease_token_hash=NULL, lease_expires_at=NULL"
                         " WHERE id=:j"), {"j": j["job_id"]})
             self.LOOP.run_until_complete(_release())
+
+    # ════ 8. §12 事务故障注入(receipt 写失败 / job delete 失败) ════
+    # §12 四项: (1) mutation fails before commit → rollback
+    #              = test_primary_failure_no_receipt
+    #           (4) post-commit Redis/cache 失败 → primary success 仍成功
+    #              = test_housekeeping_failure_does_not_flip_success
+    # 本段补 (2)(3): 二者都是 primary completion transaction 的原子性证据。
+    def _receipt_count(self, job_id):
+        async def _q():
+            async with self.eng.connect() as c:
+                return (await c.execute(text(
+                    "SELECT count(*) FROM maintenance.workapi_completion_receipts"
+                    " WHERE job_id=:j AND family='pubchem'"),
+                    {"j": job_id})).scalar()
+        return self.LOOP.run_until_complete(_q())
+
+    def _release_job(self, job_id):
+        async def _r():
+            async with self.eng.begin() as c:
+                await c.execute(text(
+                    "UPDATE maintenance.pubchem_jobs SET status='queued',"
+                    " lease_owner=NULL, lease_token_hash=NULL, lease_expires_at=NULL"
+                    " WHERE id=:j"), {"j": job_id})
+        self.LOOP.run_until_complete(_r())
+
+    def test_receipt_write_failure_keeps_job(self):
+        """§12(2) receipt 写失败 → job 不删: 主事务整体回滚, 无半成品。"""
+        self._mk_job("sec-wtp-rf")
+        j = self._lease_one()
+        from api.services import workapi_jobs as jobs
+        orig = jobs.record_completion_receipt
+
+        async def boom(*a, **k):
+            raise RuntimeError("injected receipt write failure")
+
+        jobs.record_completion_receipt = boom
+        try:
+            r = self.post("/workapi/v1/jobs/complete",
+                          {"job_id": j["job_id"], "lease_token": j["lease_token"],
+                           "result": {}})
+            self.assertEqual(r.status_code, 500, r.text)
+            self.assertEqual(self._receipt_count(j["job_id"]), 0,
+                             "receipt 写失败却留下 receipt")
+            self.assertEqual(
+                self.LOOP.run_until_complete(self._job_status(j["job_id"])),
+                "leased", "receipt 写失败后 job 不应被删/不该终态")
+        finally:
+            jobs.record_completion_receipt = orig
+            self._release_job(j["job_id"])
+
+    def test_job_delete_failure_rolls_back_receipt(self):
+        """§12(3) job delete 失败 → receipt/data 一起回滚(不留孤儿 receipt)。
+
+        注入点: DELETE 语句构造期抛错(等价该语句在 primary 事务内失败)。
+        """
+        self._mk_job("sec-wtp-df")
+        j = self._lease_one()
+        from api.services import workapi_jobs as jobs
+        orig_text = jobs.text
+
+        def boom_text(sql):
+            if "DELETE FROM maintenance.pubchem_jobs" in sql:
+                raise RuntimeError("injected job delete failure")
+            return orig_text(sql)
+
+        jobs.text = boom_text
+        try:
+            r = self.post("/workapi/v1/jobs/complete",
+                          {"job_id": j["job_id"], "lease_token": j["lease_token"],
+                           "result": {}})
+            self.assertEqual(r.status_code, 500, r.text)
+            self.assertEqual(self._receipt_count(j["job_id"]), 0,
+                             "delete 失败后 receipt 必须一起回滚")
+            self.assertEqual(
+                self.LOOP.run_until_complete(self._job_status(j["job_id"])),
+                "leased", "delete 失败后 job 行必须仍在")
+        finally:
+            jobs.text = orig_text
+            self._release_job(j["job_id"])
 
     # ════ E5. Transport neutrality: 409 逐字 detail(真实 app + test_hgs) ════
     # service 抛 neutral(LeaseConflictError), adapter 独占映射 → 既有 409 +

@@ -3,7 +3,7 @@
 1 savepoint 真隔离: 真实 PostgreSQL SQL error(非 RuntimeError)只回滚
   discovery savepoint, reaction/CB 主 transaction 仍可 commit, 无残留;
 2 cid_list 无语义截断: 101+ CID 仍 AMBIGUOUS, 零 handoff, 不 first-hit;
-3 lease 行锁契约: _verified_identity_lease SQL 含 FOR UPDATE。
+3 lease 行锁契约: verified_identity_lease SQL 含 FOR UPDATE。
 """
 
 from __future__ import annotations
@@ -236,11 +236,15 @@ class DiscoveryFix31Tests(unittest.TestCase):
     # ---- 3: lease 行锁契约 ----------------------------------------
 
     def test_4_verified_lease_sql_contract_for_update(self):
-        """SQL contract: _verified_identity_lease 的语句必须含 FOR UPDATE
-        且作用于 pubchem_identity_jobs(锁定行锁语义, 防漂移)。"""
+        """SQL contract: verified_identity_lease 的语句必须含 FOR UPDATE
+        且作用于 pubchem_identity_jobs(锁定行锁语义, 防漂移)。
+
+        E6: owner 从 adapter 迁至 application service(§3 裁定) → 直接检查
+        api/services/workapi_jobs.py, 不在 adapter 留 shim。
+        """
         import inspect
-        from api.workapi import _verified_identity_lease
-        src = inspect.getsource(_verified_identity_lease)
+        from api.services.workapi_jobs import verified_identity_lease
+        src = inspect.getsource(verified_identity_lease)
         self.assertIn("FOR UPDATE", src,
                       "verified lease 必须 FOR UPDATE 行锁")
         self.assertIn("pubchem_identity_jobs", src)
@@ -252,8 +256,8 @@ class DiscoveryFix31Tests(unittest.TestCase):
     def test_5_concurrent_second_terminal_rejected(self):
         """并发契约: 第一个终态提交后, 第二个 complete 同 lease →
         409(行锁+status 复核), 不落第二个终态。"""
-        from fastapi import HTTPException
-        from api.workapi import _verified_identity_lease
+        from api.services.workapi_jobs import verified_identity_lease
+        from api.services.workqueue import LeaseConflictError
         from sqlalchemy import text
         ik = _ik("CONCURAAA")
         cid_ = self._mk_chem({"inchikey": ik,
@@ -275,7 +279,7 @@ class DiscoveryFix31Tests(unittest.TestCase):
             # 事务 A: 行锁 + 落 candidate 终态
             async with self.engine.connect() as ca:
                 async with ca.begin():
-                    row = await _verified_identity_lease(ca, type(
+                    row = await verified_identity_lease(ca, type(
                         "P", (), {"job_id": jid, "lease_token": token})(),
                         "ut31w")
                     assert row is not None
@@ -286,11 +290,14 @@ class DiscoveryFix31Tests(unittest.TestCase):
             async with self.engine.connect() as cb_:
                 async with cb_.begin():
                     try:
-                        await _verified_identity_lease(cb_, type(
+                        await verified_identity_lease(cb_, type(
                             "P", (), {"job_id": jid, "lease_token": token})(),
                             "ut31w")
-                    except HTTPException as exc:
-                        return exc.status_code
+                    except LeaseConflictError as exc:
+                        # E6: service 抛 neutral(无 status) → 409 只能来自
+                        # adapter 的独占映射点; 断言 HTTP 可见结果仍为 409。
+                        from api.workapi import _lease_conflict_http
+                        return _lease_conflict_http(exc).status_code
                     return None
         self.assertEqual(_run(scenario()), 409,
                          "第二终态必须被行锁+status 复核拒绝")

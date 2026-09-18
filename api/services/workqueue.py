@@ -38,6 +38,21 @@ class LeaseConflictError(Exception):
         self.detail = detail
 
 
+class PayloadInvalidError(Exception):
+    """CAS complete 载荷语义无效的 transport-neutral 表达(E6 job 状态机归口)。
+
+    只承载语义: ``kind`` + ``detail``。HTTP status(既有 422)/detail 由 adapter
+    独占映射(api/workapi.py ``_payload_invalid_http``) — 本 service 不 import
+    任何 transport 框架。
+    """
+
+    kind = "payload_invalid"
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
+
+
 def lease_hash(value: str) -> bytes:
     return hashlib.sha256(value.encode()).digest()
 

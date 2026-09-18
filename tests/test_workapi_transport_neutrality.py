@@ -38,12 +38,15 @@ from api.schemas.workapi import (
     CasCompleteBody, CompleteBody, ErrorBody, IdentityCompleteBody, LeaseProof,
 )
 from api.services import discovery as dsc
+from api.services import workapi_jobs as jobs
 from api.services import workqueue as wq
 from api.services.workqueue import LeaseConflictError
 from api.workapi import WorkerContext
 
 REPO = Path(__file__).resolve().parents[1]
-SERVICE_MODULES = ("api/services/workqueue.py", "api/services/discovery.py")
+# E6: workapi_jobs.py 是新的 application service owner — 同受 transport 符号禁令约束
+SERVICE_MODULES = ("api/services/workqueue.py", "api/services/discovery.py",
+                   "api/services/workapi_jobs.py")
 
 LEASE_DETAIL = "lease is missing, expired, or owned by another worker"
 IDENTITY_DETAIL = "identity job is not leased"
@@ -245,8 +248,12 @@ class AdapterMappingTests(unittest.TestCase):
     """adapter 独占 neutral → HTTP 映射; 逐字 status/detail; 只捕获 intended 类型。"""
 
     def _patch_conflict(self, name: str) -> None:
+        """E6: neutral 冲突由 application service 抛出 → patch 真实 owner。
+
+        测试指向 api/services/workapi_jobs.py(§3 裁定: 不在 adapter 留 shim)。
+        """
         self.addCleanup(mock.patch.stopall)
-        mock.patch.object(wa, name, lambda *a, **k: _raise(LeaseConflictError(LEASE_DETAIL))).start()
+        mock.patch.object(jobs, name, lambda *a, **k: _raise(LeaseConflictError(LEASE_DETAIL))).start()
 
     def test_mapping_helper_preserves_detail_verbatim(self) -> None:
         out = wa._lease_conflict_http(LeaseConflictError(LEASE_DETAIL))
@@ -263,7 +270,7 @@ class AdapterMappingTests(unittest.TestCase):
     def test_complete_job_maps_neutral_to_exact_409(self) -> None:
         db = _StubDB()
         self._patch_conflict("verified_lease")
-        mock.patch.object(wa, "find_completion_receipt",
+        mock.patch.object(jobs, "find_completion_receipt",
                           lambda *a, **k: _none()).start()
         body = CompleteBody(job_id=1, lease_token=TOKEN, result={})
         with self.assertRaises(HTTPException) as ctx:
@@ -276,7 +283,7 @@ class AdapterMappingTests(unittest.TestCase):
     def test_complete_job_receipt_retry_still_idempotent(self) -> None:
         db = _StubDB()
         self._patch_conflict("verified_lease")
-        mock.patch.object(wa, "find_completion_receipt",
+        mock.patch.object(jobs, "find_completion_receipt",
                           lambda *a, **k: _receipt()).start()
         body = CompleteBody(job_id=1, lease_token=TOKEN, result={})
         out = _run(wa.complete_job(body=body, db=db, worker=WORKER))
@@ -286,7 +293,7 @@ class AdapterMappingTests(unittest.TestCase):
     def test_cas_complete_job_maps_neutral_to_exact_409(self) -> None:
         db = _StubDB()
         self._patch_conflict("verified_cas_lease")
-        mock.patch.object(wa, "find_completion_receipt",
+        mock.patch.object(jobs, "find_completion_receipt",
                           lambda *a, **k: _none()).start()
         body = CasCompleteBody(job_id=1, lease_token=TOKEN,
                                result={"status": "not_found"})
@@ -299,7 +306,7 @@ class AdapterMappingTests(unittest.TestCase):
     def test_cas_complete_job_receipt_retry_still_idempotent(self) -> None:
         db = _StubDB()
         self._patch_conflict("verified_cas_lease")
-        mock.patch.object(wa, "find_completion_receipt",
+        mock.patch.object(jobs, "find_completion_receipt",
                           lambda *a, **k: _receipt()).start()
         body = CasCompleteBody(job_id=1, lease_token=TOKEN,
                                result={"status": "not_found"})
@@ -342,7 +349,7 @@ class AdapterMappingTests(unittest.TestCase):
     def test_identity_complete_maps_discovery_neutral_to_exact_409(self) -> None:
         """discovery service 的 neutral 冲突 → 同一 409 映射(不再落 500)。"""
         db = _StubDB()
-        mock.patch.object(wa, "_verified_identity_lease",
+        mock.patch.object(jobs, "verified_identity_lease",
                           lambda *a, **k: _row()).start()
         self.addCleanup(mock.patch.stopall)
         mock.patch.object(dsc, "complete_discovery",
@@ -372,7 +379,7 @@ class AdapterMappingTests(unittest.TestCase):
             with self.subTest(handler=handler_name):
                 db = _StubDB()
                 # 用 with 保证 patch 一定回收(跨模块泄漏会让后续 DB 测试全 500)
-                with mock.patch.object(wa, service_name,
+                with mock.patch.object(jobs, service_name,
                                        lambda *a, **k: _raise(RuntimeError("boom"))):
                     with self.assertRaises(RuntimeError) as ctx:
                         _run(getattr(wa, handler_name)(
@@ -381,7 +388,7 @@ class AdapterMappingTests(unittest.TestCase):
 
     def test_unexpected_discovery_error_is_not_converted_to_409(self) -> None:
         db = _StubDB()
-        with mock.patch.object(wa, "_verified_identity_lease",
+        with mock.patch.object(jobs, "verified_identity_lease",
                                lambda *a, **k: _row()):
             with mock.patch.object(dsc, "complete_discovery",
                                    lambda *a, **k: _raise(RuntimeError("boom"))):
@@ -412,19 +419,95 @@ class AdapterMappingTests(unittest.TestCase):
         self.assertEqual(offenders, [],
                          f"catch-all 子句里出现 409 构造: lines {offenders}")
 
+    # E6: neutral 来源矩阵(service 侧) → 映射点(adapter 侧) 必须一一覆盖。
+    # 来源证据(/tmp/e6_matrix_audit.txt [C]): workqueue.verified_lease@114 ←
+    # workapi_jobs 132/258; verified_cas_lease@511 ← 392/494/726;
+    # discovery.complete_discovery@129; workapi_jobs.verified_identity_lease@766
+    # ← 849/895。identity error 路径旧为 HTTPException 直穿 409, E6 后同属
+    # neutral 类型 → 漏映射会变 500, 故必须显式映射。
+    NEUTRAL_SOURCES = {
+        "complete_job": ("verified_lease",),
+        "error_job": ("verified_lease",),
+        "cas_heartbeat": ("verified_cas_lease",),
+        "cas_complete_job": ("verified_cas_lease",),
+        "cas_error_job": ("verified_cas_lease",),
+        "complete_identity_job": ("verified_identity_lease", "complete_discovery"),
+        "error_identity_job": ("verified_identity_lease",),
+    }
+
     def test_neutral_errors_are_caught_by_exact_type_only(self) -> None:
-        """六个映射点必须显式 `except LeaseConflictError`(AST 计数)。"""
+        """映射点集合 == 真实 neutral 来源矩阵(AST 断言, 取代硬编码计数)。
+
+        E5 版为 `caught == 6`; E6 后 identity error 也是真实来源(§4 裁定:
+        有真实来源 → 旧断言属 stale structural assertion)。断言三条:
+        1. 逐 handler 显式 `except LeaseConflictError`(禁宽泛类型兜);
+        2. handler 集合 == NEUTRAL_SOURCES 键集(无孤儿 catch / 无漏映射);
+        3. 每个 catch 体必须经 `_lease_conflict_http`(唯一 409 构造点)。
+        """
         tree = _ast_of("api/workapi.py")
-        caught = 0
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Try):
+        mapped: dict[str, int] = {}
+        for func in ast.walk(tree):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
-            for handler in node.handlers:
-                if _attr_name(handler.type) == "LeaseConflictError":
-                    caught += 1
-        self.assertEqual(caught, 6,
-                         "期望 6 个显式 neutral 捕获点(complete/cas complete/"
-                         "error/heartbeat/cas error/identity complete)")
+            for node in ast.walk(func):
+                if not isinstance(node, ast.Try):
+                    continue
+                for handler in node.handlers:
+                    if _attr_name(handler.type) != "LeaseConflictError":
+                        continue
+                    mapped[func.name] = mapped.get(func.name, 0) + 1
+                    self.assertIn(
+                        "_lease_conflict_http", ast.dump(handler),
+                        f"{func.name}: neutral catch 未走唯一映射点")
+        self.assertEqual(
+            mapped, {name: 1 for name in self.NEUTRAL_SOURCES},
+            "neutral 映射点必须与来源矩阵一一对应(禁孤儿 catch / 禁漏映射)")
+
+    def test_neutral_sources_have_mapping_and_no_orphan_catch(self) -> None:
+        """矩阵双向核对: service 侧真实来源 ⊆ 映射面覆盖, 且映射面无孤儿。
+
+        来源面由 AST 从 service 模块现读(非硬编码): adapter handler →
+        jobs.<job fn> → (一跳) 真正 raise LeaseConflictError 的原语。
+        防止今后 service 新增 neutral 来源而 adapter 漏映射。
+        """
+        raisers: set[str] = set()
+        call_graph: dict[str, set[str]] = {}
+        for rel in SERVICE_MODULES:
+            st = _ast_of(rel)
+            for func in ast.walk(st):
+                if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for node in ast.walk(func):
+                    if isinstance(node, ast.Raise) and node.exc is not None \
+                            and "LeaseConflictError" in ast.dump(node.exc):
+                        raisers.add(func.name)
+                    if isinstance(node, ast.Call):
+                        nm = _attr_name(node.func)
+                        if nm:
+                            call_graph.setdefault(func.name, set()).add(nm)
+        self.assertTrue(raisers, "service 侧未发现 LeaseConflictError 来源")
+
+        tree = _ast_of("api/workapi.py")
+        mapped_handlers: dict[str, set[str]] = {}
+        for func in ast.walk(tree):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                    or func.name not in self.NEUTRAL_SOURCES:
+                continue
+            mapped_handlers[func.name] = {
+                _attr_name(n.func) for n in ast.walk(func)
+                if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                and isinstance(n.func.value, ast.Name)
+                and n.func.value.id == "jobs"}
+        self.assertEqual(sorted(mapped_handlers), sorted(self.NEUTRAL_SOURCES),
+                         "映射面 handler 集合与来源矩阵不符(孤儿/漏映射)")
+
+        reachable: set[str] = set()
+        for called in mapped_handlers.values():
+            for fname in called:
+                reachable.add(fname)
+                reachable |= call_graph.get(fname, set())
+        self.assertEqual(sorted(raisers - reachable), [],
+                         "存在无映射的 neutral 来源(adapter 漏 catch)")
 
 
 # ─────────────────────────── D. route 契约 ───────────────────────────
