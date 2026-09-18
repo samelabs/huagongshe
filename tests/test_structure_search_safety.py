@@ -496,7 +496,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         database_module.async_session = async_sessionmaker(self.app_engine, expire_on_commit=False)
         self.fixture_id, self._fixture_created = await _ensure_fixture_chemical(self.app_engine)
 
-        self._patched = routes.run_search_query
+        self._patched = search_service.run_search_query
         self._rate = (rate_limit.STRUCTURE_ACTOR_RATE_LIMIT,
                       rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT)
         # 本组只验并发层: 把 fixed-window 抬高, 免得两层混在一起
@@ -511,7 +511,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         await cache_delete(*self._cache_keys)
 
     async def asyncTearDown(self):
-        routes.run_search_query = self._patched
+        search_service.run_search_query = self._patched
         rate_limit.STRUCTURE_ACTOR_RATE_LIMIT, rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT = self._rate
         self.app.dependency_overrides.clear()
         await cache_delete(*self._cache_keys)
@@ -548,7 +548,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
 
     async def test_single_actor_concurrency_capped_at_2(self):
         tracker = {"live": 0, "max": 0}
-        routes.run_search_query = self._slow(tracker)
+        search_service.run_search_query = self._slow(tracker)
         results = await asyncio.gather(*[
             self.client.get(f"/api/search?q={value}&mode=substructure")
             for value in self._queries[:10]
@@ -562,7 +562,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
 
     async def test_multi_actor_global_cap_4(self):
         tracker = {"live": 0, "max": 0}
-        routes.run_search_query = self._slow(tracker)
+        search_service.run_search_query = self._slow(tracker)
 
         from api.core.security import Actor, public_or_actor
 
@@ -592,7 +592,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
 
     async def test_cache_hit_does_not_take_slot(self):
         tracker = {"live": 0, "max": 0}
-        routes.run_search_query = self._slow(tracker)
+        search_service.run_search_query = self._slow(tracker)
         payload = {"page": 1, "page_size": 30, "total": 0, "chemicals": []}
         for value in self._queries[:6]:
             await cache_set(f"v2:unified-search:substructure:0.7:1:30:{value}", payload, ttl=60)
@@ -606,7 +606,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         async def boom(db, query, mode, canonical, page, page_size, offset, **kw):
             raise RuntimeError("simulated failure")
 
-        routes.run_search_query = boom
+        search_service.run_search_query = boom
         response = await self.client.get(f"/api/search?q={self._queries[0]}&mode=substructure")
         self.assertEqual(response.status_code, 503)
         import redis.asyncio as redis
@@ -620,7 +620,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
     async def test_ordinary_request_not_starved(self):
         """结构查询压满时, 普通化合物详请仍能拿到连接并快速返回。"""
         tracker = {"live": 0, "max": 0}
-        routes.run_search_query = self._slow(tracker, delay=0.6)
+        search_service.run_search_query = self._slow(tracker, delay=0.6)
         heavy = asyncio.gather(*[
             self.client.get(f"/api/search?q={value}&mode=substructure") for value in self._queries[:10]
         ])

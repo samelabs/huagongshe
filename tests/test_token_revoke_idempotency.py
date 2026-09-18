@@ -234,7 +234,6 @@ class SkillsRaceTests(unittest.TestCase):
         async def go():
             from api.services.skills import _create_skill_record
             from api.services.skills import load_accessible_skill
-            from api.core.security import Actor
             nonlocal uid
             try:
                 async with engine.begin() as db:
@@ -244,14 +243,10 @@ class SkillsRaceTests(unittest.TestCase):
                         VALUES (:u,:e,:p,'member','U') RETURNING id
                     """), {"u": f"utr{RUN}d", "e": f"d{RUN}@t.example",
                            "p": "x"*60})).scalar()
-                actor = Actor(id=uid, username="u", display_name="U",
-                              email="u@t.example", role="member",
-                              avatar_path=None, auth_kind="agent")
-
                 # T1: INSERT 未 commit(事务挂起) — 制造真实竞态窗口
                 s1 = SM()
                 await s1.execute(text("BEGIN"))
-                created1 = await _create_skill_record(s1, actor, manifest, None, key)
+                created1 = await _create_skill_record(s1, uid, manifest, None, key)
                 # T2: 真实竞态=T2 事务的 pre-check 看不到 T1 未提交行,
                 # 直落 INSERT → (owner_id, slug) UNIQUE 拦截。用与生产
                 # _create_skill_record 相同的 INSERT 语句(无 pre-check)
@@ -554,8 +549,7 @@ class SkillsRaceTests(unittest.TestCase):
                          "不相关 IntegrityError 不得被吞成 409/其他")
 
     def test_no_key_conflict_still_raises(self):
-        from api.services.skills import _create_skill_record
-        from api.core.security import Actor
+        from api.services.skills import _create_skill_record, SkillSlugConflictError
         from sqlalchemy import text
         from sqlalchemy.exc import IntegrityError
         from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -580,19 +574,17 @@ class SkillsRaceTests(unittest.TestCase):
                         VALUES (:u,:e,:p,'member','U') RETURNING id
                     """), {"u": f"utr{RUN}e", "e": f"e{RUN}@t.example",
                            "p": "x"*60})).scalar()
-                actor = Actor(id=uid, username="u", display_name="U",
-                              email="u@t.example", role="member",
-                              avatar_path=None, auth_kind="agent")
-                from fastapi import HTTPException as _HTTP
                 s1 = SM()
-                await _create_skill_record(s1, actor, manifest_a, None, None)
+                await _create_skill_record(s1, uid, manifest_a, None, None)
                 await s1.commit(); await s1.close()
                 s2 = SM()
                 try:
-                    await _create_skill_record(s2, actor, manifest_a, None, None)
-                    return "no-409"
-                except _HTTP as exc:
-                    return f"http-{exc.status_code}"
+                    await _create_skill_record(s2, uid, manifest_a, None, None)
+                    return "no-conflict"
+                except SkillSlugConflictError as exc:
+                    # G3.1D: canonical owner 抛 neutral error(同一 409 文案);
+                    # HTTP 409 映射由 tests/test_skill_create_service.py 覆盖。
+                    return f"slug-conflict:{exc.detail}"
                 except IntegrityError:
                     return "raised"
                 finally:
@@ -605,8 +597,10 @@ class SkillsRaceTests(unittest.TestCase):
                         await db.execute(text(
                             "DELETE FROM community.users WHERE id=:u"), {"u": uid})
                 await engine.dispose()
-        self.assertEqual(asyncio.run(go()), "http-409",
-                         "无 key 的 slug 冲突保持 409 语义, 不得吞")
+        self.assertEqual(
+            asyncio.run(go()),
+            f"slug-conflict:已存在同名技能（slug=nk-{RUN}），请先删除或改名",
+            "无 key 的 slug 冲突保持原 409 语义(文案逐字), 不得吞")
 
 if __name__ == "__main__":
     unittest.main()
