@@ -3,6 +3,15 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [1.5.1] — 2026-09-18
+
+- API/MCP 治理：能力与契约治理账本落地（family / scenario / contract 对账），route↔scope 校验进入常驻治理测试；MCP 工具清单与 API 契约同源
+- 架构收敛：reaction / skill 读写路径下沉为 transport-neutral 应用服务，HTTP 与 MCP 共用同一 owner，MCP→HTTP handler 调用归零，服务层不再依赖传输层对象
+- 边界清理：限流与错误语义中立于传输层；写入事务与幂等语义显式化（skill slug 冲突、reaction 校验失败不再吞错）
+- 修复：D001 更新反应后返回体与落库事实一致；D002 反应 SVG BFF 缓存契约保持上游 passthrough，上游缺失时降级 private, no-store
+- 测试/治理收口：此前因缺少真实 PostgreSQL 而长期跳过（gated skip）的测试首次全量执行并通过，测试引用与 canonical service owner 对齐
+- 债务说明：A002/A003 仍有残余项；D004（测试环境可移植性）、D010、T001/T002 等以 follow-up 形式登记，本版不声称全部技术债已清除
+
 ## [1.5.0] — 2026-09-14
 
 - 搜索系统治理：名称 exact/fuzzy 候选流统一；分页 deterministic bounded，has_more 语义事实化；CJK 短查询性能与排序正确性修复
