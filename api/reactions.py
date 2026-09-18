@@ -3,18 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from collections import defaultdict
 import logging
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Request
-from rdkit import Chem
-from rdkit.Chem import Descriptors, rdChemReactions, rdMolDescriptors
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
 
-from .core.cache import cache_delete
-from .chemistry import canonicalize_smiles
 from .schemas.reactions import ReactionBody
 from .core.config import settings
 from .core.database import get_db
@@ -25,158 +19,18 @@ from .services.reactions import canonical_participants
 from .services.reactions import validate_reaction_draft
 from .core.security import Actor, current_actor, public_or_actor, require_scope
 from .services.reactions import list_my_reactions
+from .services.reactions import (IdempotencyKeyTooLongError,
+                                 MissingIdempotencyKeyError)
+from .services.reactions import create_reaction as create_reaction_service
+from .services.reactions import (notify_new_reaction_safely,
+                                 reaction_response, reaction_values,
+                                 resolve_or_create_chemical,
+                                 resolve_participants,
+                                 write_relationships)
 
 router = APIRouter(tags=["reactions"])
 logger = logging.getLogger(__name__)
 ROLES = ("REACTANT", "REAGENT", "CATALYST", "SOLVENT", "PRODUCT")
-
-
-def chemical_properties(smiles: str) -> dict[str, Any]:
-    mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
-        raise HTTPException(400, "化合物结构无法通过 RDKit 解析")
-    try:
-        inchikey = Chem.MolToInchiKey(mol) or None
-    except Exception:
-        inchikey = None
-    return {
-        "molecular_formula": rdMolDescriptors.CalcMolFormula(mol),
-        "average_mass": float(Descriptors.MolWt(mol)),
-        "monoisotopic_mass": float(Descriptors.ExactMolWt(mol)),
-        "inchikey": inchikey,
-    }
-
-
-async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
-    # 锁键用 canonical 形式: 同一分子的不同写法(CCO/OCC)必须落在同一把锁上,
-    # 否则并发双写可各建一行(缝只开一次, 但没必要留). 入参已是 canonical 时零开销.
-    # RDKit 解析是 CPU-bound, 下沉线程池防卡事件循环(与 :50 chemical_properties 同口径).
-    canonical = await asyncio.to_thread(canonicalize_smiles, smiles) or smiles
-    await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:smiles,0))"), {"smiles": canonical})
-    props = await asyncio.to_thread(chemical_properties, canonical)
-    inchikey = props.get("inchikey")
-    # 0906 治理机制: 定位/裁定改走 identity.resolve_chemical 五状态契约。
-    # SMILES 路证据=ik(结构键)。EQUIVALENT(ik 结构行命中)直接用;
-    # CONFLICT/AMBIGUOUS 不可能在此形态出现(单键定位), 保守起见仍检查。
-    from .services.identity import resolve_chemical
-    # create=False: NEW 时不占行 — 完整行(带mol/指纹)由本函数下方 INSERT
-    # 一次性建, 避免 resolve 先建裸占位行再建完整行的双行缝(终审0906)
-    res = await resolve_chemical(db, inchikey=inchikey, create=False)
-    if res.chemical_id is not None and res.status in ("EQUIVALENT", "EXACT"):
-        return int(res.chemical_id), False
-    chemical_id = int((await db.execute(text("""
-        INSERT INTO chemistry.chemicals
-          (smiles,molecular_formula,average_mass,monoisotopic_mass,inchikey,
-           mol,morgan_bfp,morgan_sfp,created_at,updated_at)
-        VALUES
-          (:smiles,:molecular_formula,:average_mass,:monoisotopic_mass,:inchikey,
-           mol_from_smiles(:smiles),morganbv_fp(mol_from_smiles(:smiles)),
-           morgan_fp(mol_from_smiles(:smiles)),now(),now())
-        RETURNING id
-    """), {"smiles": canonical, **props})).scalar_one())
-    await db.execute(text("""
-        UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
-        WHERE metric='chemicals'
-    """))
-    # §3 MVP trigger 1(§3.1 修正: 真正 best-effort):
-    # 新 INSERT 且 CID=NULL 且合法 IK 非空 → discovery 入列。
-    # begin_nested savepoint 隔离 — PostgreSQL SQL error 只回滚 savepoint,
-    # 不污染主 reaction transaction(aborted), 主流程可继续 commit。
-    if inchikey:
-        try:
-            # §3 frozen-baseline correction: 局部 import(勿改模块级 ——
-            # test_discovery_fix31 monkeypatch api.services.discovery.
-            # enqueue_discovery 注入真实 PG error, 局部 import 保持真链)
-            from .services.discovery import enqueue_discovery
-            async with db.begin_nested():
-                await enqueue_discovery(
-                    db, chemical_id=chemical_id, inchikey=inchikey,
-                    request_context={"origin": "reaction_insert"})
-        except Exception:
-            logger.warning("identity discovery enqueue failed chemical_id=%s",
-                           chemical_id, exc_info=True)
-    return chemical_id, True
-
-
-
-def reaction_values(body: ReactionBody) -> dict[str, Any]:
-    return body.model_dump(exclude={"participants"})
-
-
-async def resolve_participants(db, participants: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[int]]:
-    resolved: list[dict[str, Any]] = []
-    created: list[int] = []
-    for participant in participants:
-        chemical_id, is_new = await resolve_or_create_chemical(db, participant["canonical_smiles"])
-        resolved.append({**participant, "chemical_id": chemical_id})
-        if is_new:
-            created.append(chemical_id)
-    return resolved, created
-
-
-async def write_relationships(db, reaction_id: int, participants: list[dict[str, Any]]) -> None:
-    for item in participants:
-        await db.execute(text("""
-            INSERT INTO chemistry.reaction_chemicals
-              (reaction_id,chemical_id,role,occurrence_count,amount_value,amount_unit,
-               equivalents,concentration_value,concentration_unit,yield_percent)
-            VALUES
-              (:reaction_id,:chemical_id,:role,:occurrence_count,:amount_value,:amount_unit,
-               :equivalents,:concentration_value,:concentration_unit,:yield_percent)
-        """), {"reaction_id": reaction_id, **item})
-
-
-async def notify_new_reaction(db, actor_id: int, reaction_id: int) -> None:
-    await db.execute(text("""
-        INSERT INTO community.notifications
-          (user_id,event_type,actor_user_id,reaction_id,dedupe_key)
-        SELECT follower_user_id,'new_reaction',:actor_id,:reaction_id,
-               'new-reaction:' || follower_user_id::text || ':' || :reaction_id_text
-        FROM community.user_follows
-        WHERE followed_user_id=:actor_id AND follower_user_id<>:actor_id
-        ON CONFLICT (dedupe_key) DO NOTHING
-    """), {
-        "actor_id": actor_id, "reaction_id": reaction_id, "reaction_id_text": str(reaction_id),
-    })
-
-
-async def notify_new_reaction_safely(db, actor_id: int, reaction_id: int) -> None:
-    """Keep auxiliary activity fan-out outside and below the core write budget."""
-    try:
-        await db.execute(text("SET LOCAL statement_timeout='1000ms'"))
-        await notify_new_reaction(db, actor_id, reaction_id)
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        logger.warning(
-            "reaction activity notification skipped",
-            exc_info=True,
-            extra={"actor_id": actor_id, "reaction_id": reaction_id},
-        )
-
-
-async def reaction_response(db, reaction_id: int, created_chemicals: list[int] | None = None) -> dict[str, Any]:
-    row = (await db.execute(text("""
-        SELECT id,reaction_smiles,visibility,created_by_user_id,created_via,created_at,updated_at
-        FROM chemistry.reactions WHERE id=:id
-    """), {"id": reaction_id})).fetchone()
-    participants = (await db.execute(text("""
-        SELECT chemical_id,role,occurrence_count,amount_value,amount_unit,equivalents,
-               concentration_value,concentration_unit,yield_percent
-        FROM chemistry.reaction_chemicals WHERE reaction_id=:id
-        ORDER BY CASE role WHEN 'REACTANT' THEN 1 WHEN 'REAGENT' THEN 2 WHEN 'CATALYST' THEN 3
-                           WHEN 'SOLVENT' THEN 4 ELSE 5 END,chemical_id
-    """), {"id": reaction_id})).mappings().all()
-    return {
-        "id": row[0], "hrid": f"HRID {row[0]}", "reaction_smiles": row[1],
-        "visibility": row[2], "created_by_user_id": row[3], "created_via": row[4],
-        "created_at": row[5], "updated_at": row[6],
-        "participants": [dict(item) for item in participants],
-        "created_chemical_ids": created_chemicals or [],
-        "url": f"https://huagongshe.com/reaction/{row[0]}",
-    }
-
-
 
 
 def _reaction_validation_http(exc: ReactionValidationError) -> HTTPException:
@@ -210,73 +64,26 @@ async def validate_reaction(body: ReactionBody, actor: Actor = Depends(current_a
 )
 async def create_reaction(
     body: ReactionBody,
-    request: Request,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):
+    # G3.1C: request 参数已删(体内零消费, AST 核实); rate/幂等/校验/事务/
+    # 响应全部下沉 services.reactions.create_reaction; adapter 只余
+    # auth/scope + neutral → HTTP 映射。§8 顺序: rate 先于 key 校验(service 内)。
     require_scope(actor, "reaction:write")
-    await enforce_http("reaction-write-minute", str(actor.id), settings.api_reaction_write_limit_per_minute, 60)
-    await enforce_http("reaction-write-day", str(actor.id), settings.api_reaction_write_limit_per_day, 86400)
-    if actor.auth_kind == "agent" and not idempotency_key:
-        raise HTTPException(400, "使用 API Token 提交必须提供 Idempotency-Key")
-    if idempotency_key and len(idempotency_key) > 200:
-        raise HTTPException(400, "Idempotency-Key 不能超过 200 个字符")
-    if idempotency_key:
-        existing = (await db.execute(text("""
-            SELECT id FROM chemistry.reactions
-            WHERE created_by_user_id=:user_id AND idempotency_key=:key
-        """), {"user_id": actor.id, "key": idempotency_key})).scalar()
-        if existing is not None:
-            return await reaction_response(db, int(existing))
-
     try:
-        participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
+        return await create_reaction_service(
+            db, actor_id=actor.id, auth_kind=actor.auth_kind,
+            body=body, idempotency_key=idempotency_key)
     except ReactionValidationError as exc:
         raise _reaction_validation_http(exc) from exc
-    resolved, created_chemicals = await resolve_participants(db, participants)
-    values = reaction_values(body)
-    try:
-        reaction_id = int((await db.execute(text("""
-            INSERT INTO chemistry.reactions
-              (id,reaction_smiles,reaction,created_by_user_id,visibility,created_via,
-               procedure_details,conditions_detail,temperature_value,temperature_unit,
-               duration_value,duration_unit,ph,atmosphere,pressure_value,pressure_unit,
-               workup_details,safety_notes,source_type,doi,patent,source_url,source_citation,
-               note,idempotency_key)
-            VALUES
-              (nextval('chemistry.reactions_id_seq'),:reaction_smiles,
-               CAST(:reaction_input AS public.reaction),:user_id,:visibility,:created_via,
-               :procedure_details,:conditions_detail,:temperature_value,:temperature_unit,
-               :duration_value,:duration_unit,:ph,:atmosphere,:pressure_value,:pressure_unit,
-               :workup_details,:safety_notes,:source_type,:doi,:patent,:source_url,:source_citation,
-               :note,:idempotency_key)
-            RETURNING id
-        """), {
-            **values, "reaction_smiles": reaction_smiles, "reaction_input": reaction_smiles,
-            "user_id": actor.id, "created_via": "agent" if actor.auth_kind == "agent" else "web",
-            "idempotency_key": idempotency_key,
-        })).scalar_one())
-    except IntegrityError:
-        await db.rollback()
-        if idempotency_key:
-            existing = (await db.execute(text("""
-                SELECT id FROM chemistry.reactions
-                WHERE created_by_user_id=:user_id AND idempotency_key=:key
-            """), {"user_id": actor.id, "key": idempotency_key})).scalar()
-            if existing is not None:
-                return await reaction_response(db, int(existing))
-        raise
-    await write_relationships(db, reaction_id, resolved)
-    if body.visibility == "public":
-        await db.execute(text("""
-            UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
-            WHERE metric='reactions'
-        """))
-    await db.commit()
-    if body.visibility == "public":
-        await notify_new_reaction_safely(db, actor.id, reaction_id)
-    return await reaction_response(db, reaction_id, created_chemicals)
+    except MissingIdempotencyKeyError as exc:
+        raise HTTPException(400, exc.detail) from exc
+    except IdempotencyKeyTooLongError as exc:
+        raise HTTPException(400, exc.detail) from exc
+    except RateLimitError as exc:
+        raise to_http_exception(exc) from exc
 
 
 @router.put("/reactions/{reaction_id}")

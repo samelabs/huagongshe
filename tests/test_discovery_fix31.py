@@ -112,7 +112,7 @@ class DiscoveryFix31Tests(unittest.TestCase):
     def test_1_reaction_trigger_sqlerror_isolated(self):
         """真实 PG SQL error(约束冲突)在 enqueue 内爆发:
         主 reaction INSERT + statistics 仍 commit, discovery 无残留。"""
-        from api.reactions import resolve_or_create_chemical
+        from api.services.reactions import resolve_or_create_chemical
         from api.services import discovery as disc
         ik = _ik("SVPTREACT")
         orig = disc.enqueue_discovery

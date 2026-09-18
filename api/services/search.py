@@ -481,7 +481,7 @@ async def run_search_query(
                     _rate_limited = True
                 if not _rate_limited:
                     try:
-                        from ..reactions import resolve_or_create_chemical
+                        from .reactions import resolve_or_create_chemical
                         chemical_id, _created = await resolve_or_create_chemical(db, canonical)
                         created = await fetch_chemicals(db, f"""
                             SELECT {CHEMICAL_SELECT}

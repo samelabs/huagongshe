@@ -12,6 +12,7 @@ from pydantic import ValidationError
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
 from api import agent, reactions, social, users
+from api.services import reactions as reactions_service
 from api.core.config import settings
 from api.services.reactions import (ReactionValidationError,
                                     canonical_participants)
@@ -79,20 +80,20 @@ class ReactionContractTests(unittest.TestCase):
         self.assertEqual(expression, "CCO.CCO>>CC=O")
 
     def test_notification_keys_cast_numeric_parameters(self) -> None:
-        source = inspect.getsource(reactions)
+        source = inspect.getsource(reactions_service)
         self.assertIn('"reaction_id_text": str(reaction_id)', source)
 
     def test_activity_is_only_new_reactions_from_followed_users(self) -> None:
-        source = inspect.getsource(reactions.notify_new_reaction)
+        source = inspect.getsource(reactions_service.notify_new_reaction)
         self.assertIn("FROM community.user_follows", source)
         self.assertNotIn("chemical_follows", source)
         self.assertNotIn("reaction_updated", inspect.getsource(reactions.update_reaction))
 
     def test_activity_cannot_block_the_core_reaction_transaction(self) -> None:
-        source = inspect.getsource(reactions.notify_new_reaction_safely)
+        source = inspect.getsource(reactions_service.notify_new_reaction_safely)
         self.assertIn("statement_timeout='1000ms'", source)
         self.assertIn("await db.rollback()", source)
-        create_source = inspect.getsource(reactions.create_reaction)
+        create_source = inspect.getsource(reactions_service.create_reaction)
         self.assertLess(create_source.index("await db.commit()"), create_source.index("notify_new_reaction_safely"))
 
     def test_activity_feed_only_returns_current_visible_followed_reactions(self) -> None:
@@ -111,7 +112,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn("WHERE event_type='new_reaction'", migration)
 
     def test_concurrent_idempotent_submission_returns_existing_reaction(self) -> None:
-        source = inspect.getsource(reactions.create_reaction)
+        source = inspect.getsource(reactions_service.create_reaction)
         self.assertIn("except IntegrityError", source)
         self.assertIn("return await reaction_response(db, int(existing))", source)
 

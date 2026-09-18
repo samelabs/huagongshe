@@ -256,11 +256,15 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
         self.assertIn("except ReactionValidationError", src)
 
     def test_create_wraps_neutral_error(self):
-        src = inspect.getsource(reactions_module.create_reaction)
-        self.assertIn("canonical_participants", src)
-        self.assertIn("except ReactionValidationError", src)
+        # G3.1C: create 全流程在 services.reactions.create_reaction;
+        # kernel 消费+neutral 错误在 service, HTTP adapter 映射。
+        svc_src = inspect.getsource(services_reactions.create_reaction)
+        self.assertIn("to_thread(canonical_participants", svc_src)
+        http_src = inspect.getsource(reactions_module.create_reaction)
+        self.assertIn("except ReactionValidationError", http_src)
+        self.assertIn("create_reaction_service", http_src)
 
-    def test_create_request_none_mcp_unchanged(self):
+    def test_create_mcp_no_http_dependency(self):
         import api.mcp_server as mcp
         full = inspect.getsource(mcp)
         seg = None
@@ -269,7 +273,9 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
                     and node.name == "create_reaction"):
                 seg = ast.get_source_segment(full, node)
         self.assertIsNotNone(seg)
-        self.assertIn("request=None", seg)  # G3.1C debt 保持
+        self.assertNotIn("reactions_module", seg)
+        self.assertNotIn("request=None", seg)
+        self.assertNotIn("_HTTPException", seg)
 
     def test_transaction_ordering_unchanged(self):
         src = inspect.getsource(reactions_module.update_reaction)

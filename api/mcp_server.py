@@ -662,12 +662,16 @@ def build_mcp_server() -> MCPServer:
         必须先用 validate_reaction 校验并让用户确认草稿后再调用；visibility 默认 private。
         成功返回 HRID、页面链接和新建 HCID。
         """
-        from fastapi import HTTPException as _HTTPException
-
-        from . import reactions as reactions_module
+        from .core.rate_limit import RateLimitError as _RateLimitError
+        from .services.reactions import (IdempotencyKeyTooLongError,
+                                         MissingIdempotencyKeyError)
+        from .services.reactions import ReactionValidationError
+        from .services.reactions import create_reaction as _create_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         _require(actor, "reaction:write")
+        # G3.1C 冻结差异: MCP 侧 idempotency_key 必填且 ≤200, 检查在
+        # service/rate 之前(service 不被调, quota 不消耗)。
         if not idempotency_key or len(idempotency_key) > 200:
             raise ToolError("idempotency_key 必填且不超过 200 字符")
         try:
@@ -675,15 +679,15 @@ def build_mcp_server() -> MCPServer:
         except Exception as exc:
             raise ToolError(f"草稿字段不合法: {exc}") from exc
         try:
-            # request 参数在 handler 体内未使用(已核实), 直调传 None;
-            # enforce(actor.id 桶)+幂等检查在 handler 内原样生效.
+            # G3.1C: 直调 shared create service(A005 create 关闭);
+            # neutral validation/rate/idempotency error → ToolError(detail)。
             async with async_session() as session:
-                return await reactions_module.create_reaction(
-                    body=body, request=None,  # type: ignore[arg-type]
-                    idempotency_key=idempotency_key, actor=actor, db=session,
-                )
-        except _HTTPException as exc:
-            raise ToolError(str(exc.detail)) from exc
+                return await _create_service(
+                    session, actor_id=actor.id, auth_kind=actor.auth_kind,
+                    body=body, idempotency_key=idempotency_key)
+        except (ReactionValidationError, _RateLimitError,
+                MissingIdempotencyKeyError, IdempotencyKeyTooLongError) as exc:
+            raise ToolError(str(exc)) from exc
 
     return server
 

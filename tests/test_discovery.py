@@ -186,7 +186,7 @@ class IdentityDiscoveryTests(unittest.TestCase):
         断言: is_new=True / discovery job 恰 1 条 / status=queued。
         覆盖 0de4d4b 基线上局部 import 缺失被 best-effort 静默吞掉的缺陷
         (reaction 主流程成功但 discovery 永不入队)。"""
-        from api.reactions import resolve_or_create_chemical
+        from api.services.reactions import resolve_or_create_chemical
         # 高熵 fixture(ns=disc) + setUp 精确 cleanup — 不再依赖同系物
         # 长度空间唯一性(历史假红根源)
         smiles = _fixture_smiles(RUN)
