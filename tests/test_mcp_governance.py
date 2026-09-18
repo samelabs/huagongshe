@@ -292,11 +292,12 @@ class ToolSurfaceAndVersion(unittest.TestCase):
 
     def test_version_comes_from_repo_root_version_file(self):
         expected = (REPO / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(expected, "1.5.0")
+        self.assertRegex(expected, r"^\d+\.\d+\.\d+$", "VERSION 必须是 X.Y.Z 事实")
         self.assertEqual(build_server().version, expected)
         self.assertEqual(mcp_server._release_version(), expected)
 
     def test_version_is_cwd_independent(self):
+        expected = (REPO / "VERSION").read_text(encoding="utf-8").strip()
         env = dict(os.environ)
         env["PYTHONPATH"] = str(REPO)
         for cwd in (str(REPO), tempfile.gettempdir(), "/"):
@@ -306,7 +307,7 @@ class ToolSurfaceAndVersion(unittest.TestCase):
                 cwd=cwd, env=env, capture_output=True, text=True, timeout=120,
             )
             self.assertEqual(done.returncode, 0, done.stderr[-500:])
-            self.assertEqual(done.stdout.strip(), "1.5.0", f"cwd={cwd}")
+            self.assertEqual(done.stdout.strip(), expected, f"cwd={cwd}")
 
     def test_http_contract_version_untouched(self):
         from api.core.config import settings
