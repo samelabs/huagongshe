@@ -7,14 +7,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-from fastapi import HTTPException
 from pydantic import ValidationError
 
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
 from api import agent, reactions, social, users
 from api.core.config import settings
-from api.reactions import canonical_participants
+from api.services.reactions import (ReactionValidationError,
+                                    canonical_participants)
 from api.schemas.reactions import ParticipantBody, ReactionBody
 from api.core.security import Actor
 
@@ -64,9 +64,12 @@ class ReactionContractTests(unittest.TestCase):
             {"role": "REACTANT", "smiles": "C(C)O"},
             {"role": "PRODUCT", "smiles": "CC=O"},
         ])
-        with self.assertRaises(HTTPException) as raised:
+        with self.assertRaises(ReactionValidationError) as raised:
             canonical_participants(value)
-        self.assertEqual(raised.exception.status_code, 409)
+        self.assertEqual(raised.exception.kind,
+                         ReactionValidationError.DUPLICATE_PARTICIPANT)
+        self.assertEqual(raised.exception.detail,
+                         "同一化合物和角色请合并为一项，并填写出现次数")
 
     def test_occurrence_count_preserves_stoichiometric_repetition(self) -> None:
         _, expression = canonical_participants(body(participants=[

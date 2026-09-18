@@ -5,9 +5,16 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections import defaultdict
 from typing import Any
 
+from rdkit.Chem import rdChemReactions
 from sqlalchemy import text
+
+from ..chemistry import canonicalize_smiles
+from ..core.rate_limit import enforce
+from ..schemas.reactions import ReactionBody
 
 from .chemicals import CHEMICAL_SELECT, attach_localized_names, chemical_dict, clean_float
 
@@ -201,4 +208,97 @@ async def list_my_reactions(
     return {
         "items": [dict(row) for row in rows], "counts": {**counts, "all": sum(counts.values())},
         "page": page, "page_size": page_size,
+    }
+
+
+# ---------------------------------------------------------------------------
+# G3.1B — canonical validation kernel + shared validate orchestration
+# (自 api/reactions.py 下沉; PURE COMPUTATION, RDKit only, 零 DB/事务副作用)
+# ---------------------------------------------------------------------------
+
+class ReactionValidationError(Exception):
+    """反应草稿校验失败的 neutral 语义错误。
+
+    kind ∈ {INVALID_STRUCTURE, DUPLICATE_PARTICIPANT, INVALID_REACTION};
+    只携带 kind + detail(原文), 不含传输层 status/headers。
+    Web adapter: INVALID_STRUCTURE→400 / DUPLICATE_PARTICIPANT→409 /
+    INVALID_REACTION→400; MCP adapter: 工具报错(detail)。
+    """
+
+    INVALID_STRUCTURE = "invalid_structure"
+    DUPLICATE_PARTICIPANT = "duplicate_participant"
+    INVALID_REACTION = "invalid_reaction"
+
+    def __init__(self, kind: str, detail: str):
+        super().__init__(detail)
+        self.kind = kind
+        self.detail = detail
+
+
+def canonical_participants(
+    body: ReactionBody,
+) -> tuple[list[dict[str, Any]], str]:
+    """唯一 canonical 参与物/反应表达式校验 kernel(原实现逐字迁移)。
+
+    原传输层异常语义 → ReactionValidationError(kind):
+      无法解析参与物结构   → INVALID_STRUCTURE   (原 400)
+      同一化合物+角色重复  → DUPLICATE_PARTICIPANT (原 409)
+      RDKit 反应结构解析   → INVALID_REACTION     (原 400)
+    """
+    participants: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    grouped: dict[str, list[str]] = defaultdict(list)
+    for position, item in enumerate(body.participants):
+        canonical = canonicalize_smiles(item.smiles)
+        if not canonical:
+            raise ReactionValidationError(
+                ReactionValidationError.INVALID_STRUCTURE,
+                f"无法解析参与物结构：{item.smiles[:80]}")
+        key = (item.role, canonical)
+        if key in seen:
+            raise ReactionValidationError(
+                ReactionValidationError.DUPLICATE_PARTICIPANT,
+                "同一化合物和角色请合并为一项，并填写出现次数")
+        seen.add(key)
+        record = {"position": position, "canonical_smiles": canonical, **item.model_dump(exclude={"smiles"})}
+        participants.append(record)
+        grouped[item.role].extend([canonical] * item.occurrence_count)
+    reaction_smiles = ".".join(grouped["REACTANT"]) + ">" + ".".join(
+        value for role in ("REAGENT", "CATALYST", "SOLVENT") for value in grouped[role]
+    ) + ">" + ".".join(grouped["PRODUCT"])
+    try:
+        reaction = rdChemReactions.ReactionFromSmarts(reaction_smiles, useSmiles=True)
+    except Exception as exc:
+        raise ReactionValidationError(
+            ReactionValidationError.INVALID_REACTION,
+            "反应结构无法通过 RDKit 解析") from exc
+    if reaction is None or not reaction.GetNumReactantTemplates() or not reaction.GetNumProductTemplates():
+        raise ReactionValidationError(
+            ReactionValidationError.INVALID_REACTION,
+            "反应结构无法通过 RDKit 解析")
+    return participants, reaction_smiles
+
+
+async def validate_reaction_draft(
+    db_unused: None = None, *,
+    actor_id: int,
+    body: ReactionBody,
+) -> dict[str, Any]:
+    """shared validate orchestration(G3.1B; HTTP/MCP 共用)。
+
+    neutral rate enforce(reaction-validate / str(actor_id) / 20 / 60)
+    → to_thread(canonical kernel, CPU-bound 不回 event loop)
+    → 当前 canonical response assembly。
+    不负责: auth/scope/传输层异常或上下文对象。
+    """
+    await enforce("reaction-validate", str(actor_id), 20, 60)
+    participants, reaction_smiles = await asyncio.to_thread(
+        canonical_participants, body)
+    return {
+        "valid": True, "reaction_smiles": reaction_smiles,
+        "participants": [
+            {"role": item["role"], "canonical_smiles": item["canonical_smiles"],
+             "occurrence_count": item["occurrence_count"]}
+            for item in participants
+        ],
     }

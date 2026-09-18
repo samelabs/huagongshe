@@ -553,9 +553,9 @@ def build_mcp_server() -> MCPServer:
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """校验反应草稿(RDKit 标准化, 不保存)。需要 reaction:write 权限的 Token。"""
-        from fastapi import HTTPException as _HTTPException
-
-        from . import reactions as reactions_module
+        from .core.rate_limit import RateLimitError as _RateLimitError
+        from .services.reactions import ReactionValidationError
+        from .services.reactions import validate_reaction_draft
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         _require(actor, "reaction:write")
@@ -563,10 +563,13 @@ def build_mcp_server() -> MCPServer:
             body = ReactionBody(**reaction)
         except Exception as exc:
             raise ToolError(f"草稿字段不合法: {exc}") from exc
+        # G3.1B: 直调 shared validation service(A005 validate 关闭);
+        # neutral validation/rate error → ToolError(detail)。
         try:
-            return await reactions_module.validate_reaction(body=body, actor=actor)
-        except _HTTPException as exc:
-            raise ToolError(str(exc.detail)) from exc
+            return await validate_reaction_draft(
+                actor_id=actor.id, body=body)
+        except (ReactionValidationError, _RateLimitError) as exc:
+            raise ToolError(str(exc)) from exc
 
     @server.tool(name="validate_skill", title="校验技能包")
     async def validate_skill(

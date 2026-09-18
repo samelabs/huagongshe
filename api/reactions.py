@@ -18,7 +18,11 @@ from .chemistry import canonicalize_smiles
 from .schemas.reactions import ReactionBody
 from .core.config import settings
 from .core.database import get_db
-from .rate_limit_http import enforce_http
+from .rate_limit_http import enforce_http, to_http_exception
+from .core.rate_limit import RateLimitError
+from .services.reactions import ReactionValidationError
+from .services.reactions import canonical_participants
+from .services.reactions import validate_reaction_draft
 from .core.security import Actor, current_actor, public_or_actor, require_scope
 from .services.reactions import list_my_reactions
 
@@ -93,32 +97,6 @@ async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
                            chemical_id, exc_info=True)
     return chemical_id, True
 
-
-def canonical_participants(body: ReactionBody) -> tuple[list[dict[str, Any]], str]:
-    participants: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
-    grouped: dict[str, list[str]] = defaultdict(list)
-    for position, item in enumerate(body.participants):
-        canonical = canonicalize_smiles(item.smiles)
-        if not canonical:
-            raise HTTPException(400, f"无法解析参与物结构：{item.smiles[:80]}")
-        key = (item.role, canonical)
-        if key in seen:
-            raise HTTPException(409, "同一化合物和角色请合并为一项，并填写出现次数")
-        seen.add(key)
-        record = {"position": position, "canonical_smiles": canonical, **item.model_dump(exclude={"smiles"})}
-        participants.append(record)
-        grouped[item.role].extend([canonical] * item.occurrence_count)
-    reaction_smiles = ".".join(grouped["REACTANT"]) + ">" + ".".join(
-        value for role in ("REAGENT", "CATALYST", "SOLVENT") for value in grouped[role]
-    ) + ">" + ".".join(grouped["PRODUCT"])
-    try:
-        reaction = rdChemReactions.ReactionFromSmarts(reaction_smiles, useSmiles=True)
-    except Exception as exc:
-        raise HTTPException(400, "反应结构无法通过 RDKit 解析") from exc
-    if reaction is None or not reaction.GetNumReactantTemplates() or not reaction.GetNumProductTemplates():
-        raise HTTPException(400, "反应结构无法通过 RDKit 解析")
-    return participants, reaction_smiles
 
 
 def reaction_values(body: ReactionBody) -> dict[str, Any]:
@@ -199,6 +177,14 @@ async def reaction_response(db, reaction_id: int, created_chemicals: list[int] |
     }
 
 
+
+
+def _reaction_validation_http(exc: ReactionValidationError) -> HTTPException:
+    """G3.1B: neutral validation kind → 原 HTTP status(400/409), detail 原文。"""
+    if exc.kind == ReactionValidationError.DUPLICATE_PARTICIPANT:
+        return HTTPException(409, exc.detail)
+    return HTTPException(400, exc.detail)
+
 @router.post(
     "/reactions/validate",
     operation_id="validate_reaction",
@@ -206,16 +192,14 @@ async def reaction_response(db, reaction_id: int, created_chemicals: list[int] |
 )
 async def validate_reaction(body: ReactionBody, actor: Actor = Depends(current_actor)):
     require_scope(actor, "reaction:write")
-    await enforce_http("reaction-validate", str(actor.id), 20, 60)
-    participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
-    return {
-        "valid": True, "reaction_smiles": reaction_smiles,
-        "participants": [
-            {"role": item["role"], "canonical_smiles": item["canonical_smiles"],
-             "occurrence_count": item["occurrence_count"]}
-            for item in participants
-        ],
-    }
+    # G3.1B: rate/kernel/assembly 下沉 services.reactions.validate_reaction_draft;
+    # adapter 只余 auth/scope + neutral → HTTP 映射(400/409 + G2.R bridge)。
+    try:
+        return await validate_reaction_draft(actor_id=actor.id, body=body)
+    except ReactionValidationError as exc:
+        raise _reaction_validation_http(exc) from exc
+    except RateLimitError as exc:
+        raise to_http_exception(exc) from exc
 
 
 @router.post(
@@ -246,7 +230,10 @@ async def create_reaction(
         if existing is not None:
             return await reaction_response(db, int(existing))
 
-    participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
+    try:
+        participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
+    except ReactionValidationError as exc:
+        raise _reaction_validation_http(exc) from exc
     resolved, created_chemicals = await resolve_participants(db, participants)
     values = reaction_values(body)
     try:
@@ -307,7 +294,10 @@ async def update_reaction(
         raise HTTPException(404, "反应不存在")
     if current[0] != actor.id:
         raise HTTPException(403, "只能维护自己创建的反应")
-    participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
+    try:
+        participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
+    except ReactionValidationError as exc:
+        raise _reaction_validation_http(exc) from exc
     resolved, created_chemicals = await resolve_participants(db, participants)
     values = reaction_values(body)
     await db.execute(text("""
