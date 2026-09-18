@@ -87,7 +87,7 @@ class ReactionContractTests(unittest.TestCase):
         source = inspect.getsource(reactions_service.notify_new_reaction)
         self.assertIn("FROM community.user_follows", source)
         self.assertNotIn("chemical_follows", source)
-        self.assertNotIn("reaction_updated", inspect.getsource(reactions.update_reaction))
+        self.assertNotIn("reaction_updated", inspect.getsource(reactions_service.update_reaction))
 
     def test_activity_cannot_block_the_core_reaction_transaction(self) -> None:
         source = inspect.getsource(reactions_service.notify_new_reaction_safely)

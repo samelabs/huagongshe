@@ -244,7 +244,9 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
     """§11: create/update kernel 适配位置与映射。"""
 
     def test_update_validation_after_owner_check(self):
-        src = inspect.getsource(reactions_module.update_reaction)
+        # E3: update 全流程(行锁/owner/kernel/事务)在
+        # services.reactions.update_reaction。
+        src = inspect.getsource(services_reactions.update_reaction)
         i_fupdate = src.index("FOR UPDATE")
         i_owner = src.index("只能维护自己创建的反应")
         i_kernel = src.index("canonical_participants")
@@ -252,8 +254,12 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
         self.assertLess(i_owner, i_kernel)
 
     def test_update_wraps_neutral_error(self):
-        src = inspect.getsource(reactions_module.update_reaction)
-        self.assertIn("except ReactionValidationError", src)
+        # E3: kernel 消费 + neutral 错误在 service, HTTP adapter 映射。
+        svc_src = inspect.getsource(services_reactions.update_reaction)
+        self.assertIn("to_thread(canonical_participants", svc_src)
+        http_src = inspect.getsource(reactions_module.update_reaction)
+        self.assertIn("except ReactionValidationError", http_src)
+        self.assertIn("update_reaction_service", http_src)
 
     def test_create_wraps_neutral_error(self):
         # G3.1C: create 全流程在 services.reactions.create_reaction;
@@ -278,8 +284,11 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
         self.assertNotIn("_HTTPException", seg)
 
     def test_transaction_ordering_unchanged(self):
-        src = inspect.getsource(reactions_module.update_reaction)
+        # E3: 事务序(行锁 → kernel → UPDATE)现由 service 持有。
+        src = inspect.getsource(services_reactions.update_reaction)
         # validation 仍在 FOR UPDATE 之后、UPDATE 之前
+        self.assertLess(src.index("FOR UPDATE"),
+                        src.index("canonical_participants"))
         self.assertLess(src.index("canonical_participants"),
                         src.index("UPDATE chemistry.reactions SET"))
 

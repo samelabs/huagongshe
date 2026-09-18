@@ -548,3 +548,156 @@ async def create_reaction(
     if body.visibility == "public":
         await notify_new_reaction_safely(db, actor_id, reaction_id)
     return await reaction_response(db, reaction_id, created_chemicals)
+
+
+# ---------------------------------------------------------------------------
+# E3 — reaction update/delete application ownership
+# (自 api/reactions.py 逐字下沉; adapter 只余 auth + neutral → HTTP 映射)
+# ---------------------------------------------------------------------------
+
+class AgentReactionMutationForbiddenError(Exception):
+    """agent(AI Key)不开放反应编辑/删除的 neutral 错误。
+
+    原 adapter 403 文案逐字保留(编辑/删除两条不同 detail);
+    不含传输层 status/headers。
+    """
+
+    EDIT_DETAIL = "API Token 当前不开放反应编辑，请使用网页登录会话"
+    DELETE_DETAIL = "API Token 当前不开放反应删除，请使用网页登录会话"
+
+    def __init__(self, detail: str):
+        super().__init__(detail)
+        self.detail = detail
+
+
+class ReactionAccessError(Exception):
+    """update/delete 的存在性/所有权 neutral 错误(不含传输层 status)。
+
+    kind → 迁移前 HTTP 语义(逐条保留, 不合并文案):
+      NOT_FOUND        → 404 反应不存在
+      NOT_OWNER        → 403 只能维护自己创建的反应      (update 非 owner)
+      SYSTEM_IMPORT    → 403 系统导入反应不能由用户删除  (delete created_by_user_id IS NULL)
+      DELETE_NOT_OWNER → 403 只能删除自己创建的反应      (delete 非 owner)
+    """
+
+    NOT_FOUND = "not_found"
+    NOT_OWNER = "not_owner"
+    SYSTEM_IMPORT = "system_import"
+    DELETE_NOT_OWNER = "delete_not_owner"
+
+    def __init__(self, kind: str, detail: str):
+        super().__init__(detail)
+        self.kind = kind
+        self.detail = detail
+
+
+async def update_reaction(
+    db,
+    *,
+    actor_id: int,
+    auth_kind: str,
+    reaction_id: int,
+    body: ReactionBody,
+) -> dict[str, Any]:
+    """reaction PUT 的唯一业务 owner(E3; 原 api/reactions.py 逐字迁移)。
+
+    顺序(与迁移前逐条一致): agent 403 → rate(reaction-write-minute)
+    → row lock(FOR UPDATE) → 存在性/owner 检查 → canonical kernel(to_thread)
+    → resolve participants → UPDATE row → 关系替换 → visibility/follows/statistics
+    → commit → post-commit notify → canonical response。
+    事务边界(行锁/全部 DB mutation/commit/rollback)由本函数自持, adapter
+    零事务片段。不负责 auth/scope/传输层异常或响应映射。
+    """
+    if auth_kind == "agent":
+        raise AgentReactionMutationForbiddenError(
+            AgentReactionMutationForbiddenError.EDIT_DETAIL)
+    await enforce("reaction-write-minute", str(actor_id), settings.api_reaction_write_limit_per_minute, 60)
+    try:
+        current = (await db.execute(text("""
+            SELECT created_by_user_id,visibility,moderation_status
+            FROM chemistry.reactions WHERE id=:id FOR UPDATE
+        """), {"id": reaction_id})).fetchone()
+        if not current:
+            raise ReactionAccessError(ReactionAccessError.NOT_FOUND, "反应不存在")
+        if current[0] != actor_id:
+            raise ReactionAccessError(ReactionAccessError.NOT_OWNER, "只能维护自己创建的反应")
+        participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
+        resolved, created_chemicals = await resolve_participants(db, participants)
+        values = reaction_values(body)
+        await db.execute(text("""
+            UPDATE chemistry.reactions SET
+              reaction_smiles=:reaction_smiles,reaction=CAST(:reaction_input AS public.reaction),
+              visibility=:visibility,procedure_details=:procedure_details,
+              conditions_detail=:conditions_detail,temperature_value=:temperature_value,
+              temperature_unit=:temperature_unit,duration_value=:duration_value,
+              duration_unit=:duration_unit,ph=:ph,atmosphere=:atmosphere,
+              pressure_value=:pressure_value,pressure_unit=:pressure_unit,
+              workup_details=:workup_details,safety_notes=:safety_notes,source_type=:source_type,
+              doi=:doi,patent=:patent,source_url=:source_url,source_citation=:source_citation,
+              note=:note,updated_at=now()
+            WHERE id=:id
+        """), {**values, "id": reaction_id, "reaction_smiles": reaction_smiles, "reaction_input": reaction_smiles})
+        await db.execute(text("DELETE FROM chemistry.reaction_chemicals WHERE reaction_id=:id"), {"id": reaction_id})
+        await write_relationships(db, reaction_id, resolved)
+        if body.visibility == "private":
+            await db.execute(text("DELETE FROM community.reaction_follows WHERE reaction_id=:id"), {"id": reaction_id})
+            if current[1] == "public" and current[2] == "visible":
+                await db.execute(text("""
+                    UPDATE chemistry.statistics SET exact_count=greatest(exact_count-1,0),calculated_at=now()
+                    WHERE metric='reactions'
+                """))
+        elif current[1] == "private" and current[2] == "visible":
+            await db.execute(text("""
+                UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
+                WHERE metric='reactions'
+            """))
+        await db.commit()
+    except Exception:
+        # E3: 显式 rollback 边界(迁移前依赖 session 关闭隐式回滚); 失败路径
+        # 观测结果等价(零落库), 行锁在异常点即释放; commit 之后不再回滚。
+        await db.rollback()
+        raise
+    if body.visibility == "public" and current[1] == "private":
+        await notify_new_reaction_safely(db, actor_id, reaction_id)
+    return await reaction_response(db, reaction_id, created_chemicals)
+
+
+async def delete_reaction(
+    db,
+    *,
+    actor_id: int,
+    auth_kind: str,
+    reaction_id: int,
+) -> None:
+    """reaction DELETE 的唯一业务 owner(E3; 原 api/reactions.py 逐字迁移)。
+
+    顺序: agent 403 → row lock(FOR UPDATE) → 404 → 系统导入 403 → 非 owner 403
+    → DELETE row(reaction_chemicals / reaction_follows 走 FK CASCADE)
+    → public+visible statistics -1 → commit。
+    delete 无 rate 限制(迁移前后一致, 未新增)。事务边界由本函数自持。
+    """
+    if auth_kind == "agent":
+        raise AgentReactionMutationForbiddenError(
+            AgentReactionMutationForbiddenError.DELETE_DETAIL)
+    try:
+        record = (await db.execute(text("""
+            SELECT created_by_user_id,visibility,moderation_status
+            FROM chemistry.reactions WHERE id=:id FOR UPDATE
+        """), {"id": reaction_id})).fetchone()
+        if record is None:
+            raise ReactionAccessError(ReactionAccessError.NOT_FOUND, "反应不存在")
+        owner = record[0]
+        if owner is None:
+            raise ReactionAccessError(ReactionAccessError.SYSTEM_IMPORT, "系统导入反应不能由用户删除")
+        if int(owner) != actor_id:
+            raise ReactionAccessError(ReactionAccessError.DELETE_NOT_OWNER, "只能删除自己创建的反应")
+        await db.execute(text("DELETE FROM chemistry.reactions WHERE id=:id"), {"id": reaction_id})
+        if record[1] == "public" and record[2] == "visible":
+            await db.execute(text("""
+                UPDATE chemistry.statistics SET exact_count=greatest(exact_count-1,0),calculated_at=now()
+                WHERE metric='reactions'
+            """))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise

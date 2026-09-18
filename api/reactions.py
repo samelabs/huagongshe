@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any, Literal
 
@@ -10,23 +9,19 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query
 from sqlalchemy import text
 
 from .schemas.reactions import ReactionBody
-from .core.config import settings
 from .core.database import get_db
-from .rate_limit_http import enforce_http, to_http_exception
+from .rate_limit_http import to_http_exception
 from .core.rate_limit import RateLimitError
-from .services.reactions import ReactionValidationError
-from .services.reactions import canonical_participants
+from .services.reactions import (AgentReactionMutationForbiddenError,
+                                 ReactionAccessError, ReactionValidationError)
 from .services.reactions import validate_reaction_draft
 from .core.security import Actor, current_actor, public_or_actor, require_scope
 from .services.reactions import list_my_reactions
 from .services.reactions import (IdempotencyKeyTooLongError,
                                  MissingIdempotencyKeyError)
 from .services.reactions import create_reaction as create_reaction_service
-from .services.reactions import (notify_new_reaction_safely,
-                                 reaction_response, reaction_values,
-                                 resolve_or_create_chemical,
-                                 resolve_participants,
-                                 write_relationships)
+from .services.reactions import delete_reaction as delete_reaction_service
+from .services.reactions import update_reaction as update_reaction_service
 
 router = APIRouter(tags=["reactions"])
 logger = logging.getLogger(__name__)
@@ -38,6 +33,13 @@ def _reaction_validation_http(exc: ReactionValidationError) -> HTTPException:
     if exc.kind == ReactionValidationError.DUPLICATE_PARTICIPANT:
         return HTTPException(409, exc.detail)
     return HTTPException(400, exc.detail)
+
+
+def _reaction_access_http(exc: ReactionAccessError) -> HTTPException:
+    """E3: neutral 存在性/所有权 kind → 原 HTTP status(404/403), detail 原文。"""
+    if exc.kind == ReactionAccessError.NOT_FOUND:
+        return HTTPException(404, exc.detail)
+    return HTTPException(403, exc.detail)
 
 @router.post(
     "/reactions/validate",
@@ -90,81 +92,35 @@ async def create_reaction(
 async def update_reaction(
     body: ReactionBody, reaction_id: int = Path(..., ge=1), actor: Actor = Depends(current_actor), db=Depends(get_db)
 ):
-    if actor.auth_kind == "agent":
-        raise HTTPException(403, "API Token 当前不开放反应编辑，请使用网页登录会话")
-    await enforce_http("reaction-write-minute", str(actor.id), settings.api_reaction_write_limit_per_minute, 60)
-    current = (await db.execute(text("""
-        SELECT created_by_user_id,visibility,moderation_status
-        FROM chemistry.reactions WHERE id=:id FOR UPDATE
-    """), {"id": reaction_id})).fetchone()
-    if not current:
-        raise HTTPException(404, "反应不存在")
-    if current[0] != actor.id:
-        raise HTTPException(403, "只能维护自己创建的反应")
+    # E3: 行锁/owner 规则/参与者替换/关系替换/可见性与统计/事务/通知全部
+    # 下沉 services.reactions.update_reaction(唯一业务 owner); adapter 只余
+    # auth + neutral 错误 → HTTP 映射(403/404/400/409/429)。
     try:
-        participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
+        return await update_reaction_service(
+            db, actor_id=actor.id, auth_kind=actor.auth_kind,
+            reaction_id=reaction_id, body=body)
+    except AgentReactionMutationForbiddenError as exc:
+        raise HTTPException(403, exc.detail) from exc
+    except ReactionAccessError as exc:
+        raise _reaction_access_http(exc) from exc
     except ReactionValidationError as exc:
         raise _reaction_validation_http(exc) from exc
-    resolved, created_chemicals = await resolve_participants(db, participants)
-    values = reaction_values(body)
-    await db.execute(text("""
-        UPDATE chemistry.reactions SET
-          reaction_smiles=:reaction_smiles,reaction=CAST(:reaction_input AS public.reaction),
-          visibility=:visibility,procedure_details=:procedure_details,
-          conditions_detail=:conditions_detail,temperature_value=:temperature_value,
-          temperature_unit=:temperature_unit,duration_value=:duration_value,
-          duration_unit=:duration_unit,ph=:ph,atmosphere=:atmosphere,
-          pressure_value=:pressure_value,pressure_unit=:pressure_unit,
-          workup_details=:workup_details,safety_notes=:safety_notes,source_type=:source_type,
-          doi=:doi,patent=:patent,source_url=:source_url,source_citation=:source_citation,
-          note=:note,updated_at=now()
-        WHERE id=:id
-    """), {**values, "id": reaction_id, "reaction_smiles": reaction_smiles, "reaction_input": reaction_smiles})
-    await db.execute(text("DELETE FROM chemistry.reaction_chemicals WHERE reaction_id=:id"), {"id": reaction_id})
-    await write_relationships(db, reaction_id, resolved)
-    if body.visibility == "private":
-        await db.execute(text("DELETE FROM community.reaction_follows WHERE reaction_id=:id"), {"id": reaction_id})
-        if current[1] == "public" and current[2] == "visible":
-            await db.execute(text("""
-                UPDATE chemistry.statistics SET exact_count=greatest(exact_count-1,0),calculated_at=now()
-                WHERE metric='reactions'
-            """))
-    elif current[1] == "private" and current[2] == "visible":
-        await db.execute(text("""
-            UPDATE chemistry.statistics SET exact_count=exact_count+1,calculated_at=now()
-            WHERE metric='reactions'
-        """))
-    await db.commit()
-    if body.visibility == "public" and current[1] == "private":
-        await notify_new_reaction_safely(db, actor.id, reaction_id)
-    # D001 修复: 成功更新统一返回既有 response payload(此前 visibility
-    # 未变分支 fall-through 返回 None/200 null)。单一成功契约, 复用
-    # 既有 reaction_response, 无第二套 assembly。
-    return await reaction_response(db, reaction_id, created_chemicals)
+    except RateLimitError as exc:
+        raise to_http_exception(exc) from exc
 
 
 @router.delete("/reactions/{reaction_id}", status_code=204)
 async def delete_reaction(reaction_id: int = Path(..., ge=1), actor: Actor = Depends(current_actor), db=Depends(get_db)):
-    if actor.auth_kind == "agent":
-        raise HTTPException(403, "API Token 当前不开放反应删除，请使用网页登录会话")
-    record = (await db.execute(text("""
-        SELECT created_by_user_id,visibility,moderation_status
-        FROM chemistry.reactions WHERE id=:id FOR UPDATE
-    """), {"id": reaction_id})).fetchone()
-    if record is None:
-        raise HTTPException(404, "反应不存在")
-    owner = record[0]
-    if owner is None:
-        raise HTTPException(403, "系统导入反应不能由用户删除")
-    if int(owner) != actor.id:
-        raise HTTPException(403, "只能删除自己创建的反应")
-    await db.execute(text("DELETE FROM chemistry.reactions WHERE id=:id"), {"id": reaction_id})
-    if record[1] == "public" and record[2] == "visible":
-        await db.execute(text("""
-            UPDATE chemistry.statistics SET exact_count=greatest(exact_count-1,0),calculated_at=now()
-            WHERE metric='reactions'
-        """))
-    await db.commit()
+    # E3: 行锁/系统导入与 owner 规则/删除/统计/事务下沉
+    # services.reactions.delete_reaction(唯一业务 owner)。
+    try:
+        await delete_reaction_service(
+            db, actor_id=actor.id, auth_kind=actor.auth_kind,
+            reaction_id=reaction_id)
+    except AgentReactionMutationForbiddenError as exc:
+        raise HTTPException(403, exc.detail) from exc
+    except ReactionAccessError as exc:
+        raise _reaction_access_http(exc) from exc
 
 
 @router.get(

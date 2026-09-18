@@ -150,11 +150,15 @@ def _fams() -> list[Family]:
             S("update", A.ACTOR, entrypoints=(
                 I(T.HTTP, "PUT /api/reactions/{reaction_id}"),),
               contract=Contract(frozenset({C.WEB}), X.NONE),
-              note="owner 检查在 endpoint; agent 403(代码明示); D001 挂账"),
+              note="E3: 行锁/owner 检查/事务在 application service"
+                   "(services.reactions.update_reaction); agent 403 由 service "
+                   "中性错误 + adapter 映射; D001 挂账"),
             S("delete", A.ACTOR, entrypoints=(
                 I(T.HTTP, "DELETE /api/reactions/{reaction_id}"),),
               contract=Contract(frozenset({C.WEB}), X.NONE),
-              note="owner 检查在 endpoint; agent 403"),
+              note="E3: 行锁/系统导入与 owner 检查/事务在 application service"
+                   "(services.reactions.delete_reaction); agent 403 由 service "
+                   "中性错误 + adapter 映射"),
         ), kernels=(
             K("reaction.tx.create", ("reaction.write/create",)),
         )),
