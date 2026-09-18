@@ -340,8 +340,10 @@ async def update_reaction(
     await db.commit()
     if body.visibility == "public" and current[1] == "private":
         await notify_new_reaction_safely(db, actor.id, reaction_id)
-    if current[1] != body.visibility:
-        return await reaction_response(db, reaction_id, created_chemicals)
+    # D001 修复: 成功更新统一返回既有 response payload(此前 visibility
+    # 未变分支 fall-through 返回 None/200 null)。单一成功契约, 复用
+    # 既有 reaction_response, 无第二套 assembly。
+    return await reaction_response(db, reaction_id, created_chemicals)
 
 
 @router.delete("/reactions/{reaction_id}", status_code=204)
