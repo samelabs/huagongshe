@@ -225,9 +225,15 @@ class HttpMigrationTests(unittest.TestCase):
         from api import skills as api_skills
         source = inspect.getsource(api_skills)
         self.assertNotIn("skill_accessible", source)
-        # 8 处 production bridge 调用(create×2/get_file/archive/update×2/delete×2... 按 inventory)
+        # G3.1D 后: bridge 调用=5(get_file/archive/update×2/delete);
+        # 原 create×2 + _create_skill_record 尾部共 3 处随 create service
+        # 下沉, 在 services.skills 直调 neutral load_accessible_skill。
         calls = source.count("await _load_accessible_skill_http(db")
-        self.assertEqual(calls, 8)
+        self.assertEqual(calls, 5)
+        from api.services import skills as svc_skills
+        svc_src = inspect.getsource(svc_skills)
+        self.assertGreaterEqual(
+            svc_src.count("await load_accessible_skill(db"), 4)
         self.assertNotIn("async def skill_accessible", source)
         self.assertEqual(source.count("def _load_accessible_skill_http"), 1)
 

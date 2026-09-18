@@ -11,12 +11,44 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import io
+import re
+import shutil
+import subprocess
+import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from ..core.config import settings
+from ..core.rate_limit import enforce
+
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+SAFE_PATH_RE = re.compile(r"^[a-zA-Z0-9._-]+(?:/[a-zA-Z0-9._-]+)*$")
+MAX_PATH_LEN = 200
+MAX_DEPTH = 6
+MAX_COMPRESSION_RATIO = 100
+BINARY_DIRS = ("assets/", "examples/")
+
+TEXT_EXTENSIONS = {
+    ".md", ".txt", ".py", ".sh", ".js", ".ts", ".json", ".csv", ".tsv",
+    ".xsd", ".xml", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".tex",
+    ".rst", ".html", ".css", ".svg", ".env",
+}
+SCRIPT_EXTENSIONS = {".py", ".sh", ".js", ".ts", ".rb", ".pl"}
+
+DANGER_PATTERNS = (
+    "eval(", "exec(", "os.system", "subprocess", "__import__",
+    "rm -rf", "curl ", "wget ", "base64 -d", "chmod +x",
+    "/dev/tcp", "nc -e", "mkfifo",
+)
+
+IGNORED_PREFIXES = ("__MACOSX/",)
+IGNORED_NAMES = {".DS_Store", "Thumbs.db"}
 
 
 async def list_skills(
@@ -157,3 +189,379 @@ async def get_skill_detail(
             "执行前请人工审阅全部脚本内容。"
         )
     return manifest
+
+
+# ---------------------------------------------------------------------------
+# G3.1D — neutral semantic errors(create/archive 域)
+# ---------------------------------------------------------------------------
+
+class SkillArchiveValidationError(Exception):
+    """技能 zip 校验失败的 neutral 语义错误(G3.1D; 原 18 类 HTTP 400 全集)。
+
+    kind ∈ {ARCHIVE_TOO_LARGE, INVALID_ARCHIVE, UNSAFE_PATH, DECOMPRESSION,
+             EMPTY_ARCHIVE, ARCHIVE_LIMIT, MANIFEST_INVALID};
+    只携带 kind + detail(原文), 不含传输层 status/headers。
+    """
+
+    ARCHIVE_TOO_LARGE = "archive_too_large"
+    INVALID_ARCHIVE = "invalid_archive"
+    UNSAFE_PATH = "unsafe_path"
+    DECOMPRESSION = "decompression"
+    EMPTY_ARCHIVE = "empty_archive"
+    ARCHIVE_LIMIT = "archive_limit"
+    MANIFEST_INVALID = "manifest_invalid"
+
+    def __init__(self, kind: str, detail: str):
+        super().__init__(detail)
+        self.kind = kind
+        self.detail = detail
+
+
+class SkillCategoryError(Exception):
+    """分类不存在或已停用(原 HTTP 400 同文案)。"""
+
+    def __init__(self, detail: str):
+        super().__init__(detail)
+        self.detail = detail
+
+
+class SkillSlugConflictError(Exception):
+    """owner+slug 撞名(原 HTTP 409 同文案)。"""
+
+    def __init__(self, detail: str):
+        super().__init__(detail)
+        self.detail = detail
+
+
+class MissingSkillIdempotencyKeyError(Exception):
+    """agent 提交缺 Idempotency-Key(原 HTTP 400 同文案)。"""
+
+    def __init__(self) -> None:
+        super().__init__("使用 API Token 提交必须提供 Idempotency-Key")
+        self.detail = "使用 API Token 提交必须提供 Idempotency-Key"
+
+
+class SkillIdempotencyKeyTooLongError(Exception):
+    """Idempotency-Key 超 200 字符(原 HTTP 400 同文案)。"""
+
+    def __init__(self) -> None:
+        super().__init__("Idempotency-Key 不能超过 200 个字符")
+        self.detail = "Idempotency-Key 不能超过 200 个字符"
+
+
+def _is_text_path(path: str) -> bool:
+    return Path(path).suffix.lower() in TEXT_EXTENSIONS
+
+
+def _slugify(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9-]+", "-", name.strip().lower()).strip("-")
+    return slug[:64].rstrip("-")
+
+
+def parse_frontmatter(entry_text: str) -> dict[str, str]:
+    """Parse the leading YAML-ish frontmatter of SKILL.md (flat key: value)."""
+    if not entry_text.startswith("---"):
+        return {}
+    lines = entry_text.splitlines()
+    close = None
+    for i in range(1, min(len(lines), 60)):
+        if lines[i].strip() == "---":
+            close = i
+            break
+    if close is None:
+        return {}
+    out: dict[str, str] = {}
+    for line in lines[1:close]:
+        if ":" not in line or line.startswith((" ", "\t", "-")):
+            continue
+        key, _, value = line.partition(":")
+        value = value.strip().strip('"').strip("'")
+        if value:
+            out[key.strip()] = value
+    return out
+
+
+def check_script_syntax(path: str, raw: bytes) -> list[str]:
+    """Syntax-level checks only (ast.parse / bash -n); never execute."""
+    warnings: list[str] = []
+    suffix = Path(path).suffix.lower()
+    try:
+        if suffix == ".py":
+            import ast
+            ast.parse(raw.decode("utf-8", errors="replace"))
+        elif suffix == ".sh":
+            proc = subprocess.run(
+                ["bash", "-n", "/dev/stdin"], input=raw, capture_output=True, timeout=5,
+            )
+            if proc.returncode != 0:
+                warnings.append(f"{path}: shell 语法检查未通过")
+    except (SyntaxError, UnicodeDecodeError, subprocess.TimeoutExpired):
+        warnings.append(f"{path}: 语法解析失败")
+    return warnings
+
+
+def scan_danger(path: str, raw: bytes) -> list[str]:
+    if _is_text_path(path):
+        text_content = raw.decode("utf-8", errors="replace")
+        return [f"{path}: 含 {pat.strip()}" for pat in DANGER_PATTERNS if pat in text_content]
+    return []
+
+
+def extract_skill_zip(raw: bytes) -> dict[str, Any]:
+    """唯一 canonical 技能 zip 校验/安全 kernel(G3.1D 自 api/skills.py 迁移)。
+
+    纯内存校验; 原 18 类传输层 400 → SkillArchiveValidationError(kind),
+    detail 原文逐字保持。
+    """
+    if len(raw) > settings.skill_zip_max_bytes:
+        raise SkillArchiveValidationError(
+            SkillArchiveValidationError.ARCHIVE_TOO_LARGE,
+            f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
+
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(raw))
+    except zipfile.BadZipFile:
+        raise SkillArchiveValidationError(
+            SkillArchiveValidationError.INVALID_ARCHIVE, "不是有效的 zip 文件")
+
+    entries: list[tuple[str, bytes]] = []
+    for info in archive.infolist():
+        if info.is_dir():
+            continue
+        name = info.filename
+        if name.startswith(IGNORED_PREFIXES) or Path(name).name in IGNORED_NAMES:
+            continue
+        if name.startswith("/") or "\\" in name or ".." in Path(name).parts:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.UNSAFE_PATH, f"非法路径：{name}")
+        if not SAFE_PATH_RE.match(name) or len(name) > MAX_PATH_LEN:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.UNSAFE_PATH, f"非法路径：{name}")
+        if len(Path(name).parts) > MAX_DEPTH:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.UNSAFE_PATH, f"目录层级过深：{name}")
+        mode = (info.external_attr >> 16) & 0o170000
+        if mode == 0o120000:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.UNSAFE_PATH, f"不允许符号链接：{name}")
+        raw_bytes = archive.read(info)
+        if info.compress_size and len(raw_bytes) > info.compress_size * MAX_COMPRESSION_RATIO:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.DECOMPRESSION,
+                f"压缩比异常（疑似 zip 炸弹）：{name}")
+        entries.append((name, raw_bytes))
+
+    if not entries:
+        raise SkillArchiveValidationError(
+            SkillArchiveValidationError.EMPTY_ARCHIVE, "压缩包内没有文件")
+    if len(entries) > settings.skill_max_files:
+        raise SkillArchiveValidationError(
+            SkillArchiveValidationError.ARCHIVE_LIMIT,
+            f"文件数超过 {settings.skill_max_files} 上限")
+    total = sum(len(data) for _, data in entries)
+    if total > settings.skill_total_max_bytes:
+        raise SkillArchiveValidationError(
+            SkillArchiveValidationError.ARCHIVE_LIMIT,
+            f"解包后总量超过 {settings.skill_total_max_bytes // (1024 * 1024)}MB 上限")
+    for name, data in entries:
+        if len(data) > settings.skill_file_max_bytes:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"单文件超过 {settings.skill_file_max_bytes // (1024 * 1024)}MB 上限：{name}")
+
+    # 单一根目录则剥掉（kdense 等打包习惯）
+    first_parts = {Path(name).parts[0] for name, _ in entries}
+    if len(first_parts) == 1 and "SKILL.md" not in first_parts:
+        stripped: list[tuple[str, bytes]] = []
+        for name, data in entries:
+            parts = Path(name).parts[1:]
+            if not parts:
+                continue
+            stripped.append(("/".join(parts), data))
+        entries = stripped
+
+    if not any(name == "SKILL.md" for name, _ in entries):
+        raise SkillArchiveValidationError(
+            SkillArchiveValidationError.MANIFEST_INVALID,
+            "压缩包根目录必须包含 SKILL.md")
+
+    # 二进制只允许 assets/、examples/（与 DB CHECK 一致；kdense 实证二进制在 examples/）
+    for name, data in entries:
+        if b"\x00" in data[:4096] and not _is_text_path(name):
+            if not name.startswith(BINARY_DIRS):
+                raise SkillArchiveValidationError(
+                    SkillArchiveValidationError.MANIFEST_INVALID,
+                    f"二进制文件只能放在 assets/ 或 examples/ 目录：{name}")
+
+    entry_text = next(data.decode("utf-8", errors="replace") for name, data in entries if name == "SKILL.md")
+    frontmatter = parse_frontmatter(entry_text)
+    name = frontmatter.get("name", "").strip()
+    description = frontmatter.get("description", "").strip()
+    if not name or not description:
+        raise SkillArchiveValidationError(
+            SkillArchiveValidationError.MANIFEST_INVALID,
+            "SKILL.md frontmatter 必须包含 name 和 description")
+    slug = _slugify(name)
+    if not SLUG_RE.match(slug):
+        raise SkillArchiveValidationError(
+            SkillArchiveValidationError.MANIFEST_INVALID,
+            f"技能名无法转为合法 slug：{name!r}")
+
+    warnings: list[str] = []
+    has_scripts = any(Path(n).suffix.lower() in SCRIPT_EXTENSIONS for n, _ in entries)
+    if has_scripts:
+        for fname, fdata in entries:
+            if Path(fname).suffix.lower() in {".py", ".sh"}:
+                warnings.extend(check_script_syntax(fname, fdata))
+            warnings.extend(scan_danger(fname, fdata))
+        warnings = warnings[:20]
+
+    return {
+        "slug": slug,
+        "title": (frontmatter.get("title") or name)[:120],
+        "description": description[:500],
+        "license": (frontmatter.get("license") or "MIT")[:80],
+        "has_scripts": has_scripts,
+        "file_count": len(entries),
+        "size_bytes": total,
+        "warnings": warnings,
+        "files": entries,
+    }
+
+
+async def validate_category(db, category: str | None) -> str | None:
+    """分类必须来自字典表（active），违例 neutral error；空值放行（未分类）。"""
+    if not category:
+        return None
+    ok = (await db.execute(text("""
+        SELECT 1 FROM community.skill_categories WHERE name=:n AND active
+    """), {"n": category})).scalar()
+    if ok is None:
+        raise SkillCategoryError(f"分类不存在或已停用：{category}")
+    return category
+
+
+def _write_skill_files(skill_id: int, files: list[tuple[str, bytes]]) -> None:
+    root = skill_fs_dir(skill_id)
+    root.mkdir(parents=True, exist_ok=True)
+    for rel_path, data in files:
+        target = root / rel_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+
+
+async def _create_skill_record(
+    db, actor_id: int, manifest: dict[str, Any],
+    category: str | None, idempotency_key: str | None,
+) -> dict[str, Any]:
+    """neutral lower-level create transaction helper(G3.1D 迁移)。
+
+    slug 撞名预检(409 原文案) → INSERT skills → fs write(to_thread)
+    → INSERT skill_files → commit; 失败: rollback + rmtree 补偿 + re-raise。
+    尾部 detail readback 直调 neutral load_accessible_skill。
+    """
+    existing_slug = (await db.execute(text("""
+        SELECT id FROM community.skills WHERE owner_id=:owner AND slug=:slug
+    """), {"owner": actor_id, "slug": manifest["slug"]})).scalar()
+    if existing_slug is not None:
+        raise SkillSlugConflictError(
+            f"已存在同名技能（slug={manifest['slug']}），请先删除或改名")
+    row = (await db.execute(text("""
+        INSERT INTO community.skills
+          (owner_id,slug,title,description,license,category,origin,visibility,
+           has_scripts,file_count,size_bytes,idempotency_key)
+        VALUES (:owner,:slug,:title,:description,:license,:category,'user','private',
+                :has_scripts,:file_count,:size_bytes,:idem)
+        RETURNING id,created_at
+    """), {
+        "owner": actor_id, "slug": manifest["slug"], "title": manifest["title"],
+        "description": manifest["description"], "license": manifest["license"],
+        "category": category,
+        "has_scripts": manifest["has_scripts"], "file_count": manifest["file_count"],
+        "size_bytes": manifest["size_bytes"], "idem": idempotency_key,
+    })).fetchone()
+    skill_id = int(row[0])
+    try:
+        await asyncio.to_thread(_write_skill_files, skill_id, manifest["files"])
+        for rel_path, data in manifest["files"]:
+            await db.execute(text("""
+                INSERT INTO community.skill_files (skill_id,path,is_text,size_bytes,sha256,is_entry)
+                VALUES (:skill,:path,:is_text,:size,:sha,:entry)
+            """), {
+                "skill": skill_id, "path": rel_path,
+                "is_text": _is_text_path(rel_path) and not (b"\x00" in data[:4096]),
+                "size": len(data),
+                "sha": hashlib.sha256(data).hexdigest(),
+                "entry": rel_path == "SKILL.md",
+            })
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        await asyncio.to_thread(shutil.rmtree, skill_fs_dir(skill_id), True)
+        raise
+    return await load_accessible_skill(db, skill_id, actor_id=actor_id)
+
+
+async def create_skill(
+    db,
+    *,
+    actor_id: int,
+    auth_kind: str,
+    category: str | None,
+    idempotency_key: str | None,
+    archive_loader: Callable[[int], Awaitable[bytes]],
+) -> dict[str, Any]:
+    """shared skill create orchestration(G3.1D; HTTP/MCP 共用)。
+
+    payload loader 为 transport-neutral contract: await loader(limit) -> bytes;
+    service 只决定读取时机与上限。硬冻结顺序:
+    skill-write-hour rate → validate_category → agent key 规则 → key 长度
+    → 幂等预检 → loader(max+1) → size → to_thread(extract) → 事务
+    → IntegrityError 竞态恢复 → warnings append → canonical detail。
+    """
+    await enforce("skill-write-hour", str(actor_id), settings.api_skill_write_limit_per_hour, 3600)
+    category = await validate_category(db, category)
+    if auth_kind == "agent" and not idempotency_key:
+        raise MissingSkillIdempotencyKeyError()
+    if idempotency_key and len(idempotency_key) > 200:
+        raise SkillIdempotencyKeyTooLongError()
+    if idempotency_key:
+        existing = (await db.execute(text("""
+            SELECT id FROM community.skills
+            WHERE owner_id=:user_id AND idempotency_key=:key
+        """), {"user_id": actor_id, "key": idempotency_key})).scalar()
+        if existing is not None:
+            return await load_accessible_skill(db, int(existing), actor_id=actor_id)
+
+    raw = await archive_loader(settings.skill_zip_max_bytes + 1)
+    if len(raw) > settings.skill_zip_max_bytes:
+        raise SkillArchiveValidationError(
+            SkillArchiveValidationError.ARCHIVE_TOO_LARGE,
+            f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
+    manifest = await asyncio.to_thread(extract_skill_zip, raw)
+    try:
+        created = await _create_skill_record(db, actor_id, manifest, category, idempotency_key)
+    except IntegrityError:
+        # concurrent race: 第二个请求越过 existing_slug pre-check 后被
+        # (owner_id, slug) UNIQUE 拦截 — 回滚后按序回读:
+        # ① idempotency_key 命中 → 同一请求 retry, 返回第一次的 skill;
+        # ② owner+slug 命中 → 不同请求撞同名, 保持顺序请求的 409 语义;
+        # ③ 其余(不相关 IntegrityError)不吞, 原异常 raise。
+        await db.rollback()
+        if idempotency_key:
+            existing = (await db.execute(text("""
+                SELECT id FROM community.skills
+                WHERE owner_id=:user_id AND idempotency_key=:key
+            """), {"user_id": actor_id, "key": idempotency_key})).scalar()
+            if existing is not None:
+                return await load_accessible_skill(db, int(existing), actor_id=actor_id)
+        conflict = (await db.execute(text("""
+            SELECT id FROM community.skills
+            WHERE owner_id=:user_id AND slug=:slug
+        """), {"user_id": actor_id, "slug": manifest["slug"]})).scalar()
+        if conflict is not None:
+            raise SkillSlugConflictError(
+                f"已存在同名技能（slug={manifest['slug']}），请先删除或改名")
+        raise
+    created["warnings"] = manifest["warnings"]
+    return created

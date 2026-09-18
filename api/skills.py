@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import io
 import re
 import shutil
@@ -19,15 +18,21 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Path as PathParam, Query, Response, UploadFile
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
 
 from .core.config import settings
 from .core.database import get_db
-from .rate_limit_http import enforce_http
+from .rate_limit_http import to_http_exception
+from .core.rate_limit import RateLimitError
 from .core.security import Actor, current_actor, public_or_actor, require_scope
 from .services.skills import (list_skills as list_skills_service,
     SkillNotAccessibleError, get_skill_detail as get_skill_detail_service,
     load_accessible_skill, skill_fs_dir)
+from .services.skills import (MissingSkillIdempotencyKeyError,
+    SkillArchiveValidationError, SkillCategoryError,
+    SkillIdempotencyKeyTooLongError, SkillSlugConflictError)
+from .services.skills import create_skill as create_skill_service
+from .services.skills import extract_skill_zip
+from .services.skills import validate_category
 
 router = APIRouter(tags=["skills"])
 
@@ -113,115 +118,6 @@ def scan_danger(path: str, raw: bytes) -> list[str]:
     return []
 
 
-def extract_skill_zip(raw: bytes) -> dict[str, Any]:
-    """Validate and normalize an uploaded skill zip entirely in memory.
-
-    Returns manifest + normalized files; raises HTTPException on any violation.
-    """
-    if len(raw) > settings.skill_zip_max_bytes:
-        raise HTTPException(400, f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
-
-    try:
-        archive = zipfile.ZipFile(io.BytesIO(raw))
-    except zipfile.BadZipFile:
-        raise HTTPException(400, "不是有效的 zip 文件")
-
-    entries: list[tuple[str, bytes]] = []
-    for info in archive.infolist():
-        if info.is_dir():
-            continue
-        name = info.filename
-        if name.startswith(IGNORED_PREFIXES) or Path(name).name in IGNORED_NAMES:
-            continue
-        if name.startswith("/") or "\\" in name or ".." in Path(name).parts:
-            raise HTTPException(400, f"非法路径：{name}")
-        if not SAFE_PATH_RE.match(name) or len(name) > MAX_PATH_LEN:
-            raise HTTPException(400, f"非法路径：{name}")
-        if len(Path(name).parts) > MAX_DEPTH:
-            raise HTTPException(400, f"目录层级过深：{name}")
-        mode = (info.external_attr >> 16) & 0o170000
-        if mode == 0o120000:
-            raise HTTPException(400, f"不允许符号链接：{name}")
-        raw_bytes = archive.read(info)
-        if info.compress_size and len(raw_bytes) > info.compress_size * MAX_COMPRESSION_RATIO:
-            raise HTTPException(400, f"压缩比异常（疑似 zip 炸弹）：{name}")
-        entries.append((name, raw_bytes))
-
-    if not entries:
-        raise HTTPException(400, "压缩包内没有文件")
-    if len(entries) > settings.skill_max_files:
-        raise HTTPException(400, f"文件数超过 {settings.skill_max_files} 上限")
-    total = sum(len(data) for _, data in entries)
-    if total > settings.skill_total_max_bytes:
-        raise HTTPException(400, f"解包后总量超过 {settings.skill_total_max_bytes // (1024 * 1024)}MB 上限")
-    for name, data in entries:
-        if len(data) > settings.skill_file_max_bytes:
-            raise HTTPException(400, f"单文件超过 {settings.skill_file_max_bytes // (1024 * 1024)}MB 上限：{name}")
-
-    # 单一根目录则剥掉（kdense 等打包习惯）
-    first_parts = {Path(name).parts[0] for name, _ in entries}
-    if len(first_parts) == 1 and "SKILL.md" not in first_parts:
-        stripped: list[tuple[str, bytes]] = []
-        for name, data in entries:
-            parts = Path(name).parts[1:]
-            if not parts:
-                continue
-            stripped.append(("/".join(parts), data))
-        entries = stripped
-
-    if not any(name == "SKILL.md" for name, _ in entries):
-        raise HTTPException(400, "压缩包根目录必须包含 SKILL.md")
-
-    # 二进制只允许 assets/、examples/（与 DB CHECK 一致；kdense 实证二进制在 examples/）
-    for name, data in entries:
-        if b"\x00" in data[:4096] and not _is_text_path(name):
-            if not name.startswith(BINARY_DIRS):
-                raise HTTPException(400, f"二进制文件只能放在 assets/ 或 examples/ 目录：{name}")
-
-    entry_text = next(data.decode("utf-8", errors="replace") for name, data in entries if name == "SKILL.md")
-    frontmatter = parse_frontmatter(entry_text)
-    name = frontmatter.get("name", "").strip()
-    description = frontmatter.get("description", "").strip()
-    if not name or not description:
-        raise HTTPException(400, "SKILL.md frontmatter 必须包含 name 和 description")
-    slug = _slugify(name)
-    if not SLUG_RE.match(slug):
-        raise HTTPException(400, f"技能名无法转为合法 slug：{name!r}")
-
-    warnings: list[str] = []
-    has_scripts = any(Path(n).suffix.lower() in SCRIPT_EXTENSIONS for n, _ in entries)
-    if has_scripts:
-        for fname, fdata in entries:
-            if Path(fname).suffix.lower() in {".py", ".sh"}:
-                warnings.extend(check_script_syntax(fname, fdata))
-            warnings.extend(scan_danger(fname, fdata))
-        warnings = warnings[:20]
-
-    return {
-        "slug": slug,
-        "title": (frontmatter.get("title") or name)[:120],
-        "description": description[:500],
-        "license": (frontmatter.get("license") or "MIT")[:80],
-        "has_scripts": has_scripts,
-        "file_count": len(entries),
-        "size_bytes": total,
-        "warnings": warnings,
-        "files": entries,
-    }
-
-
-async def validate_category(db, category: str | None) -> str | None:
-    """分类必须来自字典表（active），违例 400；空值放行（未分类）。"""
-    if not category:
-        return None
-    ok = (await db.execute(text("""
-        SELECT 1 FROM community.skill_categories WHERE name=:n AND active
-    """), {"n": category})).scalar()
-    if ok is None:
-        raise HTTPException(400, f"分类不存在或已停用：{category}")
-    return category
-
-
 async def _load_accessible_skill_http(db, skill_id: int, actor: Actor | None) -> dict[str, Any]:
     """HTTP bridge: neutral access kernel → HTTP 404 原文映射(G2.6C)。
 
@@ -233,57 +129,6 @@ async def _load_accessible_skill_http(db, skill_id: int, actor: Actor | None) ->
             db, skill_id, actor_id=actor.id if actor else None)
     except SkillNotAccessibleError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-def _write_skill_files(skill_id: int, files: list[tuple[str, bytes]]) -> None:
-    root = skill_fs_dir(skill_id)
-    root.mkdir(parents=True, exist_ok=True)
-    for rel_path, data in files:
-        target = root / rel_path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-
-
-async def _create_skill_record(db, actor: Actor, manifest: dict[str, Any], category: str | None, idempotency_key: str | None) -> dict[str, Any]:
-    existing_slug = (await db.execute(text("""
-        SELECT id FROM community.skills WHERE owner_id=:owner AND slug=:slug
-    """), {"owner": actor.id, "slug": manifest["slug"]})).scalar()
-    if existing_slug is not None:
-        raise HTTPException(409, f"已存在同名技能（slug={manifest['slug']}），请先删除或改名")
-    row = (await db.execute(text("""
-        INSERT INTO community.skills
-          (owner_id,slug,title,description,license,category,origin,visibility,
-           has_scripts,file_count,size_bytes,idempotency_key)
-        VALUES (:owner,:slug,:title,:description,:license,:category,'user','private',
-                :has_scripts,:file_count,:size_bytes,:idem)
-        RETURNING id,created_at
-    """), {
-        "owner": actor.id, "slug": manifest["slug"], "title": manifest["title"],
-        "description": manifest["description"], "license": manifest["license"],
-        "category": category,
-        "has_scripts": manifest["has_scripts"], "file_count": manifest["file_count"],
-        "size_bytes": manifest["size_bytes"], "idem": idempotency_key,
-    })).fetchone()
-    skill_id = int(row[0])
-    try:
-        await asyncio.to_thread(_write_skill_files, skill_id, manifest["files"])
-        for rel_path, data in manifest["files"]:
-            await db.execute(text("""
-                INSERT INTO community.skill_files (skill_id,path,is_text,size_bytes,sha256,is_entry)
-                VALUES (:skill,:path,:is_text,:size,:sha,:entry)
-            """), {
-                "skill": skill_id, "path": rel_path,
-                "is_text": _is_text_path(rel_path) and not (b"\x00" in data[:4096]),
-                "size": len(data),
-                "sha": hashlib.sha256(data).hexdigest(),
-                "entry": rel_path == "SKILL.md",
-            })
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        await asyncio.to_thread(shutil.rmtree, skill_fs_dir(skill_id), True)
-        raise
-    return await _load_accessible_skill_http(db, skill_id, actor)
 
 
 @router.get(
@@ -420,7 +265,11 @@ async def validate_skill(
     raw = await file.read(settings.skill_zip_max_bytes + 1)
     if len(raw) > settings.skill_zip_max_bytes:
         raise HTTPException(400, f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
-    manifest = await asyncio.to_thread(extract_skill_zip, raw)
+    # G3.1D: kernel owner 迁 services.skills; neutral → HTTP 400 原文。
+    try:
+        manifest = await asyncio.to_thread(extract_skill_zip, raw)
+    except SkillArchiveValidationError as exc:
+        raise HTTPException(400, exc.detail) from exc
     return {
         "ok": True,
         "slug": manifest["slug"],
@@ -448,55 +297,32 @@ async def create_skill(
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):
+    # G3.1D: rate/category/幂等/size/extract/事务全部下沉
+    # services.skills.create_skill(payload loader); adapter 只余 auth/scope
+    # + loader 构造 + neutral → HTTP 映射。读文件时机由 service 决定
+    # (rate→category→key→预检 之后才 loader(max+1)), 保持原 ordering。
     require_scope(actor, "skill:write")
-    await enforce_http("skill-write-hour", str(actor.id), settings.api_skill_write_limit_per_hour, 3600)
 
-    # 规范：发布默认私有；公开态仅后台管理动作设置，创建时不存在公开路径
-    category = await validate_category(db, category)
+    async def archive_loader(limit: int) -> bytes:
+        return await file.read(limit)
 
-    idempotency_key = request_idempotency_key
-    if actor.auth_kind == "agent" and not idempotency_key:
-        raise HTTPException(400, "使用 API Token 提交必须提供 Idempotency-Key")
-    if idempotency_key and len(idempotency_key) > 200:
-        raise HTTPException(400, "Idempotency-Key 不能超过 200 个字符")
-    if idempotency_key:
-        existing = (await db.execute(text("""
-            SELECT id FROM community.skills
-            WHERE owner_id=:user_id AND idempotency_key=:key
-        """), {"user_id": actor.id, "key": idempotency_key})).scalar()
-        if existing is not None:
-            return await _load_accessible_skill_http(db, int(existing), actor)
-
-    raw = await file.read(settings.skill_zip_max_bytes + 1)
-    if len(raw) > settings.skill_zip_max_bytes:
-        raise HTTPException(400, f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
-    manifest = await asyncio.to_thread(extract_skill_zip, raw)
     try:
-        created = await _create_skill_record(db, actor, manifest, category, idempotency_key)
-    except IntegrityError:
-        # concurrent race: 第二个请求越过 existing_slug pre-check 后被
-        # (owner_id, slug) UNIQUE 拦截 — 回滚后按序回读:
-        # ① idempotency_key 命中 → 同一请求 retry, 返回第一次的 skill;
-        # ② owner+slug 命中 → 不同请求撞同名, 保持顺序请求的 409 语义;
-        # ③ 其余(不相关 IntegrityError)不吞, 原异常 raise。
-        await db.rollback()
-        if idempotency_key:
-            existing = (await db.execute(text("""
-                SELECT id FROM community.skills
-                WHERE owner_id=:user_id AND idempotency_key=:key
-            """), {"user_id": actor.id, "key": idempotency_key})).scalar()
-            if existing is not None:
-                return await _load_accessible_skill_http(db, int(existing), actor)
-        conflict = (await db.execute(text("""
-            SELECT id FROM community.skills
-            WHERE owner_id=:user_id AND slug=:slug
-        """), {"user_id": actor.id, "slug": manifest["slug"]})).scalar()
-        if conflict is not None:
-            raise HTTPException(
-                409, f"已存在同名技能（slug={manifest['slug']}），请先删除或改名")
-        raise
-    created["warnings"] = manifest["warnings"]
-    return created
+        return await create_skill_service(
+            db, actor_id=actor.id, auth_kind=actor.auth_kind,
+            category=category, idempotency_key=request_idempotency_key,
+            archive_loader=archive_loader)
+    except SkillArchiveValidationError as exc:
+        raise HTTPException(400, exc.detail) from exc
+    except SkillCategoryError as exc:
+        raise HTTPException(400, exc.detail) from exc
+    except SkillSlugConflictError as exc:
+        raise HTTPException(409, exc.detail) from exc
+    except MissingSkillIdempotencyKeyError as exc:
+        raise HTTPException(400, exc.detail) from exc
+    except SkillIdempotencyKeyTooLongError as exc:
+        raise HTTPException(400, exc.detail) from exc
+    except RateLimitError as exc:
+        raise to_http_exception(exc) from exc
 
 
 @router.patch(

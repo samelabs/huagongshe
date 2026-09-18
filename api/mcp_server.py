@@ -584,10 +584,9 @@ def build_mcp_server() -> MCPServer:
         import base64 as _base64
         import binascii
 
-        from fastapi import HTTPException as _HTTPException
-
-        from . import skills as skills_module
         from .core.config import settings as _settings
+        from .services.skills import SkillArchiveValidationError
+        from .services.skills import extract_skill_zip as _extract_skill_zip
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         _require(actor, "skill:write")
@@ -598,7 +597,7 @@ def build_mcp_server() -> MCPServer:
         if len(raw) > _settings.skill_zip_max_bytes:
             raise ToolError(f"压缩包超过 {_settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
         try:
-            manifest = await _asyncio.to_thread(skills_module.extract_skill_zip, raw)
+            manifest = await _asyncio.to_thread(_extract_skill_zip, raw)
             return {
                 "ok": True,
                 "slug": manifest["slug"], "title": manifest["title"],
@@ -608,8 +607,8 @@ def build_mcp_server() -> MCPServer:
                 "warnings": manifest["warnings"],
                 "files": [{"path": p, "size_bytes": len(d)} for p, d in manifest["files"]],
             }
-        except _HTTPException as exc:
-            raise ToolError(str(exc.detail)) from exc
+        except SkillArchiveValidationError as exc:
+            raise ToolError(exc.detail) from exc
 
     @server.tool(name="create_skill", title="保存技能")
     async def create_skill(
@@ -625,31 +624,42 @@ def build_mcp_server() -> MCPServer:
         import base64 as _base64
         import binascii
 
-        from fastapi import HTTPException as _HTTPException
-
-        from . import skills as skills_module
+        from .core.rate_limit import RateLimitError as _RateLimitError
+        from .services.skills import (MissingSkillIdempotencyKeyError,
+                                      SkillArchiveValidationError,
+                                      SkillCategoryError,
+                                      SkillIdempotencyKeyTooLongError,
+                                      SkillNotAccessibleError,
+                                      SkillSlugConflictError)
+        from .services.skills import create_skill as _create_skill_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         _require(actor, "skill:write")
+        # G3.1D 冻结 ordering: base64 decode 在 service/rate 之前
+        # (非法 base64 不消耗 quota, service 零调用)。
         try:
             raw = _base64.b64decode(zip_base64, validate=True)
         except (binascii.Error, ValueError) as exc:
             raise ToolError("zip_base64 不是合法的 base64") from exc
 
-        class _FakeUpload:
-            async def read(self, limit: int = -1):
-                return raw if limit < 0 else raw[:limit]
+        async def _archive_loader(limit: int) -> bytes:
+            # 原 read(limit) slicing 语义逐字保持。
+            return raw[:limit]
 
         try:
+            # G3.1D: 直调 shared create service(handler-call A005 关闭);
+            # neutral errors → ToolError(detail)。
             async with async_session() as session:
-                return await skills_module.create_skill(
-                    file=_FakeUpload(),  # type: ignore[arg-type]
+                return await _create_skill_service(
+                    session, actor_id=actor.id, auth_kind=actor.auth_kind,
                     category=(category or None),
-                    request_idempotency_key=(idempotency_key or None),
-                    actor=actor, db=session,
-                )
-        except _HTTPException as exc:
-            raise ToolError(str(exc.detail)) from exc
+                    idempotency_key=(idempotency_key or None),
+                    archive_loader=_archive_loader)
+        except (SkillArchiveValidationError, SkillCategoryError,
+                SkillSlugConflictError, MissingSkillIdempotencyKeyError,
+                SkillIdempotencyKeyTooLongError, SkillNotAccessibleError,
+                _RateLimitError) as exc:
+            raise ToolError(str(exc.detail) if hasattr(exc, "detail") else str(exc)) from exc
 
     @server.tool(name="create_reaction", title="保存反应")
     async def create_reaction(

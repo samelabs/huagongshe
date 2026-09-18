@@ -232,7 +232,7 @@ class SkillsRaceTests(unittest.TestCase):
         key = f"race-key-{RUN}"
 
         async def go():
-            from api.skills import _create_skill_record
+            from api.services.skills import _create_skill_record
             from api.services.skills import load_accessible_skill
             from api.core.security import Actor
             nonlocal uid
@@ -346,7 +346,7 @@ class SkillsRaceTests(unittest.TestCase):
 
         async def go():
             nonlocal uid
-            import api.skills as sk
+            import api.services.skills as sk
             try:
                 async with engine.begin() as db:
                     uid = (await db.execute(text("""
@@ -433,7 +433,7 @@ class SkillsRaceTests(unittest.TestCase):
 
         async def go():
             nonlocal uid
-            import api.skills as sk
+            import api.services.skills as sk
             try:
                 async with engine.begin() as db:
                     uid = (await db.execute(text("""
@@ -515,7 +515,7 @@ class SkillsRaceTests(unittest.TestCase):
 
         async def go():
             nonlocal uid
-            import api.skills as sk
+            import api.services.skills as sk
             try:
                 async with engine.begin() as db:
                     uid = (await db.execute(text("""
@@ -554,7 +554,7 @@ class SkillsRaceTests(unittest.TestCase):
                          "不相关 IntegrityError 不得被吞成 409/其他")
 
     def test_no_key_conflict_still_raises(self):
-        from api.skills import _create_skill_record
+        from api.services.skills import _create_skill_record
         from api.core.security import Actor
         from sqlalchemy import text
         from sqlalchemy.exc import IntegrityError
