@@ -1,0 +1,42 @@
+-- 0918: chemistry.chemical_pubchem 补 (fetched_at DESC NULLS LAST) 索引。
+-- 服务 /api/admin/pipeline 两处, 均为 admin.py 逐字 SQL:
+--   1. Q2 _scan_critical(admin.py:538): PubChem exact today / last_1h / total
+--        SELECT count(*) FILTER (WHERE fetched_at >= current_date),
+--               count(*) FILTER (WHERE fetched_at >= now() - interval '1 hour'),
+--               count(*)
+--          FROM chemistry.chemical_pubchem;
+--   2. R2 请求路径 latest_pb(admin.py:788):
+--        SELECT p.chemical_id, p.record_title, c.pubchem_cid, c.preferred_name, p.fetched_at
+--          FROM chemistry.chemical_pubchem p
+--          LEFT JOIN chemistry.chemicals c ON c.id = p.chemical_id
+--         ORDER BY p.fetched_at DESC NULLS LAST LIMIT 10;
+--
+-- 背景(实测, production): 该表 677,742 行 / 872 MB, 唯一索引是
+--   chemical_pubchem_pkey(chemical_id) —— **没有任何 fetched_at 索引**:
+--   * R2 → Parallel Seq Scan(整堆)+ top-N Sort, cost 150,218;
+--   * 09-17 生产日志中 latest_pb 请求路径 9 次 QueryCanceledError,
+--     逐块配对显示每次都与一次并发的 Q1 后台扫描相邻(IO 争用)。
+--
+-- 效果口径(不夸大, 三路分别实测; 生产规模合成基准 677,742 行 / 1,059 MB / 135,549 页):
+--   R2  BEFORE        Limit→Gather Merge→Sort(top-N)→Hash Left Join→Parallel Seq Scan
+--                     cost 146,656.63   136,608 buffers   790.6 ms
+--       AFTER(无 VM)  Limit→Nested Loop Left Join→Index Scan using
+--                     idx_chemical_pubchem_fetched_at   cost 5.92   35 buffers   0.148 ms  (无 Sort)
+--       → 立即可用, 不依赖 VM、不依赖表大小(backward index scan + LIMIT 10 只触 10 行堆)。
+--   Q2  BEFORE        Parallel Seq Scan         cost 145,021.04   135,549 buffers   703.8 ms
+--       AFTER(无 VM)  Parallel Seq Scan(不变)   cost 145,020.86   135,549 buffers   584.1 ms
+--       AFTER(有 VM)  Parallel Index Only Scan  cost  14,908.04     1,870 buffers   252.6 ms  Heap Fetches: 0
+--       → today / last_1h 范围计数可由该索引服务; 但 count(*) total 的 index-only
+--         **依赖索引可见性(VM)位**, 未 VACUUM 时 planner 仍选 Seq Scan(实测) ——
+--         不得从 R2 的结果推断 Q2 必然受益(runbook Phase P2.5 / P3 分别验证)。
+--   注: 基准 wall time 受 page cache / CPU 支配(表已在 shared_buffers), 生产冷缓存下
+--   差异主要来自 buffer 与落盘量。
+--
+-- 本文件只做一件事, 不带 BEGIN/COMMIT(runner 单事务执行)。
+-- production 上该 DDL 以 CREATE INDEX CONCURRENTLY 先行执行(不锁写),
+-- 之后 migration runner 对本文件为幂等 no-op(IF NOT EXISTS)。
+-- 本文件不含 CREATE INDEX CONCURRENTLY —— runner 以 psql --single-transaction
+-- 执行迁移, 而 CONCURRENTLY 不能运行在事务块内(与 20260911_01/02、
+-- 20260916_01/02/03 同款先例); fresh DB 本文件即唯一来源。
+CREATE INDEX IF NOT EXISTS idx_chemical_pubchem_fetched_at
+    ON chemistry.chemical_pubchem (fetched_at DESC NULLS LAST);

@@ -1,0 +1,48 @@
+-- 0918: chemistry.chemical_cb 补 (locale, fetched_at DESC NULLS LAST) 索引,
+-- 服务 /api/admin/pipeline 的 _scan_critical CB per-locale exact 统计
+-- (admin.py:530 逐字 SQL: today / total / last_1h 三计数 GROUP BY locale)。
+--
+-- 背景(实测, production 2026-09-17~18):
+--   SELECT locale,
+--          count(*) FILTER (WHERE fetched_at >= current_date),
+--          count(*),
+--          count(*) FILTER (WHERE fetched_at >= now() - interval '1 hour')
+--     FROM chemistry.chemical_cb GROUP BY locale;
+--   → Parallel Seq Scan, 4,130,100 行 / 3,562 MB / 446,722 页, cost 512,571。
+--   该表现有五个索引都无法服务 (locale, fetched_at) 组合:
+--     chemical_cb_pkey(id) / idx_chemical_cb_chemical_id(chemical_id)
+--     / idx_chemical_cb_fetched_at(fetched_at DESC NULLS LAST)
+--     / chemical_cb_source_grain_uidx(chemical_id, cb_number, locale) WHERE cb_number IS NOT NULL
+--     / chemical_cb_legacy_null_uidx(chemical_id, locale) WHERE cb_number IS NULL
+--   实测 heap 命中率 30.7%(hit 1,203,716,763 / read 2,712,534,713)→ 每次扫描
+--   约 2.4 GB 必须落盘; 盘实测 244 MB/s(O_DIRECT, 1GB)→ 单流 ≥9.9s,
+--   即该语句运行时跨在 statement_timeout=8000ms 上。
+--
+-- 已确认 production defect(证据: pm2 error 日志 + PG 日志时间戳 + 访问日志三方对齐):
+--   * 请求路径(冷缓存同步刷新)被 cancel → QueryCanceledError → HTTP 500:
+--     09-18 共 6 次(PG 日志 07:21:14/28/29/37 四次、14:12:25/40 两次,
+--     与访问日志 6 条 500 一一对应);
+--   * 后台刷新同样被 cancel(75 次) → 缓存长期为空 → 缺陷为常态而非部署窗口现象。
+--
+-- 索引列序与方向必须与查询逐字一致: locale 等值前缀 + fetched_at DESC NULLS LAST
+-- (NULLS LAST 与既有 idx_chemical_cb_fetched_at 同口径; 只写 fetched_at 会得到
+--  ASC NULLS LAST, 无法服务 latest-N 的 DESC 排序)。
+--
+-- 效果口径(不夸大, 生产规模合成基准实测; 1,000,000 行 / 868 MB / 111,112 页):
+--   BEFORE         Parallel Seq Scan         cost 125,653.91   111,128 buffers(读 111,016)  855.6 ms
+--   AFTER(无 VM)   Parallel Seq Scan(不变)   cost 125,653.91   111,128 buffers              936.4 ms
+--   AFTER(有 VM)   Parallel Index Only Scan  cost  23,781.37     3,877 buffers(读 3,834)   508.0 ms  Heap Fetches: 0
+--   → buffer 28.7x 更少, 且不再落盘 3.5 GB 堆; 但 index-only 依赖索引可见性(VM)位:
+--     建索引后未 VACUUM 时 planner 仍选 Seq Scan(实测), 故 production runbook 必须
+--     含 VACUUM 步骤(Phase P2.5), 不得以"索引已建"判成功。
+--   注: 基准 wall time 受 page cache / CPU 支配(表已在 shared_buffers), 生产冷缓存下
+--   差异主要来自 buffer 与落盘量(production heap 命中率 30.7%)。
+--
+-- 本文件只做一件事, 不带 BEGIN/COMMIT(runner 单事务执行)。
+-- production 上该 DDL 以 CREATE INDEX CONCURRENTLY 先行执行(不锁写),
+-- 之后 migration runner 对本文件为幂等 no-op(IF NOT EXISTS)。
+-- 本文件不含 CREATE INDEX CONCURRENTLY —— runner 以 psql --single-transaction
+-- 执行迁移, 而 CONCURRENTLY 不能运行在事务块内(与 20260911_01/02、
+-- 20260916_01/02/03 同款先例); fresh DB 本文件即唯一来源。
+CREATE INDEX IF NOT EXISTS idx_chemical_cb_locale_fetched_at
+    ON chemistry.chemical_cb (locale, fetched_at DESC NULLS LAST);
