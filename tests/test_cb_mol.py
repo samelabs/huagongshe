@@ -1,4 +1,8 @@
-"""CB mol 拉取/解析的判别与行为测试(fixture: benzoic acid 65-85-0, 2026-08-28 实拉)."""
+"""CB mol 拉取/解析的判别与行为测试(fixtures 全部在库 tests/fixtures/, repo-relative).
+
+样本: cb_65850.mol + CAS_65-85-0.htm (2026-08-28 实拉);
+      cpp_cb2234049_{cn,en}.html (CB2234049, 2026-09-19 实拉, 见 E7 §2)。
+"""
 from __future__ import annotations
 
 import os
@@ -8,6 +12,8 @@ os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "cb_65850.mol")
 FIXTURE_HTML = os.path.join(os.path.dirname(__file__), "fixtures", "CAS_65-85-0.htm")
+FIXTURE_CPP_CN = os.path.join(os.path.dirname(__file__), "fixtures", "cpp_cb2234049_cn.html")
+FIXTURE_CPP_EN = os.path.join(os.path.dirname(__file__), "fixtures", "cpp_cb2234049_en.html")
 
 
 class StructureResolveTests(unittest.TestCase):
@@ -15,8 +21,9 @@ class StructureResolveTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        # E7: 样本在库(repo-relative), 缺失即失败 —— 不再把路径问题 skip 掉
         if not os.path.exists(FIXTURE_HTML):
-            raise unittest.SkipTest("fixtures 不在本机")
+            raise AssertionError(f"仓库 fixture 缺失: {FIXTURE_HTML}")
         # 旧 parse_entry 已退役(0905); fixture CAS 页不解析,
         # props 直接用 canonical 形态内联(结构三件解析的判别逻辑不变)
         cls.entry = {
@@ -83,16 +90,18 @@ class StructureResolveTests(unittest.TestCase):
 
 
 class CppParseTests(unittest.TestCase):
-    """CPP 页解析(fixture: 2026-08-28 实拉 NBS CB2234049, 100家供应商)。"""
+    """CPP 页解析(fixtures: CB2234049 CN/EN, 2026-09-19 实拉, CN 100家供应商)。"""
 
     @classmethod
     def setUpClass(cls) -> None:
-        path = "/tmp/cpp_CN.htm"
-        if not os.path.exists(path):
-            raise unittest.SkipTest("CPP fixture 不在本机")
-        cls.html = open(path, encoding="utf-8", errors="replace").read()
-        cls.html_en = open("/tmp/cpp_EN.htm", encoding="utf-8",
-                           errors="replace").read() if os.path.exists("/tmp/cpp_EN.htm") else ""
+        # E7: 原先读 /tmp 预置 CPP 页 → 样本入库, 缺失即失败(不 skip)
+        for p in (FIXTURE_CPP_CN, FIXTURE_CPP_EN):
+            if not os.path.exists(p):
+                raise AssertionError(f"仓库 fixture 缺失: {p}")
+        with open(FIXTURE_CPP_CN, encoding="utf-8", errors="replace") as fh:
+            cls.html = fh.read()
+        with open(FIXTURE_CPP_EN, encoding="utf-8", errors="replace") as fh:
+            cls.html_en = fh.read()
 
     def test_cpp_suppliers_hundred_rows(self) -> None:
         from caslib.parse import parse_cpp_suppliers
@@ -109,7 +118,9 @@ class CppParseTests(unittest.TestCase):
         self.assertEqual(first["name"], "南京苏如化工有限公司")
         self.assertEqual(first["email"], "sales@suruchem.com")
         self.assertRegex(first["cbsid"], r"^\d+$")
-        self.assertEqual(len(first["ref"]), 16)
+        # ref 契约 = "cb-supplier:" + cbsid(2026-09-19 样本 cbsid=1436986 → 19 字符;
+        # 0905 样本的 16 是当时 cbsid 位数更短, 非契约常量)
+        self.assertEqual(first["ref"], "cb-supplier:" + first["cbsid"])
 
     def test_cpp_suppliers_empty_or_garbage(self) -> None:
         from caslib.parse import parse_cpp_suppliers
@@ -117,8 +128,7 @@ class CppParseTests(unittest.TestCase):
         self.assertEqual(parse_cpp_suppliers(""), [])
         self.assertEqual(parse_cpp_suppliers("<html>无关页面</html>"), [])
         # EN 语言页供应商链接形态不同(/0_EN.htm), 不误配
-        if self.html_en:
-            self.assertEqual(parse_cpp_suppliers(self.html_en), [])
+        self.assertEqual(parse_cpp_suppliers(self.html_en), [])
 
 
 

@@ -1,0 +1,728 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN" xml:lang="zh-CN">
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="referrer" content="unsafe-url" />
+    <meta name="applicable-device" content="pc" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>67-64-1 | CAS数据库</title>
+    
+    <meta name="Description" content="ChemicalBook 提供有关67-64-1的理化性质,用途,制备方法,CAS号,MSDS" />
+    <meta name="Keywords" content="67-64-1,cas,msds" />
+    <meta name="mobile-agent" content="format=html5; url=https://m.chemicalbook.com/CAS_67-64-1.htm" />
+    <meta name="mobile-agent" content="format=xhtml; url=https://m.chemicalbook.com/CAS_67-64-1.htm" />
+    <link rel="canonical" href="https://www.chemicalbook.com/CAS_67-64-1.htm" />
+    <link rel="alternate" media="only screen and (max-width: 640px)" href="https://m.chemicalbook.com/CAS_67-64-1.htm" />
+    <link href="responsecss/layout.css?v=1.0" rel="stylesheet" type="text/css" />
+    <link href="responsecss/self.css?v=1.1.6" rel="stylesheet" type="text/css" />
+    <script src="/Themes/Jquery/jquery-3.6.1.min.js"></script>
+    <script src="/control/search.js?v=1.1"></script>
+    <script src="/js/master.js?v=1.0.0" type="text/javascript"></script>
+    <script src="/control/gocaigoubang.js?v=1.0.2"></script>
+    <script>
+        $(document).ready(function () {
+            var userName = getCookie("userName");
+            if (userName) {
+                $("#divLogin").hide();
+                $("#fontName").show();
+                $("#fontName").text("Hi! " + userName + ",欢迎来到ChemicalBook");
+                $("#fontName").removeAttr("style");
+                $("#li_login").hide();
+                $("#li_register").hide();
+                $("#li_inquiry").show();
+                $("#li_signout").show();
+                $("#li_signout").removeAttr("style");
+            }
+            else {
+                $("#li_login").show();
+                $("#li_register").show();
+                $("#li_inquiry").hide();
+                $("#divLogin").show();
+                $("#divLogin").removeAttr("style");
+                $("#fontName").hide();
+                $("#li_signout").hide();
+
+            }
+            $("input[id$='SearchBtn']").click(function () {
+                if (st == 1) {
+                    return window.location.href = "/Search.aspx?keyword=" + $(":text[id$='Keyword']").val() + "&st=" + st;
+                }
+                else {
+                    return window.location.href = "/Search.aspx?keyword=" + $(":text[id$='Keyword']").val();
+                }
+            })
+            $("input[id$='SearchBtn2']").click(function () {
+                if (st == 1) {
+                    return window.location.href = "/Search.aspx?keyword=" + $(":text[id$='Keyword2']").val() + "&st=" + st;
+                }
+                else {
+                    return window.location.href = "/Search.aspx?keyword=" + $(":text[id$='Keyword2']").val();
+                }
+            })
+            $(":text.sea_input").keyup(function (event) {
+                var which = event.which;
+                if (which == 13) {
+                    $(this).parent().parent().find(":button.sea_but1").trigger("click");
+                }
+            });
+            $("[data-caigoubangdata='true']").mouseenter(function () {
+                var userName = getCookie("userName");
+                if (userName) {
+                    //$.ajax({
+                    //    url: "/UserProfile/PurchaseHelper/Tools/TotalPurchaseTask.ashx",
+                    //    cache: false,
+                    //    type: "Post",
+                    //    data: { user: userName },
+                    //    dataType: "json",
+                    //    success: function (data) {
+                    //        if (data) {
+                    //            if (data.CountOfInquiry > 0) {
+                    //                $("#lt_Inquiry1").text("" + data.CountOfInquiry + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_Inquiry1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfAlreadyQuotation > 0) {
+                    //                $("#lt_AlreadyQuotation1").text("" + data.CountOfAlreadyQuotation + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_AlreadyQuotation1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitPament > 0) {
+                    //                $("#lt_WaitPayment1").text("" + data.CountOfWaitPament + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitPayment1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitDelivery > 0) {
+                    //                $("#lt_WaitDelivery1").text("" + data.CountOfWaitDelivery + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitDelivery1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfAlreadyDelivery > 0) {
+                    //                $("#lt_WaitGoodsReceive1").text("" + data.CountOfAlreadyDelivery + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitGoodsReceive1").remove();//text("");
+                    //            }
+                    //        }
+                    //    }
+                    //});
+                    //$.ajax({
+                    //    url: "/UserProfile/PurchaseHelper/Tools/TotalSaleTask.ashx",
+                    //    cache: false,
+                    //    type: "Post",
+                    //    data: { user: userName },
+                    //    dataType: "json",
+                    //    success: function (data) {
+                    //        if (data) {
+                    //            if (data.CountOfWaitQuotation > 0) {
+                    //                $("#lt_WaitQuotation1").text("" + data.CountOfWaitQuotation + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitQuotation1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitConfirm > 0) {
+                    //                $("#lt_WaitConfirm1").text("" + data.CountOfWaitConfirm + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitConfirm1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitPament > 0) {
+                    //                $("#lt_WaitPayments1").text("" + data.CountOfWaitPament + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitPayments1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitDelivary > 0) {
+                    //                $("#lt_WaitDelivary1").text("" + data.CountOfWaitDelivary + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitDelivary1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitReceiveGoods > 0) {
+                    //                $("#lt_WaitGoodsReceives1").text("" + data.CountOfWaitReceiveGoods + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitGoodsReceives1").remove();//text("");
+                    //            }
+                    //        }
+                    //    }
+                    //});
+                }
+            })
+
+        })
+        function getCookie(name) {
+            var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+            if (arr = document.cookie.match(reg))
+                return unescape(arr[2]);
+            else
+                return null;
+        }
+        function change(obj) {
+            //localStorage.clear();
+            localStorage.setItem("_elementId", $(obj).attr("id") || "");
+        }
+    </script>
+    <style>
+        .hl {
+            background-color: #f3f3f3;
+            font-weight: 500;
+        }
+
+        .nav {
+            height: 0 !important;
+            line-height: 0 !important;
+            background: none !important;
+        }
+
+        .row {
+            margin-right: 0 !important;
+            margin-left: 0 !important;
+        }
+    </style>
+    <style>
+        .menufloat a {
+            position: relative;
+            line-height: 41px;
+            text-transform: capitalize;
+            display: inline-block;
+            color: #333;
+            cursor: pointer;
+            font-size: 14px;
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+
+            .menufloat a i {
+                border-radius: 40px;
+                background: #0066cc;
+                color: #fff;
+                font-size: 14px;
+                min-width: 26px;
+                min-height: 26px;
+                text-align: center;
+                padding: 0 5px;
+                display: inline-block;
+                margin-left: 4px;
+                font-style: normal;
+                text-shadow: none
+            }
+
+        .menufloat .current i {
+            background: #29b5ce
+        }
+
+        .menufloat .box11 {
+            visibility: hidden
+        }
+
+
+
+        .menufloat div {
+            cursor: pointer;
+        }
+
+        .menufloat .current {
+            color: #fff;
+            background-color: #ff7300;
+        }
+
+        .menufloat div i {
+            border-radius: 40px;
+            background: #0066cc;
+            color: #fff;
+            font-size: 14px;
+            min-width: 26px;
+            min-height: 26px;
+            text-align: center;
+            padding: 0 5px;
+            display: inline-block;
+            margin-left: 4px;
+            font-style: normal;
+            text-shadow: none
+        }
+
+        .menufloat .dhyc {
+            display: none;
+        }
+
+        .menufloat2 .dhyc {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <form method="post" action="./CAS_67-64-1.htm?CAS=67-64-1" id="_ctl0" onsubmit="return false;">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="" />
+</div>
+
+        <header>
+            <div class="topnavbox">
+                <div class="topnav">
+                    <div class="fl welcome" id="divLogin" style="display: none;">你好！欢迎来到ChemicalBook。<a href="/UserManager/Login.aspx">登录</a><a href="/UserManager/Register.aspx">注册</a></div>
+
+                    <div class="fl welcome" id="fontName" style="display: none;"></div>
+                    <div class="fl welcome" id="li_signout" style="display: none;"><a href="/UserManager/sign_out.aspx">退出</a></div>
+
+                    
+                    <div class="flagbox">
+                        <a data-source="en1" aria-label="English" title="English" class="flag2" href="/CASEN_67-64-1.htm"></a>
+                        <a data-source="jp1" aria-label="Japanese" title="Japanese" class="flag5" href="/ProductIndex_JP.aspx"></a>
+                        <a data-source="de1" aria-label="Germany" title="Germany" class="flag3" href="/ProductIndex_DE.aspx"></a>
+                    </div>
+                    
+                    <div class="topnav2">
+                        <a href="/UserProfile/companyinfoManage.aspx">我的ChemicalBook</a>
+                        <div class="topnav3">
+                            <a target="_blank" href="/UserProfile/ApplyNewProduct.aspx" id="left_ApplyNewProduct">发布产品</a>
+                            <a target="_blank" href="/UserProfile/ProductManagement.aspx" id="left_PublishProductManager">产品管理</a>
+                            <a target="_blank" href="/UserProfile/Free_GatherData.aspx">发布供应信息</a>
+                            <a target="_blank" href="/UserProfile/MyGoldProductList.aspx">黄金产品设置</a>
+                            <a href="/UserProfile/LargeGoods.aspx" target="_blank">大货产品设置</a>
+                            <a href="/UserProfile/ThroughTrain.aspx" target="_blank">直通车产品设置</a>
+                        </div>
+                    </div>
+                    
+                    
+
+                    <div class="topnav2">
+                        <a href="/UserProfile/Free_GatherData.aspx">发布供应信息</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="toub">
+                
+
+                <div class="headerbox">
+                    <a class="logo" href="/ProductIndex.aspx" title="ChemicalBook" aria-label="Chemicalbok logo">
+                        <img src="https://www.chemicalbook.com/control/image/logo.gif" width="207" height="50" alt="ChemicalBook" />
+                    </a>
+                    <div class="searchbox">
+                        <input name="Keyword" type="text" value="67-64-1" maxlength="230" id="Keyword" class="sea_input" placeholder="请输入产品名称、CAS号查询" />
+
+                        <input type="button" aria-label="button" class="sea_but1" id="SearchBtn" data-module="SearchType" data-page-url="ProductList.aspx" />
+
+                    </div>
+                    <a class="btn_org_gradient" href="/StructuredSearch.htm">结构式搜索</a>
+                </div>
+
+            </div>
+        </header>
+    </form>
+    
+    <div class="bread_nav">
+        
+        <a href="https://www.chemicalbook.com/" name="top" id="top">返回ChemicalBook首页</a>><a href="https://www.chemicalbook.com/CASDetailList_9500.htm" name="top" id="A1">CAS数据库列表</a>>67-64-1
+    </div>
+
+    <div class="keynote">
+        <main class="fl">
+            <div class="keynoteL">
+                <div class="ibxx">
+                 
+                    <div class="ibxh1">
+                    <h1>67-64-1</h1> </div>
+                 
+                    <div class="Basicsl">
+                        
+                        <div>
+                            <span>中文名称</span>
+                            丙酮
+                            
+                        </div>
+                        
+                        <div>
+                            <span>英文名称</span>
+                            Acetone
+                            
+                        </div>
+                        
+                        <div>
+                            <span>CAS</span>
+                            
+                            <em>67-64-1</em>
+                            
+                        </div>
+                        
+                        <div>
+                            <span>EINECS 编号</span>
+                            200-662-2
+                            
+                        </div>
+                        
+                        <div>
+                            <span>分子式</span>
+                            C3H6O
+                            
+                        </div>
+                        
+                        <div>
+                            <span>MDL 编号</span>
+                            MFCD00211536        
+                            
+                        </div>
+                        
+                        <div>
+                            <span>分子量</span>
+                            58.08
+                            
+                        </div>
+                        
+                        <div>
+                            <span>MOL 文件</span>
+                            <a title="67-64-1_MolFile" href="/CAS/mol/67-64-1.mol">67-64-1.mol</a>
+                            
+                        </div>
+                        
+                        <div>
+                            <span>更新日期</span>
+                            
+                            <em>2026/09/16 08:32:28</em>
+                            
+                        </div>
+                        
+                    </div>
+                    <div class="ibxxt">
+                        <img src="/CAS/GIF/67-64-1.gif" id="StructureURL" alt="67-64-1 结构式" />
+                        <span id="StructureInfo">67-64-1 结构式</span>
+                    </div>
+                </div>
+
+
+                
+
+                <div id="menufloat_position"></div>
+                <div id="menufloat" class="mubox menufloat">
+                    <div class="dhyc" style="">
+                        <a href="/ProductIndex.aspx" class="fl logo1" title="ChemicalBook" aria-label="Chemicalbok logo">
+                            <img src="/logo.gif" width="126" height="30" alt="ChemicalBook" />
+                        </a>
+                        <div class="fr searchbox1" style="width: auto;">
+                            <input name="" type="text" value="67-64-1" id="Keyword2" class="sea_input" placeholder="请输入产品名称、CAS号查询" maxlength="230" />
+                            <input type="button" aria-label="button" class="sea_but1" id="SearchBtn2" data-module="SearchType" data-page-url="ProductList.aspx" />
+                        </div>
+                    </div>
+
+                    <div class="menufloatext menufloatext1" id="nav">
+                        
+                        <a href="#基本信息" class='current' data-filed="0" data-upper="基本信息">基本信息</a>
+                        
+                        <a href="#物理化学性质"  data-filed="1" data-upper="物理化学性质">物理化学性质</a>
+                        
+                        <a href="#安全数据"  data-filed="2" data-upper="安全数据">安全数据</a>
+                        
+                        <a href="#应用领域"  data-filed="3" data-upper="应用领域">应用领域</a>
+                        
+                        <a href="#制备方法"  data-filed="4" data-upper="制备方法">制备方法</a>
+                        
+                        <a href="#上下游产品信息"  data-filed="5" data-upper="上下游产品信息">上下游产品信息</a>
+                        
+                        <a href="#化学品安全说明书(MSDS)"  data-filed="6" data-upper="化学品安全说明书MSDS">化学品安全说明书(MSDS)</a>
+                        
+                        <a href="#67-64-1(安全特性,毒性,储运)"  data-filed="7" data-upper="安全特性毒性储运">67-64-1(安全特性,毒性,储运)</a>
+                        
+                        <a href="#常见问题列表"  data-filed="8" data-upper="常见问题列表">常见问题列表</a>
+                        
+                        <a href="#毒性防护"  data-filed="9" data-upper="毒性防护">毒性防护</a>
+                        
+                        <a href="#包装储运"  data-filed="10" data-upper="包装储运">包装储运</a>
+                        
+                        <a href="#图谱信息"  data-filed="11" data-upper="图谱信息">图谱信息</a>
+                        
+                        <a href="#知名试剂公司产品信息"  data-filed="12" data-upper="知名试剂公司产品信息">知名试剂公司产品信息</a>
+                        
+                        <a href="#丙酮价格(试剂级)"  data-filed="13" data-upper="丙酮价格试剂级">丙酮价格(试剂级)</a>
+
+                        
+                    </div>
+                </div>
+
+                
+
+                <div id="SubClass"><div class="sxlist"><div class="sxbt suicon1"><h2>基本信息</h2></div><a  data-name="基本信息" data-id="基本信息" ></a><div data-upper="基本信息" data-field="coordinate"></div><div class="cwb">  <div class="tbt">中文别名</div><span>2-丙酮<BR>醋酮<BR>二甲(基)酮<BR>二甲基酮<BR>二甲酮<BR>木酮<BR>乙酮<BR>丙酮<BR>丙酮 ACETONE<BR>丙酮, 99+%<BR>丙酮, SEMICONDUCTOR GRADE, 99.5%<BR>丙酮, HPLC GRADE, 99.5+%<BR>丙酮, SPECTROPHOTOMETRIC GRADE, 99.5+%<BR>丙酮, ENVIRONMENTAL GRADE, 99.5+%<BR>丙酮, ACS, 99.5+%</span>  <div class="tbt">英文别名</div><span>ACETONE ALCOHOL<BR>GRAMS DECOLORIZER<BR>GRAM STAIN NO 3<BR>(CH3)2CO<BR>2-Propanon<BR>aceton<BR>aceton(german,dutch,polish)<BR>Acetone oil<BR>ai3-01238<BR>beta-Ketopropane<BR>caswellno.004<BR>Chevron acetone<BR>chevronacetone<BR>Dimethylformaldehyde<BR>Dimethylketal<BR>epapesticidechemicalcode004101<BR>Ketone propane<BR>Ketone, dimethyl-<BR>ketone,dimethyl<BR>ketonepropane</span>  <div class="tbt">所属类别</div><span>食品添加剂:  食品加工助剂:  溶剂和助溶剂</span></div></div><div class="sxlist"><div class="sxbt suicon2"><h2>物理化学性质</h2></div><a  data-name="物理化学性质" data-id="物理化学性质" ></a><div data-upper="物理化学性质" data-field="coordinate"></div><div class="xztable"><div class="xztr"><span>外观性质</span>无色透明易流动液体，有芳香气味，极易挥发。</div><div class="xztr"><span>外观性状</span>无色易挥发易燃液体，微有香气。 能与水、甲醇、乙醇、乙醚、氯仿和吡啶等混溶。能溶解油、脂肪、树脂和橡胶。</div><div class="xztr"><span>溶解性</span>与水混溶，可混溶于乙醇、乙醚、氯仿、油类、烃类等多数有机溶剂。</div><div class="xztr"><span>熔点</span>-94&#160;&#x00b0;C(lit.)<BR></div><div class="xztr"><span>沸点</span>56&#160;&#x00b0;C760&#160;mm Hg(lit.)<BR></div><div class="xztr"><span>密度</span>0.791&#160;g/mL&#160;at 25&#160;&#x00b0;C(lit.)<BR></div><div class="xztr"><span>蒸气密度</span>2 (vs air)<BR></div><div class="xztr"><span>蒸气压</span>184 mm Hg ( 20 &#x00b0;C)<BR></div><div class="xztr"><span>FEMA</span>3326</div><div class="xztr"><span>折射率</span><I>n</I><FRAC Type="vertical">20/D</FRAC> 1.359(lit.)<BR></div><div class="xztr"><span>闪点</span>1&#160;&#x00b0;F<BR></div><div class="xztr"><span>储存条件</span>Store at RT.</div><div class="xztr"><span>溶解度</span>可与水和乙醇混溶(96%)。</div><div class="xztr"><span>酸度系数(pKa)</span>19.3(at 25℃)</div><div class="xztr"><span>形态</span>液体</div><div class="xztr"><span>比重</span>0.79 (25/25℃)</div><div class="xztr"><span>颜色</span>无色、看不见的蒸气</div><div class="xztr"><span>PH值</span>5-6 (395g/l, H2O, 20°C)</div><div class="xztr"><span>气味 (Odor)</span>有刺激性气味。</div><div class="xztr"><span>相对极性</span>0.355</div><div class="xztr"><span>爆炸极限值(explosive limit)</span>2.6-12.8%(V)</div><div class="xztr"><span>生物来源</span>synthetic</div><div class="xztr"><span>香型</span>solvent</div><div class="xztr"><span>嗅觉阈值(Odor Threshold)</span>42ppm</div><div class="xztr"><span>水溶解性</span>可溶于水</div><div class="xztr"><span>电导率</span>0.155 W/(m·K) at 25 ℃</div><div class="xztr"><span>热导率</span>0.155 W/(m·K) at 25 ℃</div><div class="xztr"><span>最大波长(λmax)</span>≤330 nm</div><div class="xztr"><span>JECFA Number</span>139</div><div class="xztr"><span>Merck</span>14,66</div><div class="xztr"><span>BRN</span>63580</div><div class="xztr"><span>Henry's Law Constant</span>2.27 at 14.9 °C, 3.03 at 25 °C, 7.69 at 35.1 °C, 11.76 at 44.9 °C (Betterton, 1991)</div><div class="xztr"><span>Dielectric constant</span>1.0（0℃）</div><div class="xztr"><span>暴露限值</span>TLV-TWA 1780 mg/m<sup>3</sup> (750 ppm), STEL
+2375 mg/m<sup>3</sup> (ACGIH); 10 h–TWA 590
+mg/m<sup>3</sup> (250 ppm); IDLH 20,000 ppm
+(NIOSH).</div><div class="xztr"><span>介电常数</span>1.0（0℃）</div><div class="xztr"><span>化妆品成分功效</span>DENATURANT<br>SOLVENT<br>FRAGRANCE</div><div class="xztr"><span>InChI</span>1S/C3H6O/c1-3(2)4/h1-2H3</div><div class="xztr"><span>InChIKey</span>CSCPPACGZOOCGX-UHFFFAOYSA-N</div><div class="xztr"><span>SMILES</span>CC(C)=O</div><div class="xztr"><span>LogP</span>-0.160</div><div class="xztr"><span>表面张力</span>23.02mN/m at 298.15K</div><div class="xztr"><span>表面张力</span>25.2mN/m at 20°C</div><div class="xztr"><span>CAS 数据库</span><a title="67-64-1(CAS DataBase Reference)" href="/CAS_67-64-1.htm">67-64-1(CAS DataBase Reference)</a></div><div class="xztr"><span>NIST化学物质信息</span><a rel="nofollow" title="Acetone(67-64-1)" href="http://webbook.nist.gov/cgi/cbook.cgi?ID=67-64-1&Units=SI">Acetone(67-64-1)</a></div><div class="xztr"><span>EPA化学物质信息</span><a rel="nofollow" title="Acetone (67-64-1)" href="https://ofmpub.epa.gov/sor_internet/registry/substreg/searchandretrieve/substancesearch/search.do?details=displayDetails&selectedSubstanceId=49021">Acetone (67-64-1)</a></div></div></div><div class="sxlist"><div class="sxbt suicon5"><h2>安全数据</h2></div><a  data-name="安全数据" data-id="安全数据" ></a><div data-upper="安全数据" data-field="coordinate"></div><div class="xztable"><div class="xztr"><span>危险性符号(GHS)</span><IMG alt="易燃 (GHS02)" src="/GHS02.jpg"><IMG alt="有害 (GHS07)" src="/GHS07.jpg"><BR><a href="/ghs_cn.htm#ghs9">GHS02,GHS07</a></div><div class="xztr"><span>警示词</span>危险</div><div class="xztr"><span>危险性描述</span><a href="/ghs_cn.htm#ghs2">H225-H319-H336</a></div><div class="xztr"><span>防范说明</span><a href="/ghs_cn.htm#ghs6">P210-P233-P240-P241-P242-P305+P351+P338</a></div><div class="xztr"><span>危险品标志</span><a href="/RiskAndSafety.htm#hazards">F,Xi,T</a></div><div class="xztr"><span>危险类别码</span><a href="/RiskAndSafety.htm#Risk">R11-R36-R66-R67-R39/23/24/25-R23/24/25</a></div><div class="xztr"><span>安全说明</span><a href="/RiskAndSafety.htm#Safety">S9-S16-S26-S45-S36/37</a></div><div class="xztr"><span>危险品运输编号</span>UN 1090 3/PG 2<BR></div><div class="xztr"><span>职业暴露等级</span>A</div><div class="xztr"><span>职业暴露限值</span>TWA: 250 ppm (590 mg/m3)</div><div class="xztr"><span>WGK Germany</span>3<BR></div><div class="xztr"><span>RTECS号</span>AL3150000<BR></div><div class="xztr"><span>F</span><a href="/RiskAndSafety.htm#hazards">3-10</a></div><div class="xztr"><span>自燃温度</span>465 °C</div><div class="xztr"><span>TSCA</span>Yes</div><div class="xztr"><span>REACH 注册登记</span>Active</div><div class="xztr"><span>危险等级</span>3</div><div class="xztr"><span>包装类别</span>II</div><div class="xztr"><span>海关编码</span>29141100</div><div class="xztr"><span>存储类别</span>3 - Flammable liquids</div><div class="xztr"><span>危险性类别</span>Eye Irrit. 2<br>Flam. Liq. 2<br>STOT SE 3</div><div class="xztr"><span>毒害物质数据</span><a rel="nofollow" title="67-64-1(Hazardous Substances Data)" href="https://pubchem.ncbi.nlm.nih.gov/source/hsdb/41">67-64-1(Hazardous Substances Data)</a></div><div class="xztr"><span>立即威胁生命和健康浓度</span>2,500 ppm</div></div></div><div class="sxlist"><div class="sxbt suicon4"><h2>应用领域</h2></div><a  data-name="应用领域" data-id="应用领域" ></a><div data-upper="应用领域" data-field="coordinate"></div><div class="cwb"><div class="tbt">用途一</div><span>是基本的有机原料和低沸点溶剂。是制造醋酐、氯仿、有机玻璃、环氧树脂、聚异戊二烯橡胶等的重要原料，也用作溶剂及提取剂。</span></div><div class="cwb"><div class="tbt">用途二</div><span>是重要的有机合成原料，用于生产环氧树脂、聚碳酸酯、有机玻璃等，也是良好溶剂，并用作萃取剂、稀释剂等</span></div><div class="cwb"><div class="tbt">用途三</div><span>用作分析试剂和溶剂</span></div><div class="cwb"><div class="tbt">用途四</div><span>抽提溶剂，主要用于香辛料及可可豆等。GB 2760-96规定为食品加工助剂及允许使用的食品用香料。在日本限用于浸出古柯豆的成分以制造古柯类饮料，并规定凡用含有丙酮原料生产的食品，在最终食品完成之前必须全部除去；还可用着色素稀释剂。</span></div><div class="cwb"><div class="tbt">用途五</div><span>用于制取有机玻璃单体、双酚A、二丙酮醇、己二醇、甲基异丁基酮、甲基异丁基甲醇、佛尔酮、异佛尔酮、氯仿、碘仿等重要有机化工原料。在涂料、醋酸纤维纺丝过程、钢瓶贮存乙炔、炼油工业脱蜡等方面用作优良的溶剂。在医药工业，是维生素C和麻醉剂索佛那的原料之一，也用作各种维生素和激素生产过程中的萃取剂。在农药工业，丙酮是合成丙烯拟除虫菊酯的原料之一。</span></div><div class="cwb"><div class="tbt">参考质量标准</div><span>FAO/WHO，1998<div class="grid-item"><input type="checkbox"><div class="case-block"><div>▼</div><div>▲</div></div><div class="abb detail"style="width: 100%;overflow-x: auto;"><div class="table"><div class="row"><div class="span">含量(W/W)</div><div class="span">99.5%～100.5%</div></div><div class="row"><div class="span">酸度(以醋酸计，W/W)</div><div class="span">≤0.002%</div></div><div class="row"><div class="span">馏程</div><div class="span">55.5～57℃</div></div><div class="row"><div class="span">不挥发残渣(W/V) </div><div class="span">≤0.001%</div></div><div class="row"><div class="span">.酚类试验(W/V) </div><div class="span">≤0.001%</div></div><div class="row"><div class="span">易氧化物</div><div class="span">阴性</div></div></div></div></div></span></div></div><div class="sxlist"><div class="sxbt suicon6"><h2>制备方法</h2></div><a  data-name="制备方法" data-id="制备方法" ></a><div data-upper="制备方法" data-field="coordinate"></div><div class="cwb"><div class="tbt">方法一</div><span>由发酵法制得丙酮、丁醇混合物后经分离精制而得。</span></div><div class="cwb"><div class="tbt">方法二</div><span>丙酮的生产方法较多。古老的方法是用石灰中和木材干馏所得的木醋液，制成乙酸钙，再经热分解制得丙酮。工业上研究过的合成丙酮的方法有：(1)从乙酸得到乙酸钙，然后分解生成丙酮；(2)乙炔在氧化锌催化剂上与水蒸气反应生成丙酮；(3)乙醇蒸气在铬酸锌催化剂存在下，高温反应生成丙酮；(4)液化天然气或石脑油氧化制丙酮(氧化产物还包括甲醛，乙酸，丁醇等)；(5)异丙醇氧化或脱氢制丙酮；(6)异丙醇过氧化氢法制丙酮；(7)异丙醇与丙烯醛合成丙酮；(8)异丙苯法制丙酮，联产苯酚以丙烯和苯为原料，经烃化制得异丙苯，再以空气氧化得到氢过氧化异丙苯，然后以硫酸或树脂分解，同时得到丙酮和苯酚；(9)丙烯直接氧化法制丙酮　工艺路线与乙烯直接氧化制乙醛法相似；(10)对甲基异丙基苯过氧化氢法生产对甲酚，副产丙酮；(11)二异丙苯法生产氢醌，副产丙酮。但工业上实际采用的方法并不很多。目前我国用粮食发酵的生产丙酮仍占较大比重。在合成法中异丙苯法是主要的。由含淀粉的农副产品发酵,制得丙酮,丁醇和乙醇的混合物.三者的比例为丙酮:丁醇=32:56:12至25:70:3(重量比).每生产1t丙酮,约耗用11t淀粉或60-66t废糖蜜。异丙苯法是丙酮生产路线中最经济的方法，同时得到苯酚。两者之比是，苯酚:丙酮=1:0.6(重量)。以苯酚计,10万t级装置每吨苯酚消耗丙烯(90%)590kg。</span></div></div><div class="sxlist"><div class="sxbt suicon7"><h2>上下游产品信息</h2></div><a data-name="上下游产品信息" data-id="上下游产品信息"></a><div data-upper="上下游产品信息" data-field="coordinate"></div><div class="tyc"><div class="tbt">上游原料</div><a  href="/ProductChemicalPropertiesCB6854153.htm">苯</a><a  href="/ProductChemicalPropertiesCB5206388.htm">叔丁醇</a><a  href="/ProductChemicalPropertiesCB3750579.htm">丙烯</a><a  href="/ProductChemicalPropertiesCB8312095.htm">乙酸钙</a><a  href="/ProductChemicalPropertiesCB2430094.htm">2-氨基-3-氯苯甲酸</a><a  href="/ProductChemicalPropertiesCB5248177.htm">石脑油</a><a  href="/ProductChemicalPropertiesCB9262508.htm">4-异丙基甲苯</a><a  href="/ProductChemicalPropertiesCB2191522.htm">异丙基苯</a><a  href="/ProductChemicalPropertiesCB7757026.htm">二异丙苯</a><a  href="/ProductChemicalPropertiesCB6352462.htm">铬酸锌(1:1)</a><a  href="/ProductChemicalPropertiesCB7203705.htm">过氧化氢异丙苯</a><a  href="/ProductChemicalPropertiesCB9389168.htm">焦木酸</a><a  href="/ProductChemicalPropertiesCB41153639.htm">废糖蜜</a><a  href="/ProductChemicalPropertiesCB81028649.htm">液化天然气</a></div><div class="tyc"><div class="tbt">下游产品</div><a  href="/ProductChemicalPropertiesCB1406489.htm">3-氨基哒嗪</a><a  href="/ProductChemicalPropertiesCB8766928.htm">2-溴月桂酸</a><a  href="/ProductChemicalPropertiesCB8408008.htm">2,5-二氯噻吩-3-磺酰胺</a><a  href="/ProductChemicalPropertiesCB6339733.htm">丙酮基膦酸二甲酯</a><a  href="/ProductChemicalPropertiesCB31453886.htm">3-亚氨基-Α-苯基-3-噻唑烷乙醇</a><a  href="/ProductChemicalPropertiesCB8852885.htm">2-甲基-3-丁炔-2-醇</a><a  href="/ProductChemicalPropertiesCB6854229.htm">碘仿</a><a  href="/ProductChemicalPropertiesCB2135294.htm">2-(4-苯甲氧基苯基)乙醇</a><a  href="/ProductChemicalPropertiesCB4238304.htm">7-甲氧基香豆素</a><a  href="/ProductChemicalPropertiesCB8174569.htm">5-甲氧基-2-甲基吲哚</a><a  href="/ProductChemicalPropertiesCB4760867.htm">2-碘乙酰胺</a><a  href="/ProductChemicalPropertiesCB4357665.htm">7-乙氧基香豆素</a><a  href="/ProductChemicalPropertiesCB5296077.htm">乙氧基喹啉</a><a  href="/ProductChemicalPropertiesCB7435438.htm">4-羧基苯基异硫氰酸酯</a><a  href="/ProductChemicalPropertiesCB8489913.htm">邻苯二甲酸单吗啉</a><a  href="/ProductChemicalPropertiesCB8322199.htm">肾上腺素</a><a  href="/ProductChemicalPropertiesCB8770909.htm">2-苯基-4-喹啉羧酸</a><a  href="/ProductChemicalPropertiesCB9111426.htm">3-二甲胺基丙苯酮</a><a  href="/ProductChemicalPropertiesCB9547342.htm">3,4-二氢-4-喹唑啉酮-7-甲酸甲酯</a><a  href="/ProductChemicalPropertiesCB9269022.htm">3-甲基噻吩-2-羧酸</a><a  href="/ProductChemicalPropertiesCB6384203.htm">1,1,3,3-四溴丙酮</a><a  href="/ProductChemicalPropertiesCB0323635.htm">2-吡啶磺酸</a><a  href="/ProductChemicalPropertiesCB1855195.htm">奥西那林</a><a  href="/ProductChemicalPropertiesCB8198907.htm">4-(2-噻吩基)丁-3-烯-2-酮</a><a  href="/ProductChemicalPropertiesCB6503073.htm">阿米卡星硫酸盐(5:9)</a><a  href="/ProductChemicalPropertiesCB8389792.htm">防老剂AW</a><a  href="/ProductChemicalPropertiesCB7743348.htm">异佛尔酮</a><a  href="/ProductChemicalPropertiesCB7688755.htm">硫酸阿米卡星</a><a  href="/ProductChemicalPropertiesCB9205440.htm">四甲基二乙烯基二硅氧烷</a><a  href="/ProductChemicalPropertiesCB6329523.htm">对羟基亚苄基丙酮</a><a  href="/ProductChemicalPropertiesCB41451667.htm">苯乙酮苯腙</a><a  href="/ProductChemicalPropertiesCB0746254.htm">查耳酮</a><a  href="/ProductChemicalPropertiesCB4292971.htm">季戊四醇四硝酸酯</a><a  href="/ProductChemicalPropertiesCB5164853.htm">3,3',4,4'-二苯甲酮四甲酸二酐</a></div></div><div class="sxlist"><div class="sxbt suicon8"><h2>化学品安全说明书(MSDS)</h2></div><a  data-name="化学品安全说明书MSDS" data-id="化学品安全说明书MSDS" ></a><div data-upper="化学品安全说明书MSDS" data-field="coordinate"></div><div class="MSDS"><span>MSDS 信息</span><a title="丙酮(67-64-1)_MSDS" href="/ProductMSDSDetailCB3130928.htm">丙酮(67-64-1).msds</a></div></div><div class="sxlist"><div class="sxbt suicon9"><h2>67-64-1(安全特性,毒性,储运)</h2></div><a  data-name="安全特性毒性储运" data-id="安全特性毒性储运" ></a><div data-upper="安全特性毒性储运" data-field="coordinate"></div><div class="cwb"><div class="tbt">爆炸物危险特性</div><span>与空气混合可爆</span></div><div class="cwb"><div class="tbt">储运特性</div><span>库房通风低温干燥; 与氧化剂分开存放</span></div><div class="cwb"><div class="tbt">刺激数据</div><span>眼睛- 兔子 20 毫克&nbsp; 重度; 皮肤- 兔子 395 毫克&nbsp; 轻度</span></div><div class="cwb"><div class="tbt">毒性分级</div><span>中毒</span></div><div class="cwb"><div class="tbt">急性毒性</div><span>口服-大鼠 LD50: 5800 毫克/公斤; 口服-小鼠 LD50: LD50:3000毫克/公斤</span></div><div class="cwb"><div class="tbt">可燃性危险特性</div><span>遇明火、高温、氧化剂易燃, 燃烧产生刺激烟雾</span></div><div class="cwb"><div class="tbt">类别</div><span>易燃液体</span></div><div class="cwb"><div class="tbt">灭火剂</div><span>干粉、干砂、二氧化碳、泡沫、1211灭火剂</span></div><div class="cwb"><div class="tbt">职业标准</div><span>TWA 2400 毫克/立方米; STEL 4000 毫克/立方米</span></div></div><div class="sxlist"><div class="sxbt suicon10"><h2>常见问题列表</h2></div><a  data-name="常见问题列表" data-id="常见问题列表" ></a><div data-upper="常见问题列表" data-field="coordinate"></div><div class="cwb"><div class="tbt">概述</div><span>丙酮也称作二甲基酮、二甲基甲酮、二甲酮，或称醋酮、木酮，是饱和脂肪酮系列中最简单的酮。熔点-95℃，沸点56℃，密度：在25时比重0.788，为一种有特殊气味的无色可燃液体。在常温下为无色透明液体，易挥发、易燃，有芳香气味。与水、甲醇、乙醇、乙醚、氯仿和吡啶等均能互溶，能溶解油、脂肪、树脂和橡胶等，也能溶解醋酸纤维素和硝酸纤维素，是一种重要的溶剂。丙酮对人体没有特殊的毒性，但是吸入后可引起头痛，支气管炎等症状。如果大量吸入，还可能失去意识。日常生活中主要用于脱脂，脱水，固定等等。在血液和尿液中为重要检测对象。有些癌症患者尿样丙酮水平会异常升高。采用低碳水化合物食物疗法减肥的人血液、尿液中的丙酮浓度也异常地高。丙酮以游离状态存在于自然界中，在植物界主要存在于精油中，如茶油、松脂精油、柑橘精油等；人尿和血液及动物尿、海洋动物的组织和体液中都含有少量的丙酮。糖尿病患者的尿中丙酮的含量异常地增多。蒸气与空气混合可形成爆炸性混合物，爆炸极限 2.55％～12.8％（体积）。丙酮的羰基能与多种亲核试剂发生加成反应，例如催化氢化生成异丙醇，还原生成频哪醇；与氨衍生物、氢氰酸、炔化物、有机金属化合物反应等。丙酮还能进行α氢的反应，例如与卤素发生取代反应，自身或与其他化合物发生类似羟醛缩合反应等。</span></div><div class="cwb"><div class="tbt">分子结构</div><span>丙酮分子中羰基上的C原子以sp2杂化轨道成键，甲基C原子以sp3杂化轨道成键。</span></div><div class="cwb"><div class="tbt">极限参数</div><span>自燃点:465℃ 爆炸极限:2.6%~12.8% 最大爆炸压力:87.3牛/平方厘米 最易引燃浓度:4.5产生最大爆炸压力浓度:6.3% 最小引燃能量:1.15毫焦(当4.97%浓度时) 燃烧热值:1792千焦/摩尔(液体,25℃) 蒸气压:53.33千帕(39.5℃)。</span></div><div class="cwb"><div class="tbt">纯化与除水方法</div><span>普通丙酮常含有少量的水及甲醇、乙醛等还原性杂质。其纯化方法有：<BR>
+⑴于250mL丙酮中加入2.5g高锰酸钾回流，若高锰酸钾紫色很快消失，再加入少量高锰酸钾继续回流，
+至紫色不褪为止。然后将丙酮蒸出，用无水碳酸钾或无水硫酸钙干燥，过滤后蒸馏，收集55~56.5℃的
+馏分。用此法纯化丙酮时，须注意丙酮中含还原性物质不能太多，否则会过多消耗高锰酸钾和丙酮，使
+处理时间增长。
+⑵将100mL丙酮装入分液漏斗中，先加入4mL10%硝酸银溶液，再加入3.6mL1mol/L氢氧化钠溶液，振摇
+10min，分出丙酮层，再加入无水硫酸钾或无水硫酸钙进行干燥。最后蒸馏收集55~56.5℃馏分。此法比
+方法⑴要快，但硝酸银较贵，只宜做小量纯化用。</span></div><div class="cwb"><div class="tbt">作用</div><span>在化工、人造纤维、医药、油漆、塑料、有机玻璃、化妆品等行业中作为重要的有机原料，是优良的有机溶剂，可溶解许多有机产物如树脂、醋酸纤维、乙炔等，也是制造硝化棉的溶剂。在工业上丙酮主要作为溶剂用于炸药、塑料、橡胶、纤维、制革、油脂、喷漆等行业中，丙酮也可作为合成烯酮、醋酐、碘仿、聚异戊二烯橡胶、甲基丙烯酸、甲酯、氯仿、环氧树脂等物质的重要原料。在精密铜管制造行业中，丙酮经常被用于擦拭铜管上面的黑色墨水。<BR>
+常见用途举例：<BR>
+溶剂：例如卸除指甲油的去光水中的主要（或唯一）成份就是丙酮。也是实验室常备的洗涤用溶剂。 <BR>
+试剂：丙酮在合成上是一种C3合成子，可以用于有机合成。另外丙酮也是一种保护基前体，通过生成缩酮来保护1,2-二醇，或者1,3-二醇。 <BR>
+冷剂：丙酮与干冰的混合物可当冷剂（摄氏:-50℃）。</span></div><div class="cwb"><div class="tbt">制备方法</div><span>丙酮的生产方法主要有异丙醇法、异丙苯法、发酵法、乙炔水合法和丙烯直接氧化法。目前世界上丙酮的工业生产以异丙苯法为主。世界上三分之二的丙酮是制备苯酚的副产品，是异丙苯氧化后的产物之一。该技术目前主要的专利生产商有Kellogg Brown & Root公司、三井化学公司和UOP公司。<BR> 
+Solutia公司开发了一种用氮氧化物氧化苯生产苯酚的技术，但是该公司去年取消了采用该工艺建厂的计划，因为采用该项技术毛利水平太低。日本的研究人员最近还开发了一种采用铕-钛催化剂以苯为原料的一步法生产苯酚和丙酮的生产工艺。 <BR>
+干馏法:在异丙苯法尚未发明之前，早期丙酮多由乙酸钙的干馏制得。<BR>
+发酵法:用丁醇酵母发酵可以获得丙酮。此法为第一次世界大战期间，由哈伊姆·魏茨曼所发展，但不久就因产率极低而被放弃。<BR>
+异丙苯氧化合成法:用石油工业产品异丙苯在硫酸的催化下被空气氧化重排成丙酮，副产物苯酚。该法产生的废品很少，称为“一箭双雕”法。<BR></span></div><div class="cwb"><div class="tbt">毒性与危害</div><span>丙酮主要是对中枢神经系统的抑制、麻醉作用，高浓度接触对个别人可能出现肝、肾和胰腺的损害。由于其毒性低，代谢解毒快，生产条件下急性中毒较为少见。急性中毒时可发生呕吐、气急、痉挛甚至昏迷。口服后，口唇、咽喉烧灼感，经数小时的潜伏期后可发生口干、呕吐、昏睡、酸中度和酮症，甚至暂时性意识障碍。丙酮对人体的长期损害，表现为对眼的刺激症状如流泪、畏光和角膜上皮浸润等，还可表现为眩晕、灼热感，咽喉刺激、咳嗽等。<BR> 
+代谢：丙酮经肺、胃肠道、皮肤等途径吸收后,由于水溶性强,易吸收入血液,迅速分布于全身。其排出取决于剂量,大剂量时以原形主要经肺和肾,极少量经皮肤排出；小剂量时大部分被氧化成二氧化碳排出。丙酮在血液中的生物学半衰期,大鼠为5.3 h,狗为11 h,人为3 h。丙酮在人体的代谢大多是分解为乙酰乙酸和转变为糖原的三羧酸循环中间体。<BR>1、吸入:浓度在500ppm以下无影响，500～1000ppm之间会刺激鼻、喉，1000ppm时可致头痛并有头晕出现。2000～10000 ppm时可产生头晕、醉感、倦睡、恶心和呕吐，高浓度导致失去知觉、昏迷和死亡。<BR> 2、眼睛接触:浓度在500ppm会产生刺激，1000ppm会有轻度、暂时性刺激。液体会产生中毒刺激。 <BR>3、皮肤刺激:液体会有轻度刺激，通过完好的皮肤吸收造成的危险很小。<BR>4、口服:对喉和胃有刺激作用，服进大量会产生和吸入相同的症状。<BR>5、皮肤接触会导致干燥、红肿和皲裂，每天3小时吸入浓度为1000ppm的蒸气，在7～15年会刺激工人鼻腔，使之眩晕、乏力。高浓度蒸气会影响肾和肝的功能。</span></div><div class="cwb"><div class="tbt">急救与防护</div><span>消防：<BR>高度易燃性，有严重火灾危险，属于甲类火灾危险物质。在室温下蒸气与空气会形成爆炸性混合物。<BR>
+用干粉、抗溶泡沫灭火剂、卤素灭火剂或二氧化碳来灭火。用水来冷却暴露于火中的容器，并驱散丙酮蒸气。<BR> 
+人身防护：<BR>1、吸入：如蒸气浓度不明或超过暴露极限时，应佩带合适的呼吸器。<BR>
+2、皮肤：如果需要，应使用手套、工作服和工作鞋，合适的材料是丁基橡胶。在直接工作的场所应备有可用的安全淋浴和眼睛冲洗器具。<BR>3、眼睛：戴化学放溅眼镜，必要时可佩带面罩。<BR>急救：<BR>
+1、吸入：脱离丙酮产生源或将患者移到新鲜空气处，如呼吸停止应进行人工呼吸。<BR> 2、眼睛接触：眼睑张开，用微温的缓慢的流水冲洗患眼约10分钟。 <BR>3、皮肤接触：用微温的缓慢的流水冲洗患处至少10分钟。 <BR>4、口服：用水充分漱口，不可催吐，给患者饮水约250ml。 <BR>5、一切患者都应请医生治疗。</span></div><div class="cwb"><div class="tbt">含量分析</div><span>于一内盛水20ml的烧瓶中准确称取试样约1g，加水至1000ml。取该液10ml放人一具玻塞烧瓶中，加氢氧化钠试液(TS-224)25ml，静置5min。加0.1mol/L碘液25ml，加塞，于冷的暗处放置10min，加1mol/L硫酸30ml。用0.1mol/L硫代硫酸钠滴定剩余的碘，用淀粉试液(TS-235)作指示剂。按试样量作相同的空白试验并作必要校正。每ml0.1mol/L碘相当于C<sub>3</sub>H<sub>6</sub>O 0.9675mg。</span></div><div class="cwb"><div class="tbt">毒性</div><span><br>ADI GMP为限(FAO/WHO，2001)。<br>LD<sub>50</sub>3000mg/kg(小鼠，经口)。<br>对人的急性致死量为50ml/人。</span></div><div class="cwb"><div class="tbt">使用限量</div><span><br>FDA§173.210(2000)：香辛料油树脂中的限量为30mg/kg。<br>FEMA(mg，/kg)：软饮料5；冷饮5；糖果8；焙烤食品8；布丁类5；涂抹食品5。</span></div><div class="cwb"><div class="tbt">食品添加剂最大允许使用量最大允许残留量标准</div><span><div class="grid-item"><input type="checkbox"><div class="case-block"><div>▼</div><div>▲</div></div><div class="abb detail"style="width: 100%;overflow-x: auto;"><div class="table"><div class="row"><div class="span">添加剂中文名称</div><div class="span">允许使用该种添加剂的食品中文名称</div><div class="span">添加剂功能</div><div class="span">最大允许使用量（g/kg）</div><div class="span">最大允许残留量（g/kg）</div></div><div class="row"><div class="span">丙酮</div><div class="span">食品</div><div class="span">食品用香料</div><div class="span">用于配制香精的各香料成分不得超过在GB 2760中的最大允许使用量和最大允许残留量</div><div class="span"></div></div><div class="row"><div class="span">丙酮</div><div class="span">食品</div><div class="span">食品工业用加工助剂</div><div class="span">/</div><div class="span">食品工业用加工助剂一般应在制成最后成品之前出去，有规定食品中残留量的除外</div></div></div></div></div></span></div></div><div class="sxlist"><div class="sxbt suicon11"><h2>毒性防护</h2></div><a  data-name="毒性防护" data-id="毒性防护" ></a><div data-upper="毒性防护" data-field="coordinate"></div><div class="cwb"><div class="tbt">防护措施</div><span>易燃有毒物品，毒性中等。轻度中毒对眼及上呼吸道粘膜有刺激作用，重度中毒有晕厥、痉挛，尿中出现蛋白和红细胞等症状，小鼠暴露在丙酮蒸气（1）30～40mg/L、（2）150mg/L中2小时，结果：（1）呈侧卧的中毒症状；（2）致死。人体发生中毒时，应立即离开现场，呼吸新鲜空气，重者送医院抢救。空气中最高容许浓度0.001。操作现场应保持良好的通风，操作人员应穿戴防护用品。</span></div></div><div class="sxlist"><div class="sxbt suicon12"><h2>包装储运</h2></div><a  data-name="包装储运" data-id="包装储运" ></a><div data-upper="包装储运" data-field="coordinate"></div><div class="cwb"><div class="tbt">常规方法</div><span>用200L（53  US  gal）铁桶包装，每桶净重160kg，铁桶内部应清洁、干燥。贮存于干燥、通风处，温度保持在35℃以下，装卸、运输时防止猛烈撞击，并防止日晒雨淋。按防火防爆化学品规定贮运。</span></div></div><div class="sxlist"><div class="sxbt suicon13"><h2>图谱信息</h2></div><a  data-name="图谱信息" data-id="图谱信息" ></a><div data-upper="图谱信息" data-field="coordinate"></div><div class="cwb"><div class="tbt">图谱信息</div><span><a  href="/Spectrum_67-64-1_MS.htm">丙酮(67-64-1)质谱(MS)</a><BR><a  href="/Spectrum_67-64-1_1HNMR.htm">丙酮(67-64-1)核磁图(<sup>1</sup>HNMR)</a><BR><a  href="/Spectrum_67-64-1_13CNMR.htm">丙酮(67-64-1)核磁图(<sup>13</sup>CNMR)</a><BR><a  href="/Spectrum_67-64-1_IR1.htm">丙酮(67-64-1)红外图谱(IR1)</a><BR><a  href="/Spectrum_67-64-1_Raman.htm">丙酮(67-64-1)Raman光谱</a><BR></span></div></div><div class="sxlist"><div class="sxbt suicon14"><h2>知名试剂公司产品信息</h2></div><a  data-name="知名试剂公司产品信息" data-id="知名试剂公司产品信息" ></a><div data-upper="知名试剂公司产品信息" data-field="coordinate"></div><div class="cwb"><div class="tbt">Acros Organics</div><span><a title="丙酮&#13;Acetone,forHPLC,99.8%(67-64-1)" href="http://www.acros.com/ecommerce/specs.aspx?Prdnr=26831&CAS=67-64-1">丙酮<BR>Acetone,forHPLC,99.8%(67-64-1)</a></span></div><div class="cwb"><div class="tbt">Alfa Aesar</div><span><a title="丙酮,SpectrophotometricGrade,99.5+%&#13;Acetone, Spectrophotometric Grade, 99.5+%(67-64-1)" href="https://chemicals.thermofisher.cn/AlfaAesarApp/faces/adf.task-flow?adf.tfId=ProductDetailsTF&adf.tfDoc=/WEB-INF/ProductDetailsTF.xml&ProductId=C32657&_afrWindowMode=0&_afrLoop=2414898352365110">丙酮,SpectrophotometricGrade,99.5+%<BR>Acetone, Spectrophotometric Grade, 99.5+%(67-64-1)</a></span></div><div class="cwb"><div class="tbt">Sigma Aldrich</div><span><a title="67-64-1(sigmaaldrich)" href="https://www.sigmaaldrich.cn/CN/zh/product/aldrich/w332615?lang=zh&region=CN">67-64-1(sigmaaldrich)</a></span></div></div><div class="sxlist"><div class="sxbt suicon21"><h2><a name="丙酮价格(试剂级)" href="/PriceReagent_67-64-1.htm" >丙酮价格(试剂级)</a></h2></div><a  data-name="丙酮价格试剂级" data-id="丙酮价格试剂级" ></a><div data-upper="丙酮价格试剂级" data-field="coordinate"></div> <div class="cwb"><div class="tbt">丙酮价格(试剂级)</div><div class="jgtable"><table style="border:1px #CCCCCC solid;"><tr><td>报价日期</td><td>产品编号</td><td>产品名称</td><td>CAS号</td><td>包装</td><td>价格</td></tr><tr><td>2026/09/15</td><td>80000383</td><td>丙酮<BR>acetone;2-propanone;dimethyl ketone;propan-2-one</td><td>67-64-1</td><td>1L</td><td>327元</td></tr><tr><td>2026/09/15</td><td>80000367</td><td>丙酮<BR>acetone;2-propanone;dimethyl ketone;propan-2-one</td><td>67-64-1</td><td>4L</td><td>304元</td></tr><tr><td>2026/09/15</td><td>40064492</td><td>丙酮</td><td>67-64-1</td><td>4L</td><td>1461元</td></tr></table></div></div></div></div>
+            </div>
+        </main>
+        
+        <aside class="fr">
+            <div class="sxr">
+                <span id="PriceInfo"><div class="gys"><div class="jgztt"><h2><a target="_Blank" href="/PriceInfoall_CB3130928.htm" name="#丙酮价格专题">丙酮价格专题</a></h2></div><div class="jgzt"><a target="_blank" href="/PriceInfo_1071408.htm">9月15日 丙酮最新价格</a> <span>9月15日 丙酮厂家最新报价:6200元/吨。</span> <span>9/16/2026 8:32:28 AM</span> </div><div class="jgzt"><a target="_blank" href="/PriceInfo_1068066.htm">9月13日 丙酮最新价格</a> <span>9月13日 丙酮厂家最新报价:6200元/吨。</span> <span>9/14/2026 8:33:27 AM</span> </div><div class="jgzt"><a target="_blank" href="/PriceInfo_1063650.htm">9月7日 丙酮最新价格</a> <span>9月7日 丙酮厂家最新报价:6200元/吨。</span> <span>9/8/2026 11:55:36 AM</span> </div></div></span>
+            </div>
+        </aside>
+        
+    </div>
+    <div class="xiangW">
+        <div class="xiangg">
+            <div>
+                <span id="Tags">"67-64-1"</span>
+                相关产品信息
+            </div>
+            
+                    <a title='5949-29-1(CAS数据库)' href='/CAS_5949-29-1.htm' target="_blank">5949-29-1</a>
+                
+                    <a title='127-17-3(CAS数据库)' href='/CAS_127-17-3.htm' target="_blank">127-17-3</a>
+                
+                    <a title='123-42-2(CAS数据库)' href='/CAS_123-42-2.htm' target="_blank">123-42-2</a>
+                
+                    <a title='123-54-6(CAS数据库)' href='/CAS_123-54-6.htm' target="_blank">123-54-6</a>
+                
+                    <a title='93-55-0(CAS数据库)' href='/CAS_93-55-0.htm' target="_blank">93-55-0</a>
+                
+                    <a title='67-64-1(CAS数据库)' href='/CAS_67-64-1.htm' target="_blank">67-64-1</a>
+                
+                    <a title='122-84-9(CAS数据库)' href='/CAS_122-84-9.htm' target="_blank">122-84-9</a>
+                
+                    <a title='70-70-2(CAS数据库)' href='/CAS_70-70-2.htm' target="_blank">70-70-2</a>
+                
+                    <a title='403-29-2(CAS数据库)' href='/CAS_403-29-2.htm' target="_blank">403-29-2</a>
+                
+                    <a title='107-87-9(CAS数据库)' href='/CAS_107-87-9.htm' target="_blank">107-87-9</a>
+                
+                    <a title='645-96-5(CAS数据库)' href='/CAS_645-96-5.htm' target="_blank">645-96-5</a>
+                
+                    <a title='7188-38-7(CAS数据库)' href='/CAS_7188-38-7.htm' target="_blank">7188-38-7</a>
+                
+        </div>
+    </div>
+            
+    
+
+    <footer class="foot grayA">
+        <div class="BoxW">
+            <div>
+                <a rel="nofollow" href="/ProductIndex.aspx">主页</a> | 
+           
+                <a rel="nofollow" href="/UserProfile/VIPInfo.aspx">企业会员服务</a> | 
+           
+                <a rel="nofollow" href="/UserProfile/BuyAds.aspx">广告业务</a> | 
+           
+                <a rel="nofollow" href="/ContactUS.aspx">联系我们</a> | 
+           
+                <a rel="nofollow" href="/indexCN.aspx">旧版入口</a> | 
+           
+                <a rel="nofollow" href="/ProductMSDSList_0.htm">中文MSDS</a> | 
+           
+                <a rel="nofollow" href="/ShowAllProductByIndexID_CAS_16_0.htm">CAS Index</a> | 
+           
+                <a rel="nofollow" href="/CASDetailList_0.htm">常用化学品CAS列表</a> | 
+           
+                <a rel="nofollow" href="/ChemicalProductsList_0.htm">化工产品目录</a> | 
+           
+                <a rel="nofollow" href="/ShowAllNewProductList_0.htm">新产品列表</a> | 
+           
+                <a rel="nofollow" href="/Selection/first.aspx">评选活动</a> | 
+           
+                <a rel="nofollow" href="https://hscode.chemicalbook.com">HS海关编码</a> | 
+           
+                <a rel="nofollow" href="https://msds.chemicalbook.com">MSDS查询</a>
+            </div>
+            <div>
+                <span style="text-decoration: underline;">本网站展示的所有产品仅用于工业应用或者科学研究等非医疗目的,不可用于人类或动物的临床诊断或者治疗,非药用,非食用。<br>
+  根据相关法律法规和本站规定，单位或个人购买相关危险物品应取得有效的资质、资格条件。</span><br />
+                Copyright © 2008 ChemicalBook  
+                <span style="position: relative; top: 4px;">
+                    <img src="https://img.chemicalbook.com/images/ba.png" alt="京公网安备 11010802032676号" />
+                    <a target="_blank" href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=11010802032676" style="display: inline-block; text-decoration: none; height: 20px; line-height: 20px;">
+                        <p style="float: left; height: 20px; line-height: 20px; margin: 0px 0px 0px 5px; color: #fff;">京公网安备 11010802032676号</p>
+                    </a></span>&nbsp;&nbsp;All rights reserved.
+       
+            </div>
+            <div>热线电话：010-86108875</div>
+        </div>
+    </footer>
+    
+    
+    
+    
+    
+    <script type="text/javascript">
+        $(function () {
+            //var flag; // 鼠标按下
+            //var downX; // 鼠标点击的x下标
+            //var scrollLeft; // 当前元素滚动条的偏移量
+            //nav.addEventListener("mousedown", function (event) {
+            //    flag = true;
+            //    downX = event.clientX; // 获取到点击的x下标
+            //    scrollLeft = this.scrollLeft; // 获取当前元素滚动条的偏移量
+            //});
+            //nav.addEventListener("mousemove", function (event) {
+            //    if (flag) { // 判断是否是鼠标按下滚动元素区域
+            //        // 获取移动的x轴
+            //        var moveX = event.clientX;
+            //        // 当前移动的x轴下标减去刚点击下去的x轴下标得到鼠标滑动距离
+            //        var scrollX = moveX - downX;
+            //        // 鼠标按下的滚动条偏移量减去当前鼠标的滑动距离
+            //        this.scrollLeft = scrollLeft - scrollX;
+            //        //console.log(scrollX)
+            //    }
+            //});
+            //// 鼠标抬起停止拖动
+            //nav.addEventListener("mouseup", function () {
+            //    flag = false;
+            //});
+            //// 鼠标离开元素停止拖动
+            //nav.addEventListener("mouseleave", function (event) {
+            //    flag = false;
+            //});
+
+            //$(".contentsR").click(function () {
+            //    $(".gdnone").slideToggle();
+            //})
+            var coordinate = $("div[data-field='coordinate']");
+
+            $("#menufloat").on("click", "a", function () {
+                $(document).scrollTop($("[data-id='" + $(this).attr("data-upper") + "']").offset().top - 180);
+            })
+
+            //$("#menufloat a").click(function (e) {
+            //    $(document).scrollTop($("#" + $(this).attr("data-upper")).offset().top - 204); 
+            //    if (e && e.preventDefault) {
+            //        e.preventDefault();// 阻止标准浏览器默认行为 
+            //    } else {
+            //        window.event.returnValue = false;// 阻止IE浏览器默认行为 
+            //    }
+            //    return false; 
+            //})
+            $("#menufloat2 a").click(function () {
+                $(document).scrollTop($("#" + $(this).attr("data-upper")).offset().top - 80);
+            })
+            var flag = false;
+            $(window).scroll(function (event) {
+                for (var i = 0; i < coordinate.length; i++) {
+                    if ($(coordinate[i]).offset().top - $(this).scrollTop() > 0 && $(coordinate[i]).offset().top - $(this).scrollTop() < 200 && ($(coordinate[i]).offset().top - $(this).scrollTop() > -100)) {
+                        $("#menufloat2 a").removeClass("current");
+                        $("#menufloat2 a[data-upper='" + $(coordinate[i]).attr("data-upper") + "']").addClass("current");
+                        $("#menufloat a").removeClass("current");
+                        $("#menufloat a[data-upper='" + $(coordinate[i]).attr("data-upper") + "']").addClass("current");
+
+                    }
+
+                }
+
+                if ($("#divgys").length > 0) {
+                    if ($(this).scrollTop() >= $("#divgys").offset().top && flag == false && $(window).width() <= 640) {
+                        $("#nav .current").removeClass("current");
+                        flag = true;
+                    } else {
+                        flag = false;
+                    }
+                }
+
+                if ($("#nav .current")[0] != undefined) {
+                    var sc = $("#nav .current")[0].offsetLeft + $("#nav .current")[0].offsetWidth - $("#nav")[0].offsetLeft - $("#nav").width();
+                    if (sc > 0) {
+                        $("#nav")[0].scrollLeft = sc + 200;
+                    } else {
+                        $("#nav")[0].scrollLeft = 0;
+                    }
+                }
+
+
+
+                var outDiv = document.getElementById('nav');
+                outDiv.onwheel = function (event) {
+                    //禁止事件默认行为（此处禁止鼠标滚轮行为关联到"屏幕滚动条上下移动"行为）  
+                    event.preventDefault();
+                    //设置鼠标滚轮滚动时屏幕滚动条的移动步长  
+                    var step = 50;
+                    if (event.deltaY < 0) {
+                        //向上滚动鼠标滚轮，屏幕滚动条左移  
+                        this.scrollLeft -= step;
+                    } else {
+                        //向下滚动鼠标滚轮，屏幕滚动条右移  
+                        this.scrollLeft += step;
+                    }
+                }
+
+                //var currentTop = $("#nav .current").offset().top;
+                //if (0 < currentTop - $(document).scrollTop() - $(window).height()) {
+                //    $("#nav .current").removeClass("current");
+                //}
+
+                var scrollTop = $(this).scrollTop();
+
+                if (scrollTop > $("#menufloat_position").offset().top) {
+                    $("#menufloat").addClass("menufloat2");
+                }
+                else if (scrollTop <= $("#menufloat_position").offset().top) {
+                    $("#menufloat").removeClass("menufloat2");
+                }
+
+                //if (scrollTop > $("#menufloat").offset().top) {
+                //    $("#menufloat2").show();
+                //    $("#menufloat").css("visibility", "hidden");
+                //}
+                //else if (scrollTop <= $("#menufloat").offset().top) {
+                //    $("#menufloat2").hide();
+                //    $("#menufloat").css("visibility", "");
+                //}
+
+                //var index = $(".menufloatext a[class='current']").attr("data-filed");// index(); 
+                //if (index > 7) {
+                //    $(".gdnone").show();
+                //}
+                //else {
+                //    $(".gdnone").hide();
+                //}
+            });
+
+            //$("#menufloat a").click(function () {
+            $("#menufloat").on("click", "a", function () {
+                $("#menufloat a").removeClass("current");
+                $(this).addClass("current");
+                $("#menufloat2 a").removeClass("current");
+                $("#menufloat2 a[data-upper='" + $(this).text() + "']").addClass("current");
+                //document.documentElement.scrollTop -= 200;
+                //$(document).scrollTop($("#" + $(this).attr("data-upper")).offset().top - 200); 
+            });
+
+            $("#menufloat2 a").click(function () {
+                $("#menufloat2 a").removeClass("current");
+                $(this).addClass("current");
+                $("#menufloat a").removeClass("current");
+                $("#menufloat a[data-upper='" + $(this).text() + "']").addClass("current");
+            });
+            //百度统计
+            var hm = document.createElement("script");
+            hm.src = "https://hm.baidu.com/hm.js?7d450754590aa33d1fe40874160c2513";
+            var s = document.getElementsByTagName("script")[0];
+            s.parentNode.insertBefore(hm, s);
+        });
+    </script>
+     
+    <script type="application/ld+json">
+    {"@context":"https://ziyuan.baidu.com/contexts/cambrian.jsonld","appid":"1602411201546246","@id":"https://www.chemicalbook.com/CAS_67-64-1.htm","title":"67-64-1 | CAS数据库","images":["https://www.chemicalbook.com//CAS/GIF/67-64-1.gif"],"description":"ChemicalBook 提供有关67-64-1的理化性质,用途,制备方法,CAS号,MSDS","pubDate":"2009-06-29T22:54:00","upDate":"2026-09-16T08:32:28"}
+    </script>
+     
+</body>
+</html>

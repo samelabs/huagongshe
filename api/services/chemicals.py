@@ -562,12 +562,41 @@ class ChemicalNotFoundError(Exception):
     """chemical_id 无对应行的 neutral 语义错误(detail 固定基线原文)。"""
 
 
+# --- enrich 契约(E7 冻结) ------------------------------------------------
+# core = canonical current behavior; full = core 的兼容别名。
+# 两者返回语义一致: full 不代表额外 enrichment —— 无第二来源、无额外 DB 查询、
+# 无异步补全、无额外字段。调用方不得依赖"full 会更多"这一未实现承诺。
+ENRICH_CANONICAL = "core"
+ENRICH_COMPAT_ALIASES = ("full",)
+
+
+def normalize_enrich(value: str | None) -> str:
+    """enrich 参数唯一归一入口(HTTP/MCP 共用, E7 冻结)。
+
+    未知值不在此静默放行: HTTP 由 query schema(pattern) 挡 422,
+    MCP 由 ToolError 挡 —— 归一只负责把兼容别名映射到规范值。
+    """
+    if not value:
+        return ENRICH_CANONICAL
+    return ENRICH_CANONICAL if value in ENRICH_COMPAT_ALIASES else value
+
+
+def _frozen_enrich(value: str) -> None:
+    """enrich 只有一条实现路径(E7 冻结): 入口已归一, 此处只接受规范值。
+
+    若未来有人为 full 加第二业务路径, 会在此暴露而不是静默生效。
+    """
+    if value != ENRICH_CANONICAL:
+        raise ValueError(f"unsupported enrich: {value!r}")
+
+
 async def get_chemical_detail(
     db: Any,
     chemical_id: int,
     *,
     actor_id: int | None,
     priority: int,
+    enrich: str = ENRICH_CANONICAL,
 ) -> dict[str, Any]:
     """返回 canonical full business detail(未做 display 投影)。
 
@@ -577,8 +606,12 @@ async def get_chemical_detail(
       → job commit → details → enrichment status/job_id 组装。
     priority 由 adapter 按既有 policy(80=actor/50=匿名)显式传入;
     MCP 当前恒匿名 priority=50。
+    enrich: core|full 同语义(E7 冻结) —— 本函数不按 enrich 分支,
+    也不做任何额外取数; 只校验入口归一后的规范值。
     """
     from .enrichment import enqueue_chemical_if_needed
+
+    _frozen_enrich(normalize_enrich(enrich))
 
     rows = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT} FROM chemistry.chemicals c WHERE c.id=:id

@@ -15,6 +15,7 @@ import asyncio
 import hashlib
 import os
 import random
+import shutil
 import sys
 import unittest
 from pathlib import Path
@@ -30,6 +31,27 @@ RUN = random.randint(10_000_000, 99_000_000)
 _GATE = unittest.skipUnless(DB_URL, "需要 PG 测试库")
 
 
+def _skill_root_snapshot():
+    """E7 §4 环境卫生: 记录测试前的 skill_root 目录集合。"""
+    from api.core.config import settings
+    root = Path(settings.skill_root)
+    return root, (set(root.iterdir()) if root.is_dir() else set())
+
+
+def _skill_root_cleanup(snap) -> None:
+    """删掉本测试期间新建的 skill 目录(只动新增项, 不碰既有内容)。
+
+    _create_skill_record 会 mkdir skill_root/<id>; 测试只回滚 DB 行,
+    目录会留在盘上 → full suite 每轮残留。E7 定位 owner 后补此处清理。
+    """
+    root, before = snap
+    if not root.is_dir():
+        return
+    for p in root.iterdir():
+        if p not in before:
+            shutil.rmtree(p, ignore_errors=True)
+
+
 @_GATE
 class TokenRevokeSemanticsTests(unittest.TestCase):
     def setUp(self):
@@ -40,6 +62,8 @@ class TokenRevokeSemanticsTests(unittest.TestCase):
         from api.core import rate_limit
         rate_limit.pool = aioredis.ConnectionPool.from_url(
             os.environ["HGS_REDIS_URL"], decode_responses=True)
+        # E7 §4: 测试期间新建的 skill 目录出测试即清(环境卫生)
+        self.addCleanup(_skill_root_cleanup, _skill_root_snapshot())
 
     def _engine(self):
         from sqlalchemy.ext.asyncio import create_async_engine
@@ -210,6 +234,8 @@ class SkillsRaceTests(unittest.TestCase):
         from api.core import rate_limit
         rate_limit.pool = aioredis.ConnectionPool.from_url(
             os.environ["HGS_REDIS_URL"], decode_responses=True)
+        # E7 §4: 测试期间新建的 skill 目录出测试即清(环境卫生)
+        self.addCleanup(_skill_root_cleanup, _skill_root_snapshot())
 
     def test_concurrent_same_key_returns_same_skill(self):
         from sqlalchemy import text

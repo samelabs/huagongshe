@@ -271,7 +271,10 @@ def build_mcp_server() -> MCPServer:
         enrich: str = "core",
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """读取一个 HCID 的结构、标识符、性质和关联反应概况。"""
+        """读取一个 HCID 的结构、标识符、性质和关联反应概况。
+
+        enrich: core|full 同语义(E7 冻结) —— full 是 core 的兼容别名, 不返回更多字段。
+        """
         if enrich not in ("core", "full"):
             raise ToolError("enrich 只能是 core 或 full")
         if not 1 <= chemical_id <= 2_147_483_647:
@@ -281,6 +284,7 @@ def build_mcp_server() -> MCPServer:
         from .services.chemicals import (
             ChemicalNotFoundError as _ChemicalNotFoundError,
             get_chemical_detail as _get_chemical_detail,
+            normalize_enrich as _normalize_enrich,
         )
 
         async with async_session() as session:
@@ -288,6 +292,8 @@ def build_mcp_server() -> MCPServer:
                 return await _get_chemical_detail(
                     session, chemical_id,
                     actor_id=None, priority=50,
+                    # E7 冻结: full 是 core 的兼容别名(同语义), 单一入口归一
+                    enrich=_normalize_enrich(enrich),
                 )
             except _ChemicalNotFoundError as exc:
                 raise ToolError(str(exc)) from exc

@@ -34,6 +34,7 @@ from .services.chemicals import (
     fetch_chemicals, reaction_summaries,
     load_public_config, load_datasets, load_sitemap_reactions,
     load_synonyms_page, fill_detail_context,
+    normalize_enrich,
 )
 
 router = APIRouter(tags=["chemistry"])
@@ -111,6 +112,8 @@ async def chemical_detail(
 ):
     # G2.4B: 编排下沉 services/chemicals.get_chemical_detail; adapter 只保留
     # 参数解析/auth/priority policy/display 投影/404 映射。
+    # E7 冻结: enrich=core|full 同语义(full 是 core 的兼容别名, 无额外
+    # enrichment) —— 归一只在入口做一次, 不产生第二业务路径。
     try:
         result = await get_chemical_detail(
             db, chemical_id,
@@ -118,6 +121,7 @@ async def chemical_detail(
             # 优先级对齐 CB 定论: 80=用户(登录) / 50=后台. 匿名 SSR(爬虫翻页)
             # 不是用户, 不占用户位(2026-08-27 血案: 匿名流量曾以 80 插队灌队列).
             priority=80 if actor is not None else 50,
+            enrich=normalize_enrich(enrich),
         )
     except ChemicalNotFoundError as exc:
         raise HTTPException(404, "化合物不存在") from exc

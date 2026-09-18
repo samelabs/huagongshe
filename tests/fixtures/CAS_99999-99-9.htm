@@ -1,0 +1,636 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN" xml:lang="zh-CN">
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="referrer" content="unsafe-url" />
+    <meta name="applicable-device" content="pc" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title> | CAS数据库</title>
+    
+    <meta name="Description" content="ChemicalBook 提供有关的理化性质,用途,制备方法,CAS号,MSDS" />
+    <meta name="Keywords" content=",cas,msds" />
+    <meta name="mobile-agent" content="format=html5; url=https://m.chemicalbook.com/CAS_99999-99-9.htm" />
+    <meta name="mobile-agent" content="format=xhtml; url=https://m.chemicalbook.com/CAS_99999-99-9.htm" />
+    <link rel="canonical" href="https://www.chemicalbook.com/CAS_99999-99-9.htm" />
+    <link rel="alternate" media="only screen and (max-width: 640px)" href="https://m.chemicalbook.com/CAS_99999-99-9.htm" />
+    <link href="responsecss/layout.css?v=1.0" rel="stylesheet" type="text/css" />
+    <link href="responsecss/self.css?v=1.1.6" rel="stylesheet" type="text/css" />
+    <script src="/Themes/Jquery/jquery-3.6.1.min.js"></script>
+    <script src="/control/search.js?v=1.1"></script>
+    <script src="/js/master.js?v=1.0.0" type="text/javascript"></script>
+    <script src="/control/gocaigoubang.js?v=1.0.2"></script>
+    <script>
+        $(document).ready(function () {
+            var userName = getCookie("userName");
+            if (userName) {
+                $("#divLogin").hide();
+                $("#fontName").show();
+                $("#fontName").text("Hi! " + userName + ",欢迎来到ChemicalBook");
+                $("#fontName").removeAttr("style");
+                $("#li_login").hide();
+                $("#li_register").hide();
+                $("#li_inquiry").show();
+                $("#li_signout").show();
+                $("#li_signout").removeAttr("style");
+            }
+            else {
+                $("#li_login").show();
+                $("#li_register").show();
+                $("#li_inquiry").hide();
+                $("#divLogin").show();
+                $("#divLogin").removeAttr("style");
+                $("#fontName").hide();
+                $("#li_signout").hide();
+
+            }
+            $("input[id$='SearchBtn']").click(function () {
+                if (st == 1) {
+                    return window.location.href = "/Search.aspx?keyword=" + $(":text[id$='Keyword']").val() + "&st=" + st;
+                }
+                else {
+                    return window.location.href = "/Search.aspx?keyword=" + $(":text[id$='Keyword']").val();
+                }
+            })
+            $("input[id$='SearchBtn2']").click(function () {
+                if (st == 1) {
+                    return window.location.href = "/Search.aspx?keyword=" + $(":text[id$='Keyword2']").val() + "&st=" + st;
+                }
+                else {
+                    return window.location.href = "/Search.aspx?keyword=" + $(":text[id$='Keyword2']").val();
+                }
+            })
+            $(":text.sea_input").keyup(function (event) {
+                var which = event.which;
+                if (which == 13) {
+                    $(this).parent().parent().find(":button.sea_but1").trigger("click");
+                }
+            });
+            $("[data-caigoubangdata='true']").mouseenter(function () {
+                var userName = getCookie("userName");
+                if (userName) {
+                    //$.ajax({
+                    //    url: "/UserProfile/PurchaseHelper/Tools/TotalPurchaseTask.ashx",
+                    //    cache: false,
+                    //    type: "Post",
+                    //    data: { user: userName },
+                    //    dataType: "json",
+                    //    success: function (data) {
+                    //        if (data) {
+                    //            if (data.CountOfInquiry > 0) {
+                    //                $("#lt_Inquiry1").text("" + data.CountOfInquiry + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_Inquiry1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfAlreadyQuotation > 0) {
+                    //                $("#lt_AlreadyQuotation1").text("" + data.CountOfAlreadyQuotation + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_AlreadyQuotation1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitPament > 0) {
+                    //                $("#lt_WaitPayment1").text("" + data.CountOfWaitPament + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitPayment1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitDelivery > 0) {
+                    //                $("#lt_WaitDelivery1").text("" + data.CountOfWaitDelivery + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitDelivery1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfAlreadyDelivery > 0) {
+                    //                $("#lt_WaitGoodsReceive1").text("" + data.CountOfAlreadyDelivery + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitGoodsReceive1").remove();//text("");
+                    //            }
+                    //        }
+                    //    }
+                    //});
+                    //$.ajax({
+                    //    url: "/UserProfile/PurchaseHelper/Tools/TotalSaleTask.ashx",
+                    //    cache: false,
+                    //    type: "Post",
+                    //    data: { user: userName },
+                    //    dataType: "json",
+                    //    success: function (data) {
+                    //        if (data) {
+                    //            if (data.CountOfWaitQuotation > 0) {
+                    //                $("#lt_WaitQuotation1").text("" + data.CountOfWaitQuotation + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitQuotation1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitConfirm > 0) {
+                    //                $("#lt_WaitConfirm1").text("" + data.CountOfWaitConfirm + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitConfirm1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitPament > 0) {
+                    //                $("#lt_WaitPayments1").text("" + data.CountOfWaitPament + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitPayments1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitDelivary > 0) {
+                    //                $("#lt_WaitDelivary1").text("" + data.CountOfWaitDelivary + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitDelivary1").remove();//text("");
+                    //            }
+                    //            if (data.CountOfWaitReceiveGoods > 0) {
+                    //                $("#lt_WaitGoodsReceives1").text("" + data.CountOfWaitReceiveGoods + "").addClass("color_red");
+                    //            }
+                    //            else {
+                    //                $("#lt_WaitGoodsReceives1").remove();//text("");
+                    //            }
+                    //        }
+                    //    }
+                    //});
+                }
+            })
+
+        })
+        function getCookie(name) {
+            var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+            if (arr = document.cookie.match(reg))
+                return unescape(arr[2]);
+            else
+                return null;
+        }
+        function change(obj) {
+            //localStorage.clear();
+            localStorage.setItem("_elementId", $(obj).attr("id") || "");
+        }
+    </script>
+    <style>
+        .hl {
+            background-color: #f3f3f3;
+            font-weight: 500;
+        }
+
+        .nav {
+            height: 0 !important;
+            line-height: 0 !important;
+            background: none !important;
+        }
+
+        .row {
+            margin-right: 0 !important;
+            margin-left: 0 !important;
+        }
+    </style>
+    <style>
+        .menufloat a {
+            position: relative;
+            line-height: 41px;
+            text-transform: capitalize;
+            display: inline-block;
+            color: #333;
+            cursor: pointer;
+            font-size: 14px;
+            padding-left: 15px;
+            padding-right: 15px;
+        }
+
+            .menufloat a i {
+                border-radius: 40px;
+                background: #0066cc;
+                color: #fff;
+                font-size: 14px;
+                min-width: 26px;
+                min-height: 26px;
+                text-align: center;
+                padding: 0 5px;
+                display: inline-block;
+                margin-left: 4px;
+                font-style: normal;
+                text-shadow: none
+            }
+
+        .menufloat .current i {
+            background: #29b5ce
+        }
+
+        .menufloat .box11 {
+            visibility: hidden
+        }
+
+
+
+        .menufloat div {
+            cursor: pointer;
+        }
+
+        .menufloat .current {
+            color: #fff;
+            background-color: #ff7300;
+        }
+
+        .menufloat div i {
+            border-radius: 40px;
+            background: #0066cc;
+            color: #fff;
+            font-size: 14px;
+            min-width: 26px;
+            min-height: 26px;
+            text-align: center;
+            padding: 0 5px;
+            display: inline-block;
+            margin-left: 4px;
+            font-style: normal;
+            text-shadow: none
+        }
+
+        .menufloat .dhyc {
+            display: none;
+        }
+
+        .menufloat2 .dhyc {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <form method="post" action="./CAS_99999-99-9.htm?CAS=99999-99-9" id="_ctl0" onsubmit="return false;">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="" />
+</div>
+
+        <header>
+            <div class="topnavbox">
+                <div class="topnav">
+                    <div class="fl welcome" id="divLogin" style="display: none;">你好！欢迎来到ChemicalBook。<a href="/UserManager/Login.aspx">登录</a><a href="/UserManager/Register.aspx">注册</a></div>
+
+                    <div class="fl welcome" id="fontName" style="display: none;"></div>
+                    <div class="fl welcome" id="li_signout" style="display: none;"><a href="/UserManager/sign_out.aspx">退出</a></div>
+
+                    
+                    <div class="flagbox">
+                        <a data-source="en1" aria-label="English" title="English" class="flag2" href="/CASEN_99999-99-9.htm"></a>
+                        <a data-source="jp1" aria-label="Japanese" title="Japanese" class="flag5" href="/ProductIndex_JP.aspx"></a>
+                        <a data-source="de1" aria-label="Germany" title="Germany" class="flag3" href="/ProductIndex_DE.aspx"></a>
+                    </div>
+                    
+                    <div class="topnav2">
+                        <a href="/UserProfile/companyinfoManage.aspx">我的ChemicalBook</a>
+                        <div class="topnav3">
+                            <a target="_blank" href="/UserProfile/ApplyNewProduct.aspx" id="left_ApplyNewProduct">发布产品</a>
+                            <a target="_blank" href="/UserProfile/ProductManagement.aspx" id="left_PublishProductManager">产品管理</a>
+                            <a target="_blank" href="/UserProfile/Free_GatherData.aspx">发布供应信息</a>
+                            <a target="_blank" href="/UserProfile/MyGoldProductList.aspx">黄金产品设置</a>
+                            <a href="/UserProfile/LargeGoods.aspx" target="_blank">大货产品设置</a>
+                            <a href="/UserProfile/ThroughTrain.aspx" target="_blank">直通车产品设置</a>
+                        </div>
+                    </div>
+                    
+                    
+
+                    <div class="topnav2">
+                        <a href="/UserProfile/Free_GatherData.aspx">发布供应信息</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="toub">
+                
+
+                <div class="headerbox">
+                    <a class="logo" href="/ProductIndex.aspx" title="ChemicalBook" aria-label="Chemicalbok logo">
+                        <img src="https://www.chemicalbook.com/control/image/logo.gif" width="207" height="50" alt="ChemicalBook" />
+                    </a>
+                    <div class="searchbox">
+                        <input name="Keyword" type="text" maxlength="230" id="Keyword" class="sea_input" placeholder="请输入产品名称、CAS号查询" />
+
+                        <input type="button" aria-label="button" class="sea_but1" id="SearchBtn" data-module="SearchType" data-page-url="ProductList.aspx" />
+
+                    </div>
+                    <a class="btn_org_gradient" href="/StructuredSearch.htm">结构式搜索</a>
+                </div>
+
+            </div>
+        </header>
+    </form>
+    
+    <div class="bread_nav">
+        
+        <a href="https://www.chemicalbook.com/" name="top" id="top">返回ChemicalBook首页</a>>>
+    </div>
+
+    <div class="keynote">
+        <main class="fl">
+            <div class="keynoteL">
+                <div class="ibxx">
+                 
+                    <div class="ibxh1">
+                    <h1>99999-99-9</h1> </div>
+                 
+                    <div class="Basicsl">
+                        
+                    </div>
+                    <div class="ibxxt">
+                        <img src="https://www.chemicalbook.com/CAS/GIF/109-99-9.gif" id="StructureURL" />
+                        <span id="StructureInfo"></span>
+                    </div>
+                </div>
+
+
+                
+
+                <div id="menufloat_position"></div>
+                <div id="menufloat" class="mubox menufloat">
+                    <div class="dhyc" style="">
+                        <a href="/ProductIndex.aspx" class="fl logo1" title="ChemicalBook" aria-label="Chemicalbok logo">
+                            <img src="/logo.gif" width="126" height="30" alt="ChemicalBook" />
+                        </a>
+                        <div class="fr searchbox1" style="width: auto;">
+                            <input name="" type="text" value="99999-99-9" id="Keyword2" class="sea_input" placeholder="请输入产品名称、CAS号查询" maxlength="230" />
+                            <input type="button" aria-label="button" class="sea_but1" id="SearchBtn2" data-module="SearchType" data-page-url="ProductList.aspx" />
+                        </div>
+                    </div>
+
+                    <div class="menufloatext menufloatext1" id="nav">
+                        
+                        <a href="#常见问题列表" class='current' data-filed="0" data-upper="常见问题列表">常见问题列表</a>
+                        
+                    </div>
+                </div>
+
+                
+
+                <div id="SubClass"><div class="sxlist"><div class="sxbt suicon10"><h2>常见问题列表</h2></div><a  data-name="常见问题列表" data-id="常见问题列表" ></a><div data-upper="常见问题列表" data-field="coordinate"></div><div class="cwb"><div class="tbt">产品来源</div><span><span style="background-color:transparent; color:rgb(51, 51, 51); font-family:sans-serif,arial,verdana,trebuchet ms; font-size:13px">基因工程表达。</span></span></div><div class="cwb"><div class="tbt">产品描述</div><span>角质细胞培养基：角质细胞培养基是专门为正常人类角质细胞体外培养设计的最适于其生长的培养基。</span></div><div class="cwb"><div class="tbt">产品描述</div><span>角质细胞培养基：角质细胞培养基是专门为正常人类角质细胞体外培养设计的最适于其生长的培养基。无血清培养基是无菌的、液体培养基，包含必需和非必需氨基、维生素、有机和无机化合物、激素、生长因子、微量矿物质。该培养基不含血清。该培养基含碳酸氢盐缓冲体系，在5%二氧化碳/95%空气培养箱中平衡时PH值为7.4。</span></div><div class="cwb"><div class="tbt">产品描述</div><span>角质细胞培养基：角质细胞培养基是专门为正常人类角质细胞体外培养设计的最适于其生长的培养基。无血清培养基是无菌的、液体培养基，包含必需和非必需氨基、维生素、有机和无机化合物、激素、生长因子、微量矿物质。该培养基不含血清。该培养基含碳酸氢盐缓冲体系，在5%二氧化碳/95%空气培养箱中平衡时PH值为7.4。该培养基在数量上和质量上都保证最理想的营养平衡状态，选择性促进体外正常人类神经元的生长。角质细胞培养基包含500 ml基础培养基，5 ml角质细胞生长添加物，(KGS, Cat. No. 2152)和5 ml青霉素/链霉素溶液(P/S,Cat. No. 0503)。</span></div><div class="cwb"><div class="tbt">产品描述</div><span>乳腺上皮细胞培养基是专门为体外培养正常人乳腺上皮细胞设计的最适于其生长的培养基。无血清培养基是无菌的、液体培养基，包含必需和非必需氨基、维生素、有机和无机化合物、激素、生长因子、微量矿物质。</span></div><div class="cwb"><div class="tbt">产品用途</div><span>本材料由Cyagen生物科学公司提供，用于研究、实验室或进一步评估。只供研究用途。不用于任何动物或人类的治疗或诊断用途。</span></div><div class="cwb"><div class="tbt">产品组成</div><span>Lyophilized from a 0.2 &mu;m filtered concentrated solution in 20 mM PB, pH 7.4, 150 mM NaCl.</span></div><div class="cwb"><div class="tbt">冻存液特点</div><span>即用型产品，方便快捷；复苏率更高达 90%，远超普通冻存液的70%的效率。</span></div><div class="cwb"><div class="tbt">概述</div><span>聚天门冬氨酸酯是近年来开发的一种新型位阻胺。聚天门冬氨酸酯与多异氰酸酯的固化反应可以形成聚脲树脂。聚天门冬氨酸酯与多异氰酸酯的固化反应的凝胶时间取决于聚天门冬氨酸酯的结构。</span></div><div class="cwb"><div class="tbt">概述</div><span>来源</span></div><div class="cwb"><div class="tbt">保存</div><span>保存于2-8&deg;C，有效期维持一年；为了维持产品稳定性，请勿反复冻融相关产品。</span></div><div class="cwb"><div class="tbt">概述</div><span>CRISPR (Clustered Regularly Interspaced Short Palindromic Repeats) /Cas (CRISPR-associated) 是最近几年出现的一种由RNA指导Cas核酸酶对靶向基因进行特定DNA修饰的技术。它是细菌和古细菌为应对病毒和质粒不断攻击而演化来的获得性免疫防御机制。</span></div><div class="cwb"><div class="tbt">背景</div><span>发根农杆菌是根瘤菌科(Rhizobiaceae)农杆菌属(agrobacterium)的一种革兰氏阴性土壤细菌，它能够感染大多数双子叶植物和少数单子叶植物以及个别裸子植物。K599发根农杆菌（NCPPB2659）含有pRi2659农杆碱型Ri质粒，具有广泛的宿主范围（葫芦科，豆科，茄科等），同时具有链霉素抗性。</span></div><div class="cwb"><div class="tbt">简介</div><span>发根农杆菌是根瘤菌科(Rhizobiaceae)农杆菌属(agrobacterium)的一种革兰氏阴性土壤细菌，它能够感染大多数双子叶植物和少数单子叶植物以及个别裸子植物。K599发根农杆菌（NCPPB2659）含有pRi2659农杆碱型Ri质粒，具有广泛的宿主范围（葫芦科，豆科，茄科等），同时具有链霉素抗性。</span></div><div class="cwb"><div class="tbt">特点</div><span>K599 Electro感受态细胞</span></div><div class="cwb"><div class="tbt">特点</div><span>K599 Electro感受态细胞</span></div><div class="cwb"><div class="tbt">作用原理</div><span>EnvirusTM不含病毒以及蛋白等其他生物来源成分，不参与病毒和细胞的生理过程。由于EnvirusTM对病毒的吸附和独有的浓缩功能，通过物理作用将病毒大量富集在细胞表面，大大增加病毒与细胞的接触，最大限度促进病毒感染细胞，通常情况下，比不用增强剂，提高感染效率20-50倍。同时，由于EnvirusTM采用纳米技术合成，颗粒均匀，细胞毒性极低，有效减少细胞死亡。</span></div><div class="cwb"><div class="tbt">特点</div><span>提高病毒感染能力20-50倍 。毒性低，不用为细胞毒性担心。方法简单，只需要在常规病毒感染前，病毒提前和增强试剂混合即可，应用方便。试剂稳定，易保存。
+
+<p style="text-align: center;"><img alt="" src="https://www.engreen.com.cn/wp-content/uploads/2015/09/envirus-different.png" style="border-bottom-color:rgb(0, 0, 0); border-bottom-style:none; border-bottom- border-image-outset:0; border-image-repeat:stretch; border-image-slice:100%; border-image-source:none; border-image- border-left-color:rgb(0, 0, 0); border-left-style:none; border-left- border-right-color:rgb(0, 0, 0); border-right-style:none; border-right- border-top-color:rgb(0, 0, 0); border-top-style:none; border-top-  line- margin-bottom:0px; margin-top:0px; vertical-align:baseline" />
+
+用带GFP的慢病毒感染NK-92细胞。感染后48小时观察结果。从左到右分别是只采用病毒，采用病毒加Polybrene和病毒加Envirus<sup>TM</sup>的情况。
+
+<img alt="" src="https://www.engreen.com.cn/wp-content/uploads/2015/09/envirus-different-analyse.png" style="border-bottom-color:rgb(0, 0, 0); border-bottom-style:none; border-bottom- border-image-outset:0; border-image-repeat:stretch; border-image-slice:100%; border-image-source:none; border-image- border-left-color:rgb(0, 0, 0); border-left-style:none; border-left- border-right-color:rgb(0, 0, 0); border-right-style:none; border-right- border-top-color:rgb(0, 0, 0); border-top-style:none; border-top-  line- margin-bottom:0px; margin-top:0px; vertical-align:baseline" /></span></div></div></div>
+            </div>
+        </main>
+        
+        <aside class="fr">
+            <div class="sxr">
+                <span id="PriceInfo"></span>
+            </div>
+        </aside>
+        
+    </div>
+    <div class="xiangW">
+        <div class="xiangg">
+            <div>
+                <span id="Tags">""</span>
+                相关产品信息
+            </div>
+            
+                    <a title='109-86-4(CAS数据库)' href='/CAS_109-86-4.htm' target="_blank">109-86-4</a>
+                
+                    <a title='110-71-4(CAS数据库)' href='/CAS_110-71-4.htm' target="_blank">110-71-4</a>
+                
+                    <a title='139-33-3(CAS数据库)' href='/CAS_139-33-3.htm' target="_blank">139-33-3</a>
+                
+                    <a title='1122-85-6(CAS数据库)' href='/CAS_1122-85-6.htm' target="_blank">1122-85-6</a>
+                
+                    <a title='6226-25-1(CAS数据库)' href='/CAS_6226-25-1.htm' target="_blank">6226-25-1</a>
+                
+                    <a title='333-27-7(CAS数据库)' href='/CAS_333-27-7.htm' target="_blank">333-27-7</a>
+                
+                    <a title='614-45-9(CAS数据库)' href='/CAS_614-45-9.htm' target="_blank">614-45-9</a>
+                
+                    <a title='9006-03-5(CAS数据库)' href='/CAS_9006-03-5.htm' target="_blank">9006-03-5</a>
+                
+                    <a title='141-52-6(CAS数据库)' href='/CAS_141-52-6.htm' target="_blank">141-52-6</a>
+                
+                    <a title='118-74-1(CAS数据库)' href='/CAS_118-74-1.htm' target="_blank">118-74-1</a>
+                
+                    <a title='50606-31-0(CAS数据库)' href='/CAS_50606-31-0.htm' target="_blank">50606-31-0</a>
+                
+                    <a title='1801787-56-3(CAS数据库)' href='/CAS_1801787-56-3.htm' target="_blank">1801787-56-3</a>
+                
+                    <a title='1801873-49-3(CAS数据库)' href='/CAS_1801873-49-3.htm' target="_blank">1801873-49-3</a>
+                
+                    <a title='872005-48-6(CAS数据库)' href='/CAS_872005-48-6.htm' target="_blank">872005-48-6</a>
+                
+                    <a title='95689-65-9(CAS数据库)' href='/CAS_95689-65-9.htm' target="_blank">95689-65-9</a>
+                
+                    <a title='112078-00-9(CAS数据库)' href='/CAS_112078-00-9.htm' target="_blank">112078-00-9</a>
+                
+                    <a title='84-66-2(CAS数据库)' href='/CAS_84-66-2.htm' target="_blank">84-66-2</a>
+                
+                    <a title='109-79-5(CAS数据库)' href='/CAS_109-79-5.htm' target="_blank">109-79-5</a>
+                
+        </div>
+    </div>
+            
+    
+
+    <footer class="foot grayA">
+        <div class="BoxW">
+            <div>
+                <a rel="nofollow" href="/ProductIndex.aspx">主页</a> | 
+           
+                <a rel="nofollow" href="/UserProfile/VIPInfo.aspx">企业会员服务</a> | 
+           
+                <a rel="nofollow" href="/UserProfile/BuyAds.aspx">广告业务</a> | 
+           
+                <a rel="nofollow" href="/ContactUS.aspx">联系我们</a> | 
+           
+                <a rel="nofollow" href="/indexCN.aspx">旧版入口</a> | 
+           
+                <a rel="nofollow" href="/ProductMSDSList_0.htm">中文MSDS</a> | 
+           
+                <a rel="nofollow" href="/ShowAllProductByIndexID_CAS_16_0.htm">CAS Index</a> | 
+           
+                <a rel="nofollow" href="/CASDetailList_0.htm">常用化学品CAS列表</a> | 
+           
+                <a rel="nofollow" href="/ChemicalProductsList_0.htm">化工产品目录</a> | 
+           
+                <a rel="nofollow" href="/ShowAllNewProductList_0.htm">新产品列表</a> | 
+           
+                <a rel="nofollow" href="/Selection/first.aspx">评选活动</a> | 
+           
+                <a rel="nofollow" href="https://hscode.chemicalbook.com">HS海关编码</a> | 
+           
+                <a rel="nofollow" href="https://msds.chemicalbook.com">MSDS查询</a>
+            </div>
+            <div>
+                <span style="text-decoration: underline;">本网站展示的所有产品仅用于工业应用或者科学研究等非医疗目的,不可用于人类或动物的临床诊断或者治疗,非药用,非食用。<br>
+  根据相关法律法规和本站规定，单位或个人购买相关危险物品应取得有效的资质、资格条件。</span><br />
+                Copyright © 2008 ChemicalBook  
+                <span style="position: relative; top: 4px;">
+                    <img src="https://img.chemicalbook.com/images/ba.png" alt="京公网安备 11010802032676号" />
+                    <a target="_blank" href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=11010802032676" style="display: inline-block; text-decoration: none; height: 20px; line-height: 20px;">
+                        <p style="float: left; height: 20px; line-height: 20px; margin: 0px 0px 0px 5px; color: #fff;">京公网安备 11010802032676号</p>
+                    </a></span>&nbsp;&nbsp;All rights reserved.
+       
+            </div>
+            <div>热线电话：010-86108875</div>
+        </div>
+    </footer>
+    
+    
+    
+    
+    
+    <script type="text/javascript">
+        $(function () {
+            //var flag; // 鼠标按下
+            //var downX; // 鼠标点击的x下标
+            //var scrollLeft; // 当前元素滚动条的偏移量
+            //nav.addEventListener("mousedown", function (event) {
+            //    flag = true;
+            //    downX = event.clientX; // 获取到点击的x下标
+            //    scrollLeft = this.scrollLeft; // 获取当前元素滚动条的偏移量
+            //});
+            //nav.addEventListener("mousemove", function (event) {
+            //    if (flag) { // 判断是否是鼠标按下滚动元素区域
+            //        // 获取移动的x轴
+            //        var moveX = event.clientX;
+            //        // 当前移动的x轴下标减去刚点击下去的x轴下标得到鼠标滑动距离
+            //        var scrollX = moveX - downX;
+            //        // 鼠标按下的滚动条偏移量减去当前鼠标的滑动距离
+            //        this.scrollLeft = scrollLeft - scrollX;
+            //        //console.log(scrollX)
+            //    }
+            //});
+            //// 鼠标抬起停止拖动
+            //nav.addEventListener("mouseup", function () {
+            //    flag = false;
+            //});
+            //// 鼠标离开元素停止拖动
+            //nav.addEventListener("mouseleave", function (event) {
+            //    flag = false;
+            //});
+
+            //$(".contentsR").click(function () {
+            //    $(".gdnone").slideToggle();
+            //})
+            var coordinate = $("div[data-field='coordinate']");
+
+            $("#menufloat").on("click", "a", function () {
+                $(document).scrollTop($("[data-id='" + $(this).attr("data-upper") + "']").offset().top - 180);
+            })
+
+            //$("#menufloat a").click(function (e) {
+            //    $(document).scrollTop($("#" + $(this).attr("data-upper")).offset().top - 204); 
+            //    if (e && e.preventDefault) {
+            //        e.preventDefault();// 阻止标准浏览器默认行为 
+            //    } else {
+            //        window.event.returnValue = false;// 阻止IE浏览器默认行为 
+            //    }
+            //    return false; 
+            //})
+            $("#menufloat2 a").click(function () {
+                $(document).scrollTop($("#" + $(this).attr("data-upper")).offset().top - 80);
+            })
+            var flag = false;
+            $(window).scroll(function (event) {
+                for (var i = 0; i < coordinate.length; i++) {
+                    if ($(coordinate[i]).offset().top - $(this).scrollTop() > 0 && $(coordinate[i]).offset().top - $(this).scrollTop() < 200 && ($(coordinate[i]).offset().top - $(this).scrollTop() > -100)) {
+                        $("#menufloat2 a").removeClass("current");
+                        $("#menufloat2 a[data-upper='" + $(coordinate[i]).attr("data-upper") + "']").addClass("current");
+                        $("#menufloat a").removeClass("current");
+                        $("#menufloat a[data-upper='" + $(coordinate[i]).attr("data-upper") + "']").addClass("current");
+
+                    }
+
+                }
+
+                if ($("#divgys").length > 0) {
+                    if ($(this).scrollTop() >= $("#divgys").offset().top && flag == false && $(window).width() <= 640) {
+                        $("#nav .current").removeClass("current");
+                        flag = true;
+                    } else {
+                        flag = false;
+                    }
+                }
+
+                if ($("#nav .current")[0] != undefined) {
+                    var sc = $("#nav .current")[0].offsetLeft + $("#nav .current")[0].offsetWidth - $("#nav")[0].offsetLeft - $("#nav").width();
+                    if (sc > 0) {
+                        $("#nav")[0].scrollLeft = sc + 200;
+                    } else {
+                        $("#nav")[0].scrollLeft = 0;
+                    }
+                }
+
+
+
+                var outDiv = document.getElementById('nav');
+                outDiv.onwheel = function (event) {
+                    //禁止事件默认行为（此处禁止鼠标滚轮行为关联到"屏幕滚动条上下移动"行为）  
+                    event.preventDefault();
+                    //设置鼠标滚轮滚动时屏幕滚动条的移动步长  
+                    var step = 50;
+                    if (event.deltaY < 0) {
+                        //向上滚动鼠标滚轮，屏幕滚动条左移  
+                        this.scrollLeft -= step;
+                    } else {
+                        //向下滚动鼠标滚轮，屏幕滚动条右移  
+                        this.scrollLeft += step;
+                    }
+                }
+
+                //var currentTop = $("#nav .current").offset().top;
+                //if (0 < currentTop - $(document).scrollTop() - $(window).height()) {
+                //    $("#nav .current").removeClass("current");
+                //}
+
+                var scrollTop = $(this).scrollTop();
+
+                if (scrollTop > $("#menufloat_position").offset().top) {
+                    $("#menufloat").addClass("menufloat2");
+                }
+                else if (scrollTop <= $("#menufloat_position").offset().top) {
+                    $("#menufloat").removeClass("menufloat2");
+                }
+
+                //if (scrollTop > $("#menufloat").offset().top) {
+                //    $("#menufloat2").show();
+                //    $("#menufloat").css("visibility", "hidden");
+                //}
+                //else if (scrollTop <= $("#menufloat").offset().top) {
+                //    $("#menufloat2").hide();
+                //    $("#menufloat").css("visibility", "");
+                //}
+
+                //var index = $(".menufloatext a[class='current']").attr("data-filed");// index(); 
+                //if (index > 7) {
+                //    $(".gdnone").show();
+                //}
+                //else {
+                //    $(".gdnone").hide();
+                //}
+            });
+
+            //$("#menufloat a").click(function () {
+            $("#menufloat").on("click", "a", function () {
+                $("#menufloat a").removeClass("current");
+                $(this).addClass("current");
+                $("#menufloat2 a").removeClass("current");
+                $("#menufloat2 a[data-upper='" + $(this).text() + "']").addClass("current");
+                //document.documentElement.scrollTop -= 200;
+                //$(document).scrollTop($("#" + $(this).attr("data-upper")).offset().top - 200); 
+            });
+
+            $("#menufloat2 a").click(function () {
+                $("#menufloat2 a").removeClass("current");
+                $(this).addClass("current");
+                $("#menufloat a").removeClass("current");
+                $("#menufloat a[data-upper='" + $(this).text() + "']").addClass("current");
+            });
+            //百度统计
+            var hm = document.createElement("script");
+            hm.src = "https://hm.baidu.com/hm.js?7d450754590aa33d1fe40874160c2513";
+            var s = document.getElementsByTagName("script")[0];
+            s.parentNode.insertBefore(hm, s);
+        });
+    </script>
+      
+</body>
+</html>

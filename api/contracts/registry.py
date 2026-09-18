@@ -73,7 +73,9 @@ def _fams() -> list[Family]:
                 I(T.HTTP, "GET /api/chemicals/{chemical_id}"),
                 I(T.MCP, "get_chemical")),
               contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
-                                X.STABLE_EXTERNAL, "get_chemical")),
+                                X.STABLE_EXTERNAL, "get_chemical"),
+              note="enrich=core|full 同语义(E7 冻结): full 是 core 的兼容别名, "
+                   "无额外 enrichment/无额外取数; 归一只在入口一次"),
             S("externals", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/chemicals/{chemical_id}/externals"),
                 I(T.MCP, "get_chemical_externals")),
@@ -128,6 +130,13 @@ def _fams() -> list[Family]:
                 I(T.MCP, "get_reaction")),
               contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "get_reaction")),
+            # E7: list_own 原挂 reaction.write(E.WRITE) —— family effect 描述性失真;
+            # 它是 ACTOR 自读(GET /users/me/reactions), 归入 E.READ family。
+            S("list_own", A.ACTOR, entrypoints=(
+                I(T.HTTP, "GET /api/users/me/reactions"),
+                I(T.MCP, "list_my_reactions")),
+              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+                                X.STABLE_EXTERNAL, "list_my_reactions")),
         )),
         Family("reaction.write", E.WRITE, scenarios=(
             S("validate", A.ACTOR, required_scope=("reaction:write",), entrypoints=(
@@ -140,19 +149,16 @@ def _fams() -> list[Family]:
                 I(T.MCP, "create_reaction")),
               contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "create_reaction"),
-              note="同事务: Web session 与 AI Key 同一 create-reaction 事务服务; "
-                   "MCP 直调 handler(request=None, 参数未使用), 同 enforce+幂等"),
-            S("list_own", A.ACTOR, entrypoints=(
-                I(T.HTTP, "GET /api/users/me/reactions"),
-                I(T.MCP, "list_my_reactions")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
-                                X.STABLE_EXTERNAL, "list_my_reactions")),
+              note="同事务: Web session 与 AI Key 同一 create-reaction 事务服务"
+                   "(services.reactions.create_reaction); MCP 经同一 application "
+                   "service 调用(非直调 handler, 无 request 参数), 同 enforce+幂等"),
             S("update", A.ACTOR, entrypoints=(
                 I(T.HTTP, "PUT /api/reactions/{reaction_id}"),),
               contract=Contract(frozenset({C.WEB}), X.NONE),
               note="E3: 行锁/owner 检查/事务在 application service"
                    "(services.reactions.update_reaction); agent 403 由 service "
-                   "中性错误 + adapter 映射; D001 挂账"),
+                   "中性错误 + adapter 映射; D001 已 CLOSED(返回体=落库事实, "
+                   "回归 tests/test_update_reaction_return.py)"),
             S("delete", A.ACTOR, entrypoints=(
                 I(T.HTTP, "DELETE /api/reactions/{reaction_id}"),),
               contract=Contract(frozenset({C.WEB}), X.NONE),

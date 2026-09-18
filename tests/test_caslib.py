@@ -1,8 +1,11 @@
-"""caslib 测试(0905 收口后) — fixture 驱动(~/ops/cb-fixtures/, 仓库外, 不入库)。
+"""caslib 测试 — fixture 驱动, 样本全部在库(tests/fixtures/, repo-relative)。
 
 覆盖: 页面判定(not_found/真页) + cb_number 提取 + 新解析器 parse_cpp_page
-(真页样本 /tmp/cpp_real.html, CB3459186, 2026-09-05 实拉)。
+(真页样本 tests/fixtures/cpp_cn.html = CB3459186 丁酸, 2026-09-05 实拉)。
 旧 CAS 页 entry 解析测试随退役函数剥除(parse_entry/parse_suppliers)。
+
+E7: 原先依赖仓库外路径(~/ops/cb-fixtures/)与 /tmp 预置文件 → 样本已全部
+迁入 tests/fixtures/; 样本缺失不再 skip, 直接失败(路径问题不得藏成 skip)。
 """
 from __future__ import annotations
 
@@ -17,12 +20,13 @@ sys.path.insert(0, REPO)
 from caslib.parse import (  # noqa: E402
     extract_cb_number,
     looks_like_not_found,
+    page_identity,
     parse_cpp_suppliers,
 )
 from caslib.parse_cpp import parse_cpp_page  # noqa: E402
 from caslib.redact import supplier_ref  # noqa: E402
 
-FIXTURES = os.path.expanduser("~/ops/cb-fixtures")
+FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 CPP_REAL = os.path.join(os.path.dirname(__file__), "fixtures", "cpp_cn.html")
 CPP_L10N = {
     "en": "cpp_en.html", "de": "cpp_de.html", "ja": "cpp_ja.html", "ko": "cpp_ko.html",
@@ -35,26 +39,34 @@ def _fixture(name: str) -> str:
         return fh.read()
 
 
-def _have_fixtures() -> bool:
-    return os.path.isdir(FIXTURES) and os.path.exists(os.path.join(FIXTURES, "CAS_65-85-0.htm"))
+def _require_fixtures(*names: str) -> None:
+    """样本必须在库: 缺失 = 测试失败(不是 skip, 也不是路径问题的另一种写法)。"""
+    missing = [n for n in names if not os.path.exists(os.path.join(FIXTURES, n))]
+    if missing:
+        raise AssertionError(f"仓库 fixture 缺失: {missing} (期望目录 {FIXTURES})")
 
 
 class NotFoundDetectionTests(unittest.TestCase):
     def test_not_found_detection(self) -> None:
-        if not _have_fixtures():
-            self.skipTest("fixtures 不在本机")
-        # 管制明示拒绝
-        self.assertTrue(looks_like_not_found(_fixture("CAS_67-64-1.htm")))
+        _require_fixtures(
+            "CAS_67-64-1.htm", "CAS_50-00-7.htm", "CAS_99999-99-9.htm",
+            "CAS_65-85-0.htm", "CAS_69-72-7.htm", "CAS_77-92-9.htm",
+        )
         # 模板空页(有 Basicsl 壳无英文名称行)
         self.assertTrue(looks_like_not_found(_fixture("CAS_50-00-7.htm")))
+        # 不存在的 CAS 号
         self.assertTrue(looks_like_not_found(_fixture("CAS_99999-99-9.htm")))
-        # 正常页
+        # 真页必须判定为非 not_found
         for cas in ("65-85-0", "69-72-7", "77-92-9"):
             self.assertFalse(looks_like_not_found(_fixture(f"CAS_{cas}.htm")), cas)
+        # 67-64-1(丙酮): 2026-09-19 实拉已是完整条目页(cb_number=3130928),
+        # 不再是 0905 样本中的"管制明示拒绝"页 —— 事实更新为真页判定。
+        # 该页类型当前无真实样本可采(不得自构模板), 见 E7 报告 O 段。
+        self.assertFalse(looks_like_not_found(_fixture("CAS_67-64-1.htm")))
+        self.assertEqual(page_identity(_fixture("CAS_67-64-1.htm")), "real")
 
     def test_cb_number_extract(self) -> None:
-        if not _have_fixtures():
-            self.skipTest("fixtures 不在本机")
+        _require_fixtures("CAS_65-85-0.htm")
         self.assertEqual(extract_cb_number(_fixture("CAS_65-85-0.htm")), "8698780")
 
 
@@ -63,9 +75,9 @@ class CppParseTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        if not os.path.exists(CPP_REAL):
-            raise unittest.SkipTest("CPP 真页样本不在本机")
-        cls.entry = parse_cpp_page(open(CPP_REAL, encoding="utf-8", errors="replace").read())
+        # E7: 样本在库(repo-relative), 缺失即失败 —— 不再把路径问题 skip 掉
+        with open(CPP_REAL, encoding="utf-8", errors="replace") as fh:
+            cls.entry = parse_cpp_page(fh.read())
 
     def test_identity(self) -> None:
         e = self.entry
@@ -118,8 +130,8 @@ class CppL10nTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         missing = [v for v in CPP_L10N.values() if not os.path.exists(v)]
-        if missing:
-            raise unittest.SkipTest(f"语言页 fixtures 不在本机: {missing}")
+        if missing:  # E7: 样本在库(repo-relative), 缺失即失败(不 skip)
+            raise AssertionError(f"语言页 fixtures 缺失: {missing}")
         cls.entries = {
             loc: parse_cpp_page(open(p, encoding="utf-8", errors="replace").read(), locale=loc)
             for loc, p in CPP_L10N.items()
