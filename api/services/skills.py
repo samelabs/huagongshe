@@ -253,6 +253,27 @@ def _is_text_path(path: str) -> bool:
     return Path(path).suffix.lower() in TEXT_EXTENSIONS
 
 
+def _has_binary_content(data: bytes) -> bool:
+    """内容级二进制嗅探(与 DB CHECK 同口径: 只看前 4096 字节是否含 NUL)。"""
+    return b"\x00" in data[:4096]
+
+
+def _skill_file_is_text(rel_path: str, data: bytes) -> bool:
+    """community.skill_files.is_text 的唯一判定点。
+
+    与 DB CHECK skill_files_text_only (is_text OR path LIKE 'assets/%' OR
+    'examples/%') 同口径:
+      * 内容含 NUL → 二进制 → is_text=false(此时路径必须在 assets/ 或 examples/,
+        由 extract_skill_zip 的内容级校验保证);
+      * 内容为文本 → assets/examples 之外的路径必须 is_text=true(.gitignore、
+        LICENSE、Makefile 等无扩展名文本文件不能被误判为二进制);
+      * assets/examples 内保留扩展名保守标记(二进制资产 → false)。
+    """
+    if _has_binary_content(data):
+        return False
+    return _is_text_path(rel_path) or not rel_path.startswith(BINARY_DIRS)
+
+
 def _slugify(name: str) -> str:
     slug = re.sub(r"[^a-z0-9-]+", "-", name.strip().lower()).strip("-")
     return slug[:64].rstrip("-")
@@ -386,12 +407,13 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
             "压缩包根目录必须包含 SKILL.md")
 
     # 二进制只允许 assets/、examples/（与 DB CHECK 一致；kdense 实证二进制在 examples/）
+    # 判定按内容(NUL 嗅探),不按扩展名: 扩展名不再能豁免放行目录(否则 .csv/.json 内嵌
+    # NUL 会绕过此校验并在 INSERT 时触发 skill_files_text_only → 500)。
     for name, data in entries:
-        if b"\x00" in data[:4096] and not _is_text_path(name):
-            if not name.startswith(BINARY_DIRS):
-                raise SkillArchiveValidationError(
-                    SkillArchiveValidationError.MANIFEST_INVALID,
-                    f"二进制文件只能放在 assets/ 或 examples/ 目录：{name}")
+        if _has_binary_content(data) and not name.startswith(BINARY_DIRS):
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.MANIFEST_INVALID,
+                f"二进制文件只能放在 assets/ 或 examples/ 目录：{name}")
 
     entry_text = next(data.decode("utf-8", errors="replace") for name, data in entries if name == "SKILL.md")
     frontmatter = parse_frontmatter(entry_text)
@@ -489,7 +511,7 @@ async def _create_skill_record(
                 VALUES (:skill,:path,:is_text,:size,:sha,:entry)
             """), {
                 "skill": skill_id, "path": rel_path,
-                "is_text": _is_text_path(rel_path) and not (b"\x00" in data[:4096]),
+                "is_text": _skill_file_is_text(rel_path, data),
                 "size": len(data),
                 "sha": hashlib.sha256(data).hexdigest(),
                 "entry": rel_path == "SKILL.md",

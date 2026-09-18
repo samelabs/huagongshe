@@ -44,6 +44,11 @@ def _zip_bytes(files: dict[str, bytes]) -> bytes:
 
 SKILL_MD = b"---\nname: Test Skill\ndescription: A test skill\n---\nbody"
 
+# E1: 与生产失败行同口径的样本(path='.gitignore', size_bytes=34, 纯文本无 NUL, 无扩展名)。
+# 生产字节内容不可知(日志只留 sha256), 因此这里只对齐长度与文本/扩展名特征。
+GITIGNORE_TEXT = b".env\n*.log\nnode_modules/\n#pad\n"
+GITIGNORE_TEXT += b"#" * (34 - len(GITIGNORE_TEXT))
+
 
 def _valid_zip() -> bytes:
     return _zip_bytes({"SKILL.md": SKILL_MD, "assets/icon.png": b"\x00\x01"})
@@ -284,6 +289,47 @@ class ArchiveKernelTests(unittest.TestCase):
         self._assert(raw, SkillArchiveValidationError.MANIFEST_INVALID,
                      "二进制文件只能放在 assets/ 或 examples/ 目录：blob.bin")
 
+    def test_binary_inside_allowed_dirs_accepted(self):
+        raw = _zip_bytes({"SKILL.md": SKILL_MD, "examples/out/model.bin": b"\x00\x01"})
+        manifest = svc.extract_skill_zip(raw)
+        self.assertEqual([n for n, _ in manifest["files"]],
+                         ["SKILL.md", "examples/out/model.bin"])
+
+    def test_binary_content_with_text_extension_rejected(self):
+        """E1: 扩展名不再豁免放行目录 — .csv 内嵌 NUL 必须在 archive 阶段被拒(原先落到 DB → 500)。"""
+        raw = _zip_bytes({"SKILL.md": SKILL_MD, "data.csv": b"a\x00b"})
+        self._assert(raw, SkillArchiveValidationError.MANIFEST_INVALID,
+                     "二进制文件只能放在 assets/ 或 examples/ 目录：data.csv")
+
+    def test_extensionless_text_files_are_text(self):
+        """E1 生产 500 回归: .gitignore/LICENSE/Makefile 等无扩展名文本文件不得被判为二进制。"""
+        raw = _zip_bytes({"SKILL.md": SKILL_MD, ".gitignore": GITIGNORE_TEXT,
+                          "LICENSE": b"MIT License\n", "Makefile": b"all:\n\techo hi\n"})
+        self.assertEqual(len(GITIGNORE_TEXT), 34)  # 与生产失败行 size_bytes 一致
+        manifest = svc.extract_skill_zip(raw)
+        self.assertEqual(len(manifest["files"]), 4)
+        for name, data in manifest["files"]:
+            with self.subTest(path=name):
+                self.assertTrue(svc._skill_file_is_text(name, data), name)
+
+    def test_is_text_never_violates_db_check(self):
+        """_skill_file_is_text 必须恒满足 DB CHECK skill_files_text_only。"""
+        cases = [(".gitignore", GITIGNORE_TEXT), ("LICENSE", b"MIT\n"),
+                 ("Makefile", b"all:\n"), ("notes.md", b"# n\n"), ("data.csv", b"a,b\n"),
+                 ("assets/icon.png", b"\x00\x01"), ("examples/m.bin", b"\x00\x01"),
+                 ("assets/notes.md", b"# n\n"), ("assets/data.csv", b"a,b\n")]
+        for path, data in cases:
+            with self.subTest(path=path):
+                is_text = svc._skill_file_is_text(path, data)
+                self.assertTrue(is_text or path.startswith(("assets/", "examples/")),
+                                f"会违反 DB CHECK: {path} is_text={is_text}")
+
+    def test_assets_extension_conservatism_preserved(self):
+        """assets/examples 内的标记口径不变: 二进制资产 false, 文本资产 true。"""
+        self.assertFalse(svc._skill_file_is_text("assets/icon.png", b"\x00\x01"))
+        self.assertFalse(svc._skill_file_is_text("assets/blob.bin", b"plain"))
+        self.assertTrue(svc._skill_file_is_text("assets/notes.md", b"# n\n"))
+
     def test_frontmatter_missing_fields(self):
         raw = _zip_bytes({"SKILL.md": b"---\nname: X\n---\n"})
         self._assert(raw, SkillArchiveValidationError.MANIFEST_INVALID,
@@ -369,6 +415,30 @@ class TransactionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seq[0], "insert_skill")
         self.assertTrue(all(o == "insert_files" for o in seq[1:-1]))
         self.assertEqual(seq[-1], "commit")  # commit 最后(SKILL.md+icon 2 行 files)
+
+    async def test_extensionless_text_file_inserted_as_text(self):
+        """E1 回归: .gitignore 行以 is_text=true 落库(原先 false → CheckViolation 500)。"""
+        db = _Exec(results=[("INSERT INTO community.skills", 99)])
+        seen = []
+        orig_exec = db.execute
+
+        async def execute(sql, params=None):
+            if "INSERT INTO community.skill_files" in str(sql) and params:
+                seen.append((params["path"], params["is_text"]))
+            return await orig_exec(sql, params)
+
+        db.execute = execute
+        raw = _zip_bytes({"SKILL.md": SKILL_MD, "assets/icon.png": b"\x00\x01",
+                          ".gitignore": GITIGNORE_TEXT})
+        with patch.object(svc, "enforce", _ok()), \
+             patch.object(svc, "_write_skill_files", _noop()), \
+             patch.object(svc, "load_accessible_skill", _ret({"id": 99})):
+            await svc.create_skill(
+                db, actor_id=7, auth_kind="agent", category=None,
+                idempotency_key="k", archive_loader=_ret(raw))
+        self.assertIn((".gitignore", True), seen)
+        self.assertIn(("assets/icon.png", False), seen)
+        self.assertIn(("SKILL.md", True), seen)
 
     async def test_race_idem_reread_hit(self):
         from sqlalchemy.exc import IntegrityError
