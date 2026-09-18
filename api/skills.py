@@ -25,7 +25,9 @@ from .core.config import settings
 from .core.database import get_db
 from .rate_limit_http import enforce_http
 from .core.security import Actor, current_actor, public_or_actor, require_scope
-from .services.skills import list_skills as list_skills_service
+from .services.skills import (list_skills as list_skills_service,
+    SkillNotAccessibleError, get_skill_detail as get_skill_detail_service,
+    load_accessible_skill, skill_fs_dir)
 
 router = APIRouter(tags=["skills"])
 
@@ -220,33 +222,21 @@ async def validate_category(db, category: str | None) -> str | None:
     return category
 
 
-async def skill_accessible(db, skill_id: int, actor: Actor | None) -> dict[str, Any]:
-    row = (await db.execute(text("""
-        SELECT s.id,s.owner_id,s.slug,s.title,s.description,s.license,s.category,s.origin,
-               s.visibility,s.has_scripts,s.file_count,s.size_bytes,s.created_at,s.updated_at,
-               u.username,u.display_name
-        FROM community.skills s JOIN community.users u ON u.id=s.owner_id
-        WHERE s.id=:id
-    """), {"id": skill_id})).fetchone()
-    if row is None:
-        raise HTTPException(404, "技能不存在")
-    if row[8] != "public" and (actor is None or actor.id != int(row[1])):
-        raise HTTPException(404, "技能不存在")
-    return {
-        "id": int(row[0]), "owner_id": int(row[1]), "slug": row[2], "title": row[3],
-        "description": row[4], "license": row[5], "category": row[6], "origin": row[7],
-        "visibility": row[8], "has_scripts": row[9], "file_count": row[10],
-        "size_bytes": int(row[11]), "created_at": row[12], "updated_at": row[13],
-        "owner": {"username": row[14], "display_name": row[15]},
-    }
+async def _load_accessible_skill_http(db, skill_id: int, actor: Actor | None) -> dict[str, Any]:
+    """HTTP bridge: neutral access kernel → HTTP 404 原文映射(G2.6C)。
 
-
-def _skill_fs_dir(skill_id: int) -> Path:
-    return Path(settings.skill_root) / str(skill_id)
+    只做 transport 映射, 无 SQL / 无 access predicate 判定;
+    canonical access invariant 在 services.skills.load_accessible_skill。
+    """
+    try:
+        return await load_accessible_skill(
+            db, skill_id, actor_id=actor.id if actor else None)
+    except SkillNotAccessibleError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 def _write_skill_files(skill_id: int, files: list[tuple[str, bytes]]) -> None:
-    root = _skill_fs_dir(skill_id)
+    root = skill_fs_dir(skill_id)
     root.mkdir(parents=True, exist_ok=True)
     for rel_path, data in files:
         target = root / rel_path
@@ -291,9 +281,9 @@ async def _create_skill_record(db, actor: Actor, manifest: dict[str, Any], categ
         await db.commit()
     except Exception:
         await db.rollback()
-        await asyncio.to_thread(shutil.rmtree, _skill_fs_dir(skill_id), True)
+        await asyncio.to_thread(shutil.rmtree, skill_fs_dir(skill_id), True)
         raise
-    return await skill_accessible(db, skill_id, actor)
+    return await _load_accessible_skill_http(db, skill_id, actor)
 
 
 @router.get(
@@ -349,24 +339,13 @@ async def get_skill(
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
-    manifest = await skill_accessible(db, skill_id, actor)
-    files = (await db.execute(text("""
-        SELECT path,is_text,size_bytes,sha256,is_entry
-        FROM community.skill_files WHERE skill_id=:id ORDER BY is_entry DESC, path
-    """), {"id": skill_id})).mappings().all()
-    entry_text: str | None = None
-    if any(f["is_entry"] for f in files):
-        entry_path = _skill_fs_dir(skill_id) / "SKILL.md"
-        if entry_path.is_file():
-            entry_text = entry_path.read_text(encoding="utf-8", errors="replace")
-    manifest["files"] = [dict(f) for f in files]
-    manifest["skill_md"] = entry_text
-    if manifest["has_scripts"]:
-        manifest["script_warning"] = (
-            "该技能包含脚本文件。平台仅做语法级检查，不保证安全；"
-            "执行前请人工审阅全部脚本内容。"
-        )
-    return manifest
+    # G2.6C: detail orchestration 下沉 services.skills.get_skill_detail,
+    # adapter 只余 neutral → 404 映射。
+    try:
+        return await get_skill_detail_service(
+            db, skill_id, actor_id=actor.id if actor else None)
+    except SkillNotAccessibleError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get(
@@ -380,7 +359,7 @@ async def get_skill_file(
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
-    await skill_accessible(db, skill_id, actor)
+    await _load_accessible_skill_http(db, skill_id, actor)
     row = (await db.execute(text("""
         SELECT is_text,size_bytes FROM community.skill_files
         WHERE skill_id=:id AND path=:path
@@ -389,7 +368,7 @@ async def get_skill_file(
         raise HTTPException(404, "文件不存在")
     if not row[0]:
         raise HTTPException(404, "二进制文件请通过 archive 端点获取 zip")
-    target = _skill_fs_dir(skill_id) / file_path
+    target = skill_fs_dir(skill_id) / file_path
     if not target.is_file():
         raise HTTPException(404, "文件不存在")
     return {"path": file_path, "size_bytes": int(row[1]), "content": target.read_text(encoding="utf-8", errors="replace")}
@@ -405,14 +384,14 @@ async def download_skill_archive(
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
-    manifest = await skill_accessible(db, skill_id, actor)
+    manifest = await _load_accessible_skill_http(db, skill_id, actor)
     rows = (await db.execute(text("""
         SELECT path FROM community.skill_files WHERE skill_id=:id ORDER BY path
     """), {"id": skill_id})).fetchall()
 
     def build_zip() -> bytes:
         buffer = io.BytesIO()
-        root = _skill_fs_dir(skill_id)
+        root = skill_fs_dir(skill_id)
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
             for (rel_path,) in rows:
                 archive.write(root / rel_path, rel_path)
@@ -486,7 +465,7 @@ async def create_skill(
             WHERE owner_id=:user_id AND idempotency_key=:key
         """), {"user_id": actor.id, "key": idempotency_key})).scalar()
         if existing is not None:
-            return await skill_accessible(db, int(existing), actor)
+            return await _load_accessible_skill_http(db, int(existing), actor)
 
     raw = await file.read(settings.skill_zip_max_bytes + 1)
     if len(raw) > settings.skill_zip_max_bytes:
@@ -507,7 +486,7 @@ async def create_skill(
                 WHERE owner_id=:user_id AND idempotency_key=:key
             """), {"user_id": actor.id, "key": idempotency_key})).scalar()
             if existing is not None:
-                return await skill_accessible(db, int(existing), actor)
+                return await _load_accessible_skill_http(db, int(existing), actor)
         conflict = (await db.execute(text("""
             SELECT id FROM community.skills
             WHERE owner_id=:user_id AND slug=:slug
@@ -533,7 +512,7 @@ async def update_skill(
 ):
     if actor.auth_kind == "agent":
         raise HTTPException(403, "API Token 当前不开放技能编辑，请使用网页登录会话")
-    current = await skill_accessible(db, skill_id, actor)
+    current = await _load_accessible_skill_http(db, skill_id, actor)
     if current["owner_id"] != actor.id:
         raise HTTPException(403, "只能编辑自己创建的技能")
     title = body.get("title")
@@ -552,7 +531,7 @@ async def update_skill(
         "description": str(description)[:500] if description is not None else None,
     })
     await db.commit()
-    return await skill_accessible(db, skill_id, actor)
+    return await _load_accessible_skill_http(db, skill_id, actor)
 
 
 @router.delete(
@@ -568,9 +547,9 @@ async def delete_skill(
 ):
     if actor.auth_kind == "agent":
         raise HTTPException(403, "API Token 当前不开放技能删除，请使用网页登录会话")
-    current = await skill_accessible(db, skill_id, actor)
+    current = await _load_accessible_skill_http(db, skill_id, actor)
     if current["owner_id"] != actor.id:
         raise HTTPException(403, "只能删除自己创建的技能")
     await db.execute(text("DELETE FROM community.skills WHERE id=:id"), {"id": skill_id})
     await db.commit()
-    await asyncio.to_thread(shutil.rmtree, _skill_fs_dir(skill_id), True)
+    await asyncio.to_thread(shutil.rmtree, skill_fs_dir(skill_id), True)

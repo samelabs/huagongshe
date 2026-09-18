@@ -232,7 +232,8 @@ class SkillsRaceTests(unittest.TestCase):
         key = f"race-key-{RUN}"
 
         async def go():
-            from api.skills import _create_skill_record, skill_accessible
+            from api.skills import _create_skill_record
+            from api.services.skills import load_accessible_skill
             from api.core.security import Actor
             nonlocal uid
             try:

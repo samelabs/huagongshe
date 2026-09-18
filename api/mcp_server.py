@@ -456,7 +456,8 @@ def build_mcp_server() -> MCPServer:
     ) -> dict[str, Any]:
         """读取一个技能的 manifest、文件清单和 SKILL.md 全文(文本文件不含二进制)。
         skill_id 支持数字 id 或 slug 字符串(如 huagongshe-reaction-publisher)。"""
-        from . import skills as skills_module
+        from .services.skills import SkillNotAccessibleError
+        from .services.skills import get_skill_detail as _detail_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
         if isinstance(skill_id, str):
@@ -469,8 +470,15 @@ def build_mcp_server() -> MCPServer:
             resolved_id = skill_id
         if not 1 <= resolved_id <= 2_147_483_647:
             raise ToolError("skill_id 超出范围")
+        # G2.6C: 直调 shared detail service(slug 解析留本 adapter);
+        # missing/private-unreadable → 同一 ToolError 原文。
         async with async_session() as session:
-            return await skills_module.get_skill(skill_id=resolved_id, actor=actor, db=session)
+            try:
+                return await _detail_service(
+                    session, resolved_id,
+                    actor_id=actor.id if actor else None)
+            except SkillNotAccessibleError as exc:
+                raise ToolError(str(exc)) from exc
 
     @server.tool(name="calculate_stoichiometry", title="投料计算")
     async def calculate_stoichiometry(
