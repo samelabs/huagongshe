@@ -20,26 +20,32 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from scripts.migrate import run, FORWARD_RE  # noqa: E402
+from scripts.migrate import run, FORWARD_RE, _normalize_psql_url  # noqa: E402
 
 
 def _db_url() -> str:
-    url = os.environ.get("TEST_DATABASE_URL", "")
-    # runner 直连 libpq: 剥掉 sqlalchemy driver 前缀与 sentinel 参数
+    """传给 runner 的 URL: asyncpg scheme 原样保留(由 runner 统一 normalize);
+    只剥 ?test_sentinel(本地 gate 标记, 非 libpq 连接参数, 生产 URL 无参数)。"""
+    return os.environ.get("TEST_DATABASE_URL", "").split("?")[0]
+
+
+def _psql_native(url: str) -> str:
+    """fixture 自用: psql 不认 asyncpg scheme, 仅在 fixture 直连处转换。"""
     if url.startswith("postgresql+asyncpg://"):
-        url = "postgresql://" + url.split("://", 1)[1]
-    url = url.split("?")[0]
+        return "postgresql://" + url[len("postgresql+asyncpg://"):]
     return url
 
 
 @unittest.skipUnless(_db_url(), "需要 PG 测试库")
 class MigrationRunnerTests(unittest.TestCase):
     def setUp(self):
+        # asyncpg scheme 原样保留传 runner(生产入口口径); 仅 fixture 侧
+        # test_sentinel(本地 gate 标记, 非 libpq 连接参数)由 _db_url 剥除。
         self.url = _db_url()
         self.tmp = tempfile.mkdtemp(prefix="mig_runner_")
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         # 干净 tracking + fixture 表(测试间隔离)
-        subprocess.run(["psql", self.url, "--no-psqlrc", "-q", "-c", """
+        subprocess.run(["psql", _psql_native(self.url), "--no-psqlrc", "-q", "-c", """
             DROP TABLE IF EXISTS maintenance.schema_migrations;
             DROP TABLE IF EXISTS chemistry.runner_marker;
             DROP TABLE IF EXISTS chemistry.mig_imm;
@@ -55,7 +61,7 @@ class MigrationRunnerTests(unittest.TestCase):
 
     def _psql(self, sql: str):
         return subprocess.run(
-            ["psql", self.url, "--no-psqlrc", "-At", "-c", sql],
+            ["psql", _psql_native(self.url), "--no-psqlrc", "-At", "-c", sql],
             capture_output=True, text=True, env=dict(os.environ))
 
     def _write(self, name: str, content: str):
@@ -184,6 +190,44 @@ class MigrationRunnerTests(unittest.TestCase):
                         outs[1][0].count("[runner] skip")])
         self.assertEqual(applied_lines, 1)
         self.assertEqual(skip_lines, 1)
+
+    def test_normalize_native_postgresql_url_unchanged(self):
+        url = "postgresql://u:p@127.0.0.1:5432/test_hgs"
+        self.assertEqual(_normalize_psql_url(url), url)
+
+    def test_normalize_asyncpg_url_becomes_native(self):
+        url = "postgresql+asyncpg://u:p@127.0.0.1:5432/test_hgs"
+        self.assertEqual(_normalize_psql_url(url),
+                         "postgresql://u:p@127.0.0.1:5432/test_hgs")
+
+    def test_asyncpg_form_url_completes_real_migration(self):
+        """asyncpg 形式 URL 必须能原样驱动 runner 完成真实 migration。"""
+        self._write("20260911_01_runner_a.sql",
+                    "CREATE TABLE IF NOT EXISTS chemistry.mig_a (id int PRIMARY KEY);")
+        self._write("20260911_02_runner_b.sql",
+                    "CREATE TABLE IF NOT EXISTS chemistry.mig_b (id int PRIMARY KEY);")
+        rc = run(self.url, self.tmp, apply=True)
+        self.assertEqual(rc, 0)
+        out = self._psql("SELECT count(*) FROM maintenance.schema_migrations")
+        self.assertEqual(out.stdout.strip(), "2")
+
+    def test_asyncpg_form_url_dry_run_works(self):
+        self._write("20260911_01_runner_a.sql",
+                    "CREATE TABLE IF NOT EXISTS chemistry.mig_a (id int PRIMARY KEY);")
+        rc = run(self.url, self.tmp, apply=False)
+        self.assertEqual(rc, 0)
+        out = self._psql("SELECT count(*) FROM maintenance.schema_migrations")
+        self.assertEqual(out.stdout.strip(), "0", "dry-run 零写入")
+
+    def test_normalize_never_leaks_password_in_repr_or_messages(self):
+        # helper 本身不做任何打印; 泄漏面在 psql 报错信息 —— runner 的
+        # eprint 只输出固定文案与异常类型, 不回显 URL
+        import io, contextlib
+        import scripts.migrate as M
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            M.eprint("[runner] fake", RuntimeError("boom"))
+        self.assertNotIn("postgresql", err.getvalue())
 
     def test_repo_forward_chain_contains_pubchem_identity_reconciliation(self):
         # 正式 repo migrations/: reconciliation migration 存在于合法 forward 集合

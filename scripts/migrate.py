@@ -50,9 +50,29 @@ def _env() -> dict:
     return env
 
 
+_ASYNCPG_PREFIX = "postgresql+asyncpg://"
+_NATIVE_PREFIX = "postgresql://"
+
+
+def _normalize_psql_url(database_url: str) -> str:
+    """唯一窄口径 normalization: psql(libpq) 只认 postgresql://。
+
+    生产标准 env 是 SQLAlchemy 形式 postgresql+asyncpg://…; 直接交给 psql 时
+    libpq 不识别该 scheme, 回退 local socket 以 OS 用户认证(历史事故: role
+    ubuntu does not exist → advisory lock LOCKED 永远拿不到)。
+
+    - postgresql+asyncpg://… → postgresql://…(只剥 driver 后缀)
+    - 原生 postgresql://… 原样通过
+    - 其他形式不猜测、不改写, 原样交给 psql 由 libpq 报错
+    """
+    if database_url.startswith(_ASYNCPG_PREFIX):
+        return _NATIVE_PREFIX + database_url[len(_ASYNCPG_PREFIX):]
+    return database_url
+
+
 def _psql(database_url: str, sql: str) -> subprocess.CompletedProcess:
     """一次性 psql 执行(无锁语义, 仅在持锁 session 存活期间调用)。"""
-    cmd = ["psql", database_url, "--no-psqlrc", "--quiet",
+    cmd = ["psql", _normalize_psql_url(database_url), "--no-psqlrc", "--quiet",
            "--set", "ON_ERROR_STOP=1", "--single-transaction",
            "--command", sql]
     return subprocess.run(cmd, env=_env(), capture_output=True, text=True)
@@ -67,7 +87,7 @@ class _AdvisoryLockHolder:
     """
 
     def __init__(self, database_url: str, key: int):
-        self._url = database_url
+        self._url = _normalize_psql_url(database_url)
         self._key = key
         self._proc: subprocess.Popen | None = None
 
@@ -138,7 +158,7 @@ def _run_locked(database_url: str, migrations_dir: str, *,
     )
     # 3. 现有 tracking 记录(-At: 无表头, file|digest 每行)
     proc = subprocess.run(
-        ["psql", database_url, "--no-psqlrc", "--quiet", "-At",
+        ["psql", _normalize_psql_url(database_url), "--no-psqlrc", "--quiet", "-At",
          "-c", "SELECT filename, sha256 FROM maintenance.schema_migrations;"],
         env=_env(), capture_output=True, text=True)
     if proc.returncode != 0:
@@ -171,7 +191,7 @@ def _run_locked(database_url: str, migrations_dir: str, *,
         script = APPLY_TEMPLATE.format(
             sqlfile=sql_file, fname=fname, digest=digest)
         # \i + INSERT 同一个 --single-transaction: 原子
-        cmd = ["psql", database_url, "--no-psqlrc", "--quiet",
+        cmd = ["psql", _normalize_psql_url(database_url), "--no-psqlrc", "--quiet",
                "--set", "ON_ERROR_STOP=1", "--single-transaction"]
         proc = subprocess.run(cmd, input=script, env=_env(),
                               capture_output=True, text=True)
@@ -186,7 +206,7 @@ def _run_locked(database_url: str, migrations_dir: str, *,
 def main() -> int:
     import argparse
     ap = argparse.ArgumentParser(description="forward migration runner")
-    ap.add_argument("database_url", help="目标库 URL(postgres://…)")
+    ap.add_argument("database_url", help="目标库 URL(postgresql:// 或 postgresql+asyncpg://)")
     ap.add_argument("--migrations-dir", default=None,
                     help="migration 根目录(默认: repo migrations/)")
     ap.add_argument("--dry-run", action="store_true",

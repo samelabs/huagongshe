@@ -999,7 +999,12 @@ class Deployer:
 
         backup: Path | None = None
         if desired != original:
-            backup = site.with_name(site.name + f".bak-{int(time.time())}")
+            # 备份必须位于 nginx include 目录之外(sites-enabled/* 会被 nginx
+            # 当正式配置加载, 历史事故: .bak 同名 limit_req_zone 导致 nginx -t
+            # 必败)。固定放 HGS nginx 配置根 nginx_gen_dir.parent(/etc/nginx/hgs/)。
+            backup_dir = self.paths.nginx_gen_dir.parent
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            backup = backup_dir / f"{site.name}.bak-{int(time.time())}"
             backup.write_text(original, encoding="utf-8")
             self._event("install.site_config.backup", path=str(backup))
             site.write_text(desired, encoding="utf-8")

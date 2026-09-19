@@ -196,9 +196,15 @@ class InstallNginxTests(NginxCase):
         self.assertIn("proxy_pass http://hgs_web_active;", migrated)
         self.assertNotIn("127.0.0.1:3001", migrated)
         self.assertNotIn("127.0.0.1:8000", migrated)
-        backups = list(paths.nginx_site_conf.parent.glob(paths.nginx_site_conf.name + ".bak-*"))
-        self.assertEqual(len(backups), 1)
-        self.assertEqual(backups[0].read_text(encoding="utf-8"), original)
+        # 回归锁(生产事故): 备份必须在 nginx include 目录之外
+        backup_dir = paths.nginx_gen_dir.parent
+        backups = list(backup_dir.glob(paths.nginx_site_conf.name + ".bak-*"))
+        self.assertEqual(len(backups), 1, "首次 install 有且仅有一个 backup")
+        self.assertEqual(backups[0].read_text(encoding="utf-8"), original, "backup 内容 == original")
+        self.assertNotEqual(backups[0].parent, paths.nginx_site_conf.parent,
+                            "backup 不得位于 sites-enabled/(nginx include 目录)")
+        self.assertEqual(list(paths.nginx_site_conf.parent.glob(paths.nginx_site_conf.name + ".bak-*")),
+                         [], "sites-enabled/ 中不得存在 huagongshe.bak-*")
         self.assertEqual((paths.nginx_gen_dir / ACTIVE_LINK).resolve().name, "blue.conf")
         self.assertEqual(sum(1 for c in self.commands() if "-s reload" in c), 1)
 
@@ -207,7 +213,8 @@ class InstallNginxTests(NginxCase):
         second = d.install_nginx()
         self.assertFalse(second["changed"])
         self.assertEqual(paths.nginx_site_conf.read_text(encoding="utf-8"), migrated)
-        self.assertEqual(len(list(paths.nginx_site_conf.parent.glob(paths.nginx_site_conf.name + ".bak-*"))), 1)
+        self.assertEqual(len(list(backup_dir.glob(paths.nginx_site_conf.name + ".bak-*"))), 1,
+                         "第二次 install 不得再写 backup")
         after = self.runner.argv_log[before_commands:]
         self.assertEqual([c for c in after if "nginx" in c], [], "幂等路径不得再校验/reload nginx")
         self.assertEqual([c for c in after if c[0] != "install"], [], "幂等路径不得再执行其他命令")
