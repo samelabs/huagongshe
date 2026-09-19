@@ -76,7 +76,7 @@ class BuildIsolationCase(unittest.TestCase):
 
     def spec(self, gen: str) -> str:
         self.d.render_spec(GENERATIONS[gen])
-        return (self.paths.state_dir / f"ecosystem-{gen}.cjs").read_text(encoding="utf-8")
+        return (self.paths.state_dir / f"ecosystem-{gen}.config.cjs").read_text(encoding="utf-8")
 
 
 class BuildTargetTests(BuildIsolationCase):
@@ -118,7 +118,7 @@ class BuildTargetTests(BuildIsolationCase):
         envs = self.build_envs()
         self.assertEqual(len(envs), 1)
         self.assertEqual(envs[0]["HGS_NEXT_DIST_DIR"], ".next-green")
-        spec = (self.paths.state_dir / "ecosystem-green.cjs").read_text(encoding="utf-8")
+        spec = (self.paths.state_dir / "ecosystem-green.config.cjs").read_text(encoding="utf-8")
         self.assertIn('HGS_NEXT_DIST_DIR: ".next-green"', spec, "PM2 runtime env 必须与 build 同值")
         # 目标代的 api/web/worker 全部指向本代端口, 不串代
         self.assertIn("--port 8010", spec)
@@ -143,7 +143,7 @@ class BuildTargetTests(BuildIsolationCase):
 
         self.assertTrue(result["ok"], result)
         self.assertEqual(self.runner.builds, [], "skip-build 不得构建")
-        spec = (self.paths.state_dir / "ecosystem-green.cjs").read_text(encoding="utf-8")
+        spec = (self.paths.state_dir / "ecosystem-green.config.cjs").read_text(encoding="utf-8")
         self.assertIn('HGS_NEXT_DIST_DIR: ".next-green"', spec)
 
     def test_dist_dirs_are_generation_specific(self) -> None:

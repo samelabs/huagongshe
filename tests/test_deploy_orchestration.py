@@ -241,6 +241,59 @@ class GenerationStartArgvContractTests(DeployCase):
         )
 
 
+class SpecFilenameContractTests(DeployCase):
+    """R3 回归锁: PM2 只识别 ecosystem-{gen}.config.cjs 形式为 spec。"""
+
+    def test_render_spec_green_basename_exact(self):
+        d = self.make()
+        spec = d.render_spec(GENERATIONS["green"])
+        self.assertEqual(spec.name, "ecosystem-green.config.cjs")
+
+    def test_render_spec_blue_follows_same_rule(self):
+        d = self.make()
+        spec = d.render_spec(GENERATIONS["blue"])
+        self.assertEqual(spec.name, "ecosystem-blue.config.cjs")
+
+    def test_rendered_spec_lives_in_state_dir_not_repo(self):
+        d = self.make()
+        spec = d.render_spec(GENERATIONS["green"])
+        self.assertEqual(spec.parent, self.paths.state_dir)
+        self.assertTrue(self.paths.state_dir.is_relative_to(self.tmp))
+
+    def test_three_starts_reference_identical_config_cjs_path(self):
+        d = self.make()
+        self.assertTrue(d.start_generation(GENERATIONS["green"]))
+        starts = [c for c in self.runner.argv_log if c[:2] == ["pm2", "start"]]
+        self.assertEqual(len(starts), 3)
+        self.assertEqual(len({c[2] for c in starts}), 1,
+                         "三条 start 必须引用同一 spec 路径")
+        self.assertTrue(starts[0][2].endswith("ecosystem-green.config.cjs"))
+
+
+class SpecRecognitionFakesTests(DeployCase):
+    """R3 回归锁: FakeRunner 的 PM2 spec 识别模型(生产事故机制)。"""
+
+    def _fake_runner(self) -> FakeRunner:
+        return FakeRunner(self.world, self.paths)
+
+    def test_legacy_non_config_cjs_name_fails_and_starts_nothing(self):
+        g = GENERATIONS["green"]
+        spec = self.paths.state_dir / "ecosystem-green.cjs"  # 旧名(事故形态)
+        r = self._fake_runner().run([str(self.paths.pm2_bin), "start", str(spec),
+                             "--only", g.api_app])
+        self.assertNotEqual(r.code, 0, "旧 spec 名必须 start 失败")
+        self.assertEqual(self.world.apps_running.get("green", set()), set(),
+                         "不得启动任何 named app")
+
+    def test_config_cjs_name_starts_named_app(self):
+        g = GENERATIONS["green"]
+        spec = self.paths.state_dir / "ecosystem-green.config.cjs"
+        r = self._fake_runner().run([str(self.paths.pm2_bin), "start", str(spec),
+                             "--only", g.api_app])
+        self.assertEqual(r.code, 0)
+        self.assertEqual(self.world.apps_running.get("green", set()), {g.api_app})
+
+
 class PartialStartCleanupTests(DeployCase):
     """R2 回归锁: 单 app start 失败 → deploy pre-switch failure + 完整 cleanup。"""
 
@@ -424,7 +477,7 @@ class DryRunTests(DeployCase):
         self.assertEqual(self.runner.argv_log, [], "dry-run 不得执行命令")
         self.assertEqual(self.paths.nginx_site_conf.read_text(encoding="utf-8"), before_site)
         self.assertEqual(snapshot(self.tmp), before_tree, "dry-run 不得改动任何文件/symlink")
-        self.assertFalse((self.paths.state_dir / "ecosystem-green.cjs").exists())
+        self.assertFalse((self.paths.state_dir / "ecosystem-green.config.cjs").exists())
         self.assertFalse((self.paths.web_dir / ".next-green").exists())
 
     def test_dry_run_worker_verify_passes_without_pm2(self) -> None:

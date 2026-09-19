@@ -548,7 +548,9 @@ class Deployer:
     def render_spec(self, gen: Generation) -> Path:
         canonical_text = self.paths.ecosystem_conf.read_text(encoding="utf-8")
         text = render_spec_text(gen, canonical_text, self.paths)
-        out = self.paths.state_dir / f"ecosystem-{gen.name}.cjs"
+        # PM2 7.x 只把 ecosystem*.config.{js,cjs} 形式识别为 ecosystem spec;
+        # 旧名 ecosystem-<gen>.cjs 不被识别, 会被当普通脚本 fork(生产事故)。
+        out = self.paths.state_dir / f"ecosystem-{gen.name}.config.cjs"
         if not self.dry_run:
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(text, encoding="utf-8")
@@ -560,8 +562,9 @@ class Deployer:
         self._event("start.begin", gen=gen.name)
         # 目标代按定义不是服务代: 先清掉可能残留的同代进程, 保证 env 完全来自渲染后的 spec
         self._pm2("delete", *gen.apps())
-        # PM2 7.x 的 --only 不接受 comma-joined 多 app 名(会把 spec 文件本身
-        # 当脚本启动成单个 fork 进程): 按 gen.apps() 顺序逐 app 独立 start。
+        # 逐 app 独立 start(owner contract): 启动顺序明确、单 app failure
+        # 精确定位、partial-start cleanup 可验证、不依赖 multi-app --only
+        # 的 CLI 解析细节。
         for app in gen.apps():
             r = self._pm2("start", str(spec), "--only", app)
             if not r.ok:

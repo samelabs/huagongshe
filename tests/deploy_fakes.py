@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import re
 import os
 import threading
 import time
@@ -349,29 +350,30 @@ class FakeRunner:
         if a[0] == "pm2":
             sub = a[1]
             if sub == "start":
-                spec = a[2]
-                gen = Path(spec).name
-                gen = gen[len("ecosystem-"):-len(".cjs")]
                 if self.start_code:
                     return Result(a, self.start_code, "start failed")
-                # R2: 真实 PM2 7.x 语义模型
-                #   --only <app>  → 只启动该 app(未启动的兄弟 app 保持不存在)
-                #   无 --only / comma-joined 多名 → 只算"启动了 spec 自身",
-                #     不产生任何 named app(jlist 不出现三个 app)
+                # R3: PM2 7.x spec 识别模型 —— 只有 ecosystem-{gen}.config.cjs
+                # 形式被识别为 ecosystem config; 旧 ecosystem-{gen}.cjs 不被
+                # 识别, PM2 把文件当普通脚本 fork, 不产生任何 named app
+                # 并以非零退出(第二次生产 pre-switch 失败的机制)。
+                name = Path(a[2]).name
+                m = re.fullmatch(r"ecosystem-(\w+)\.config\.cjs", name)
+                if not m:
+                    return Result(a, 1, f"not an ecosystem config: {name}")
+                gen = m.group(1)
+                if gen not in GENERATIONS:
+                    return Result(a, 1, f"unknown generation spec: {name}")
+                # 单 --only <app> → 只启动该 app; comma/多 --only 不解析
                 only_vals = [a[i + 1] for i, x in enumerate(a) if x == "--only"]
-                target_apps: list[str]
-                if only_vals and len(only_vals) == 1 and "," not in only_vals[0]:
-                    target_apps = [only_vals[0]]
-                else:
-                    target_apps = []  # comma 串/多 --only: PM2 把 spec 当脚本,
-                    # 不启动任何 named app —— 正是 R1 生产事故形态
-                for app in target_apps:
-                    if self.world.app_start_fail.get(app):
-                        return Result(a, 1, f"start failed: {app}")
-                    g = self._gen_of_app(app)
-                    if g is None or g != gen:
-                        return Result(a, 1, f"app {app} not in spec {gen}")
-                    self.world.start_app(g, app)
+                if len(only_vals) != 1 or "," in only_vals[0]:
+                    return Result(a, 1, "multi-app --only not supported")
+                app = only_vals[0]
+                if self.world.app_start_fail.get(app):
+                    return Result(a, 1, f"start failed: {app}")
+                g = self._gen_of_app(app)
+                if g is None or g != gen:
+                    return Result(a, 1, f"app {app} not in spec {gen}")
+                self.world.start_app(g, app)
                 return Result(a, 0, "")
             if sub == "delete":
                 for app in a[2:]:
@@ -479,7 +481,8 @@ def legacy_restart_sequence(world: FakeWorld, runner: FakeRunner, paths: Paths, 
     new = "green" if old == "blue" else "blue"
     runner.run([str(paths.pm2_bin), "delete", *GENERATIONS[old].apps()])
     time.sleep(gap)
-    runner.run([str(paths.pm2_bin), "start", str(paths.state_dir / f"ecosystem-{new}.cjs"), "--only", ",".join(GENERATIONS[new].apps())])
+    for app in GENERATIONS[new].apps():
+        runner.run([str(paths.pm2_bin), "start", str(paths.state_dir / f"ecosystem-{new}.config.cjs"), "--only", app])
     time.sleep(gap)
     write_active_link(paths, new)
     runner.run([str(paths.nginx_bin), "-s", "reload"])

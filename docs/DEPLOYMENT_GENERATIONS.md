@@ -25,7 +25,7 @@
   （避免 worker 指向已停掉的旧代 API；两个 worker 短暂并存由服务端 lease 兜住）。
 - PM2 spec 由 `ecosystem.config.cjs` **窄口径替换**得到（端口/名字/worker 指向 + `kill_timeout`）。
   锚点缺失或出现次数不符 = 漂移 → **fail-closed 拒绝生成**，绝不猜。
-- generation spec 落在 `/var/lib/huagongshe/deploy/ecosystem-<gen>.cjs`（仓库外，不污染 checkout）。
+- generation spec 落在 `/var/lib/huagongshe/deploy/ecosystem-<gen>.config.cjs`（仓库外，不污染 checkout）。
 - **每代独立的 Next 构建产物**：`web/next.config.ts` 的 `distDir` 读 `HGS_NEXT_DIST_DIR`
   （缺省 `.next`）；编排给每一代注入 blue → `.next-blue`、green → `.next-green`，
   构建与 `next start` 用**同一个值**（在 generation spec 的 env 里可见）。构建目标代不会碰到

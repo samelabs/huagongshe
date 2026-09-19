@@ -121,7 +121,7 @@ class DryRunTests(DryRunCase):
         self.assertEqual(os.readlink(self.paths.nginx_gen_dir / ACTIVE_LINK), before_link)
         self.assertEqual(self.world.active, "blue")
         self.assertFalse(self.world.is_running("green"))
-        self.assertFalse((self.paths.state_dir / "ecosystem-green.cjs").exists())
+        self.assertFalse((self.paths.state_dir / "ecosystem-green.config.cjs").exists())
         self.assertEqual(
             [a for a in self.runner.argv_log if a[0] in ("pm2", "nginx", "npm")],
             [],
