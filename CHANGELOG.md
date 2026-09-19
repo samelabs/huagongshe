@@ -3,6 +3,22 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [1.5.2] — 2026-09-19
+
+- 应用层/传输层归属收口：transport ownership 全面闭合，HTTP 与 MCP 共享同一 application service owner，服务层零传输层依赖
+- Chemical Detail 统一契约：唯一公开面 `GET /api/chemicals/{id}?enrich=core|full`；core 零 provider 访问（canonical+localized names+轻量上下文），full = core + semantic detail；测试证明 core 不触碰任何 provider service
+- PB/CB semantic aggregation：后端 7-section semantic projection（description/names/properties/safety/industry/suppliers/provenance），PB/CB 不做一级 namespace，冲突事实双 value+source 保留不静默合并；单源失败标 unavailable，canonical 不因此 500；统一 enrichment 状态（current/queued/stale/none/unavailable）
+- 历史分叉面删除：`/chemicals/{id}/details`（12 天零消费）与 `/chemicals/{id}/externals` 端点删除，无 compatibility wrapper；Web 详情页三请求改双请求（chemical full + reactions），metadata 只取 core，前端 PB/CB 组合职责下沉后端
+- MCP chemical 面合流：get_chemical_externals 工具删除（14→13），get_chemical 契约统一 core/full；llms/Agent Guide/registry/契约测试同步
+- Identity CONFLICT fail-closed：CONFLICT/AMBIGUOUS 一律禁止 INSERT（transport-neutral 异常，reaction 路径 409+rollback 零副作用，search 路径降级不 500 不建行）；真库回归锁死同 InChIKey 双 CID 场景第三行不可达
+- Admin Pipeline 有界化：runtime 统计全部先时间窗口再聚合（today/last_1h only），删除 CB locale/PB all-time/supplier 8.67M listing/seed 的无界 count；LKG/SWR/single-flight 缓存机制保留；防回归测试静态锁定 SQL 边界
+- Governance 伪能力删除：seed_enqueued_no_job（永久 deferred）与 resolver_events 假面移除；merge history/redirects/seed 账本保留，未新增 FK/event ledger
+- WorkAPI completion receipt 维护命令：`scripts/prune_workapi_receipts.py`（retention 30d/batch 10000/逐批 commit/dry-run/DB 错误非零退出，不 import WorkAPI transport）
+- WorkAPI/Worker trusted-plane 测试与治理收口：admin worker 删除三表 lease 预检 409 契约、治理面板精简，Worker/WorkAPI auth/HMAC/lease runtime semantics 未变（diff 零）
+- 测试环境/CI 可移植性：测试桩对齐真实 SQLAlchemy result 链；真库冲突/有界 SQL/semantic 契约新测试族；full suite 1216 tests / 0 failures / 0 errors / 1 existing skip
+- 部署代际基础设施：generation 切换无上游中断机制（E8）、worktree 状态卫生（generation build 不入 worktree）已就绪
+- 性能/索引工作：E2 有界索引（≤0.3GB）与 migration 已准备就绪，待生产 migration 阶段执行（本版未部署）
+
 ## [1.5.1] — 2026-09-18
 
 - API/MCP 治理：能力与契约治理账本落地（family / scenario / contract 对账），route↔scope 校验进入常驻治理测试；MCP 工具清单与 API 契约同源
