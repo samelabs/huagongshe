@@ -301,7 +301,8 @@ async def complete_identity_job(
 # ---------------------------------------------------------------------------
 # P1-5 retention: completion receipt 简单时间保留。
 # 保留窗 = 30 天(协议重试窗口 nonce TTL 600s × 安全余量 + 故障调查窗口)。
-# 删除语句常驻于此, 巡检/维护时手动执行; 不建 daemon/service/cron。
+# retention = 30 天, 由 ops/systemd/huagongshe-receipt-prune@.timer 每日
+# 执行 scripts/prune_workapi_receipts.py(见 docs/DEPLOYMENT.md)。
 #   DELETE FROM maintenance.workapi_completion_receipts
 #    WHERE completed_at < now() - interval '30 days';
 # 行量级: 每完成一个 job 一行, 与队列吞吐同阶, 30 天窗内 ~百万行级以内。

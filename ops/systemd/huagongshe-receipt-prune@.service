@@ -1,0 +1,14 @@
+[Unit]
+Description=Huagongshe WorkAPI receipt retention prune (%i)
+Documentation=file:/var/www/huagongshe/docs/DEPLOYMENT.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=/var/www/huagongshe
+EnvironmentFile=/etc/huagongshe.env
+ExecStart=/var/www/huagongshe/venv/bin/python /var/www/huagongshe/scripts/prune_workapi_receipts.py --retention-days 30 --batch 10000
+# 非零退出由 systemd 记录(failed state); 不静默
+SuccessExitStatus=0

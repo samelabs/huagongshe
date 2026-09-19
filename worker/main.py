@@ -21,6 +21,24 @@ from .pubchem import PubChemClient, PubChemError, PubChemRateController
 log = logging.getLogger("huagongshe-worker")
 
 
+class WorkApiHTTPError(RuntimeError):
+    """WorkAPI 返回 HTTP >=400。
+
+    status 401/403 = fatal 认证/授权失败(配置级永久错误):
+    必须使进程非零退出, 不得被 loop 当 transient 吞掉。
+    网络/timeout/5xx 保持 transient retry; 409 等业务状态不升级为 auth。
+    """
+
+    def __init__(self, status: int, detail: str):
+        self.status = status
+        self.detail = detail
+        super().__init__(f"workapi HTTP {status}: {detail}")
+
+    @property
+    def fatal_auth(self) -> bool:
+        return self.status in (401, 403)
+
+
 class WorkApiClient:
     def __init__(self, session: aiohttp.ClientSession, base_url: str, worker_id: str, token: str):
         self.session = session
@@ -57,7 +75,8 @@ class WorkApiClient:
         ) as response:
             raw = await response.read()
             if response.status >= 400:
-                raise RuntimeError(f"workapi HTTP {response.status}: {raw.decode('utf-8','replace')[:500]}")
+                raise WorkApiHTTPError(
+                    response.status, raw.decode("utf-8", "replace")[:500])
             return json.loads(raw)
 
 
@@ -79,6 +98,7 @@ async def heartbeat(client: WorkApiClient, job: dict[str, Any], stop: asyncio.Ev
             except Exception as exc:
                 # A transient heartbeat failure must not stop lease renewal for
                 # the remainder of a long-running PubChem request.
+                _reraise_fatal_auth(exc)  # 401/403 = 配置级错误, 不许吞
                 log.warning("heartbeat failed for job=%s: %s", job["job_id"], exc)
 
 
@@ -193,6 +213,12 @@ async def process_identity_job(
         log.exception("identity job=%s errored", job["job_id"])
 
 
+def _reraise_fatal_auth(exc: BaseException) -> None:
+    """loop 边界守卫: WorkAPI 401/403 = 配置级永久错误, 必须穿出使进程退出。"""
+    if isinstance(exc, WorkApiHTTPError) and exc.fatal_auth:
+        raise exc
+
+
 async def _identity_loop(
     workapi: WorkApiClient,
     pb_session: aiohttp.ClientSession | None,
@@ -222,7 +248,8 @@ async def _identity_loop(
             idle = 2.0
             for job in jobs:
                 await process_identity_job(pb_session, workapi, rate, job)
-        except Exception:
+        except Exception as exc:
+            _reraise_fatal_auth(exc)
             log.exception("identity loop cycle failed")
             await asyncio.sleep(5)
 
@@ -384,7 +411,8 @@ async def _pb_loop(
             await asyncio.gather(
                 *(process_job(pb_session, workapi, rate, job) for job in jobs)
             )
-        except Exception:
+        except Exception as exc:
+            _reraise_fatal_auth(exc)
             log.exception("pb loop cycle failed")
             await asyncio.sleep(5)
 
@@ -421,9 +449,37 @@ async def _cb_loop(
                 # 0904: 限速已下沉请求级(caslib._get), job 级 acquire 拆除
                 # — 否则双重间隔把有效 rps 再砍半。
                 await process_cas_job(session, workapi, job, rate=rate)
-        except Exception:
+        except Exception as exc:
+            _reraise_fatal_auth(exc)
             log.exception("cb loop cycle failed")
             await asyncio.sleep(5)
+
+
+async def _auth_preflight(workapi: WorkApiClient, scopes: list[str]) -> None:
+    """启动 auth preflight(无领取副作用)。
+
+    复用既有 lease endpoint: body capabilities=[] 不匹配任何 scope →
+    通过鉴权后返回空 jobs, 零副作用。pubchem/identity → PB lease;
+    cas → cas lease。401/403 直接非零退出(不上抛为 asyncio 任务异常
+    被吞: run() 顶层调用, 异常穿出 main)。
+    """
+    if "pubchem" in scopes or "identity" in scopes:
+        path = "/workapi/v1/jobs/lease"
+    elif "cas" in scopes:
+        path = "/workapi/v1/cas/jobs/lease"
+    else:
+        log.error("auth preflight: no scopes enabled — exiting")
+        sys.exit(1)
+    try:
+        leased = await workapi.post(path, {"max_jobs": 1, "capabilities": []})
+        jobs = leased.get("jobs") or []
+        if jobs:  # 契约外: capabilities=[] 不应领取任何 job
+            log.error("auth preflight unexpectedly leased jobs (%d) — aborting", len(jobs))
+            sys.exit(1)
+        log.info("auth preflight ok (%s)", path)
+    except WorkApiHTTPError as exc:
+        log.error("auth preflight FATAL: %s", exc)
+        raise SystemExit(2) from exc
 
 
 async def run() -> None:
@@ -473,6 +529,11 @@ async def run() -> None:
             except Exception as exc:
                 log.warning("session warmup failed (continuing): %s", exc)
             workapi = WorkApiClient(session, base_url, worker_id, token)
+            # R4.1 1.3 auth preflight: 启动即验证 worker_id+token+signature+
+            # enabled+scope+replay protection, 不领取真实 job(capabilities=[]
+            # → 服务端通过鉴权后直接返回空 jobs)。401/403 → 非零退出,
+            # PM2 显形 errored 而不是伪装 online。
+            await _auth_preflight(workapi, scopes)
             rate = PubChemRateController(requests_per_second)
             log.info(
                 "worker started id=%s concurrency=%s pb_proxy=%s cb_proxy=%s scopes=%s",

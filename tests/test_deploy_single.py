@@ -165,6 +165,57 @@ class ReadinessAndSmokeTests(unittest.TestCase):
             sm.assert_called_once()
 
 
+class WorkerStabilityGateTests(unittest.TestCase):
+    """R4.1 1.4: worker readiness 需同 pid 连续稳定 >=3s, restart 循环不得误判 ready。"""
+
+    def test_restart_loop_not_ready(self):
+        import ops.deploy as D
+        r = FakeRunner()
+        r.apps = {"huagongshe-pubchem-worker": {"status": "online", "pid": 100}}
+        call = {"n": 0}
+
+        class Cycling(FakeRunner):
+            def run(self, argv):
+                res = super().run(argv)
+                if argv[:2] == ["pm2", "jlist"]:
+                    call["n"] += 1
+                    # 每次 jlist pid 都变 = restart 循环
+                    self.apps["huagongshe-pubchem-worker"]["pid"] = 200 + call["n"]
+                return res
+
+        cyc = Cycling()
+        cyc.apps = dict(r.apps)
+        self.assertFalse(D.wait_worker_online(cyc, timeout=1.0, poll=0.05,
+                                              stable_seconds=0.2))
+
+    def test_stable_online_ready(self):
+        import ops.deploy as D
+        r = FakeRunner()
+        r.apps = {"huagongshe-pubchem-worker": {"status": "online", "pid": 100}}
+        self.assertTrue(D.wait_worker_online(r, timeout=5.0, poll=0.05,
+                                             stable_seconds=0.15))
+
+    def test_flapping_status_not_ready(self):
+        import ops.deploy as D
+        r = FakeRunner()
+        r.apps = {"huagongshe-pubchem-worker": {"status": "online", "pid": 100}}
+        flip = {"on": True}
+
+        orig = r.run
+
+        def flapping(argv):
+            res = orig(argv)
+            if argv[:2] == ["pm2", "jlist"]:
+                flip["on"] = not flip["on"]
+                r.apps["huagongshe-pubchem-worker"]["status"] = (
+                    "online" if flip["on"] else "errored")
+            return res
+
+        r.run = flapping
+        self.assertFalse(D.wait_worker_online(r, timeout=1.0, poll=0.05,
+                                              stable_seconds=0.2))
+
+
 class FailureReportingTests(unittest.TestCase):
     """12. failure 非零, 不伪报 success。"""
 

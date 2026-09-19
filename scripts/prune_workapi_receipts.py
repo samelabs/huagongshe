@@ -9,7 +9,8 @@
   - DB 错误非零退出
   - 不记录 token/hash/payload(receipt 行只按 completed_at 寻址)
 
-边界: 只实现 executor; 不建 daemon/service/cron(E10 再接调度)。
+调度: ops/systemd/huagongshe-receipt-prune@.timer 每日执行(retention=30d,
+batch=10000, 见 docs/DEPLOYMENT.md)。
 不 import WorkAPI transport —— 直接使用 api.core.database 的 engine/session
 (settings.database_url), 与 API 进程同一 DSN 口径。
 """
@@ -69,6 +70,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--batch", type=int, default=DEFAULT_BATCH)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
+
+    # R4.1 2: 参数边界 fail-closed —— 零 DB 写入前拒绝非法参数。
+    #   batch < 1: DELETE ... LIMIT 0 恒删 0 行 → rowcount(0) < batch(0) 不成立
+    #   (0 < 0 为 False) → 无限空 DELETE loop。retention < 1: cutoff 落在
+    #   未来 → 语义为"删除未来完成的行", 契约外。
+    if args.batch < 1:
+        parser.error(f"--batch must be >= 1 (got {args.batch})")
+    if args.retention_days < 1:
+        parser.error(f"--retention-days must be >= 1 (got {args.retention_days})")
 
     # repo root 上 api/ 可导入(直接脚本运行不经安装)
     sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))

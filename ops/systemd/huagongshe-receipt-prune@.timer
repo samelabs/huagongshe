@@ -1,0 +1,11 @@
+[Unit]
+Description=Huagongshe WorkAPI receipt retention prune — daily timer (%i)
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=30m
+Unit=huagongshe-receipt-prune@%i.service
+
+[Install]
+WantedBy=timers.target

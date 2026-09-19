@@ -50,6 +50,14 @@ owner 职责仅限：root guard → build Web → 按 CanonicalApps 逐个
 （`pm2-<deployment-user>.service`，`pm2 startup` 生成）+ `pm2 save` 的 dump。
 发布流程末尾自动 `pm2 save`。验证方式：重启该 systemd unit，确认三 app 自动恢复。
 
+## receipt retention（WorkAPI 完成回执清理）
+
+- 契约：retention **30 天**、batch **10000**、逐批 DELETE + commit、dry-run 支持。
+- 唯一生产调度：`ops/systemd/huagongshe-receipt-prune@<deployment-user>.timer`
+  （systemd template，不硬编码用户名）—— daily + `Persistent=true` +
+  `RandomizedDelaySec=30m`；非零退出由 systemd 记为 failed。
+- 仓库内不存在第二套 receipt scheduler 定义。
+
 ## nginx（一次性）
 
 从 generation 拓扑迁回固定 upstream（幂等，日常发布不调用）：

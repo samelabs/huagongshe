@@ -175,12 +175,48 @@ def worker_online(runner: Runner, app: str = "huagongshe-pubchem-worker") -> boo
     return False
 
 
+def _worker_identity(jlist_entry: dict) -> tuple | None:
+    """(pid, restart_time 或 restart counter) — 用于稳定性判定。"""
+    env = jlist_entry.get("pm2_env", {})
+    pid = env.get("pm_id"), env.get("pid")
+    return pid
+
+
 def wait_worker_online(runner: Runner, timeout: float = 60.0,
-                       poll: float = 2.0) -> bool:
+                       poll: float = 2.0, stable_seconds: float = 3.0) -> bool:
+    """R4.1 1.4: worker 不但要 online, 还要稳定。
+
+    同一 PM2 进程(pid 不变)连续 online 满一个短窗口(默认 3s)才算 ready —
+    startup auth preflight 的 crash/restart 循环不能被误判 ready。
+    pid 变化 / restart / missing / errored → 重新计时。
+    """
     deadline = time.monotonic() + timeout
+    stable_since: float | None = None
+    last_identity: tuple | None = None
     while time.monotonic() < deadline:
-        if worker_online(runner):
-            return True
+        jlist = runner.run([pm2_argv(), "jlist"])
+        entry = None
+        if jlist.returncode == 0:
+            for a in _parse_jlist(jlist.stdout):
+                if a.get("name") == "huagongshe-pubchem-worker":
+                    entry = a
+                    break
+        ok = (
+            entry is not None
+            and entry.get("pm2_env", {}).get("status") == "online"
+            and entry.get("pid")
+        )
+        ident = _worker_identity(entry) if entry else None
+        if ok and ident is not None and ident == last_identity and stable_since is not None:
+            if time.monotonic() - stable_since >= stable_seconds:
+                return True
+        elif ok and (stable_since is None or ident != last_identity):
+            # 首次 online 或进程身份变化 → 重新起算稳定窗
+            stable_since = time.monotonic()
+            last_identity = ident
+        else:
+            stable_since = None
+            last_identity = None
         time.sleep(poll)
     return False
 

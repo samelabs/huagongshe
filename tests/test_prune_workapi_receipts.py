@@ -224,6 +224,44 @@ class PruneBehaviorTests(unittest.TestCase):
             rc = mod.main([])  # 显式空 argv: 不吃 unittest 的 sys.argv
         self.assertNotEqual(rc, 0, "DB error 必须 non-zero exit")
 
+    def test_batch_zero_rejected_no_write(self):
+        # R4.1 2: --batch 0 曾会无限空 DELETE loop —— 必须 CLI 报错非零退出
+        mod = _load_script()
+        import contextlib
+        buf2 = io.StringIO()
+        buf2_err = io.StringIO()
+        from contextlib import redirect_stderr
+        with contextlib.redirect_stdout(buf2), redirect_stderr(buf2_err):
+            with self.assertRaises(SystemExit) as cm:  # argparse error → exit 2
+                mod.main(["--batch", "0"])
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("--batch", buf2_err.getvalue())
+        self.assertNotIn("cutoff=", buf2.getvalue(), "零 DB 写入/零输出")
+
+    def test_batch_negative_rejected(self):
+        mod = _load_script()
+        from contextlib import redirect_stderr
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as cm:
+                mod.main(["--batch", "-5"])
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_retention_zero_rejected(self):
+        mod = _load_script()
+        from contextlib import redirect_stderr
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as cm:
+                mod.main(["--retention-days", "0"])
+        self.assertEqual(cm.exception.code, 2)
+
+    def test_retention_negative_rejected_no_future_cutoff(self):
+        mod = _load_script()
+        from contextlib import redirect_stderr
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as cm:
+                mod.main(["--retention-days", "-3"])
+        self.assertEqual(cm.exception.code, 2)
+
     def test_output_has_no_token_material(self):
         self._seed_receipts([45])
         code, out = self._run()
