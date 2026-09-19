@@ -28,6 +28,8 @@ except Exception:  # pragma: no cover - 无 test DB 时跳过 DB 用例
     DB_URL = None
 
 RUN = os.urandom(3).hex()
+import itertools
+_JOB_SEQ = itertools.count(1)
 TOKEN_DIGEST = os.urandom(48).hex()  # 每次运行唯一, 避开 token_hash 唯一约束残留
 
 
@@ -65,16 +67,28 @@ async def _make_leased_job(db, table: str, wid: str) -> int:
             RETURNING id
         """), {"qv": f"qv-{RUN}", "dk": f"dk-pb-{RUN}", "wid": wid, "th": "11" * 32})).scalar()
     else:  # pubchem_identity_jobs
+        # hermetic: 测试自建最小合法 chemicals 行取得真实 id(不借用任意已有行,
+        # fresh 空库可独立通过; 不改列 nullable)。唯一 inchikey 防并发互删。
+        seq = next(_JOB_SEQ)
+        chem_id = (await db.execute(text("""
+            INSERT INTO chemistry.chemicals
+              (smiles, inchikey, mol, morgan_bfp, morgan_sfp,
+               created_at, updated_at)
+            VALUES (:smiles, :ik, mol_from_smiles(:smiles),
+                    morganbv_fp(mol_from_smiles(:smiles)),
+                    morgan_fp(mol_from_smiles(:smiles)), now(), now())
+            RETURNING id
+        """), {"smiles": "CCO", "ik": f"E9AWD{RUN}{seq:04d}-UHFFFAOYSA-N"})).scalar()
         jid = (await db.execute(text("""
             INSERT INTO maintenance.pubchem_identity_jobs
             (chemical_id, evidence_type, evidence_value, evidence_hash, status,
              dedupe_key, lease_owner, lease_token_hash, lease_expires_at)
-            VALUES ((SELECT min(id) FROM chemistry.chemicals), 'cas', :ev, :eh,
+            VALUES (:chem_id, 'cas', :ev, :eh,
                     'leased', :dk, :wid, decode(:th, 'hex'),
                     now() + interval '10 minutes')
             RETURNING id
-        """), {"ev": f"{RUN}-ev", "eh": f"{RUN}-eh", "dk": f"dk-id-{RUN}",
-               "wid": wid, "th": "11" * 32})).scalar()
+        """), {"chem_id": int(chem_id), "ev": f"{RUN}-ev", "eh": f"{RUN}-eh",
+               "dk": f"dk-id-{RUN}", "wid": wid, "th": "11" * 32})).scalar()
     return int(jid)
 
 
@@ -88,6 +102,11 @@ async def _cleanup(wids: list[str], tables: list[str]) -> None:
                 await db.execute(text(
                     f"DELETE FROM maintenance.{t} WHERE lease_owner = ANY(:wids) OR dedupe_key LIKE :pat"
                 ), {"wids": wids, "pat": f"dk-%-{RUN}"})
+            # 测试自建 chemical 行最后清(先删引用它的 identity job, 顺序不可颠倒);
+            # 唯一 inchikey 前缀 = E9AWD+RUN, 只删本测试行。
+            await db.execute(text(
+                "DELETE FROM chemistry.chemicals WHERE inchikey LIKE :pat"
+            ), {"pat": f"E9AWD{RUN}%"})
             await db.execute(text(
                 "DELETE FROM maintenance.worker_clients WHERE worker_id = ANY(:wids)"
             ), {"wids": wids})
