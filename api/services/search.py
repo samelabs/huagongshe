@@ -481,7 +481,7 @@ async def run_search_query(
                     _rate_limited = True
                 if not _rate_limited:
                     try:
-                        from .reactions import resolve_or_create_chemical
+                        from .reactions import UnresolvedIdentityError, resolve_or_create_chemical
                         chemical_id, _created = await resolve_or_create_chemical(db, canonical)
                         created = await fetch_chemicals(db, f"""
                             SELECT {CHEMICAL_SELECT}
@@ -492,6 +492,10 @@ async def run_search_query(
                             chemicals = created
                         else:
                             await db.rollback()
+                    except UnresolvedIdentityError:
+                        # E9-B fail-closed: CONFLICT/AMBIGUOUS → 不建行、零副作用,
+                        # 搜索本身正常返回"未创建/无命中"语义(不 500)。
+                        await db.rollback()
                     except Exception:
                         await db.rollback()  # 建行失败不阻塞搜索响应(业务容错保持)
             if not chemicals and not canonical and name_query_width(query) >= MIN_FUZZY_NAME_LENGTH:

@@ -5,7 +5,7 @@ import { apiGet, apiPost, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 /* ── A1 数据契约 ──────────────────────────────────────────
-   optional sections 形状: seed/negative(来源未命中)属 CB 上游账本, supplier 属供应侧:
+   optional sections 形状: E9-B 后仅 negative(今日有界)留在运行时; seed/supplier 已移除:
    { available: boolean; error: string | null; value: T | null }
    available=false → 渲染"暂不可用", 绝不把 0 冒充数据。 */
 
@@ -22,19 +22,17 @@ type ChainBlock = {
   health: Health;
 };
 type Optional<T> = { available: boolean; error: string | null; value: T | null };
-type LocaleRow = { locale: string; today: number; total: number; last_1h: number };
+type LocaleRow = { locale: string; today: number; last_1h: number };
 type LatestRow = { chain: string; chemical_id: number; source: string; ref: string; title: string; at: string | null };
 type Pipeline = {
   cb: ChainBlock & {
-    rows: { today: number; total: number };
+    rows: { today: number };  // E9-B: 有界化 — 仅 today, 无 all-time total
     locales: LocaleRow[];
-    seed: Optional<{ accepted: number; enqueued: number; ambiguous: number }>;
-    negative: Optional<{ total: number; today: number }>;
+    negative: Optional<{ today: number }>;
   };
-  pb: ChainBlock & { rows: { today: number; total: number } };
+  pb: ChainBlock & { rows: { today: number } };
   gates: Record<string, Gate>;
   gates_meta: { available: boolean; error: string | null };
-  supplier: Optional<{ today_rows: number; total_rows: number; profiles: number; today_profiles: number }>;
   latest: { cb: LatestRow[]; pb: LatestRow[] };
   workers: { worker_id: string; display_name: string | null; enabled: boolean; scopes: string[]; runtime: string; last_seen_at: string | null; last_seen_age_s: number | null }[];
   stats: { generated_at: string; stale: boolean; age_seconds: number; ttl_seconds: number };
@@ -218,7 +216,6 @@ export function SamelabsPipeline() {
   const loc = (code: string): LocaleRow | undefined => data.cb.locales.find((x) => x.locale === code);
   const zh = loc("zh-CN");
   const others = OTHER_LOCALES.map(loc).filter((x): x is LocaleRow => Boolean(x));
-  const othersTotal = others.reduce((a, b) => a + b.total, 0);
   const othersToday = others.reduce((a, b) => a + b.today, 0);
 
   const gateChip = (gate: Gate) =>
@@ -246,10 +243,6 @@ export function SamelabsPipeline() {
     </div>
   );
 
-  const supWrap = data.supplier;
-  const sup = supWrap.available ? supWrap.value : null;
-  const seedWrap = data.cb.seed;
-  const seed = seedWrap.available ? seedWrap.value : null;
   const negWrap = data.cb.negative;
   const neg = negWrap.available ? negWrap.value : null;
 
@@ -287,14 +280,14 @@ export function SamelabsPipeline() {
           <MetaLine label="最近成功入库" value={hm(data.cb.latest_at)} />
           <MetaLine label="最老排队年龄" value={dur(data.cb.aging.oldest_queued_age_s)} />
 
-          <Group title="落库" note="五语种">
-            <Metric label="中文" total={zh ? zh.total : 0} today={zh ? zh.today : 0} />
-            <Metric label="其他语种合计" total={othersTotal} today={othersToday} />
-            <Metric label="全链合计" total={data.cb.rows.total} today={data.cb.rows.today} />
+          <Group title="今日落库" note="五语种 · 有界口径(无历史总量)">
+            <Metric label="全链今日" total={data.cb.rows.today} />
+            <Metric label="中文今日" total={zh ? zh.today : 0} />
+            <Metric label="其他语种今日" total={othersToday} />
           </Group>
           <div className="pipe-metrics pipe-sub">
             {others.map((l) => (
-              <Metric key={l.locale} label={LOCALE_NAME[l.locale] ?? l.locale} total={l.total} today={l.today} />
+              <Metric key={l.locale} label={`${LOCALE_NAME[l.locale] ?? l.locale} 今日`} total={l.today} />
             ))}
           </div>
 
@@ -314,8 +307,8 @@ export function SamelabsPipeline() {
           <MetaLine label="最近成功入库" value={hm(data.pb.latest_at)} />
           <MetaLine label="最老排队年龄" value={dur(data.pb.aging.oldest_queued_age_s)} />
 
-          <Group title="落库">
-            <Metric label="收录条目" total={data.pb.rows.total} today={data.pb.rows.today} />
+          <Group title="今日落库" note="有界口径(无历史总量)">
+            <Metric label="今日收录" total={data.pb.rows.today} />
           </Group>
 
           <ErrorRow block={data.pb} onRevive={() => setConfirmChain("pb")} reviving={reviving === "pb"} reviveNote={confirmChain === "pb" ? null : reviveNote} />
@@ -328,21 +321,15 @@ export function SamelabsPipeline() {
       <div className="section-heading"><h2>CB 诊断</h2></div>
       <div className="dashboard-grid pipe-grid-2">
         <div className="dashboard-card pipe-chain">
-          <Group title="上游账本" note="来源未命中">
-            <Metric label="待处理" total={seed ? seed.accepted : null} />
-            <Metric label="已入队" total={seed ? seed.enqueued : null} />
-            <Metric label="悬案" total={seed ? seed.ambiguous : null} />
-            <Metric label="来源未命中" total={neg ? neg.total : null} today={neg ? neg.today : null} />
+          <Group title="负面观测" note="今日有界口径">
+            <Metric label="今日来源未命中" total={neg ? neg.today : null} />
           </Group>
-          {!seedWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}{seedWrap.error ? `（${seedWrap.error}）` : ""}</div>}
           {negWrap && !negWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}（来源未命中）{negWrap.error ? `（${negWrap.error}）` : ""}</div>}
         </div>
         <div className="dashboard-card pipe-chain">
-          <Group title="供应侧">
-            <Metric label="供应信息" total={sup ? sup.total_rows : null} today={sup ? sup.today_rows : null} />
-            <Metric label="供应商" total={sup ? sup.profiles : null} today={sup ? sup.today_profiles : null} />
+          <Group title="说明" note="E9-B 收口">
+            <p className="pipe-metric-label">上游账本(seed)与供应侧(supplier)历史总量已移至数据治理口径, 不在运行时刷新。</p>
           </Group>
-          {!supWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}{supWrap.error ? `（${supWrap.error}）` : ""}</div>}
         </div>
       </div>
     </section>

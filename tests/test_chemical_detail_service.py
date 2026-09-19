@@ -149,12 +149,38 @@ class SharedDetailOrchestrationTests(unittest.IsolatedAsyncioTestCase):
             await chem.get_chemical_detail(_EmptyDB(), 999, actor_id=None, priority=50)
         self.assertEqual(str(ctx.exception), DETAIL_404)
 
-    async def test_exists_returns_canonical_detail(self):
+    async def test_exists_returns_canonical_detail_core(self):
+        # E9-B: 缺省 enrich=core — 零 provider, details=None, status=current
         result = await chem.get_chemical_detail(
             _FakeDetailDB(), 1, actor_id=None, priority=50)
         self.assertTrue(DETAIL_BASE_FIELDS.issubset(result.keys()))
         self.assertEqual(result["enrichment"]["status"], "current")
-        self.assertIsNone(result["enrichment"]["job_id"])
+        self.assertNotIn("job_id", result["enrichment"])  # core 零 provider: 无 job
+        self.assertIsNone(result["details"])
+
+    async def test_exists_full_returns_semantic_detail(self):
+        # E9-B: full 走 provider owner(此处全 mock 失败→unavailable 也不炸)
+        from unittest.mock import patch as _patch
+        from api.services import cb as cb_module
+        async def fake_row(d, cid):
+            return None
+        async def fake_neg(d, kind, **k):
+            return False
+        with _patch.object(enrich_svc, "enqueue_chemical_if_needed",
+                           self._pb_ok()), \
+             _patch.object(cb_module, "get_externals_row", fake_row), \
+             _patch.object(cb_module, "negative_is_fresh", fake_neg):
+            result = await chem.get_chemical_detail(
+                _FakeDetailDB(), 1, actor_id=None, priority=50, enrich="full")
+        self.assertEqual(result["enrichment"]["status"], "current")
+        self.assertIsNotNone(result["details"])
+        self.assertIn("provenance", result["details"])
+
+    @staticmethod
+    def _pb_ok():
+        async def fake(db, cid, *, priority, allow_refresh=True, actor=None):
+            return None, None, False  # 无 cid 行: current, 不入队
+        return fake
 
     async def test_priority_passed_to_enrichment(self):
         seen = {}
@@ -164,8 +190,16 @@ class SharedDetailOrchestrationTests(unittest.IsolatedAsyncioTestCase):
             seen["allow_refresh"] = allow_refresh
             return {"x": 1}, None, False
 
-        with patch.object(enrich_svc, "enqueue_chemical_if_needed", fake_enqueue):
-            await chem.get_chemical_detail(_FakeDetailDB(), 1, actor_id=None, priority=50)
+        from api.services import cb as cb_module
+        async def fake_row(d, cid):
+            return None
+        async def fake_neg(d, kind, **k):
+            return False
+        with patch.object(enrich_svc, "enqueue_chemical_if_needed", fake_enqueue), \
+             patch.object(cb_module, "get_externals_row", fake_row), \
+             patch.object(cb_module, "negative_is_fresh", fake_neg):
+            await chem.get_chemical_detail(
+                _FakeDetailDB(), 1, actor_id=None, priority=50, enrich="full")
         self.assertEqual(seen["priority"], 50)
         self.assertTrue(seen["allow_refresh"])
 
@@ -173,10 +207,18 @@ class SharedDetailOrchestrationTests(unittest.IsolatedAsyncioTestCase):
         async def fake_enqueue(db, cid, *, priority, allow_refresh, actor=None):
             return None, 777, True
 
+        from api.services import cb as cb_module
+        async def fake_row(d, cid):
+            return None
+        async def fake_neg(d, kind, **k):
+            return False
         db = _FakeDetailDB()
-        with patch.object(enrich_svc, "enqueue_chemical_if_needed", fake_enqueue):
-            result = await chem.get_chemical_detail(db, 1, actor_id=None, priority=80)
-        self.assertEqual(db.commits, 1)
+        with patch.object(enrich_svc, "enqueue_chemical_if_needed", fake_enqueue), \
+             patch.object(cb_module, "get_externals_row", fake_row), \
+             patch.object(cb_module, "negative_is_fresh", fake_neg):
+            result = await chem.get_chemical_detail(
+                db, 1, actor_id=None, priority=80, enrich="full")
+        self.assertGreaterEqual(db.commits, 1)
         self.assertEqual(result["enrichment"]["status"], "queued")
         self.assertEqual(result["enrichment"]["job_id"], 777)
 
@@ -184,9 +226,17 @@ class SharedDetailOrchestrationTests(unittest.IsolatedAsyncioTestCase):
         async def fake_enqueue(db, cid, *, priority, allow_refresh, actor=None):
             return {"y": 2}, None, True
 
+        from api.services import cb as cb_module
+        async def fake_row(d, cid):
+            return None
+        async def fake_neg(d, kind, **k):
+            return False
         db = _FakeDetailDB()
-        with patch.object(enrich_svc, "enqueue_chemical_if_needed", fake_enqueue):
-            result = await chem.get_chemical_detail(db, 1, actor_id=None, priority=50)
+        with patch.object(enrich_svc, "enqueue_chemical_if_needed", fake_enqueue), \
+             patch.object(cb_module, "get_externals_row", fake_row), \
+             patch.object(cb_module, "negative_is_fresh", fake_neg):
+            result = await chem.get_chemical_detail(
+                db, 1, actor_id=None, priority=50, enrich="full")
         self.assertEqual(db.commits, 0)
         self.assertEqual(result["enrichment"]["status"], "stale")
 
@@ -204,11 +254,11 @@ class SharedDetailOrchestrationTests(unittest.IsolatedAsyncioTestCase):
             await chem.get_chemical_detail(_FakeDetailDB(), 1, actor_id=42, priority=80)
         self.assertEqual(seen["user_id"], 42)
 
-    async def test_enrich_core_full_identical_in_orchestration(self):
-        """07e8088 起 enrich 选择器无行为差异(sections 机制退役) — orchestration
-        不持 enrich 分支, 返回同一 canonical result。"""
+    async def test_enrich_core_full_diverge_in_orchestration(self):
+        """E9-B: core/full 是真实分叉 — core 提前返回零 provider;
+        详细差异证明见 tests/test_chemical_detail_unified.py。"""
         source = inspect.getsource(chem.get_chemical_detail)
-        self.assertNotIn('if enrich', source)
+        self.assertIn('if enrich == "core":', source)
 
 
 class NeutralErrorTests(unittest.TestCase):
@@ -257,19 +307,19 @@ class HttpAdapterTests(unittest.TestCase):
         src = inspect.getsource(routes.chemical_detail)
         self.assertIn("get_chemical_detail", src)
         self.assertIn('raise HTTPException(404, "化合物不存在")', src)
-        self.assertIn("display_details(result[\"details\"]) if display", src)
         self.assertIn("priority=80 if actor is not None else 50", src)
         self.assertNotIn("fill_detail_context(", src)
         self.assertNotIn("enqueue_chemical_if_needed", src)
         self.assertNotIn("request: Request", src)
+        self.assertNotIn("display_details", src)  # E9-B: display 投影随死端点删除
 
-    def test_details_route_maps_neutral_404(self):
-        import api.enrichment as enr
-        src = inspect.getsource(enr.chemical_details)
-        self.assertIn("EnrichmentChemicalNotFoundError", src)
-        self.assertIn('raise HTTPException(404, "化合物不存在")', src)
-        self.assertIn("priority=80 if actor is not None else 50", src)
-        self.assertNotIn("request: Request", src)
+    def test_details_and_externals_routes_removed(self):
+        """E9-B 1.1: 死面端点删除, 无兼容 wrapper。"""
+        import api.routes as routes
+        for route in routes.router.routes:
+            path = getattr(route, "path", "")
+            self.assertNotIn("/details", path)
+            self.assertNotIn("/externals", path)
 
 
 class McpAdapterTests(unittest.TestCase):
@@ -288,6 +338,11 @@ class McpAdapterTests(unittest.TestCase):
         self.assertNotIn("routes_module", src)
         self.assertNotIn("chemical_detail(", src.replace("_get_chemical_detail", ""))
         self.assertNotIn("request=None", src)
+
+    def test_mcp_no_externals_tool_in_source(self):
+        import api.mcp_server as mcp
+        src = inspect.getsource(mcp)
+        self.assertNotIn("@server.tool(name=\"get_chemical_externals\"", src)
 
     def test_uses_shared_orchestration_and_maps_not_found(self):
         src = self._tool_source()

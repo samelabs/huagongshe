@@ -134,26 +134,53 @@ export type Chemical = {
   yield_percent?: number | null;
 };
 
-export type ChemicalDetails = {
-  record_title?: string | null;
-  record_description?: string | null;
-  xlogp?: number | null;
-  topological_polar_surface_area?: number | null;
-  complexity?: number | null;
-  hbond_donor_count?: number | null;
-  hbond_acceptor_count?: number | null;
-  rotatable_bond_count?: number | null;
-  heavy_atom_count?: number | null;
-  formal_charge?: number | null;
-  physical_properties?: EvidenceBlock | null;
-  ghs_classification?: EvidenceBlock | null;
-  hazards?: EvidenceBlock | null;
-  safety_measures?: EvidenceBlock | null;
-  toxicity?: EvidenceBlock | null;
-  regulatory?: EvidenceBlock | null;
-  pharmacology?: EvidenceBlock | null;
-  uses_and_manufacturing?: EvidenceBlock | null;
-  fetched_at?: string | null;
+export type ChemicalDetails = SemanticDetail;
+
+/** E9-B semantic detail — 一级语义 section, PB/CB 不是一级 namespace。 */
+export type SemanticDetail = {
+  description: { source: string; record_description?: string | null };
+  names: {
+    cb_identity: Record<string, string | number>;
+    cb_aliases: { value: string; source: string }[];
+  };
+  properties: {
+    pb_computed: Record<string, number> | null;
+    pb_physical_properties?: EvidenceBlock | null;
+    cb_experimental: { label: string | null; text: string | null; v?: number | null; unit?: string | null; source: string }[];
+    cb_prose: ProseItem[];
+  };
+  safety: {
+    pb_sections?: Record<string, EvidenceBlock> | null;
+    cb_safety?: Record<string, string> | null;
+    cb_toxicity: ProseItem[];
+    cb_packaging: ProseItem[];
+  };
+  industry: {
+    pb_sections?: Record<string, EvidenceBlock> | null;
+    cb_uses: ProseItem[];
+    cb_preparation: ProseItem[];
+    cb_updown: { up: { name: string }[]; down: { name: string }[] };
+    cb_price: { updated?: string; code: string; name?: string; cas?: string; package?: string; price?: string }[];
+    cb_notes: ProseItem[];
+  };
+  suppliers: { items: CasSupplier[] };
+  provenance: {
+    pubchem: { state: string; fetched_at?: string | null; job_id?: number | null };
+    cb: { state: string; applicable?: boolean };
+  };
+};
+
+export type ProseItem = { title: string; text: string; source: string };
+
+export type CasSupplier = {
+  ref: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  purity: string | null;
+  pack_price: string | null;
+  remark: string | null;
 };
 
 export type EvidenceBlock = {
@@ -162,7 +189,8 @@ export type EvidenceBlock = {
 };
 
 export type EnrichmentState = {
-  status: "queued" | "stale" | "current";
+  status: "current" | "queued" | "stale" | "degraded";
+  sources?: { pubchem: string; cb: string };
   job_id?: number | null;
   requested_sections?: string[];
 };

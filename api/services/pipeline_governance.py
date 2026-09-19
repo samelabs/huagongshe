@@ -18,8 +18,6 @@ CB:
                          [sample 聚合, 中等, 缓存]
   supplier_listing_orphan  listing 指向不存在 chemical
                          [sample→pkey 反查, 便宜; 理论 0]
-  seed_enqueued_no_job    seed ENQUEUED 但 cas_jobs 无活跃行
-                         [全量 cas_jobs 活跃键 ~小, join 账本主键, 中等]
 PB:
   pb_canonical_sync_gap   chemical_pubchem 有行但 canonical 关键字段未同步
                          (preferred_name/formula/inchikey 任一空且 source 有值)
@@ -176,23 +174,8 @@ async def supplier_listing_orphan(db: AsyncSession) -> dict:
     return _wrap(True, _sample_payload(SAMPLE_ROWS, len(rows)), mode="sample")
 
 
-async def seed_enqueued_no_job(db: AsyncSession) -> dict:
-    """seed ENQUEUED 但 cas_jobs 无活跃(queued/leased)对应行。
-    cas_jobs 活跃集小(索引在), 账本按 cb_number 主键点查。"""
-    row = await _qone(db, """
-        SELECT count(*) FROM ingestion.chemicalbook_seed s
-        WHERE s.status='ENQUEUED'
-          AND NOT EXISTS (
-            SELECT 1 FROM maintenance.cas_jobs j
-            WHERE j.status IN ('queued','leased')
-              AND j.dedupe_key LIKE 'cas:%:' || s.cas || ':%' || s.cb_number
-          )
-    """) if False else None
-    # LIKE 拼接不可靠(dedupe_key 中段是 cas hash 而非明文 cas) → 该口径
-    # 当前无法可靠计算: dedupe_key = cas:{chemical_id}:{cas_hash}:{cb_number},
-    # cas_hash 无法从账本字段重建 → 标 deferred, 不造错误数字。
-    return _wrap(False, error="dedupe_key 含不可重建的 cas hash, 无法从账本字段可靠对应; 需上游补显式关联键", mode="deferred")
-
+# E9-B 4.1: seed_enqueued_no_job 已删除 —— seed 账本是 source assertion,
+# repo 内无 scheduler writer, 无可靠 repo-owned job relation(不得从 dedupe/hash 猜)。
 
 # ── PB 指标 ────────────────────────────────────────────────
 
@@ -279,8 +262,7 @@ async def identity_governance(db: AsyncSession) -> dict:
     """identity 治理分层(不互相顶替):
     - history: merge_log/redirect = 历史已执行 merge 记录
     - acquisition_pending: seed AMBIGUOUS = CB 采集/身份悬案(账本终态)
-    - resolver_events: 逐次 AMBIGUOUS/CONFLICT 判定事件 —— 无持久化, 如实报
-      "当前无可统计的 resolver 持久化事件", 禁用 seed/merge_log 顶替。"""
+    E9-B 4.2: resolver_events 伪指标已删除(无持久化事实即无展示面)。"""
     seed = {r[0]: int(r[1]) for r in await _q(db, """
         SELECT status, count(*) FROM ingestion.chemicalbook_seed GROUP BY status
     """)}
@@ -301,8 +283,6 @@ async def identity_governance(db: AsyncSession) -> dict:
         "history": history,
         "acquisition_pending": {"ambiguous_seeds": seed.get("AMBIGUOUS", 0)},
         "source_miss": {"note": "见 /admin/pipeline cb.negative(来源未命中, 采集层口径)"},
-        "resolver_events": None,
-        "resolver_events_note": "当前无可统计的 resolver 持久化事件",
         "seed_ledger": seed,
     }, mode="exact")
 
@@ -314,7 +294,6 @@ _SECTIONS: dict[str, Any] = {
     "cb_canonical_cb_number_null": cb_canonical_cb_number_null,
     "cb_locale_gaps": cb_locale_gaps,
     "supplier_listing_orphan": supplier_listing_orphan,
-    "seed_enqueued_no_job": seed_enqueued_no_job,
     "pb_canonical_sync_gap": pb_canonical_sync_gap,
     "pb_cid_no_source_record": pb_cid_no_source_record,
     "name_index_orphan": name_index_orphan,
@@ -465,10 +444,8 @@ async def drill_down(db: AsyncSession, key: str) -> dict:
 
 
 # 不支持 drill-down 的(明确列出, 不猜):
-#   seed_enqueued_no_job — deferred(无可靠关联键)
 #   pb_canonical_sync_gap — 可加, 但语义与 fixture 测试重叠, A2 不扩
 DRILL_UNSUPPORTED = {
-    "seed_enqueued_no_job": "deferred 指标(账本↔job 无可靠关联键), 无法 drill-down",
     "pb_canonical_sync_gap": "样本口径, drill-down 见 pb_cid_no_source_record",
     "cb_locale_gaps": "聚合口径, 样本行无单条异常语义",
     "name_index_distribution": "分布非异常, 无 drill-down 语义",

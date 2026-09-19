@@ -679,11 +679,10 @@ const t = {
 }`,
     /* ── 工具清单 ── */
     toolsKicker: 'AI 可用的工具',
-    toolsIntro: '共 14 个工具：公开查询无需登录；结构检索、个人数据与保存类操作需要 AI Key（reaction:write / skill:write）。',
+    toolsIntro: '共 13 个工具：公开查询无需登录；结构检索、个人数据与保存类操作需要 AI Key（reaction:write / skill:write）。',
     tools: [
       { name: 'search_chemistry_data', auth: '公开 / AI Key', desc: '按名称、CAS、SMILES、DOI 等统一检索；子结构/相似度需 AI Key' },
-      { name: 'get_chemical', auth: '公开', desc: '读取化合物结构、标识符、性质与关联反应' },
-      { name: 'get_chemical_externals', auth: '公开', desc: '中文扩展条目（物化性质/安全/制备/上下游）与供应商' },
+      { name: 'get_chemical', auth: '公开', desc: '化合物详情：enrich=core 结构/标识符/关联反应；full 增加统一语义详情（描述/性质/安全/供应商等）' },
       { name: 'get_reaction', auth: '公开 / AI Key', desc: '公开反应匿名可读；私有记录仅本人' },
       { name: 'render_molecule_svg', auth: '公开', desc: '分子 2D 结构图（SVG）' },
       { name: 'render_reaction_svg', auth: '公开', desc: '反应方程式图（SVG）' },

@@ -169,16 +169,6 @@ class FixtureTests(GovBase):
             for banned in ("estimated_total", "estimated_rate", "total_missing"):
                 self.assertNotIn(banned, v, f"{k} 禁换算全量: {banned}")
 
-    def test_identity_layers_not_substituted(self):
-        """修正2: 历史治理记录 / 采集悬案 / resolver 事件三层分离;
-        resolver_events=None 且带说明, 禁用 seed/merge 顶替。"""
-        snap = self._gov()
-        idg = snap["identity_governance"]["value"]
-        self.assertIn("history", idg)
-        self.assertIn("acquisition_pending", idg)
-        self.assertIsNone(idg["resolver_events"])
-        self.assertIn("无可统计", idg["resolver_events_note"])
-        self.assertIsInstance(idg["acquisition_pending"]["ambiguous_seeds"], int)
 
     def test_supplier_kind_not_canonical_name(self):
         """验收9: 分布里 supplier kind 与 canonical name 分开统计, 不混账。
@@ -213,7 +203,6 @@ class FixtureTests(GovBase):
         """验收4: drill-down 有 LIMIT; 未知/无证据 key 明确拒绝。"""
         from api.services.pipeline_governance import DRILL_LIMIT, DRILL_UNSUPPORTED, drill_down
         self.assertLessEqual(DRILL_LIMIT, 50)
-        self.assertIn("seed_enqueued_no_job", DRILL_UNSUPPORTED)
         async def run():
             eng = create_async_engine(DB)
             try:
@@ -225,14 +214,6 @@ class FixtureTests(GovBase):
         self.assertTrue(d["available"])
         self.assertLessEqual(len(d["rows"]), DRILL_LIMIT)
 
-    def test_seed_enqueued_no_job_deferred(self):
-        """deferred 指标: unavailable 且解释原因, 不造数字。"""
-        snap = self._gov()
-        s = snap["seed_enqueued_no_job"]
-        self.assertFalse(s["available"])
-        self.assertEqual("deferred", s["mode"])
-        self.assertIsNone(s["value"])
-        self.assertTrue(s["error"])
 
 
 class IssueModeMappingTests(unittest.TestCase):
@@ -250,7 +231,6 @@ class IssueModeMappingTests(unittest.TestCase):
         "name_index_distribution": "sample",
         "canonical_name_coverage": "sample",
         "identity_governance": "exact",
-        "seed_enqueued_no_job": "deferred",
     }
     # GovernancePanel issues 里声明的 modeK(与组件源同步维护)
     ISSUE_MODE_KEYS = {
@@ -261,7 +241,6 @@ class IssueModeMappingTests(unittest.TestCase):
         "cb_num_null": "cb_canonical_cb_number_null",
         "pb_norec": "pb_cid_no_source_record",
         "pb_gap": "pb_canonical_sync_gap",
-        "seed_nj": "seed_enqueued_no_job",
     }
 
     def test_no_fake_sample_key(self):
@@ -274,12 +253,11 @@ class IssueModeMappingTests(unittest.TestCase):
         for issue, key in self.ISSUE_MODE_KEYS.items():
             self.assertIn(key, self.SECTION_MODES, f"{issue} 引用了不存在的 section: {key}")
             # 抽样类 issue 必须映射到 sample 模式 section, 不得拿到空口径;
-            # ambiguous=账本精确计数, seed_nj=deferred, 两者不属抽样
-            if issue not in ("seed_nj", "ambiguous"):
+            # ambiguous=账本精确计数, 不属抽样
+            if issue not in ("ambiguous",):
                 self.assertEqual("sample", self.SECTION_MODES[key],
                                  f"{issue} 应为样本口径 section")
         self.assertEqual("exact", self.SECTION_MODES[self.ISSUE_MODE_KEYS["ambiguous"]])
-        self.assertEqual("deferred", self.SECTION_MODES[self.ISSUE_MODE_KEYS["seed_nj"]])
 
     def test_mode_label_mapping_complete(self):
         # GovernancePanel modeNote 的分支必须覆盖 deferred/exact, 且 sample→'样本口径'

@@ -74,13 +74,9 @@ def _fams() -> list[Family]:
                 I(T.MCP, "get_chemical")),
               contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "get_chemical"),
-              note="enrich=core|full 同语义(E7 冻结): full 是 core 的兼容别名, "
-                   "无额外 enrichment/无额外取数; 归一只在入口一次"),
-            S("externals", A.PUBLIC_OR_ACTOR, entrypoints=(
-                I(T.HTTP, "GET /api/chemicals/{chemical_id}/externals"),
-                I(T.MCP, "get_chemical_externals")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
-                                X.STABLE_EXTERNAL, "get_chemical_externals")),
+              note="enrich=core(零 provider)/full(semantic detail: 内部调 "
+                   "services/enrichment(PB)+services/cb(CB), 状态归一 "
+                   "current/queued/stale/degraded; 单源失败标 unavailable 不 500)"),
             S("reactions", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/chemicals/{chemical_id}/reactions"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
@@ -352,12 +348,7 @@ def _fams() -> list[Family]:
         # ------------------------------------------------------------------
         # enrichment / config / discovery / guide / ops
         # ------------------------------------------------------------------
-        Family("enrichment", E.READ, scenarios=(
-            S("details_refresh", A.PUBLIC_OR_ACTOR, entrypoints=(
-                I(T.HTTP, "GET /api/chemicals/{chemical_id}/details"),),
-              contract=Contract(frozenset({C.WEB}), X.NONE),
-              note="D007: 前端零消费疑似死面(P2 裁定); 场景=详情读+陈旧回补入队"),
-        )),
+        # E9-B 1.1: enrichment/details_refresh 已删除(零消费者; PB 回补并入 enrich=full)
         Family("config", E.READ, scenarios=(
             S("public_read", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/config"),),

@@ -294,7 +294,7 @@ class PipelineEndpointTests(unittest.TestCase):
             self.assertIn(w["runtime"], ("online", "stale", "offline", "disabled"))
             self.assertIn("scopes", w)
         # optional 三块都是 {available, error, value}
-        for wrap in (d["supplier"], d["cb"]["seed"], d["cb"]["negative"]):
+        for wrap in (d["cb"]["negative"],):  # E9-B: supplier/seed runtime 已移除
             self.assertEqual({"available", "error", "value"}, set(wrap))
         # aging 事实口径: 只有排队年龄; 租约年龄字段已删除(无 leased_at, 纯推测)
         for chain in ("cb", "pb"):
@@ -315,9 +315,9 @@ class PipelineEndpointTests(unittest.TestCase):
         self.assertFalse(d["cb"]["negative"]["available"])
         self.assertIn("injected negative failure", d["cb"]["negative"]["error"])
         self.assertIsNone(d["cb"]["negative"]["value"])
-        # 其它块不受牵连
-        self.assertTrue(d["supplier"]["available"])
-        self.assertTrue(d["cb"]["seed"]["available"])
+        # 其它链健康块不受牵连(E9-B 后 negative 是唯一 optional)
+        self.assertIn("health", d["cb"])
+        self.assertIn("health", d["pb"])
 
     def test_critical_failure_first_time_raises_no_fake_snapshot(self):
         """critical(critical 段)首次失败且无缓存 → 如实抛(不伪造)。"""
@@ -351,7 +351,7 @@ class PipelineEndpointTests(unittest.TestCase):
         self.assertEqual(d1["stats"]["generated_at"], d2["stats"]["generated_at"])
         self.assertGreater(d2["stats"]["age_seconds"], 9000)
         # 数据仍在(不是 0 冒充)
-        self.assertTrue(d2["supplier"]["available"])
+        self.assertTrue(d2["cb"]["negative"]["available"])
 
     def test_cold_start_single_flight_no_crash_no_double_scan(self):
         """验收(0912 blocker2): 两个冷启动请求并发 → _scan_critical 只跑一次,
@@ -390,7 +390,7 @@ class PipelineEndpointTests(unittest.TestCase):
         for r in (ra, rb):
             self.assertIn("stats", r)
             self.assertFalse(r["stats"]["stale"])
-            self.assertTrue(r["supplier"]["available"])
+            self.assertTrue(r["cb"]["negative"]["available"])
 
     def test_cold_start_first_refresh_failure_raises(self):
         """(0912 blocker2) 首次刷新失败且无 snapshot → 明确抛错, 不造 0。"""

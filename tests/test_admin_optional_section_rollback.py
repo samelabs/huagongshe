@@ -52,24 +52,25 @@ class OptionalSectionRollbackTests(unittest.TestCase):
         admin_mod._PIPELINE_STATS_CACHE.clear()
         admin_mod._PIPELINE_STATS_BG.clear()
 
-        # critical 打桩(非被测对象): 返回合法四元组, 不碰大表
+        # critical 打桩(非被测对象): 返回合法三元组(E9-B 无 total), 不碰大表
         self._orig_critical = admin_mod._scan_critical
 
         async def fake_critical(db):
-            return ([], 0, 0, 0)
+            return ([], 0, 0)
         admin_mod._scan_critical = fake_critical
 
-        # supplier 注入真实 SQL error: 除零在 PG 服务端 abort 事务
-        self._orig_supplier = admin_mod._scan_supplier
+        # negative 注入真实 SQL error: 除零在 PG 服务端 abort 事务
+        # (E9-B: supplier/seed runtime scan 已删除, negative 是唯一 optional)
+        self._orig_negative = admin_mod._scan_negative
 
-        async def boom_supplier(db):
+        async def boom_negative(db):
             await db.execute(text("SELECT 1/0"))
             raise AssertionError("PG 应当先抛服务端错误")
-        admin_mod._scan_supplier = boom_supplier
+        admin_mod._scan_negative = boom_negative
 
     def tearDown(self):
         self.admin_mod._scan_critical = self._orig_critical
-        self.admin_mod._scan_supplier = self._orig_supplier
+        self.admin_mod._scan_negative = self._orig_negative
         self.admin_mod._PIPELINE_STATS_CACHE.clear()
         self.admin_mod._PIPELINE_STATS_BG.clear()
 
@@ -85,20 +86,15 @@ class OptionalSectionRollbackTests(unittest.TestCase):
         snap = asyncio.run(run())
 
         opt = snap["optional"]
-        # 1: 出错 section 降级
-        self.assertFalse(opt["supplier"]["available"])
-        self.assertIn("division by zero", opt["supplier"]["error"])
-        # 3+4: rollback 后 SQL 恢复 — 真实执行的 seed/negative 查询成功
-        self.assertTrue(opt["seed"]["available"], "seed 不被 supplier 的事务污染")
-        self.assertTrue(opt["negative"]["available"], "negative 不被污染")
-        self.assertIsNotNone(opt["seed"]["value"])
-        self.assertIsNotNone(opt["negative"]["value"])
+        # 1: 出错 section 降级(negative 是唯一 optional section)
+        self.assertFalse(opt["negative"]["available"])
+        self.assertIn("division by zero", opt["negative"]["error"])
         # 5: generated_at 正常生成(rollback 后 SELECT now() 成功)
         self.assertTrue(snap["generated_at"])
 
     def test_snapshot_enters_cache_not_lkg(self):
         """端到端: LKG 来自真实 endpoint 冷启动; 人为过期后再次冷启动,
-        supplier 失败但 snapshot 整体成功进 cache(而非 refresh failed 留 LKG)。"""
+        negative 失败但 snapshot 整体成功进 cache(而非 refresh failed 留 LKG)。"""
         from api.core.security import Actor
 
         def actor():
@@ -116,8 +112,8 @@ class OptionalSectionRollbackTests(unittest.TestCase):
         async def scenario():
             d1 = await hit()     # 冷启动 → snapshot 进 cache
             lkg = self.admin_mod._PIPELINE_STATS_CACHE["v"]["v"]
-            self.assertFalse(lkg["optional"]["supplier"]["available"])  # 注入的错在
-            self.assertTrue(lkg["optional"]["seed"]["available"])
+            # E9-B: negative 是唯一 optional section — 注入的错在这里
+            self.assertFalse(lkg["optional"]["negative"]["available"])
             self.assertFalse(d1["stats"]["stale"])
             # 人为推过 TTL 再打: SWR — 本请求 stale 返回, 后台刷新换新
             self.admin_mod._PIPELINE_STATS_CACHE["v"]["ts"] = _t.monotonic() - 10_000
@@ -135,11 +131,11 @@ class OptionalSectionRollbackTests(unittest.TestCase):
 
         lkg = asyncio.run(scenario())
         cur = self.admin_mod._PIPELINE_STATS_CACHE["v"]["v"]
-        # 6: 新 snapshot 整体成功进入 cache(supplier 单独降级)
+        # 6: 新 snapshot 整体成功进入 cache(negative 单独降级)
         self.assertIsNot(cur, lkg)
-        self.assertFalse(cur["optional"]["supplier"]["available"])
-        self.assertTrue(cur["optional"]["seed"]["available"])
-        self.assertTrue(cur["optional"]["negative"]["available"])
+        # 注入的 negative 失败在每个 snapshot 中均单独降级(E9-B: 唯一 optional)
+        self.assertFalse(cur["optional"]["negative"]["available"])
+        self.assertIn("division by zero", cur["optional"]["negative"]["error"])
         self.assertTrue(cur["generated_at"])
         age = _t.monotonic() - self.admin_mod._PIPELINE_STATS_CACHE["v"]["ts"]
         self.assertLess(age, 60, "换新后应判定 fresh")

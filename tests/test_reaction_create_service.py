@@ -472,7 +472,8 @@ class ArchitectureTests(unittest.TestCase):
         src = inspect.getsource(__import__(
             "api.services.search", fromlist=["x"]))
         self.assertNotIn("from ..reactions import", src)
-        self.assertIn("from .reactions import resolve_or_create_chemical", src)
+        # E9-B: 建行路径改为函数内局部 import, 同时引入 fail-closed 异常
+        self.assertIn("from .reactions import UnresolvedIdentityError, resolve_or_create_chemical", src)
 
     def test_single_implementation(self):
         for helper in ("resolve_or_create_chemical", "resolve_participants",

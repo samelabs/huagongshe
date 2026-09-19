@@ -43,7 +43,7 @@ class SessionBoundaryTests(unittest.TestCase):
         (结构检索 mode!=exact 需 actor, 见 test_search)。"""
         import api.routes as routes
         for endpoint in (
-            routes.search, routes.chemical_detail, routes.chemical_externals,
+            routes.search, routes.chemical_detail,
             routes.chemical_synonyms, routes.chemical_reactions,
             routes.reaction_detail, routes.datasets,
         ):

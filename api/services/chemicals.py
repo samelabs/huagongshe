@@ -6,7 +6,10 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # --- Search-path 查询内核 neutral 异常(G2.3D) ---------------------------
 # transport-neutral: 只携带 detail, 无 status/header/HTTP 概念。
@@ -562,31 +565,29 @@ class ChemicalNotFoundError(Exception):
     """chemical_id 无对应行的 neutral 语义错误(detail 固定基线原文)。"""
 
 
-# --- enrich 契约(E7 冻结) ------------------------------------------------
-# core = canonical current behavior; full = core 的兼容别名。
-# 两者返回语义一致: full 不代表额外 enrichment —— 无第二来源、无额外 DB 查询、
-# 无异步补全、无额外字段。调用方不得依赖"full 会更多"这一未实现承诺。
+# --- enrich 契约(E9-B 1.2/1.3 重定义; E7 的"同语义"冻结由本批产品契约取代) --
+# core = canonical projection + localized names/synonyms + 轻量上下文;
+#        禁止触碰 chemical_pubchem / chemical_cb / supplier / 任何 enqueue。
+# full = core + unified semantic detail(内部调用现有两条 provider owner:
+#        services/enrichment(PB) 与 services/cb(CB), 底层机制各自独立)。
 ENRICH_CANONICAL = "core"
-ENRICH_COMPAT_ALIASES = ("full",)
+ENRICH_VALUES = ("core", "full")
 
 
 def normalize_enrich(value: str | None) -> str:
-    """enrich 参数唯一归一入口(HTTP/MCP 共用, E7 冻结)。
+    """enrich 参数唯一归一入口(HTTP/MCP 共用, E9-B: full 不再是 core 别名)。
 
-    未知值不在此静默放行: HTTP 由 query schema(pattern) 挡 422,
-    MCP 由 ToolError 挡 —— 归一只负责把兼容别名映射到规范值。
+    空/缺省 → core; core/full 原样通过; 未知值原样返回(HTTP 由 query schema
+    pattern 挡 422, MCP 由 ToolError 挡)—— 归一不静默改写。
     """
     if not value:
         return ENRICH_CANONICAL
-    return ENRICH_CANONICAL if value in ENRICH_COMPAT_ALIASES else value
+    return value
 
 
 def _frozen_enrich(value: str) -> None:
-    """enrich 只有一条实现路径(E7 冻结): 入口已归一, 此处只接受规范值。
-
-    若未来有人为 full 加第二业务路径, 会在此暴露而不是静默生效。
-    """
-    if value != ENRICH_CANONICAL:
+    """enrich 只有 core/full 两个合法值(入口已归一); 未知值在此暴露。"""
+    if value not in ENRICH_VALUES:
         raise ValueError(f"unsupported enrich: {value!r}")
 
 
@@ -598,20 +599,21 @@ async def get_chemical_detail(
     priority: int,
     enrich: str = ENRICH_CANONICAL,
 ) -> dict[str, Any]:
-    """返回 canonical full business detail(未做 display 投影)。
+    """返回 canonical business detail(E9-B 合流后唯一公开能力)。
 
-    flow(基线原文顺序):
-      fetch_chemicals → not-found → fill_detail_context(actor_id|0)
-      → enqueue_chemical_if_needed(priority, allow_refresh=True)
-      → job commit → details → enrichment status/job_id 组装。
+    core 流(E9-B 1.2 — 零 provider 访问):
+      fetch_chemicals(含 localized names) → not-found → fill_detail_context
+      → 返回。不查 chemical_pubchem/chemical_cb/supplier, 不 enqueue。
+
+    full 流(E9-B 1.3 — core + unified semantic detail):
+      core 流 + PB owner(services/enrichment) + CB owner(services/cb)。
+      单 source 失败 → 该 source 标 unavailable, canonical 与另一 source
+      照常返回(绝不 500); 404 只表示 chemical 本体不存在。
     priority 由 adapter 按既有 policy(80=actor/50=匿名)显式传入;
     MCP 当前恒匿名 priority=50。
-    enrich: core|full 同语义(E7 冻结) —— 本函数不按 enrich 分支,
-    也不做任何额外取数; 只校验入口归一后的规范值。
     """
-    from .enrichment import enqueue_chemical_if_needed
-
-    _frozen_enrich(normalize_enrich(enrich))
+    enrich = normalize_enrich(enrich)
+    _frozen_enrich(enrich)
 
     rows = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT} FROM chemistry.chemicals c WHERE c.id=:id
@@ -620,18 +622,88 @@ async def get_chemical_detail(
         raise ChemicalNotFoundError("化合物不存在")
     result = rows[0]
     await fill_detail_context(db, result, chemical_id,
-                               actor_id if actor_id is not None else 0)
-    details, job_id, needs_refresh = await enqueue_chemical_if_needed(
-        db,
-        chemical_id,
-        priority=priority,
-        allow_refresh=True,
+                              actor_id if actor_id is not None else 0)
+
+    if enrich == "core":
+        # E9-B 1.2: core 禁止任何 provider 查询/enqueue —— 直接返回。
+        result["details"] = None
+        result["enrichment"] = {"status": "current"}
+        return result
+
+    # ── full: PB owner ──────────────────────────────────────────────
+    from .enrichment import enqueue_chemical_if_needed
+    try:
+        details, job_id, needs_refresh = await enqueue_chemical_if_needed(
+            db, chemical_id, priority=priority, allow_refresh=True)
+        if job_id is not None:
+            await db.commit()
+        pb_raw_state = ("queued" if job_id is not None
+                        else ("stale" if needs_refresh else "current"))
+    except Exception:  # noqa: BLE001 — PB 失败不炸 canonical, 标 unavailable
+        await db.rollback()
+        logger.warning("pubchem detail source failed chemical_id=%s",
+                       chemical_id, exc_info=True)
+        details, job_id, pb_raw_state = None, None, "unavailable"
+
+    # ── full: CB owner(只取数, 复用 cb.py 读路径; 失败标 unavailable) ──
+    cb_entry: dict[str, Any] | None = None
+    cb_suppliers: list[dict[str, Any]] = []
+    cb_raw_state = "unavailable"
+    cb_applicable = True
+    try:
+        cas_row = (await db.execute(text("""
+            SELECT cas_numbers[1] FROM chemistry.chemicals WHERE id=:id
+        """), {"id": chemical_id})).fetchone()
+        cas_number = cas_row[0] if cas_row else None
+        if not cas_number:
+            # CB 按 CAS 寻址: 无 CAS = source 不适用(none, 非 error)
+            cb_raw_state, cb_applicable = "no_cas", False
+        else:
+            from . import cb as cb_module
+            cb_row = await cb_module.get_externals_row(db, chemical_id)
+            if cb_row is None:
+                fresh_negative = await cb_module.negative_is_fresh(
+                    db, "cas_locator", cas_number=cas_number)
+                cb_raw_state = "negative" if fresh_negative else "absent"
+            else:
+                decision = await cb_module.cb_decide(
+                    db, chemical_id, cb_number=cb_row.get("cb_number"))
+                if decision in ("serve_fresh",):
+                    cb_entry = cb_row.get("entry")
+                    cb_suppliers = await cb_module.get_suppliers(db, chemical_id)
+                    cb_raw_state = "fresh"
+                elif decision in ("enqueue_refresh", "enqueue_first"):
+                    # 与旧 /externals stale 路径同语义: 出旧数据 + 入列
+                    cb_entry = cb_row.get("entry")
+                    if decision == "enqueue_refresh":
+                        await cb_module.enqueue_cas_job(
+                            db, chemical_id=chemical_id, cas_number=cas_number,
+                            priority=40, request_context={"reason": "stale_refresh"})
+                        await db.commit()
+                    cb_raw_state = "queued"
+                else:  # skip: 多语言前置缺 cb_number — zh 主行不可达, 防御
+                    cb_raw_state, cb_applicable = "no_cas", False
+    except Exception:  # noqa: BLE001 — CB 失败不炸 canonical, 标 unavailable
+        await db.rollback()
+        logger.warning("cb detail source failed chemical_id=%s",
+                       chemical_id, exc_info=True)
+        cb_raw_state = "unavailable"
+
+    # ── unified semantic projection + 状态归一(E9-B 1.4/1.5) ─────────
+    from .chemical_semantic import (
+        build_semantic_detail, normalize_source_state, overall_enrichment_status,
     )
-    if job_id is not None:
-        await db.commit()
-    result["details"] = details
+    pb_norm = normalize_source_state(pb_raw_state)
+    cb_norm = normalize_source_state(cb_raw_state)
+    result["details"] = build_semantic_detail(
+        details, cb_entry, cb_suppliers,
+        {"state": pb_norm, "fetched_at": (details or {}).get("fetched_at"),
+         "job_id": job_id},
+        {"state": cb_norm, "applicable": cb_applicable},
+    )
     result["enrichment"] = {
-        "status": "queued" if job_id is not None else ("stale" if needs_refresh else "current"),
+        "status": overall_enrichment_status(pb_norm, cb_norm, cb_applicable),
+        "sources": {"pubchem": pb_norm, "cb": cb_norm},
         "job_id": job_id,
     }
     return result

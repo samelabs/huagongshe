@@ -207,36 +207,9 @@ class ExternalsFetchRateLimitPlacementTests(unittest.IsolatedAsyncioTestCase):
 class AdapterMappingTests(unittest.IsolatedAsyncioTestCase):
     """§11/§12: adapter 只做映射; enforce/状态机不在 handler。"""
 
-    async def test_http_not_found_maps_404_and_bridges_rate_error(self):
-        import inspect
-        src = inspect.getsource(routes.chemical_externals)
-        self.assertIn("get_chemical_externals", src)
-        self.assertIn('raise HTTPException(404, "化合物不存在")', src)
-        self.assertIn("to_http_exception", src)
-        for banned in ("enforce_http", "ensure_externals", "sync_fetch_and_store",
-                       "enqueue_cas_job", "negative_is_fresh"):
-            self.assertNotIn(banned, src)
-
-    async def test_http_stale_and_negative_flow_unchanged(self):
-        """HTTP 全链路(handler→orchestration)stale/negative 映射。"""
-        events = []
-
-        async def fake_get(db, cid, *, actor_id=None):
-            events.append(("get", cid, actor_id))
-            return {"chemical_id": cid, "state": "no_cas",
-                    "entry": None, "suppliers": []}
-
-        with patch.object(cb_module, "get_chemical_externals", fake_get):
-            result = await routes.chemical_externals(1, actor=None, db=MagicMock())
-        self.assertEqual(result["state"], "no_cas")
-        self.assertEqual(events, [("get", 1, None)])
-
-        actor = MagicMock()
-        actor.id = 7
-        with patch.object(cb_module, "get_chemical_externals", fake_get):
-            await routes.chemical_externals(1, actor=actor, db=MagicMock())
-        self.assertEqual(events[-1], ("get", 1, 7))
-
-
-if __name__ == "__main__":
-    unittest.main()
+    def test_externals_http_route_removed(self):
+        """E9-B 1.1: /externals 端点删除 — service 层限流契约测试保留。"""
+        import api.routes as routes
+        for route in routes.router.routes:
+            path = getattr(route, "path", "")
+            self.assertNotIn("/externals", path)

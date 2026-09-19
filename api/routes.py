@@ -9,7 +9,6 @@ from sqlalchemy import text
 
 from .core.cache import cache_get, cache_set
 from .core.database import get_db
-from .services.enrichment import display_details
 from .core.security import Actor, public_or_actor
 from .services.reactions import load_reaction_detail
 from .services.search import (
@@ -106,14 +105,13 @@ async def search(
 async def chemical_detail(
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     enrich: str = Query("core", pattern="^(core|full)$"),
-    display: bool = Query(False),
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
     # G2.4B: 编排下沉 services/chemicals.get_chemical_detail; adapter 只保留
     # 参数解析/auth/priority policy/display 投影/404 映射。
-    # E7 冻结: enrich=core|full 同语义(full 是 core 的兼容别名, 无额外
-    # enrichment) —— 归一只在入口做一次, 不产生第二业务路径。
+    # E9-B 1.1: 唯一公开 detail 能力。enrich=core(零 provider) /
+    # full(semantic detail, 内部调 services/enrichment + services/cb)。
     try:
         result = await get_chemical_detail(
             db, chemical_id,
@@ -125,32 +123,7 @@ async def chemical_detail(
         )
     except ChemicalNotFoundError as exc:
         raise HTTPException(404, "化合物不存在") from exc
-    result["details"] = display_details(result["details"]) if display else result["details"]
     return result
-
-
-@router.get("/chemicals/{chemical_id}/externals", operation_id="get_chemical_externals",
-            summary="化合物的中文扩展信息与供应商")
-async def chemical_externals(
-    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
-    actor: Actor | None = Depends(public_or_actor),
-    db=Depends(get_db),
-):
-    """CB 扩展读端点: 编排已下沉 services/cb(G2.4C)。
-
-    遵循公开读口径: 无原站标识; 404 = 化合物不存在;
-    entry/suppliers 为空 = 该化合物无 CAS 或源站无数据(非错误)。
-    """
-    from .services.cb import ChemicalExternalsNotFoundError, get_chemical_externals
-
-    try:
-        return await get_chemical_externals(
-            db, chemical_id, actor_id=actor.id if actor else None,
-        )
-    except ChemicalExternalsNotFoundError as exc:
-        raise HTTPException(404, "化合物不存在") from exc
-    except RateLimitError as exc:  # G2.R neutral 限流异常 → HTTP bridge
-        raise to_http_exception(exc) from exc
 
 
 @router.get("/chemicals/{chemical_id}/synonyms")

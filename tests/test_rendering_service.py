@@ -211,7 +211,7 @@ class McpRenderingContractTests(unittest.TestCase):
         names = {t.name for t in tools}
         self.assertIn("render_molecule_svg", names)
         self.assertIn("render_reaction_svg", names)
-        self.assertEqual(len(names), 14)
+        self.assertEqual(len(names), 13)  # E9-B: get_chemical_externals 移除 → 13
 
     def test_render_tools_call_rendering_service_not_mol_module(self):
         import api.mcp_server as m

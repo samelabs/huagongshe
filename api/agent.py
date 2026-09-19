@@ -86,13 +86,7 @@ async def agent_guide(
                 "path": "/api/chemicals/{chemical_id}",
                 "auth": "public_or_bearer",
                 "purpose": "读取一个 HCID 的结构、标识符、性质和关联反应概况",
-            },
-            {
-                "id": "get_chemical_externals",
-                "method": "GET",
-                "path": "/api/chemicals/{chemical_id}/externals",
-                "auth": "public_or_bearer",
-                "purpose": "读取一个 HCID 的中文扩展条目（基本信息/物化性质/安全数据/应用/制备/上下游）与供应商列表（纯度/包装价格/联系方式）；无 CAS 或无数据时 entry 与 suppliers 为空",
+                "input": "enrich=core（默认，仅 canonical 数据）或 full（统一语义详情：描述/名称与别名/性质/安全与法规/工业应用/供应商/溯源；数据源各自保留独立值与来源）",
             },
             {
                 "id": "get_reaction",

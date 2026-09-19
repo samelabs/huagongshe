@@ -142,27 +142,16 @@ class McpExternalsTests(unittest.TestCase):
                 return ast.get_source_segment(full, node)
         raise AssertionError("get_chemical_externals tool not found")
 
-    def test_no_http_handler_call_no_fake_request(self):
-        src = self._tool_source()
-        self.assertNotIn("routes_module", src)
-        self.assertNotIn("request=None", src)
-        self.assertNotIn("chemical_externals(", src
-                         .replace("_get_chemical_externals", "")
-                         .replace("get_chemical_externals", ""))
-
-    def test_uses_shared_orchestration_anonymous(self):
-        src = self._tool_source()
-        self.assertIn("_get_chemical_externals", src)
-        self.assertIn("actor_id=None", src)
-        self.assertNotIn("_actor_from_headers", src)
-
-    def test_error_mapping_chain(self):
-        src = self._tool_source()
-        self.assertIn("_ChemicalExternalsNotFoundError", src)
-        self.assertIn("ToolError(str(exc))", src)
-        self.assertIn("except RateLimitError as exc", src)
-        self.assertIn("ToolError(exc.detail)", src)
 
 
-if __name__ == "__main__":
-    unittest.main()
+
+
+class RemovedExternalsToolTests(unittest.TestCase):
+    """E9-B 1.1: MCP get_chemical_externals 已删除; service 层(owner)保留。"""
+
+    def test_mcp_tool_deleted(self):
+        from api.mcp_server import build_mcp_server
+        import asyncio
+        tools = asyncio.run(build_mcp_server().list_tools())
+        names = {t.name for t in tools}
+        self.assertNotIn("get_chemical_externals", names)

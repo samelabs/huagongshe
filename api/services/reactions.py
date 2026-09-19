@@ -345,6 +345,25 @@ def chemical_properties(smiles: str) -> dict[str, Any]:
     }
 
 
+class UnresolvedIdentityError(Exception):
+    """resolver 五状态中 CONFLICT/AMBIGUOUS 的 transport-neutral 表达(E9-B)。
+
+    fail-closed: 未裁定的身份不得创建 chemical 行。调用方显式处理:
+    HTTP reaction create → 409; MCP → transport 错误; search 建行 → 降级不建行。
+    status/reason 携带 resolver 裁定事实(evidence 见 resolver 日志侧)。
+    """
+
+    def __init__(self, status: str, reason: str = ""):
+        self.status = status
+        self.reason = reason
+        detail = {
+            "CONFLICT": "化合物身份冲突：相同结构键对应多条互斥记录，需人工裁定，禁止自动创建",
+            "AMBIGUOUS": "化合物身份不明确：存在多个候选且无结构判据，禁止自动创建",
+        }.get(status, "化合物身份未裁定，禁止自动创建")
+        super().__init__(detail)
+        self.detail = detail
+
+
 async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
     # 锁键用 canonical 形式: 同一分子的不同写法(CCO/OCC)必须落在同一把锁上,
     # 否则并发双写可各建一行(缝只开一次, 但没有必要留). 入参已是 canonical 时零开销.
@@ -354,14 +373,18 @@ async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
     props = await asyncio.to_thread(chemical_properties, canonical)
     inchikey = props.get("inchikey")
     # 0906 治理机制: 定位/裁定改走 identity.resolve_chemical 五状态契约。
-    # SMILES 路证据=ik(结构键)。EQUIVALENT(ik 结构行命中)直接用;
-    # CONFLICT/AMBIGUOUS 不可能在此形态出现(单键定位), 保守起见仍检查。
+    # E9-B fail-closed(取代 0906 注释里的"不可能出现"假设):
+    #   EXACT/EQUIVALENT → reuse; NEW → INSERT;
+    #   CONFLICT(ik 命中但两行非空 CID 互斥等) / AMBIGUOUS → 禁止 INSERT,
+    #   抛 UnresolvedIdentityError, 由调用方(reaction 409 / search 降级)显式处理。
     from .identity import resolve_chemical
     # create=False: NEW 时不占行 — 完整行(带mol/指纹)由本函数下方 INSERT
     # 一次性建, 避免 resolve 先建裸占位行再建完整行的双行缝(终审0906)
     res = await resolve_chemical(db, inchikey=inchikey, create=False)
     if res.chemical_id is not None and res.status in ("EQUIVALENT", "EXACT"):
         return int(res.chemical_id), False
+    if res.status in ("CONFLICT", "AMBIGUOUS"):
+        raise UnresolvedIdentityError(res.status, res.reason)
     chemical_id = int((await db.execute(text("""
         INSERT INTO chemistry.chemicals
           (smiles,molecular_formula,average_mass,monoisotopic_mass,inchikey,
@@ -505,7 +528,15 @@ async def create_reaction(
         participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
     except ReactionValidationError:
         raise
-    resolved, created_chemicals = await resolve_participants(db, participants)
+    try:
+        resolved, created_chemicals = await resolve_participants(db, participants)
+    except UnresolvedIdentityError:
+        # E9-B fail-closed: CONFLICT/AMBIGUOUS → 化学行+0, 反应+0,
+        # reaction_chemicals +0, statistics 不推进, discovery 不入队。
+        # resolve 阶段尚未发生任何本事务写入(INSERT 在其后), rollback
+        # 清除 advisory lock/可能的 savepoint 后向上抛给 adapter 映射 409。
+        await db.rollback()
+        raise
     values = reaction_values(body)
     try:
         reaction_id = int((await db.execute(text("""
@@ -622,7 +653,13 @@ async def update_reaction(
         if current[0] != actor_id:
             raise ReactionAccessError(ReactionAccessError.NOT_OWNER, "只能维护自己创建的反应")
         participants, reaction_smiles = await asyncio.to_thread(canonical_participants, body)
-        resolved, created_chemicals = await resolve_participants(db, participants)
+        try:
+            resolved, created_chemicals = await resolve_participants(db, participants)
+        except UnresolvedIdentityError:
+            # E9-B fail-closed(与 create 同口径): FOR UPDATE 行锁随 rollback 释放,
+            # 未发生任何参与者/行写入。
+            await db.rollback()
+            raise
         values = reaction_values(body)
         await db.execute(text("""
             UPDATE chemistry.reactions SET

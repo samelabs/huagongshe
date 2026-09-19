@@ -171,7 +171,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertEqual(
             {item["id"] for item in guide["operations"]},
             {
-                "search_chemistry_data", "get_chemical", "get_chemical_externals",
+                "search_chemistry_data", "get_chemical",
                 "get_reaction", "render_molecule_svg", "render_reaction_svg",
                 "list_my_reactions", "list_skills", "get_skill",
                 "download_skill_archive", "calculate_stoichiometry",

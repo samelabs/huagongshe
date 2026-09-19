@@ -29,7 +29,6 @@ except Exception:
 from fastapi import HTTPException
 
 import api.routes as routes
-import api.enrichment as enrichment_router
 from api.core import security
 from api.core.rate_limit import is_loopback_host
 from api.services import enrichment as enrichment_service
@@ -101,8 +100,7 @@ class RefreshUseCasePolicyTests(unittest.TestCase):
         self.assertIn("if not allow_refresh:", body)
         # 两个详情调用点(G2.4B: chemical_detail 编排下沉 services/chemicals)
         from api.services import chemicals as chemicals_service
-        for endpoint in (chemicals_service.get_chemical_detail,
-                         enrichment_router.chemical_details):
+        for endpoint in (chemicals_service.get_chemical_detail,):
             esrc = inspect.getsource(endpoint)
             self.assertIn("allow_refresh=True", esrc)
         self.assertIn(

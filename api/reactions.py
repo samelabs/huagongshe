@@ -19,7 +19,10 @@ from .core.security import Actor, current_actor, public_or_actor, require_scope
 from .services.reactions import list_my_reactions
 from .services.reactions import (IdempotencyKeyTooLongError,
                                  MissingIdempotencyKeyError)
-from .services.reactions import create_reaction as create_reaction_service
+from .services.reactions import (
+    UnresolvedIdentityError as _UnresolvedIdentityError,
+    create_reaction as create_reaction_service,
+)
 from .services.reactions import delete_reaction as delete_reaction_service
 from .services.reactions import update_reaction as update_reaction_service
 
@@ -56,6 +59,8 @@ async def validate_reaction(body: ReactionBody, actor: Actor = Depends(current_a
         raise _reaction_validation_http(exc) from exc
     except RateLimitError as exc:
         raise to_http_exception(exc) from exc
+    except _UnresolvedIdentityError as exc:
+        raise HTTPException(409, exc.detail) from exc
 
 
 @router.post(
@@ -86,6 +91,9 @@ async def create_reaction(
         raise HTTPException(400, exc.detail) from exc
     except RateLimitError as exc:
         raise to_http_exception(exc) from exc
+    except _UnresolvedIdentityError as exc:
+        # E9-B: CONFLICT/AMBIGUOUS → 409, 未创建任何行
+        raise HTTPException(409, exc.detail) from exc
 
 
 @router.put("/reactions/{reaction_id}")
@@ -107,6 +115,9 @@ async def update_reaction(
         raise _reaction_validation_http(exc) from exc
     except RateLimitError as exc:
         raise to_http_exception(exc) from exc
+    except _UnresolvedIdentityError as exc:
+        # E9-B: CONFLICT/AMBIGUOUS → 409, 参与者/反应行零写入
+        raise HTTPException(409, exc.detail) from exc
 
 
 @router.delete("/reactions/{reaction_id}", status_code=204)

@@ -9,7 +9,6 @@ from .admin import router as admin_router
 from .agent import router as agent_router
 from .core.config import settings
 from .core.database import engine
-from .enrichment import router as enrichment_router
 from .mcp_server import mcp_session_lifespan, mount_mcp
 from .mol import router as molecule_router
 from .reactions import router as reaction_write_router
@@ -46,7 +45,6 @@ app.add_middleware(
 app.include_router(chemistry_router, prefix="/api")
 app.include_router(agent_router, prefix="/api")
 app.include_router(molecule_router, prefix="/api")
-app.include_router(enrichment_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(reaction_write_router, prefix="/api")

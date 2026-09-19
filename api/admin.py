@@ -562,72 +562,54 @@ class _SectionFailure(RuntimeError):
 
 
 async def _scan_critical(db) -> tuple:
+    # E9-B 3: 有界化 — 全部统计先 WHERE fetched_at >= current_date 再分组,
+    # 删除无时间条件的全表聚合(locale total / cb total / PB all-time count)。
+    # 索引(locale,fetched_at)/(fetched_at)上线后此形态即为索引范围扫。
     cb_locales = [
-        {"locale": r[0], "today": int(r[1]), "total": int(r[2]), "last_1h": int(r[3])}
+        {"locale": r[0], "today": int(r[1]), "last_1h": int(r[2])}
         for r in (await db.execute(text("""
             SELECT locale,
                    count(*) FILTER (WHERE fetched_at >= current_date),
-                   count(*),
                    count(*) FILTER (WHERE fetched_at >= now() - interval '1 hour')
-            FROM chemistry.chemical_cb GROUP BY locale
+            FROM chemistry.chemical_cb
+            WHERE fetched_at >= current_date
+            GROUP BY locale
         """))).fetchall()
     ]
-    pb_today, pb_last_1h, pb_total_rows = (await db.execute(text("""
+    pb_today, pb_last_1h = (await db.execute(text("""
         SELECT count(*) FILTER (WHERE fetched_at >= current_date),
-               count(*) FILTER (WHERE fetched_at >= now() - interval '1 hour'),
-               count(*)
+               count(*) FILTER (WHERE fetched_at >= now() - interval '1 hour')
         FROM chemistry.chemical_pubchem
+        WHERE fetched_at >= current_date
     """))).fetchone()
-    return cb_locales, int(pb_today), int(pb_last_1h), int(pb_total_rows)
-
-async def _scan_supplier(db) -> dict:
-    # P0 (admin-data-p0): 收敛 contract —— 只留 listing/profile 的行级计数。
-    # 删除 count(DISTINCT chemical_id) 两条: 对 4.52M 行 listing 分别实扫
-    # 6.08s / >8s(statement_timeout) 且 DISTINCT 无索引可用 → 该 optional
-    # section 恒降级。口径不变: 供应信息 total/today = 行数, 供应商 total/today
-    # = profile 行数; 不再提供"覆盖化合物数"(该数字页面亦不展示)。
-    sup = (await db.execute(text("""
-        SELECT
-          count(*) FILTER (WHERE fetched_at >= current_date),
-          count(*),
-          (SELECT count(*) FROM chemistry.chemical_supplier_profile),
-          (SELECT count(*) FROM chemistry.chemical_supplier_profile WHERE fetched_at >= current_date)
-        FROM chemistry.chemical_supplier_listing
-    """))).fetchone()
-    return {"today_rows": int(sup[0]), "total_rows": int(sup[1]),
-            "profiles": int(sup[2]), "today_profiles": int(sup[3])}
-
-async def _scan_seed(db) -> dict:
-    # CB 上游账本 (89万 cb_number 种子) —— 按 status 索引扫描, 快
-    seed = (await db.execute(text("""
-        SELECT count(*) FILTER (WHERE status = 'ACCEPTED'),
-               count(*) FILTER (WHERE status = 'ENQUEUED'),
-               count(*) FILTER (WHERE status = 'AMBIGUOUS')
-        FROM ingestion.chemicalbook_seed
-    """))).fetchone()
-    return {"accepted": int(seed[0]), "enqueued": int(seed[1]), "ambiguous": int(seed[2])}
+    return cb_locales, int(pb_today), int(pb_last_1h)
 
 async def _scan_negative(db) -> dict:
-    # CB 负面观测账本 (无数据不落主表, 只落这里)
+    # CB 负面观测账本 (无数据不落主表, 只落这里)。
+    # E9-B 3: 表量轻但只保留有界 today(observed_at >= current_date);
+    # total 全表 count 已删。
     neg = (await db.execute(text("""
-        SELECT count(*), count(*) FILTER (WHERE observed_at >= current_date)
+        SELECT count(*) FILTER (WHERE observed_at >= current_date)
         FROM maintenance.cb_negative_observations
+        WHERE observed_at >= current_date
     """))).fetchone()
-    return {"total": int(neg[0]), "today": int(neg[1])}
+    return {"today": int(neg[0])}
 
 
 async def _pipeline_refresh_stats(db) -> dict:
     """全量重扫描(critical 串行 + optional 各自容错), 返回 snapshot dict。
     P1 (0912): 提升为模块级 —— 同一段扫描逻辑供请求路径(冷启动同步)与
     后台刷新任务(stale-while-revalidate, 独立 session)共用, 单一实现无分叉。
-    critical 失败向上抛(调用方决定降级路径); optional 失败埋 available=False。"""
+    critical 失败向上抛(调用方决定降级路径); optional 失败埋 available=False。
+
+    E9-B 3: supplier exact totals 与 seed exact totals 已从 runtime stats
+    移除 —— supplier 历史规模属 Governance/估算面(不做 8.67M 精确 count);
+    seed 属 ingestion 账本(Governance 展示), 不参与 60s runtime refresh。"""
     snapshot: dict[str, Any] = {}
-    cb_locales, pb_today, pb_last_1h, pb_total_rows = await _scan_critical(db)
-    snapshot["critical"] = (cb_locales, pb_today, pb_last_1h, pb_total_rows)
+    cb_locales, pb_today, pb_last_1h = await _scan_critical(db)
+    snapshot["critical"] = (cb_locales, pb_today, pb_last_1h)
     snapshot["optional"] = {}
-    for section, fn in (("supplier", _scan_supplier),
-                        ("seed", _scan_seed),
-                        ("negative", _scan_negative)):
+    for section, fn in (("negative", _scan_negative),):
         try:
             snapshot["optional"][section] = {
                 "available": True, "error": None,
@@ -710,7 +692,7 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     #
     # A1 (0912) 分区容错: 大表统计拆 critical / optional 两类 —
     #   critical  cb_locales + pb (管道核心落库口径, 失败=整页不可信 → 抛出)
-    #   optional  supplier / seed / negative (诊断性, 失败=available=false 降级)
+    #   optional  negative (诊断性, 失败=available=false 降级)
     # 每个 section 独立 try/except: 单块失败 log section+exception, 绝不 0 冒充。
     # 缓存治理: last-known-good + 单飞(asyncio.Lock) + stale 标记, 见模块头注释。
 
@@ -749,22 +731,17 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     stats = cached["v"]
     stats_generated_at = stats.get("generated_at") or cached.get("wall") or now_iso
     stats_age_s = int(_time.monotonic() - cached["ts"])
-    (cb_locales, pb_today, pb_last_1h, pb_total_rows) = stats["critical"]
+    (cb_locales, pb_today, pb_last_1h) = stats["critical"]
     opt = stats["optional"]
     # optional sections: available=True 时解包为直接值 + available 元数据;
     # available=False 时 value=None —— 前端按"暂不可用"渲染, 绝不冒充 0。
-    supplier_wrap = opt["supplier"]
-    supplier = supplier_wrap["value"] if supplier_wrap["available"] else None
-    seed_wrap = opt["seed"]
-    seed_stats = seed_wrap["value"] if seed_wrap["available"] else None
     neg_wrap = opt["negative"]
     neg_stats = neg_wrap["value"] if neg_wrap["available"] else None
     optional_meta = {k: {"available": v["available"],
                          "error": v.get("error")} for k, v in opt.items()}
 
-    # 落库口径: rows.today / rows.total 两链同语义 (total=落库总量, 非"今日")
+    # 落库口径(E9-B 3 有界化): 只有 today/last_1h, 无 all-time total。
     cb_today = sum(x["today"] for x in cb_locales)
-    cb_total = sum(x["total"] for x in cb_locales)
     cb_rate = sum(x["last_1h"] for x in cb_locales)
 
     # ── 闸门(redis db1, 0902 口径) —— optional: 失败→available=False, 不炸页 ──
@@ -874,17 +851,16 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
         return {"available": meta["available"], "error": meta.get("error"), "value": value}
 
     return {
-        # supplier/seed/negative = CB secondary diagnostics(降级区), 不与 queue health 抢一级
-        "supplier": _wrap(optional_meta["supplier"], supplier),
+        # negative = CB secondary diagnostics(降级区), 不与 queue health 抢一级
+        # E9-B 3: supplier/seed runtime stats 已移除(无界/账本非运行时)
         "cb": {
             "queue": cb_queue, "error_buckets": cb_errors,
             "rate_1h": cb_rate,
             "latest_at": cb_latest_at,
             "aging": cb_aging,
             "health": cb_health,
-            "rows": {"today": int(cb_today), "total": int(cb_total)},
-            "locales": cb_locales,       # 五语种: 每个 {locale, today, total, last_1h}
-            "seed": _wrap(optional_meta["seed"], seed_stats),        # 上游账本
+            "rows": {"today": int(cb_today)},
+            "locales": cb_locales,       # 每 locale {locale, today, last_1h}
             "negative": _wrap(optional_meta["negative"], neg_stats), # 负面观测
         },
         "pb": {
@@ -893,7 +869,7 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
             "latest_at": pb_latest_at,
             "aging": pb_aging,
             "health": pb_health,
-            "rows": {"today": int(pb_today), "total": int(pb_total_rows)},
+            "rows": {"today": int(pb_today)},
         },
         "gates": gates,
         "gates_meta": {"available": gates_available, "error": gates_error},

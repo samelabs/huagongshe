@@ -101,7 +101,6 @@ export function SamelabsGovernance() {
   const cbnull = v("cb_canonical_cb_number_null");
   const locg = v("cb_locale_gaps");
   const supor = v("supplier_listing_orphan");
-  const seednj = w("seed_enqueued_no_job");
   const pbgap = v("pb_canonical_sync_gap");
   const pbnorec = v("pb_cid_no_source_record");
   const nior = v("name_index_orphan");
@@ -121,7 +120,6 @@ export function SamelabsGovernance() {
     { key: "cb_num_null", sev: "中", label: "源记录有但主档 cb_number 空（样本）", val: sv(cbnull), drill: "cb_canonical_cb_number_null", modeK: "cb_canonical_cb_number_null", ...st("cb_canonical_cb_number_null") },
     { key: "pb_norec", sev: "中", label: "主档有 CID 但无 PB 源记录（样本）", val: sv(pbnorec), drill: "pb_cid_no_source_record", modeK: "pb_cid_no_source_record", ...st("pb_cid_no_source_record") },
     { key: "pb_gap", sev: "中", label: "PB 源记录未同步主档字段（样本）", val: sv(pbgap), modeK: "pb_canonical_sync_gap", ...st("pb_canonical_sync_gap") },
-    { key: "seed_nj", sev: "低", label: "Seed ENQUEUED 但无活跃 job", val: seednj.available ? fmt(seednj.value ?? 0) : null, modeK: "seed_enqueued_no_job", ...st("seed_enqueued_no_job") },
   ];
 
   return <>
@@ -152,9 +150,6 @@ export function SamelabsGovernance() {
             <Block label="近 24h 合并" value={fmt(idg.history.merged_last_24h)} />
             <Block label="重定向行" value={fmt(idg.history.redirect_total)} layer="canonical_entity" />
           </> : <Block label="历史治理记录" value="暂不可用" />}
-        </Section>
-        <Section title="Resolver 事件" note="逐次 AMBIGUOUS/CONFLICT 判定">
-          <div className="gov-gap-note">当前无可统计的 resolver 持久化事件（不以上游账本或 merge 记录顶替）</div>
         </Section>
       </div>
     </section>

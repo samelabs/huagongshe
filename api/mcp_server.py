@@ -273,7 +273,9 @@ def build_mcp_server() -> MCPServer:
     ) -> dict[str, Any]:
         """读取一个 HCID 的结构、标识符、性质和关联反应概况。
 
-        enrich: core|full 同语义(E7 冻结) —— full 是 core 的兼容别名, 不返回更多字段。
+        enrich: core = canonical 投影(零 provider 访问);
+        full = core + 统一语义详情(描述/名称/性质/安全/工业应用/供应商/溯源,
+        数据源各自保留独立值与来源)。
         """
         if enrich not in ("core", "full"):
             raise ToolError("enrich 只能是 core 或 full")
@@ -292,36 +294,10 @@ def build_mcp_server() -> MCPServer:
                 return await _get_chemical_detail(
                     session, chemical_id,
                     actor_id=None, priority=50,
-                    # E7 冻结: full 是 core 的兼容别名(同语义), 单一入口归一
                     enrich=_normalize_enrich(enrich),
                 )
             except _ChemicalNotFoundError as exc:
                 raise ToolError(str(exc)) from exc
-
-    @server.tool(name="get_chemical_externals", title="化合物中文扩展")
-    async def get_chemical_externals(
-        chemical_id: int,
-        ctx: Context = None,  # type: ignore[assignment]
-    ) -> dict[str, Any]:
-        """读取一个 HCID 的中文扩展条目(物化性质/安全/应用/制备/上下游)与供应商列表。"""
-        from .services.cb import (
-            ChemicalExternalsNotFoundError as _ChemicalExternalsNotFoundError,
-            get_chemical_externals as _get_chemical_externals,
-        )
-
-        if not 1 <= chemical_id <= 2_147_483_647:
-            raise ToolError("chemical_id 超出范围")
-        # G2.4C: 直调 shared externals orchestration(services/cb)。
-        # auth 行为冻结: 恒匿名(actor 不解析) → anonymous-global 30/min。
-        async with async_session() as session:
-            try:
-                return await _get_chemical_externals(
-                    session, chemical_id, actor_id=None,
-                )
-            except _ChemicalExternalsNotFoundError as exc:
-                raise ToolError(str(exc)) from exc
-            except RateLimitError as exc:
-                raise ToolError(exc.detail) from exc
 
     @server.tool(name="get_reaction", title="反应详情")
     async def get_reaction(
@@ -682,6 +658,7 @@ def build_mcp_server() -> MCPServer:
         from .services.reactions import (IdempotencyKeyTooLongError,
                                          MissingIdempotencyKeyError)
         from .services.reactions import ReactionValidationError
+        from .services.reactions import UnresolvedIdentityError
         from .services.reactions import create_reaction as _create_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
@@ -704,6 +681,9 @@ def build_mcp_server() -> MCPServer:
         except (ReactionValidationError, _RateLimitError,
                 MissingIdempotencyKeyError, IdempotencyKeyTooLongError) as exc:
             raise ToolError(str(exc)) from exc
+        except UnresolvedIdentityError as exc:
+            # E9-B: CONFLICT/AMBIGUOUS → 未创建任何行(detail=409 语义)
+            raise ToolError(exc.detail) from exc
 
     return server
 

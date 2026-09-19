@@ -73,7 +73,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
                       gov_mod.governance_snapshot)
 
         _OPT = {k: {"available": True, "error": None, "value": None}
-                for k in ("supplier", "seed", "negative")}
+                for k in ("negative",)}  # E9-B: supplier/seed runtime 已移除
 
         async def _gate(which: str):
             while not self.release[which]:
@@ -84,7 +84,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
             await _gate("pipeline")
             if self.fail["pipeline"]:
                 raise RuntimeError("injected pipeline refresh failure")
-            return {"critical": ([], 0, 0, 0), "optional": dict(_OPT),
+            return {"critical": ([], 0, 0), "optional": dict(_OPT),
                     "generated_at": "fresh"}
 
         async def gov_snapshot(db):
@@ -129,9 +129,9 @@ class StaleWhileRevalidateTests(unittest.TestCase):
 
     def _seed(self, mod, cache_name, *, ttl_back=10_000):
         opt = {k: {"available": True, "error": None, "value": None}
-               for k in ("supplier", "seed", "negative")}
+               for k in ("negative",)}  # E9-B
         getattr(mod, cache_name)["v"] = {
-            "v": {"critical": ([], 0, 0, 0), "optional": opt,
+            "v": {"critical": ([], 0, 0), "optional": opt,  # E9-B: 3 元组
                   "generated_at": "seed"},
             "ts": _t.monotonic() - ttl_back}
 

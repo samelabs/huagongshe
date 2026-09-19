@@ -2,7 +2,7 @@
 
 真实对象对账(禁止 registry 自证 registry):
 - HTTP: 真实 FastAPI app route inventory ↔ scenario entrypoints(物理覆盖)
-- MCP: build_mcp_server().list_tools() ↔ registry(14)
+- MCP: build_mcp_server().list_tools() ↔ registry(13)
 - WorkAPI: 真实 routes + ROUTE_SCOPE ↔ registry(10; 未知 scope fail-closed)
 - agent-guide: 真实 payload 15 operations ↔ AGENT_HTTP 契约(语义匹配, 无序数模型)
 
@@ -173,7 +173,7 @@ class McpCoverage(unittest.TestCase):
         actual = {t.name for t in tools}
         registered = {ep.name for _, _, ep in all_entrypoints()
                       if ep.transport is Transport.MCP}
-        self.assertEqual(len(actual), 14, f"MCP 必须为 14, 实际 {len(actual)}")
+        self.assertEqual(len(actual), 13, f"MCP 必须为 13, 实际 {len(actual)}")
         self.assertEqual(actual - registered, set(),
                          f"MCP 未登记 tools: {sorted(actual - registered)}")
         self.assertEqual(registered - actual, set(),
@@ -272,8 +272,8 @@ class AgentGuideProjection(unittest.TestCase):
                     out.setdefault(oid, []).append((fam, sc))
         return out
 
-    def test_guide_has_15_operations(self):
-        self.assertEqual(len(self.guide["operations"]), 15)
+    def test_guide_has_14_operations(self):
+        self.assertEqual(len(self.guide["operations"]), 14)
 
     def test_every_guide_op_has_matching_contract(self):
         reg = self._agent_http_contracts()
@@ -331,7 +331,7 @@ class CompatibilityLedger(unittest.TestCase):
                     f"{fam.id}/{sc.id}: guide operation {oid} 必须 STABLE_EXTERNAL")
 
     def test_all_mcp_tools_are_stable(self):
-        """14 MCP tools → STABLE_EXTERNAL。"""
+        """13 MCP tools → STABLE_EXTERNAL。"""
         stable = {ep.name for fam, sc in all_scenarios()
                   if sc.contract
                   and sc.contract.compatibility is Compatibility.STABLE_EXTERNAL

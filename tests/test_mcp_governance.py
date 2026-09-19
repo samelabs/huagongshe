@@ -1,7 +1,7 @@
 """MCP / AI 接入治理契约测试(batch: fix/mcp-15-governance)。
 
 只锁结构与语义契约, 不做大段文案 snapshot:
-- MCP tool surface 仍为 14, 不为数量一致新增工具;
+- MCP tool surface = 13(E9-B 删 get_chemical_externals);
 - get_skill slug 解析按可访问候选集, 歧义 fail-closed, 不泄露不可访问技能;
 - numeric skill_id 不走 slug resolver;
 - REST / MCP validate_skill 统一 skill:write;
@@ -288,7 +288,7 @@ class SkillSlugResolution(unittest.TestCase):
 class ToolSurfaceAndVersion(unittest.TestCase):
     def test_tool_set_is_exactly_fourteen(self):
         names = sorted(t.name for t in asyncio.run(build_server().list_tools()))
-        self.assertEqual(len(names), 14, names)
+        self.assertEqual(len(names), 13, names)
 
     def test_version_comes_from_repo_root_version_file(self):
         expected = (REPO / "VERSION").read_text(encoding="utf-8").strip()

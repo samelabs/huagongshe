@@ -148,28 +148,19 @@ class PipelineContractTest(unittest.TestCase):
         async with self.Session() as db:
             return int((await db.execute(text(sql))).scalar())
 
-    # ── 1. rows.today / rows.total 两链同语义 ─────────────
+    # ── 1. rows.today 两链同语义(E9-B: 有界口径, total 已删) ─────────────
     def test_rows_shape_both_chains(self):
         d = asyncio.run(self._payload())
         for chain in ("cb", "pb"):
             rows = d[chain]["rows"]
-            self.assertEqual(set(rows), {"today", "total"}, f"{chain}.rows 字段集变了")
+            self.assertEqual(set(rows), {"today"}, f"{chain}.rows 字段集变了")
             self.assertIsInstance(rows["today"], int)
-            self.assertIsInstance(rows["total"], int)
-            self.assertGreaterEqual(rows["total"], rows["today"], f"{chain} 总量小于今日")
 
         cb = d["cb"]
         self.assertEqual(cb["rows"]["today"],
                          sum(x["today"] for x in cb["locales"]), "cb.rows.today 与 locales 不符")
-        self.assertEqual(cb["rows"]["total"],
-                         sum(x["total"] for x in cb["locales"]), "cb.rows.total 与 locales 不符")
-        self.assertEqual(
-            cb["rows"]["total"],
-            asyncio.run(self._scalar("SELECT count(*) FROM chemistry.chemical_cb")))
-        self.assertEqual(
-            d["pb"]["rows"]["total"],
-            asyncio.run(self._scalar("SELECT count(*) FROM chemistry.chemical_pubchem")),
-            "pb.rows.total 必须是落库总量, 不能是今日")
+        # E9-B: rows.total / locale total / PB all-time 全部从 runtime 契约删除
+        # (bounded 口径 — 无界大表 count 禁令, 见 test_pipeline_bounded_contract)
 
     # ── 2. rate_1h 是真实聚合 ────────────────────────────
     def test_rate_1h_is_real_aggregate(self):
