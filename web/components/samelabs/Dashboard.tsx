@@ -6,10 +6,7 @@ import t from "@/lib/i18n";
 
 type Dashboard = {
   users: { total: number; today: number; week: number };
-  sessions: number;
-  tokens: { total: number; active: number };
-  reactions: { total: number; user_created: number; today: number };
-  chemicals: number;
+  reactions: { user_created: number; today: number };
   system: { disk_total_gb: number; disk_used_gb: number; disk_free_gb: number; disk_pct: number };
 };
 
@@ -45,17 +42,13 @@ export function SamelabsDashboard() {
   if (!data) return <p className="context-loading">{t.common.loading}</p>;
 
   return <>
+
     <header className="page-title">
-      <p className="page-kicker">{t.admin.dashboardKicker}</p>
       <h1>{t.admin.dashboardTitle}</h1>
     </header>
         <div className="dashboard-grid">
           <StatCard label={t.admin.statUsers} value={fmt(data.users.total)} sub={t.admin.statUsersSub(data.users.today, data.users.week)} />
-          <StatCard label={t.admin.statSessions} value={fmt(data.sessions)} />
-          <StatCard label={t.admin.statTokens} value={fmt(data.tokens.active)} sub={t.admin.statTokensSub(data.tokens.total)} />
           <StatCard label={t.admin.statUserReactions} value={fmt(data.reactions.user_created)} sub={t.admin.statUserReactionsSub(data.reactions.today)} />
-          <StatCard label={t.admin.statAllReactions} value={fmt(data.reactions.total)} />
-          <StatCard label={t.admin.statChemicals} value={fmt(data.chemicals)} />
           <StatCard label={t.admin.statDisk} value={`${data.system.disk_pct}%`} sub={t.admin.statDiskSub(data.system.disk_free_gb, data.system.disk_total_gb)} />
         </div>
   </>;

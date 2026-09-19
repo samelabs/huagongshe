@@ -9,10 +9,10 @@ const items = [
   { href: "/samelabs/users", label: t.admin.navUsers },
   { href: "/samelabs/reactions", label: t.admin.navReactions },
   { href: "/samelabs/skills", label: t.admin.navSkills },
-  { href: "/samelabs/config", label: t.admin.navConfig },
-  { href: "/samelabs/workers", label: t.admin.navWorkers },
   { href: "/samelabs/pipeline", label: t.admin.navPipeline },
   { href: "/samelabs/governance", label: t.admin.navGovernance },
+  { href: "/samelabs/workers", label: t.admin.navWorkers },
+  { href: "/samelabs/config", label: t.admin.navConfig },
 ];
 
 export function SamelabsNav() {

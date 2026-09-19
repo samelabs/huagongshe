@@ -3,14 +3,29 @@ const CLIENT_API = "/api";
 const BASE = typeof window !== "undefined" ? CLIENT_API : SERVER_API;
 
 export class ApiError extends Error {
-  constructor(public status: number, path: string) {
+  /** 服务端 error detail(如 FastAPI {"detail": "..."}), 可能为空 */
+  detail?: string;
+  constructor(public status: number, path: string, detail?: unknown) {
     super(`API ${status}: ${path}`);
     this.name = "ApiError";
+    if (typeof detail === "string" && detail) this.detail = detail;
+    else if (detail && typeof detail === "object" && "detail" in (detail as Record<string, unknown>)) {
+      const inner = (detail as { detail: unknown }).detail;
+      if (typeof inner === "string" && inner) this.detail = inner;
+    }
   }
 }
 
 export function isApiNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 404;
+}
+
+async function safeDetail(response: Response): Promise<unknown> {
+  try {
+    return await response.clone().json();
+  } catch {
+    return undefined;
+  }
 }
 
 // SSR服务端数据缓存层（A档）：仅用于低频、无用户态的读（如 /config）。
@@ -26,7 +41,7 @@ export async function apiGet<T>(path: string, headers?: HeadersInit, opts?: { re
       ? { next: { revalidate: opts.revalidate } }
       : { cache: "no-store" }),
   });
-  if (!response.ok) throw new ApiError(response.status, path);
+  if (!response.ok) throw new ApiError(response.status, path, await safeDetail(response));
   return response.json() as Promise<T>;
 }
 
@@ -37,7 +52,7 @@ export async function apiPost<T>(path: string, body?: BodyInit, headers?: Header
     body,
     cache: "no-store",
   });
-  if (!response.ok) throw new ApiError(response.status, path);
+  if (!response.ok) throw new ApiError(response.status, path, await safeDetail(response));
   return response.status === 204 ? undefined as T : await response.json() as T;
 }
 
@@ -48,7 +63,7 @@ export async function apiPatch<T>(path: string, body?: BodyInit, headers?: Heade
     body,
     cache: "no-store",
   });
-  if (!response.ok) throw new ApiError(response.status, path);
+  if (!response.ok) throw new ApiError(response.status, path, await safeDetail(response));
   return response.status === 204 ? undefined as T : await response.json() as T;
 }
 
@@ -58,7 +73,7 @@ export async function apiDelete<T>(path: string, headers?: HeadersInit): Promise
     headers,
     cache: "no-store",
   });
-  if (!response.ok) throw new ApiError(response.status, path);
+  if (!response.ok) throw new ApiError(response.status, path, await safeDetail(response));
   return response.status === 204 ? undefined as T : await response.json() as T;
 }
 
@@ -69,7 +84,7 @@ export async function apiPut<T>(path: string, body?: BodyInit, headers?: Headers
     body,
     cache: "no-store",
   });
-  if (!response.ok) throw new ApiError(response.status, path);
+  if (!response.ok) throw new ApiError(response.status, path, await safeDetail(response));
   return response.status === 204 ? undefined as T : await response.json() as T;
 }
 

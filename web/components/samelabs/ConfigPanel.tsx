@@ -6,12 +6,36 @@ import t from "@/lib/i18n";
 
 type ConfigEntry = { namespace: string; key: string; value: Record<string, unknown> };
 
-const FIELD_LABELS: Record<string, string> = {
-  provider: t.admin.configProvider, id: "ID", enabled: t.admin.configEnabled,
-  client: t.admin.configClient,
-  public_base_url: t.admin.configBaseUrl, api_title: t.admin.configApiTitle,
-  footer: t.admin.configFooter,
+/**
+ * 渲染白名单 — 与后端 CONFIG_SCHEMA(admin.py) 对齐的已知可管理字段。
+ * 未列出的字段一律只读展示(不自动生成可编辑控件), 防止未知对象被误写入。
+ */
+type FieldSpec = { field: string; label: string; type: "text" | "boolean" };
+
+const RENDERABLE: Record<string, FieldSpec[]> = {
+  "analytics/scripts": [
+    { field: "provider", label: t.admin.configProvider, type: "text" },
+    { field: "id", label: "ID", type: "text" },
+    { field: "enabled", label: t.admin.configEnabled, type: "boolean" },
+  ],
+  "ads/adsense": [
+    { field: "enabled", label: t.admin.configEnabled, type: "boolean" },
+    { field: "client", label: t.admin.configClient, type: "text" },
+  ],
+  "site/meta": [
+    { field: "public_base_url", label: t.admin.configBaseUrl, type: "text" },
+    { field: "api_title", label: t.admin.configApiTitle, type: "text" },
+  ],
+  "branding/slogan": [
+    { field: "footer", label: t.admin.configFooter, type: "text" },
+  ],
 };
+
+const SECRET_HINT = /(secret|token|password|api[_-]?key|private)/i;
+
+function isSensitive(field: string): boolean {
+  return SECRET_HINT.test(field);
+}
 
 export function SamelabsConfig() {
   const [entries, setEntries] = useState<ConfigEntry[]>([]);
@@ -58,29 +82,37 @@ export function SamelabsConfig() {
 
   const getByNs = (ns: string) => entries.filter((e) => e.namespace === ns);
 
-  function renderField(entry: ConfigEntry, field: string, type: "text" | "boolean" = "text") {
-    const value = entry.value[field];
-    const label = FIELD_LABELS[field] || field;
-    return <label key={field}>{label}
-      {type === "boolean"
-        ? <select value={value ? "true" : "false"} onChange={(e) => updateValue(entry.namespace, entry.key, field, e.target.value === "true")}>
-            <option value="true">{t.admin.optionEnabled}</option>
-            <option value="false">{t.admin.optionDisabled}</option>
-          </select>
-        : <input value={String(value || "")} onChange={(e) => updateValue(entry.namespace, entry.key, field, e.target.value)} />
-      }
+  function renderField(entry: ConfigEntry, spec: FieldSpec) {
+    const value = entry.value[spec.field];
+    const disabled = isSensitive(spec.field);
+    const label = spec.label;
+    if (spec.type === "boolean") {
+      return <label key={spec.field}>{label}
+        <select value={value ? "true" : "false"} onChange={(e) => updateValue(entry.namespace, entry.key, spec.field, e.target.value === "true")}>
+          <option value="true">{t.admin.optionEnabled}</option>
+          <option value="false">{t.admin.optionDisabled}</option>
+        </select>
+      </label>;
+    }
+    return <label key={spec.field}>{label}
+      <input
+        value={disabled ? "" : String(value || "")}
+        placeholder={disabled ? "已隐藏" : ""}
+        disabled={disabled}
+        title={disabled ? "敏感配置不在页面展示" : undefined}
+        onChange={(e) => updateValue(entry.namespace, entry.key, spec.field, e.target.value)} />
     </label>;
   }
 
-  function renderSection(title: string, entries: ConfigEntry[]) {
-    if (entries.length === 0) return null;
+  function renderSection(title: string, sectionEntries: ConfigEntry[]) {
+    if (sectionEntries.length === 0) return null;
     return <section key={title} className="form-section">
       <div className="form-section-head"><span>{title.toUpperCase()}</span><div><h2>{title}</h2></div></div>
-      {entries.map((entry) => {
+      {sectionEntries.map((entry) => {
         const key = `${entry.namespace}/${entry.key}`;
-        const fields = Object.keys(entry.value);
+        const specs = RENDERABLE[key] ?? [];
         return <div key={key} className="form-fields">
-          {fields.map((field) => renderField(entry, field, typeof entry.value[field] === "boolean" ? "boolean" : "text"))}
+          {specs.map((spec) => renderField(entry, spec))}
           <button type="button" className="button primary small" disabled={busyKey === key} onClick={() => save(entry)}>
             {busyKey === key ? t.admin.saving : t.admin.save}
           </button>
@@ -91,7 +123,6 @@ export function SamelabsConfig() {
 
   return <>
     <header className="page-title">
-      <p className="page-kicker">{t.admin.configKicker}</p>
       <h1>{t.admin.configTitle}</h1>
     </header>
         {error && <div className="notice error">{error}</div>}

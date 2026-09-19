@@ -126,11 +126,10 @@ export function SamelabsGovernance() {
 
   return <>
     <header className="page-title">
-      <p className="page-kicker">GOVERNANCE</p>
       <h1>{t.admin.govTitle}</h1>
       <p>{t.admin.govDesc}</p>
       <div className="pipe-snapshot-line">
-        <span>快照 {hm(gov.generated_at)}{gov.stale ? ` · ${t.admin.statsStale}` : ""} · TTL {gov.ttl_seconds}s · 只读诊断</span>
+        <span>快照 {hm(gov.generated_at)}{gov.stale ? ` · ${t.admin.statsStale}` : ""}{gov.stale ? " · 旧快照" : ""}</span>
       </div>
     </header>
 
@@ -139,7 +138,7 @@ export function SamelabsGovernance() {
 
     {/* Identity governance */}
     <section className="dashboard-section">
-      <div className="section-heading"><h2>Identity Governance</h2><span>merge / redirect / 账本终态 —— 真实持久化维度</span></div>
+      <div className="section-heading"><h2>Identity · 数据一致性</h2></div>
       <div className="dashboard-grid pipe-grid-2">
         <Section title="上游账本终态" note="chemicalbook_seed">
           {idg ? Object.entries(idg.seed_ledger).map(([k, n]) => (
@@ -162,7 +161,7 @@ export function SamelabsGovernance() {
 
     {/* Governance Issues */}
     <section className="dashboard-section">
-      <div className="section-heading"><h2>Governance Issues</h2><span>按严重度 · 点击可展开样本（≤50）</span></div>
+      <div className="section-heading"><h2>当前异常</h2><span>按严重度 · 点击可展开样本（≤50）</span></div>
       <div className="pipe-table" role="table">
         <div className="pipe-tr pipe-th pipe-tr-gov" role="row"><span>级别</span><span>问题</span><span>数值</span><span>口径</span><span></span></div>
         {issues.map(i => (
@@ -181,7 +180,7 @@ export function SamelabsGovernance() {
 
     {/* Coverage / Search readiness */}
     <section className="dashboard-section">
-      <div className="section-heading"><h2>Coverage · Search Readiness</h2><span>只审计展示, 不改 Search</span></div>
+      <div className="section-heading"><h2>数据覆盖</h2></div>
       <div className="dashboard-grid pipe-grid-2">
         <Section title="主档命名覆盖" note="canonical chemicals · 样本比率">
           {cov ? <>

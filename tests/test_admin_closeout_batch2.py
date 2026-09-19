@@ -6,10 +6,10 @@
    - entries 只允许两条写入路径: 初始 useEffect 加载 + updateValue 字段级合并
    - dead helper reload()/await reload() 必须保持删除 (回归闸门)
 
-2. Dashboard "会话" 标签事实化
-   - 后端 dashboard sessions 仍以 expires_at > now() 为准
-   - 展示文案 = 有效会话 (不再宣称"活跃")
-   - 不全局禁止"活跃"字样 (worker 最近活跃 等语义合法)
+2. Dashboard 收口 (E9-A 新契约)
+   - 后端不再为首页计算 sessions/tokens/statistics/chemicals
+   - 前端仅保留 用户 / 用户反应 / 磁盘 三卡
+   - worker "最近活跃" 语义仍合法保留
 """
 import pathlib
 import re
@@ -114,31 +114,36 @@ class ConfigSaveDraftPreservationTests(unittest.TestCase):
         self.assertEqual(self.src.count('apiGet<ConfigEntry[]>(`/admin/config`)'), 1)
 
 
-class DashboardSessionsFactTests(unittest.TestCase):
-    """会话标签与后端事实一致。"""
+class DashboardScopeTests(unittest.TestCase):
+    """E9-A 契约: 首页轻量化 —— 无管理入口/决策用途的统计连查询一起删。"""
 
     def setUp(self):
         self.api = read(ADMIN_API)
         self.i18n = read(I18N)
         self.dashboard = read(DASHBOARD)
 
-    def test_backend_sessions_query_unchanged(self):
+    def test_backend_no_sessions_tokens_chemicals_queries(self):
         body = fn_body(self.api, "async def dashboard(")
-        self.assertIn(
-            "SELECT count(*) FROM community.sessions WHERE expires_at > now()",
-            body,
-        )
+        for gone in ("community.sessions", "user_api_tokens", "chemistry.statistics",
+                     "metric='chemicals'"):
+            self.assertNotIn(gone, body, f"dashboard 查询应已删除: {gone}")
 
-    def test_stat_sessions_label_is_factual(self):
-        self.assertIn("statSessions: '有效会话'", self.i18n)
+    def test_backend_keeps_users_reactions_disk(self):
+        body = fn_body(self.api, "async def dashboard(")
+        self.assertIn("count(*) FROM community.users", body)
+        self.assertIn("created_by_user_id IS NOT NULL", body)
+        self.assertIn("disk_usage", body)
 
-    def test_stat_sessions_no_activity_claim(self):
-        self.assertNotIn("statSessions: '活跃会话'", self.i18n)
-        self.assertNotIn("statSessions: '活跃", self.i18n)
+    def test_frontend_only_three_cards(self):
+        for card in ("statUsers", "statUserReactions", "statDisk"):
+            self.assertIn(f"t.admin.{card}", self.dashboard)
+        for gone in ("statSessions", "statTokens", "statAllReactions", "statChemicals"):
+            self.assertNotIn(f"t.admin.{gone}", self.dashboard)
+            self.assertNotIn(f"{gone}:", self.i18n)
 
-    def test_dashboard_still_wired_to_stat_sessions(self):
-        self.assertIn("t.admin.statSessions", self.dashboard)
-        self.assertIn("data.sessions", self.dashboard)
+    def test_dashboard_no_expensive_pipeline_hookup(self):
+        """首页不得触发 Pipeline/governance 聚合。"""
+        self.assertNotIn("/admin/pipeline", self.dashboard)
 
     def test_other_activity_wording_not_banned(self):
         """不全局禁止"活跃": worker 最近活跃 等语义合法, 必须保留。"""

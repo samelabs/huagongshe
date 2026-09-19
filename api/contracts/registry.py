@@ -396,7 +396,8 @@ def _fams() -> list[Family]:
             S("manage", A.ADMIN_SESSION, entrypoints=(
                 I(T.HTTP, "GET /api/admin/workers"),
                 I(T.HTTP, "POST /api/admin/workers"),
-                I(T.HTTP, "PATCH /api/admin/workers/{worker_id}")),
+                I(T.HTTP, "PATCH /api/admin/workers/{worker_id}"),
+                I(T.HTTP, "DELETE /api/admin/workers/{worker_id}")),
               contract=Contract(frozenset({C.ADMIN}), X.NONE)),
         )),
         Family("admin.user_governance", E.PRIVILEGED, scenarios=(

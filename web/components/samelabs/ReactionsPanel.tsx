@@ -135,7 +135,6 @@ export function SamelabsReactions() {
 
   return <>
     <header className="page-title">
-      <p className="page-kicker">{t.admin.reactionsKicker}</p>
       <h1>{t.admin.reactionsTitle}</h1>
     </header>
         {error && <div className="notice error">{error}</div>}

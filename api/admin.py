@@ -48,13 +48,18 @@ def _validated_scopes(scopes: list[str]) -> list[str]:
 async def list_workers(
     actor: Actor = Depends(admin), db=Depends(get_db),
 ):
-    """Worker 客户端清单(不含 token hash)。"""
+    """Worker 客户端清单(不含 token hash)。运行状态复用 pipeline_health 投影。"""
+    from .services.pipeline_health import build_worker_runtimes
     rows = (await db.execute(text("""
         SELECT worker_id,display_name,scopes,max_lease_jobs,enabled,
                created_at,last_seen_at,disabled_at
         FROM maintenance.worker_clients ORDER BY worker_id
     """))).mappings().all()
-    return [dict(row) for row in rows]
+    now_dt = (await db.execute(text("SELECT now()"))).scalar()
+    runtimes = {w.worker_id: w.runtime for w in build_worker_runtimes(
+        [(r["worker_id"], r["display_name"], r["enabled"], r["scopes"], r["last_seen_at"]) for r in rows],
+        now_dt)}
+    return [dict(row, runtime=runtimes[row["worker_id"]]) for row in rows]
 
 
 @router.post("/workers", status_code=201)
@@ -138,6 +143,41 @@ async def patch_worker(
     return dict(result)
 
 
+@router.delete("/workers/{worker_id}")
+async def delete_worker(
+    worker_id: str,
+    actor: Actor = Depends(admin), db=Depends(get_db),
+):
+    """删除 Worker 节点(仅限无活动任务)。停权请用 PATCH enabled=false。
+
+    删除前逐表检查 active lease(status='leased' 且 lease_owner=该 worker):
+      maintenance.cas_jobs / pubchem_jobs / pubchem_identity_jobs
+    任一存在即 409 拒绝并指明表与条数。历史 completion receipt 的
+    worker_id 是无 FK 的协议事实文本, 保留不动; pubchem_jobs.lease_owner /
+    pubchem_job_events.worker_id 的 FK 为 ON DELETE SET NULL, 不阻塞。
+    """
+    conflicts: list[str] = []
+    counts: dict[str, int] = {}
+    for table in ("cas_jobs", "pubchem_jobs", "pubchem_identity_jobs"):
+        n = (await db.execute(text(f"""
+            SELECT count(*) FROM maintenance.{table}
+            WHERE status='leased' AND lease_owner=:wid
+        """), {"wid": worker_id})).scalar_one()
+        if n:
+            conflicts.append(table)
+            counts[table] = int(n)
+    if conflicts:
+        detail = ", ".join(f"{t} {counts[t]} 条" for t in conflicts)
+        raise HTTPException(409, f"该 worker 有进行中的任务({detail}), 不能删除")
+    result = (await db.execute(text("""
+        DELETE FROM maintenance.worker_clients WHERE worker_id=:wid
+    """), {"wid": worker_id})).rowcount
+    if result == 0:
+        raise HTTPException(404, f"worker 不存在: {worker_id}")
+    await db.commit()
+    return {"worker_id": worker_id, "deleted": True}
+
+
 @router.get("/users")
 async def list_users(
     q: str | None = Query(default=None, max_length=100), limit: int = Query(50, ge=1, le=100),
@@ -154,8 +194,7 @@ async def list_users(
         """), {"q": search})).scalar_one()
         rows = (await db.execute(text("""
             SELECT u.id,u.username,u.display_name,u.email,u.role,u.status,u.avatar_path,
-                   u.created_at,u.last_login_at,
-                   (SELECT count(*) FROM chemistry.reactions WHERE created_by_user_id=u.id)
+                   u.created_at,u.last_login_at
             FROM community.users u
             WHERE u.username ILIKE '%' || :q || '%' OR u.email ILIKE '%' || :q || '%'
             ORDER BY u.id DESC LIMIT :limit OFFSET :offset
@@ -166,8 +205,7 @@ async def list_users(
         ))).scalar_one()
         rows = (await db.execute(text("""
             SELECT u.id,u.username,u.display_name,u.email,u.role,u.status,u.avatar_path,
-                   u.created_at,u.last_login_at,
-                   (SELECT count(*) FROM chemistry.reactions WHERE created_by_user_id=u.id)
+                   u.created_at,u.last_login_at
             FROM community.users u
             ORDER BY u.id DESC LIMIT :limit OFFSET :offset
         """), {"limit": limit, "offset": offset})).mappings().all()
@@ -226,7 +264,7 @@ async def list_user_reactions(
     ), params)).scalar_one()
     if status == "all":
         rows = (await db.execute(text("""
-            SELECT r.id,r.reaction_smiles,r.visibility,r.moderation_status,r.created_at,r.updated_at,
+            SELECT r.id,r.visibility,r.moderation_status,r.created_at,
                    u.username,u.display_name
             FROM chemistry.reactions r JOIN community.users u ON u.id=r.created_by_user_id
             WHERE r.created_by_user_id IS NOT NULL
@@ -234,7 +272,7 @@ async def list_user_reactions(
         """), {"limit": limit, "offset": offset})).mappings().all()
     else:
         rows = (await db.execute(text("""
-            SELECT r.id,r.reaction_smiles,r.visibility,r.moderation_status,r.created_at,r.updated_at,
+            SELECT r.id,r.visibility,r.moderation_status,r.created_at,
                    u.username,u.display_name
             FROM chemistry.reactions r JOIN community.users u ON u.id=r.created_by_user_id
             WHERE r.created_by_user_id IS NOT NULL AND r.moderation_status=:status
@@ -436,31 +474,22 @@ async def update_category(
 
 @router.get("/dashboard")
 async def dashboard(actor: Actor = Depends(admin), db=Depends(get_db)):
-    """全局运行状态概览。"""
+    """管理首页概览: 用户 / 用户反应 / 磁盘。轻量, 不触发昂贵聚合。"""
     row = (await db.execute(text("""
         SELECT
           (SELECT count(*) FROM community.users),
           (SELECT count(*) FROM community.users WHERE created_at >= current_date),
           (SELECT count(*) FROM community.users WHERE created_at >= date_trunc('week', current_date)),
-          (SELECT count(*) FROM community.sessions WHERE expires_at > now()),
-          (SELECT count(*) FROM community.user_api_tokens),
-          (SELECT count(*) FROM community.user_api_tokens WHERE revoked_at IS NULL),
-          (SELECT exact_count FROM chemistry.statistics WHERE metric='reactions'),
           (SELECT count(*) FROM chemistry.reactions WHERE created_by_user_id IS NOT NULL),
-          (SELECT count(*) FROM chemistry.reactions WHERE created_by_user_id IS NOT NULL AND created_at >= current_date),
-          (SELECT exact_count FROM chemistry.statistics WHERE metric='chemicals')
+          (SELECT count(*) FROM chemistry.reactions WHERE created_by_user_id IS NOT NULL AND created_at >= current_date)
     """))).fetchone()
     disk = shutil.disk_usage("/")
     return {
         "users": {"total": row[0], "today": row[1], "week": row[2]},
-        "sessions": row[3],
-        "tokens": {"total": row[4], "active": row[5]},
         "reactions": {
-            "total": row[6] or 0,
-            "user_created": row[7],
-            "today": row[8],
+            "user_created": row[3],
+            "today": row[4],
         },
-        "chemicals": row[9] or 0,
         "system": {
             "disk_total_gb": round(disk.total / 1e9, 1),
             "disk_used_gb": round(disk.used / 1e9, 1),

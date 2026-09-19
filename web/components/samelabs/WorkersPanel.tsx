@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiGet, apiPatch, apiPost, ApiError } from "@/lib/api";
+import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 
 type WorkerRow = {
@@ -13,6 +13,7 @@ type WorkerRow = {
   created_at: string;
   last_seen_at: string | null;
   disabled_at: string | null;
+  runtime: string;
 };
 
 type IssueResult = {
@@ -21,7 +22,23 @@ type IssueResult = {
   env: Record<string, string>;
 };
 
-const KNOWN_SCOPES = ["pubchem", "cas"];
+const KNOWN_SCOPES = ["pubchem", "cas"] as const;
+
+const SCOPE_LABEL: Record<string, string> = {
+  pubchem: "PubChem",
+  cas: "ChemicalBook",
+};
+
+const RUNTIME_LABEL: Record<string, string> = {
+  online: "在线",
+  stale: "心跳滞后",
+  offline: "离线",
+  disabled: "已停用",
+};
+
+function fmtDate(iso: string | null) {
+  return iso ? new Date(iso).toLocaleString("zh-CN") : "—";
+}
 
 export function SamelabsWorkers() {
   const [workers, setWorkers] = useState<WorkerRow[]>([]);
@@ -35,6 +52,7 @@ export function SamelabsWorkers() {
   const [issued, setIssued] = useState<IssueResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [pendingDisableWorker, setPendingDisableWorker] = useState<WorkerRow | null>(null);
+  const [pendingDeleteWorker, setPendingDeleteWorker] = useState<WorkerRow | null>(null);
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -55,7 +73,7 @@ export function SamelabsWorkers() {
     } catch { setError(t.admin.errLoadFailed); }
   }
 
-  async function toggleScope(scope: string) {
+  function toggleScope(scope: string) {
     setScopes((prev) => prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope]);
   }
 
@@ -95,6 +113,23 @@ export function SamelabsWorkers() {
     await setEnabled(row, false);
   }
 
+  async function confirmDeleteWorker() {
+    if (!pendingDeleteWorker) return;
+    const row = pendingDeleteWorker;
+    setPendingDeleteWorker(null);
+    setError(""); setBusyId(row.worker_id);
+    try {
+      await apiDelete(`/admin/workers/${row.worker_id}`);
+      await reload();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        setError(e.detail || t.admin.workerDeleteBlockedFallback);
+      } else {
+        setError(t.admin.errOperation);
+      }
+    } finally { setBusyId(null); }
+  }
+
   async function copyEnv() {
     if (!issued) return;
     const text = Object.entries(issued.env)
@@ -114,8 +149,8 @@ export function SamelabsWorkers() {
 
   return <>
     <header className="page-title">
-      <p className="page-kicker">{t.admin.workersKicker}</p>
       <h1>{t.admin.workersTitle}</h1>
+      <p>{t.admin.workersIntro}</p>
     </header>
     {error && <div className="notice error">{error}</div>}
 
@@ -150,7 +185,7 @@ export function SamelabsWorkers() {
             {KNOWN_SCOPES.map((scope) => (
               <label key={scope} className="checkbox-row">
                 <input type="checkbox" checked={scopes.includes(scope)} onChange={() => toggleScope(scope)} />
-                <span>{scope}</span>
+                <span>{SCOPE_LABEL[scope] ?? scope}</span>
               </label>
             ))}
           </fieldset>
@@ -163,18 +198,26 @@ export function SamelabsWorkers() {
         {workers.map((w) => <article key={w.worker_id}>
           <div>
             <strong>{w.display_name}</strong>
-            <span>{w.worker_id} · {w.scopes.join(" / ")} · {t.admin.workerMaxLease(w.max_lease_jobs)}</span>
+            <span>{w.worker_id} · {w.scopes.map((s) => SCOPE_LABEL[s] ?? s).join(" / ") || "—"} · {t.admin.workerMaxLease(w.max_lease_jobs)}</span>
             <span>{w.last_seen_at ? t.admin.workerLastSeen(new Date(w.last_seen_at).toLocaleString()) : t.admin.workerNeverSeen}</span>
+            <span>{t.admin.workerCreated(fmtDate(w.created_at))}</span>
           </div>
           <div className="admin-user-badges">
             <span className={`status ${w.enabled ? "active" : "disabled"}`}>
               {w.enabled ? t.admin.workerEnabled : t.admin.workerDisabled}
+            </span>
+            <span className={`status ${w.runtime === "online" ? "active" : w.runtime === "disabled" ? "disabled" : ""}`}>
+              {RUNTIME_LABEL[w.runtime] ?? w.runtime}
             </span>
           </div>
           <div className="admin-user-actions">
             <button className="text-button" disabled={busyId === w.worker_id}
               onClick={() => w.enabled ? setPendingDisableWorker(w) : setEnabled(w, true)}>
               {busyId === w.worker_id ? "…" : w.enabled ? t.admin.actionDisable : t.admin.actionEnable}
+            </button>
+            <button className="text-button" disabled={busyId === w.worker_id}
+              onClick={() => setPendingDeleteWorker(w)}>
+              {t.admin.actionDelete}
             </button>
           </div>
         </article>)}
@@ -190,6 +233,20 @@ export function SamelabsWorkers() {
             <button type="button" className="button small" onClick={() => setPendingDisableWorker(null)}>{t.admin.cancel}</button>
             <button type="button" className="button danger small" disabled={busyId === pendingDisableWorker.worker_id}
               onClick={confirmDisableWorker}>{t.admin.actionDisable}</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {pendingDeleteWorker && (
+      <div className="pipe-confirm" role="dialog" aria-modal onClick={() => setPendingDeleteWorker(null)}>
+        <div className="pipe-confirm-box" onClick={(e) => e.stopPropagation()}>
+          <p>{t.admin.workerDeleteConfirm(pendingDeleteWorker.display_name, pendingDeleteWorker.worker_id)}</p>
+          <p>{t.admin.workerDeleteEffect}</p>
+          <div className="pipe-confirm-actions">
+            <button type="button" className="button small" onClick={() => setPendingDeleteWorker(null)}>{t.admin.cancel}</button>
+            <button type="button" className="button danger small" disabled={busyId === pendingDeleteWorker.worker_id}
+              onClick={confirmDeleteWorker}>{t.admin.actionDelete}</button>
           </div>
         </div>
       </div>

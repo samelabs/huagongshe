@@ -161,7 +161,6 @@ export function SamelabsUsers() {
 
   return <>
     <header className="page-title">
-      <p className="page-kicker">{t.admin.usersKicker}</p>
       <h1>{t.admin.usersTitle}</h1>
     </header>
         {error && <div className="notice error">{error}</div>}

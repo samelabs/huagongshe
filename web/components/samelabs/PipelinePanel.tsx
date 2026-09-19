@@ -47,6 +47,7 @@ type LoadPhase = "initial_loading" | "ready" | "refreshing" | "stale";
 const REFRESH_MS = 15000;
 const LOCALE_NAME: Record<string, string> = { "zh-CN": "中文", en: "英文", de: "德文", ja: "日文", ko: "韩文" };
 const OTHER_LOCALES = ["en", "de", "ja", "ko"];
+const SCOPE_LABEL: Record<string, string> = { pubchem: "PubChem", cas: "ChemicalBook" };
 
 const fmt = (n: number) => new Intl.NumberFormat("zh-CN").format(n);
 const hm = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—");
@@ -59,9 +60,13 @@ const dur = (s: number | null) => {
 };
 
 /* 健康状态 → 展示(颜色语义收敛到既有 token, 不加新视觉体系) */
+const RUNTIME_LABEL: Record<string, string> = {
+  online: "在线", stale: "心跳滞后", offline: "离线", disabled: "已停用",
+};
+
 const HEALTH_LABEL: Record<string, string> = {
-  healthy: "正常", idle: "空闲", backlogged: "有积压",
-  stalled: "停滞", degraded: "降级", unavailable: "不可用",
+  healthy: "正常", idle: "空闲", backlogged: "积压",
+  stalled: "停滞", degraded: "降级", unavailable: "暂不可用",
 };
 const HEALTH_CLASS: Record<string, string> = {
   healthy: "ok", idle: "idle", backlogged: "busy",
@@ -250,7 +255,6 @@ export function SamelabsPipeline() {
 
   return <>
     <header className="page-title">
-      <p className="page-kicker">{t.admin.pipelineKicker}</p>
       <h1>{t.admin.pipelineTitle}</h1>
       <p>{t.admin.pipelineDesc(REFRESH_MS / 1000, hm(data.generated_at))}</p>
       <div className="pipe-snapshot-line">
@@ -274,7 +278,7 @@ export function SamelabsPipeline() {
         <div className="dashboard-card pipe-chain">
           {chainHead("CB 链 · ChemicalBook", data.gates.cb, data.cb.health, data.cb.aging)}
 
-          <Group title="队列" note="cas_jobs">
+          <Group title="队列">
             <Metric label="排队" total={data.cb.queue.queued} />
             <Metric label="在途" total={data.cb.queue.leased} />
             <Metric label="留痕" total={data.cb.queue.error} />
@@ -283,7 +287,7 @@ export function SamelabsPipeline() {
           <MetaLine label="最近成功入库" value={hm(data.cb.latest_at)} />
           <MetaLine label="最老排队年龄" value={dur(data.cb.aging.oldest_queued_age_s)} />
 
-          <Group title="落库" note="chemical_cb 五语种">
+          <Group title="落库" note="五语种">
             <Metric label="中文" total={zh ? zh.total : 0} today={zh ? zh.today : 0} />
             <Metric label="其他语种合计" total={othersTotal} today={othersToday} />
             <Metric label="全链合计" total={data.cb.rows.total} today={data.cb.rows.today} />
@@ -301,7 +305,7 @@ export function SamelabsPipeline() {
         <div className="dashboard-card pipe-chain">
           {chainHead("PB 链 · PubChem PUG View", data.gates.pubchem, data.pb.health, data.pb.aging)}
 
-          <Group title="队列" note="pubchem_jobs">
+          <Group title="队列">
             <Metric label="排队" total={data.pb.queue.queued} />
             <Metric label="在途" total={data.pb.queue.leased} />
             <Metric label="留痕" total={data.pb.queue.error} />
@@ -310,7 +314,7 @@ export function SamelabsPipeline() {
           <MetaLine label="最近成功入库" value={hm(data.pb.latest_at)} />
           <MetaLine label="最老排队年龄" value={dur(data.pb.aging.oldest_queued_age_s)} />
 
-          <Group title="落库" note="chemical_pubchem">
+          <Group title="落库">
             <Metric label="收录条目" total={data.pb.rows.total} today={data.pb.rows.today} />
           </Group>
 
@@ -324,7 +328,7 @@ export function SamelabsPipeline() {
       <div className="section-heading"><h2>CB 诊断</h2></div>
       <div className="dashboard-grid pipe-grid-2">
         <div className="dashboard-card pipe-chain">
-          <Group title="上游账本" note="chemicalbook_seed · 来源未命中">
+          <Group title="上游账本" note="来源未命中">
             <Metric label="待处理" total={seed ? seed.accepted : null} />
             <Metric label="已入队" total={seed ? seed.enqueued : null} />
             <Metric label="悬案" total={seed ? seed.ambiguous : null} />
@@ -334,7 +338,7 @@ export function SamelabsPipeline() {
           {negWrap && !negWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}（来源未命中）{negWrap.error ? `（${negWrap.error}）` : ""}</div>}
         </div>
         <div className="dashboard-card pipe-chain">
-          <Group title="供应侧" note="listing + profile">
+          <Group title="供应侧">
             <Metric label="供应信息" total={sup ? sup.total_rows : null} today={sup ? sup.today_rows : null} />
             <Metric label="供应商" total={sup ? sup.profiles : null} today={sup ? sup.today_profiles : null} />
           </Group>
@@ -344,10 +348,10 @@ export function SamelabsPipeline() {
     </section>
 
     <section className="dashboard-section">
-      <div className="section-heading"><h2>Worker</h2><span>worker_clients · enabled ≠ online</span></div>
+      <div className="section-heading"><h2>Worker</h2></div>
       <div className="pipe-table" role="table">
         <div className="pipe-tr pipe-th pipe-tr-5" role="row">
-          <span>Worker</span><span>名称</span><span>scopes</span><span>状态</span><span>最近心跳</span>
+          <span>Worker</span><span>名称</span><span>任务职责</span><span>运行状态</span><span>最近心跳</span>
         </div>
         {data.workers.length === 0
           ? <div className="pipe-tr pipe-tr-5" role="row"><span className="pipe-empty">暂无 worker</span></div>
@@ -355,10 +359,9 @@ export function SamelabsPipeline() {
             <div className="pipe-tr pipe-tr-5" role="row" key={w.worker_id}>
               <span className="pipe-locale">{w.worker_id}</span>
               <span>{w.display_name ?? "—"}</span>
-              <span className="pipe-src">{w.scopes.join(", ") || "—"}</span>
+              <span className="pipe-src">{w.scopes.map((s) => SCOPE_LABEL[s] ?? s).join(" / ") || "—"}</span>
               <span><Dot kind={w.runtime === "online" ? "ok" : w.runtime === "disabled" ? "warn" : "bad"} />
-                {" "}{w.runtime === "online" ? "在线" : w.runtime === "stale" ? "心跳滞后" : w.runtime === "disabled" ? (w.enabled ? "" : "停权") : "离线"}
-                {w.runtime === "disabled" && !w.enabled ? "" : ""}
+                {" "}{RUNTIME_LABEL[w.runtime] ?? w.runtime}
               </span>
               <span className="pipe-time" title={w.last_seen_age_s != null ? `${Math.round(w.last_seen_age_s)} 秒前` : ""}>{hm(w.last_seen_at)}</span>
             </div>
@@ -367,12 +370,12 @@ export function SamelabsPipeline() {
     </section>
 
     <section className="dashboard-section">
-      <div className="section-heading"><h2>CB 链最新 10 条</h2><span>chemical_cb · 全语种</span></div>
+      <div className="section-heading"><h2>CB 链最新 10 条</h2></div>
       <LatestTable rows={data.latest.cb} chain="CB" />
     </section>
 
     <section className="dashboard-section">
-      <div className="section-heading"><h2>PB 链最新 10 条</h2><span>chemical_pubchem</span></div>
+      <div className="section-heading"><h2>PB 链最新 10 条</h2></div>
       <LatestTable rows={data.latest.pb} chain="PB" />
     </section>
 

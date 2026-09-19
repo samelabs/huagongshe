@@ -52,6 +52,10 @@ export function SamelabsSkills() {
   const [catBusy, setCatBusy] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<SkillRow | null>(null);
   const [catError, setCatError] = useState("");
+  const [pendingVis, setPendingVis] = useState<SkillRow | null>(null);
+  const [visNote, setVisNote] = useState("");
+  const [editCatId, setEditCatId] = useState<number | null>(null);
+  const [editCat, setEditCat] = useState({ name: "", abbr: "", color: "#1e90ff", sort_order: 100 });
 
   // draft 与 URL 同步
   useEffect(() => { setQ(appliedQ); }, [appliedQ]);
@@ -170,12 +174,21 @@ export function SamelabsSkills() {
     }
   }
 
-  async function setVis(id: number, vis: "private" | "public") {
+  async function setVis(id: number, vis: "private" | "public", note: string) {
     setError(""); setBusyId(id);
     try {
-      await apiPatch(`/admin/skills/${id}/visibility`, JSON.stringify({ visibility: vis }));
+      await apiPatch(`/admin/skills/${id}/visibility`, JSON.stringify({ visibility: vis, note: note.trim() || undefined }));
       await reload();
     } catch { setError(t.admin.errOperation); } finally { setBusyId(null); }
+  }
+
+  async function confirmVisAction() {
+    if (!pendingVis) return;
+    const row = pendingVis;
+    const note = visNote;
+    setPendingVis(null);
+    setVisNote("");
+    await setVis(row.id, row.visibility === "public" ? "private" : "public", note);
   }
 
   async function removeSkill(id: number) {
@@ -201,7 +214,28 @@ export function SamelabsSkills() {
       }
       await reloadCats();
     } catch (e) {
-      setCatError(e instanceof ApiError && e.status !== 401 && e.status !== 403 ? e.message : t.admin.errSaveFailed);
+      setCatError(e instanceof ApiError && e.detail ? e.detail : t.admin.errSaveFailed);
+    } finally { setCatBusy(false); }
+  }
+
+  function startEditCat(c: CategoryRow) {
+    setEditCatId(c.id);
+    setEditCat({ name: c.name, abbr: c.abbr, color: c.color, sort_order: c.sort_order });
+  }
+
+  async function saveEditCat(id: number) {
+    setCatError(""); setCatBusy(true);
+    try {
+      const current = cats.find((c) => c.id === id);
+      if (!current) return;
+      await apiPatch(`/admin/skill-categories/${id}`, JSON.stringify({
+        name: editCat.name.trim(), abbr: editCat.abbr.trim().toUpperCase(),
+        color: editCat.color.toLowerCase(), sort_order: editCat.sort_order, active: current.active,
+      }));
+      setEditCatId(null);
+      await reloadCats();
+    } catch (e) {
+      setCatError(e instanceof ApiError && e.detail ? e.detail : t.admin.errSaveFailed);
     } finally { setCatBusy(false); }
   }
 
@@ -209,7 +243,6 @@ export function SamelabsSkills() {
 
   return <>
     <header className="page-title">
-      <p className="page-kicker">{t.admin.skillsKicker}</p>
       <h1>{t.admin.skillsTitle}</h1>
     </header>
         {error && <div className="notice error">{error}</div>}
@@ -248,7 +281,7 @@ export function SamelabsSkills() {
               </div>
               <div className="admin-user-actions">
                 <button className="text-button" disabled={busyId === s.id}
-                  onClick={() => setVis(s.id, s.visibility === "public" ? "private" : "public")}>
+                  onClick={() => { setPendingVis(s); setVisNote(""); }}>
                   {busyId === s.id ? "…" : s.visibility === "public" ? t.admin.skillUnpublish : t.admin.skillPublish}
                 </button>
                 <button className="text-button" disabled={busyId === s.id}
@@ -282,11 +315,37 @@ export function SamelabsSkills() {
                 <span className="status">{t.admin.skillCount(c.skill_count)}</span>
               </div>
               <div className="admin-user-actions">
-                <button className="text-button" disabled={catBusy}
-                  onClick={() => saveCat(c)}>
-                  {c.active ? t.admin.categoryDeactivate : t.admin.categoryActivate}
-                </button>
+                {editCatId === c.id
+                  ? <>
+                    <button className="text-button" disabled={catBusy} onClick={() => saveEditCat(c.id)}>
+                      {catBusy ? "…" : t.admin.categorySave}
+                    </button>
+                    <button className="text-button" disabled={catBusy} onClick={() => setEditCatId(null)}>
+                      {t.admin.categoryCancel}
+                    </button>
+                  </>
+                  : <>
+                    <button className="text-button" disabled={catBusy} onClick={() => startEditCat(c)}>
+                      {t.admin.categoryEdit}
+                    </button>
+                    <button className="text-button" disabled={catBusy}
+                      onClick={() => saveCat(c)}>
+                      {c.active ? t.admin.categoryDeactivate : t.admin.categoryActivate}
+                    </button>
+                  </>}
               </div>
+              {editCatId === c.id && (
+                <div className="admin-cat-create" style={{ width: "100%" }}>
+                  <input value={editCat.name} placeholder={t.admin.categoryNamePlaceholder}
+                    onChange={(e) => setEditCat({ ...editCat, name: e.target.value })} />
+                  <input value={editCat.abbr} placeholder={t.admin.categoryAbbrPlaceholder} maxLength={4}
+                    onChange={(e) => setEditCat({ ...editCat, abbr: e.target.value.toUpperCase() })} />
+                  <input type="color" value={editCat.color}
+                    onChange={(e) => setEditCat({ ...editCat, color: e.target.value })} />
+                  <input type="number" value={editCat.sort_order} min={0}
+                    onChange={(e) => setEditCat({ ...editCat, sort_order: Number(e.target.value) })} />
+                </div>
+              )}
             </article>)}
           </div>
           <div className="admin-cat-create">
@@ -304,6 +363,27 @@ export function SamelabsSkills() {
             </button>
           </div>
         </section>
+    {pendingVis && (
+      <div className="pipe-confirm" role="dialog" aria-modal onClick={() => setPendingVis(null)}>
+        <div className="pipe-confirm-box" onClick={(e) => e.stopPropagation()}>
+          <p>{pendingVis.visibility === "public"
+            ? t.admin.skillUnpublishConfirm(pendingVis.title, pendingVis.slug)
+            : t.admin.skillPublishConfirm(pendingVis.title, pendingVis.slug)}</p>
+          <label>{t.admin.skillPublishNoteLabel}
+            <input value={visNote} maxLength={200}
+              placeholder={t.admin.skillPublishNotePlaceholder}
+              onChange={(e) => setVisNote(e.target.value)} />
+          </label>
+          <div className="pipe-confirm-actions">
+            <button type="button" className="button small" onClick={() => setPendingVis(null)}>{t.admin.cancel}</button>
+            <button type="button" className="button small" disabled={busyId === pendingVis.id}
+              onClick={confirmVisAction}>
+              {pendingVis.visibility === "public" ? t.admin.skillUnpublish : t.admin.skillPublish}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     {pendingDelete && (
       <div className="pipe-confirm" role="dialog" aria-modal onClick={() => setPendingDelete(null)}>
         <div className="pipe-confirm-box" onClick={(e) => e.stopPropagation()}>

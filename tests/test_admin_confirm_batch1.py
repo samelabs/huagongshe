@@ -64,9 +64,28 @@ class WorkerDisableConfirmation(unittest.TestCase):
 
     def test_no_false_claims_in_confirmation(self):
         src = workers_panel() + i18n()
-        # 不得声称杀死进程/终止任务/删除 worker
-        for banned in ("杀死", "终止正在运行", "立即终止", "删除该 worker", "删除 worker"):
+        # 停用确认不得声称杀死进程/终止任务
+        for banned in ("杀死", "终止正在运行", "立即终止", "删除该 worker"):
             self.assertNotIn(banned, src)
+        # 新产品契约(E9-A): 安全删除 Worker 是明确功能;
+        # 文案必须说明边界(仅无进行中任务, 历史记录保留)。
+        self.assertIn("删除 Worker", i18n())
+        self.assertIn("没有进行中任务", i18n())
+        self.assertIn("历史完成记录保留", i18n())
+
+    def test_worker_delete_has_confirmation(self):
+        """删除必须经过确认态: 按钮 setPendingDeleteWorker 先于 DELETE。"""
+        src = workers_panel()
+        self.assertIn("pendingDeleteWorker", src)
+        self.assertIn("setPendingDeleteWorker(w)", src)
+        # 确认函数是唯一 DELETE 入口
+        self.assertIn("apiDelete(`/admin/workers/${row.worker_id}`)", src)
+
+    def test_worker_delete_409_shows_reason(self):
+        """409(有活动任务)时展示服务端原因, 不静默失败。"""
+        src = workers_panel()
+        self.assertIn("e.status === 409", src)
+        self.assertIn("e.detail", src)
 
 
 class UserRoleConfirmation(unittest.TestCase):
