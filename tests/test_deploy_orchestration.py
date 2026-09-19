@@ -211,6 +211,111 @@ class PreSwitchFailureTests(DeployCase):
         self.assertEqual(self.runner.argv_log, [], "防呆拒绝不得产生任何命令")
 
 
+class GenerationStartArgvContractTests(DeployCase):
+    """R2 回归锁: start_generation 的 PM2 argv 契约(生产 PM2 7.0.1 事实)。"""
+
+    def _start_cmds(self, runner=None) -> list[list[str]]:
+        d = self.make(runner=runner)
+        ok = d.start_generation(GENERATIONS["green"])
+        return ok, [c for c in self.runner.argv_log
+                    if c[:2] == ["pm2", "start"]]
+
+    def test_start_generation_issues_exactly_three_pm2_starts(self):
+        ok, cmds = self._start_cmds()
+        self.assertTrue(ok)
+        self.assertEqual(len(cmds), 3, "green 三 app 必须三次独立 start")
+
+    def test_each_start_has_single_only_with_single_app(self):
+        ok, cmds = self._start_cmds()
+        for c in cmds:
+            onlys = [c[i + 1] for i, x in enumerate(c) if x == "--only"]
+            self.assertEqual(len(onlys), 1)
+            self.assertNotIn(",", onlys[0], "禁止 comma-joined --only")
+
+    def test_argv_contains_expected_single_app_names_in_order(self):
+        ok, cmds = self._start_cmds()
+        g = GENERATIONS["green"]
+        self.assertEqual(
+            [c[c.index("--only") + 1] for c in cmds],
+            [g.api_app, g.web_app, g.worker_app],
+        )
+
+
+class PartialStartCleanupTests(DeployCase):
+    """R2 回归锁: 单 app start 失败 → deploy pre-switch failure + 完整 cleanup。"""
+
+    def test_web_start_fail_cleans_started_api_and_keeps_blue(self):
+        g = GENERATIONS["green"]
+        runner = FakeRunner(self.world, self.paths)
+        self.world.app_start_fail[g.web_app] = True
+        d = self.make(runner=runner)
+        result = d.deploy()
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["reason"], "start")
+        self.assertEqual(d.active_generation(), "blue")
+        self.assertTrue(self.world.is_running("blue"))
+        # 已启动的 api-green 必须被 cleanup(delete 目标代三 app)
+        deletes = [c for c in runner.argv_log if c[:2] == ["pm2", "delete"]]
+        self.assertTrue(any(g.api_app in c for c in deletes),
+                        "partial-start 的 api-green 必须被 delete")
+        self.assertEqual(self.world.apps_running.get("green", set()), set())
+        self.assert_no_traffic_switch()
+
+    def test_worker_start_fail_cleans_started_api_web_and_keeps_blue(self):
+        g = GENERATIONS["green"]
+        runner = FakeRunner(self.world, self.paths)
+        self.world.app_start_fail[g.worker_app] = True
+        d = self.make(runner=runner)
+        result = d.deploy()
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["reason"], "start")
+        self.assertEqual(d.active_generation(), "blue")
+        self.assertEqual(self.world.apps_running.get("green", set()), set(),
+                         "api+web 已启动也必须全部清理")
+        self.assert_no_traffic_switch()
+        self.assert_old_generation_never_stopped()
+
+
+class WorkerVerifyFailClosedTests(DeployCase):
+    """R2 回归锁: verify_worker 契约 —— 只有目标 worker 明确 online 才 PASS。"""
+
+    def _green(self):
+        d = self.make()
+        g = GENERATIONS["green"]
+        return d, g
+
+    def test_jlist_failure_fails_worker_verify(self):
+        d, g = self._green()
+        self.runner.jlist_code = 1  # pm2 jlist 非零
+        self.assertFalse(d.verify_worker(g))
+        self.assertIn("worker.verify.failed", d.event_names())
+
+    def test_empty_jlist_fails_worker_verify(self):
+        d, g = self._green()
+        self.world.apps_running["green"] = set()
+        self.assertFalse(d.verify_worker(g))
+
+    def test_worker_missing_fails_verify(self):
+        d, g = self._green()
+        self.world.apps_running["green"] = {g.api_app, g.web_app}
+        self.assertFalse(d.verify_worker(g))
+
+    def test_worker_errored_fails_verify(self):
+        d, g = self._green()
+        self.world.start_app("green", g.api_app)
+        self.world.start_app("green", g.web_app)
+        self.world.start_app("green", g.worker_app)
+        self.world.worker_start_fail["green"] = True  # jlist → errored
+        self.assertFalse(d.verify_worker(g))
+
+    def test_worker_online_passes_verify(self):
+        d, g = self._green()
+        for app in g.apps():
+            self.world.start_app("green", app)
+        self.assertTrue(d.verify_worker(g))
+        self.assertIn("worker.verify.ok", d.event_names())
+
+
 class PostSwitchRollbackTests(DeployCase):
     def test_post_switch_smoke_failure_rolls_back_to_old(self) -> None:
         self.world.version = "9.9.9"  # MCP serverInfo 与 VERSION 不符 → smoke 失败
@@ -321,3 +426,14 @@ class DryRunTests(DeployCase):
         self.assertEqual(snapshot(self.tmp), before_tree, "dry-run 不得改动任何文件/symlink")
         self.assertFalse((self.paths.state_dir / "ecosystem-green.cjs").exists())
         self.assertFalse((self.paths.web_dir / ".next-green").exists())
+
+    def test_dry_run_worker_verify_passes_without_pm2(self) -> None:
+        """R2: dry-run 不实际启动 PM2, verify_worker 显式 dry-run PASS。"""
+        d = self.make(dry_run=True)
+        g = GENERATIONS["green"]
+        # green 三 app 均未启动(jlist 会是空) — dry-run 仍必须 PASS
+        self.assertTrue(d.verify_worker(g))
+        evts = d.event_names()
+        self.assertIn("worker.verify.ok", evts)
+        # 事件记录须带 dry_run 标记(不靠"空 statuses=成功"旧逻辑)
+        self.assertEqual(self.runner.argv_log, [], "dry-run 不得触发 pm2 jlist")

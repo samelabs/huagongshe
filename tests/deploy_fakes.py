@@ -125,6 +125,13 @@ class FakeWorld:
         self.ready_delay = {name: 0.0 for name in GENERATIONS}
         self.never_ready = {name: False for name in GENERATIONS}
         self.worker_start_fail = {name: False for name in GENERATIONS}
+        # R2: per-app 模型 —— generation 内三个 app 各自独立启动/删除。
+        # apps_running[gen] = 实际已 start 的 app 名集合(与旧 bool running 并存:
+        # running[gen] 仅由 is_running 消费, 判定"该代是否有任何 app 存活"供
+        # cleanup 断言; readiness/jlist 语义全部走 apps_running)。
+        self.apps_running: dict[str, set[str]] = {name: set() for name in GENERATIONS}
+        # 可注入: 某 app 的 pm2 start 直接失败(非零退出码)
+        self.app_start_fail: dict[str, bool] = {}
         self.active = "blue"
         self.version = version
         self.violations: list[dict] = []
@@ -141,14 +148,33 @@ class FakeWorld:
         self.reload_applied = 0
 
     # -- 生命周期 ---------------------------------------------------------- #
+    def start_app(self, gen: str, app: str) -> None:
+        """单个 app 被 `pm2 start <spec> --only <app>` 启动。"""
+        with self.lock:
+            self.apps_running[gen].add(app)
+            self.running[gen] = True
+            if app == GENERATIONS[gen].api_app:
+                # readiness 计时锚点沿用 api 启动时刻(与旧模型一致)
+                self.started_at[gen] = time.monotonic()
+
+    def delete_app(self, gen: str, app: str) -> None:
+        """单个 app 被 `pm2 delete <app>` 删除。"""
+        with self.lock:
+            self.apps_running[gen].discard(app)
+            if not self.apps_running[gen]:
+                self.running[gen] = False
+
     def start(self, gen: str) -> None:
+        """整代启动(测试 setup 模拟既有服务代: 三 app 全部就位)。"""
         with self.lock:
             self.running[gen] = True
             self.started_at[gen] = time.monotonic()
+            self.apps_running[gen] = set(GENERATIONS[gen].apps())
 
     def delete(self, gen: str) -> None:
         with self.lock:
             self.running[gen] = False
+            self.apps_running[gen] = set()
 
     def set_active(self, gen: str) -> None:
         with self.lock:
@@ -158,12 +184,20 @@ class FakeWorld:
         return self.running[gen]
 
     def is_ready(self, gen: str) -> bool:
-        if not self.running[gen] or self.never_ready[gen]:
+        # R2: readiness = API + Web 两个 app 都实际启动(部分启动不算 ready)
+        apps = self.apps_running[gen]
+        g = GENERATIONS[gen]
+        if g.api_app not in apps or g.web_app not in apps:
+            return False
+        if self.never_ready[gen]:
             return False
         return (time.monotonic() - self.started_at[gen]) >= self.ready_delay[gen]
 
     def worker_is_online(self, gen: str) -> bool:
-        return self.running[gen] and not self.worker_start_fail[gen]
+        g = GENERATIONS[gen]
+        if g.worker_app not in self.apps_running[gen]:
+            return False
+        return not self.worker_start_fail[gen]
 
     def running_ports(self) -> set[int]:
         ports: set[int] = set()
@@ -219,11 +253,13 @@ class FakeRunner:
         reload_code: int = 0,
         delete_code: int = 0,
         pgrep_code: int = 0,
+        jlist_code: int = 0,
     ) -> None:
         self.world = world
         self.paths = paths
         self.build_code = build_code
         self.start_code = start_code
+        self.jlist_code = jlist_code
         self.validate_code = validate_code
         self.reload_code = reload_code
         self.delete_code = delete_code
@@ -313,24 +349,44 @@ class FakeRunner:
         if a[0] == "pm2":
             sub = a[1]
             if sub == "start":
-                gen = Path(a[2]).name
+                spec = a[2]
+                gen = Path(spec).name
                 gen = gen[len("ecosystem-"):-len(".cjs")]
                 if self.start_code:
                     return Result(a, self.start_code, "start failed")
-                self.world.start(gen)
+                # R2: 真实 PM2 7.x 语义模型
+                #   --only <app>  → 只启动该 app(未启动的兄弟 app 保持不存在)
+                #   无 --only / comma-joined 多名 → 只算"启动了 spec 自身",
+                #     不产生任何 named app(jlist 不出现三个 app)
+                only_vals = [a[i + 1] for i, x in enumerate(a) if x == "--only"]
+                target_apps: list[str]
+                if only_vals and len(only_vals) == 1 and "," not in only_vals[0]:
+                    target_apps = [only_vals[0]]
+                else:
+                    target_apps = []  # comma 串/多 --only: PM2 把 spec 当脚本,
+                    # 不启动任何 named app —— 正是 R1 生产事故形态
+                for app in target_apps:
+                    if self.world.app_start_fail.get(app):
+                        return Result(a, 1, f"start failed: {app}")
+                    g = self._gen_of_app(app)
+                    if g is None or g != gen:
+                        return Result(a, 1, f"app {app} not in spec {gen}")
+                    self.world.start_app(g, app)
                 return Result(a, 0, "")
             if sub == "delete":
                 for app in a[2:]:
                     g = self._gen_of_app(app)
                     if g:
-                        self.world.delete(g)
+                        self.world.delete_app(g, app)
                 return Result(a, self.delete_code, "")
             if sub == "jlist":
+                if self.jlist_code:
+                    return Result(a, self.jlist_code, "jlist failed")
                 apps = []
                 for name, gen in GENERATIONS.items():
-                    if not self.world.is_running(name):
-                        continue
                     for app in gen.apps():
+                        if app not in self.world.apps_running.get(name, set()):
+                            continue
                         status = "online"
                         if app == gen.worker_app and not self.world.worker_is_online(name):
                             status = "errored"

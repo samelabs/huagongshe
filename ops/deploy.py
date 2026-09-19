@@ -560,11 +560,14 @@ class Deployer:
         self._event("start.begin", gen=gen.name)
         # 目标代按定义不是服务代: 先清掉可能残留的同代进程, 保证 env 完全来自渲染后的 spec
         self._pm2("delete", *gen.apps())
-        r = self._pm2("start", str(spec), "--only", ",".join(gen.apps()))
-        if not r.ok:
-            self._event("start.failed", gen=gen.name, code=r.code)
-            return False
-        self._event("start.ok", gen=gen.name)
+        # PM2 7.x 的 --only 不接受 comma-joined 多 app 名(会把 spec 文件本身
+        # 当脚本启动成单个 fork 进程): 按 gen.apps() 顺序逐 app 独立 start。
+        for app in gen.apps():
+            r = self._pm2("start", str(spec), "--only", app)
+            if not r.ok:
+                self._event("start.failed", gen=gen.name, code=r.code, app=app)
+                return False
+        self._event("start.ok", gen=gen.name, apps=list(gen.apps()))
         return True
 
     def pm2_statuses(self) -> dict[str, str]:
@@ -584,16 +587,28 @@ class Deployer:
         return out
 
     def verify_worker(self, gen: Generation) -> bool:
-        """新代的 worker 也必须活着(否则这一代不完整, 不切流量)。"""
+        """新代的 worker 也必须活着(否则这一代不完整, 不切流量)。
+
+        fail-closed: jlist 失败(空 statuses)、列表为空、worker 缺失、
+        worker 非 online 一律不得判成功——只有目标 generation worker
+        明确 online 才 PASS。dry-run 不实际启动 PM2, 显式返回 PASS。
+        """
+        if self.dry_run:
+            self._event("worker.verify.ok", gen=gen.name, dry_run=True)
+            return True
         self._event("worker.verify.begin", gen=gen.name)
         deadline = time.monotonic() + self.stop_timeout
         while True:
             statuses = self.pm2_statuses()
-            if not statuses or statuses.get(gen.worker_app) == "online":
-                self._event("worker.verify.ok", gen=gen.name, status=statuses.get(gen.worker_app, "unknown"))
+            if statuses.get(gen.worker_app) == "online":
+                self._event("worker.verify.ok", gen=gen.name, status="online")
                 return True
             if time.monotonic() >= deadline:
-                self._event("worker.verify.failed", gen=gen.name, status=statuses.get(gen.worker_app))
+                self._event(
+                    "worker.verify.failed",
+                    gen=gen.name,
+                    status=statuses.get(gen.worker_app, "missing" if not statuses else "unknown"),
+                )
                 return False
             time.sleep(0.5)
 
