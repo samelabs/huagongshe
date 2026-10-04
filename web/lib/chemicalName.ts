@@ -16,12 +16,14 @@
  * secondary: 主标题是本地化名称且存在不同的英文常用名时给出英文名;
  *            主标题本身已是英文名时不重复展示。
  *
- * locale: 站点当前只有单一语言包(zh-CN, 见 lib/i18n.ts 与 app/layout.tsx),
- *         因此调用方通常使用默认值; 非中文 locale 时链首不含本地化名称,
- *         直接回落英文常用名(数据库 lang 仅 cn/en, 无 ja 等其他语言名)。
+ * locale: SITE_LOCALE(web/lib/locale.ts)是公开站 formatter/name 的单一 locale
+ *         来源; resolveChemicalName 当前恒以 zh-CN 调用, 行为与本步前完全一致。
  */
 
-export const SITE_LOCALE = "zh-CN";
+import { SITE_LOCALE } from "./locale";
+
+// 向后兼容再导出: 此前 SITE_LOCALE 定义在本文件, 保留导出避免调用方断裂。
+export { SITE_LOCALE };
 
 export type ChemicalNameFields = {
   id: number | string;

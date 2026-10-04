@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { apiPost, apiDelete, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
+import { SITE_LOCALE } from "@/lib/locale";
 
 export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = "follow", idleText, activeText, onChange }: {
   endpoint: string;
@@ -46,5 +47,5 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   const text = following
     ? activeText || (label === "favor" ? t.follow.favoring : t.follow.following)
     : idleText || (label === "favor" ? t.follow.favor : t.follow.follow);
-  return <button type="button" className={`follow-button ${following ? "following" : ""}`} onClick={toggle} disabled={disabled || busy}><span>{text}</span>{showCount && <strong>{followers.toLocaleString("zh-CN")}</strong>}</button>;
+  return <button type="button" className={`follow-button ${following ? "following" : ""}`} onClick={toggle} disabled={disabled || busy}><span>{text}</span>{showCount && <strong>{followers.toLocaleString(SITE_LOCALE)}</strong>}</button>;
 }

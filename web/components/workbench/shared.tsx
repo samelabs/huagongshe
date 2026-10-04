@@ -4,6 +4,7 @@ import Link from "next/link";
 import { EntityId } from "@/components/shared/EntityId";
 import { ApiError, reactionSvgUrl } from "@/lib/api";
 import t from "@/lib/i18n";
+import { SITE_LOCALE } from "@/lib/locale";
 import type { LoadState, Reaction } from "./types";
 
 export function PanelHeading({ title, subtitle, count, unit = "", action }: {
@@ -109,7 +110,7 @@ export function ReactionCards({ items, editable = false }: { items: Reaction[]; 
         <article key={item.id}>
           <header>
             <Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link>
-            {item.updated_at && <span>{new Date(item.updated_at).toLocaleDateString("zh-CN")}</span>}
+            {item.updated_at && <span>{new Date(item.updated_at).toLocaleDateString(SITE_LOCALE)}</span>}
           </header>
               <Link href={`/reaction/${item.id}`} className="wb-card-img">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

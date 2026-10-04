@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EntityId } from "@/components/shared/EntityId";
 import { apiGet, apiPost } from "@/lib/api";
 import t from "@/lib/i18n";
+import { SITE_LOCALE } from "@/lib/locale";
 import { useWorkbenchCounts } from "../WorkbenchCountsContext";
 import { WbEmpty, Pagination, PanelError, PanelHeading, PanelLoading } from "../shared";
 import type { LoadState, NoticeResponse, PanelProps } from "../types";
@@ -62,7 +63,7 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
               <article key={item.id}>
                 <Link className="wb-notice-actor" href={`/user/${encodeURIComponent(item.actor_username)}`}>
                   <strong>{t.me.activityActor(item.actor_display_name || t.me.activityActorFallback)}</strong>
-                  <small>{new Date(item.created_at).toLocaleString("zh-CN")}</small>
+                  <small>{new Date(item.created_at).toLocaleString(SITE_LOCALE)}</small>
                 </Link>
                 <Link className="wb-notice-target" href={`/reaction/${item.reaction_id}`}>
                   <EntityId kind="reaction" id={item.reaction_id} compact />

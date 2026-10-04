@@ -6,6 +6,7 @@ import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
 import { apiGet, apiPost, apiDelete, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
+import { SITE_LOCALE } from "@/lib/locale";
 
 type Token = { id: number; name: string; token_prefix: string; token_plain: string | null; created_at: string; expires_at: string | null; last_used_at: string | null };
 type CreatedToken = { token: string };
@@ -73,8 +74,8 @@ export function ApiTokenSettings() {
     <div className="token-list">{tokens.map((token) => {
       const expired = Boolean(token.expires_at && new Date(token.expires_at).getTime() <= Date.now());
       const status = expired ? t.settings.ai.statusExpired : t.settings.ai.statusValid;
-      const expires = token.expires_at ? t.settings.ai.expiresAt(new Date(token.expires_at).toLocaleDateString("zh-CN")) : t.settings.ai.longTerm;
-      return <article key={token.id}><div><strong>{token.name}</strong><span>{token.token_prefix}… · {status}</span><small>{token.last_used_at ? t.settings.ai.lastUsed(new Date(token.last_used_at).toLocaleString("zh-CN")) : t.settings.ai.neverUsed} · {expires}</small></div><div className="token-actions">
+      const expires = token.expires_at ? t.settings.ai.expiresAt(new Date(token.expires_at).toLocaleDateString(SITE_LOCALE)) : t.settings.ai.longTerm;
+      return <article key={token.id}><div><strong>{token.name}</strong><span>{token.token_prefix}… · {status}</span><small>{token.last_used_at ? t.settings.ai.lastUsed(new Date(token.last_used_at).toLocaleString(SITE_LOCALE)) : t.settings.ai.neverUsed} · {expires}</small></div><div className="token-actions">
         {token.token_plain && <button type="button" className="text-button" onClick={async () => {
           try { await navigator.clipboard.writeText(token.token_plain || ""); setCopiedToken(token.id); window.setTimeout(() => setCopiedToken(null), 1800); } catch { setMessage(t.settings.ai.copyFailed); }
         }}>{copiedToken === token.id ? t.settings.ai.copiedShort : t.settings.ai.copyToken}</button>}

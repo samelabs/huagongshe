@@ -9,6 +9,7 @@ import { ReactionOwnerActions } from "@/components/ReactionOwnerActions";
 import { apiGet, isApiNotFound, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
 import t from "@/lib/i18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
+import { SITE_LOCALE } from "@/lib/locale";
 
 const roleNames: Record<string, string> = {
   REACTANT: t.submit.roles.reactant, REAGENT: t.submit.roles.reagent, CATALYST: t.submit.roles.catalyst, SOLVENT: t.submit.roles.solvent,
@@ -294,11 +295,11 @@ function ProvenanceRow({ label, value, href }: { label: string; value: string | 
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString("zh-CN");
+  return new Date(value).toLocaleDateString(SITE_LOCALE);
 }
 
 function formatYield(value: number) {
-  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 3 }).format(value);
+  return new Intl.NumberFormat(SITE_LOCALE, { maximumFractionDigits: 3 }).format(value);
 }
 
 function unitName(value: string) {

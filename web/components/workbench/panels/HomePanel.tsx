@@ -7,6 +7,7 @@ import { EntityId } from "@/components/shared/EntityId";
 import { useAccount } from "@/components/shared/AccountContext";
 import { apiGet, reactionSvgUrl } from "@/lib/api";
 import t from "@/lib/i18n";
+import { SITE_LOCALE } from "@/lib/locale";
 import { PanelLoading, PanelError } from "../shared";
 import type { Counts, LoadState, ReactionResponse } from "../types";
 
@@ -116,7 +117,7 @@ export function HomePanel({ counts, initialReactions }: {
               <article key={item.id}>
                 <header>
                   <Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link>
-                  {item.updated_at && <span>{new Date(item.updated_at).toLocaleDateString("zh-CN")}</span>}
+                  {item.updated_at && <span>{new Date(item.updated_at).toLocaleDateString(SITE_LOCALE)}</span>}
                 </header>
                 <Link className="wb-card-img" href={`/reaction/${item.id}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}

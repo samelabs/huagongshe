@@ -14,6 +14,7 @@ import { isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
 import { apiGet, isApiNotFound, type Chemical, type ReactionSummary, type SemanticDetail } from "@/lib/api";
 import t from "@/lib/i18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
+import { SITE_LOCALE } from "@/lib/locale";
 
 /**
  * Chemical Detail — semantic-first (Design System v2, Issue #4; E9-B 后端合流)。
@@ -371,7 +372,7 @@ export default async function ChemicalPage({ params }: {
               )}
               {(detail?.suppliers.items.length ?? 0) > 0 && (
                 <div className="chem-sub-block" id="suppliers">
-                  <h3 className="chem-subhead">{t.chemical.casext.suppliers} <span className="chem-subhead-note">{new Intl.NumberFormat("zh-CN").format(detail?.suppliers.items.length ?? 0)} {t.chemical.casext.supplierUnit}</span></h3>
+                  <h3 className="chem-subhead">{t.chemical.casext.suppliers} <span className="chem-subhead-note">{new Intl.NumberFormat(SITE_LOCALE).format(detail?.suppliers.items.length ?? 0)} {t.chemical.casext.supplierUnit}</span></h3>
                   <div className="casext-suppliers">
                     {(detail?.suppliers.items ?? []).map((s) => <SupplierCard key={s.ref} supplier={s} />)}
                   </div>
@@ -389,7 +390,7 @@ export default async function ChemicalPage({ params }: {
           {/* ── 6. Reactions ── */}
           <section className="chem-section" id="reactions">
             <SectionHead anchor="reactions" eyebrow="REACTIONS" title={t.chemical.relatedReactions}
-              note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat("zh-CN").format(reactionTotal)) : undefined} />
+              note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(SITE_LOCALE).format(reactionTotal)) : undefined} />
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
           </section>
 
@@ -440,7 +441,7 @@ function Identity({ label, value, mono = false }: { label: string; value: string
 
 function Metric({ label, value, suffix = "" }: { label: string; value: number | null | undefined; suffix?: string }) {
   if (value == null) return null;
-  return <div><dt>{label}</dt><dd>{new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 4 }).format(value)}{suffix}</dd></div>;
+  return <div><dt>{label}</dt><dd>{new Intl.NumberFormat(SITE_LOCALE, { maximumFractionDigits: 4 }).format(value)}{suffix}</dd></div>;
 }
 
 /** disclosure 新规: 摘要(短)直接可见, 长列表默认折叠 — 不删数据。 */
@@ -549,7 +550,7 @@ function pbSectionTitle(key: string): string {
 }
 
 function formatNumber(value: number, digits = 4) {
-  return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: digits }).format(value);
+  return new Intl.NumberFormat(SITE_LOCALE, { maximumFractionDigits: digits }).format(value);
 }
 
 function identifierGroups(chemical: Chemical): [string, string[]][] {

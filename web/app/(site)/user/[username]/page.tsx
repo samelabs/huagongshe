@@ -6,6 +6,7 @@ import { EntityId } from "@/components/shared/EntityId";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
 import t from "@/lib/i18n";
+import { SITE_LOCALE } from "@/lib/locale";
 
 type Profile = {
   id: number; username: string; display_name: string; bio: string | null;
@@ -77,7 +78,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
               <FollowButton endpoint={`/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />
             </>}
         </div>
-        <p className="profile-joined">{t.user.joinedAt(new Date(profile.created_at).toLocaleDateString("zh-CN"))}</p>
+        <p className="profile-joined">{t.user.joinedAt(new Date(profile.created_at).toLocaleDateString(SITE_LOCALE))}</p>
       </div>
     </header>
 
