@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { AccountProvider } from "@/components/shared/AccountContext";
+import { I18nProvider } from "@/components/shared/I18nContext";
+import { getRequestLocale } from "@/lib/serverI18n";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import "./globals.css";
@@ -58,6 +60,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const h = await headers();
   const cookieHeader = h.get("cookie");
   const initialUser = await getSSRUser(cookieHeader);
+  // 运行时 locale 链路: proxy(x-site-locale) → getRequestLocale → I18nProvider。
+  // 本步不改 <html lang>/metadata/UI 文案, 页面显示仍为中文。
+  const locale = await getRequestLocale();
 
   return (
     <html lang="zh-CN">
@@ -75,7 +80,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </head>
       <body>
         <AccountProvider initialUser={initialUser}>
-          {children}
+          <I18nProvider locale={locale}>
+            {children}
+          </I18nProvider>
         </AccountProvider>
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}` }} />
       </body>
