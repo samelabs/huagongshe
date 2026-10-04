@@ -1,8 +1,9 @@
 /**
- * 化工社前端语言包 · 全站唯一文案源
+ * zh-CN 语言包 · 站点默认语言(现唯一完整字典)
  *
  * 使用：  import t from '@/lib/i18n'
  *         <h1>{t.home.hero}</h1>
+ *         动态: getDictionary(locale)(见 lib/i18n/index.ts)
  *
  * 规则：
  *   1. 可本地化、会变化的产品文案集中在 t，通过 t.xxx 引用；同一产品文案禁止在多个组件各自维护不同版本
@@ -11,6 +12,8 @@
  *   4. 新增文案先在此文件对应 domain 下添加 key
  *   5. key 用 camelCase，按场景 domain 分组
  *   6. 函数类型用于含变量的文案：t.skills.heroSubtitle(159)
+ *   7. en/ja/ko/de 字典(待补齐)必须与本文件结构一致, 类型以本文件推导的
+ *      Dictionary 为准(lib/i18n/index.ts), 不另写 interface
  */
 
 const t = {
@@ -945,5 +948,30 @@ const t = {
 
 } as const
 
-export type Dictionary = typeof t
+/**
+ * 字典 schema 类型 · 从 zh-CN 字典自动推导, 不手写第二份 interface
+ *
+ * 递归规则(按真实值类型, 不机械照抄):
+ *   - 函数: 保留全部参数签名(...args 推导), 返回值 widen 为 string ——
+ *     模板文案返回的字符串因 as const 是字面量类型, 不同语言包返回各自的
+ *     字面量, 统一放宽为 string 才能互换
+ *   - string: widen 为 string(同上, 中文字面量类型不应约束英文/日文包)
+ *   - readonly array(如 features/qwenSteps/noResultsHints): 元素递归 widen,
+ *     长度保持 exact(缺/多一条都是错), 得 readonly string[]
+ *   - number 等原始值: 原样保留
+ *   - 嵌套 object(含 readonly): 逐 key 递归 —— 缺 key / 多余 key 均不满足
+ *     映射类型而编译报错
+ */
+type DictionaryShape<T> =
+  T extends (...args: infer A) => unknown
+    ? (...args: A) => string
+    : T extends string
+      ? string
+      : T extends readonly unknown[]
+        ? { [K in keyof T]: DictionaryShape<T[K]> }
+        : T extends object
+          ? { [K in keyof T]: DictionaryShape<T[K]> }
+          : T;
+
+export type Dictionary = DictionaryShape<typeof t>
 export default t
