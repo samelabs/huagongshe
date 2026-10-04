@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       url: canonical,
       title: `${pageTitle}｜${t.brand.name}`,
       description,
-      images: [{ url: `/api/mol/${id}/png`, width: 500, height: 375, alt: `${displayName} 分子结构式` }],
+      images: [{ url: `/api/mol/${id}/png`, width: 500, height: 375, alt: t.chemical.structureAlt(displayName) }],
     },
     twitter: {
       card: "summary_large_image",
@@ -219,10 +219,10 @@ export default async function ChemicalPage({ params }: {
             <dl className="identity-table">
               <Identity label={t.chemical.names.preferred} value={chemical.preferred_name} />
               <Identity label="IUPAC" value={chemical.iupac_name} />
-              {cbIdentity.cn ? <Identity label="中文名" value={String(cbIdentity.cn)} /> : null}
-              {cbIdentity.en ? <Identity label="英文名" value={String(cbIdentity.en)} /> : null}
-              {cbIdentity.formula ? <Identity label="分子式" value={String(cbIdentity.formula)} /> : null}
-              {cbIdentity.mw != null ? <Identity label="分子量" value={String(cbIdentity.mw)} /> : null}
+              {cbIdentity.cn ? <Identity label={t.chemical.identity.nameCn} value={String(cbIdentity.cn)} /> : null}
+              {cbIdentity.en ? <Identity label={t.chemical.identity.nameEn} value={String(cbIdentity.en)} /> : null}
+              {cbIdentity.formula ? <Identity label={t.chemical.identity.formula} value={String(cbIdentity.formula)} /> : null}
+              {cbIdentity.mw != null ? <Identity label={t.chemical.identity.molecularWeight} value={String(cbIdentity.mw)} /> : null}
             </dl>
             {(synTotal > 0 || cbAliasOnly.length > 0) && (
               <div className="chem-names-block">
@@ -389,7 +389,7 @@ export default async function ChemicalPage({ params }: {
           {/* ── 6. Reactions ── */}
           <section className="chem-section" id="reactions">
             <SectionHead anchor="reactions" eyebrow="REACTIONS" title={t.chemical.relatedReactions}
-              note={!reactionsUnavailable ? `${new Intl.NumberFormat("zh-CN").format(reactionTotal)} 条` : undefined} />
+              note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat("zh-CN").format(reactionTotal)) : undefined} />
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
           </section>
 

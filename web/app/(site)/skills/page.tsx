@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { apiGet } from "@/lib/api";
+import t from "@/lib/i18n";
 import { KdenseSkillsClient } from "./KdenseSkillsClient";
 
 type Skill = {
@@ -22,18 +23,17 @@ async function skillsCount(): Promise<number | null> {
 
 export async function generateMetadata(): Promise<Metadata> {
   const n = await skillsCount();
-  const count = n === null ? "" : `${n} 个`;
+  const count = t.skills.countUnit(n);
   return {
-  title: "开放技能库",
-  description:
-    `${count}开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域。数据来自 K-Dense-AI/scientific-agent-skills 开源项目与化工社官方技能。`,
+  title: t.skills.openLibrary,
+  description: t.skills.metaDesc(count),
   alternates: { canonical: "https://huagongshe.com/skills" },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "科学 AI 开放技能库｜化工社",
-    description: `${count}开源科学 AI Agent 技能，覆盖化学、生物、机器学习等研究领域。`,
+    title: t.skills.metaOgTitle(t.brand.name),
+    description: t.skills.metaOgDesc(count),
     url: "/skills",
-    siteName: "化工社",
+    siteName: t.brand.name,
     locale: "zh_CN",
     type: "website",
   },

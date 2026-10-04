@@ -37,7 +37,7 @@ export function ReactionResult({ reaction }: { reaction: ReactionSummary | React
           {reaction.dataset_name && <p className="reaction-source-name">{reaction.dataset_name}</p>}
         </div>
         <div className="reaction-badges">
-          {roles && <span>作为{roles}</span>}
+          {roles && <span>{t.reaction.rolePrefix(roles)}</span>}
           {lookup?.ord_id && <span>{lookup.ord_id}</span>}
         </div>
       </div>

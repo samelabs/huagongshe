@@ -266,7 +266,7 @@ function ParticipantRoleGroup({ title, items, showRole = false }: {
             <h3>{resolveChemicalName(chemical, t.common.hcidLabel).title}</h3>
             {chemical.molecular_formula && <p>{chemical.molecular_formula}</p>}
             {((chemical.occurrence_count != null && chemical.occurrence_count > 1) || chemical.amount_value != null || chemical.equivalents != null || chemical.concentration_value != null) && <p className="participant-measure-summary">{[
-              chemical.occurrence_count != null && chemical.occurrence_count > 1 ? `${chemical.occurrence_count} 次` : null,
+              chemical.occurrence_count != null && chemical.occurrence_count > 1 ? t.reaction.occurrenceCount(chemical.occurrence_count) : null,
               chemical.amount_value != null ? `${chemical.amount_value} ${chemical.amount_unit || ""}` : null,
               chemical.equivalents != null ? `${chemical.equivalents} eq` : null,
               chemical.concentration_value != null ? `${chemical.concentration_value} ${chemical.concentration_unit || ""}` : null,
@@ -302,7 +302,7 @@ function formatYield(value: number) {
 }
 
 function unitName(value: string) {
-  const labels: Record<string, string> = { CELSIUS: "°C", KELVIN: "K", MINUTE: t.reaction.timeUnits.minute, HOUR: t.reaction.timeUnits.hour, DAY: "天" };
+  const labels: Record<string, string> = { CELSIUS: "°C", KELVIN: "K", MINUTE: t.reaction.timeUnits.minute, HOUR: t.reaction.timeUnits.hour, DAY: t.reaction.timeUnits.day };
   return labels[value] || value.replaceAll("_", " ").toLowerCase();
 }
 
