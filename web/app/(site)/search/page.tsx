@@ -5,7 +5,8 @@ import { ChemicalResult } from "@/components/ChemicalResult";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ReactionResult } from "@/components/ReactionResult";
 import { apiGet, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
-import t from "@/lib/i18n";
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { withLocale } from "@/lib/localePath";
 
 type SearchParams = { q?: string; mode?: string; page?: string };
 
@@ -13,6 +14,8 @@ const PAGE_SIZE = 30;
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
+  const t = await getRequestDictionary();
+  const locale = await getRequestLocale();
   const q = (params.q || "").trim();
   const mode = ["exact", "substructure", "similarity"].includes(params.mode || "") ? params.mode! : "exact";
   const page = Math.max(1, Math.min(20, Number.parseInt(params.page || "1", 10) || 1));
@@ -54,7 +57,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       // redirect() 以抛 NEXT_REDIRECT 异常实现, 必须在 try 外执行,
       // 否则被下方 catch 吞成 networkError(0902 实测翻车: 列表+错误横幅同屏)。
       if (data.cas_fetch_chemical_id && page === 1) {
-        redirectTarget = `/chemical/${data.cas_fetch_chemical_id}`;
+        redirectTarget = withLocale(`/chemical/${data.cas_fetch_chemical_id}`, locale);
       }
     }
   } catch (err) {
@@ -112,7 +115,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <div className="chemical-results">{chemicals.map((chemical) => <ChemicalResult chemical={chemical} key={chemical.id} />)}</div>
           {hasMore && (
             <div className="load-more">
-              <Link className="load-more-btn" href={`/search?q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}&page=${page + 1}`}>
+              <Link className="load-more-btn" href={withLocale(`/search?q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}&page=${page + 1}`, locale)}>
                 {t.search.loadMore}
               </Link>
             </div>
@@ -141,7 +144,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               </div>
             </>
           )}
-          <Link className="button secondary" href="/search">{t.search.clearQuery}</Link>
+          <Link className="button secondary" href={withLocale("/search", locale)}>{t.search.clearQuery}</Link>
         </div>
       )}
     </div>
