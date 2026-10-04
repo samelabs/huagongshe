@@ -20,13 +20,15 @@
 
 import type { Dictionary } from "./locales/zh-CN";
 import zhCN from "./locales/zh-CN";
+import en from "./locales/en";
 import { FALLBACK_LOCALE, isSupportedLocale, type Locale } from "./locales";
 export { SUPPORTED_LOCALES, FALLBACK_LOCALE, isSupportedLocale } from "./locales";
 export type { Locale } from "./locales";
 
-/** 已注册完整字典的 locale → 字典。en/ja/ko/de 待字典落地后逐个注册。 */
+/** 已注册完整字典的 locale → 字典。ja/ko/de 待字典落地后逐个注册。 */
 const DICTIONARIES: Partial<Record<Locale, Dictionary>> = {
   "zh-CN": zhCN,
+  "en": en,
 };
 
 /**
