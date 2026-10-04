@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { HeaderAccount } from "@/components/HeaderAccount";
 import { MobileTabBar } from "@/components/shared/MobileTabBar";
-import t from "@/lib/i18n";
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { withLocale } from "@/lib/localePath";
 
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  const t = await getRequestDictionary();
+  const locale = await getRequestLocale();
   return (
     <div className="app-container">
       <header className="site-header">
         <div className="header-inner">
-          <Link href="/" className="brand" aria-label={t.nav.home}>
+          <Link href={withLocale("/", locale)} className="brand" aria-label={t.nav.home}>
             <span className="brand-domain">huagongshe.com</span>
           </Link>
           <HeaderAccount />

@@ -61,7 +61,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const cookieHeader = h.get("cookie");
   const initialUser = await getSSRUser(cookieHeader);
   // 运行时 locale 链路: proxy(x-site-locale) → getRequestLocale → I18nProvider。
-  // 本步不改 <html lang>/metadata/UI 文案, 页面显示仍为中文。
+  // 首页与公共导航已按 locale 输出, 但 Search/Chemical/Reaction/Skills/Login
+  // 正文仍为中文 —— lang 暂保持 zh-CN, 等主要公开页面迁完后统一切动态,
+  // 避免"声明 ja 但正文中文"的不一致。
   const locale = await getRequestLocale();
 
   return (

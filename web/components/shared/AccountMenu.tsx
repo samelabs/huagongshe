@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
 import type { User } from "@/lib/api";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 
 /**
  * 身份菜单 — 全站唯一实现，三个挂载点共用：
@@ -26,6 +27,8 @@ export function AccountMenu({ user, variant, showWorkbenchEntry = false }: {
   const pathname = usePathname();
   const menu = useRef<HTMLDetailsElement>(null);
   const { clear } = useAccount();
+  const t = useDictionary();
+  const locale = useLocale();
 
   function close() {
     if (menu.current) menu.current.open = false;
@@ -73,9 +76,9 @@ export function AccountMenu({ user, variant, showWorkbenchEntry = false }: {
           <span>@{user.username}</span>
         </div>
         <div className="am-links">
-          {showWorkbenchEntry && <Link href="/aichem" onClick={close}>{t.nav.workbench}</Link>}
-          <Link href={`/user/${encodeURIComponent(user.username)}`} onClick={close}>{t.nav.publicProfile}</Link>
-          <Link href="/me/settings/profile" onClick={close}>{t.nav.accountSettings}</Link>
+          {showWorkbenchEntry && <Link href={withLocale("/aichem", locale)} onClick={close}>{t.nav.workbench}</Link>}
+          <Link href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)} onClick={close}>{t.nav.publicProfile}</Link>
+          <Link href={withLocale("/me/settings/profile", locale)} onClick={close}>{t.nav.accountSettings}</Link>
           {user.role === "admin" && <Link href="/samelabs" onClick={close}>{t.nav.admin}</Link>}
         </div>
         <button type="button" onClick={logout}>{t.nav.logout}</button>

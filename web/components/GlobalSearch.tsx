@@ -2,20 +2,23 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useRef } from "react";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 
 export function GlobalSearch({ initial = "", compact = false }: {
   initial?: string;
   compact?: boolean;
 }) {
   const router = useRouter();
+  const t = useDictionary();
+  const locale = useLocale();
   const [query, setQuery] = useState(initial);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const submit = () => {
     const value = query.trim();
     if (!value) { inputRef.current?.focus(); return; }
-    router.push(`/search?q=${encodeURIComponent(value)}`);
+    router.push(withLocale(`/search?q=${encodeURIComponent(value)}`, locale));
   };
 
   return (

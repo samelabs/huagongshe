@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { GlobalSearch } from "@/components/GlobalSearch";
-import t from "@/lib/i18n";
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { withLocale } from "@/lib/localePath";
 
 export default async function Home() {
+  const t = await getRequestDictionary();
+  const locale = await getRequestLocale();
   return (
     <div className="home">
       <section className="hero">
@@ -18,11 +21,11 @@ export default async function Home() {
           <code className="mcp-connect-value">https://huagongshe.com/mcp</code>
         </div>
         <nav className="guide-actions">
-          <Link className="button primary" href="/mcp-guide">{t.home.entryMcp}</Link>
-          <Link className="button secondary" href="/api/agent-guide">{t.home.entryApi}</Link>
-          <Link className="button secondary" href="/skills">{t.home.entrySkills}</Link>
-          <Link className="button secondary" href="/aichem">{t.home.entryWorkbench}</Link>
-          <Link className="button secondary" href="/me/settings/api-tokens">{t.home.entryKey}</Link>
+          <Link className="button primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Link>
+          <a className="button secondary" href="/api/agent-guide">{t.home.entryApi}</a>
+          <Link className="button secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Link>
+          <Link className="button secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Link>
+          <Link className="button secondary" href={withLocale("/me/settings/api-tokens", locale)}>{t.home.entryKey}</Link>
         </nav>
       </section>
     </div>
