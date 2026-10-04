@@ -23,16 +23,18 @@ import zhCN from "./locales/zh-CN";
 import en from "./locales/en";
 import ja from "./locales/ja";
 import ko from "./locales/ko";
+import de from "./locales/de";
 import { FALLBACK_LOCALE, isSupportedLocale, type Locale } from "./locales";
 export { SUPPORTED_LOCALES, FALLBACK_LOCALE, isSupportedLocale } from "./locales";
 export type { Locale } from "./locales";
 
-/** 已注册完整字典的 locale → 字典。de 待字典落地后注册。 */
+/** 已注册完整字典的 locale → 字典。五种语言全部就绪。 */
 const DICTIONARIES: Partial<Record<Locale, Dictionary>> = {
   "zh-CN": zhCN,
   "en": en,
   "ja": ja,
   "ko": ko,
+  "de": de,
 };
 
 /**
