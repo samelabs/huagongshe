@@ -331,7 +331,7 @@ def build_mcp_server() -> MCPServer:
         ctx: Context = None,  # type: ignore[assignment]
     ) -> str:
         """获取化合物的 2D 结构图(SVG 文本)，width/height 指定像素尺寸(50-800)。
-        chemical_id(库内化合物)或 smiles(任意结构)二选一。"""
+        chemical_id(库内化合物)或 smiles(任意结构, ≤512 字符)二选一。"""
         from .services import rendering as render_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
@@ -371,11 +371,12 @@ def build_mcp_server() -> MCPServer:
     @server.tool(name="render_reaction_svg", title="反应方程式图")
     async def render_reaction_svg(
         reaction_id: int,
-        width: int = 1200,
+        width: int = 800,
         height: int = 300,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> str:
-        """获取反应方程式的 2D 结构图(SVG 文本)。"""
+        """获取反应方程式的 2D 结构图(SVG 文本)。width/height 指定像素尺寸
+        (50-800, 超出范围将被截断到边界值, 默认 800×300)。"""
         from .services import rendering as render_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
