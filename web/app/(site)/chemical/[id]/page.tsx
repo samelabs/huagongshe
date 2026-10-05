@@ -12,9 +12,10 @@ import { SynonymExplorer } from "@/components/SynonymExplorer";
 import { cbInFlight } from "@/components/chemicalStatus";
 import { isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
 import { apiGet, isApiNotFound, type Chemical, type ReactionSummary, type SemanticDetail } from "@/lib/api";
-import t from "@/lib/i18n";
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
-import { SITE_LOCALE } from "@/lib/locale";
+import { withLocale } from "@/lib/localePath";
+import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /**
  * Chemical Detail — semantic-first (Design System v2, Issue #4; E9-B 后端合流)。
@@ -33,10 +34,12 @@ const SYN_PREVIEW = 10; // Names 默认展示条数(8–12 区间取 10)
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const canonical = `/chemical/${id}`;
+  const locale = await getRequestLocale();
+  const t = await getRequestDictionary();
   // metadata 只需要 canonical 投影 —— enrich=core(零 provider 访问, E9-B 1.6)
   const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=core`).catch(() => null);
   // 与页面 H1 同源: 同一 resolver、同一 locale, 不允许 SEO 自己再写一套 fallback
-  const { title: displayName } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel);
+  const { title: displayName } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel, locale);
   const pageTitle = `${displayName} (HCID ${id})`;
   const description = t.chemical.descFor(displayName);
   return {
@@ -62,6 +65,8 @@ export default async function ChemicalPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await getRequestLocale();
+  const t = await getRequestDictionary();
   const hasSession = (await cookies()).has("hgs_session");
   // 0902 P0: SSR 透传用户凭证(详情页 QPS 低可接受, 沿用)
   const sessionHeaders = hasSession
@@ -69,7 +74,7 @@ export default async function ChemicalPage({ params }: {
     : undefined;
 
   const [chemicalResult, reactionsResult] = await Promise.all([
-    apiGet<Chemical>(`/chemicals/${id}?enrich=full`, sessionHeaders).catch((error: unknown) => {
+    apiGet<Chemical>(`/chemicals/${id}?enrich=full&locale=${encodeURIComponent(locale)}`, sessionHeaders).catch((error: unknown) => {
       if (isApiNotFound(error)) notFound();
       throw error;
     }),
@@ -92,7 +97,7 @@ export default async function ChemicalPage({ params }: {
   // 名称解析唯一出口(与搜索结果/SEO 同规则); pb.record_title 不再入链 ——
   // 数据事实: PubChem 摄入时 preferred_name = properties.Title or record_title,
   // 抽样 6/6 record_title 与 preferred_name 同值, 单独入链只会制造第二套 fallback。
-  const { title, secondary } = resolveChemicalName(chemical, t.common.hcidLabel);
+  const { title, secondary } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
   const identifiers = identifierGroups(chemical);
 
   // Names: synonyms(主源) + CB aliases 视觉去重(仅展示层, 不写回)
@@ -160,13 +165,13 @@ export default async function ChemicalPage({ params }: {
   return (
     <div className="content-page chemical-page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
-      <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href="/">{t.chemical.home}</Link><span>/</span><span>{t.chemical.detail}</span></nav>
+      <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href={withLocale("/", locale)}>{t.chemical.home}</Link><span>/</span><span>{t.chemical.detail}</span></nav>
 
       {/* ── Chemical Entity Header ── */}
       <header className="chemical-identity">
-        <div className="chemical-structure"><Molecule chemicalId={chemical.id} label={title} width={360} height={280} /></div>
+        <div className="chemical-structure"><Molecule chemicalId={chemical.id} label={title} width={360} height={280} alt={t.chemical.structureAlt(title)} /></div>
         <div className="chemical-title-block">
-          <EntityId kind="chemical" id={chemical.id} />
+          <EntityId kind="chemical" id={chemical.id} ariaLabel={t.common.hcidLabel(chemical.id)} />
           <h1>{title}</h1>
           {secondary && <p className="iupac-name">{secondary}</p>}
           {chemical.iupac_name && chemical.iupac_name.toLowerCase() !== title.toLowerCase()
@@ -174,7 +179,7 @@ export default async function ChemicalPage({ params }: {
             && <p className="iupac-name">{chemical.iupac_name}</p>}
           <div className="identity-primary">
             {chemical.molecular_formula && <span>{chemical.molecular_formula}</span>}
-            {chemical.average_mass != null && <span>{formatNumber(chemical.average_mass)} g/mol</span>}
+            {chemical.average_mass != null && <span>{formatNumber(chemical.average_mass, locale)} g/mol</span>}
             {chemical.cas_numbers[0] && <span>CAS {chemical.cas_numbers[0]}</span>}
           </div>
           <div className="context-actions">
@@ -183,10 +188,10 @@ export default async function ChemicalPage({ params }: {
           </div>
           <div className="context-secondary-actions">
             {hasSession ? (chemical.smiles ? (<>
-              <Link className="text-button" href={`/search?q=${encodeURIComponent(chemical.smiles)}&mode=substructure`}>{t.chemical.substructure}</Link>
-              <Link className="text-button" href={`/search?q=${encodeURIComponent(chemical.smiles)}&mode=similarity`}>{t.chemical.similarity}</Link>
+              <Link className="text-button" href={withLocale(`/search?q=${encodeURIComponent(chemical.smiles)}&mode=substructure`, locale)}>{t.chemical.substructure}</Link>
+              <Link className="text-button" href={withLocale(`/search?q=${encodeURIComponent(chemical.smiles)}&mode=similarity`, locale)}>{t.chemical.similarity}</Link>
             </>) : null) : (
-              <Link className="text-button" href={`/login?next=${encodeURIComponent(`/chemical/${chemical.id}`)}`}>{t.chemical.structureLogin}</Link>
+              <Link className="text-button" href={withLocale(`/login?next=${encodeURIComponent(`/chemical/${chemical.id}`)}`, locale)}>{t.chemical.structureLogin}</Link>
             )}
           </div>
         </div>
@@ -209,8 +214,8 @@ export default async function ChemicalPage({ params }: {
               <Identity label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono />
               <Identity label="InChIKey" value={chemical.inchikey} mono />
               <Identity label={t.chemical.identity.formula} value={chemical.molecular_formula} />
-              <Identity label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass)} g/mol` : null} />
-              <Identity label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, 8) : null} />
+              <Identity label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass, locale)} g/mol` : null} />
+              <Identity label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, locale, 8) : null} />
             </dl>
           </section>
 
@@ -261,14 +266,14 @@ export default async function ChemicalPage({ params }: {
                 <div className="chem-sub-block">
                   <h3 className="chem-subhead">{t.chemical.knowledge.descriptors}{enrichment.status !== "current" && enrichment.status !== "degraded" && <span className="chem-subhead-note">{enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued}</span>}</h3>
                   <dl className="metric-grid">
-                    <Metric label="XLogP" value={pbComputed.xlogp} />
-                    <Metric label={t.chemical.knowledge.tpsa} value={pbComputed.topological_polar_surface_area} suffix=" Å²" />
-                    <Metric label={t.chemical.knowledge.hbd} value={pbComputed.hbond_donor_count} />
-                    <Metric label={t.chemical.knowledge.hba} value={pbComputed.hbond_acceptor_count} />
-                    <Metric label={t.chemical.knowledge.rotatable} value={pbComputed.rotatable_bond_count} />
-                    <Metric label={t.chemical.knowledge.heavyAtoms} value={pbComputed.heavy_atom_count} />
-                    <Metric label={t.chemical.knowledge.charge} value={pbComputed.formal_charge} />
-                    <Metric label={t.chemical.knowledge.complexity} value={pbComputed.complexity} />
+                    <Metric label="XLogP" value={pbComputed.xlogp} locale={locale} />
+                    <Metric label={t.chemical.knowledge.tpsa} value={pbComputed.topological_polar_surface_area} suffix=" Å²" locale={locale} />
+                    <Metric label={t.chemical.knowledge.hbd} value={pbComputed.hbond_donor_count} locale={locale} />
+                    <Metric label={t.chemical.knowledge.hba} value={pbComputed.hbond_acceptor_count} locale={locale} />
+                    <Metric label={t.chemical.knowledge.rotatable} value={pbComputed.rotatable_bond_count} locale={locale} />
+                    <Metric label={t.chemical.knowledge.heavyAtoms} value={pbComputed.heavy_atom_count} locale={locale} />
+                    <Metric label={t.chemical.knowledge.charge} value={pbComputed.formal_charge} locale={locale} />
+                    <Metric label={t.chemical.knowledge.complexity} value={pbComputed.complexity} locale={locale} />
                   </dl>
                 </div>
               )}
@@ -301,7 +306,7 @@ export default async function ChemicalPage({ params }: {
               <SectionHead anchor="safety" eyebrow="SAFETY" title={t.chemical.page.safety} />
               {Object.entries(pbSafetySections).map(([key, block]) => evidenceEntries(block).length > 0 ? (
                 <div className="chem-sub-block" key={key}>
-                  <h3 className="chem-subhead">{pbSectionTitle(key)}</h3>
+                  <h3 className="chem-subhead">{pbSectionTitle(key, t)}</h3>
                   <EvidenceList entries={evidenceEntries(block)} />
                 </div>
               ) : null)}
@@ -334,7 +339,7 @@ export default async function ChemicalPage({ params }: {
               <SectionHead anchor="industry" eyebrow="INDUSTRY" title={t.chemical.page.industry} />
               {Object.entries(pbIndustrySections).map(([key, block]) => evidenceEntries(block).length > 0 ? (
                 <div className="chem-sub-block" key={key}>
-                  <h3 className="chem-subhead">{pbSectionTitle(key)}</h3>
+                  <h3 className="chem-subhead">{pbSectionTitle(key, t)}</h3>
                   <EvidenceList entries={evidenceEntries(block)} />
                 </div>
               ) : null)}
@@ -372,9 +377,9 @@ export default async function ChemicalPage({ params }: {
               )}
               {(detail?.suppliers.items.length ?? 0) > 0 && (
                 <div className="chem-sub-block" id="suppliers">
-                  <h3 className="chem-subhead">{t.chemical.casext.suppliers} <span className="chem-subhead-note">{new Intl.NumberFormat(SITE_LOCALE).format(detail?.suppliers.items.length ?? 0)} {t.chemical.casext.supplierUnit}</span></h3>
+                  <h3 className="chem-subhead">{t.chemical.casext.suppliers} <span className="chem-subhead-note">{new Intl.NumberFormat(locale).format(detail?.suppliers.items.length ?? 0)} {t.chemical.casext.supplierUnit}</span></h3>
                   <div className="casext-suppliers">
-                    {(detail?.suppliers.items ?? []).map((s) => <SupplierCard key={s.ref} supplier={s} />)}
+                    {(detail?.suppliers.items ?? []).map((s) => <SupplierCard key={s.ref} supplier={s} labels={t} />)}
                   </div>
                 </div>
               )}
@@ -390,7 +395,7 @@ export default async function ChemicalPage({ params }: {
           {/* ── 6. Reactions ── */}
           <section className="chem-section" id="reactions">
             <SectionHead anchor="reactions" eyebrow="REACTIONS" title={t.chemical.relatedReactions}
-              note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(SITE_LOCALE).format(reactionTotal)) : undefined} />
+              note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined} />
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
           </section>
 
@@ -415,7 +420,7 @@ export default async function ChemicalPage({ params }: {
           <section className="contribute-panel">
             <h2>{t.chemical.newRelated}</h2>
             <p>{t.chemical.newRelatedHint}</p>
-            <Link href={`/submit?chemical=${chemical.id}`} rel="nofollow">{t.chemical.newReaction}</Link>
+            <Link href={withLocale(`/submit?chemical=${chemical.id}`, locale)} rel="nofollow">{t.chemical.newReaction}</Link>
           </section>
         </aside>
       </div>
@@ -439,9 +444,9 @@ function Identity({ label, value, mono = false }: { label: string; value: string
   return <div><dt>{label}</dt><dd className={mono ? "mono" : ""}>{value}</dd></div>;
 }
 
-function Metric({ label, value, suffix = "" }: { label: string; value: number | null | undefined; suffix?: string }) {
+function Metric({ label, value, suffix = "", locale }: { label: string; value: number | null | undefined; suffix?: string; locale: string }) {
   if (value == null) return null;
-  return <div><dt>{label}</dt><dd>{new Intl.NumberFormat(SITE_LOCALE, { maximumFractionDigits: 4 }).format(value)}{suffix}</dd></div>;
+  return <div><dt>{label}</dt><dd>{new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(value)}{suffix}</dd></div>;
 }
 
 /** disclosure 新规: 摘要(短)直接可见, 长列表默认折叠 — 不删数据。 */
@@ -473,22 +478,22 @@ function ProseList({ prose }: { prose: { title: string; text: string }[] }) {
   );
 }
 
-function SupplierCard({ supplier }: { supplier: { ref: string; name: string; phone: string | null; email: string | null; website: string | null; purity: string | null; pack_price: string | null; remark: string | null } }) {
+function SupplierCard({ supplier, labels }: { supplier: { ref: string; name: string; phone: string | null; email: string | null; website: string | null; purity: string | null; pack_price: string | null; remark: string | null }; labels: Dictionary }) {
   const { name, phone, email, website, purity, pack_price, remark } = supplier;
   return (
     <article className="casext-supplier">
       <header><h3>{name}</h3></header>
       <dl>
-        {purity && <div><dt>{t.chemical.casext.purity}</dt><dd>{purity}</dd></div>}
-        {pack_price && <div><dt>{t.chemical.casext.packPrice}</dt><dd>{pack_price}</dd></div>}
-        {phone && <div><dt>{t.chemical.casext.phone}</dt><dd>{phone}</dd></div>}
-        {email && <div><dt>{t.chemical.casext.email}</dt><dd>{email}</dd></div>}
+        {purity && <div><dt>{labels.chemical.casext.purity}</dt><dd>{purity}</dd></div>}
+        {pack_price && <div><dt>{labels.chemical.casext.packPrice}</dt><dd>{pack_price}</dd></div>}
+        {phone && <div><dt>{labels.chemical.casext.phone}</dt><dd>{phone}</dd></div>}
+        {email && <div><dt>{labels.chemical.casext.email}</dt><dd>{email}</dd></div>}
         {website && (
-          <div><dt>{t.chemical.casext.website}</dt><dd>
+          <div><dt>{labels.chemical.casext.website}</dt><dd>
             <a href={website.startsWith("http") ? website : `https://${website}`} target="_blank" rel="nofollow noopener noreferrer">{website}</a>
           </dd></div>
         )}
-        {remark && <div><dt>{t.chemical.casext.remark}</dt><dd>{remark}</dd></div>}
+        {remark && <div><dt>{labels.chemical.casext.remark}</dt><dd>{remark}</dd></div>}
       </dl>
     </article>
   );
@@ -536,21 +541,21 @@ function scalar(value: unknown): string {
   return "";
 }
 
-function pbSectionTitle(key: string): string {
+function pbSectionTitle(key: string, labels: Dictionary): string {
   const map: Record<string, string> = {
-    "ghs_classification": t.chemical.knowledge.ghs,
-    hazards: t.chemical.knowledge.hazards,
-    safety_measures: t.chemical.knowledge.safety,
-    toxicity: t.chemical.knowledge.toxicology,
-    regulatory: t.chemical.knowledge.regulatory,
-    pharmacology: t.chemical.knowledge.pharmacology,
-    uses_and_manufacturing: t.chemical.knowledge.uses,
+    "ghs_classification": labels.chemical.knowledge.ghs,
+    hazards: labels.chemical.knowledge.hazards,
+    safety_measures: labels.chemical.knowledge.safety,
+    toxicity: labels.chemical.knowledge.toxicology,
+    regulatory: labels.chemical.knowledge.regulatory,
+    pharmacology: labels.chemical.knowledge.pharmacology,
+    uses_and_manufacturing: labels.chemical.knowledge.uses,
   };
   return map[key] ?? key;
 }
 
-function formatNumber(value: number, digits = 4) {
-  return new Intl.NumberFormat(SITE_LOCALE, { maximumFractionDigits: digits }).format(value);
+function formatNumber(value: number, locale: string, digits = 4) {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(value);
 }
 
 function identifierGroups(chemical: Chemical): [string, string[]][] {

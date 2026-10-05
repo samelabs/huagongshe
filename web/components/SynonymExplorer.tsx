@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { apiGet } from "@/lib/api";
-import t from "@/lib/i18n";
+import { useDictionary } from "@/components/shared/I18nContext";
 
 /**
  * SynonymExplorer (Design System v2, Issue #4 重组)。
@@ -17,6 +17,7 @@ export function SynonymExplorer({ chemicalId, initial, total, shown }: {
   total: number;
   shown: number;
 }) {
+  const t = useDictionary();
   const [items, setItems] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);

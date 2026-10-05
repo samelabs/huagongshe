@@ -4,15 +4,19 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiGet, reactionSvgUrl, type ReactionSummary } from "@/lib/api";
 import { EntityId } from "@/components/shared/EntityId";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 
 const roles = ["any", "reactant", "product", "reagent", "catalyst", "solvent"] as const;
-const roleNames: Record<string, string> = {
-  any: t.common.all, reactant: t.chemical.roles.reactant, product: t.chemical.roles.product, reagent: t.chemical.roles.reagent,
-  catalyst: t.chemical.roles.catalyst, solvent: t.chemical.roles.solvent,
-};
 
 export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId: number; initial: ReactionSummary[]; initialTotal: number }) {
+  const t = useDictionary();
+  const locale = useLocale();
+  // 角色标签跟随当前请求字典(原模块级常量依赖静态 zh 字典)
+  const roleNames: Record<string, string> = {
+    any: t.common.all, reactant: t.chemical.roles.reactant, product: t.chemical.roles.product, reagent: t.chemical.roles.reagent,
+    catalyst: t.chemical.roles.catalyst, solvent: t.chemical.roles.solvent,
+  };
   const [role, setRole] = useState<string>("any");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ total: number; reactions: ReactionSummary[] }>({ total: initialTotal, reactions: initial });
@@ -50,17 +54,17 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
           <article className="reaction-result" key={reaction.id}>
             <div className="reaction-result-main">
               <div className="reaction-result-head">
-                <Link href={`/reaction/${reaction.id}`}><EntityId kind="reaction" id={reaction.id} /></Link>
+                <Link href={withLocale(`/reaction/${reaction.id}`, locale)}><EntityId kind="reaction" id={reaction.id} ariaLabel={t.common.hridLabel(reaction.id)} /></Link>
               </div>
               {reaction.reaction_smiles ? (
-                <Link className="reaction-preview" href={`/reaction/${reaction.id}`}>
+                <Link className="reaction-preview" href={withLocale(`/reaction/${reaction.id}`, locale)}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={t.reaction.equationAlt(reaction.id)} loading="lazy" />
                 </Link>
               ) : <div className="reaction-preview unavailable">{t.reaction.equationUnavailable}</div>}
               <div className="reaction-result-foot">
                 <p>{[reaction.dataset_name, reaction.doi, reaction.patent].filter(Boolean).join(" · ") || t.reaction.noSource}</p>
-                <Link href={`/reaction/${reaction.id}`}>{t.common.view}</Link>
+                <Link href={withLocale(`/reaction/${reaction.id}`, locale)}>{t.common.view}</Link>
               </div>
             </div>
           </article>
