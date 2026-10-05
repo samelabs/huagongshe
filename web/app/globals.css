@@ -1073,10 +1073,9 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 }
 @media (max-width: 680px) {
   /* 移动端壳层 — 标准范式(cas.cool MODEL A 同构):
-     body 自然滚动, header sticky, tabbar fixed。
+     body 自然滚动, header 在正常文档流(不悬浮), tabbar fixed。
      无视口单位、无 fixed 壳、无 overflow:hidden(body 成滚动容器是历代
      冷启动失控的根: 恢复时刻滚动容器归属错位, 软导航一路带病)。 */
-  .site-header { position: sticky; top: 0; z-index: 30; }
   main { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
   footer { display: none; }
 
@@ -1113,7 +1112,6 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 }
 @media (min-width: 681px) {
   .mobile-tab-bar { display: none !important; }
-  .site-header { position: sticky; top: 0; }
   /* desktop: local nav 隐藏, 由 secondary rail 的 On this page 承担 */
   .chem-local-nav { display: none; }
 }

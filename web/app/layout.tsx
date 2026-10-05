@@ -4,6 +4,7 @@ import { AccountProvider } from "@/components/shared/AccountContext";
 import { I18nProvider } from "@/components/shared/I18nContext";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { SITE_ORIGIN } from "@/lib/alternates";
+import { pwaAppName } from "@/lib/pwa";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import "./globals.css";
@@ -17,11 +18,12 @@ export const viewport: Viewport = {
 export async function generateMetadata(): Promise<Metadata> {
   // root 只保留真正全站级 metadata —— alternates/openGraph/twitter 属于具体页面
   // (首页在 (site)/page.tsx 自持), 放这里会污染未覆盖 metadata 的子页面。
+  // manifest 由 app/manifest.ts(metadata file convention)接管, 此处不再声明。
+  const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   return {
     metadataBase: new URL(SITE_ORIGIN),
-    manifest: "/manifest.webmanifest",
-    appleWebApp: { capable: true, title: t.brand.name, statusBarStyle: "default" },
+    appleWebApp: { capable: true, title: pwaAppName(locale), statusBarStyle: "default" },
     title: { default: t.brand.seoTitle, template: `%s｜${t.brand.name}` },
     description: t.brand.seoDesc,
     keywords: [...t.brand.keywords, "AI Chemistry Workspace", "Chemical Knowledge Base", "Reaction Library"],

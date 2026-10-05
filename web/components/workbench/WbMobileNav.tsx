@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { WorkbenchNav } from "./WorkbenchNav";
 import { AccountMenu } from "@/components/shared/AccountMenu";
+import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import type { Counts } from "./types";
 import type { User } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
@@ -87,6 +88,10 @@ export function WbMobileNav({ counts, user }: {
         </div>
 
         <div className="wb-drawer-body">
+          <div className="wb-drawer-language">
+            <LanguageSwitcher />
+          </div>
+
           <WorkbenchNav counts={counts} variant="drawer" />
         </div>
       </aside>

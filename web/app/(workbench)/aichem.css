@@ -1230,9 +1230,19 @@
     /* 底栏 fixed 高度恒定，内容让位同高度 */
     padding-bottom: var(--wb-tabbar-h);
   }
-  /* 手机语言入口只在 MobileTabBar 第四格, topbar 不重复显示 */
+  /* 手机 topbar 不重复显示语言入口; 语言入口位于移动抽屉(wb-drawer-language) */
   .wb-topbar-language {
     display: none;
+  }
+
+  /* 抽屉内语言入口: 导航列表上方的普通设置入口, 复用通用 lang-switcher 视觉 */
+  .wb-drawer-language {
+    padding: 4px 0 12px;
+    border-bottom: 1px solid var(--wb-line, rgba(15, 23, 42, 0.08));
+    margin-bottom: 12px;
+  }
+  .wb-drawer-language .lang-switcher-menu {
+    max-width: calc(100vw - 48px);
   }
   /* PWA 独立窗口：inset 恒定，让位含安全区 */
   @media (display-mode: standalone) {
