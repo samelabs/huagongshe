@@ -26,6 +26,9 @@ const LOCALE_COOKIE = "site_locale";
 /** 传递给内部请求的 locale header(全站只此一个) */
 const LOCALE_HEADER = "x-site-locale";
 
+/** rewrite 时附带原始(带 locale 前缀的)请求路径, 供 server 端构建 locale-aware 回跳(next)参数 */
+const LOCALE_PATH_HEADER = "x-site-locale-path";
+
 /** cookie 属性: 1 年, Lax */
 const LOCALE_COOKIE_OPTIONS = { path: "/", maxAge: 31536000, sameSite: "lax" as const };
 
@@ -117,6 +120,7 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
     rewriteUrl.pathname = prefixed.rest;
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set(LOCALE_HEADER, prefixed.locale);
+    requestHeaders.set(LOCALE_PATH_HEADER, pathname + request.nextUrl.search);
     const response = NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } });
     response.cookies.set(LOCALE_COOKIE, prefixed.locale, LOCALE_COOKIE_OPTIONS);
     return response;

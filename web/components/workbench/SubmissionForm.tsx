@@ -6,7 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { EntityId } from "@/components/shared/EntityId";
 import { apiGet, apiPost, apiPut, ApiError, type ReactionDetail } from "@/lib/api";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
+import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 type Role = "REACTANT" | "PRODUCT" | "REAGENT" | "CATALYST" | "SOLVENT";
 type SourceType = "self" | "doi" | "patent" | "database" | "url" | "other";
@@ -16,9 +18,6 @@ type Participant = {
   concentration_value: string; concentration_unit: string; yield_percent: string;
 };
 
-const roleLabel: Record<Role, string> = {
-  REACTANT: t.submit.roles.reactant, PRODUCT: t.submit.roles.product, REAGENT: t.submit.roles.reagent, CATALYST: t.submit.roles.catalyst, SOLVENT: t.submit.roles.solvent,
-};
 let sequence = 1;
 const blank = (role: Role, smiles = ""): Participant => ({
   key: sequence++, role, smiles, occurrence_count: "1", amount_value: "", amount_unit: "",
@@ -28,6 +27,12 @@ const blank = (role: Role, smiles = ""): Participant => ({
 export function SubmissionForm() {
   const search = useSearchParams();
   const router = useRouter();
+  const t = useDictionary();
+  const locale = useLocale();
+  // 角色标签跟随当前请求字典(原模块级常量依赖静态 zh 字典)
+  const roleLabel: Record<Role, string> = {
+    REACTANT: t.submit.roles.reactant, PRODUCT: t.submit.roles.product, REAGENT: t.submit.roles.reagent, CATALYST: t.submit.roles.catalyst, SOLVENT: t.submit.roles.solvent,
+  };
   const { user, ready } = useAccount();
   const reactionId = numberParam(search.get("reaction"));
   const chemicalId = numberParam(search.get("chemical"));
@@ -117,7 +122,7 @@ export function SubmissionForm() {
       patent: optional(values, "patent"), source_url: optional(values, "source_url"),
       source_citation: optional(values, "source_citation"), note: optional(values, "note"),
     };
-    const validationError = validateDraft(normalized, values, sourceType);
+    const validationError = validateDraft(normalized, values, sourceType, t);
     if (validationError) { setMessage(validationError); return; }
 
     submitting.current = true;
@@ -135,7 +140,7 @@ export function SubmissionForm() {
       const body = reactionId
         ? await apiPut<{ id: number }>(`/reactions/${reactionId}`, serializedPayload, headers)
         : await apiPost<{ id: number }>("/reactions", serializedPayload, headers);
-      router.push(`/reaction/${body.id}`);
+      router.push(withLocale(`/reaction/${body.id}`, locale));
       router.refresh();
     } catch (err) {
       setMessage(err instanceof ApiError ? t.submit.errSave : t.submit.errNetwork);
@@ -148,7 +153,7 @@ export function SubmissionForm() {
   const queryString = search.toString();
   const nextPath = `/submit${queryString ? `?${queryString}` : ""}`;
   if (!ready) return <p className="context-loading">{t.common.loadingAccount}</p>;
-  if (!user) return <div className="auth-required"><div><strong>{t.submit.loginRequired}</strong><span>{t.submit.loginHint}</span></div><Link href={`/login?next=${encodeURIComponent(nextPath)}`}>{t.common.loginOrRegister}</Link></div>;
+  if (!user) return <div className="auth-required"><div><strong>{t.submit.loginRequired}</strong><span>{t.submit.loginHint}</span></div><Link href={withLocale(`/login?next=${encodeURIComponent(nextPath)}`, locale)}>{t.common.loginOrRegister}</Link></div>;
   if (reactionId && editState === "loading") return <p className="context-loading">{t.submit.readingRecord}</p>;
   if (reactionId && editState === "error") return <p className="form-message bad">{message}</p>;
 
@@ -221,12 +226,12 @@ function textOrNull(value: string) { const result = value.trim(); return result 
 function numberOrNull(value: string) { return value.trim() === "" ? null : Number(value); }
 function optional(values: FormData, key: string) { return textOrNull(String(values.get(key) || "")); }
 function optionalNumber(values: FormData, key: string) { const value = optional(values, key); return value == null ? null : Number(value); }
-function validateDraft(participants: Array<{ role: Role; amount_value: number | null; amount_unit: string | null; concentration_value: number | null; concentration_unit: string | null }>, values: FormData, sourceType: SourceType) {
-  if (!participants.some((item) => item.role === "REACTANT") || !participants.some((item) => item.role === "PRODUCT")) return t.submit.errReactantProduct;
-  if (participants.some((item) => (item.amount_value == null) !== (item.amount_unit == null))) return t.submit.errAmountUnit;
-  if (participants.some((item) => (item.concentration_value == null) !== (item.concentration_unit == null))) return t.submit.errConcUnit;
+function validateDraft(participants: Array<{ role: Role; amount_value: number | null; amount_unit: string | null; concentration_value: number | null; concentration_unit: string | null }>, values: FormData, sourceType: SourceType, labels: Dictionary) {
+  if (!participants.some((item) => item.role === "REACTANT") || !participants.some((item) => item.role === "PRODUCT")) return labels.submit.errReactantProduct;
+  if (participants.some((item) => (item.amount_value == null) !== (item.amount_unit == null))) return labels.submit.errAmountUnit;
+  if (participants.some((item) => (item.concentration_value == null) !== (item.concentration_unit == null))) return labels.submit.errConcUnit;
   const requiredSource: Partial<Record<SourceType, string>> = { doi: "doi", patent: "patent", database: "source_citation", url: "source_url", other: "source_citation" };
   const sourceField = requiredSource[sourceType];
-  if (sourceField && !optional(values, sourceField)) return t.submit.errSourceMissing;
+  if (sourceField && !optional(values, sourceField)) return labels.submit.errSourceMissing;
   return "";
 }
