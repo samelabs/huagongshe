@@ -41,7 +41,9 @@ module.exports = {
       name: "huagongshe",
       cwd: "/var/www/huagongshe/web",
       script: "/usr/bin/npx",
-      args: "next start -H 127.0.0.1 -p 3001",
+      // Next 16 locale proxy/rewrite 在 -H 127.0.0.1 绑定下生产复现 redirect loop(五语言首页 500);
+      // 改用 Next 默认 hostname 后生产五语言路由正常。nginx upstream 仍为 127.0.0.1:3001。
+      args: "next start -p 3001",
       interpreter: "none",
       env: {
         NODE_ENV: "production",
