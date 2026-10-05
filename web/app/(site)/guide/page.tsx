@@ -4,12 +4,15 @@ import { AiSubmissionPrompt } from "@/components/AiSubmissionPrompt";
 import { ShareButton } from "@/components/ShareButton";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
+import { localeAlternates } from "@/lib/alternates";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   return {
     title: t.guide.title,
     description: t.guide.desc,
+    alternates: localeAlternates("/guide", locale),
   };
 }
 

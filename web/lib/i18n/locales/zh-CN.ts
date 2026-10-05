@@ -66,7 +66,6 @@ const t = {
     workbench: '工作台',
     publicProfile: '公开主页',
     accountSettings: '账户设置',
-    admin: '平台管理',
     tabHome: '首页',
     tabWorkbench: '工作台',
     tabMe: '我的',
@@ -147,7 +146,6 @@ const t = {
       nameEn: '英文名',
       molecularWeight: '分子量',
     },
-    external: '外部标识',
     names: {
       preferred: '首选名称',
     },
@@ -251,7 +249,6 @@ const t = {
     summaryMore: (n: number) => `等 ${n} 个`,
     publicReaction: '公开反应',
     privateReaction: '私有反应',
-    updated: (date: string) => `更新于 ${date}`,
     smiles: '反应SMILES',
     errProcedure: '未记录说明',
     conditionFields: {
@@ -317,8 +314,6 @@ const t = {
     skillUploadWarnings: (n: number) => `（${n} 条警告）`,
     skillUploadFailed: '上传失败',
     skillDeleted: (slug: string) => `${slug} 已删除`,
-    skillDeleteConfirm: (title: string, slug: string) => `删除「${title}」（${slug}）？`,
-    skillDeleteIrreversible: '删除不可恢复。',
     skillDeleteFailed: '删除失败',
     skillsUploading: '上传中…',
     skillsPickZip: '选择 zip 技能包',

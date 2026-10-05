@@ -15,6 +15,7 @@ import { apiGet, isApiNotFound, type Chemical, type ReactionSummary, type Semant
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
+import { localeAlternates } from "@/lib/alternates";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /**
@@ -45,9 +46,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: pageTitle,
     description,
-    alternates: { canonical },
+    alternates: localeAlternates(canonical, locale),
     openGraph: {
-      url: canonical,
+      url: withLocale(canonical, locale),
       title: `${pageTitle}｜${t.brand.name}`,
       description,
       images: [{ url: `/api/mol/${id}/png`, width: 500, height: 375, alt: t.chemical.structureAlt(displayName) }],

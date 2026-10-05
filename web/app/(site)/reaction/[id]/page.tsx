@@ -10,6 +10,7 @@ import { apiGet, isApiNotFound, reactionSvgUrl, type Chemical, type ReactionDeta
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
+import { localeAlternates } from "@/lib/alternates";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import type { Locale } from "@/lib/i18n/locales";
 
@@ -24,12 +25,13 @@ function roleNames(t: Dictionary): Record<string, string> {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const canonical = `/reaction/${id}`;
+  const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   return {
     title: `HRID ${id}`,
     description: t.reaction.desc,
-    alternates: { canonical },
-    openGraph: { url: canonical, title: `HRID ${id}｜${t.brand.name}`, description: t.reaction.desc },
+    alternates: localeAlternates(canonical, locale),
+    openGraph: { url: withLocale(canonical, locale), title: `HRID ${id}｜${t.brand.name}`, description: t.reaction.desc },
   };
 }
 

@@ -60,7 +60,6 @@ const ja: Dictionary = {
     workbench: 'ワークベンチ',
     publicProfile: '公開プロフィール',
     accountSettings: 'アカウント設定',
-    admin: '管理コンソール',
     tabHome: 'ホーム',
     tabWorkbench: 'ワークベンチ',
     tabMe: 'マイページ',
@@ -141,7 +140,6 @@ const ja: Dictionary = {
       nameEn: '英語名',
       molecularWeight: '分子量',
     },
-    external: '外部識別子',
     names: {
       preferred: '優先名称',
     },
@@ -245,7 +243,6 @@ const ja: Dictionary = {
     summaryMore: (n: number) => `ほか ${n} 個`,
     publicReaction: '公開反応',
     privateReaction: '非公開反応',
-    updated: (date: string) => `更新: ${date}`,
     smiles: '反応SMILES',
     errProcedure: '手順は記録されていません',
     conditionFields: {
@@ -311,8 +308,6 @@ const ja: Dictionary = {
     skillUploadWarnings: (n: number) => `（警告 ${n} 件）`,
     skillUploadFailed: 'アップロードに失敗しました',
     skillDeleted: (slug: string) => `${slug} を削除しました`,
-    skillDeleteConfirm: (title: string, slug: string) => `「${title}」（${slug}）を削除しますか？`,
-    skillDeleteIrreversible: 'この操作は取り消せません。',
     skillDeleteFailed: '削除に失敗しました',
     skillsUploading: 'アップロード中…',
     skillsPickZip: 'zip スキルパッケージを選択',

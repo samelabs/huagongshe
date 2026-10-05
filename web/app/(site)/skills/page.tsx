@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { apiGet } from "@/lib/api";
-import { getRequestDictionary } from "@/lib/serverI18n";
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { localeAlternates } from "@/lib/alternates";
+import { withLocale } from "@/lib/localePath";
 import { KdenseSkillsClient } from "./KdenseSkillsClient";
 
 type Skill = {
@@ -22,20 +24,21 @@ async function skillsCount(): Promise<number | null> {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   const n = await skillsCount();
   const count = t.skills.countUnit(n);
   return {
   title: t.skills.openLibrary,
   description: t.skills.metaDesc(count),
-  alternates: { canonical: "https://huagongshe.com/skills" },
+  alternates: localeAlternates("/skills", locale),
   robots: { index: true, follow: true },
   openGraph: {
     title: t.skills.metaOgTitle(t.brand.name),
     description: t.skills.metaOgDesc(count),
-    url: "/skills",
+    url: withLocale("/skills", locale),
     siteName: t.brand.name,
-    locale: "zh_CN",
+    locale: locale === "zh-CN" ? "zh_CN" : locale,
     type: "website",
   },
   };

@@ -1,6 +1,20 @@
 import Link from "next/link";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import type { Metadata } from "next";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { localeAlternates } from "@/lib/alternates";
+
+export async function generateMetadata(): Promise<Metadata> {
+  // 首页 SEO 文案随 locale; canonical/hreflang 覆盖 root 默认值
+  const locale = await getRequestLocale();
+  const t = await getRequestDictionary();
+  return {
+    // seoTitle 自带品牌名(如 "化工社｜你的AI化学工作台"), 用 absolute 避免再叠 root template 的 ｜品牌 后缀
+    title: { absolute: t.brand.seoTitle },
+    description: t.brand.seoDesc,
+    alternates: localeAlternates("/", locale),
+  };
+}
 import { withLocale } from "@/lib/localePath";
 
 export default async function Home() {

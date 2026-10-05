@@ -62,7 +62,6 @@ const ko: Dictionary = {
     workbench: '워크벤치',
     publicProfile: '공개 프로필',
     accountSettings: '계정 설정',
-    admin: '관리 콘솔',
     tabHome: '홈',
     tabWorkbench: '워크벤치',
     tabMe: '마이페이지',
@@ -143,7 +142,6 @@ const ko: Dictionary = {
       nameEn: '영어명',
       molecularWeight: '분자량',
     },
-    external: '외부 식별자',
     names: {
       preferred: '우선 이름',
     },
@@ -247,7 +245,6 @@ const ko: Dictionary = {
     summaryMore: (n: number) => `외 ${n}개`,
     publicReaction: '공개 반응',
     privateReaction: '비공개 반응',
-    updated: (date: string) => `수정됨: ${date}`,
     smiles: '반응 SMILES',
     errProcedure: '기록된 절차가 없습니다',
     conditionFields: {
@@ -313,8 +310,6 @@ const ko: Dictionary = {
     skillUploadWarnings: (n: number) => ` (경고 ${n}건)`,
     skillUploadFailed: '업로드 실패',
     skillDeleted: (slug: string) => `${slug} 삭제됨`,
-    skillDeleteConfirm: (title: string, slug: string) => `"${title}"(${slug})을(를) 삭제할까요?`,
-    skillDeleteIrreversible: '되돌릴 수 없습니다.',
     skillDeleteFailed: '삭제 실패',
     skillsUploading: '업로드 중…',
     skillsPickZip: 'zip 스킬 패키지 선택',

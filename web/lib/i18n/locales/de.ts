@@ -63,7 +63,6 @@ const de: Dictionary = {
     workbench: 'Workbench',
     publicProfile: 'Öffentliches Profil',
     accountSettings: 'Kontoeinstellungen',
-    admin: 'Admin-Konsole',
     tabHome: 'Start',
     tabWorkbench: 'Workbench',
     tabMe: 'Mein Bereich',
@@ -144,7 +143,6 @@ const de: Dictionary = {
       nameEn: 'Englischer Name',
       molecularWeight: 'Molmasse',
     },
-    external: 'Externe Bezeichner',
     names: {
       preferred: 'Bevorzugter Name',
     },
@@ -248,7 +246,6 @@ const de: Dictionary = {
     summaryMore: (n: number) => `+${n} weitere`,
     publicReaction: 'Öffentliche Reaktion',
     privateReaction: 'Private Reaktion',
-    updated: (date: string) => `Aktualisiert: ${date}`,
     smiles: 'Reaktions-SMILES',
     errProcedure: 'Keine Vorschrift aufgezeichnet',
     conditionFields: {
@@ -314,8 +311,6 @@ const de: Dictionary = {
     skillUploadWarnings: (n: number) => ` (${n} Warnung${n === 1 ? "" : "en"})`,
     skillUploadFailed: 'Hochladen fehlgeschlagen',
     skillDeleted: (slug: string) => `${slug} gelöscht`,
-    skillDeleteConfirm: (title: string, slug: string) => `„${title}“ (${slug}) löschen?`,
-    skillDeleteIrreversible: 'Diese Aktion kann nicht rückgängig gemacht werden.',
     skillDeleteFailed: 'Löschen fehlgeschlagen',
     skillsUploading: 'Wird hochgeladen…',
     skillsPickZip: 'ZIP-Skill-Paket auswählen',

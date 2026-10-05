@@ -392,7 +392,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 /* prompt box (guide) */
 .prompt-box { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: var(--wash); }
 .prompt-box pre { max-height: 200px; margin: 0 0 12px; overflow: auto; color: var(--ink); font-family: var(--font-mono); font-size: var(--text-sm); line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
-.prompt-box .button { width: fit-content; }
+.prompt-box .button { width: fit-content; flex-shrink: 0; }
 
 .chemical-identity { min-height: 340px; border-bottom: 1px solid var(--line); padding: 10px 0 40px; display: grid; grid-template-columns: 390px 1fr; gap: 50px; align-items: center; }
 /* grid item 必须可收缩: 否则 molecule 的固有宽(360px)会撑大整列 →
@@ -583,6 +583,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .status.disabled, .status.hidden { color: var(--danger); background: var(--danger-bg); }
 
 .follow-button { min-height: 36px; border: 1px solid var(--blue); border-radius: 999px; padding: 0; display: inline-flex; overflow: hidden; color: var(--blue); background: var(--blue-tint); cursor: pointer; transition: background .15s, color .15s; width: fit-content; }
+.follow-button span { padding: 0 16px; display: flex; align-items: center; font-size: var(--text-sm); font-weight: 600; }
 .follow-button strong { min-width: 42px; border-left: 1px solid var(--blue-border); padding: 0 10px; display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--blue-pale); font-size: var(--text-sm); }
 .follow-button.following { color: white; background: var(--blue); border-color: var(--blue); }
 .owner-actions { display: flex; gap: 8px; }

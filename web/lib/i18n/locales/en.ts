@@ -59,7 +59,6 @@ const en: Dictionary = {
     workbench: 'Workbench',
     publicProfile: 'Public profile',
     accountSettings: 'Account settings',
-    admin: 'Admin console',
     tabHome: 'Home',
     tabWorkbench: 'Workbench',
     tabMe: 'Me',
@@ -140,7 +139,6 @@ const en: Dictionary = {
       nameEn: 'English name',
       molecularWeight: 'Molecular weight',
     },
-    external: 'External identifiers',
     names: {
       preferred: 'Preferred name',
     },
@@ -244,7 +242,6 @@ const en: Dictionary = {
     summaryMore: (n: number) => `${n} more`,
     publicReaction: 'Public reaction',
     privateReaction: 'Private reaction',
-    updated: (date: string) => `Updated ${date}`,
     smiles: 'Reaction SMILES',
     errProcedure: 'No procedure recorded',
     conditionFields: {
@@ -310,8 +307,6 @@ const en: Dictionary = {
     skillUploadWarnings: (n: number) => ` (${n} warning${n === 1 ? "" : "s"})`,
     skillUploadFailed: 'Upload failed',
     skillDeleted: (slug: string) => `${slug} deleted`,
-    skillDeleteConfirm: (title: string, slug: string) => `Delete "${title}" (${slug})?`,
-    skillDeleteIrreversible: 'This cannot be undone.',
     skillDeleteFailed: 'Delete failed',
     skillsUploading: 'Uploading…',
     skillsPickZip: 'Choose a zip skill package',
