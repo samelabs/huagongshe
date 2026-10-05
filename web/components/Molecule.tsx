@@ -1,27 +1,30 @@
-import { molSvgUrl } from "@/lib/api";
-import t from "@/lib/i18n";
+"use client";
 
 /**
  * Molecule — 化合物结构图（RDKit SVG 端点渲染）。
  *
- * alt / noStructure 默认保持静态 zh（chemical/reaction 详情页等调用方零行为变化）;
- * 已迁移 runtime locale 的调用方（Search 结果卡）通过 alt / noStructureText
- * 传入当前请求语言文案。Search 链全部迁移后, 默认值再统一切换来源。
+ * locale 来源: I18nContext(runtime locale); alt / noStructureText 仍可显式覆盖。
+ * 公开调用方(Search/Chemical/Reaction)均已传 alt, 默认值仅兜底无 Provider 场景
+ * (不存在于当前 app —— root layout 恒包 I18nProvider)。
  */
+import { molSvgUrl } from "@/lib/api";
+import { useDictionary } from "@/components/shared/I18nContext";
+
 export function Molecule({ chemicalId, smiles, label, width = 260, height = 180, alt, noStructureText }: {
   chemicalId: number;
   smiles?: string | null;
   label?: string | null;
   width?: number;
   height?: number;
-  /** 覆盖默认 alt（`${name} 分子结构式`）；未传保持中文默认 */
+  /** 覆盖默认 alt；未传用当前字典 structureAlt */
   alt?: string;
-  /** 覆盖默认「无结构」占位文案；未传保持中文默认 */
+  /** 覆盖「无结构」占位文案；未传用当前字典 noStructure */
   noStructureText?: string;
 }) {
+  const t = useDictionary();
   if (!chemicalId) return <span className="result-sub">{noStructureText ?? t.reaction.noStructure}</span>;
   const name = label || `HCID ${chemicalId}`;
   // SVG is rendered by our validated RDKit endpoint; no remote image host is involved.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={molSvgUrl(chemicalId, width, height)} width={width} height={height} alt={alt ?? `${name} 分子结构式`} loading="lazy" />;
+  return <img src={molSvgUrl(chemicalId, width, height)} width={width} height={height} alt={alt ?? t.chemical.structureAlt(name)} loading="lazy" />;
 }

@@ -133,3 +133,32 @@
     width: min(240px, calc(100vw - 28px));
   }
 }
+
+/* ═══ LanguageSwitcher ═══ */
+.lang-switcher { position: relative; }
+.lang-switcher summary {
+  display: inline-flex; align-items: center; gap: 4px;
+  cursor: pointer; list-style: none; padding: 6px 10px;
+  font-size: var(--fs-sm, 13px); color: var(--quiet, #64748b);
+  border-radius: 8px;
+}
+.lang-switcher summary::-webkit-details-marker { display: none; }
+.lang-switcher summary:hover { color: var(--blue, #1e90ff); }
+.lang-switcher-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 60;
+  display: flex; flex-direction: column; min-width: 120px;
+  background: var(--bg-card, #fff); border: 1px solid var(--line, #e2e8f0);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+  padding: 4px;
+}
+.lang-switcher-menu a {
+  padding: 8px 12px; border-radius: 6px; font-size: var(--fs-sm, 13px);
+  color: var(--ink, #0f172a); text-decoration: none; white-space: nowrap;
+}
+.lang-switcher-menu a:hover { background: var(--bg-hover, #f1f5f9); }
+.lang-switcher-menu a.current { color: var(--blue, #1e90ff); font-weight: 600; }
+
+/* 底栏形态: 与 tab-item 同排, 展开向上 */
+.mobile-tab-bar .lang-switcher { display: flex; align-items: center; justify-content: center; }
+.mobile-tab-bar .lang-switcher summary { flex-direction: column; gap: 2px; padding: 4px; font-size: 10px; }
+.mobile-tab-bar .lang-switcher-menu { right: 50%; transform: translateX(50%); top: auto; bottom: calc(100% + 6px); }

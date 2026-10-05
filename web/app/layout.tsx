@@ -61,13 +61,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const cookieHeader = h.get("cookie");
   const initialUser = await getSSRUser(cookieHeader);
   // 运行时 locale 链路: proxy(x-site-locale) → getRequestLocale → I18nProvider。
-  // 首页与公共导航已按 locale 输出, 但 Search/Chemical/Reaction/Skills/Login
-  // 正文仍为中文 —— lang 暂保持 zh-CN, 等主要公开页面迁完后统一切动态,
-  // 避免"声明 ja 但正文中文"的不一致。
+  // 全站公开页面已按 locale 输出, lang 与 runtime locale 保持一致。
+  // hydration: root layout 为 server render, lang 由请求 header(SSOT)决定,
+  // client 无二次推断, 不产生 hydration mismatch。
   const locale = await getRequestLocale();
 
   return (
-    <html lang="zh-CN">
+    <html lang={locale}>
       <head>
         <link rel="llms-txt" href="/llms.txt" />
         {analytics?.enabled && analytics.id && analytics.provider === "51la" && (

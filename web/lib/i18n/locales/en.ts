@@ -307,6 +307,7 @@ const en: Dictionary = {
     skillsHint: 'Upload, download, and manage your AI skill packages (zip with SKILL.md at the root)',
     skillsUpload: 'Upload skill',
     skillUploaded: (slug: string) => `${slug} uploaded`,
+    skillUploadWarnings: (n: number) => ` (${n} warning${n === 1 ? "" : "s"})`,
     skillUploadFailed: 'Upload failed',
     skillDeleted: (slug: string) => `${slug} deleted`,
     skillDeleteConfirm: (title: string, slug: string) => `Delete "${title}" (${slug})?`,

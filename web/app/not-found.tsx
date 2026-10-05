@@ -1,3 +1,9 @@
 import Link from "next/link";
-import t from "@/lib/i18n";
-export default function NotFound() { return <div className="app-container"><div className="empty-state"><p>{t.error.notFoundTitle}</p><Link className="text-link" href="/">{t.error.notFoundAction}</Link></div></div>; }
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { withLocale } from "@/lib/localePath";
+
+export default async function NotFound() {
+  const t = await getRequestDictionary();
+  const locale = await getRequestLocale();
+  return <div className="app-container"><div className="empty-state"><p>{t.error.notFoundTitle}</p><Link className="text-link" href={withLocale("/", locale)}>{t.error.notFoundAction}</Link></div></div>;
+}

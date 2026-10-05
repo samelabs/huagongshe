@@ -311,6 +311,7 @@ const de: Dictionary = {
     skillsHint: 'KI-Skill-Pakete (ZIP mit SKILL.md im Stammverzeichnis) hochladen, herunterladen und verwalten',
     skillsUpload: 'Skill hochladen',
     skillUploaded: (slug: string) => `${slug} hochgeladen`,
+    skillUploadWarnings: (n: number) => ` (${n} Warnung${n === 1 ? "" : "en"})`,
     skillUploadFailed: 'Hochladen fehlgeschlagen',
     skillDeleted: (slug: string) => `${slug} gelöscht`,
     skillDeleteConfirm: (title: string, slug: string) => `„${title}“ (${slug}) löschen?`,

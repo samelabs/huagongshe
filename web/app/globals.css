@@ -582,8 +582,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .status.active, .status.visible { color: var(--success); background: var(--success-bg); }
 .status.disabled, .status.hidden { color: var(--danger); background: var(--danger-bg); }
 
-.follow-button { min-height: 36px; border: 1px solid var(--blue); border-radius: 999px; padding: 0; display: inline-flex; overflow: hidden; color: var(--blue); background: var(--blue-tint); cursor: pointer; transition: background .15s, color .15s; }
-.follow-button span { padding: 0 16px; display: flex; align-items: center; font-size: var(--text-sm); font-weight: 600; }
+.follow-button { min-height: 36px; border: 1px solid var(--blue); border-radius: 999px; padding: 0; display: inline-flex; overflow: hidden; color: var(--blue); background: var(--blue-tint); cursor: pointer; transition: background .15s, color .15s; width: fit-content; }
 .follow-button strong { min-width: 42px; border-left: 1px solid var(--blue-border); padding: 0 10px; display: flex; align-items: center; justify-content: center; color: var(--muted); background: var(--blue-pale); font-size: var(--text-sm); }
 .follow-button.following { color: white; background: var(--blue); border-color: var(--blue); }
 .owner-actions { display: flex; gap: 8px; }

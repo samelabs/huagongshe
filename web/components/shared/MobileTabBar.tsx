@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { withLocale } from "@/lib/localePath";
 
 export function MobileTabBar() {
@@ -29,6 +30,7 @@ export function MobileTabBar() {
           </Link>
         );
       })}
+      <LanguageSwitcher />
     </nav>
   );
 }

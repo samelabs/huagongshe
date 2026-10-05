@@ -58,7 +58,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
     form.append("file", file);
     try {
       const created = await apiPost<SkillItem & { warnings?: string[] }>("/skills", form);
-      const warn = created.warnings?.length ? `（${created.warnings.length} 条警告）` : "";
+      const warn = created.warnings?.length ? t.me.skillUploadWarnings(created.warnings.length) : "";
       setUploadNotice(t.me.skillUploaded(created.slug) + warn);
       const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=1&page_size=20`);
       setSkills(value);

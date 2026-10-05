@@ -310,6 +310,7 @@ const ko: Dictionary = {
     skillsHint: 'AI 스킬 패키지(루트에 SKILL.md 포함 zip) 업로드·다운로드·관리',
     skillsUpload: '스킬 업로드',
     skillUploaded: (slug: string) => `${slug} 업로드됨`,
+    skillUploadWarnings: (n: number) => ` (경고 ${n}건)`,
     skillUploadFailed: '업로드 실패',
     skillDeleted: (slug: string) => `${slug} 삭제됨`,
     skillDeleteConfirm: (title: string, slug: string) => `"${title}"(${slug})을(를) 삭제할까요?`,

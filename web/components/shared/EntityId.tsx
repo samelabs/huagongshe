@@ -1,4 +1,4 @@
-import t from "@/lib/i18n";
+"use client";
 
 /**
  * EntityId — HCID/HRID 平台实体身份的唯一实现（Design System v2）。
@@ -11,16 +11,18 @@ import t from "@/lib/i18n";
  * - compact：搜索结果 / 反应成分卡 / 列表卡 —— 同语义同几何，仅收小 padding/字号
  * - chemical 与 reaction 只差 accent（蓝 / 灰蓝），几何完全同构
  *
- * ariaLabel 默认保持静态 zh；已迁移 runtime locale 的调用方（Search 结果卡）
- * 传入当前请求语言文案。Search 链全部迁移后, 默认值再统一切换来源。
+ * locale 来源: I18nContext(runtime); ariaLabel 显式覆盖优先。
  */
+import { useDictionary } from "@/components/shared/I18nContext";
+
 export function EntityId({ kind, id, compact = false, ariaLabel }: {
   kind: "chemical" | "reaction";
   id: number | string;
   compact?: boolean;
-  /** 覆盖默认 aria-label（中文 hcidLabel/hridLabel）；未传保持中文默认 */
+  /** 覆盖默认 aria-label；未传用当前字典 hcidLabel/hridLabel */
   ariaLabel?: string;
 }) {
+  const t = useDictionary();
   const prefix = kind === "chemical" ? "HCID" : "HRID";
   const label = ariaLabel
     ?? (kind === "chemical"

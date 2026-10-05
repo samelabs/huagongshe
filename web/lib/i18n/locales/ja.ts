@@ -308,6 +308,7 @@ const ja: Dictionary = {
     skillsHint: 'AI スキルパッケージ（ルートに SKILL.md を含む zip）のアップロード・ダウンロード・管理',
     skillsUpload: 'スキルをアップロード',
     skillUploaded: (slug: string) => `${slug} をアップロードしました`,
+    skillUploadWarnings: (n: number) => `（警告 ${n} 件）`,
     skillUploadFailed: 'アップロードに失敗しました',
     skillDeleted: (slug: string) => `${slug} を削除しました`,
     skillDeleteConfirm: (title: string, slug: string) => `「${title}」（${slug}）を削除しますか？`,

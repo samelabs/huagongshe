@@ -314,6 +314,7 @@ const t = {
     skillsHint: '上传、下载和管理你的 AI 技能包（zip，根目录含 SKILL.md）',
     skillsUpload: '上传技能包',
     skillUploaded: (slug: string) => `${slug} 已上传`,
+    skillUploadWarnings: (n: number) => `（${n} 条警告）`,
     skillUploadFailed: '上传失败',
     skillDeleted: (slug: string) => `${slug} 已删除`,
     skillDeleteConfirm: (title: string, slug: string) => `删除「${title}」（${slug}）？`,
