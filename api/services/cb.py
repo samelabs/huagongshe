@@ -873,7 +873,7 @@ async def ensure_externals(
         # 降级直查DB是设计; 但Redis故障必须留痕, 防静默打穿连接池无人知
         logger.warning("externals cache read unavailable, fallback to db", exc_info=True)
 
-    row = await get_externals_row(db, chemical_id)
+    row = await get_externals_row(db, chemical_id, locale="zh-CN")
     if row is None:
         return {"state": "absent", "entry": None, "suppliers": [], "job_id": None}
     # 四态判定驱动(0902 剥离): ok 刷新窗。

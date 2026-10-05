@@ -144,7 +144,7 @@ class CappedUiWordingTests(unittest.TestCase):
     """capped 展示语义: UI 不得把 250 写成数据库真实总数。"""
 
     def test_capped_wording_present_and_factual(self):
-        i18n = _read(os.path.join("web", "lib", "i18n.ts"))
+        i18n = _read(os.path.join("web", "lib", "i18n", "locales", "zh-CN.ts"))
         self.assertIn("结果集已触及结构搜索返回上限", i18n, "必须有 capped 事实语义文案")
         # capped 文案不得把任何数字包装成产品上限(不得依赖 total/页长度冒充)
         capped_line = next(
@@ -173,7 +173,7 @@ class CappedUiWordingTests(unittest.TestCase):
         "上限 30 条"(页长度冒充产品上限)。直接以 i18n 模板渲染验证。"""
         import re as _re
 
-        i18n = _read(os.path.join("web", "lib", "i18n.ts"))
+        i18n = _read(os.path.join("web", "lib", "i18n", "locales", "zh-CN.ts"))
         match = _re.search(
             r"showingCappedRange:\s*\(start: number, end: number\)\s*=>\s*`([^`]*)`", i18n
         )

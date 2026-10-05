@@ -24,6 +24,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import unittest
 
 os.environ.setdefault("HGS_DATABASE_URL", os.environ.get("TEST_DATABASE_URL", ""))
@@ -80,16 +81,30 @@ console.log(JSON.stringify(out));
 
 
 def _run_resolver() -> dict:
-    node = shutil.which("node")
-    if not node:
+    """执行 resolver 真身(TS 模块)。
+
+    harness 说明: chemicalName.ts 合法使用 bundler 风格相对 import(`./locale`),
+    node --experimental-strip-types 不解析无扩展名相对导入; 改用 web 仓库自带
+    tsx 执行同一真身模块 —— 只调整测试执行方式, 生产源码/tsconfig/locale 架构
+    零改动, 仍执行真实 resolveChemicalName(非复制逻辑/非字符串扫描)。
+    """
+    if not shutil.which("node"):
         raise unittest.SkipTest("node 不可用: 跳过 resolver 真身执行")
     if not os.path.exists(RESOLVER_TS):
         raise unittest.SkipTest(f"resolver 缺失: {RESOLVER_TS}")
+    tsx = os.path.join(WEB, "node_modules", ".bin", "tsx")
+    if not os.path.exists(tsx):
+        raise unittest.SkipTest("tsx 不可用: 跳过 resolver 真身执行")
     script = f'const RESOLVER_URL = "file://{RESOLVER_TS}";\n' + NODE_CASES
-    proc = subprocess.run(
-        [node, "--experimental-strip-types", "--input-type=module", "-e", script],
-        capture_output=True, text=True, cwd=WEB, timeout=120,
-    )
+    with tempfile.NamedTemporaryFile("w", suffix=".mts", delete=False) as fh:
+        fh.write(script)
+        probe = fh.name
+    try:
+        proc = subprocess.run(
+            [tsx, probe], capture_output=True, text=True, cwd=WEB, timeout=120,
+        )
+    finally:
+        os.unlink(probe)
     if proc.returncode != 0:
         raise AssertionError(f"resolver 执行失败: {proc.stderr[-800:]}")
     return json.loads(proc.stdout.strip().splitlines()[-1])

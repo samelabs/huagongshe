@@ -18,7 +18,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 CONFIG_PANEL = "web/components/samelabs/ConfigPanel.tsx"
-I18N = "web/lib/i18n.ts"
+I18N = "web/lib/i18n/locales/zh-CN.ts"
 DASHBOARD = "web/components/samelabs/Dashboard.tsx"
 ADMIN_API = "api/admin.py"
 

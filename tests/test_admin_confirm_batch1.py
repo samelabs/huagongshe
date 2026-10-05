@@ -32,7 +32,7 @@ def users_panel() -> str:
 
 
 def i18n() -> str:
-    return read(WEB / "lib" / "i18n.ts")
+    return read(WEB / "lib" / "i18n" / "locales" / "zh-CN.ts")
 
 
 class WorkerDisableConfirmation(unittest.TestCase):

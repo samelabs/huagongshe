@@ -143,7 +143,7 @@ class SimilaritySemanticsTests(unittest.TestCase):
         self.assertIn("threshold=threshold", mcp)
 
     def test_frontend_no_hardcoded_70(self):
-        with open("web/lib/i18n.ts") as handle:
+        with open("web/lib/i18n/locales/zh-CN.ts") as handle:
             i18n = handle.read()
         self.assertNotIn("≥ 70%", i18n, "前端硬编码 70% 复发")
 

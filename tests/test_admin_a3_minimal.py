@@ -65,7 +65,7 @@ class UsersPanelTests(unittest.TestCase):
         self.assertIn("apiPatch(`/admin/users/${pendingDisable.id}/status`", self.src)
 
     def test_disable_confirm_names_user(self):
-        i18n = read("web/lib/i18n.ts")
+        i18n = read("web/lib/i18n/locales/zh-CN.ts")
         self.assertIn("userDisableConfirm: (username: string, email: string)", i18n)
         # 事实语义: 注销全部会话 + 删除 AI Key + 重新启用不恢复
         self.assertIn("userDisableEffect: '停用会注销该用户全部会话并删除其现有 AI Key；重新启用账号不会恢复这些 Key。'", i18n)
@@ -133,7 +133,7 @@ class SkillsPanelTests(unittest.TestCase):
 
     def test_confirm_shows_title_slug(self):
         """验收4: 确认对象 title/slug。"""
-        i18n = read("web/lib/i18n.ts")
+        i18n = read("web/lib/i18n/locales/zh-CN.ts")
         self.assertIn("skillDeleteConfirm: (title: string, slug: string)", i18n)
         self.assertIn("删除不可恢复", i18n)
 
