@@ -1,7 +1,9 @@
 // proxy.ts 最小单测: 用 Next 官方 testing 工具 (next/experimental/testing/server)
 // 的 isRewrite / getRewrittenUrl / getRedirectUrl 验证 rewrite/redirect,
 // 不用自建 fetch mock 证明正确性。
-// 运行: npx tsx --test lib/proxy.test.mjs
+// 注意: tsx 未声明为项目依赖 —— 本文件当前未纳入 CI、未直接执行;
+// 本批的真实验证来源是 isolated production server 的真实 proxy 行为,
+// CI 接入归后续 CI Gate 批次单独治理。
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
@@ -121,4 +123,26 @@ test("排除路径不 redirect/rewrite(undefined)", () => {
   ]) {
     assert.equal(proxy(nextReq(p)), undefined, p);
   }
+});
+
+/* ─────── Batch 2: /mcp 边界语义 —— /mcp-guide 不再被误伤 ─────── */
+
+test("/mcp 与 /mcp/* 排除, /mcp-guide 不排除(307 locale redirect)", () => {
+  assert.equal(proxy(nextReq("/mcp")), undefined);
+  assert.equal(proxy(nextReq("/mcp/x")), undefined);
+  const r = proxy(nextReq("/mcp-guide"));
+  assert.equal(r.status, 307);
+  assert.equal(getRedirectUrl(r), ORIGIN + "/en/mcp-guide");
+});
+
+test("/mcp-guide?x=1 redirect 保留 query", () => {
+  const r = proxy(nextReq("/mcp-guide?x=1"));
+  assert.equal(r.status, 307);
+  assert.equal(getRedirectUrl(r), ORIGIN + "/en/mcp-guide?x=1");
+});
+
+test("/ja/mcp-guide rewrite 到 /mcp-guide(locale=ja)", () => {
+  const r = proxy(nextReq("/ja/mcp-guide"));
+  assert.equal(r.status, 200);
+  assert.equal(getRewrittenUrl(r), ORIGIN + "/mcp-guide");
 });

@@ -59,7 +59,7 @@ export function RelationshipsPanel({ kind, page, initialData, username }: PanelP
         <PersonList items={data.items} empty={kind === "followers" ? t.me.emptyFollowers : t.me.emptyFollowing} kind={kind} onFollowChange={onFollowChange} />
       )}
       {state === "ready" && data.total > data.page_size && (
-        <Pagination page={page} pageSize={data.page_size} total={data.total} href={(value) => `/aichem?tab=${kind}${value > 1 ? `&page=${value}` : ""}`} />
+        <Pagination page={page} pageSize={data.page_size} total={data.total} href={(value) => withLocale(`/aichem?tab=${kind}${value > 1 ? `&page=${value}` : ""}`, locale)} />
       )}
     </section>
   );

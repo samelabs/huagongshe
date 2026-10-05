@@ -75,7 +75,7 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
           </div>
         : <WbEmpty text={t.me.emptyActivity} />)}
       {state === "ready" && notices.total > notices.page_size && (
-        <Pagination page={page} pageSize={notices.page_size} total={notices.total} href={(value) => `/aichem?tab=activity${value > 1 ? `&page=${value}` : ""}`} />
+        <Pagination page={page} pageSize={notices.page_size} total={notices.total} href={(value) => withLocale(`/aichem?tab=activity${value > 1 ? `&page=${value}` : ""}`, locale)} />
       )}
     </section>
   );

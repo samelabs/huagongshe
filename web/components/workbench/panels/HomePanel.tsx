@@ -84,22 +84,22 @@ export function HomePanel({ counts, initialReactions }: {
 
       {/* 统计卡片 */}
       <div className="wb-home-stats">
-        <Link className="wb-home-stat" href="/aichem?tab=mine">
+        <Link className="wb-home-stat" href={withLocale("/aichem?tab=mine", locale)}>
           <strong>{c.public_reactions + c.private_reactions}</strong>
           <span>{t.me.tabReactions}</span>
         </Link>
-        <Link className="wb-home-stat" href="/aichem?tab=saved">
+        <Link className="wb-home-stat" href={withLocale("/aichem?tab=saved", locale)}>
           <strong>{c.chemicals + c.reactions}</strong>
           <span>{t.me.tabSaved}</span>
         </Link>
-        <Link className="wb-home-stat" href="/aichem?tab=activity">
+        <Link className="wb-home-stat" href={withLocale("/aichem?tab=activity", locale)}>
           <strong>{c.unread || 0}</strong>
           <span>{t.me.tabActivity}</span>
         </Link>
       </div>
 
       {/* AI 指南入口 */}
-      <Link className="wb-home-guide" href="/mcp-guide">
+      <Link className="wb-home-guide" href={withLocale("/mcp-guide", locale)}>
         <div className="wb-home-guide-body">
           <h3>{t.me.homeGuideTitle}</h3>
           <p>{t.me.homeGuideDesc}</p>
@@ -112,7 +112,7 @@ export function HomePanel({ counts, initialReactions }: {
         <div className="wb-home-recent">
           <div className="wb-home-recent-head">
             <h3>{t.me.homeRecentReactions}</h3>
-            <Link href="/aichem?tab=mine">{t.me.homeViewAll}</Link>
+            <Link href={withLocale("/aichem?tab=mine", locale)}>{t.me.homeViewAll}</Link>
           </div>
           <div className="wb-grid">
             {reactions.map((item) => (

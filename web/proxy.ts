@@ -19,6 +19,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { SUPPORTED_LOCALES, FALLBACK_LOCALE, isSupportedLocale, type Locale } from "./lib/i18n/locales";
+import { NON_LOCALIZED_PREFIXES, isPathAtOrBelow, splitLocalePrefix } from "./lib/localePath";
 
 /** 站点 locale cookie(值只允许 SUPPORTED_LOCALES 中的 locale) */
 const LOCALE_COOKIE = "site_locale";
@@ -32,9 +33,6 @@ const LOCALE_PATH_HEADER = "x-site-locale-path";
 /** cookie 属性: 1 年, Lax */
 const LOCALE_COOKIE_OPTIONS = { path: "/", maxAge: 31536000, sameSite: "lax" as const };
 
-/** 完全不参与 locale redirect/rewrite 的路径前缀 */
-const EXCLUDED_PREFIXES = ["/api/", "/mcp", "/.well-known/", "/_next/", "/samelabs/"];
-
 /** 按名称排除的根级文件(favicon/robots/sitemap/manifest/service worker 等) */
 const EXCLUDED_FILES = new Set([
   "/favicon.ico",
@@ -47,20 +45,13 @@ const EXCLUDED_FILES = new Set([
 ]);
 
 function isExcluded(pathname: string): boolean {
-  if (EXCLUDED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p))) return true;
+  // 前缀排除走统一路径边界语义(NON_LOCALIZED_PREFIXES 是全仓库唯一业务 prefix 表):
+  // "/mcp" 只排除 /mcp 与 /mcp/*, 不排除 /mcp-guide
+  if (NON_LOCALIZED_PREFIXES.some((p) => isPathAtOrBelow(pathname, p))) return true;
   if (EXCLUDED_FILES.has(pathname)) return true;
   // 带文件扩展名的资源(public 静态文件 / icon 等), 例如 .png .css .js .xml .txt .webmanifest
   const last = pathname.split("/").pop() ?? "";
   return /\.[A-Za-z0-9]+$/.test(last);
-}
-
-/** 解析 URL 上的 locale 前缀: /ja/chemical/123 → { locale: "ja", rest: "/chemical/123" } */
-function splitLocalePrefix(pathname: string): { locale: Locale; rest: string } | null {
-  const m = /^\/([^/]+)(\/.*)?$/.exec(pathname);
-  if (!m) return null;
-  const [, raw, tail = ""] = m;
-  if (!isSupportedLocale(raw)) return null;
-  return { locale: raw, rest: tail || "/" };
 }
 
 /** Accept-Language 协商: 返回第一个受支持的语言, 无则 null */
@@ -139,10 +130,11 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
 export const config = {
   matcher: [
     /*
-     * 只匹配公开页面路径: 排除 /api /mcp /.well-known /_next /samelabs
-     * 与常见根级文件; 带扩展名的静态资源由 isExcluded 二次兜底。
+     * matcher 只做 Next/framework 静态资源层面的优化(_next 与根级静态文件);
+     * 公开业务路径分类(api/mcp/.well-known/samelabs 等)不在这里复制第二套
+     * prefix 规则 —— 由 runtime isExcluded() → isPathAtOrBelow() SSOT 决定。
      * Next 16 proxy matcher 不支持负向前瞻, 用分段排除。
      */
-    "/((?!api|mcp|\\.well-known|_next|samelabs|favicon\\.ico|robots\\.txt|sitemap\\.xml|manifest\\.json|manifest\\.webmanifest|sw\\.js|service-worker\\.js).*)",
+    "/((?!_next|favicon\\.ico|robots\\.txt|sitemap\\.xml|manifest\\.json|manifest\\.webmanifest|sw\\.js|service-worker\\.js).*)",
   ],
 };

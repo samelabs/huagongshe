@@ -53,8 +53,8 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
     <section className="wb-panel">
       <PanelHeading title={t.me.tabSaved} subtitle={t.me.savedHint} count={state === "ready" ? data.total : "—"} unit={kind === "chemicals" ? t.me.unitChemical : t.me.unitReaction} />
       <nav className="wb-filters" aria-label={t.me.filterSaved}>
-        <Link href="/aichem?tab=saved" className={kind === "chemicals" ? "active" : ""}>{t.search.chemicalResults}</Link>
-        <Link href="/aichem?tab=saved&kind=reactions" className={kind === "reactions" ? "active" : ""}>{t.search.reactionResults}</Link>
+        <Link href={withLocale("/aichem?tab=saved", locale)} className={kind === "chemicals" ? "active" : ""}>{t.search.chemicalResults}</Link>
+        <Link href={withLocale("/aichem?tab=saved&kind=reactions", locale)} className={kind === "reactions" ? "active" : ""}>{t.search.reactionResults}</Link>
       </nav>
       {state === "loading" && <PanelLoading variant={kind === "chemicals" ? "list" : "grid"} />}
       {state === "error" && <PanelError error={error} />}
@@ -72,7 +72,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
         ? <ReactionCards items={savedReactions.items} />
         : <WbEmpty text={t.me.emptyReactionSaved} />)}
       {state === "ready" && data.total > data.page_size && (
-        <Pagination page={page} pageSize={data.page_size} total={data.total} href={(value) => `/aichem?tab=saved${kind === "reactions" ? "&kind=reactions" : ""}&page=${value}`} />
+        <Pagination page={page} pageSize={data.page_size} total={data.total} href={(value) => withLocale(`/aichem?tab=saved${kind === "reactions" ? "&kind=reactions" : ""}&page=${value}`, locale)} />
       )}
     </section>
   );

@@ -128,7 +128,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
         </div>
       ) : <WbEmpty text={t.me.skillsEmpty} />)}
       {state === "ready" && skills.total > skills.page_size && (
-        <Pagination page={skills.page} pageSize={skills.page_size} total={skills.total} href={(value) => `/aichem?tab=skills&page=${value}`} />
+        <Pagination page={skills.page} pageSize={skills.page_size} total={skills.total} href={(value) => withLocale(`/aichem?tab=skills&page=${value}`, locale)} />
       )}
     </section>
   );

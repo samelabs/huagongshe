@@ -4,25 +4,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
-import { withLocale } from "@/lib/localePath";
+import { withLocale, stripLocalePrefix } from "@/lib/localePath";
 
 export function MobileTabBar() {
-  const pathname = usePathname();
   const t = useDictionary();
   const locale = useLocale();
+  // active 判定只看剥离 locale 前缀后的 pathname, locale 不参与业务规则
+  const routePath = stripLocalePrefix(usePathname() ?? "/");
 
   /* 底栏只承担三个顶级目的地; 站内检索/浏览(search/chemical/reaction/guide/skills)
      不是底栏 tab, 不参与 active 判定 —— 工作台内部搜索在 WbTopnav(/aichem?tab=search)。 */
   const tabs = [
-    { href: "/", label: t.nav.tabHome, icon: homeIcon, match: (p: string) => p === "/" || p === `/${locale}` },
-    { href: "/aichem", label: t.nav.tabWorkbench, icon: flaskIcon, match: (p: string) => p === "/aichem" || p.startsWith("/aichem?") || p.startsWith("/submit") || p === `/${locale}/aichem` || p.startsWith(`/${locale}/aichem`) || p.startsWith(`/${locale}/submit`) },
-    { href: "/me/settings/profile", label: t.nav.tabMe, icon: userIcon, match: (p: string) => p.startsWith("/me/settings") || p.startsWith("/user/") || p.startsWith(`/${locale}/me/settings`) || p.startsWith(`/${locale}/user/`) },
+    { href: "/", label: t.nav.tabHome, icon: homeIcon, match: (p: string) => p === "/" },
+    { href: "/aichem", label: t.nav.tabWorkbench, icon: flaskIcon, match: (p: string) => p === "/aichem" || p.startsWith("/aichem?") || p.startsWith("/submit") },
+    { href: "/me/settings/profile", label: t.nav.tabMe, icon: userIcon, match: (p: string) => p.startsWith("/me/settings") || p.startsWith("/user/") },
   ];
 
   return (
     <nav className="mobile-tab-bar" aria-label={t.nav.bottomNav}>
       {tabs.map((tab) => {
-        const active = tab.match(pathname);
+        const active = tab.match(routePath);
         return (
           <Link key={tab.href} href={withLocale(tab.href, locale)} className={`tab-item ${active ? "active" : ""}`} aria-current={active ? "page" : undefined}>
             <span className="tab-icon">{tab.icon(active)}</span>

@@ -42,7 +42,7 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
         subtitle={subtitle[visibility]}
         count={state === "ready" ? total : "—"}
         unit={t.me.unitReaction}
-        action={<Link className="wb-btn wb-btn-primary" href="/submit">{t.me.navNewReaction}</Link>}
+        action={<Link className="wb-btn wb-btn-primary" href={withLocale("/submit", locale)}>{t.me.navNewReaction}</Link>}
       />
       <nav className="wb-filters" aria-label={t.me.filterReactions}>
         {(["all", "private", "public"] as ReactionVisibility[]).map((value) => (
