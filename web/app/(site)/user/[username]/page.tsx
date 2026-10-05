@@ -5,8 +5,8 @@ import Link from "next/link";
 import { EntityId } from "@/components/shared/EntityId";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
-import t from "@/lib/i18n";
-import { SITE_LOCALE } from "@/lib/locale";
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { withLocale } from "@/lib/localePath";
 
 type Profile = {
   id: number; username: string; display_name: string; bio: string | null;
@@ -21,6 +21,7 @@ type Reaction = { id: number; reaction_smiles: string; followers: number; update
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
   const canonical = `/user/${encodeURIComponent(username)}`;
+  const t = await getRequestDictionary();
   return {
     title: t.user.title.replace("{username}", username),
     description: t.user.desc,
@@ -31,6 +32,8 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
 
 export default async function UserPage({ params, searchParams }: { params: Promise<{ username: string }>; searchParams: Promise<{ page?: string | string[] }> }) {
   const { username } = await params;
+  const locale = await getRequestLocale();
+  const t = await getRequestDictionary();
   const query = await searchParams;
   const requestedPage = typeof query.page === "string" ? Number.parseInt(query.page, 10) : 1;
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
@@ -45,7 +48,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   try { reactions = await apiGet<Reaction[]>(`/users/${encodeURIComponent(username)}/reactions?page=${page}&page_size=20`); }
   catch { contentUnavailable = true; }
 
-  const base = `/user/${encodeURIComponent(profile.username)}`;
+  const base = withLocale(`/user/${encodeURIComponent(profile.username)}`, locale);
   return <div className="content-page public-profile-page">
     <header className="profile-header public-profile-header social-profile-header">
       <div className="profile-avatar">{profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : profile.display_name.slice(0, 1)}</div>
@@ -71,22 +74,22 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             <strong>{profile.followers}</strong> {t.user.followers}
           </span>
           {profile.is_me
-            ? <Link className="profile-edit-link" href="/me/settings/profile">{t.user.editProfile}</Link>
+            ? <Link className="profile-edit-link" href={withLocale("/me/settings/profile", locale)}>{t.user.editProfile}</Link>
             : <>
               {profile.is_followed_by && !profile.is_following && <span className="follow-status-tag">{t.user.followedBy}</span>}
               {profile.is_mutual && <span className="follow-status-tag mutual">{t.user.mutual}</span>}
               <FollowButton endpoint={`/users/${encodeURIComponent(profile.username)}/follow`} initial={profile.is_following} showCount={false} />
             </>}
         </div>
-        <p className="profile-joined">{t.user.joinedAt(new Date(profile.created_at).toLocaleDateString(SITE_LOCALE))}</p>
+        <p className="profile-joined">{t.user.joinedAt(new Date(profile.created_at).toLocaleDateString(locale))}</p>
       </div>
     </header>
 
     <section className="wb-section public-profile-content">
       <div className="wb-panel-head"><div><h2>{t.user.publicReactions}</h2></div>{!contentUnavailable && <strong>{t.user.reactionCount(profile.public_reactions)}</strong>}</div>
       {contentUnavailable ? <div className="wb-empty"><p>{t.user.contentError}</p></div> : reactions.length ? <div className="repository-grid">{reactions.map((item) => <article key={item.id}>
-        <header><Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link><span>{t.user.peopleCount(item.followers)}</span></header>
-        <Link className="repository-scheme" href={`/reaction/${item.id}`}><img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={t.reaction.equationAlt(item.id)} /></Link>
+        <header><Link href={withLocale(`/reaction/${item.id}`, locale)}><EntityId kind="reaction" id={item.id} compact ariaLabel={t.common.hridLabel(item.id)} /></Link><span>{t.user.peopleCount(item.followers)}</span></header>
+        <Link className="repository-scheme" href={withLocale(`/reaction/${item.id}`, locale)}><img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={t.reaction.equationAlt(item.id)} /></Link>
       </article>)}</div> : <div className="wb-empty"><p>{t.user.noReactions}</p></div>}
       {!contentUnavailable && profile.public_reactions > 20 && <nav className="profile-pagination" aria-label={t.common.pageNav}>
         {page > 1 ? <Link href={page === 2 ? base : `${base}?page=${page - 1}`}>{t.common.prev}</Link> : <span />}

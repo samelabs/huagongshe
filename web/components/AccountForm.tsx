@@ -3,10 +3,13 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
-import t from "@/lib/i18n";
+import { useDictionary } from "@/components/shared/I18nContext";
+import zhCN from "@/lib/i18n/locales/zh-CN";
+import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
   const router = useRouter();
+  const t = useDictionary();
   const { refresh } = useAccount();
   const [kind, setKind] = useState<"login" | "register">("login");
   const [message, setMessage] = useState("");
@@ -30,7 +33,10 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
       // username currently typed.
       if (requestId !== latestCheck.current) return;
       if (!data.available) {
-        setUsernameCheck({ status: data.reason === t.auth.usernameTaken ? "taken" : "invalid", msg: data.reason || t.auth.usernameUnavailable });
+        // 服务端 reason 是固定中文契约串(/api/auth/check-username): "用户名已被使用" → taken。
+        // 判定锚定 zh 字典常量(与 API 契约一致, 不随展示 locale 变), 提示文案用当前字典。
+        const taken = data.reason === zhCN.auth.usernameTaken;
+        setUsernameCheck({ status: taken ? "taken" : "invalid", msg: taken ? t.auth.usernameTaken : (data.reason || t.auth.usernameUnavailable) });
       } else {
         setUsernameCheck({ status: "ok", msg: t.auth.usernameAvailable });
       }
@@ -38,7 +44,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
       if (requestId !== latestCheck.current) return;
       setUsernameCheck({ status: "idle", msg: "" });
     }
-  }, []);
+  }, [t]);
 
   // 防抖
   useEffect(() => {
@@ -81,7 +87,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
           });
           if (response.ok) { await refresh(); router.push(nextPath); router.refresh(); return; }
           const error = await response.json().catch(() => null);
-          setMessage(apiError(error?.detail));
+          setMessage(apiError(error?.detail, t));
         } catch {
           setMessage(t.auth.networkFailed);
         } finally {
@@ -122,10 +128,10 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
   );
 }
 
-function apiError(detail: unknown) {
+function apiError(detail: unknown, labels: Dictionary) {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
-    return detail.map((item) => typeof item?.msg === "string" ? item.msg.replace(/^Value error,\s*/, "") : null).filter(Boolean).join("；") || t.auth.validationError;
+    return detail.map((item) => typeof item?.msg === "string" ? item.msg.replace(/^Value error,\s*/, "") : null).filter(Boolean).join("；") || labels.auth.validationError;
   }
-  return t.auth.failed;
+  return labels.auth.failed;
 }
