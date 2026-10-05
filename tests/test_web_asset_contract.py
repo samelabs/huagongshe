@@ -70,6 +70,47 @@ class WebAssetContractTests(unittest.TestCase):
                 f"manifest icon missing on disk: {rel}",
             )
 
+    def test_dynamic_manifest_is_not_service_worker_cached(self):
+        sw_path = os.path.join(WEB_ROOT, "public", "sw.js")
+        self.assertTrue(os.path.isfile(sw_path), "web/public/sw.js missing")
+
+        with open(sw_path, "r", encoding="utf-8") as f:
+            source = f.read()
+
+        static_pattern = next(
+            (
+                line
+                for line in source.splitlines()
+                if line.strip().startswith("const STATIC_PATTERN")
+            ),
+            "",
+        )
+
+        self.assertTrue(static_pattern, "Service Worker STATIC_PATTERN missing")
+        self.assertNotIn(
+            "manifest",
+            static_pattern,
+            "dynamic manifest must not be cached by Service Worker",
+        )
+
+    def test_manifest_has_stable_identity_and_start_url(self):
+        manifest_path = os.path.join(WEB_ROOT, "app", "manifest.ts")
+        self.assertTrue(os.path.isfile(manifest_path), "web/app/manifest.ts missing")
+
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            source = f.read()
+
+        self.assertRegex(
+            source,
+            r'id:\s*["\']/["\']',
+            'PWA manifest id must stay stable at "/"',
+        )
+        self.assertRegex(
+            source,
+            r'start_url:\s*["\']/["\']',
+            'PWA start_url must stay at "/" and delegate locale negotiation to root',
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
