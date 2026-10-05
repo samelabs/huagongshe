@@ -2,13 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 import { Pagination, PanelError, PanelHeading, PanelLoading, WbEmpty } from "../shared";
 import type { LoadState, PageResponse, SkillItem } from "../types";
 
 const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, page_size: 20 });
 
 export function SkillsPanel({ page, initialData }: { page: number; initialData?: PageResponse<SkillItem> | null }) {
+  const t = useDictionary();
+  const locale = useLocale();
   const [skills, setSkills] = useState<PageResponse<SkillItem>>(initialData ?? emptyPage<SkillItem>());
   const [state, setState] = useState<LoadState>(initialData ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);

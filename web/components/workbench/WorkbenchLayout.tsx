@@ -2,7 +2,7 @@
 
 import { useAccount } from "@/components/shared/AccountContext";
 import { useWorkbenchCounts } from "./WorkbenchCountsContext";
-import t from "@/lib/i18n";
+import { useDictionary } from "@/components/shared/I18nContext";
 import { ActivityPanel } from "./panels/ActivityPanel";
 import { HomePanel } from "./panels/HomePanel";
 import { RelationshipsPanel } from "./panels/RelationshipsPanel";
@@ -53,6 +53,7 @@ export function WorkbenchLayout({
   searchQuery?: string;
 }) {
   const { user, ready: authReady } = useAccount();
+  const t = useDictionary();
   const { counts } = useWorkbenchCounts();
 
   if (authReady && !user) return <div className="wb-auth-required"><div><strong>{t.common.loginRequired}</strong><span>{t.common.loginHint}</span></div></div>;

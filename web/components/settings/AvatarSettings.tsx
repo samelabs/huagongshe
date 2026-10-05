@@ -4,9 +4,12 @@ import { useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
 import { apiPost, apiDelete } from "@/lib/api";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 
 export function AvatarSettings() {
+  const t = useDictionary();
+  const locale = useLocale();
   const { user, ready, refresh } = useAccount();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);

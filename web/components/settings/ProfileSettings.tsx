@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
 import { apiGet, apiPatch, ApiError } from "@/lib/api";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 
 type Profile = {
   display_name: string;
@@ -23,6 +24,8 @@ const EMPTY: Profile = {
 };
 
 export function ProfileSettings() {
+  const t = useDictionary();
+  const locale = useLocale();
   const { user, ready, refresh } = useAccount();
   const [profile, setProfile] = useState<Profile>(EMPTY);
   const [message, setMessage] = useState("");
@@ -72,7 +75,7 @@ export function ProfileSettings() {
       } finally { setBusy(false); }
     }}>
       <label>{t.settings.profile.username}<span className="field-hint">@{user.username}（{t.settings.profile.usernameHint}）</span></label>
-      <a className="settings-preview-link" href={`/user/${encodeURIComponent(user.username)}`} target="_blank" rel="noopener noreferrer">{t.settings.profile.previewProfile}</a>
+      <a className="settings-preview-link" href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)} target="_blank" rel="noopener noreferrer">{t.settings.profile.previewProfile}</a>
 
       <div className="form-fields two-columns">
         <label>{t.settings.profile.displayName}<input value={profile.display_name} onChange={(e) => update("display_name", e.target.value)} maxLength={80} required /></label>

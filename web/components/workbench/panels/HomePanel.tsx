@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { EntityId } from "@/components/shared/EntityId";
 import { useAccount } from "@/components/shared/AccountContext";
 import { apiGet, reactionSvgUrl } from "@/lib/api";
-import t from "@/lib/i18n";
-import { SITE_LOCALE } from "@/lib/locale";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 import { PanelLoading, PanelError } from "../shared";
 import type { Counts, LoadState, ReactionResponse } from "../types";
 
@@ -20,6 +20,8 @@ export function HomePanel({ counts, initialReactions }: {
   counts: Counts | null;
   initialReactions?: ReactionResponse | null;
 }) {
+  const t = useDictionary();
+  const locale = useLocale();
   const { user } = useAccount();
   const router = useRouter();
   const [recent, setRecent] = useState<ReactionResponse | null>(initialReactions ?? null);
@@ -49,7 +51,7 @@ export function HomePanel({ counts, initialReactions }: {
     e.preventDefault();
     const q = query.trim();
     if (!q) return;
-    router.push(`/aichem?tab=search&q=${encodeURIComponent(q)}`);
+    router.push(withLocale(`/aichem?tab=search&q=${encodeURIComponent(q)}`, locale));
   }
 
   return (
@@ -116,16 +118,16 @@ export function HomePanel({ counts, initialReactions }: {
             {reactions.map((item) => (
               <article key={item.id}>
                 <header>
-                  <Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link>
-                  {item.updated_at && <span>{new Date(item.updated_at).toLocaleDateString(SITE_LOCALE)}</span>}
+                  <Link href={withLocale(`/reaction/${item.id}`, locale)}><EntityId kind="reaction" id={item.id} compact ariaLabel={t.common.hridLabel(item.id)} /></Link>
+                  {item.updated_at && <span>{new Date(item.updated_at).toLocaleDateString(locale)}</span>}
                 </header>
-                <Link className="wb-card-img" href={`/reaction/${item.id}`}>
+                <Link className="wb-card-img" href={withLocale(`/reaction/${item.id}`, locale)}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={t.reaction.equationAlt(item.id)} />
                 </Link>
                 <footer>
                   <span>{item.visibility === "private" ? t.me.privateVisible : t.common.public}</span>
-                  <Link href={`/reaction/${item.id}`}>{t.common.view}</Link>
+                  <Link href={withLocale(`/reaction/${item.id}`, locale)}>{t.common.view}</Link>
                 </footer>
               </article>
             ))}

@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { EntityId } from "@/components/shared/EntityId";
 import { ApiError, reactionSvgUrl } from "@/lib/api";
-import t from "@/lib/i18n";
-import { SITE_LOCALE } from "@/lib/locale";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 import type { LoadState, Reaction } from "./types";
+import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 export function PanelHeading({ title, subtitle, count, unit = "", action }: {
   title: string;
@@ -31,6 +32,7 @@ export function Pagination({ page, pageSize, total, href }: {
   total: number;
   href: (page: number) => string;
 }) {
+  const t = useDictionary();
   const pages = Math.ceil(total / pageSize);
   return (
     <nav className="wb-pagination" aria-label={t.common.pageNav}>
@@ -42,10 +44,12 @@ export function Pagination({ page, pageSize, total, href }: {
 }
 
 export function WbEmpty({ text, action = false }: { text: string; action?: boolean }) {
+  const t = useDictionary();
+  const locale = useLocale();
   return (
     <div className="wb-empty">
       <p>{text}</p>
-      {action && <Link className="wb-btn wb-btn-ghost" href="/submit">{t.me.navNewReaction}</Link>}
+      {action && <Link className="wb-btn wb-btn-ghost" href={withLocale("/submit", locale)}>{t.me.navNewReaction}</Link>}
     </div>
   );
 }
@@ -81,7 +85,7 @@ export function PanelLoading({ variant = "grid", rows = 4 }: { variant?: "grid" 
  * 按 ApiError.status 映射到精确错误文案。
  * 复用主站 search.err* 和 common.networkError，与主站同一套文案源。
  */
-export function panelErrorMessage(error: unknown): string {
+export function panelErrorMessage(error: unknown, t: { search: { errLoginRequired: string; errRateLimit: string; errTimeout: string; errIncomplete: string; errUnrecognized: string; errNotFound: string; errGeneric: string }; common: { networkError: string } }): string {
   if (error instanceof ApiError) {
     switch (error.status) {
       // 0904 P1收口: 401 此前落 errGeneric"稍后重试"误导 — 会话过期重试永远
@@ -99,26 +103,29 @@ export function panelErrorMessage(error: unknown): string {
 }
 
 export function PanelError({ error }: { error?: unknown }) {
-  const message = error ? panelErrorMessage(error) : t.me.errPanel;
+  const t = useDictionary();
+  const message = error ? panelErrorMessage(error, t) : t.me.errPanel;
   return <p className="wb-state wb-state-error">{message}</p>;
 }
 
 export function ReactionCards({ items, editable = false }: { items: Reaction[]; editable?: boolean }) {
+  const t = useDictionary();
+  const locale = useLocale();
   return (
     <div className="wb-grid">
       {items.map((item) => (
         <article key={item.id}>
           <header>
-            <Link href={`/reaction/${item.id}`}><EntityId kind="reaction" id={item.id} compact /></Link>
-            {item.updated_at && <span>{new Date(item.updated_at).toLocaleDateString(SITE_LOCALE)}</span>}
+            <Link href={withLocale(`/reaction/${item.id}`, locale)}><EntityId kind="reaction" id={item.id} compact ariaLabel={t.common.hridLabel(item.id)} /></Link>
+            {item.updated_at && <span>{new Date(item.updated_at).toLocaleDateString(locale)}</span>}
           </header>
-              <Link href={`/reaction/${item.id}`} className="wb-card-img">
+              <Link href={withLocale(`/reaction/${item.id}`, locale)} className="wb-card-img">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img loading="lazy" src={reactionSvgUrl(item.id, 720, 180)} alt={t.reaction.equationAlt(item.id)} />
               </Link>
           <footer>
             <span>{item.visibility === "private" ? t.me.privateVisible : editable ? t.me.publicRecord(item.followers || 0) : t.common.public}</span>
-            {editable ? <Link href={`/submit?reaction=${item.id}`}>{t.common.edit}</Link> : <Link href={`/reaction/${item.id}`}>{t.common.view}</Link>}
+            {editable ? <Link href={withLocale(`/submit?reaction=${item.id}`, locale)}>{t.common.edit}</Link> : <Link href={withLocale(`/reaction/${item.id}`, locale)}>{t.common.view}</Link>}
           </footer>
         </article>
       ))}

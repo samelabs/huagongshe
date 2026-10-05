@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { FollowButton } from "@/components/shared/FollowButton";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 
 export type PersonSummary = {
   username: string;
@@ -19,14 +20,16 @@ export function PersonList({ items, empty, kind, onFollowChange }: {
   kind: "followers" | "following";
   onFollowChange: (person: PersonSummary, following: boolean) => void;
 }) {
+  const t = useDictionary();
+  const locale = useLocale();
   if (!items.length) return <div className="wb-empty"><p>{empty}</p></div>;
   return <div className="wb-person-list">{items.map((person) => (
     <article className="wb-person-row" key={person.username}>
-      <Link className="wb-person-avatar" href={`/user/${encodeURIComponent(person.username)}`} aria-label={t.follow.viewProfile + " " + person.display_name}>
+      <Link className="wb-person-avatar" href={withLocale(`/user/${encodeURIComponent(person.username)}`, locale)} aria-label={t.follow.viewProfile + " " + person.display_name}>
         {person.avatar_url ? <img src={person.avatar_url} alt="" /> : person.display_name.slice(0, 1)}
       </Link>
       <div className="wb-person-info">
-        <Link href={`/user/${encodeURIComponent(person.username)}`}>
+        <Link href={withLocale(`/user/${encodeURIComponent(person.username)}`, locale)}>
           <strong>{person.display_name}</strong>
           <span>@{person.username}</span>
         </Link>

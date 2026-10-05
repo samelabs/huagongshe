@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
+import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import { apiPost, ApiError } from "@/lib/api";
 import { PanelHeading, WbEmpty } from "../shared";
 
@@ -30,12 +32,14 @@ type ScaleResult = {
 
 const ROLES: Role[] = ["REACTANT", "REAGENT", "CATALYST", "SOLVENT", "PRODUCT"];
 const UNITS = ["g", "mg", "mol", "mmol"] as const;
-const roleLabel = (r: Role) =>
+const roleLabel = (r: Role, t: Dictionary) =>
   ({ REACTANT: t.stoich.roleREACTANT, REAGENT: t.stoich.roleREAGENT, CATALYST: t.stoich.roleCATALYST, SOLVENT: t.stoich.roleSOLVENT, PRODUCT: t.stoich.rolePRODUCT } as const)[r];
 
 const emptyRow = (): Row => ({ role: "REACTANT", smiles: "", eq: "1.0", label: "" });
 
 export function StoichPanel() {
+  const t = useDictionary();
+  const locale = useLocale();
   const [rows, setRows] = useState<Row[]>([emptyRow(), emptyRow()]);
   const [basisIndex, setBasisIndex] = useState(0);
   const [basisAmount, setBasisAmount] = useState("");
@@ -115,7 +119,7 @@ export function StoichPanel() {
               aria-label={`${t.stoich.colRole} ${i + 1}`}
             >
               {ROLES.map((role) => (
-                <option key={role} value={role}>{roleLabel(role)}</option>
+                <option key={role} value={role}>{roleLabel(role, t)}</option>
               ))}
             </select>
             <input
@@ -243,7 +247,7 @@ export function StoichPanel() {
                   {c.label || c.smiles}
                   {c.is_basis && <em className="wb-stoich-basis-tag">{t.stoich.basisTag}</em>}
                 </span>
-                <span>{roleLabel(c.role)}</span>
+                <span>{roleLabel(c.role, t)}</span>
                 <span>{c.eq ?? "—"}</span>
                 <span>{c.mmol ?? "—"}</span>
                 <span>{c.mass_g != null ? `${c.mass_g} g` : c.volume_ml != null ? t.stoich.solventByConc : "—"}</span>

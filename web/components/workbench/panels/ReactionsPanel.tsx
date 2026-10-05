@@ -3,13 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 import { WbEmpty, Pagination, PanelError, PanelHeading, PanelLoading, ReactionCards } from "../shared";
 import type { LoadState, PanelProps, ReactionResponse, ReactionVisibility } from "../types";
 
 const empty = (): ReactionResponse => ({ items: [], counts: { all: 0, public: 0, private: 0 }, page: 1, page_size: 20 });
 
 export function ReactionsPanel({ visibility, page, initialData }: PanelProps & { visibility: ReactionVisibility; initialData?: ReactionResponse | null }) {
+  const t = useDictionary();
+  const locale = useLocale();
   const [data, setData] = useState<ReactionResponse>(initialData ?? empty());
   const [state, setState] = useState<LoadState>(initialData ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);
@@ -43,7 +46,7 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
       />
       <nav className="wb-filters" aria-label={t.me.filterReactions}>
         {(["all", "private", "public"] as ReactionVisibility[]).map((value) => (
-          <Link href={`/aichem?tab=mine&visibility=${value}`} className={visibility === value ? "active" : ""} key={value}>{labels[value]}</Link>
+          <Link href={withLocale(`/aichem?tab=mine&visibility=${value}`, locale)} className={visibility === value ? "active" : ""} key={value}>{labels[value]}</Link>
         ))}
       </nav>
       {state === "loading" && <PanelLoading />}
@@ -54,7 +57,7 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
       {state === "ready" && total > data.page_size && (
         <Pagination page={page} pageSize={data.page_size} total={total} href={(value) => {
           const filter = visibility === "all" ? "" : `visibility=${visibility}`;
-          return `/aichem?${[filter, value > 1 ? `page=${value}` : ""].filter(Boolean).join("&")}`.replace(/\?$/, "");
+          return withLocale(`/aichem?${[filter, value > 1 ? `page=${value}` : ""].filter(Boolean).join("&")}`.replace(/\?$/, ""), locale);
         }} />
       )}
     </section>

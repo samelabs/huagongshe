@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { EntityId } from "@/components/shared/EntityId";
 import { apiGet } from "@/lib/api";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { WbEmpty, Pagination, PanelError, PanelHeading, PanelLoading, ReactionCards } from "../shared";
 import type { ChemicalFollow, LoadState, PageResponse, PanelProps, Reaction, SavedKind } from "../types";
@@ -16,6 +17,8 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
   initialChemicals?: PageResponse<ChemicalFollow> | null;
   initialReactions?: PageResponse<Reaction> | null;
 }) {
+  const t = useDictionary();
+  const locale = useLocale();
   const [chemicals, setChemicals] = useState<PageResponse<ChemicalFollow>>(initialChemicals ?? emptyPage<ChemicalFollow>());
   const [savedReactions, setSavedReactions] = useState<PageResponse<Reaction>>(initialReactions ?? emptyPage<Reaction>());
   const [state, setState] = useState<LoadState>(
@@ -58,7 +61,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
       {state === "ready" && kind === "chemicals" && (chemicals.items.length
         ? <div className="wb-followed-list">
             {chemicals.items.map((item) => (
-              <Link href={`/chemical/${item.id}`} key={item.id}>
+              <Link href={withLocale(`/chemical/${item.id}`, locale)} key={item.id}>
                 <EntityId kind="chemical" id={item.id} compact />
                 <span><strong>{resolveChemicalName(item, t.common.hcidLabel).title}</strong>{item.smiles && <small>{item.smiles}</small>}</span>
               </Link>

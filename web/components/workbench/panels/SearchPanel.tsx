@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiGet, molSvgUrl, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import { EntityId } from "@/components/shared/EntityId";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { PanelHeading, WbEmpty, PanelLoading, PanelError } from "../shared";
 import type { LoadState } from "../types";
@@ -16,6 +17,8 @@ type SearchMode = "exact" | "substructure" | "similarity";
  * 搜索框 + 模式切换（精确/子结构/相似）+ 结果区
  */
 export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
+  const t = useDictionary();
+  const locale = useLocale();
   const [query, setQuery] = useState(initialQuery ?? "");
   const [mode, setMode] = useState<SearchMode>("exact");
   const [chemicals, setChemicals] = useState<Chemical[]>([]);
@@ -100,7 +103,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
           <h3>{t.me.searchResultCompound}{total != null && ` (${total})`}</h3>
           <div className="wb-search-chemicals">
             {chemicals.map((chem) => (
-              <Link key={chem.id} className="wb-search-chemical" href={`/chemical/${chem.id}`}>
+              <Link key={chem.id} className="wb-search-chemical" href={withLocale(`/chemical/${chem.id}`, locale)}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img loading="lazy" src={molSvgUrl(chem.id, 160, 110)} alt="" />
                 <div>
@@ -119,7 +122,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
           <h3>{t.me.searchResultReaction}</h3>
           <div className="wb-search-reactions">
             {reactions.map((rxn) => (
-              <Link key={rxn.id} className="wb-search-reaction" href={`/reaction/${rxn.id}`}>
+              <Link key={rxn.id} className="wb-search-reaction" href={withLocale(`/reaction/${rxn.id}`, locale)}>
                 <EntityId kind="reaction" id={rxn.id} compact />
                 <small>{rxn.doi || rxn.ord_id || rxn.dataset_name || ""}</small>
               </Link>
@@ -130,7 +133,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
 
       {/* 更多结果跳主站搜索页: 只认 API has_more(名称搜索 total 恒 null) */}
       {submitted && state === "ready" && hasMore && (
-        <Link className="wb-home-more-search" href={`/search?q=${encodeURIComponent(query)}&mode=${mode}`}>
+        <Link className="wb-home-more-search" href={withLocale(`/search?q=${encodeURIComponent(query)}&mode=${mode}`, locale)}>
           {t.me.homeViewAll}{total != null ? ` (${total})` : ""}
         </Link>
       )}

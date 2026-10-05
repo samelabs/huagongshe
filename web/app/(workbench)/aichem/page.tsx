@@ -15,9 +15,12 @@ import type {
 } from "@/components/workbench/types";
 import type { PersonSummary } from "@/components/shared/PersonList";
 import { apiGet } from "@/lib/api";
-import t from "@/lib/i18n";
+import { getRequestDictionary } from "@/lib/serverI18n";
 
-export const metadata: Metadata = { title: t.me.title, robots: { index: false, follow: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getRequestDictionary();
+  return { title: t.me.title, robots: { index: false, follow: false } };
+}
 const tabs = new Set<WorkbenchTab>(["home", "search", "stoich", "mine", "saved", "skills", "activity", "followers", "following"]);
 const visibilities = new Set<ReactionVisibility>(["all", "public", "private"]);
 const savedKinds = new Set<SavedKind>(["chemicals", "reactions"]);

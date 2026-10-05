@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
-import t from "@/lib/i18n";
+import { getRequestDictionary } from "@/lib/serverI18n";
 
-export const metadata: Metadata = { title: t.settings.profile.title };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getRequestDictionary();
+  return { title: t.settings.profile.title };
+}
 export default function ProfileSettingsPage() { return <ProfileSettings />; }

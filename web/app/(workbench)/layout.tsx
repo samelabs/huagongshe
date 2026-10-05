@@ -14,7 +14,6 @@ import { getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import type { User } from "@/lib/api";
 import type { Summary } from "@/components/workbench/types";
-import t from "@/lib/i18n";
 import "./aichem-tokens.css";
 import "./aichem.css";
 
@@ -32,15 +31,16 @@ async function getSummary(cookieHeader: string): Promise<Summary | null> {
 }
 
 export default async function WorkbenchLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getRequestLocale();
   const h = await headers();
   const cookieHeader = h.get("cookie");
   const user = await getUser(cookieHeader);
   if (!user) {
-    // 仅 submit 访问链 locale-aware: /ja/submit → /ja/login?next=/ja/submit
-    // (proxy rewrite 附带 x-site-locale-path 还原原始带前缀路径);
-    // 其他 workbench 页面保持既有 /login?next=/aichem 行为不变。
+    // 匿名统一 locale-aware: /ja/aichem → /ja/login?next=/ja/aichem。
+    // proxy rewrite 附带 x-site-locale-path 还原原始带前缀路径;
+    // 无该 header(未过 locale proxy 的直接访问)保持既有 /login?next=/aichem。
     const originalPath = (await nextHeaders()).get("x-site-locale-path");
-    if (originalPath && /^\/(zh-CN|en|ja|ko|de)\/submit$/.test(originalPath.split("?")[0])) {
+    if (originalPath && /^\/(zh-CN|en|ja|ko|de)(\/|$)/.test(originalPath.split("?")[0])) {
       const locale = await getRequestLocale();
       redirect(withLocale(`/login?next=${encodeURIComponent(originalPath)}`, locale));
     }
@@ -53,7 +53,7 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
     <div className="wb-shell">
       <header className="wb-topbar">
         <div className="wb-topbar-inner">
-          <Link href="/" className="wb-logo">huagongshe.com</Link>
+          <Link href={withLocale("/", locale)} className="wb-logo">huagongshe.com</Link>
 
           <WbTopnav />
 

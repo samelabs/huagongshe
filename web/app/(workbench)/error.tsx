@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import t from "@/lib/i18n";
+import { useDictionary } from "@/components/shared/I18nContext";
 
 export default function WorkbenchError({ error, unstable_retry }: {
   error: Error & { digest?: string };
   unstable_retry: () => void;
 }) {
+  const t = useDictionary();
   useEffect(() => { if (process.env.NODE_ENV !== "production") console.error(error); }, [error]);
   return (
     <section className="wb-state wb-state-error">

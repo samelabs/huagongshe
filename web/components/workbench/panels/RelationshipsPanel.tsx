@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { PersonList, type PersonSummary } from "@/components/shared/PersonList";
 import { useAccount } from "@/components/shared/AccountContext";
 import { apiGet } from "@/lib/api";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 import { Pagination, PanelError, PanelHeading, PanelLoading } from "../shared";
 import type { LoadState, PageResponse, PanelProps } from "../types";
 
@@ -15,6 +16,8 @@ export function RelationshipsPanel({ kind, page, initialData, username }: PanelP
   initialData?: PageResponse<PersonSummary> | null;
   username?: string;
 }) {
+  const t = useDictionary();
+  const locale = useLocale();
   const { user } = useAccount();
   const targetUser = username || user?.username;
   const [data, setData] = useState<PageResponse<PersonSummary>>(initialData ?? emptyPage());

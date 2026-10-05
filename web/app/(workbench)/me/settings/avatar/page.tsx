@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { AvatarSettings } from "@/components/settings/AvatarSettings";
-import t from "@/lib/i18n";
+import { getRequestDictionary } from "@/lib/serverI18n";
 
-export const metadata: Metadata = { title: t.settings.avatar.title };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getRequestDictionary();
+  return { title: t.settings.avatar.title };
+}
 export default function AvatarSettingsPage() { return <AvatarSettings />; }

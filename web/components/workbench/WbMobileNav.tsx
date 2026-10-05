@@ -6,7 +6,7 @@ import { WorkbenchNav } from "./WorkbenchNav";
 import { AccountMenu } from "@/components/shared/AccountMenu";
 import type { Counts } from "./types";
 import type { User } from "@/lib/api";
-import t from "@/lib/i18n";
+import { useDictionary } from "@/components/shared/I18nContext";
 
 /**
  * 移动端抽屉导航。
@@ -18,6 +18,7 @@ export function WbMobileNav({ counts, user }: {
   counts?: Counts | null;
   user: User;
 }) {
+  const t = useDictionary();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();

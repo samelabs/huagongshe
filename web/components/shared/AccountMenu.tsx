@@ -79,7 +79,7 @@ export function AccountMenu({ user, variant, showWorkbenchEntry = false }: {
           {showWorkbenchEntry && <Link href={withLocale("/aichem", locale)} onClick={close}>{t.nav.workbench}</Link>}
           <Link href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)} onClick={close}>{t.nav.publicProfile}</Link>
           <Link href={withLocale("/me/settings/profile", locale)} onClick={close}>{t.nav.accountSettings}</Link>
-          {user.role === "admin" && <Link href="/samelabs" onClick={close}>{t.nav.admin}</Link>}
+          {/* 2026-10 治理: /samelabs 后台入口从公开导航移除(后台自身导航保持现状, 直访 URL 不受限) */}
         </div>
         <button type="button" onClick={logout}>{t.nav.logout}</button>
       </div>

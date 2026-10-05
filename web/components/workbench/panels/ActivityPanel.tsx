@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { EntityId } from "@/components/shared/EntityId";
 import { apiGet, apiPost } from "@/lib/api";
-import t from "@/lib/i18n";
-import { SITE_LOCALE } from "@/lib/locale";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 import { useWorkbenchCounts } from "../WorkbenchCountsContext";
 import { WbEmpty, Pagination, PanelError, PanelHeading, PanelLoading } from "../shared";
 import type { LoadState, NoticeResponse, PanelProps } from "../types";
@@ -13,6 +13,8 @@ import type { LoadState, NoticeResponse, PanelProps } from "../types";
 const empty = (): NoticeResponse => ({ items: [], total: 0, page: 1, page_size: 50 });
 
 export function ActivityPanel({ page, initialData }: PanelProps & { initialData?: NoticeResponse | null }) {
+  const t = useDictionary();
+  const locale = useLocale();
   const [notices, setNotices] = useState<NoticeResponse>(initialData ?? empty());
   const [state, setState] = useState<LoadState>(initialData ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);
@@ -61,11 +63,11 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
         ? <div className="wb-notice-list">
             {notices.items.map((item) => (
               <article key={item.id}>
-                <Link className="wb-notice-actor" href={`/user/${encodeURIComponent(item.actor_username)}`}>
+                <Link className="wb-notice-actor" href={withLocale(`/user/${encodeURIComponent(item.actor_username)}`, locale)}>
                   <strong>{t.me.activityActor(item.actor_display_name || t.me.activityActorFallback)}</strong>
-                  <small>{new Date(item.created_at).toLocaleString(SITE_LOCALE)}</small>
+                  <small>{new Date(item.created_at).toLocaleString(locale)}</small>
                 </Link>
-                <Link className="wb-notice-target" href={`/reaction/${item.reaction_id}`}>
+                <Link className="wb-notice-target" href={withLocale(`/reaction/${item.reaction_id}`, locale)}>
                   <EntityId kind="reaction" id={item.reaction_id} compact />
                 </Link>
               </article>
