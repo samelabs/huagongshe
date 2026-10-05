@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
+import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 type Skill = {
   id: number;
@@ -35,6 +37,8 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
   cats: Category[];
   loadError: boolean;
 }) {
+  const t = useDictionary();
+  const locale = useLocale();
   const error = loadError;
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>(t.skills.allCategories);
@@ -90,7 +94,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
       <section className="kdense-hero">
         <div className="kdense-hero-inner">
           <p className="kdense-breadcrumb">
-            <a href="/">{t.brand.name}</a>
+            <a href={withLocale("/", locale)}>{t.brand.name}</a>
             <span className="kdense-sep">/</span>
             <span>{t.skills.openLibrary}</span>
           </p>
@@ -149,7 +153,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
                 </h2>
                 <div className="kdense-grid">
                   {catSkills.map((s) => (
-                    <SkillCard key={s.id} skill={s} cat={catMap.get(s.category || t.skills.defaultCategory)} />
+                    <SkillCard key={s.id} skill={s} cat={catMap.get(s.category || t.skills.defaultCategory)} labels={t} />
                   ))}
                 </div>
               </section>
@@ -161,7 +165,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
   );
 }
 
-function SkillCard({ skill, cat }: { skill: Skill; cat: Category | undefined }) {
+function SkillCard({ skill, cat, labels }: { skill: Skill; cat: Category | undefined; labels: Dictionary }) {
   return (
     <article className="kdense-card">
       <div className="kdense-card-accent" style={{ backgroundColor: cat?.color || "#636e72" }} />
@@ -169,18 +173,18 @@ function SkillCard({ skill, cat }: { skill: Skill; cat: Category | undefined }) 
         <div className="kdense-card-head">
           <h3 className="kdense-card-name">{skill.slug}</h3>
           {skill.origin === "official" && (
-            <span className="kdense-card-license">{t.skills.officialBadge}</span>
+            <span className="kdense-card-license">{labels.skills.officialBadge}</span>
           )}
           {skill.has_scripts && (
-            <span className="kdense-card-license" title={t.skills.hasScriptsHint}>
-              {t.skills.hasScriptsBadge}
+            <span className="kdense-card-license" title={labels.skills.hasScriptsHint}>
+              {labels.skills.hasScriptsBadge}
             </span>
           )}
         </div>
-        <p className="kdense-card-desc">{skill.description || t.skills.noDescription}</p>
+        <p className="kdense-card-desc">{skill.description || labels.skills.noDescription}</p>
         <div className="kdense-card-stats">
-          <span className="kdense-stat">{t.skills.fileCount(skill.file_count)}</span>
-          <span className="kdense-stat">{t.skills.sizeBytes(skill.size_bytes)}</span>
+          <span className="kdense-stat">{labels.skills.fileCount(skill.file_count)}</span>
+          <span className="kdense-stat">{labels.skills.sizeBytes(skill.size_bytes)}</span>
         </div>
         <div className="kdense-card-actions">
           <a
@@ -188,7 +192,7 @@ function SkillCard({ skill, cat }: { skill: Skill; cat: Category | undefined }) 
             href={`/api/skills/${skill.id}/archive`}
             download={`${skill.slug}.zip`}
           >
-            {t.skills.download}
+            {labels.skills.download}
           </a>
         </div>
       </div>

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import t from "@/lib/i18n";
+import { useDictionary } from "@/components/shared/I18nContext";
 
 export function ShareButton({ title }: { title?: string } = {}) {
+  const t = useDictionary();
   const [copied, setCopied] = useState(false);
   async function share() {
     const url = typeof window !== "undefined" ? window.location.href : "https://huagongshe.com/guide";

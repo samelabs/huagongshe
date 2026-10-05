@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import t from "@/lib/i18n";
-
-const prompt = t.guide.aiPrompt;
+import { useDictionary } from "@/components/shared/I18nContext";
 
 export function AiSubmissionPrompt() {
+  const t = useDictionary();
+  const prompt = t.guide.aiPrompt;
   const [copied, setCopied] = useState(false);
   async function copy() {
     await navigator.clipboard.writeText(prompt);
@@ -14,6 +14,6 @@ export function AiSubmissionPrompt() {
   }
   return <div className="prompt-box">
     <pre>{prompt}</pre>
-        <button type="button" className="button secondary small" onClick={copy}>{copied ? t.guide.copyPrompt(true) : t.guide.copyPrompt(false)}</button>
+    <button type="button" className="button secondary small" onClick={copy}>{copied ? t.guide.copyPrompt(true) : t.guide.copyPrompt(false)}</button>
   </div>;
 }

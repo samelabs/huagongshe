@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { apiGet } from "@/lib/api";
-import t from "@/lib/i18n";
+import { getRequestDictionary } from "@/lib/serverI18n";
 import { KdenseSkillsClient } from "./KdenseSkillsClient";
 
 type Skill = {
@@ -22,6 +22,7 @@ async function skillsCount(): Promise<number | null> {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const t = await getRequestDictionary();
   const n = await skillsCount();
   const count = t.skills.countUnit(n);
   return {

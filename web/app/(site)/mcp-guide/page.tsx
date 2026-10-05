@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import t from "@/lib/i18n";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { withLocale } from "@/lib/localePath";
 
 function CopyJson() {
+  const t = useDictionary();
   const [copied, setCopied] = useState(false);
   async function copy() {
     await navigator.clipboard.writeText(t.mcp.commonJson);
@@ -30,6 +32,8 @@ function AgentCard({ title, desc, steps }: { title: string; desc: string; steps:
 }
 
 export default function McpPage() {
+  const t = useDictionary();
+  const locale = useLocale();
   return <div className="content-page guide-page mcp-page">
     <header className="page-head guide-hero">
       <div className="guide-hero-top">
@@ -52,7 +56,7 @@ export default function McpPage() {
         </div>
         <p className="mcp-connect-desc">{t.mcp.connectTokenDesc}</p>
         <div className="guide-actions">
-          <Link className="button primary" href="/me/settings/api-tokens">{t.mcp.connectTokenCta}</Link>
+          <Link className="button primary" href={withLocale("/me/settings/api-tokens", locale)}>{t.mcp.connectTokenCta}</Link>
         </div>
       </div>
     </section>

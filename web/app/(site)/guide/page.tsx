@@ -2,14 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AiSubmissionPrompt } from "@/components/AiSubmissionPrompt";
 import { ShareButton } from "@/components/ShareButton";
-import t from "@/lib/i18n";
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { withLocale } from "@/lib/localePath";
 
-export const metadata: Metadata = {
-  title: t.guide.title,
-  description: t.guide.desc,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getRequestDictionary();
+  return {
+    title: t.guide.title,
+    description: t.guide.desc,
+  };
+}
 
-export default function GuidePage() {
+export default async function GuidePage() {
+  const locale = await getRequestLocale();
+  const t = await getRequestDictionary();
   return <div className="content-page guide-page">
     <header className="page-head guide-hero">
       <div className="guide-hero-top">
@@ -34,7 +40,7 @@ export default function GuidePage() {
         </div>
         <p className="mcp-connect-desc">{t.guide.connectKeyDesc}</p>
         <div className="guide-actions">
-          <Link className="button primary" href="/mcp-guide">{t.guide.mcpCta}</Link>
+          <Link className="button primary" href={withLocale("/mcp-guide", locale)}>{t.guide.mcpCta}</Link>
           <Link className="button secondary" href="/me/settings/api-tokens">{t.guide.keyCta}</Link>
         </div>
       </div>
