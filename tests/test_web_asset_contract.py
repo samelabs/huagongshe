@@ -3,14 +3,14 @@
 目的不是测试图片内容, 而是防止:
 - 资产文件被重构误删
 - 扩展名与真实二进制格式不符 (如 PNG 伪装成 .ico)
-- manifest 指向不存在的资产
+- PWA manifest(当前为 Next dynamic manifest)指向不存在的资产
 
 纯文件系统检查, 不依赖网络/DB, 始终运行 (无 skip 模式)。
 """
 from __future__ import annotations
 
-import json
 import os
+import re
 import unittest
 
 WEB_ROOT = os.path.join(os.path.dirname(__file__), "..", "web")
@@ -57,17 +57,17 @@ class WebAssetContractTests(unittest.TestCase):
         self.assertGreaterEqual(count, 3, "favicon.ico should contain 16/32/48 sizes")
 
     def test_manifest_icons_all_exist(self):
-        manifest_path = os.path.join(WEB_ROOT, "public", "manifest.webmanifest")
-        self.assertTrue(os.path.isfile(manifest_path), "manifest.webmanifest missing")
+        manifest_path = os.path.join(WEB_ROOT, "app", "manifest.ts")
+        self.assertTrue(os.path.isfile(manifest_path), "web/app/manifest.ts missing")
         with open(manifest_path, "r", encoding="utf-8") as f:
-            manifest = json.load(f)  # JSON 不可解析则直接失败
-        icons = manifest.get("icons", [])
-        self.assertTrue(icons, "manifest has no icons")
-        for icon in icons:
-            src = icon["src"].lstrip("/")
+            source = f.read()
+        icons = re.findall(r'src:\s*["\'](/[^"\']+)["\']', source)
+        self.assertTrue(icons, "dynamic manifest has no icon src declarations")
+        for src in icons:
+            rel = src.lstrip("/")
             self.assertTrue(
-                os.path.isfile(os.path.join(WEB_ROOT, "public", src)),
-                f"manifest icon missing on disk: {src}",
+                os.path.isfile(os.path.join(WEB_ROOT, "public", rel)),
+                f"manifest icon missing on disk: {rel}",
             )
 
 
