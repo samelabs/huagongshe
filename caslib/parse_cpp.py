@@ -173,20 +173,66 @@ _SAFETY_KEY_L10N = {
     "HazardClass": "hazard_class", "国連危険物分類": "hazard_class",
     "PackingGroup": "packing_group", "容器等級": "packing_group",
 }
-_PROSE_TITLES = (
-    "用途", "生产方法", "制备", "化学性质", "概述", "简介", "应用",
-    "毒性", "毒性分级", "急性毒性", "刺激数据", "职业标准",
-    "储运特性", "可燃性危险特性", "爆炸物危险特性", "灭火剂", "类别",
-    # 语言页实测标题(fixtures)
-    "化学的特性", "説明", "解説", "一般的な説明", "天然物の起源", "来歴",
-    "使用", "定義", "調製方法", "製造方法", "使用用途", "合成方法", "純化方法",
-    "개요", "화학적 성질", "출처", "역사", "용도", "생산 방법", "정의",
-    "제조 방법", "일반 설명", "순도시험", "확인시험", "정량법",
-    "Description", "Occurrence", "History", "Uses", "Definition",
-    "General Description", "Preparation", "Production Method",
-    "Beschreibung", "Chemische Eigensc", "Verwenden", "Vorbereitung Met",
-    "synthetische", "Allgemeine Besch",
-)
+# prose 采集白名单: 2026-10 起由下方 _PROSE_GROUPED(SSOT)派生,
+# 标题集合与 0905 定案逐字一致 — 见 canonical prose SSOT 注释。
+
+# 唯一定义: 标题 → semantic group。标题本身只维护这一次。
+#   1. _PROSE_TITLES(parser 采集白名单)由本 mapping 的 keys 自动生成;
+#   2. classify_prose_title()(semantic projection 分组)查同一 mapping。
+# 分组键与 chemicalSections PROSE_GROUPS 同源: uses/preparation/properties/
+# toxicity/packaging/notes。注意 notes 组标题(定義/Definition 等)在白名单内
+# 但不归其他组 — mapping 显式收录, 保证"白名单内标题全部有明确归属"。
+_PROSE_GROUPED: dict[str, tuple[str, ...]] = {
+    "uses": (
+        "用途", "应用", "概述", "简介",
+        "使用用途", "使用", "説明", "解説", "一般的な説明", "来歴", "天然物の起源",
+        "용도", "개요", "일반 설명", "역사", "출처",
+        "Uses", "Description", "General Description", "Occurrence", "History",
+        "Verwenden", "Beschreibung", "Allgemeine Besch",
+    ),
+    "preparation": (
+        "生产方法", "制备",
+        "調製方法", "製造方法", "合成方法", "純化方法",
+        "생산 방법", "제조 방법",
+        "Preparation", "Production Method",
+        "Vorbereitung Met", "synthetische",
+    ),
+    "properties": (
+        "化学性质",
+        "化学的特性",
+        "화학적 성질",
+        "Chemische Eigensc",
+    ),
+    "toxicity": (
+        "毒性", "毒性分级", "急性毒性", "刺激数据", "职业标准",
+    ),
+    "packaging": (
+        "储运特性", "可燃性危险特性", "爆炸物危险特性", "灭火剂", "类别",
+    ),
+    "notes": (
+        "定義", "정의", "Definition",
+        "순도시험", "확인시험", "정량법",
+    ),
+}
+# 平铺 title → group(唯一查询表)
+_PROSE_TITLE_GROUP: dict[str, str] = {
+    title: group
+    for group, titles in _PROSE_GROUPED.items()
+    for title in titles
+}
+# parser 采集白名单 — 从 SSOT keys 派生, 不再独立维护(标题集合与
+# 0905 定案逐字一致)。
+_PROSE_TITLES = tuple(_PROSE_TITLE_GROUP)
+
+
+def classify_prose_title(title: str) -> str:
+    """canonical prose 分类器 — parser 与 semantic projection 共用的唯一入口。
+
+    返回 uses/preparation/properties/toxicity/packaging/notes;
+    未识别标题 → notes。本函数只分类, 不改变 parser 的收集白名单
+    (_PROSE_TITLES 仍决定采不采)。
+    """
+    return _PROSE_TITLE_GROUP.get(title, "notes")
 
 _PROP_PAIR_RE = re.compile(
     r'ChemicalProperties_PropertyNameLabel_(\d+)">\s*([^<]+?)</span>\s*</dt>\s*'

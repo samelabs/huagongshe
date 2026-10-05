@@ -105,6 +105,7 @@ async def search(
 async def chemical_detail(
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     enrich: str = Query("core", pattern="^(core|full)$"),
+    locale: str | None = Query(None),  # 白名单归一在 service(normalize_cb_locale): 未指定/非法 → en
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
@@ -112,6 +113,7 @@ async def chemical_detail(
     # 参数解析/auth/priority policy/display 投影/404 映射。
     # E9-B 1.1: 唯一公开 detail 能力。enrich=core(零 provider) /
     # full(semantic detail, 内部调 services/enrichment + services/cb)。
+    # locale(2026-10): CB 行选择上下文, 白名单校验, 未传 → service 默认 en。
     try:
         result = await get_chemical_detail(
             db, chemical_id,
@@ -120,6 +122,7 @@ async def chemical_detail(
             # 不是用户, 不占用户位(2026-08-27 血案: 匿名流量曾以 80 插队灌队列).
             priority=80 if actor is not None else 50,
             enrich=normalize_enrich(enrich),
+            locale=locale,
         )
     except ChemicalNotFoundError as exc:
         raise HTTPException(404, "化合物不存在") from exc

@@ -183,7 +183,7 @@ class FullOrchestrationTests(unittest.TestCase):
                     raise pb_exc
                 return pb_payload, None, False
 
-            async def fake_get_row(d, cid):
+            async def fake_get_row(d, cid, locale=None):
                 if cb_exc is not None:
                     raise cb_exc
                 return cb_row

@@ -39,25 +39,63 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-async def get_externals_row(db: Any, chemical_id: int) -> dict[str, Any] | None:
-    """详情读路径: 优先主表 imprint 对应的 source 行(convenience cb),
-    回落任意 zh-CN 行(legacy/多行任意一条, 与旧行为兼容)。"""
-    row = (await db.execute(text("""
-        SELECT x.chemical_id,x.cas_number,x.entry,x.last_status,x.fetched_at,x.cb_number
-        FROM chemistry.chemical_cb x
-        JOIN chemistry.chemicals c ON c.id=x.chemical_id
-        WHERE x.chemical_id=:chemical_id AND x.locale='zh-CN'
-          AND x.cb_number IS NOT DISTINCT FROM c.cb_number
-        LIMIT 1
-    """), {"chemical_id": chemical_id})).mappings().fetchone()
-    if row is None:
-        row = (await db.execute(text("""
-            SELECT chemical_id,cas_number,entry,last_status,fetched_at,cb_number
-            FROM chemistry.chemical_cb
-            WHERE chemical_id=:chemical_id AND locale='zh-CN'
-            LIMIT 1
-        """), {"chemical_id": chemical_id})).mappings().fetchone()
-    return dict(row) if row else None
+# CB 详情读路径 locale 白名单 — 与 web/lib/i18n/locales.ts SUPPORTED_LOCALES 同源
+# (API 侧唯一权威列表; 未列出的 locale 一律回落 en, 不做第二套协商)。
+CB_DETAIL_LOCALES = ("zh-CN", "en", "ja", "ko", "de")
+CB_DETAIL_DEFAULT_LOCALE = "en"
+
+
+def normalize_cb_locale(value: str | None) -> str:
+    """详情读路径 locale 归一: 未指定/非法 → en(默认), 合法原样。"""
+    if value in CB_DETAIL_LOCALES:
+        return value  # type: ignore[return-value]
+    return CB_DETAIL_DEFAULT_LOCALE
+
+
+async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAIL_DEFAULT_LOCALE) -> dict[str, Any] | None:
+    """详情读路径(locale-aware, 2026-10 CB locale 读取):
+
+    选择顺序(任务卡 §2):
+      1. requested locale + 主表 imprint 对应的 source 行(convenience cb_number)
+      2. en + 当前 cb_number
+      3. requested locale + 任意 legacy 行
+      4. en + 任意 legacy 行
+      5. 无结果 → None
+    locale=en 时 1/2 与 3/4 自然去重(同查询重复执行, 第二次空结果直接跳过)。
+    未指定/非法 locale 由 normalize_cb_locale 归一为 en。
+    """
+    locale = normalize_cb_locale(locale)
+
+    async def _query(loc: str, match_cb: bool) -> dict[str, Any] | None:
+        if match_cb:
+            row = (await db.execute(text("""
+                SELECT x.chemical_id,x.cas_number,x.entry,x.last_status,x.fetched_at,x.cb_number
+                FROM chemistry.chemical_cb x
+                JOIN chemistry.chemicals c ON c.id=x.chemical_id
+                WHERE x.chemical_id=:chemical_id AND x.locale=:locale
+                  AND x.cb_number IS NOT DISTINCT FROM c.cb_number
+                LIMIT 1
+            """), {"chemical_id": chemical_id, "locale": loc})).mappings().fetchone()
+        else:
+            row = (await db.execute(text("""
+                SELECT chemical_id,cas_number,entry,last_status,fetched_at,cb_number
+                FROM chemistry.chemical_cb
+                WHERE chemical_id=:chemical_id AND locale=:locale
+                LIMIT 1
+            """), {"chemical_id": chemical_id, "locale": loc})).mappings().fetchone()
+        return dict(row) if row else None
+
+    # en 与 requested 相同时, 同组合只查一次
+    tried: set[tuple[str, bool]] = set()
+    for loc, match_cb in ((locale, True), ("en", True), (locale, False), ("en", False)):
+        key = (loc, match_cb)
+        if key in tried:
+            continue
+        tried.add(key)
+        row = await _query(loc, match_cb)
+        if row is not None:
+            return row
+    return None
 
 
 async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:

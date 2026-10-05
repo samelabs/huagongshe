@@ -19,7 +19,6 @@
 """
 from __future__ import annotations
 
-import re
 from typing import Any
 
 # PB evidence 语义块 —— 与 web/components/chemicalEvidence.ts 同一白名单
@@ -39,20 +38,10 @@ PB_COMPUTED_KEYS = (
 
 # CB prose 语义分组 —— 与 web/components/chemicalSections.ts PROSE_GROUPS
 # 白名单逐条同源(0905 解析层白名单), 不新增分组。
-_CB_PROSE_GROUPS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"^(用途|应用|概述|简介|主要应用)$"), "uses"),
-    (re.compile(r"^(生产方法|制备)$"), "preparation"),
-    (re.compile(r"^(化学性质|性状)$"), "properties"),
-    (re.compile(r"^(毒性|毒性分级|急性毒性|刺激数据|职业标准)$"), "toxicity"),
-    (re.compile(r"^(储运特性|可燃性危险特性|爆炸物危险特性|灭火剂|类别)$"), "packaging"),
-)
-
-
-def _cb_prose_group(title: str) -> str:
-    for pat, group in _CB_PROSE_GROUPS:
-        if pat.match(title):
-            return group
-    return "notes"
+# 2026-10 CB locale 读取: 标题分类收口为单一规则源 caslib/parse_cpp.py
+# classify_prose_title(parser 与本模块共用; 此处不再维护语言标题表)。
+# caslib 位于仓库根(api 亦从根 sys.path 导入 caslib.fetch/parse_cpp)。
+from caslib.parse_cpp import classify_prose_title as _cb_prose_group
 
 
 def _is_prose_item(item: Any) -> bool:

@@ -598,6 +598,7 @@ async def get_chemical_detail(
     actor_id: int | None,
     priority: int,
     enrich: str = ENRICH_CANONICAL,
+    locale: str | None = None,
 ) -> dict[str, Any]:
     """返回 canonical business detail(E9-B 合流后唯一公开能力)。
 
@@ -611,6 +612,9 @@ async def get_chemical_detail(
       照常返回(绝不 500); 404 只表示 chemical 本体不存在。
     priority 由 adapter 按既有 policy(80=actor/50=匿名)显式传入;
     MCP 当前恒匿名 priority=50。
+    locale(2026-10 CB locale 读取): 只作用于 CB 行选择(services/cb
+    get_externals_row); 未指定/非法 → en。PB/suppliers 不受 locale 影响;
+    MCP 不传 locale, 因此默认得到 en。
     """
     enrich = normalize_enrich(enrich)
     _frozen_enrich(enrich)
@@ -660,7 +664,8 @@ async def get_chemical_detail(
             cb_raw_state, cb_applicable = "no_cas", False
         else:
             from . import cb as cb_module
-            cb_row = await cb_module.get_externals_row(db, chemical_id)
+            cb_row = await cb_module.get_externals_row(
+                db, chemical_id, locale=locale)
             if cb_row is None:
                 fresh_negative = await cb_module.negative_is_fresh(
                     db, "cas_locator", cas_number=cas_number)
