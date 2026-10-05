@@ -93,8 +93,8 @@ export function ApiTokenSettings() {
       </div></article>;
     })}</div>
     <div className="token-help-links">
-      <Link className="api-guide-link" href="/guide">{t.settings.ai.guideLink}</Link>
-      <Link className="api-guide-link" href="/mcp-guide">{t.settings.ai.mcpGuideLink}</Link>
+      <Link className="api-guide-link" href={withLocale("/guide", locale)}>{t.settings.ai.guideLink}</Link>
+      <Link className="api-guide-link" href={withLocale("/mcp-guide", locale)}>{t.settings.ai.mcpGuideLink}</Link>
     </div>
   </section>;
 }

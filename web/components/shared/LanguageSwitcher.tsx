@@ -19,7 +19,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useLocale } from "@/components/shared/I18nContext";
-import { SUPPORTED_LOCALES, replaceLocalePrefix } from "@/lib/localePath";
+import { SUPPORTED_LOCALES, isPathAtOrBelow, replaceLocalePrefix } from "@/lib/localePath";
 
 /** 各语言自称(固定, 不翻译) */
 const NATIVE_NAMES: Record<string, string> = {
@@ -37,8 +37,8 @@ export function LanguageSwitcher() {
   const search = searchParams.toString();
   const suffix = search ? `?${search}` : "";
 
-  // samelabs 后台不在 locale 治理范围
-  if (pathname.startsWith("/samelabs")) return null;
+  // samelabs 后台不在 locale 治理范围(边界语义: /samelabs 与 /samelabs/*, 不含 /samelabs-guide 等)
+  if (isPathAtOrBelow(pathname, "/samelabs")) return null;
 
   return (
     <details className="lang-switcher" aria-label="Language">

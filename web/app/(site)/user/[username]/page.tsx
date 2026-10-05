@@ -7,7 +7,7 @@ import { FollowButton } from "@/components/shared/FollowButton";
 import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
-import { localeAlternates } from "@/lib/alternates";
+import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
 
 type Profile = {
   id: number; username: string; display_name: string; bio: string | null;
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
     title: t.user.title.replace("{username}", username),
     description: t.user.desc,
     alternates: localeAlternates(canonical, locale),
-    openGraph: { url: withLocale(canonical, locale), title: `${t.user.title.replace("{username}", username)}｜${t.brand.name}`, description: t.user.desc },
+    openGraph: { url: withLocale(canonical, locale), title: `${t.user.title.replace("{username}", username)}｜${t.brand.name}`, description: t.user.desc, locale: ogLocaleTag(locale) },
   };
 }
 

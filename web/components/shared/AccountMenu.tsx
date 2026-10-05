@@ -59,7 +59,7 @@ export function AccountMenu({ user, variant, showWorkbenchEntry = false }: {
     await fetch("/api/auth/logout", { method: "POST" });
     close();
     clear();
-    router.push("/");
+    router.push(withLocale("/", locale));
     router.refresh();
   }
 

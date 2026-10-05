@@ -106,6 +106,11 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
 
   const prefixed = splitLocalePrefix(pathname);
   if (prefixed) {
+    // locale 前缀 + excluded path(如 /ja/mcp、/ja/api/health)是无效 alias:
+    // excluded 前缀完全不参与 locale, 不 rewrite 到 stripped path(避免第二套 alias),
+    // 交给后续路由按原路径 404。
+    if (isExcluded(prefixed.rest)) return undefined;
+
     // 已带 locale: Next 原生 rewrite 到现有路由, 地址栏不变, 附带 locale header, 同步 cookie
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = prefixed.rest;

@@ -146,3 +146,17 @@ test("/ja/mcp-guide rewrite 到 /mcp-guide(locale=ja)", () => {
   assert.equal(r.status, 200);
   assert.equal(getRewrittenUrl(r), ORIGIN + "/mcp-guide");
 });
+
+/* ─────── locale 前缀 + excluded path: 无效 alias, 不 rewrite 到 stripped path ─────── */
+
+test("/ja/mcp、/ja/api/*、/ja/samelabs/*、/ja/.well-known/* 均不 rewrite(undefined)", () => {
+  for (const p of [
+    "/ja/mcp",
+    "/ja/mcp/x",
+    "/ja/api/health",
+    "/ja/samelabs/users",
+    "/ja/.well-known/example",
+  ]) {
+    assert.equal(proxy(nextReq(p)), undefined, p);
+  }
+});

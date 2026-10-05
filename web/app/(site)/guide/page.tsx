@@ -44,7 +44,7 @@ export default async function GuidePage() {
         <p className="mcp-connect-desc">{t.guide.connectKeyDesc}</p>
         <div className="guide-actions">
           <Link className="button primary" href={withLocale("/mcp-guide", locale)}>{t.guide.mcpCta}</Link>
-          <Link className="button secondary" href="/me/settings/api-tokens">{t.guide.keyCta}</Link>
+          <Link className="button secondary" href={withLocale("/me/settings/api-tokens", locale)}>{t.guide.keyCta}</Link>
         </div>
       </div>
     </section>

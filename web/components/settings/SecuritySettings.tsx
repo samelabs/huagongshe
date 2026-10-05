@@ -28,7 +28,7 @@ export function SecuritySettings() {
       setBusy(true); setMessage("");
       try {
         await apiPost(`/users/me/password`, JSON.stringify({ current_password: values.get("current_password"), new_password: password, confirm_password: values.get("confirm_password") }));
-        window.location.assign("/login"); return;
+        window.location.assign(withLocale("/login", locale)); return;
       } catch {
         setMessage(t.settings.security.failed);
       } finally { setBusy(false); }
