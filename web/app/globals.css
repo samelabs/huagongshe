@@ -117,7 +117,7 @@ h2, h3 { font-weight: var(--section-weight); }
 .brand { display: inline-flex; align-items: center; padding: 12px 0; }  /* 44px 级触控区, 不改 header 高度 */
 .brand-domain { display: inline-flex; align-items: baseline; color: var(--heading-soft); font-family: var(--font-ui); font-size: 15px; line-height: 1; letter-spacing: -.015em; font-weight: 600; }
 .brand:hover .brand-domain { color: var(--blue); }
-nav[aria-label="主导航"] { min-width: 0; margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 22px; color: var(--muted); font-size: var(--text); white-space: nowrap; }
+.site-main-nav { min-width: 0; margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 22px; color: var(--muted); font-size: var(--text); white-space: nowrap; }
 .login-link { border: 1px solid var(--line-strong); border-radius: 7px; padding: 8px 13px; min-height: 38px; display: inline-flex; align-items: center; color: var(--ink); }
 .nav-guide { border: 1px solid var(--green-border); border-radius: 8px; padding: 6px 8px; min-height: 38px; display: inline-flex; align-items: center; color: var(--green-strong); background: var(--green-tint); font-weight: 650; white-space: nowrap; }
 /* 用户身份菜单样式统一在 app/account-menu.css（AccountMenu 组件专用） */
@@ -773,7 +773,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
   .header-inner { height: 58px; }
   .brand { min-width: 0; }
   .brand-domain { font-size: var(--text-lg); }
-  nav[aria-label="主导航"] { gap: 8px; font-size: var(--text); }
+  .site-main-nav { gap: 8px; font-size: var(--text); }
   .nav-guide { height: 38px; padding: 0 10px; justify-content: center; }
   .login-link { padding: 7px 9px; }
   footer { padding: 18px 14px; }
@@ -856,7 +856,10 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 @media (max-width: 420px) {
   .header-inner { width: calc(100% - 20px); }
   .brand-domain { font-size: 13.5px; }
-  nav[aria-label="主导航"] { gap: 6px; }
+  /* 320px 拥挤收敛: spacing/padding 最小收缩, 保住相邻元素零重叠 */
+  .site-main-nav { gap: 4px; }
+  .site-main-nav .nav-guide { padding-left: 6px; padding-right: 6px; }
+  .site-main-nav .lang-switcher summary { padding-left: 4px; padding-right: 4px; }
   .login-link { padding-left: 8px; padding-right: 8px; }
   .content-page, .home, .auth-page { width: calc(100% - 24px); }
   .hero h1 { font-size: 22px; }
@@ -1118,8 +1121,8 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 /* 工作台样式已迁移至 (workbench)/aichem.css，此处无残留 */
 
 @media (hover:hover) {
-  nav[aria-label="主导航"] > a:hover { color: var(--blue); }
-  nav[aria-label="主导航"] > a.nav-guide:hover { border-color: var(--green); color: var(--green-deep); background: var(--green-pale); }
+  .site-main-nav > a:hover { color: var(--blue); }
+  .site-main-nav > a.nav-guide:hover { border-color: var(--green); color: var(--green-deep); background: var(--green-pale); }
   footer a:hover { color: var(--blue); }
   .button.primary:hover { background: var(--blue-deep); }
   .button.secondary:hover { border-color: var(--blue); color: var(--blue); }

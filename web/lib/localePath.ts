@@ -37,5 +37,20 @@ export function withLocale(path: string, locale: Locale): string {
   return `/${locale}${path}`;
 }
 
+/**
+ * replaceLocalePrefix · 语言切换器的前缀替换 helper(自 LanguageSwitcher 迁入)
+ *
+ * 把当前带前缀路径换成目标 locale 前缀; 无前缀(内部直访)时加前缀。
+ * 只处理 pathname, 不含 query —— query 由调用方用当前路由状态拼接。
+ */
+export function replaceLocalePrefix(pathname: string, next: Locale): string {
+  const segments = pathname.split("/");
+  if (segments.length > 1 && isSupportedLocale(segments[1])) {
+    segments[1] = next;
+    return segments.join("/") || `/${next}`;
+  }
+  return `/${next}${pathname === "/" ? "" : pathname}`;
+}
+
 export type { Locale };
 export { SUPPORTED_LOCALES };

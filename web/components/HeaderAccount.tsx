@@ -13,7 +13,7 @@ export function HeaderAccount() {
   const locale = useLocale();
 
   return (
-    <nav aria-label={t.nav.mainNav}>
+    <nav className="site-main-nav" aria-label={t.nav.mainNav}>
       <Link href={withLocale("/mcp-guide", locale)} className="nav-guide" aria-label="MCP">
         MCP
       </Link>

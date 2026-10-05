@@ -13,13 +13,13 @@
  *  - 无国旗
  *  - /samelabs/* 下不渲染(路径检测, 该区域不在 locale 治理范围)
  *  - locale 列表复用 SUPPORTED_LOCALES, 不建第二份
- *  - SSR 安全: pathname 用 usePathname(), query 挂载后从 location 读取
+ *  - query 直接取当前路由状态(useSearchParams), 无挂载后快照 ——
+ *    客户端搜索导航后切换语言携带的是当前 query, 而非初始 URL 的
  */
 
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useLocale } from "@/components/shared/I18nContext";
-import { SUPPORTED_LOCALES } from "@/lib/i18n/locales";
+import { SUPPORTED_LOCALES, replaceLocalePrefix } from "@/lib/localePath";
 
 /** 各语言自称(固定, 不翻译) */
 const NATIVE_NAMES: Record<string, string> = {
@@ -30,23 +30,12 @@ const NATIVE_NAMES: Record<string, string> = {
   de: "Deutsch",
 };
 
-/** 把当前带前缀路径换成目标 locale 前缀; 无前缀(内部直访)时加前缀 */
-export function replaceLocalePrefix(pathname: string, next: string): string {
-  const segments = pathname.split("/");
-  if (segments.length > 1 && SUPPORTED_LOCALES.includes(segments[1] as never)) {
-    segments[1] = next;
-    return segments.join("/") || `/${next}`;
-  }
-  return `/${next}${pathname === "/" ? "" : pathname}`;
-}
-
 export function LanguageSwitcher() {
   const locale = useLocale();
   const pathname = usePathname() ?? "/";
-  const [search, setSearch] = useState("");
-
-  // query 只在 client 挂载后读取(避免 SSR/client 不一致)
-  useEffect(() => { setSearch(window.location.search); }, []);
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
+  const suffix = search ? `?${search}` : "";
 
   // samelabs 后台不在 locale 治理范围
   if (pathname.startsWith("/samelabs")) return null;
@@ -63,7 +52,7 @@ export function LanguageSwitcher() {
             key={l}
             role="menuitem"
             hrefLang={l}
-            href={replaceLocalePrefix(pathname, l) + search}
+            href={replaceLocalePrefix(pathname, l) + suffix}
             aria-current={l === locale ? "true" : undefined}
             className={l === locale ? "current" : undefined}
           >
