@@ -1230,6 +1230,10 @@
     /* 底栏 fixed 高度恒定，内容让位同高度 */
     padding-bottom: var(--wb-tabbar-h);
   }
+  /* 手机语言入口只在 MobileTabBar 第四格, topbar 不重复显示 */
+  .wb-topbar-language {
+    display: none;
+  }
   /* PWA 独立窗口：inset 恒定，让位含安全区 */
   @media (display-mode: standalone) {
     .wb-shell { padding-bottom: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom)); }

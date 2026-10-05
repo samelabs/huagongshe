@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
-import { withLocale } from "@/lib/localePath";
+import { withLocale, splitLocalePrefix } from "@/lib/localePath";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
@@ -24,8 +24,9 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   const cookieHeader = h.get("cookie");
   const user = await getUser(cookieHeader);
   if (!user) {
+    // 前缀判定走唯一 parser splitLocalePrefix, 不再硬编码五语言 regex
     const originalPath = (await nextHeaders()).get("x-site-locale-path");
-    if (originalPath && /^\/(zh-CN|en|ja|ko|de)(\/|$)/.test(originalPath.split("?")[0])) {
+    if (originalPath && splitLocalePrefix(originalPath.split("?")[0])) {
       redirect(withLocale(`/login?next=${encodeURIComponent(originalPath)}`, locale));
     }
     redirect("/login?next=/me/settings");

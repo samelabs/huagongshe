@@ -10,7 +10,7 @@ import { apiGet, isApiNotFound, reactionSvgUrl, type Chemical, type ReactionDeta
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
-import { localeAlternates } from "@/lib/alternates";
+import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import type { Locale } from "@/lib/i18n/locales";
 
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     title: `HRID ${id}`,
     description: t.reaction.desc,
     alternates: localeAlternates(canonical, locale),
-    openGraph: { url: withLocale(canonical, locale), title: `HRID ${id}｜${t.brand.name}`, description: t.reaction.desc },
+    openGraph: { url: withLocale(canonical, locale), title: `HRID ${id}｜${t.brand.name}`, description: t.reaction.desc, locale: ogLocaleTag(locale) },
   };
 }
 
@@ -99,7 +99,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
     "@context": "https://schema.org",
     "@type": "ChemicalReaction",
     name: t.reaction.jsonLdName(reaction.id),
-    url: `https://huagongshe.com/reaction/${reaction.id}`,
+    url: localizedAbsoluteUrl(`/reaction/${reaction.id}`, locale),
     ...(reaction.reaction_smiles ? { reactionSmiles: reaction.reaction_smiles } : {}),
     ...(reaction.doi ? { citation: { "@type": "CreativeWork", identifier: reaction.doi } } : {}),
     ...(reaction.procedure_details ? { description: reaction.procedure_details } : {}),

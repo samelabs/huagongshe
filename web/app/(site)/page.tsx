@@ -2,10 +2,12 @@ import Link from "next/link";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import type { Metadata } from "next";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
-import { localeAlternates } from "@/lib/alternates";
+import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
+import { withLocale } from "@/lib/localePath";
 
 export async function generateMetadata(): Promise<Metadata> {
-  // 首页 SEO 文案随 locale; canonical/hreflang 覆盖 root 默认值
+  // 首页 SEO 文案随 locale; canonical/hreflang/OG/twitter 全部由首页自持
+  // (root layout 只保留全站级 metadata, 不再代管首页的 alternates/openGraph/twitter)
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   return {
@@ -13,9 +15,18 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { absolute: t.brand.seoTitle },
     description: t.brand.seoDesc,
     alternates: localeAlternates("/", locale),
+    openGraph: {
+      title: t.brand.seoTitle,
+      description: t.brand.seoDesc,
+      url: withLocale("/", locale),
+      siteName: t.brand.name,
+      locale: ogLocaleTag(locale),
+      type: "website",
+      images: [{ url: "/logo.png", width: 512, height: 512, alt: t.brand.ogAlt }],
+    },
+    twitter: { card: "summary", title: t.brand.seoTitle, description: t.brand.seoDescShort, images: ["/logo.png"] },
   };
 }
-import { withLocale } from "@/lib/localePath";
 
 export default async function Home() {
   const t = await getRequestDictionary();

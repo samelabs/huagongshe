@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { apiGet } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
-import { localeAlternates } from "@/lib/alternates";
+import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
 import { withLocale } from "@/lib/localePath";
 import { KdenseSkillsClient } from "./KdenseSkillsClient";
 
@@ -38,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: t.skills.metaOgDesc(count),
     url: withLocale("/skills", locale),
     siteName: t.brand.name,
-    locale: locale === "zh-CN" ? "zh_CN" : locale,
+    locale: ogLocaleTag(locale),
     type: "website",
   },
   };

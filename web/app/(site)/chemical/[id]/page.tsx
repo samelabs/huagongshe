@@ -15,7 +15,7 @@ import { apiGet, isApiNotFound, type Chemical, type ReactionSummary, type Semant
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
-import { localeAlternates } from "@/lib/alternates";
+import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /**
@@ -51,6 +51,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       url: withLocale(canonical, locale),
       title: `${pageTitle}｜${t.brand.name}`,
       description,
+      locale: ogLocaleTag(locale),
       images: [{ url: `/api/mol/${id}/png`, width: 500, height: 375, alt: t.chemical.structureAlt(displayName) }],
     },
     twitter: {
@@ -150,7 +151,7 @@ export default async function ChemicalPage({ params }: {
     ...(chemical.smiles ? { smiles: chemical.smiles } : {}),
     ...(chemical.inchikey ? { inChIKey: chemical.inchikey } : {}),
     ...(chemical.cas_numbers.length ? { casNumber: chemical.cas_numbers[0] } : {}),
-    ...(chemical.pubchem_cid ? { url: `https://huagongshe.com/chemical/${chemical.id}` } : {}),
+    ...(chemical.pubchem_cid ? { url: localizedAbsoluteUrl(`/chemical/${chemical.id}`, locale) } : {}),
   };
 
   // TOC 只列实际渲染的 section(rail TOC 与 tablet/mobile local nav 共用此唯一列表)

@@ -1,17 +1,24 @@
 /**
- * alternates helper + ogLocaleTag 映射测试
+ * alternates helper 真实 SUT 测试
  *
  * - localeAlternates: canonical 当前 locale / 五语言 alternates / x-default→en / 无前缀 canonical 不出现
- * - ogLocaleTag: 五 locale → language_TERRITORY 全映射
+ * - ogLocaleTag: 直接 import 真实实现验证五 locale 映射(不维护镜像映射表)
+ * - localizedAbsoluteUrl: SITE_ORIGIN + withLocale 组合
  *
- * 注: ogLocaleTag 定义于 app/layout.tsx(模块私有), 此处以等价输入输出表驱动验证
- * —— 若 layout 中映射变更而未同步此表, 测试即红, 防止 OGP 格式回退。
+ * 运行(tsx 未声明为项目依赖, 用本地 tsc 临时编译到 /tmp 后执行):
+ *   TMP_DIR="$(mktemp -d)"
+ *   ./node_modules/.bin/tsc lib/alternates.ts lib/localePath.ts lib/i18n/locales.ts \
+ *     --target ES2022 --module commonjs --moduleResolution node \
+ *     --skipLibCheck --outDir "$TMP_DIR" --noEmit false
+ *   cp lib/alternates.test.mjs "$TMP_DIR/" && cd "$TMP_DIR" && node --test alternates.test.mjs
  */
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { localeAlternates } from "./alternates";
-import { SUPPORTED_LOCALES } from "./i18n/locales";
+import { createRequire } from "node:module";
+const req = createRequire(import.meta.url);
+const { localeAlternates, ogLocaleTag, localizedAbsoluteUrl, SITE_ORIGIN } = req("./alternates.js");
+const { SUPPORTED_LOCALES } = req("./i18n/locales.js");
 
 test("canonical 指向当前 locale 版本(带前缀)", () => {
   assert.equal(localeAlternates("/chemical/2244", "en")?.canonical, "/en/chemical/2244");
@@ -54,20 +61,21 @@ test("动态路径透传: /chemical/2244 在五语言 alternates 中保持同一
   }
 });
 
-// ═══ ogLocaleTag 映射(与 app/layout.tsx 保持同步的表驱动契约) ═══
-const OG_LOCALE_MAP = {
-  "zh-CN": "zh_CN",
-  en: "en_US",
-  ja: "ja_JP",
-  ko: "ko_KR",
-  de: "de_DE",
-};
+// ═══ ogLocaleTag(真实实现, 无镜像表) ═══
 
-test("ogLocaleTag: 五 locale → language_TERRITORY 全覆盖", () => {
-  // 每个输出必须是 ll_CC 且与 SUPPORTED_LOCALES 一一对应
-  assert.equal(Object.keys(OG_LOCALE_MAP).length, SUPPORTED_LOCALES.length);
-  for (const l of SUPPORTED_LOCALES) {
-    const tag = OG_LOCALE_MAP[l];
-    assert.match(tag, /^[a-z]{2}_[A-Z]{2}$/, `${l} → ${tag} 不是 language_TERRITORY`);
-  }
+test("ogLocaleTag: 五 locale → language_TERRITORY 全映射", () => {
+  assert.equal(ogLocaleTag("zh-CN"), "zh_CN");
+  assert.equal(ogLocaleTag("en"), "en_US");
+  assert.equal(ogLocaleTag("ja"), "ja_JP");
+  assert.equal(ogLocaleTag("ko"), "ko_KR");
+  assert.equal(ogLocaleTag("de"), "de_DE");
+});
+
+// ═══ localizedAbsoluteUrl ═══
+
+test("localizedAbsoluteUrl: SITE_ORIGIN + 正式 locale 前缀", () => {
+  assert.equal(localizedAbsoluteUrl("/chemical/71747", "ja"), "https://huagongshe.com/ja/chemical/71747");
+  assert.equal(localizedAbsoluteUrl("/reaction/3", "de"), "https://huagongshe.com/de/reaction/3");
+  assert.equal(localizedAbsoluteUrl("/chemical/1", "en"), "https://huagongshe.com/en/chemical/1");
+  assert.equal(SITE_ORIGIN, "https://huagongshe.com");
 });

@@ -3,8 +3,7 @@ import { headers } from "next/headers";
 import { AccountProvider } from "@/components/shared/AccountContext";
 import { I18nProvider } from "@/components/shared/I18nContext";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
-import { localeAlternates } from "@/lib/alternates";
-import { withLocale } from "@/lib/localePath";
+import { SITE_ORIGIN } from "@/lib/alternates";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import "./globals.css";
@@ -16,41 +15,18 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 export async function generateMetadata(): Promise<Metadata> {
-  const locale = await getRequestLocale();
+  // root 只保留真正全站级 metadata —— alternates/openGraph/twitter 属于具体页面
+  // (首页在 (site)/page.tsx 自持), 放这里会污染未覆盖 metadata 的子页面。
   const t = await getRequestDictionary();
   return {
-    metadataBase: new URL("https://huagongshe.com"),
+    metadataBase: new URL(SITE_ORIGIN),
     manifest: "/manifest.webmanifest",
     appleWebApp: { capable: true, title: t.brand.name, statusBarStyle: "default" },
     title: { default: t.brand.seoTitle, template: `%s｜${t.brand.name}` },
     description: t.brand.seoDesc,
     keywords: [...t.brand.keywords, "AI Chemistry Workspace", "Chemical Knowledge Base", "Reaction Library"],
-    // 首页 canonical/hreflang: 当前语言正式 URL + 五语言 alternate + x-default(en)
-    alternates: localeAlternates("/", locale),
     robots: { index: true, follow: true },
-    openGraph: {
-      title: t.brand.seoTitle,
-      description: t.brand.seoDesc,
-      url: withLocale("/", locale),
-      siteName: t.brand.name,
-      locale: ogLocaleTag(locale),
-      type: "website",
-      images: [{ url: "/logo.png", width: 512, height: 512, alt: t.brand.ogAlt }],
-    },
-    twitter: { card: "summary", title: t.brand.seoTitle, description: t.brand.seoDescShort, images: ["/logo.png"] },
   };
-}
-
-/** Open Graph locale 语义: language_TERRITORY 格式(zh-CN → zh_CN 等); 仅影响 og:meta, 不动 URL/hreflang/lang */
-function ogLocaleTag(locale: string): string {
-  switch (locale) {
-    case "zh-CN": return "zh_CN";
-    case "en": return "en_US";
-    case "ja": return "ja_JP";
-    case "ko": return "ko_KR";
-    case "de": return "de_DE";
-    default: return "en_US";
-  }
 }
 
 type SiteConfig = {
