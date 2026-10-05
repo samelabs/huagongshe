@@ -107,7 +107,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img loading="lazy" src={molSvgUrl(chem.id, 160, 110)} alt="" />
                 <div>
-                  <strong>{resolveChemicalName(chem, t.common.hcidLabel).title}</strong>
+                  <strong>{resolveChemicalName(chem, t.common.hcidLabel, locale).title}</strong>
                   <EntityId kind="chemical" id={chem.id} compact />
                   <span>{chem.molecular_formula || chem.inchikey || ""}</span>
                 </div>

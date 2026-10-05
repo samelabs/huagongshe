@@ -10,7 +10,7 @@ export async function ChemicalResult({ chemical }: { chemical: Chemical }) {
   const t = await getRequestDictionary();
   const locale = await getRequestLocale();
   // 名称解析唯一出口(与详情页/SEO 同规则): 本地化名 → 英文常用名 → 系统名 → 分子式 → HCID
-  const { title, secondary } = resolveChemicalName(chemical, t.common.hcidLabel);
+  const { title, secondary } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
   const identity = [
     secondary,
     chemical.cas_numbers[0] ? `CAS ${chemical.cas_numbers[0]}` : null,

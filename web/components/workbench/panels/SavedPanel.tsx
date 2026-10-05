@@ -63,7 +63,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
             {chemicals.items.map((item) => (
               <Link href={withLocale(`/chemical/${item.id}`, locale)} key={item.id}>
                 <EntityId kind="chemical" id={item.id} compact />
-                <span><strong>{resolveChemicalName(item, t.common.hcidLabel).title}</strong>{item.smiles && <small>{item.smiles}</small>}</span>
+                <span><strong>{resolveChemicalName(item, t.common.hcidLabel, locale).title}</strong>{item.smiles && <small>{item.smiles}</small>}</span>
               </Link>
             ))}
           </div>

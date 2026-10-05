@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from .core.database import get_db
 from .core.security import Actor, current_actor, current_session
+from .services.chemicals import attach_localized_names
 
 router = APIRouter(tags=["follows"])
 
@@ -93,14 +94,18 @@ async def followed_chemicals(
         SELECT count(*) FROM community.chemical_follows WHERE user_id=:id
     """), {"id": actor.id})).scalar() or 0)
     rows = (await db.execute(text("""
-        SELECT c.id,c.preferred_name,c.iupac_name,c.smiles,f.created_at
+        SELECT c.id,c.preferred_name,c.iupac_name,c.molecular_formula,c.smiles,f.created_at
         FROM community.chemical_follows f JOIN chemistry.chemicals c ON c.id=f.chemical_id
         WHERE f.user_id=:id ORDER BY f.created_at DESC,c.id
         LIMIT :page_size OFFSET :offset
     """), {
         "id": actor.id, "page_size": page_size, "offset": (page - 1) * page_size,
     })).mappings().all()
-    return {"items": [dict(row) for row in rows], "total": total, "page": page, "page_size": page_size}
+    items = [dict(row) for row in rows]
+    # name_cn 唯一来源: services.chemicals.attach_localized_names —— 本地化名
+    # 索引的 (kind,lang,source) owner; social 层不建第二套 taxonomy。
+    await attach_localized_names(db, items)
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
 @router.get("/users/me/follows/reactions")
