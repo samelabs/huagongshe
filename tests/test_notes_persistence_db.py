@@ -25,6 +25,7 @@ if _raw:
 
 from api.services import notes as svc
 from api.services.identity import absorb
+from api.services.chemicals import reaction_lookup
 
 
 @unittest.skipUnless(ASYNC_URL, "测试库闸: TEST_DATABASE_URL 未过 tests/db_gate.py")
@@ -198,6 +199,24 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
             ids = [item["id"] for item in page["items"]]
             self.assertIn(public["id"], ids)
             self.assertNotIn(private["id"], ids)
+
+    async def test_reference_search_can_find_own_private_reaction_only(self):
+        async with self.Session() as db:
+            own = await reaction_lookup(
+                db, str(self.private_reaction), 10, actor_id=self.owner)
+            self.assertEqual([row["id"] for row in own], [self.private_reaction])
+
+            anonymous = await reaction_lookup(
+                db, str(self.private_reaction), 10, actor_id=None)
+            self.assertEqual(anonymous, [])
+
+            foreign = await reaction_lookup(
+                db, str(self.private_reaction), 10, actor_id=self.other)
+            self.assertEqual(foreign, [])
+
+            public = await reaction_lookup(
+                db, str(self.public_reaction), 10, actor_id=None)
+            self.assertEqual([row["id"] for row in public], [self.public_reaction])
 
     async def test_public_note_hides_reaction_reference_after_visibility_changes(self):
         # The reference was valid when created. If the reaction later becomes

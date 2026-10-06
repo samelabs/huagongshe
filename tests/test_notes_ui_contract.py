@@ -13,6 +13,11 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertIn('type="search"', src)
         self.assertNotIn('type="number"', src)
 
+    def test_search_pipeline_passes_actor_for_private_hrid_discovery(self):
+        src = (REPO / "api/services/search.py").read_text(encoding="utf-8")
+        self.assertIn("reaction_lookup(", src)
+        self.assertIn("actor_id=actor_id", src)
+
     def test_entity_pages_embed_generic_notes_component(self):
         chemical = (REPO / "web/app/(site)/chemical/[id]/page.tsx").read_text(encoding="utf-8")
         reaction = (REPO / "web/app/(site)/reaction/[id]/page.tsx").read_text(encoding="utf-8")

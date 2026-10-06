@@ -544,7 +544,9 @@ async def run_search_query(
         except Exception:
             total = None
 
-        reactions = await reaction_lookup(db, query, page_size) if mode == "exact" and page == 1 else []
+        reactions = await reaction_lookup(
+            db, query, page_size, actor_id=actor_id
+        ) if mode == "exact" and page == 1 else []
         # 0902 P2: 身份键唯一命中直达 — 无歧义身份键(CAS/InChIKey/canonical SMILES/
         # 显式 id:/cid: 前缀)且恰 1 行化合物 0 反应 → 前端/API 跳详情页。
         # 纯数字无前缀不直达: hcid/cid/hrid 三路天然歧义(格式不可控, 用户裁定)。

@@ -240,10 +240,25 @@ async def reaction_summaries(
     ]
 
 
-async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any]]:
-    """Resolve stable reaction identities; chemical structures are searched as chemicals."""
+async def reaction_lookup(
+    db: Any,
+    query: str,
+    limit: int,
+    *,
+    actor_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """Resolve stable reaction identities without leaking another user's private rows.
+
+    Anonymous callers see public+visible reactions only. An authenticated caller
+    may additionally resolve reactions they own, including private/hidden rows.
+    This keeps the shared search API usable as the Note reference picker while
+    preserving the existing anonymous visibility boundary.
+    """
     clauses: list[str] = []
-    params: dict[str, Any] = {"limit": min(limit, 100)}
+    params: dict[str, Any] = {
+        "limit": min(limit, 100),
+        "viewer_id": actor_id if actor_id is not None else -1,
+    }
     prefix, sep, raw_value = query.partition(":")
     value = raw_value.strip() if sep else query
     normalized_prefix = prefix.strip().lower() if sep else ""
@@ -265,7 +280,10 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
               rx.doi,rx.patent,'doi' AS match_basis
             FROM chemistry.reactions rx
             WHERE lower(rx.doi)=:doi
-              AND rx.visibility='public' AND rx.moderation_status='visible'
+              AND (
+                (rx.visibility='public' AND rx.moderation_status='visible')
+                OR rx.created_by_user_id=:viewer_id
+              )
             ORDER BY rx.id
             LIMIT :limit
             )
@@ -290,7 +308,11 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
             )
             ORDER BY 1
             LIMIT :limit
-        """), {"doi": doi_value, "limit": params["limit"]})).fetchall()
+        """), {
+            "doi": doi_value,
+            "limit": params["limit"],
+            "viewer_id": params["viewer_id"],
+        })).fetchall()
         return [
             {
                 "id": row[0], "reaction_smiles": row[1], "ord_id": row[2],
@@ -332,7 +354,10 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
         LEFT JOIN ord.dataset d ON d.id=o.dataset_id
         LEFT JOIN ord.reaction_provenance rp ON rp.reaction_id=o.id
         WHERE ({' OR '.join(clauses)})
-          AND rx.visibility='public' AND rx.moderation_status='visible'
+          AND (
+                (rx.visibility='public' AND rx.moderation_status='visible')
+                OR rx.created_by_user_id=:viewer_id
+              )
         ORDER BY rx.id,rp.id
         LIMIT :limit
     """), {
