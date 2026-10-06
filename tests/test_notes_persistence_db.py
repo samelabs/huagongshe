@@ -51,15 +51,17 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         async with self.engine.begin() as conn:
-            if self.user_ids:
-                await conn.execute(
-                    text("DELETE FROM community.users WHERE id = ANY(:ids)"),
-                    {"ids": self.user_ids},
-                )
+            # reactions.created_by_user_id is ON DELETE RESTRICT, so delete the
+            # owned reaction fixtures before their users.
             if self.reaction_ids:
                 await conn.execute(
                     text("DELETE FROM chemistry.reactions WHERE id = ANY(:ids)"),
                     {"ids": self.reaction_ids},
+                )
+            if self.user_ids:
+                await conn.execute(
+                    text("DELETE FROM community.users WHERE id = ANY(:ids)"),
+                    {"ids": self.user_ids},
                 )
             if self.chemical_ids:
                 await conn.execute(
