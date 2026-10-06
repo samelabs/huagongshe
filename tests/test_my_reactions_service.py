@@ -269,11 +269,13 @@ class McpBehaviorTests(unittest.IsolatedAsyncioTestCase):
             except ToolError as exc:
                 return exc
 
-    async def test_no_credential_tool_error_exact(self):
-        from mcp.server.mcpserver.exceptions import ToolError
+    async def test_no_credential_returns_oauth_challenge(self):
         r = await self._call(actor=None)
-        self.assertIsInstance(r, ToolError)
-        self.assertTrue(str(r).startswith("Authentication required."))
+        self.assertTrue(r.is_error)
+        challenge = (r.meta or {}).get("mcp/www_authenticate") or []
+        self.assertTrue(challenge)
+        self.assertIn('scope="read"', challenge[0])
+        self.assertIn("oauth-protected-resource", challenge[0])
 
     async def test_actor_id_and_params_propagated(self):
         from unittest.mock import MagicMock

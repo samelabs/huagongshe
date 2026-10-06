@@ -166,17 +166,18 @@ class McpSearchContractTests(unittest.TestCase):
             asyncio.run(fn(q="CCO", mode="bogus"))
         self.assertIn("mode must be one of", str(ctx.exception))
 
-    def test_mcp_structure_anonymous_denied_toolerror(self):
-        from mcp.server.mcpserver.exceptions import ToolError
+    def test_mcp_structure_anonymous_returns_oauth_challenge(self):
         import api.mcp_server as m
         fn = self._tool_fn()
         async def anon(headers):
             return None
         with patch.object(m, "_actor_from_headers", anon):
-            with self.assertRaises(ToolError) as ctx:
-                asyncio.run(fn(q="CCO", mode="substructure"))
-        self.assertEqual(str(ctx.exception),
-                         "Substructure and similarity search require authentication; exact search is public.")
+            result = asyncio.run(fn(q="CCO", mode="substructure"))
+        self.assertTrue(result.is_error)
+        challenge = (result.meta or {}).get("mcp/www_authenticate") or []
+        self.assertTrue(challenge)
+        self.assertIn('scope="read"', challenge[0])
+        self.assertIn("oauth-protected-resource", challenge[0])
 
     def test_mcp_service_error_maps_to_toolerror(self):
         from mcp.server.mcpserver.exceptions import ToolError

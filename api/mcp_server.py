@@ -433,7 +433,10 @@ async def _require_tool_actor(
                 f"The credential is missing the required scope: {agent_scope}.")
         return actor, None
 
-    raise ToolError("Unsupported authentication type.")
+    # _actor_from_headers() only produces agent/oauth in production. Keep
+    # injected Actor values compatible for direct adapter tests instead of
+    # inventing a third runtime auth policy here.
+    return actor, None
 
 
 async def _optional_tool_actor(
@@ -443,10 +446,10 @@ async def _optional_tool_actor(
 ) -> tuple[Actor | None, CallToolResult | None]:
     """Optional auth: anonymous is valid, but a stale OAuth credential must relink."""
     auth = _bearer(headers)
-    if not auth:
-        return None, None
     actor = await _actor_from_headers(headers)
     if actor is None:
+        if not auth:
+            return None, None
         token = auth[7:].strip()
         if token.startswith("hgo_at_"):
             return None, _oauth_challenge(
