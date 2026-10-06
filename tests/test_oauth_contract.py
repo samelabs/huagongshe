@@ -6,6 +6,7 @@ import base64
 import hashlib
 import os
 import unittest
+from unittest.mock import AsyncMock, patch
 
 os.environ.setdefault(
     "HGS_DATABASE_URL",
@@ -74,6 +75,71 @@ class OAuthContractTests(unittest.TestCase):
                 application_type="web",
             ))
         self.assertEqual(raised.exception.error, "invalid_client_metadata")
+
+    def test_dcr_does_not_treat_explicit_empty_lists_as_omitted(self):
+        class NeverDb:
+            async def execute(self, *args, **kwargs):
+                raise AssertionError("DB must not be touched for invalid DCR metadata")
+
+        for grants, responses in (
+            ([], ["code"]),
+            (["authorization_code"], []),
+        ):
+            with self.subTest(grants=grants, responses=responses):
+                with self.assertRaises(svc.OAuthProtocolError) as raised:
+                    asyncio.run(svc.register_client(
+                        NeverDb(),
+                        redirect_uris=["https://chatgpt.com/callback"],
+                        client_name="bad",
+                        token_endpoint_auth_method="none",
+                        grant_types=grants,
+                        response_types=responses,
+                        application_type="web",
+                    ))
+                self.assertEqual(raised.exception.error, "invalid_client_metadata")
+
+    def test_authorization_errors_redirect_only_after_exact_redirect_validation(self):
+        registered = "https://chatgpt.com/callback"
+        client = {
+            "client_id": "hgo_client_test",
+            "client_name": "Test client",
+            "redirect_uris": [registered],
+        }
+
+        with patch.object(svc, "_load_client", new=AsyncMock(return_value=client)):
+            with self.assertRaises(svc.OAuthProtocolError) as raised:
+                asyncio.run(svc.begin_authorization(
+                    object(),
+                    user_id=1,
+                    client_id="hgo_client_test",
+                    redirect_uri=registered,
+                    response_type="code",
+                    scope="read note:write",
+                    state="state-1",
+                    code_challenge="x" * 43,
+                    code_challenge_method="S256",
+                    resource=svc.mcp_resource_url(),
+                ))
+        self.assertEqual(raised.exception.error, "invalid_scope")
+        self.assertEqual(raised.exception.redirect_uri, registered)
+        self.assertEqual(raised.exception.state, "state-1")
+
+        with patch.object(svc, "_load_client", new=AsyncMock(return_value=client)):
+            with self.assertRaises(svc.OAuthProtocolError) as raised:
+                asyncio.run(svc.begin_authorization(
+                    object(),
+                    user_id=1,
+                    client_id="hgo_client_test",
+                    redirect_uri="https://attacker.example/callback",
+                    response_type="code",
+                    scope="read",
+                    state="state-2",
+                    code_challenge="x" * 43,
+                    code_challenge_method="S256",
+                    resource=svc.mcp_resource_url(),
+                ))
+        self.assertEqual(raised.exception.error, "invalid_request")
+        self.assertIsNone(raised.exception.redirect_uri)
 
 
 if __name__ == "__main__":

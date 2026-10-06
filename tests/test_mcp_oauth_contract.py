@@ -5,6 +5,7 @@ import asyncio
 import inspect
 import os
 import unittest
+from unittest.mock import AsyncMock, patch
 
 os.environ.setdefault(
     "HGS_DATABASE_URL",
@@ -69,6 +70,42 @@ class McpOAuthContractTests(unittest.TestCase):
         from api.core import security
         source = inspect.getsource(security.resolve_actor)
         self.assertNotIn("hgo_at_", source)
+
+    def test_oauth_missing_scope_returns_insufficient_scope_challenge(self):
+        actor = Actor(
+            1, "u", "User", "u@example.test", "member", None,
+            "oauth", 9, ("read",),
+        )
+        with patch.object(
+            mcp_server, "_actor_from_headers", new=AsyncMock(return_value=actor)
+        ):
+            resolved, result = asyncio.run(mcp_server._require_tool_actor(
+                {"authorization": "Bearer hgo_at_test"},
+                oauth_scope="reaction:write",
+                agent_scope="reaction:write",
+            ))
+        self.assertIsNone(resolved)
+        self.assertIsNotNone(result)
+        challenge = (result.meta or {}).get("mcp/www_authenticate") or []
+        self.assertTrue(challenge)
+        self.assertIn('error="insufficient_scope"', challenge[0])
+        self.assertIn('scope="reaction:write"', challenge[0])
+
+    def test_existing_ai_key_actor_keeps_historical_scope_path(self):
+        actor = Actor(
+            1, "u", "User", "u@example.test", "member", None,
+            "agent", 7, ("reaction:write",),
+        )
+        with patch.object(
+            mcp_server, "_actor_from_headers", new=AsyncMock(return_value=actor)
+        ):
+            resolved, result = asyncio.run(mcp_server._require_tool_actor(
+                {"authorization": "Bearer hgs_test"},
+                oauth_scope="reaction:write",
+                agent_scope="reaction:write",
+            ))
+        self.assertIs(resolved, actor)
+        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

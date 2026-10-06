@@ -155,10 +155,11 @@ async def register_client(
         raise OAuthProtocolError(
             "invalid_client_metadata", "redirect_uris must contain 1-10 string entries."
         )
-    if any(not _valid_redirect_uri(uri) for uri in redirect_uris):
+    if any(len(uri) > 2000 or not _valid_redirect_uri(uri) for uri in redirect_uris):
         raise OAuthProtocolError(
             "invalid_redirect_uri",
-            "Every redirect URI must use HTTPS, except localhost loopback URIs.",
+            "Every redirect URI must be at most 2000 characters and use HTTPS, "
+            "except localhost loopback URIs.",
         )
     if token_endpoint_auth_method not in (None, "none"):
         raise OAuthProtocolError(
@@ -169,7 +170,10 @@ async def register_client(
         raise OAuthProtocolError(
             "invalid_client_metadata", "client_name must be a string."
         )
-    grants = grant_types or ["authorization_code", "refresh_token"]
+    grants = (
+        ["authorization_code", "refresh_token"]
+        if grant_types is None else grant_types
+    )
     if (
         not isinstance(grants, list)
         or "authorization_code" not in grants
@@ -180,7 +184,7 @@ async def register_client(
             "invalid_client_metadata",
             "grant_types must include authorization_code and contain only supported values.",
         )
-    responses = response_types or ["code"]
+    responses = ["code"] if response_types is None else response_types
     if not isinstance(responses, list) or responses != ["code"]:
         raise OAuthProtocolError(
             "invalid_client_metadata", "Only response_type=code is supported."
@@ -234,12 +238,12 @@ async def begin_authorization(
     user_id: int,
     client_id: str,
     redirect_uri: str,
-    response_type: str,
+    response_type: str | None,
     scope: str | None,
     state: str | None,
-    code_challenge: str,
-    code_challenge_method: str,
-    resource: str,
+    code_challenge: str | None,
+    code_challenge_method: str | None,
+    resource: str | None,
 ) -> dict[str, Any]:
     client = await _load_client(db, client_id)
     if client is None:
@@ -254,15 +258,28 @@ async def begin_authorization(
             state=state,
         )
 
+    if state is not None and len(state) > 1000:
+        raise authorized_error("invalid_request", "state is too long.")
+    if scope is not None and len(scope) > 300:
+        raise authorized_error("invalid_request", "scope is too long.")
     if response_type != "code":
         raise authorized_error(
             "unsupported_response_type", "Only response_type=code is supported."
         )
-    if resource != mcp_resource_url():
+    if (
+        resource is None
+        or len(resource) > 2000
+        or resource != mcp_resource_url()
+    ):
         raise authorized_error(
             "invalid_target", "resource does not identify this MCP server."
         )
-    if code_challenge_method != "S256" or not PKCE_CHALLENGE_RE.fullmatch(code_challenge):
+    if (
+        code_challenge_method != "S256"
+        or code_challenge is None
+        or len(code_challenge) > 200
+        or not PKCE_CHALLENGE_RE.fullmatch(code_challenge)
+    ):
         raise authorized_error(
             "invalid_request", "PKCE S256 code_challenge is required."
         )

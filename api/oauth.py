@@ -84,12 +84,15 @@ async def authorize(
     request: Request,
     client_id: str = Query(..., min_length=1, max_length=300),
     redirect_uri: str = Query(..., min_length=1, max_length=2000),
-    response_type: str = Query(..., min_length=1, max_length=30),
-    scope: str = Query(default="", max_length=300),
-    state: str | None = Query(default=None, max_length=1000),
-    code_challenge: str = Query(..., min_length=1, max_length=200),
-    code_challenge_method: str = Query(..., min_length=1, max_length=20),
-    resource: str = Query(..., min_length=1, max_length=2000),
+    # Once client_id + redirect_uri are known-good, OAuth protocol errors must
+    # be returned to that registered redirect URI instead of being pre-empted
+    # by FastAPI's generic 422 validation. The service owns these bounds.
+    response_type: str | None = Query(default=None),
+    scope: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    code_challenge: str | None = Query(default=None),
+    code_challenge_method: str | None = Query(default=None),
+    resource: str | None = Query(default=None),
     actor: Actor | None = Depends(optional_actor),
     db: AsyncSession = Depends(get_db),
 ):

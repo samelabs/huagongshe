@@ -304,7 +304,7 @@ class McpBehaviorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_page_clamp_both_directions(self):
         from unittest.mock import MagicMock
-        actor = MagicMock(); actor.id = 1
+        actor = MagicMock(); actor.id = 1; actor.auth_kind = "agent"; actor.scopes = []
         captured = {}
         await self._call(actor=actor, captured=captured, page=0)
         self.assertEqual(captured["page"], 1)
@@ -313,7 +313,7 @@ class McpBehaviorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_page_size_clamp_both_directions(self):
         from unittest.mock import MagicMock
-        actor = MagicMock(); actor.id = 1
+        actor = MagicMock(); actor.id = 1; actor.auth_kind = "agent"; actor.scopes = []
         captured = {}
         await self._call(actor=actor, captured=captured, page_size=0)
         self.assertEqual(captured["page_size"], 1)
