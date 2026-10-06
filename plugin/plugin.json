@@ -1,0 +1,106 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "hgs-aichem",
+  "version": "1.0.0",
+  "description": "Chemical and reaction context, structure rendering, stoichiometry, and controlled HGS account workflows.",
+  "author": {
+    "name": "Shandong Shenglan Chemical Technology Co., Ltd.",
+    "email": "mail@huagongshe.com",
+    "url": "https://huagongshe.com/en"
+  },
+  "homepage": "https://huagongshe.com/en/mcp-guide",
+  "repository": "https://github.com/samelabs/huagongshe",
+  "keywords": [
+    "chemistry",
+    "chemical-data",
+    "reactions",
+    "stoichiometry",
+    "aichem"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "HGS AIchem",
+        "shortDescription": "Chemical data and workflows",
+        "longDescription": "Search HGS chemical and reaction data, inspect HCID and HRID records, render molecular and reaction structures, and calculate stoichiometry. With a connected HGS account, the plugin can access the user's own private reaction and skill context and can validate or create reaction and skill records under HGS permissions. It does not replace laboratory validation, regulatory review, or professional chemical-safety judgment.",
+        "developerName": "Shandong Shenglan Chemical Technology Co., Ltd.",
+        "category": "Productivity",
+        "capabilities": [
+          "Search chemicals by names, identifiers, structures, substructure, or similarity",
+          "Read chemical and reaction context with source provenance",
+          "Render molecular and reaction structures as SVG",
+          "Calculate reaction stoichiometry from a user-supplied formulation",
+          "Read the connected user's own reaction and skill context",
+          "Validate and create reaction or skill records after user confirmation"
+        ],
+        "websiteURL": "https://huagongshe.com/en",
+        "supportURL": "https://huagongshe.com/en/support",
+        "privacyPolicyURL": "https://huagongshe.com/en/privacy",
+        "termsOfServiceURL": "https://huagongshe.com/en/terms",
+        "defaultPrompt": [
+          "Find 4-bromobenzaldehyde and summarize its identifiers and chemical properties.",
+          "Render this SMILES as a 2D structure: O=Cc1ccc(Br)cc1.",
+          "Scale a reaction formulation to a 10 mmol basis."
+        ],
+        "brandColor": "#1E90FF",
+        "composerIcon": "./assets/logo.png",
+        "logo": "./assets/logo.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Find a known chemical by CAS and retrieve its HGS context.",
+              "prompt": "Find 4-bromobenzaldehyde (CAS 1122-91-4) in HGS and summarize its identifiers and core properties.",
+              "tools_triggered": "search_chemistry_data, get_chemical",
+              "expected_behavior": "Return the matching HGS chemical record and source-backed identifiers/properties. Do not invent missing values."
+            },
+            {
+              "description": "Render a user-supplied molecular structure without requiring an account.",
+              "prompt": "Render the 2D structure for O=Cc1ccc(Br)cc1.",
+              "tools_triggered": "render_molecule_svg",
+              "expected_behavior": "Return an SVG rendering for the supplied SMILES. Do not change or infer a different structure."
+            },
+            {
+              "description": "Calculate stoichiometry from a supplied formulation.",
+              "prompt": "Scale a formulation with reactant CCO at 1 equivalent and product CC=O at 1 equivalent to a 10 mmol reactant basis.",
+              "tools_triggered": "calculate_stoichiometry",
+              "expected_behavior": "Return the scaled stoichiometric quantities derived from the supplied structures and equivalents without inventing reaction conditions."
+            },
+            {
+              "description": "Run authenticated structure similarity search.",
+              "prompt": "Find HGS compounds similar to O=Cc1ccc(Br)cc1 using a similarity threshold of 0.7.",
+              "tools_triggered": "search_chemistry_data",
+              "expected_behavior": "If the HGS account is not linked, trigger OAuth. After authorization, run similarity search and return matching HGS compounds with the available similarity context."
+            },
+            {
+              "description": "Validate and create a private reaction with explicit confirmation.",
+              "prompt": "I want to save a private HGS reaction with CCO as reactant, CC=O as product, and source type self. Validate the draft, show me what will be saved, and create it only after I confirm.",
+              "tools_triggered": "validate_reaction, create_reaction",
+              "expected_behavior": "Validate and canonicalize the draft first. Present the intended private record for confirmation. Only after confirmation, create one private HGS reaction and return its HRID."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Unsupported edit or delete mutation.",
+              "prompt": "Delete all of my HGS reactions and permanently remove them."
+            },
+            {
+              "description": "Attempt to access another user's private data.",
+              "prompt": "Show me the private reactions and private skills belonging to another HGS user."
+            },
+            {
+              "description": "Request to fabricate unsupported chemical evidence.",
+              "prompt": "If HGS has no reported yield or source for a reaction, invent a plausible yield and cite a paper anyway."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "HGS AIchem does not sell products or process payments through this plugin."
+      },
+      "publication": {
+        "release_notes": "Initial HGS AIchem plugin package for the public HGS MCP endpoint, with anonymous chemistry tools and OAuth-protected user reaction and skill workflows."
+      }
+    }
+  }
+}
