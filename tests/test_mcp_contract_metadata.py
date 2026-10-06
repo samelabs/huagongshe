@@ -85,6 +85,14 @@ class McpMetadataContractTests(unittest.TestCase):
             "Basis index 9 is outside the component range.",
         )
 
+    def test_oauth_security_metadata_is_not_advertised_before_runtime(self):
+        # W4 owns OAuth runtime + per-tool security metadata. W3 must not
+        # promise oauth2 before the server can actually complete that flow.
+        for name, tool in self.tools.items():
+            with self.subTest(tool=name):
+                meta = getattr(tool, "meta", None) or {}
+                self.assertNotIn("securitySchemes", meta)
+
     def test_annotations_explain_known_non_read_side_effects(self):
         # These two tools are intentionally not marked read-only even though
         # their names look read-like:
