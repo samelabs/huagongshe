@@ -83,6 +83,8 @@ CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
                      "yield_percent")}),
     ("community", "chemical_follows",
      {"strategy": "DEDUPE_REKEY", "dedupe_key": ("user_id",), "merge_cols": ()}),
+    ("community", "note_chemicals",
+     {"strategy": "DEDUPE_REKEY", "dedupe_key": ("note_id",), "merge_cols": ()}),
     ("community", "notifications", {"strategy": "REKEY_MANY"}),
     ("maintenance", "cas_jobs", {"strategy": "REKEY_MANY"}),
     ("maintenance", "pubchem_jobs", {"strategy": "REKEY_MANY"}),
