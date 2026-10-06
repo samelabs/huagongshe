@@ -42,6 +42,20 @@ export function NotesPanel({
   const mounted = useRef(false);
   const latestLoad = useRef(0);
 
+  function listHref(targetPage: number) {
+    return withLocale(
+      `/aichem?tab=notes${visibility === "all" ? "" : `&visibility=${visibility}`}${targetPage > 1 ? `&page=${targetPage}` : ""}`,
+      locale,
+    );
+  }
+
+  function redirectIfPageIsEmpty(value: NoteResponse): boolean {
+    if (page <= 1 || value.items.length > 0) return false;
+    const lastPage = Math.max(1, Math.ceil(value.total / value.page_size));
+    router.replace(listHref(lastPage));
+    return true;
+  }
+
   async function load() {
     const requestId = ++latestLoad.current;
     setState("loading");
@@ -49,6 +63,7 @@ export function NotesPanel({
     try {
       const value = await apiGet<NoteResponse>(`/users/me/notes?visibility=${visibility}&page=${page}&page_size=20`);
       if (requestId !== latestLoad.current) return;
+      if (redirectIfPageIsEmpty(value)) return;
       setData(value);
       setState("ready");
     } catch (err) {
@@ -61,6 +76,7 @@ export function NotesPanel({
   useEffect(() => {
     if (!mounted.current && initialData) {
       mounted.current = true;
+      if (redirectIfPageIsEmpty(initialData)) return;
       return;
     }
     mounted.current = true;
@@ -89,12 +105,24 @@ export function NotesPanel({
     const created = creating && !editing;
     setCreating(false);
     setEditing(null);
+
     if (created) {
       setCreateContext({ chemicalIds: [], reactionIds: [] });
-      router.replace(withLocale("/aichem?tab=notes", locale));
+      // 新建后必须让用户看见刚保存的记录。page=1 + all 可原地刷新；
+      // 其他筛选/页码回到 Notes 首页，避免保存成功后落在看不到新记录的列表。
+      if (page === 1 && visibility === "all") {
+        await load();
+        if (createOpen) router.replace(withLocale("/aichem?tab=notes", locale));
+      } else {
+        router.replace(withLocale("/aichem?tab=notes", locale));
+      }
       return;
     }
+
+    // 编辑保存后刷新当前列表；若 URL 仍带 new=1（例如从新建态切到编辑），
+    // 同时归一回 Notes 列表，避免 URL 与实际编辑器状态分叉。
     await load();
+    if (createOpen) router.replace(withLocale("/aichem?tab=notes", locale));
   }
 
   async function remove(note: NoteItem) {

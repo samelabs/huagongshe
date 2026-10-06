@@ -30,6 +30,9 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertIn("createContext.reactionIds", src)
         self.assertIn("latestLoad = useRef(0)", src)
         self.assertIn("const created = creating && !editing", src)
+        self.assertIn("page === 1 && visibility === \"all\"", src)
+        self.assertIn("redirectIfPageIsEmpty", src)
+        self.assertIn("Math.ceil(value.total / value.page_size)", src)
         self.assertIn('router.replace(withLocale("/aichem?tab=notes", locale))', src)
 
     def test_mobile_topbar_keeps_creation_actions_without_desktop_duplication(self):
