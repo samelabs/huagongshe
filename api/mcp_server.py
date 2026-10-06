@@ -13,8 +13,9 @@
 - pm2 --workers 2: 必须 stateless_http=True(有状态 session 绑单 worker 内存,
   nginx 轮询跨 worker 必 404). stateless = 每请求独立 context.
 - 认证: 不用 SDK token_verifier(它是传输层全量强制门, 匿名 initialize 都过不去,
-  与"匿名只读 + Token 写"分层冲突). 每工具从 ctx.headers 读 Authorization,
-  走 resolve_actor(与 REST 同一张 user_api_tokens 表, 同一套 scopes).
+  与 mixed anonymous/OAuth 工具冲突). 每工具从 ctx.headers 读 Authorization:
+  既保留既有 HGS AI Key, 又支持 MCP OAuth access token; OAuth 只在 MCP adapter
+  解析为 Actor, 不自动扩大 REST Bearer 权限。
 - DNS rebinding 防护: host 默认 127.0.0.1 会触发 localhost-only Host 校验,
   挂在公网域名后必 403 — 传 transport_security 显式关闭(nginx 层已有真实边界).
 - thin wrapper 直调服务层函数(与 REST handler 共享同一函数), 不自调 HTTP.
@@ -31,7 +32,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.context import Context
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import ToolAnnotations
+from mcp.types import CallToolResult, TextContent, ToolAnnotations
 from sqlalchemy import text
 
 from .core import rate_limit
@@ -85,6 +86,23 @@ ANN_CREATE_OPEN = ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=True,
     open_world_hint=True,
 )
+
+# OpenAI/MCP auth metadata. Existing HGS AI Keys remain accepted at runtime;
+# securitySchemes describe the standardized connection path available to hosts.
+SEC_NOAUTH = {"securitySchemes": [{"type": "noauth"}]}
+SEC_OPTIONAL_READ = {
+    "securitySchemes": [
+        {"type": "noauth"},
+        {"type": "oauth2", "scopes": ["read"]},
+    ]
+}
+SEC_OAUTH_READ = {"securitySchemes": [{"type": "oauth2", "scopes": ["read"]}]}
+SEC_OAUTH_REACTION_WRITE = {
+    "securitySchemes": [{"type": "oauth2", "scopes": ["reaction:write"]}]
+}
+SEC_OAUTH_SKILL_WRITE = {
+    "securitySchemes": [{"type": "oauth2", "scopes": ["skill:write"]}]
+}
 
 
 def _render_busy() -> ToolError:
@@ -320,30 +338,147 @@ def _bearer(headers: Any) -> str | None:
     return None
 
 
+def _quote_auth_parameter(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _oauth_challenge(
+    scope: str,
+    *,
+    error: str,
+    description: str,
+) -> CallToolResult:
+    resource_metadata = (
+        f"{settings.public_base_url.rstrip('/')}"
+        "/.well-known/oauth-protected-resource"
+    )
+    challenge = (
+        'Bearer '
+        f'resource_metadata="{_quote_auth_parameter(resource_metadata)}", '
+        f'scope="{_quote_auth_parameter(scope)}", '
+        f'error="{_quote_auth_parameter(error)}", '
+        f'error_description="{_quote_auth_parameter(description)}"'
+    )
+    return CallToolResult(
+        content=[TextContent(type="text", text=description)],
+        is_error=True,
+        _meta={"mcp/www_authenticate": [challenge]},
+    )
+
+
 async def _actor_from_headers(headers: Any) -> Actor | None:
-    """Resolve Actor from Bearer token; None = anonymous (read-only tools)."""
+    """Resolve existing HGS AI Key or MCP OAuth token; None means anonymous."""
     auth = _bearer(headers)
     if not auth:
         return None
+    token = auth[7:].strip()
     async with async_session() as session:
-        actor = await resolve_actor(session, authorization=auth, session_token=None)
-        return actor
+        if token.startswith("hgo_at_"):
+            from .services.oauth import mcp_resource_url, resolve_access_token
+
+            row = await resolve_access_token(
+                session, token, expected_resource=mcp_resource_url())
+            if row is None:
+                return None
+            return Actor(
+                int(row["user_id"]),
+                str(row["username"]),
+                str(row["display_name"]),
+                str(row["email"]),
+                str(row["role"]),
+                row["avatar_path"],
+                "oauth",
+                int(row["id"]),
+                tuple(row["scopes"] or ()),
+            )
+        return await resolve_actor(
+            session, authorization=auth, session_token=None)
+
+
+async def _require_tool_actor(
+    headers: Any,
+    *,
+    oauth_scope: str,
+    agent_scope: str | None,
+) -> tuple[Actor | None, CallToolResult | None]:
+    """Authenticate one protected tool without turning /mcp into a global gate.
+
+    Existing HGS AI Keys preserve their historical scope semantics. OAuth
+    credentials enforce the scope advertised in tool securitySchemes and return
+    the MCP challenge metadata ChatGPT needs to launch account linking.
+    """
+    auth = _bearer(headers)
+    actor = await _actor_from_headers(headers)
+    if actor is None:
+        description = (
+            "Authentication required. Connect your HGS account to continue."
+            if not auth else
+            "The supplied access token is invalid or expired. Reconnect your HGS account."
+        )
+        return None, _oauth_challenge(
+            oauth_scope, error="invalid_token", description=description)
+
+    if actor.auth_kind == "oauth":
+        if oauth_scope not in actor.scopes:
+            return None, _oauth_challenge(
+                oauth_scope,
+                error="insufficient_scope",
+                description=f"The connection needs the {oauth_scope} scope.",
+            )
+        return actor, None
+
+    if actor.auth_kind == "agent":
+        if agent_scope is not None and agent_scope not in actor.scopes:
+            raise ToolError(
+                f"The credential is missing the required scope: {agent_scope}.")
+        return actor, None
+
+    raise ToolError("Unsupported authentication type.")
+
+
+async def _optional_tool_actor(
+    headers: Any,
+    *,
+    oauth_scope: str,
+) -> tuple[Actor | None, CallToolResult | None]:
+    """Optional auth: anonymous is valid, but a stale OAuth credential must relink."""
+    auth = _bearer(headers)
+    if not auth:
+        return None, None
+    actor = await _actor_from_headers(headers)
+    if actor is None:
+        token = auth[7:].strip()
+        if token.startswith("hgo_at_"):
+            return None, _oauth_challenge(
+                oauth_scope,
+                error="invalid_token",
+                description="The HGS OAuth access token is invalid or expired.",
+            )
+        # Preserve historical invalid-AI-Key behavior on optional public reads.
+        return None, None
+    if actor.auth_kind == "oauth" and oauth_scope not in actor.scopes:
+        return None, _oauth_challenge(
+            oauth_scope,
+            error="insufficient_scope",
+            description=f"The connection needs the {oauth_scope} scope.",
+        )
+    return actor, None
 
 
 def _require(actor: Actor | None, scope: str) -> Actor:
+    """Legacy helper retained for direct tests and non-challenge call sites."""
     if actor is None:
-        raise ToolError("Authentication required. Connect an HGS AI Key with Authorization: Bearer <AI Key>.")
-    if actor.auth_kind != "agent" and actor.auth_kind != "session":
+        raise ToolError("Authentication required.")
+    if actor.auth_kind not in ("agent", "oauth", "session"):
         raise ToolError("Unsupported authentication type.")
-    if actor.auth_kind == "agent" and scope not in actor.scopes:
+    if actor.auth_kind in ("agent", "oauth") and scope not in actor.scopes:
         raise ToolError(f"The credential is missing the required scope: {scope}.")
     return actor
 
 
 def _require_login(actor: Actor | None) -> Actor:
-    """登录即可的操作(与 REST current_actor 同语义), 不做 scope 收紧."""
     if actor is None:
-        raise ToolError("Authentication required. Connect an HGS AI Key with Authorization: Bearer <AI Key>.")
+        raise ToolError("Authentication required.")
     return actor
 
 
@@ -394,7 +529,7 @@ def build_mcp_server() -> MCPServer:
 
     # ---------------- 查询与读取工具 ----------------
 
-    @server.tool(name="search_chemistry_data", title="Search chemistry data", annotations=ANN_SEARCH_OPEN)
+    @server.tool(name="search_chemistry_data", title="Search chemistry data", annotations=ANN_SEARCH_OPEN, meta=SEC_OPTIONAL_READ)
     async def search_chemistry_data(
         q: str,
         mode: str = "exact",
@@ -427,9 +562,14 @@ def build_mcp_server() -> MCPServer:
         # exact 保持原样(匿名, 不透传 actor).
         actor = None
         if mode != "exact":
-            actor = await _actor_from_headers(ctx.headers if ctx else None)
-            if actor is None:
-                raise ToolError("Substructure and similarity search require authentication; exact search is public.")
+            actor, auth_result = await _require_tool_actor(
+                ctx.headers if ctx else None,
+                oauth_scope="read",
+                agent_scope=None,
+            )
+            if auth_result is not None:
+                return auth_result  # type: ignore[return-value]
+            assert actor is not None
         # G2.3 final: 直调 shared search orchestration(services/search.py
         # execute_search)—— cache/结构闸门/canonicalize/查询/结果组装唯一 owner。
         # adapter 只保留: 参数验证/clamp、auth、会话获取、错误映射。
@@ -449,7 +589,7 @@ def build_mcp_server() -> MCPServer:
             except RateLimitError as exc:
                 raise ToolError(_rate_error_message(exc)) from exc
 
-    @server.tool(name="get_chemical", title="Get chemical", annotations=ANN_CHEMICAL_OPEN)
+    @server.tool(name="get_chemical", title="Get chemical", annotations=ANN_CHEMICAL_OPEN, meta=SEC_NOAUTH)
     async def get_chemical(
         chemical_id: int,
         enrich: str = "core",
@@ -484,7 +624,7 @@ def build_mcp_server() -> MCPServer:
             except _ChemicalNotFoundError as exc:
                 raise ToolError("Chemical not found.") from exc
 
-    @server.tool(name="get_reaction", title="Get reaction", annotations=ANN_READ_CLOSED)
+    @server.tool(name="get_reaction", title="Get reaction", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
     async def get_reaction(
         reaction_id: int,
         ctx: Context = None,  # type: ignore[assignment]
@@ -493,7 +633,10 @@ def build_mcp_server() -> MCPServer:
         also read their own private reaction record."""
         from .services.reactions import load_reaction_detail
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
+        actor, auth_result = await _optional_tool_actor(
+            ctx.headers if ctx else None, oauth_scope="read")
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
         if not 1 <= reaction_id <= 2_147_483_647:
             raise ToolError("reaction_id is out of range.")
         # G2.5B: 直调 transport-neutral service(None=不存在或不可见);
@@ -508,7 +651,7 @@ def build_mcp_server() -> MCPServer:
                 raise ToolError("Reaction not found.")
             return data
 
-    @server.tool(name="render_molecule_svg", title="Render molecule SVG", annotations=ANN_READ_CLOSED)
+    @server.tool(name="render_molecule_svg", title="Render molecule SVG", annotations=ANN_READ_CLOSED, meta=SEC_NOAUTH)
     async def render_molecule_svg(
         chemical_id: int | None = None,
         smiles: str | None = None,
@@ -558,7 +701,7 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("The SMILES could not be rendered.")
         return svg
 
-    @server.tool(name="render_reaction_svg", title="Render reaction SVG", annotations=ANN_READ_CLOSED)
+    @server.tool(name="render_reaction_svg", title="Render reaction SVG", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
     async def render_reaction_svg(
         reaction_id: int,
         width: int = 800,
@@ -572,7 +715,10 @@ def build_mcp_server() -> MCPServer:
         """
         from .services import rendering as render_service
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
+        actor, auth_result = await _optional_tool_actor(
+            ctx.headers if ctx else None, oauth_scope="read")
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
         width = min(max(width, 50), 800)
         height = min(max(height, 50), 800)
         async with async_session() as session:
@@ -596,7 +742,7 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("The reaction SMILES could not be rendered.")
         return svg
 
-    @server.tool(name="list_skills", title="List skills", annotations=ANN_READ_CLOSED)
+    @server.tool(name="list_skills", title="List skills", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
     async def list_skills(
         scope: str = "public",
         q: str = "",
@@ -613,8 +759,16 @@ def build_mcp_server() -> MCPServer:
         if scope not in ("public", "mine"):
             raise ToolError("scope must be either public or mine.")
         if scope == "mine":
-            # 与 REST 契约一致: list_skills(mine) 仅要求登录, scope 收紧在 handler 内不发生.
-            actor = _require_login(actor)
+            # Existing AI Keys keep the historical login-only policy; OAuth uses
+            # the advertised read scope.
+            actor, auth_result = await _require_tool_actor(
+                ctx.headers if ctx else None,
+                oauth_scope="read",
+                agent_scope=None,
+            )
+            if auth_result is not None:
+                return auth_result  # type: ignore[return-value]
+            assert actor is not None
         q = (q or "")[:120]
         category = (category or "")[:40]
         page = min(max(page, 1), 500)
@@ -626,7 +780,7 @@ def build_mcp_server() -> MCPServer:
                 q=q, category=category, page=page, page_size=page_size,
             )
 
-    @server.tool(name="get_skill", title="Get skill", annotations=ANN_READ_CLOSED)
+    @server.tool(name="get_skill", title="Get skill", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
     async def get_skill(
         skill_id: int | str,
         ctx: Context = None,  # type: ignore[assignment]
@@ -639,7 +793,10 @@ def build_mcp_server() -> MCPServer:
         from .services.skills import SkillNotAccessibleError
         from .services.skills import get_skill_detail as _detail_service
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
+        actor, auth_result = await _optional_tool_actor(
+            ctx.headers if ctx else None, oauth_scope="read")
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
         if isinstance(skill_id, str):
             candidate = skill_id.strip()
             if candidate.isdigit():
@@ -660,7 +817,7 @@ def build_mcp_server() -> MCPServer:
             except SkillNotAccessibleError as exc:
                 raise ToolError(_skill_error_message(exc)) from exc
 
-    @server.tool(name="calculate_stoichiometry", title="Calculate stoichiometry", annotations=ANN_READ_CLOSED)
+    @server.tool(name="calculate_stoichiometry", title="Calculate stoichiometry", annotations=ANN_READ_CLOSED, meta=SEC_NOAUTH)
     async def calculate_stoichiometry(
         components: list[dict[str, Any]],
         basis: dict[str, Any],
@@ -706,7 +863,7 @@ def build_mcp_server() -> MCPServer:
 
     # ---------------- 写工具(需要 AI Key) ----------------
 
-    @server.tool(name="list_my_reactions", title="List my reactions", annotations=ANN_READ_CLOSED)
+    @server.tool(name="list_my_reactions", title="List my reactions", annotations=ANN_READ_CLOSED, meta=SEC_OAUTH_READ)
     async def list_my_reactions(
         visibility: str = "all",
         page: int = 1,
@@ -716,9 +873,14 @@ def build_mcp_server() -> MCPServer:
         """List reaction records owned by the authenticated HGS user."""
         from .services.reactions import list_my_reactions as _list_service
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
-        # 与 REST 契约一致(agent-guide: bearer 即可), 不做额外 scope 收紧.
-        actor = _require_login(actor)
+        actor, auth_result = await _require_tool_actor(
+            ctx.headers if ctx else None,
+            oauth_scope="read",
+            agent_scope=None,
+        )
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
+        assert actor is not None
         if visibility not in ("all", "public", "private"):
             raise ToolError("visibility must be one of: all, public, private.")
         page = min(max(page, 1), 500)
@@ -730,7 +892,7 @@ def build_mcp_server() -> MCPServer:
                 page=page, page_size=page_size,
             )
 
-    @server.tool(name="validate_reaction", title="Validate reaction draft", annotations=ANN_READ_CLOSED)
+    @server.tool(name="validate_reaction", title="Validate reaction draft", annotations=ANN_READ_CLOSED, meta=SEC_OAUTH_REACTION_WRITE)
     async def validate_reaction(
         reaction: dict[str, Any],
         ctx: Context = None,  # type: ignore[assignment]
@@ -743,8 +905,14 @@ def build_mcp_server() -> MCPServer:
         from .services.reactions import ReactionValidationError
         from .services.reactions import validate_reaction_draft
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
-        _require(actor, "reaction:write")
+        actor, auth_result = await _require_tool_actor(
+            ctx.headers if ctx else None,
+            oauth_scope="reaction:write",
+            agent_scope="reaction:write",
+        )
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
+        assert actor is not None
         try:
             body = ReactionBody(**reaction)
         except Exception as exc:
@@ -759,7 +927,7 @@ def build_mcp_server() -> MCPServer:
         except _RateLimitError as exc:
             raise ToolError(_rate_error_message(exc)) from exc
 
-    @server.tool(name="validate_skill", title="Validate skill package", annotations=ANN_READ_CLOSED)
+    @server.tool(name="validate_skill", title="Validate skill package", annotations=ANN_READ_CLOSED, meta=SEC_OAUTH_SKILL_WRITE)
     async def validate_skill(
         zip_base64: str,
         ctx: Context = None,  # type: ignore[assignment]
@@ -778,8 +946,14 @@ def build_mcp_server() -> MCPServer:
         from .services.skills import SkillArchiveValidationError
         from .services.skills import extract_skill_zip as _extract_skill_zip
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
-        _require(actor, "skill:write")
+        actor, auth_result = await _require_tool_actor(
+            ctx.headers if ctx else None,
+            oauth_scope="skill:write",
+            agent_scope="skill:write",
+        )
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
+        assert actor is not None
         try:
             raw = _base64.b64decode(zip_base64, validate=True)
         except (binascii.Error, ValueError) as exc:
@@ -800,7 +974,7 @@ def build_mcp_server() -> MCPServer:
         except SkillArchiveValidationError as exc:
             raise ToolError(_skill_error_message(exc)) from exc
 
-    @server.tool(name="create_skill", title="Create skill", annotations=ANN_CREATE_CLOSED)
+    @server.tool(name="create_skill", title="Create skill", annotations=ANN_CREATE_CLOSED, meta=SEC_OAUTH_SKILL_WRITE)
     async def create_skill(
         zip_base64: str,
         category: str | None = None,
@@ -824,8 +998,14 @@ def build_mcp_server() -> MCPServer:
                                       SkillSlugConflictError)
         from .services.skills import create_skill as _create_skill_service
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
-        _require(actor, "skill:write")
+        actor, auth_result = await _require_tool_actor(
+            ctx.headers if ctx else None,
+            oauth_scope="skill:write",
+            agent_scope="skill:write",
+        )
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
+        assert actor is not None
         # G3.1D 冻结 ordering: base64 decode 在 service/rate 之前
         # (非法 base64 不消耗 quota, service 零调用)。
         try:
@@ -853,7 +1033,7 @@ def build_mcp_server() -> MCPServer:
                 SkillIdempotencyKeyTooLongError, SkillNotAccessibleError) as exc:
             raise ToolError(_skill_error_message(exc)) from exc
 
-    @server.tool(name="create_reaction", title="Create reaction", annotations=ANN_CREATE_OPEN)
+    @server.tool(name="create_reaction", title="Create reaction", annotations=ANN_CREATE_OPEN, meta=SEC_OAUTH_REACTION_WRITE)
     async def create_reaction(
         reaction: dict[str, Any],
         idempotency_key: str,
@@ -873,8 +1053,14 @@ def build_mcp_server() -> MCPServer:
         from .services.reactions import UnresolvedIdentityError
         from .services.reactions import create_reaction as _create_service
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
-        _require(actor, "reaction:write")
+        actor, auth_result = await _require_tool_actor(
+            ctx.headers if ctx else None,
+            oauth_scope="reaction:write",
+            agent_scope="reaction:write",
+        )
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
+        assert actor is not None
         # G3.1C 冻结差异: MCP 侧 idempotency_key 必填且 ≤200, 检查在
         # service/rate 之前(service 不被调, quota 不消耗)。
         if not idempotency_key or len(idempotency_key) > 200:

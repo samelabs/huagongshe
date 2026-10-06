@@ -20,6 +20,22 @@ from api.mcp_server import build_mcp_server
 
 CJK_RE = re.compile(r"[\u3400-\u9fff]")
 
+SECURITY = {
+    "search_chemistry_data": [{"type": "noauth"}, {"type": "oauth2", "scopes": ["read"]}],
+    "get_chemical": [{"type": "noauth"}],
+    "get_reaction": [{"type": "noauth"}, {"type": "oauth2", "scopes": ["read"]}],
+    "render_molecule_svg": [{"type": "noauth"}],
+    "render_reaction_svg": [{"type": "noauth"}, {"type": "oauth2", "scopes": ["read"]}],
+    "list_skills": [{"type": "noauth"}, {"type": "oauth2", "scopes": ["read"]}],
+    "get_skill": [{"type": "noauth"}, {"type": "oauth2", "scopes": ["read"]}],
+    "calculate_stoichiometry": [{"type": "noauth"}],
+    "list_my_reactions": [{"type": "oauth2", "scopes": ["read"]}],
+    "validate_reaction": [{"type": "oauth2", "scopes": ["reaction:write"]}],
+    "validate_skill": [{"type": "oauth2", "scopes": ["skill:write"]}],
+    "create_skill": [{"type": "oauth2", "scopes": ["skill:write"]}],
+    "create_reaction": [{"type": "oauth2", "scopes": ["reaction:write"]}],
+}
+
 EXPECTED = {
     "search_chemistry_data": (False, False, False, True),
     "get_chemical": (False, False, False, True),
@@ -85,13 +101,12 @@ class McpMetadataContractTests(unittest.TestCase):
             "Basis index 9 is outside the component range.",
         )
 
-    def test_oauth_security_metadata_is_not_advertised_before_runtime(self):
-        # W4 owns OAuth runtime + per-tool security metadata. W3 must not
-        # promise oauth2 before the server can actually complete that flow.
-        for name, tool in self.tools.items():
+    def test_oauth_security_metadata_matches_runtime_policy(self):
+        self.assertEqual(set(SECURITY), set(self.tools))
+        for name, expected in SECURITY.items():
             with self.subTest(tool=name):
-                meta = getattr(tool, "meta", None) or {}
-                self.assertNotIn("securitySchemes", meta)
+                meta = getattr(self.tools[name], "meta", None) or {}
+                self.assertEqual(meta.get("securitySchemes"), expected)
 
     def test_annotations_explain_known_non_read_side_effects(self):
         # These two tools are intentionally not marked read-only even though

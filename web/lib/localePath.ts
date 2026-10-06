@@ -8,7 +8,7 @@
  *
  * 规则:
  *  - 外部 URL(http://…, https://…, mailto:…)原样返回, 不加前缀
- *  - NON_LOCALIZED_PREFIXES(全仓库唯一一张业务 prefix 表, proxy 与 link helper
+ *  - NON_LOCALIZED_PREFIXES(协议/内部路径含 api/mcp/oauth/.well-known; 全仓库唯一一张业务 prefix 表, proxy 与 link helper
  *    共用)与带扩展名的静态资源不加 locale; 边界语义由 isPathAtOrBelow 统一:
  *    "/mcp" 只排除自身与子树, 不排除 "/mcp-guide" 等同前缀字符串
  *  - 已带 locale 前缀的路径幂等返回, 不二次叠加(识别走同一 parser)
@@ -24,6 +24,7 @@ import { SUPPORTED_LOCALES, isSupportedLocale, type Locale } from "./i18n/locale
 export const NON_LOCALIZED_PREFIXES = [
   "/api",
   "/mcp",
+  "/oauth",
   "/samelabs",
   "/.well-known",
   "/_next",

@@ -231,6 +231,11 @@ async def change_password(
     await db.execute(text("DELETE FROM community.sessions WHERE user_id=:id"), {"id": actor.id})
     # revoke = 物理 DELETE(2026-08-31 终局): 不保留 soft-revoke 两套语义
     await db.execute(text("DELETE FROM community.user_api_tokens WHERE user_id=:id"), {"id": actor.id})
+    # OAuth is a separate MCP credential family but password rotation is an
+    # account-wide security event: invalidate outstanding grants/tokens too.
+    await db.execute(text("DELETE FROM community.oauth_authorization_codes WHERE user_id=:id"), {"id": actor.id})
+    await db.execute(text("DELETE FROM community.oauth_access_tokens WHERE user_id=:id"), {"id": actor.id})
+    await db.execute(text("DELETE FROM community.oauth_refresh_tokens WHERE user_id=:id"), {"id": actor.id})
     await db.commit()
     response.delete_cookie(settings.session_cookie, path="/")
 

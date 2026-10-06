@@ -9,7 +9,7 @@
  *     en 的顺序协商, 307 redirect 到带 locale 前缀的 URL(pathname 与
  *     query string 完整保留); 进入明确 locale URL 时同步 cookie。
  *
- * 排除路径完全不参与(行为不变): /api/* /mcp /.well-known/* /_next/*
+ * 排除路径完全不参与(行为不变): /api/* /mcp /oauth/* /.well-known/* /_next/*
  * /samelabs/* 以及 favicon/robots/sitemap/manifest/service worker/
  * public 静态文件等带扩展名资源。
  *
@@ -144,7 +144,7 @@ export const config = {
   matcher: [
     /*
      * matcher 只做 Next/framework 静态资源层面的优化(_next 与根级静态文件);
-     * 公开业务路径分类(api/mcp/.well-known/samelabs 等)不在这里复制第二套
+     * 公开业务路径分类(api/mcp/oauth/.well-known/samelabs 等)不在这里复制第二套
      * prefix 规则 —— 由 runtime isExcluded() → isPathAtOrBelow() SSOT 决定。
      * Next 16 proxy matcher 不支持负向前瞻, 用分段排除。
      */

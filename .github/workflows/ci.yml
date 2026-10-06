@@ -36,7 +36,9 @@ jobs:
             tests.test_locale_payload_cb \
             tests.test_cb_mol \
             tests.test_caslib \
-            tests.test_api_contract_governance
+            tests.test_api_contract_governance \
+            tests.test_oauth_contract \
+            tests.test_mcp_oauth_contract
 
       - uses: actions/setup-node@v4
         with:

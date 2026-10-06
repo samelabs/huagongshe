@@ -67,11 +67,22 @@ class McpStreamableHttpProtocolTests(unittest.IsolatedAsyncioTestCase):
                     self.assertTrue(
                         wire_tools["create_reaction"].annotations.idempotent_hint
                     )
-                    # OAuth metadata is intentionally absent until W4 can
-                    # actually complete the advertised flow.
-                    for tool in listed.tools:
-                        meta = getattr(tool, "meta", None) or {}
-                        self.assertNotIn("securitySchemes", meta)
+                    self.assertEqual(
+                        (wire_tools["get_chemical"].meta or {}).get("securitySchemes"),
+                        [{"type": "noauth"}],
+                    )
+                    self.assertEqual(
+                        (wire_tools["create_reaction"].meta or {}).get("securitySchemes"),
+                        [{"type": "oauth2", "scopes": ["reaction:write"]}],
+                    )
+
+                    protected = await client.call_tool("list_my_reactions", {})
+                    self.assertTrue(protected.is_error)
+                    protected_meta = getattr(protected, "meta", None) or {}
+                    challenge = protected_meta.get("mcp/www_authenticate") or []
+                    self.assertTrue(challenge)
+                    self.assertIn("oauth-protected-resource", challenge[0])
+                    self.assertIn('scope="read"', challenge[0])
 
                     # Invalid ID is rejected before any DB access. This proves
                     # a real tools/call round-trip without coupling this wire
