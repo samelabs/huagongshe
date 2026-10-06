@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { EntityId } from "@/components/shared/EntityId";
+import { EntityNotes } from "@/components/EntityNotes";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { Molecule } from "@/components/Molecule";
 import { ReactionOwnerActions } from "@/components/ReactionOwnerActions";
@@ -93,6 +94,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
     ...(hasSafety ? [["safety", t.reaction.safety] as [string, string]] : []),
     ...(hasNotes ? [["notes", t.reaction.notes] as [string, string]] : []),
     ...(hasSources ? [["sources", t.reaction.sources] as [string, string]] : []),
+    ["linked-notes", t.notes.linkedTitle],
   ];
 
   const jsonLd = {
@@ -197,6 +199,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
               </div>
             </section>
           )}
+          <EntityNotes entity="reaction" entityId={reaction.id} canAdd={hasSession} />
         </main>
 
         {/* ── Secondary rail (desktop) ── */}

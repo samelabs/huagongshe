@@ -328,7 +328,8 @@ const ja: Dictionary = {
     homeGreeting: (name: string) => `${name}のワークベンチ`,
     homeHint: '化合物を調べ、反応を探し、スケールを計算する — ケミストリー作業はすべてここに',
     homeSearchPlaceholder: '名称、CAS、SMILES、CID、InChIKey…',
-    homeSearchButton: '検索',    homeRecentNotes: '最近のノート',
+    homeSearchButton: '検索',
+    homeRecentNotes: '最近のノート',
 
     homeRecentReactions: '最近の反応',
     homeViewAll: 'すべて表示',
@@ -354,6 +355,12 @@ const ja: Dictionary = {
     notesAddReference: '関連付け',
     notesRemoveReference: '関連を削除',
     notesReferenceHint: 'HCID / HRID をコンテキストとして関連付けます。関連はノートのライフサイクルを所有しません。',
+    notesReferenceSearchPlaceholder: '名称、CAS、HCID、HRID、SMILES を検索…',
+    notesReferenceSearch: '検索',
+    notesReferenceNoResults: '関連付けできる結果はありません。',
+    notesReferenceSearchFailed: '関連先を検索できませんでした。再試行してください。',
+    notesReferenceAdded: '関連済み',
+    notesReferenceLimit: '1 件のノートに関連付けられるエンティティは最大 20 件です。',
     notesCancel: 'キャンセル',
     notesSave: 'ノートを保存',
     notesSaving: '保存中…',
@@ -392,6 +399,14 @@ const ja: Dictionary = {
     sectionNetwork: 'ネットワーク',
     sectionAccount: 'アカウント',
   },
+
+  notes: {
+    linkedTitle: '関連ノート',
+    add: 'ノートを追加',
+    emptyPublic: '公開された関連ノートはまだありません。',
+    loadFailed: 'ノートを読み込めませんでした。',
+  },
+
 
   /* ── スケール計算 ───────────────────────────────────── */
   stoich: {

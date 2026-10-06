@@ -1542,12 +1542,18 @@
 }
 .wb-note-reference-input{
   display:grid;
-  grid-template-columns:110px minmax(120px,220px) auto;
+  grid-template-columns:minmax(0,1fr) auto;
   gap:var(--wb-sp-2);
   align-items:center;
 }
-.wb-note-reference-input select,
 .wb-note-reference-input input{width:100%}
+.wb-note-reference-results{display:grid;gap:var(--wb-sp-2)}
+.wb-note-reference-results>button{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--wb-sp-3);align-items:center;width:100%;border:1px solid var(--wb-line);border-radius:var(--wb-r-md);background:var(--wb-paper);padding:var(--wb-sp-2) var(--wb-sp-3);text-align:left;cursor:pointer}
+.wb-note-reference-results>button>span{min-width:0}
+.wb-note-reference-results strong,.wb-note-reference-results small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wb-note-reference-results small{color:var(--wb-quiet);font-size:var(--wb-fs-xs)}
+.wb-note-reference-results em{font-style:normal;color:var(--wb-blue);font-size:var(--wb-fs-xs)}
+.wb-note-reference-results>button:disabled{cursor:default;opacity:.62}
 .wb-note-reference-chips{
   display:flex;
   flex-wrap:wrap;
@@ -1652,8 +1658,9 @@
 }
 @media(max-width:680px){
   .wb-note-editor{padding:var(--wb-sp-3)}
-  .wb-note-reference-input{grid-template-columns:90px 1fr}
-  .wb-note-reference-input .wb-btn{grid-column:1 / -1;justify-self:start}
+  .wb-note-reference-input{grid-template-columns:1fr}
+  .wb-note-reference-input .wb-btn{justify-self:start}
+  .wb-note-reference-results>button{grid-template-columns:minmax(0,1fr) auto}
   .wb-note-card{padding:var(--wb-sp-3)}
 }
 

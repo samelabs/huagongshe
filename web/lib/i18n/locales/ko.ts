@@ -330,7 +330,8 @@ const ko: Dictionary = {
     homeGreeting: (name: string) => `${name}의 워크벤치`,
     homeHint: '화합물 검색, 반응 탐색, 스케일 계산 — 화학 작업을 한 곳에서',
     homeSearchPlaceholder: '이름, CAS, SMILES, CID, InChIKey…',
-    homeSearchButton: '검색',    homeRecentNotes: '최근 노트',
+    homeSearchButton: '검색',
+    homeRecentNotes: '최근 노트',
 
     homeRecentReactions: '최근 반응',
     homeViewAll: '전체 보기',
@@ -356,6 +357,12 @@ const ko: Dictionary = {
     notesAddReference: '연결',
     notesRemoveReference: '연결 제거',
     notesReferenceHint: 'HCID / HRID를 맥락으로 연결합니다. 연결은 노트의 수명 주기를 결정하지 않습니다.',
+    notesReferenceSearchPlaceholder: '이름, CAS, HCID, HRID, SMILES 검색…',
+    notesReferenceSearch: '검색',
+    notesReferenceNoResults: '연결할 수 있는 결과가 없습니다.',
+    notesReferenceSearchFailed: '연결 대상을 검색하지 못했습니다. 다시 시도해 주세요.',
+    notesReferenceAdded: '연결됨',
+    notesReferenceLimit: '노트 하나에 최대 20개 엔터티를 연결할 수 있습니다.',
     notesCancel: '취소',
     notesSave: '노트 저장',
     notesSaving: '저장 중…',
@@ -394,6 +401,14 @@ const ko: Dictionary = {
     sectionNetwork: '네트워크',
     sectionAccount: '계정',
   },
+
+  notes: {
+    linkedTitle: '연결된 노트',
+    add: '노트 추가',
+    emptyPublic: '공개된 연결 노트가 아직 없습니다.',
+    loadFailed: '노트를 불러오지 못했습니다.',
+  },
+
 
   /* ── 스케일 계산 ────────────────────────────────────── */
   stoich: {

@@ -113,15 +113,6 @@ export function HomePanel({ counts, initialNotes, initialReactions }: {
         </Link>
       </div>
 
-      {/* AI 指南入口 */}
-      <Link className="wb-home-guide" href={withLocale("/mcp-guide", locale)}>
-        <div className="wb-home-guide-body">
-          <h3>{t.me.homeGuideTitle}</h3>
-          <p>{t.me.homeGuideDesc}</p>
-        </div>
-        <span className="wb-home-guide-cta">{t.me.homeGuideCta}</span>
-      </Link>
-
       {/* 最近笔记 — 只读聚合, Note CRUD 仍由 NotesPanel 拥有 */}
       {notes.length > 0 && (
         <div className="wb-home-recent wb-home-recent-notes">
@@ -170,6 +161,14 @@ export function HomePanel({ counts, initialNotes, initialReactions }: {
           </div>
         </div>
       )}
+
+      <Link className="wb-home-guide" href={withLocale("/mcp-guide", locale)}>
+        <div className="wb-home-guide-body">
+          <h3>{t.me.homeGuideTitle}</h3>
+          <p>{t.me.homeGuideDesc}</p>
+        </div>
+        <span className="wb-home-guide-cta">{t.me.homeGuideCta}</span>
+      </Link>
     </section>
   );
 }

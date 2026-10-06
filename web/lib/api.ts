@@ -195,6 +195,29 @@ export type EnrichmentState = {
   requested_sections?: string[];
 };
 
+export type NoteVisibility = "all" | "public" | "private";
+
+export type NoteItem = {
+  id: number;
+  owner_user_id: number;
+  visibility: "public" | "private";
+  moderation_status: "visible" | "hidden";
+  content: string;
+  created_at: string;
+  updated_at: string;
+  username: string;
+  display_name: string | null;
+  chemical_ids: number[];
+  reaction_ids: number[];
+};
+
+export type NoteResponse = {
+  items: NoteItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
 export type ReactionSummary = {
   id: number;
   reaction_smiles: string | null;

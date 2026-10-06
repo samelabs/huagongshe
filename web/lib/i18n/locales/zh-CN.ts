@@ -334,7 +334,8 @@ const t = {
     homeGreeting: (name: string) => `${name}的工作台`,
     homeHint: '查化合物、找反应、算投料——你的化学工作都在这里',
     homeSearchPlaceholder: '中英文名称、CAS、SMILES、CID、InChIKey…',
-    homeSearchButton: '查询',    homeRecentNotes: '最近笔记',
+    homeSearchButton: '查询',
+    homeRecentNotes: '最近笔记',
 
     homeRecentReactions: '最近的反应',
     homeViewAll: '查看全部',
@@ -360,6 +361,12 @@ const t = {
     notesAddReference: '关联',
     notesRemoveReference: '移除关联',
     notesReferenceHint: '可关联 HCID / HRID；关联用于建立上下文，不决定笔记生命周期。',
+    notesReferenceSearchPlaceholder: '搜索名称、CAS、HCID、HRID、SMILES…',
+    notesReferenceSearch: '搜索',
+    notesReferenceNoResults: '没有可关联的结果。',
+    notesReferenceSearchFailed: '关联对象搜索失败，请重试。',
+    notesReferenceAdded: '已关联',
+    notesReferenceLimit: '每条笔记最多关联 20 个实体。',
     notesCancel: '取消',
     notesSave: '保存笔记',
     notesSaving: '保存中…',
@@ -398,6 +405,14 @@ const t = {
     sectionNetwork: '动态',
     sectionAccount: '账户',
   },
+
+  notes: {
+    linkedTitle: '关联笔记',
+    add: '记一条',
+    emptyPublic: '还没有公开的关联笔记。',
+    loadFailed: '笔记读取失败。',
+  },
+
 
   /* ── 设置 ────────────────────────────────────────────── */
   stoich: {

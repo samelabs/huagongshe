@@ -331,7 +331,8 @@ const de: Dictionary = {
     homeGreeting: (name: string) => `Workbench von ${name}`,
     homeHint: 'Verbindungen nachschlagen, Reaktionen finden, Ansätze hochrechnen — deine Chemie-Arbeit an einem Ort',
     homeSearchPlaceholder: 'Name, CAS, SMILES, CID, InChIKey…',
-    homeSearchButton: 'Suchen',    homeRecentNotes: 'Letzte Notizen',
+    homeSearchButton: 'Suchen',
+    homeRecentNotes: 'Letzte Notizen',
 
     homeRecentReactions: 'Letzte Reaktionen',
     homeViewAll: 'Alle ansehen',
@@ -357,6 +358,12 @@ const de: Dictionary = {
     notesAddReference: 'Verknüpfen',
     notesRemoveReference: 'Verknüpfung entfernen',
     notesReferenceHint: 'HCIDs und HRIDs als Kontext verknüpfen; Verknüpfungen bestimmen nicht den Lebenszyklus der Notiz.',
+    notesReferenceSearchPlaceholder: 'Name, CAS, HCID, HRID oder SMILES suchen…',
+    notesReferenceSearch: 'Suchen',
+    notesReferenceNoResults: 'Keine verknüpfbaren Ergebnisse.',
+    notesReferenceSearchFailed: 'Verknüpfungen konnten nicht gesucht werden. Bitte erneut versuchen.',
+    notesReferenceAdded: 'Verknüpft',
+    notesReferenceLimit: 'Eine Notiz kann mit höchstens 20 Entitäten verknüpft werden.',
     notesCancel: 'Abbrechen',
     notesSave: 'Notiz speichern',
     notesSaving: 'Wird gespeichert…',
@@ -395,6 +402,14 @@ const de: Dictionary = {
     sectionNetwork: 'Netzwerk',
     sectionAccount: 'Konto',
   },
+
+  notes: {
+    linkedTitle: 'Verknüpfte Notizen',
+    add: 'Notiz hinzufügen',
+    emptyPublic: 'Noch keine öffentlichen verknüpften Notizen.',
+    loadFailed: 'Notizen konnten nicht geladen werden.',
+  },
+
 
   /* ── Ansätze hochrechnen ────────────────────────────── */
   stoich: {

@@ -1335,3 +1335,13 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .guide-fallback { margin-top: 18px; padding: 14px 16px; border: 1px dashed var(--line-strong); border-radius: 8px; opacity: .85; }
 .guide-fallback h4 { margin: 0 0 6px; font-size: var(--text-sm); color: var(--muted); }
 .guide-fallback p { margin: 0 0 10px; font-size: var(--text-sm); color: var(--muted); }
+
+/* v1.7 — public linked notes */
+.entity-notes-heading{display:flex;align-items:end;justify-content:space-between;gap:16px}
+.entity-note-list{display:grid;gap:12px}
+.entity-note-card{border:1px solid var(--line,#e5e7eb);border-radius:10px;padding:14px 16px;background:var(--paper,#fff)}
+.entity-note-card>header{display:flex;justify-content:space-between;gap:12px;font-size:.82rem;color:var(--quiet,#64748b)}
+.entity-note-card>header a{font-weight:600;color:inherit;text-decoration:none}
+.entity-note-card>p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;margin:10px 0 0}
+.entity-note-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.entity-note-links>a{display:inline-flex;border:1px solid var(--line,#e5e7eb);border-radius:999px;padding:3px 8px;text-decoration:none}

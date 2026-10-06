@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { DetailRefresher } from "@/components/DetailRefresher";
 import { EntityId } from "@/components/shared/EntityId";
+import { EntityNotes } from "@/components/EntityNotes";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { Molecule } from "@/components/Molecule";
 import { ReactionList } from "@/components/ReactionList";
@@ -162,6 +163,7 @@ export default async function ChemicalPage({ params }: {
     ...(hasSafetyReal ? [["safety", t.chemical.page.safety] as [string, string]] : []),
     ...(hasIndustry ? [["industry", t.chemical.page.industry] as [string, string]] : []),
     ["reactions", t.chemical.relatedReactions],
+    ["linked-notes", t.notes.linkedTitle],
   ];
 
   return (
@@ -400,6 +402,8 @@ export default async function ChemicalPage({ params }: {
               note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined} />
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
           </section>
+
+          <EntityNotes entity="chemical" entityId={chemical.id} canAdd={hasSession} />
 
         </main>
 

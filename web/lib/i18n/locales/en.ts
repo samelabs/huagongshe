@@ -327,7 +327,8 @@ const en: Dictionary = {
     homeGreeting: (name: string) => `${name}'s workbench`,
     homeHint: 'Look up compounds, find reactions, scale recipes — all your chemistry work in one place',
     homeSearchPlaceholder: 'Names, CAS, SMILES, CID, InChIKey…',
-    homeSearchButton: 'Search',    homeRecentNotes: 'Recent notes',
+    homeSearchButton: 'Search',
+    homeRecentNotes: 'Recent notes',
 
     homeRecentReactions: 'Recent reactions',
     homeViewAll: 'View all',
@@ -353,6 +354,12 @@ const en: Dictionary = {
     notesAddReference: 'Link',
     notesRemoveReference: 'Remove reference',
     notesReferenceHint: 'Link HCIDs and HRIDs for context; references do not own the note lifecycle.',
+    notesReferenceSearchPlaceholder: 'Search name, CAS, HCID, HRID, SMILES…',
+    notesReferenceSearch: 'Search',
+    notesReferenceNoResults: 'No linkable results.',
+    notesReferenceSearchFailed: 'Could not search for references. Try again.',
+    notesReferenceAdded: 'Linked',
+    notesReferenceLimit: 'A note can link up to 20 entities.',
     notesCancel: 'Cancel',
     notesSave: 'Save note',
     notesSaving: 'Saving…',
@@ -391,6 +398,14 @@ const en: Dictionary = {
     sectionNetwork: 'Network',
     sectionAccount: 'Account',
   },
+
+  notes: {
+    linkedTitle: 'Linked notes',
+    add: 'Add note',
+    emptyPublic: 'No public linked notes yet.',
+    loadFailed: 'Could not load notes.',
+  },
+
 
   /* ── Scale calculator ──────────────────────────────── */
   stoich: {
