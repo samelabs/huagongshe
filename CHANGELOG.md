@@ -3,6 +3,46 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [1.6.0] — 2026-10-06
+
+五语言 runtime locale 发布与生产单实例收口。
+
+**五语言 runtime locale（zh-CN / en / ja / ko / de）**
+- locale-prefixed 公开 URL（`/en/…`、`/ja/…` 等）：Next proxy 按 cookie > Accept-Language > en 协商 307 redirect，已带前缀路径 rewrite 到现有路由并透传 `x-site-locale`；排除路径（/api、/mcp、/samelabs、/.well-known、/_next 与静态资源）不参与 locale
+- 五语言完整字典注册（Dictionary 类型从中文字典推导，tsc 校验结构一致）；runtime dictionary 按 locale 分发
+- locale-aware 导航 / 登录 / Workbench / 搜索 / 化学详情 / 反应工作流 / 指南 / 账户与个人资料全站本地化
+- canonical / hreflang 五语言 alternates / x-default→en 与 OG locale metadata
+- CB localized detail：详情读路径 locale-aware（requested→en fallback），en/ja/ko/de prose 经 caslib 分类器进入正确语义分组
+- locale 路径 helper 单一权威（splitLocalePrefix / stripLocalePrefix / withLocale / replaceLocalePrefix / applyLocale / NON_LOCALIZED_PREFIXES），全站无第二套 locale regex / prefix 表
+
+**CB locale 生命周期与确定性（post-deploy 修复）**
+- 生命周期与 stale refresh 跟随实际命中 row locale（不再回退 zh-CN 默认），MCP 未传 locale 保持 en 默认
+- legacy fallback 确定性：同 locale 多个非-imprint source row 时 `ORDER BY cb_number ASC NULLS LAST` 稳定 tie-break（生产 84 组暴露面实证），不改数据、不参与身份裁定
+- CB locale 白名单收口单一权威 tuple（normalize / row selection / lifecycle 共用，消除双列表 silent drift）
+- CB 本地名称标签：非 zh-CN locale 显示"本地名称/Local name/現地名/현지명/Lokaler Name"而非"中文名"（presentation 层，canonical `identity.cn` 键与数据不变）
+
+**PWA**
+- manifest 动态输出（随 site_locale 变化），单一身份：`id="/"`、`start_url="/"`，en→HGS / zh-CN→化工社
+- Service Worker 缓存治理：只缓存不可变静态资源（带内容哈希的 `/_next/static` 与站内图标），用户态内容禁入缓存；升版清污染
+
+**locale/PWA post-deploy 修复**
+- 登录页切语言后，登录成功回跳 `applyLocale()` 强制落在当前 locale（不再被旧 locale next 拉回）
+- malformed `site_locale` cookie 不再 500：decode 异常保护后继续 Accept-Language → en 协商
+- 公共 header 非 sticky 化后，详情页 local-nav / scroll anchor / rail 的遗留 offset 同步修正
+
+**生产部署事实（single-instance SSOT）**
+- 生产部署最终以 single-instance 为准：`/var/www/huagongshe` + main + PM2 三 app（huagongshe-api / huagongshe / huagongshe-pubchem-worker，127.0.0.1:8000 / 3001）+ nginx fixed upstream；**历史 generation / blue-green 路径已退出运行与配置面**（无运行中代际、nginx 无 generations/ 引用）
+- public deploy smoke 修复：smoke 改为 canonical HTTPS ingress（`https://huagongshe.com/api/health`，一次请求验证 nginx vhost + TLS + API upstream 整链；fail closed），替换会被 default_server 444 断连的裸 loopback 探针
+
+**测试与门禁**
+- locale runtime 行为测试正式进入 GitHub CI（`npm run test:locale`，tsx 直接加载真实 TS SUT）：proxy redirect/rewrite 契约（含 malformed cookie）、withLocale/applyLocale 登录回跳、NON_LOCALIZED_PREFIXES 边界、语言切换器、runtime 字典、canonical/hreflang/x-default
+- deploy public smoke 契约单测（canonical URL 锁定、fail closed、零真实公网访问）
+- CB locale SSOT 与 deterministic fallback 回归测试
+
+**不包含**
+- 本版不包含 ChatGPT Plugin / MCP 新 tool surface 开发
+- 未做 Next.js 升级、依赖整体升级、数据库 migration、CB 存量数据重写
+
 ## [1.5.2] — 2026-09-19
 
 - 应用层/传输层归属收口：transport ownership 全面闭合，HTTP 与 MCP 共享同一 application service owner，服务层零传输层依赖
