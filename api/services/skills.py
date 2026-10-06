@@ -558,7 +558,7 @@ async def create_skill(
     """
     await enforce("skill-write-hour", str(actor_id), settings.api_skill_write_limit_per_hour, 3600)
     category = await validate_category(db, category)
-    if auth_kind == "agent" and not idempotency_key:
+    if auth_kind in ("agent", "oauth") and not idempotency_key:
         raise MissingSkillIdempotencyKeyError()
     if idempotency_key and len(idempotency_key) > 200:
         raise SkillIdempotencyKeyTooLongError()

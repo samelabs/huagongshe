@@ -24,6 +24,7 @@ import { SUPPORTED_LOCALES, isSupportedLocale, type Locale } from "./i18n/locale
 export const NON_LOCALIZED_PREFIXES = [
   "/api",
   "/mcp",
+  "/oauth",
   "/samelabs",
   "/.well-known",
   "/_next",

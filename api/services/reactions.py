@@ -512,7 +512,7 @@ async def create_reaction(
     """
     await enforce("reaction-write-minute", str(actor_id), settings.api_reaction_write_limit_per_minute, 60)
     await enforce("reaction-write-day", str(actor_id), settings.api_reaction_write_limit_per_day, 86400)
-    if auth_kind == "agent" and not idempotency_key:
+    if auth_kind in ("agent", "oauth") and not idempotency_key:
         raise MissingIdempotencyKeyError()
     if idempotency_key and len(idempotency_key) > 200:
         raise IdempotencyKeyTooLongError()
@@ -556,7 +556,7 @@ async def create_reaction(
             RETURNING id
         """), {
             **values, "reaction_smiles": reaction_smiles, "reaction_input": reaction_smiles,
-            "user_id": actor_id, "created_via": "agent" if auth_kind == "agent" else "web",
+            "user_id": actor_id, "created_via": "agent" if auth_kind in ("agent", "oauth") else "web",
             "idempotency_key": idempotency_key,
         })).scalar_one())
     except IntegrityError:
@@ -639,7 +639,7 @@ async def update_reaction(
     事务边界(行锁/全部 DB mutation/commit/rollback)由本函数自持, adapter
     零事务片段。不负责 auth/scope/传输层异常或响应映射。
     """
-    if auth_kind == "agent":
+    if auth_kind in ("agent", "oauth"):
         raise AgentReactionMutationForbiddenError(
             AgentReactionMutationForbiddenError.EDIT_DETAIL)
     await enforce("reaction-write-minute", str(actor_id), settings.api_reaction_write_limit_per_minute, 60)
@@ -713,7 +713,7 @@ async def delete_reaction(
     → public+visible statistics -1 → commit。
     delete 无 rate 限制(迁移前后一致, 未新增)。事务边界由本函数自持。
     """
-    if auth_kind == "agent":
+    if auth_kind in ("agent", "oauth"):
         raise AgentReactionMutationForbiddenError(
             AgentReactionMutationForbiddenError.DELETE_DETAIL)
     try:

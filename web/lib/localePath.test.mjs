@@ -32,9 +32,10 @@ test("外部 URL 不处理", () => {
   assert.equal(withLocale("//cdn.example.com/x", "ja"), "//cdn.example.com/x");
 });
 
-test("/api /mcp /samelabs /.well-known /_next 不加 locale", () => {
+test("/api /mcp /oauth /samelabs /.well-known /_next 不加 locale", () => {
   assert.equal(withLocale("/api/agent-guide", "ja"), "/api/agent-guide");
   assert.equal(withLocale("/mcp", "ja"), "/mcp");
+  assert.equal(withLocale("/oauth/authorize?x=1", "ja"), "/oauth/authorize?x=1");
   assert.equal(withLocale("/samelabs/users", "ja"), "/samelabs/users");
   assert.equal(withLocale("/.well-known/acme", "ja"), "/.well-known/acme");
   assert.equal(withLocale("/_next/static/x.js", "ja"), "/_next/static/x.js");
@@ -129,6 +130,7 @@ test("applyLocale: NON_LOCALIZED_PREFIXES 原样返回", () => {
   assert.equal(applyLocale("/samelabs/users", "ja"), "/samelabs/users");
   assert.equal(applyLocale("/api/health", "ja"), "/api/health");
   assert.equal(applyLocale("/mcp", "ko"), "/mcp");
+  assert.equal(applyLocale("/oauth/authorize?x=1", "ko"), "/oauth/authorize?x=1");
   assert.equal(applyLocale("/ja/api/health", "en"), "/api/health");
 });
 
