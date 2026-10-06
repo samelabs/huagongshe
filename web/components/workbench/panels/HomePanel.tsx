@@ -9,35 +9,49 @@ import { apiGet, reactionSvgUrl } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { PanelLoading, PanelError } from "../shared";
-import type { Counts, LoadState, ReactionResponse } from "../types";
+import type { Counts, LoadState, NoteResponse, ReactionResponse } from "../types";
 
 /**
  * 工作台首页 — 概览面板
  * 问候语 + 统计卡片 + 最近反应
  * counts 和 initialReactions 由 WorkbenchLayout 从 page.tsx SSR 预取传入
  */
-export function HomePanel({ counts, initialReactions }: {
+export function HomePanel({ counts, initialNotes, initialReactions }: {
   counts: Counts | null;
+  initialNotes?: NoteResponse | null;
   initialReactions?: ReactionResponse | null;
 }) {
   const t = useDictionary();
   const locale = useLocale();
   const { user } = useAccount();
   const router = useRouter();
+  const [recentNotes, setRecentNotes] = useState<NoteResponse | null>(initialNotes ?? null);
   const [recent, setRecent] = useState<ReactionResponse | null>(initialReactions ?? null);
-  const [state, setState] = useState<LoadState>(initialReactions ? "ready" : "loading");
+  const [state, setState] = useState<LoadState>(initialNotes && initialReactions ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    // SSR 预取了数据时跳过首次 fetch
-    if (initialReactions) return;
+    // SSR normally provides both streams. If one failed independently, reload
+    // only the missing stream; Home remains a read-only aggregation surface.
+    if (initialNotes && initialReactions) return;
     let active = true;
-    apiGet<ReactionResponse>("/users/me/reactions?visibility=public&page=1&page_size=4")
-      .then((r) => { if (!active) return; setRecent(r); setState("ready"); })
+    const notesRequest = initialNotes
+      ? Promise.resolve(initialNotes)
+      : apiGet<NoteResponse>("/users/me/notes?visibility=all&page=1&page_size=4");
+    const reactionsRequest = initialReactions
+      ? Promise.resolve(initialReactions)
+      : apiGet<ReactionResponse>("/users/me/reactions?visibility=all&page=1&page_size=4");
+    Promise.all([notesRequest, reactionsRequest])
+      .then(([notesValue, reactionsValue]) => {
+        if (!active) return;
+        setRecentNotes(notesValue);
+        setRecent(reactionsValue);
+        setState("ready");
+      })
       .catch((err: unknown) => { if (active) { setError(err); setState("error"); } });
     return () => { active = false; };
-  }, []);
+  }, [initialNotes, initialReactions]);
 
   if (state === "loading") return <PanelLoading variant="grid" rows={2} />;
   if (state === "error") return <PanelError error={error} />;
@@ -45,6 +59,7 @@ export function HomePanel({ counts, initialReactions }: {
 
   const c = counts;
   const name = user?.display_name || "";
+  const notes = recentNotes?.items ?? [];
   const reactions = recent?.items ?? [];
 
   function goSearch(e: React.FormEvent) {
@@ -106,6 +121,27 @@ export function HomePanel({ counts, initialReactions }: {
         </div>
         <span className="wb-home-guide-cta">{t.me.homeGuideCta}</span>
       </Link>
+
+      {/* 最近笔记 — 只读聚合, Note CRUD 仍由 NotesPanel 拥有 */}
+      {notes.length > 0 && (
+        <div className="wb-home-recent wb-home-recent-notes">
+          <div className="wb-home-recent-head">
+            <h3>{t.me.homeRecentNotes}</h3>
+            <Link href={withLocale("/aichem?tab=notes", locale)}>{t.me.homeViewAll}</Link>
+          </div>
+          <div className="wb-home-note-list">
+            {notes.map((note) => (
+              <Link key={note.id} href={withLocale("/aichem?tab=notes", locale)} className="wb-home-note">
+                <div>
+                  <span>{note.visibility === "private" ? t.common.private : t.common.public}</span>
+                  <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
+                </div>
+                <p>{note.content}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 最近反应 */}
       {reactions.length > 0 && (
