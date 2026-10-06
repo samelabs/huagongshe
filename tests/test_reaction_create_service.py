@@ -397,7 +397,7 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(ToolError) as ctx:
                 await fn(reaction=_valid(), idempotency_key="",
                          ctx=type("C", (), {"headers": {}})())
-        self.assertIn("idempotency_key 必填", str(ctx.exception))
+        self.assertIn("idempotency_key is required", str(ctx.exception))
         self.assertEqual(calls, {"service": 0, "rate": 0})
 
     async def test_valid_key_calls_shared_service(self):
@@ -438,7 +438,7 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(ToolError) as ctx:
                 await fn(reaction=_valid(), idempotency_key="x" * 201,
                          ctx=type("C", (), {"headers": {}})())
-        self.assertIn("不超过 200 字符", str(ctx.exception))
+        self.assertIn("must not exceed 200 characters", str(ctx.exception))
 
 
 class ArchitectureTests(unittest.TestCase):

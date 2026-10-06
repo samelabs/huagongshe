@@ -161,10 +161,10 @@ class McpSearchContractTests(unittest.TestCase):
         fn = self._tool_fn()
         with self.assertRaises(ToolError) as ctx:
             asyncio.run(fn(q="", mode="exact"))
-        self.assertIn("q 必填", str(ctx.exception))
+        self.assertIn("q is required", str(ctx.exception))
         with self.assertRaises(ToolError) as ctx:
             asyncio.run(fn(q="CCO", mode="bogus"))
-        self.assertIn("mode 只能是", str(ctx.exception))
+        self.assertIn("mode must be one of", str(ctx.exception))
 
     def test_mcp_structure_anonymous_denied_toolerror(self):
         from mcp.server.mcpserver.exceptions import ToolError
@@ -176,7 +176,7 @@ class McpSearchContractTests(unittest.TestCase):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(q="CCO", mode="substructure"))
         self.assertEqual(str(ctx.exception),
-                         "结构检索（子结构/相似度）需要 AI Key；exact 模式可匿名使用")
+                         "Substructure and similarity search require authentication; exact search is public.")
 
     def test_mcp_service_error_maps_to_toolerror(self):
         from mcp.server.mcpserver.exceptions import ToolError
@@ -190,7 +190,7 @@ class McpSearchContractTests(unittest.TestCase):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(q="CCO", mode="exact"))
         self.assertEqual(str(ctx.exception),
-                         "查询超时，请使用更精确的名称、标识符或结构")
+                         "Search timed out. Use a more specific name, identifier, or structure.")
 
     def test_mcp_gate_httpexception_maps_to_toolerror(self):
         from fastapi import HTTPException
@@ -214,7 +214,7 @@ class McpSearchContractTests(unittest.TestCase):
                 patch("api.core.rate_limit.structure_enter", gate_429):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(q="CCO", mode="substructure", ctx=_Ctx()))
-        self.assertEqual(str(ctx.exception), "结构检索并发已达上限，请稍后重试")
+        self.assertEqual(str(ctx.exception), "Structure-search concurrency limit reached. Try again shortly.")
 
 
 class RatePolicyTests(unittest.TestCase):

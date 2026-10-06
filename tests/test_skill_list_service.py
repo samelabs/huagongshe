@@ -318,7 +318,7 @@ class McpAdapterTests(unittest.IsolatedAsyncioTestCase):
         from mcp.server.mcpserver.exceptions import ToolError
         r = await self._call(actor=None, scope="mine")
         self.assertIsInstance(r, ToolError)
-        self.assertTrue(str(r).startswith("此操作需要 AI Key"))
+        self.assertTrue(str(r).startswith("Authentication required."))
 
     async def test_mine_actor_id_propagated(self):
         actor = MagicMock(); actor.id = 66

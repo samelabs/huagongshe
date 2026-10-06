@@ -405,20 +405,20 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         actor = MagicMock(); actor.id = 99
         r = await self._call(actor=actor, detail="RAISE", skill_id=5)
         self.assertIsInstance(r, ToolError)
-        self.assertEqual(str(r), "技能不存在")
+        self.assertEqual(str(r), "Skill not found or not accessible.")
 
     async def test_missing_tool_error_exact(self):
         from mcp.server.mcpserver.exceptions import ToolError
         r = await self._call(actor=None, detail="RAISE", skill_id=5)
         self.assertIsInstance(r, ToolError)
-        self.assertEqual(str(r), "技能不存在")
+        self.assertEqual(str(r), "Skill not found or not accessible.")
 
     async def test_admin_non_owner_private_same_tool_error(self):
         from mcp.server.mcpserver.exceptions import ToolError
         actor = MagicMock(); actor.id = 1; actor.role = "admin"
         r = await self._call(actor=actor, detail="RAISE", skill_id=5)
         self.assertIsInstance(r, ToolError)
-        self.assertEqual(str(r), "技能不存在")
+        self.assertEqual(str(r), "Skill not found or not accessible.")
 
     async def test_actor_own_private_detail(self):
         captured = {}

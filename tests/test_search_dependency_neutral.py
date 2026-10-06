@@ -230,7 +230,7 @@ class McpContractTests(unittest.TestCase):
         source = inspect.getsource(mcp)
         # search tool 的 SearchError handler 逐 detail 直传
         self.assertIn("except _SearchError as exc:", source)
-        self.assertIn("raise ToolError(exc.detail) from exc", source)
+        self.assertIn("raise ToolError(_search_error_message(exc)) from exc", source)
 
     def test_mcp_search_has_no_httpexception_catch(self) -> None:
         import api.mcp_server as mcp

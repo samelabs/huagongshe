@@ -162,7 +162,7 @@ class McpReactionDetailTests(unittest.IsolatedAsyncioTestCase):
         from mcp.server.mcpserver.exceptions import ToolError
         result = await self._call_tool(detail=None, headers={})
         self.assertIsInstance(result, ToolError)
-        self.assertEqual(str(result), "反应不存在")
+        self.assertEqual(str(result), "Reaction not found.")
 
 
     async def test_owner_and_admin_viewer_facts(self):
@@ -222,7 +222,7 @@ class McpReactionDetailTests(unittest.IsolatedAsyncioTestCase):
                          .replace("get_reaction", ""))
         self.assertNotIn("HTTPException", seg)
         self.assertNotIn("request=None", seg)
-        self.assertIn('ToolError("反应不存在")', seg)
+        self.assertIn('ToolError("Reaction not found.")', seg)
         self.assertIn("_actor_from_headers", seg)
 
 

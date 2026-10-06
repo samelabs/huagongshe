@@ -354,13 +354,13 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         from mcp.server.mcpserver.exceptions import ToolError
         r = await self._call("RAISE_VALIDATION", _Actor(7))
         self.assertIsInstance(r, ToolError)
-        self.assertEqual(str(r), "无法解析参与物结构：$$$")
+        self.assertEqual(str(r), "Could not parse reaction participant structure: $$$")
 
     async def test_rate_error_tool_error_detail(self):
         from mcp.server.mcpserver.exceptions import ToolError
         r = await self._call("RAISE_RATE", _Actor(7))
         self.assertIsInstance(r, ToolError)
-        self.assertEqual(str(r), "请求过于频繁，请稍后重试")
+        self.assertEqual(str(r), "Too many requests. Try again shortly.")
 
     async def test_malformed_body_prefix_unchanged(self):
         from mcp.server.mcpserver.exceptions import ToolError
@@ -374,7 +374,11 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
                     ctx=type("C", (), {"headers": {}})())
                 self.fail("expected ToolError")
             except ToolError as exc:
-                self.assertTrue(str(exc).startswith("草稿字段不合法: "))
+                message = str(exc)
+                self.assertTrue(message.startswith("Invalid reaction draft fields: "))
+                self.assertIn("visibility:", message)
+                self.assertIn("participants:", message)
+                self.assertIn("source_type:", message)
 
 
 class _Actor:

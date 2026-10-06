@@ -577,7 +577,7 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
                     await self._tool("create_skill")(
                         zip_base64="!!!not-base64!!!", category=None,
                         idempotency_key="", ctx=_ctx())
-        self.assertIn("不是合法的 base64", str(ctx.exception))
+        self.assertIn("not valid base64", str(ctx.exception))
         self.assertEqual(calls, {"service": 0, "rate": 0})
 
     async def test_loader_slicing_semantics(self):
