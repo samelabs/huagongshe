@@ -47,10 +47,8 @@ export default async function Home() {
         </div>
         <nav className="guide-actions">
           <Link className="button primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Link>
-          <a className="button secondary" href="/api/agent-guide">{t.home.entryApi}</a>
           <Link className="button secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Link>
           <Link className="button secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Link>
-          <Link className="button secondary" href={withLocale("/me/settings/api-tokens", locale)}>{t.home.entryKey}</Link>
         </nav>
       </section>
     </div>

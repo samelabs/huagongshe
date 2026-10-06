@@ -80,9 +80,7 @@ const ko: Dictionary = {
     entryLabel: 'AI 연결',
     entryMcpLabel: 'MCP Server',
     entryMcp: 'MCP 연결',
-    entryApi: 'Agent API',
     entryWorkbench: '웹 워크벤치',
-    entryKey: 'AI Key 만들기',
     entrySkills: 'Skills',
   },
 

@@ -1,4 +1,9 @@
-"""Small self-describing connection surface for user-authorized AI clients."""
+"""REST / AI Key compatibility surface for non-MCP clients.
+
+产品定位: 主要 Agent 接入层是 MCP(https://huagongshe.com/mcp)。
+本 router 服务于不支持 MCP 的 AI 客户端、用户自己的 HTTP automation、
+以及既有 hgs_* AI Key 客户端; 是兼容面, 不是与 MCP 平级的新 Agent 平台。
+"""
 
 from __future__ import annotations
 
@@ -17,7 +22,7 @@ router = APIRouter(tags=["agent"])
 @router.get(
     "/agent-guide",
     operation_id="get_agent_connection_guide",
-    summary="连接化工社并读取 AI 可用操作",
+    summary="REST / AI Key 兼容接入面: 读取 AI 可用操作(主要接入层为 MCP)",
 )
 async def agent_guide(
     authorization: str | None = Header(default=None),

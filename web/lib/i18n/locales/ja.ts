@@ -78,9 +78,7 @@ const ja: Dictionary = {
     entryLabel: 'AI 接続',
     entryMcpLabel: 'MCP Server',
     entryMcp: 'MCP 接続',
-    entryApi: 'Agent API',
     entryWorkbench: 'ウェブワークベンチ',
-    entryKey: 'AI Key 作成',
     entrySkills: 'Skills',
   },
 

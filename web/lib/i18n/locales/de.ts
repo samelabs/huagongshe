@@ -81,9 +81,7 @@ const de: Dictionary = {
     entryLabel: 'KI-Anbindung',
     entryMcpLabel: 'MCP Server',
     entryMcp: 'MCP verbinden',
-    entryApi: 'Agent API',
     entryWorkbench: 'Web-Workbench',
-    entryKey: 'AI Key erstellen',
     entrySkills: 'Skills',
   },
 
