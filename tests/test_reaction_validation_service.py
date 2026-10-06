@@ -374,7 +374,11 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
                     ctx=type("C", (), {"headers": {}})())
                 self.fail("expected ToolError")
             except ToolError as exc:
-                self.assertEqual(str(exc), "Invalid reaction draft fields.")
+                message = str(exc)
+                self.assertTrue(message.startswith("Invalid reaction draft fields: "))
+                self.assertIn("visibility:", message)
+                self.assertIn("participants:", message)
+                self.assertIn("source_type:", message)
 
 
 class _Actor:

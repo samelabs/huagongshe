@@ -104,7 +104,7 @@ class ServiceTests(unittest.TestCase):
                 _Boom(), "benzoic acid", "exact", None, 1, 30, 0))
         self.assertEqual(ctx.exception.kind, "backend_unavailable")
         self.assertEqual(ctx.exception.detail,
-                         "查询超时，请使用更精确的名称、标识符或结构")
+                         "Search timed out. Use a more specific name, identifier, or structure.")
 
 
 class HttpContractTests(unittest.TestCase):
@@ -176,7 +176,7 @@ class McpSearchContractTests(unittest.TestCase):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(q="CCO", mode="substructure"))
         self.assertEqual(str(ctx.exception),
-                         "结构检索（子结构/相似度）需要 AI Key；exact 模式可匿名使用")
+                         "Substructure and similarity search require authentication; exact search is public.")
 
     def test_mcp_service_error_maps_to_toolerror(self):
         from mcp.server.mcpserver.exceptions import ToolError
@@ -186,11 +186,11 @@ class McpSearchContractTests(unittest.TestCase):
             return None
         with patch.object(m, "_actor_from_headers", anon), \
                 patch.object(svc, "execute_search",
-                             side_effect=svc.SearchError(svc.BACKEND_UNAVAILABLE, "查询超时，请使用更精确的名称、标识符或结构")):
+                             side_effect=svc.SearchError(svc.BACKEND_UNAVAILABLE, "Search timed out. Use a more specific name, identifier, or structure.")):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(q="CCO", mode="exact"))
         self.assertEqual(str(ctx.exception),
-                         "查询超时，请使用更精确的名称、标识符或结构")
+                         "Search timed out. Use a more specific name, identifier, or structure.")
 
     def test_mcp_gate_httpexception_maps_to_toolerror(self):
         from fastapi import HTTPException
