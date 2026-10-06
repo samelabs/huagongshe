@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS community.oauth_clients (
     client_name text NOT NULL,
     redirect_uris text[] NOT NULL,
     token_endpoint_auth_method text NOT NULL DEFAULT 'none',
-    grant_types text[] NOT NULL DEFAULT ARRAY['authorization_code','refresh_token'],
+    grant_types text[] NOT NULL DEFAULT ARRAY['authorization_code'],
     response_types text[] NOT NULL DEFAULT ARRAY['code'],
     application_type text NOT NULL DEFAULT 'web',
     created_at timestamptz NOT NULL DEFAULT now(),
