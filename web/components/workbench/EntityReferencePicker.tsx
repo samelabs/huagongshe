@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { EntityId } from "@/components/shared/EntityId";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { apiGet, type SearchResponse } from "@/lib/api";
@@ -25,22 +25,27 @@ export function EntityReferencePicker({
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
+  const latestRequest = useRef(0);
   const total = chemicalIds.length + reactionIds.length;
 
   async function search() {
     const q = query.trim();
     if (!q || disabled) return;
+    const requestId = ++latestRequest.current;
     setSearching(true);
     setError("");
     try {
-      setResults(await apiGet<SearchResponse>(
+      const value = await apiGet<SearchResponse>(
         `/search?q=${encodeURIComponent(q)}&mode=exact&page=1&page_size=8`
-      ));
+      );
+      if (requestId !== latestRequest.current) return;
+      setResults(value);
     } catch {
+      if (requestId !== latestRequest.current) return;
       setError(t.me.notesReferenceSearchFailed);
       setResults(null);
     } finally {
-      setSearching(false);
+      if (requestId === latestRequest.current) setSearching(false);
     }
   }
 

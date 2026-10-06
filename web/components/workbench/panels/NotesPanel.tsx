@@ -35,16 +35,24 @@ export function NotesPanel({
   const [error, setError] = useState<unknown>(null);
   const [editing, setEditing] = useState<NoteItem | null>(null);
   const [creating, setCreating] = useState(createOpen);
+  const [createContext, setCreateContext] = useState(() => ({
+    chemicalIds: initialChemicalId ? [initialChemicalId] : [] as number[],
+    reactionIds: initialReactionId ? [initialReactionId] : [] as number[],
+  }));
   const mounted = useRef(false);
+  const latestLoad = useRef(0);
 
   async function load() {
+    const requestId = ++latestLoad.current;
     setState("loading");
     setError(null);
     try {
       const value = await apiGet<NoteResponse>(`/users/me/notes?visibility=${visibility}&page=${page}&page_size=20`);
+      if (requestId !== latestLoad.current) return;
       setData(value);
       setState("ready");
     } catch (err) {
+      if (requestId !== latestLoad.current) return;
       setError(err);
       setState("error");
     }
@@ -63,6 +71,10 @@ export function NotesPanel({
   useEffect(() => {
     if (createOpen) {
       setEditing(null);
+      setCreateContext({
+        chemicalIds: initialChemicalId ? [initialChemicalId] : [],
+        reactionIds: initialReactionId ? [initialReactionId] : [],
+      });
       setCreating(true);
     }
   }, [createOpen, initialChemicalId, initialReactionId]);
@@ -71,6 +83,18 @@ export function NotesPanel({
     setCreating(false);
     setEditing(null);
     if (createOpen) router.replace(withLocale("/aichem?tab=notes", locale));
+  }
+
+  async function handleSaved() {
+    const created = creating && !editing;
+    setCreating(false);
+    setEditing(null);
+    if (created) {
+      setCreateContext({ chemicalIds: [], reactionIds: [] });
+      router.replace(withLocale("/aichem?tab=notes", locale));
+      return;
+    }
+    await load();
   }
 
   async function remove(note: NoteItem) {
@@ -99,7 +123,11 @@ export function NotesPanel({
         count={state === "ready" ? data.total : "—"}
         unit={t.me.unitNote}
         action={
-          <button className="wb-btn wb-btn-primary" type="button" onClick={() => { setEditing(null); setCreating(true); }}>
+          <button className="wb-btn wb-btn-primary" type="button" onClick={() => {
+            setEditing(null);
+            setCreateContext({ chemicalIds: [], reactionIds: [] });
+            setCreating(true);
+          }}>
             {t.me.notesNew}
           </button>
         }
@@ -121,15 +149,12 @@ export function NotesPanel({
         <NoteEditor
           key={editing
             ? `edit-${editing.id}`
-            : `new-${initialChemicalId ?? 0}-${initialReactionId ?? 0}-${createOpen ? 1 : 0}`}
+            : `new-${createContext.chemicalIds.join("-") || 0}-${createContext.reactionIds.join("-") || 0}`}
           note={editing}
-          initialChemicalIds={!editing && initialChemicalId ? [initialChemicalId] : []}
-          initialReactionIds={!editing && initialReactionId ? [initialReactionId] : []}
+          initialChemicalIds={!editing ? createContext.chemicalIds : []}
+          initialReactionIds={!editing ? createContext.reactionIds : []}
           onCancel={closeEditor}
-          onSaved={async () => {
-            closeEditor();
-            await load();
-          }}
+          onSaved={handleSaved}
         />
       )}
 

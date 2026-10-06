@@ -17,14 +17,20 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertIn('type="button"', src)
         self.assertIn("onKeyDown=", src)
         self.assertIn("event.preventDefault()", src)
+        self.assertIn("latestRequest = useRef(0)", src)
+        self.assertIn("requestId !== latestRequest.current", src)
         self.assertEqual(editor.count("<form"), 1)
         self.assertIn("onSubmit={save}", editor)
 
     def test_note_editor_identity_resets_between_create_and_edit_contexts(self):
         src = (REPO / "web/components/workbench/panels/NotesPanel.tsx").read_text(encoding="utf-8")
         self.assertIn("setEditing(null);", src)
-        self.assertIn("`edit-${editing.id}`", src)
-        self.assertIn("`new-${initialChemicalId ?? 0}-${initialReactionId ?? 0}-${createOpen ? 1 : 0}`", src)
+        self.assertIn("setCreateContext({", src)
+        self.assertIn("createContext.chemicalIds", src)
+        self.assertIn("createContext.reactionIds", src)
+        self.assertIn("latestLoad = useRef(0)", src)
+        self.assertIn("const created = creating && !editing", src)
+        self.assertIn('router.replace(withLocale("/aichem?tab=notes", locale))', src)
 
     def test_mobile_topbar_keeps_creation_actions_without_desktop_duplication(self):
         nav = (REPO / "web/components/workbench/WbTopnav.tsx").read_text(encoding="utf-8")
