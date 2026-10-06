@@ -357,6 +357,7 @@ const de: Dictionary = {
     notesAddReference: 'Verknüpfen',
     notesRemoveReference: 'Verknüpfung entfernen',
     notesReferenceHint: 'HCIDs und HRIDs als Kontext verknüpfen; Verknüpfungen bestimmen nicht den Lebenszyklus der Notiz.',
+    notesCancel: 'Abbrechen',
     notesSave: 'Notiz speichern',
     notesSaving: 'Wird gespeichert…',
     notesSaveFailed: 'Notiz konnte nicht gespeichert werden. Inhalt prüfen und erneut versuchen.',
