@@ -199,6 +199,41 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(public["id"], ids)
             self.assertNotIn(private["id"], ids)
 
+    async def test_public_note_hides_reaction_reference_after_visibility_changes(self):
+        # The reference was valid when created. If the reaction later becomes
+        # private, public Note serialization must not leak that HRID.
+        async with self.engine.begin() as conn:
+            foreign_public = await self._insert_reaction(
+                conn, self.other, visibility="public")
+
+        async with self.Session() as db:
+            note = await svc.create_note(
+                db,
+                actor_id=self.owner,
+                visibility="public",
+                content="public observation",
+                chemical_ids=[self.chemical],
+                reaction_ids=[foreign_public],
+            )
+            before = await svc.get_note(db, note_id=note["id"], actor_id=None)
+            self.assertEqual(before["reaction_ids"], [foreign_public])
+
+            await db.execute(text("""
+                UPDATE chemistry.reactions
+                SET visibility='private', updated_at=now()
+                WHERE id=:id
+            """), {"id": foreign_public})
+            await db.commit()
+
+            anonymous = await svc.get_note(db, note_id=note["id"], actor_id=None)
+            self.assertEqual(anonymous["reaction_ids"], [])
+
+            # The Note owner does not own the reaction, so their Workbench view
+            # must not reveal the now-private foreign HRID either.
+            owner_view = await svc.get_note(
+                db, note_id=note["id"], actor_id=self.owner)
+            self.assertEqual(owner_view["reaction_ids"], [])
+
     async def test_reaction_delete_removes_reference_not_note(self):
         async with self.Session() as db:
             note = await svc.create_note(

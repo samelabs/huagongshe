@@ -29,7 +29,20 @@ def _page_payload(items: list[dict[str, Any]], total: int, page: int, page_size:
     return {"items": items, "total": int(total), "page": page, "page_size": page_size}
 
 
-async def _reference_maps(db, note_ids: list[int]) -> tuple[dict[int, list[int]], dict[int, list[int]]]:
+async def _reference_maps(
+    db,
+    note_ids: list[int],
+    *,
+    viewer_id: int | None,
+) -> tuple[dict[int, list[int]], dict[int, list[int]]]:
+    """Load references without leaking reactions that became private later.
+
+    Reference access is evaluated at read time. A Note may have been created
+    while a reaction was public and the reaction owner may later make it
+    private/hidden. Public Note serialization must not expose that HRID after
+    the transition. A signed-in viewer may still see a private reaction
+    reference only when they own that reaction.
+    """
     chemicals: dict[int, list[int]] = {note_id: [] for note_id in note_ids}
     reactions: dict[int, list[int]] = {note_id: [] for note_id in note_ids}
     if not note_ids:
@@ -42,23 +55,41 @@ async def _reference_maps(db, note_ids: list[int]) -> tuple[dict[int, list[int]]
         ORDER BY note_id, chemical_id
     """), {"ids": note_ids})).all()
     reaction_rows = (await db.execute(text("""
-        SELECT note_id, reaction_id
-        FROM community.note_reactions
-        WHERE note_id = ANY(:ids)
-        ORDER BY note_id, reaction_id
-    """), {"ids": note_ids})).all()
+        SELECT nr.note_id, nr.reaction_id,
+               r.created_by_user_id, r.visibility, r.moderation_status
+        FROM community.note_reactions nr
+        JOIN chemistry.reactions r ON r.id=nr.reaction_id
+        WHERE nr.note_id = ANY(:ids)
+        ORDER BY nr.note_id, nr.reaction_id
+    """), {"ids": note_ids})).mappings().all()
 
     for note_id, chemical_id in chemical_rows:
         chemicals[int(note_id)].append(int(chemical_id))
-    for note_id, reaction_id in reaction_rows:
-        reactions[int(note_id)].append(int(reaction_id))
+    for row in reaction_rows:
+        public_visible = (
+            row["visibility"] == "public"
+            and row["moderation_status"] == "visible"
+        )
+        owned = (
+            viewer_id is not None
+            and row["created_by_user_id"] is not None
+            and int(row["created_by_user_id"]) == viewer_id
+        )
+        if public_visible or owned:
+            reactions[int(row["note_id"])].append(int(row["reaction_id"]))
     return chemicals, reactions
 
 
-async def _hydrate_rows(db, rows) -> list[dict[str, Any]]:
+async def _hydrate_rows(
+    db,
+    rows,
+    *,
+    viewer_id: int | None,
+) -> list[dict[str, Any]]:
     mapped = [dict(row) for row in rows]
     ids = [int(row["id"]) for row in mapped]
-    chemical_refs, reaction_refs = await _reference_maps(db, ids)
+    chemical_refs, reaction_refs = await _reference_maps(
+        db, ids, viewer_id=viewer_id)
     for row in mapped:
         note_id = int(row["id"])
         row["chemical_ids"] = chemical_refs.get(note_id, [])
@@ -184,7 +215,7 @@ async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
     """), {"id": note_id, "actor": actor_id or 0})).mappings().first()
     if row is None:
         raise NoteNotAccessibleError("笔记不存在")
-    return (await _hydrate_rows(db, [row]))[0]
+    return (await _hydrate_rows(db, [row], viewer_id=actor_id))[0]
 
 
 async def update_note(
@@ -297,7 +328,7 @@ async def list_my_notes(
         ORDER BY n.updated_at DESC,n.id DESC
         LIMIT :limit OFFSET :offset
     """), params)).mappings().all()
-    return _page_payload(await _hydrate_rows(db, rows), total, page, page_size)
+    return _page_payload(await _hydrate_rows(db, rows, viewer_id=actor_id), total, page, page_size)
 
 
 async def list_entity_notes(
@@ -353,4 +384,4 @@ async def list_entity_notes(
         ORDER BY n.updated_at DESC,n.id DESC
         LIMIT :limit OFFSET :offset
     """), params)).mappings().all()
-    return _page_payload(await _hydrate_rows(db, rows), total, page, page_size)
+    return _page_payload(await _hydrate_rows(db, rows, viewer_id=None), total, page, page_size)
