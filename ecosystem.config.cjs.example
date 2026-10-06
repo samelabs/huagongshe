@@ -2,3 +2,7 @@
 # Copy to /etc/huagongshe.env and fill in real values; chmod 600.
 HGS_DATABASE_URL=postgresql+asyncpg://CHANGEME@127.0.0.1:5432/huagongshe
 HGS_WORKER_TOKEN=CHANGEME
+# Optional: OpenAI submission portal domain-verification challenge served at
+# /.well-known/openai-apps-challenge. Leave unset (or empty) to keep the route
+# fail-closed (404). The value must come from the OpenAI portal, never invented.
+# HGS_OPENAI_APPS_CHALLENGE=
