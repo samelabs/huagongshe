@@ -11,6 +11,7 @@ from .core.config import settings
 from .core.database import engine
 from .mcp_server import mcp_session_lifespan, mount_mcp
 from .mol import router as molecule_router
+from .notes import router as notes_router
 from .reactions import router as reaction_write_router
 from .routes import router as chemistry_router
 from .skills import router as skills_router
@@ -48,6 +49,7 @@ app.include_router(molecule_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(reaction_write_router, prefix="/api")
+app.include_router(notes_router, prefix="/api")
 app.include_router(social_router, prefix="/api")
 app.include_router(stoichiometry_router, prefix="/api")
 app.include_router(skills_router, prefix="/api")
