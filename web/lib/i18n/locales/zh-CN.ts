@@ -360,6 +360,7 @@ const t = {
     notesAddReference: '关联',
     notesRemoveReference: '移除关联',
     notesReferenceHint: '可关联 HCID / HRID；关联用于建立上下文，不决定笔记生命周期。',
+    notesCancel: '取消',
     notesSave: '保存笔记',
     notesSaving: '保存中…',
     notesSaveFailed: '笔记保存失败，请检查内容后重试。',
