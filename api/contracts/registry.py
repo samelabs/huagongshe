@@ -276,6 +276,41 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
+        # OAuth 2.1 for MCP connection (v1.7.0)
+        # ------------------------------------------------------------------
+        Family("oauth.discovery", E.READ, scenarios=(
+            S("resource_metadata", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/oauth/resource-metadata"),),
+              contract=Contract(frozenset({C.AGENT_MCP}),
+                                X.STABLE_EXTERNAL, "get_oauth_resource_metadata")),
+            S("authorization_server_metadata", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/oauth/authorization-server-metadata"),),
+              contract=Contract(frozenset({C.AGENT_MCP}),
+                                X.STABLE_EXTERNAL, "get_oauth_authorization_server_metadata")),
+        )),
+        Family("oauth.client", E.PRIVILEGED, scenarios=(
+            S("register", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "POST /api/oauth/register"),),
+              contract=Contract(frozenset({C.AGENT_MCP}),
+                                X.STABLE_EXTERNAL, "register_oauth_client")),
+            S("token", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "POST /api/oauth/token"),),
+              contract=Contract(frozenset({C.AGENT_MCP}),
+                                X.STABLE_EXTERNAL, "exchange_oauth_token")),
+        )),
+        Family("oauth.authorization", E.PRIVILEGED, scenarios=(
+            S("inspect", A.SESSION, entrypoints=(
+                I(T.HTTP, "GET /api/oauth/authorize/inspect"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE),
+              note="consent page server-side inspection; interactive HGS session only"),
+            S("consent", A.SESSION, entrypoints=(
+                I(T.HTTP, "POST /api/oauth/authorize"),),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
+                                X.STABLE_EXTERNAL, "authorize_oauth_client"),
+              note="browser consent action; exact registered redirect URI + PKCE/resource revalidation"),
+        )),
+
+        # ------------------------------------------------------------------
         # account / auth / profile / token / avatar(G1A: 文件粘合, 职责分域登记)
         # ------------------------------------------------------------------
         Family("account.auth", E.WRITE, scenarios=(
