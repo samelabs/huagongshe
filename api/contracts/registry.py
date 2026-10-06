@@ -253,7 +253,7 @@ def _fams() -> list[Family]:
               contract=Contract(frozenset({C.WEB}), X.NONE),
               note="public visible anonymous; private owner context is exposed only "
                    "when the resolved actor is an interactive session"),
-            S("list_own", A.SESSION, entrypoints=(
+            S("mine", A.SESSION, entrypoints=(
                 I(T.HTTP, "GET /api/users/me/notes"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
             S("chemical_public", A.ANONYMOUS, entrypoints=(
