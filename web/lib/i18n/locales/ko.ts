@@ -356,6 +356,7 @@ const ko: Dictionary = {
     notesAddReference: '연결',
     notesRemoveReference: '연결 제거',
     notesReferenceHint: 'HCID / HRID를 맥락으로 연결합니다. 연결은 노트의 수명 주기를 결정하지 않습니다.',
+    notesCancel: '취소',
     notesSave: '노트 저장',
     notesSaving: '저장 중…',
     notesSaveFailed: '노트를 저장하지 못했습니다. 내용을 확인하고 다시 시도해 주세요.',
