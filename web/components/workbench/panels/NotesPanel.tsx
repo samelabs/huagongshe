@@ -91,7 +91,7 @@ export function NotesPanel({
   return (
     <section className="wb-panel wb-notes">
       <PanelHeading
-        title={t.me.tabNotes}
+        title={t.nav.tabNotes}
         subtitle={t.me.notesHint}
         count={state === "ready" ? data.total : "—"}
         unit={t.me.unitNote}

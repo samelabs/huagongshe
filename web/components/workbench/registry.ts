@@ -27,7 +27,7 @@ export const workbenchRegistry: Omit<WorkbenchPanelConfig, "label">[] = [
 /** panel id → 当前字典下的导航 label */
 export function panelLabel(id: string, t: Dictionary): string {
   const me: Record<string, string> = {
-    home: t.me.tabHome, notes: t.me.tabNotes, search: t.me.tabSearch, stoich: t.me.tabStoich,
+    home: t.me.tabHome, notes: t.nav.tabNotes, search: t.me.tabSearch, stoich: t.me.tabStoich,
     mine: t.me.tabReactions, saved: t.me.tabSaved, skills: t.me.tabSkills,
     activity: t.me.tabActivity, following: t.me.tabFollowing, followers: t.me.tabFollowers,
   };
