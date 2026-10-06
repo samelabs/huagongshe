@@ -40,7 +40,12 @@ WEB_HEALTH = f"http://127.0.0.1:{WEB_PORT}/api/health"
 # canonical public ingress smoke: 走真实公网 vhost(nginx + TLS + canonical host + API upstream),
 # 不再重复裸 loopback readiness(8000/3001 已在 readiness 阶段覆盖; 裸 IP 无 Host 会被
 # 00-default-444 default_server 444 断连)。
+# 专用 probe UA: Cloudflare 对 urllib 默认 Python-urllib/3.x UA 返回 403(bot 规则);
+# UA 表达真实身份(化工社部署 smoke probe), 非浏览器伪装, 不加 CF 专属 cookie/header。
 PUBLIC_SMOKE_URL = "https://huagongshe.com/api/health"
+PUBLIC_SMOKE_HEADERS = {
+    "User-Agent": "Huagongshe-Deploy-Smoke/1.0",
+}
 SPEC = REPO / "ecosystem.config.cjs"
 
 # nginx canonical(一次性 bootstrap 用; 日常发布不触碰)
@@ -227,11 +232,18 @@ def wait_worker_online(runner: Runner, timeout: float = 60.0,
 
 # -------------------------------------------------------------- readiness --
 
-def http_ok(url: str, timeout: float = 5.0) -> tuple[bool, str]:
+def http_ok(url: str, timeout: float = 5.0,
+            headers: dict[str, str] | None = None) -> tuple[bool, str]:
     try:
         import urllib.request
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
-            body = resp.read(256).decode("utf-8", "replace")
+        if headers is not None:
+            # 显式 headers(如 canonical public smoke 的专用 probe UA):
+            # 走 Request 构造; TLS 仍用 urllib 默认校验, timeout 语义不变。
+            req = urllib.request.Request(url, headers=headers)
+        else:
+            req = url  # 现有 loopback readiness 行为保持不变
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read(256).decode("utf-8", "replace")[:]
             return resp.status == 200 and '"status":"ok"' in body.replace(" ", ""), \
                    f"status={resp.status}"
     except Exception as e:  # noqa: BLE001
@@ -258,7 +270,7 @@ def public_smoke() -> bool:
     HTTP 非 200 / body 无 status=ok / 网络错误一律 fail closed。
     不含 MCP protocol handshake(历史 docstring 的 "MCP version" 描述与实现不符, 已删)。
     """
-    ok_api, d1 = http_ok(PUBLIC_SMOKE_URL)
+    ok_api, d1 = http_ok(PUBLIC_SMOKE_URL, headers=PUBLIC_SMOKE_HEADERS)
     _event("smoke.api", ok=ok_api, detail=d1)
     return ok_api
 

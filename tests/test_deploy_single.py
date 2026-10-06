@@ -190,7 +190,85 @@ class PublicSmokeContractTests(unittest.TestCase):
         with mock.patch.object(D, "http_ok",
                                return_value=(True, "status=200")) as h:
             D.public_smoke()
-            h.assert_called_once_with(D.PUBLIC_SMOKE_URL)
+            h.assert_called_once_with(D.PUBLIC_SMOKE_URL,
+                                      headers=D.PUBLIC_SMOKE_HEADERS)
+
+    def test_public_smoke_probe_ua_identity(self):
+        # UA 表达真实身份(化工社 deploy smoke probe), 非浏览器伪装
+        self.assertEqual(
+            D.PUBLIC_SMOKE_HEADERS,
+            {"User-Agent": "Huagongshe-Deploy-Smoke/1.0"},
+        )
+
+    def test_readiness_urls_do_not_use_smoke_headers(self):
+        # generic readiness(loopback API/WEB health)保持无 headers 现行为
+        for url in (D.API_HEALTH, D.WEB_HEALTH):
+            with mock.patch.object(D, "http_ok",
+                                   return_value=(True, "status=200")) as h:
+                D.http_ok(url)
+                h.assert_called_once_with(url)
+
+    def test_http_ok_headers_reach_urllib_request(self):
+        # 直接证明: headers=... 时构造 urllib.request.Request 并携带 headers,
+        # 而非只测 public_smoke 传参。mock urlopen 捕获真实入参, 零公网访问。
+        import urllib.request as _ur
+        captured = {}
+
+        class _FakeResp:
+            status = 200
+
+            def read(self, n=-1):
+                return b'{"status":"ok"}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def fake_urlopen(req, timeout=None):
+            captured["req"] = req
+            captured["timeout"] = timeout
+            return _FakeResp()
+
+        import urllib.request
+        headers = {"User-Agent": "Huagongshe-Deploy-Smoke/1.0"}
+        with mock.patch.object(urllib.request, "urlopen",
+                               side_effect=fake_urlopen):
+            ok, detail = D.http_ok("https://example.invalid/api/health",
+                                   headers=headers)
+        self.assertTrue(ok, detail)
+        req = captured["req"]
+        self.assertIsInstance(req, _ur.Request)
+        self.assertEqual(req.get_header("User-agent"),
+                         "Huagongshe-Deploy-Smoke/1.0")
+        # timeout 语义不变(透传)
+        self.assertEqual(captured["timeout"], 5.0)
+
+    def test_http_ok_without_headers_keeps_plain_url(self):
+        # 未提供 headers: 仍传裸 URL 字符串, loopback readiness 行为零变化
+        captured = {}
+
+        class _FakeResp:
+            status = 200
+
+            def read(self, n=-1):
+                return b'{"status":"ok"}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def fake_urlopen(req, timeout=None):
+            captured["req"] = req
+            return _FakeResp()
+
+        with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            ok, _ = D.http_ok("http://127.0.0.1:8000/api/health")
+        self.assertTrue(ok)
+        self.assertIsInstance(captured["req"], str)
 
 
 class WorkerStabilityGateTests(unittest.TestCase):

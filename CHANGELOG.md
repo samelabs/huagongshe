@@ -32,7 +32,7 @@ Production site: https://huagongshe.com
 
 **生产部署事实（single-instance SSOT）**
 - 生产部署最终以 single-instance 为准：`/var/www/huagongshe` + main + PM2 三 app（huagongshe-api / huagongshe / huagongshe-pubchem-worker，127.0.0.1:8000 / 3001）+ nginx fixed upstream；**历史 generation / blue-green 路径已退出运行与配置面**（无运行中代际、nginx 无 generations/ 引用）
-- public deploy smoke 修复：smoke 改为 canonical HTTPS ingress（`https://huagongshe.com/api/health`，一次请求验证 nginx vhost + TLS + API upstream 整链；fail closed），替换会被 default_server 444 断连的裸 loopback 探针
+- public deploy smoke 修复：smoke 改为 canonical HTTPS ingress（`https://huagongshe.com/api/health`，一次请求验证 nginx vhost + TLS + API upstream 整链；fail closed），替换会被 default_server 444 断连的裸 loopback 探针；使用明确的 deploy probe User-Agent（`Huagongshe-Deploy-Smoke/1.0`，真实身份标识，非浏览器伪装——Cloudflare bot 规则会 403 拦截 `Python-urllib` 默认 UA）
 
 **测试与门禁**
 - locale runtime 行为测试正式进入 GitHub CI（`npm run test:locale`，tsx 直接加载真实 TS SUT）：proxy redirect/rewrite 契约（含 malformed cookie）、withLocale/applyLocale 登录回跳、NON_LOCALIZED_PREFIXES 边界、语言切换器、runtime 字典、canonical/hreflang/x-default
