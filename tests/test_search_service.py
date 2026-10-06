@@ -161,10 +161,10 @@ class McpSearchContractTests(unittest.TestCase):
         fn = self._tool_fn()
         with self.assertRaises(ToolError) as ctx:
             asyncio.run(fn(q="", mode="exact"))
-        self.assertIn("q 必填", str(ctx.exception))
+        self.assertIn("q is required", str(ctx.exception))
         with self.assertRaises(ToolError) as ctx:
             asyncio.run(fn(q="CCO", mode="bogus"))
-        self.assertIn("mode 只能是", str(ctx.exception))
+        self.assertIn("mode must be one of", str(ctx.exception))
 
     def test_mcp_structure_anonymous_denied_toolerror(self):
         from mcp.server.mcpserver.exceptions import ToolError
