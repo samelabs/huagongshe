@@ -57,6 +57,22 @@ class McpStreamableHttpProtocolTests(unittest.IsolatedAsyncioTestCase):
                     self.assertIn("get_chemical", names)
                     self.assertIn("create_reaction", names)
 
+                    wire_tools = {tool.name: tool for tool in listed.tools}
+                    self.assertFalse(
+                        wire_tools["search_chemistry_data"].annotations.read_only_hint
+                    )
+                    self.assertTrue(
+                        wire_tools["get_reaction"].annotations.read_only_hint
+                    )
+                    self.assertTrue(
+                        wire_tools["create_reaction"].annotations.idempotent_hint
+                    )
+                    # OAuth metadata is intentionally absent until W4 can
+                    # actually complete the advertised flow.
+                    for tool in listed.tools:
+                        meta = getattr(tool, "meta", None) or {}
+                        self.assertNotIn("securitySchemes", meta)
+
                     # Invalid ID is rejected before any DB access. This proves
                     # a real tools/call round-trip without coupling this wire
                     # contract test to PostgreSQL or Redis.
