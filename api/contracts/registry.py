@@ -276,6 +276,32 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
+        # OAuth 2.1 connection protocol (v1.7 mixed-auth MCP)
+        # ------------------------------------------------------------------
+        Family("oauth.discovery", E.READ, scenarios=(
+            S("protected_resource_metadata", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/oauth/protected-resource-metadata"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+            S("authorization_server_metadata", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/oauth/authorization-server-metadata"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+        )),
+        Family("oauth.protocol", E.PRIVILEGED, scenarios=(
+            S("authorize_start", A.PUBLIC_OR_ACTOR, entrypoints=(
+                I(T.HTTP, "GET /api/oauth/authorize"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+            S("authorize_decision", A.SESSION, entrypoints=(
+                I(T.HTTP, "POST /api/oauth/authorize"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+            S("token", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "POST /api/oauth/token"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+            S("register", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "POST /api/oauth/register"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+        )),
+
+        # ------------------------------------------------------------------
         # account / auth / profile / token / avatar(G1A: 文件粘合, 职责分域登记)
         # ------------------------------------------------------------------
         Family("account.auth", E.WRITE, scenarios=(

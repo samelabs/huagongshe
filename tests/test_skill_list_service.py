@@ -314,14 +314,19 @@ class McpAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(captured["scope"], "public")
         self.assertIsNone(captured["owner_id"])
 
-    async def test_mine_no_actor_tool_error_exact(self):
-        from mcp.server.mcpserver.exceptions import ToolError
+    async def test_mine_no_actor_returns_oauth_challenge(self):
         r = await self._call(actor=None, scope="mine")
-        self.assertIsInstance(r, ToolError)
-        self.assertTrue(str(r).startswith("Authentication required."))
+        self.assertTrue(r.is_error)
+        challenge = (r.meta or {}).get("mcp/www_authenticate") or []
+        self.assertTrue(challenge)
+        self.assertIn('scope="read"', challenge[0])
+        self.assertIn('error="invalid_token"', challenge[0])
 
     async def test_mine_actor_id_propagated(self):
-        actor = MagicMock(); actor.id = 66
+        actor = MagicMock()
+        actor.id = 66
+        actor.auth_kind = "agent"
+        actor.scopes = ()
         captured = {}
         await self._call(actor=actor, captured=captured, scope="mine")
         self.assertEqual(captured["owner_id"], 66)

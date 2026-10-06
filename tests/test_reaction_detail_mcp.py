@@ -223,7 +223,7 @@ class McpReactionDetailTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("HTTPException", seg)
         self.assertNotIn("request=None", seg)
         self.assertIn('ToolError("Reaction not found.")', seg)
-        self.assertIn("_actor_from_headers", seg)
+        self.assertIn("_optional_tool_actor", seg)
 
 
 if __name__ == "__main__":
