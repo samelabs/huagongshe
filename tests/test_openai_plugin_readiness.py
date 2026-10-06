@@ -61,7 +61,7 @@ class OpenAIPluginPackageTests(unittest.TestCase):
             self.manifest["$schema"],
             "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
         )
-        self.assertEqual(self.manifest["name"], "huagongshe-aichem")
+        self.assertEqual(self.manifest["name"], "huagongshe")
         self.assertRegex(self.manifest["version"], r"^\d+\.\d+\.\d+$")
         self.assertEqual(
             self.mcp["$schema"],

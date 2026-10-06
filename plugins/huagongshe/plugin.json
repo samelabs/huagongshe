@@ -1,6 +1,6 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "huagongshe-aichem",
+  "name": "huagongshe",
   "version": "1.0.0",
   "description": "Chemical data, reaction records, stoichiometry, and reusable chemistry skills through Huagongshe MCP.",
   "author": {
@@ -20,7 +20,7 @@
   "extensions": {
     "com.openai": {
       "interface": {
-        "displayName": "Huagongshe AIchem",
+        "displayName": "Huagongshe",
         "shortDescription": "Chemical data and reactions",
         "longDescription": "Search Huagongshe chemical and reaction records, inspect compound and reaction details, render molecular and reaction structures, calculate stoichiometry, browse reusable chemistry skills, and work with your own saved reaction records after account authorization. Public chemistry tools can run without sign-in. Private records and write actions use the Huagongshe OAuth connection. The plugin does not expose Notes in HGS v1.7.0 and does not replace scientific, safety, regulatory, or process review.",
         "developerName": "Shandong Shenglan Chemical Technology Co., Ltd.",
@@ -100,7 +100,7 @@
         "commerce": false
       },
       "publication": {
-        "release_notes": "Initial Huagongshe AIchem plugin package for the HGS v1.7.0 MCP surface: 13 reviewed tools, mixed anonymous/OAuth access, chemistry search and detail, rendering, stoichiometry, saved reactions, and reusable chemistry skills."
+        "release_notes": "Initial Huagongshe plugin package for the HGS v1.7.0 MCP surface: 13 reviewed tools, mixed anonymous/OAuth access, chemistry search and detail, rendering, stoichiometry, saved reactions, and reusable chemistry skills."
       }
     }
   }

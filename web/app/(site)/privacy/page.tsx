@@ -33,7 +33,7 @@ export default function PrivacyPage() {
     <section className="guide-section">
       <h2>Sharing and service providers</h2>
       <p>We may use hosting, network, database, email, security, and operational service providers to run Huagongshe. Chemistry-source providers may receive the identifiers required for enrichment. If you invoke Huagongshe through OpenAI products, OpenAI separately processes your conversation and connection under its own terms and privacy practices.</p>
-      <p>Huagongshe does not sell personal data.</p>
+      <p>Public website pages may load analytics or advertising scripts when those features are enabled in the site configuration. The MCP tool transport itself does not embed browser advertising scripts.</p>
     </section>
 
     <section className="guide-section">
