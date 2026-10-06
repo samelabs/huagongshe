@@ -54,8 +54,14 @@ async def get_note(
     db=Depends(get_db),
 ):
     try:
+        # Public notes are anonymous-readable. Private owner context is Web-only
+        # in v1.7.0: an API Key/other machine actor must not silently gain a
+        # private Notes read surface before Notes has an explicit Agent contract.
+        owner_session_id = (
+            actor.id if actor is not None and actor.auth_kind == "session" else None
+        )
         return await get_note_service(
-            db, note_id=note_id, actor_id=actor.id if actor else None)
+            db, note_id=note_id, actor_id=owner_session_id)
     except NoteNotAccessibleError as exc:
         raise _note_not_found(exc) from exc
 
