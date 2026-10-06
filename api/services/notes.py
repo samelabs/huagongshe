@@ -368,6 +368,8 @@ async def list_entity_notes(
         SELECT count(*)
         FROM community.notes n
         {join}
+        JOIN community.users u
+          ON u.id=n.owner_user_id AND u.status='active'
         WHERE {predicate}
           AND n.visibility='public'
           AND n.moderation_status='visible'

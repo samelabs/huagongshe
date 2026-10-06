@@ -253,6 +253,33 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
                 db, note_id=note["id"], actor_id=self.owner)
             self.assertEqual(owner_view["reaction_ids"], [])
 
+    async def test_entity_public_total_matches_visible_active_author_rows(self):
+        async with self.Session() as db:
+            await svc.create_note(
+                db,
+                actor_id=self.owner,
+                visibility="public",
+                content="public note from active author",
+                chemical_ids=[self.chemical],
+                reaction_ids=[],
+            )
+            page = await svc.list_entity_notes(
+                db, entity="chemical", entity_id=self.chemical,
+                page=1, page_size=20)
+            self.assertEqual(page["total"], 1)
+            self.assertEqual(len(page["items"]), 1)
+
+            await db.execute(text("""
+                UPDATE community.users SET status='disabled' WHERE id=:id
+            """), {"id": self.owner})
+            await db.commit()
+
+            hidden = await svc.list_entity_notes(
+                db, entity="chemical", entity_id=self.chemical,
+                page=1, page_size=20)
+            self.assertEqual(hidden["total"], 0)
+            self.assertEqual(hidden["items"], [])
+
     async def test_reaction_delete_removes_reference_not_note(self):
         async with self.Session() as db:
             note = await svc.create_note(
