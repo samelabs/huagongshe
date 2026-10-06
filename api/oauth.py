@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import html
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote
 
-from fastapi import APIRouter, Body, Depends, Form, Query, Request
+from fastapi import APIRouter, Body, Depends, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,25 @@ def _oauth_error(exc: svc.OAuthProtocolError) -> JSONResponse:
     return response
 
 
+async def _form_urlencoded(request: Request, *, max_bytes: int = 16384) -> dict[str, str]:
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if content_type != "application/x-www-form-urlencoded":
+        raise svc.OAuthProtocolError(
+            "invalid_request", "Content-Type must be application/x-www-form-urlencoded."
+        )
+    body = await request.body()
+    if len(body) > max_bytes:
+        raise svc.OAuthProtocolError("invalid_request", "OAuth form body is too large.")
+    try:
+        decoded = body.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise svc.OAuthProtocolError("invalid_request", "OAuth form body must be UTF-8.") from exc
+    values = parse_qs(decoded, keep_blank_values=True, strict_parsing=False)
+    if any(len(items) != 1 for items in values.values()):
+        raise svc.OAuthProtocolError("invalid_request", "OAuth form parameters must be single-valued.")
+    return {key: items[0] for key, items in values.items()}
+
+
 @router.get("/protected-resource-metadata")
 async def protected_resource_metadata():
     return svc.protected_resource_metadata()
@@ -43,9 +62,9 @@ async def register(
 ):
     await enforce_http("oauth-register", "global", 120, 3600)
     try:
-        return await svc.register_client(
+        result = await svc.register_client(
             db,
-            redirect_uris=list(body.get("redirect_uris") or []),
+            redirect_uris=body.get("redirect_uris"),
             client_name=body.get("client_name"),
             token_endpoint_auth_method=body.get("token_endpoint_auth_method"),
             grant_types=body.get("grant_types"),
@@ -54,6 +73,10 @@ async def register(
         )
     except svc.OAuthProtocolError as exc:
         return _oauth_error(exc)
+    response = JSONResponse(result, status_code=201)
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @router.get("/authorize")
@@ -93,6 +116,14 @@ async def authorize(
             resource=resource,
         )
     except svc.OAuthProtocolError as exc:
+        if exc.redirect_uri:
+            redirect = svc._redirect_with(
+                exc.redirect_uri,
+                error=exc.error,
+                error_description=exc.description,
+                state=exc.state,
+            )
+            return RedirectResponse(redirect, status_code=302)
         return _oauth_error(exc)
 
     scopes = "".join(
@@ -134,16 +165,20 @@ for the permissions below.</p>
 
 @router.post("/authorize")
 async def authorize_decision(
-    request_id: str = Form(..., min_length=1, max_length=200),
-    decision: str = Form(..., min_length=1, max_length=20),
+    request: Request,
     actor: Actor = Depends(current_session),
     db: AsyncSession = Depends(get_db),
 ):
-    if decision not in ("approve", "deny"):
-        return _oauth_error(
-            svc.OAuthProtocolError("invalid_request", "decision must be approve or deny.")
-        )
     try:
+        form = await _form_urlencoded(request, max_bytes=4096)
+        request_id = form.get("request_id", "")
+        decision = form.get("decision", "")
+        if not request_id or len(request_id) > 200:
+            raise svc.OAuthProtocolError("invalid_request", "request_id is required.")
+        if decision not in ("approve", "deny"):
+            raise svc.OAuthProtocolError(
+                "invalid_request", "decision must be approve or deny."
+            )
         redirect = await svc.complete_authorization(
             db,
             user_id=actor.id,
@@ -157,20 +192,31 @@ async def authorize_decision(
 
 @router.post("/token")
 async def token(
-    grant_type: str = Form(..., min_length=1, max_length=40),
-    client_id: str = Form(..., min_length=1, max_length=300),
-    resource: str = Form(..., min_length=1, max_length=2000),
-    code: str | None = Form(default=None, max_length=200),
-    redirect_uri: str | None = Form(default=None, max_length=2000),
-    code_verifier: str | None = Form(default=None, max_length=200),
-    refresh_token: str | None = Form(default=None, max_length=300),
-    scope: str | None = Form(default=None, max_length=300),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await enforce_http("oauth-token", client_id[:80], 180, 60)
     try:
+        form = await _form_urlencoded(request)
+        grant_type = form.get("grant_type", "")
+        client_id = form.get("client_id", "")
+        resource = form.get("resource", "")
+        if not grant_type or len(grant_type) > 40:
+            raise svc.OAuthProtocolError("invalid_request", "grant_type is required.")
+        if not client_id or len(client_id) > 300:
+            raise svc.OAuthProtocolError("invalid_request", "client_id is required.")
+        if not resource or len(resource) > 2000:
+            raise svc.OAuthProtocolError("invalid_request", "resource is required.")
+        await enforce_http("oauth-token", client_id[:80], 180, 60)
+
         if grant_type == "authorization_code":
-            if not code or not redirect_uri or not code_verifier:
+            code = form.get("code", "")
+            redirect_uri = form.get("redirect_uri", "")
+            code_verifier = form.get("code_verifier", "")
+            if (
+                not code or len(code) > 200
+                or not redirect_uri or len(redirect_uri) > 2000
+                or not code_verifier or len(code_verifier) > 200
+            ):
                 raise svc.OAuthProtocolError(
                     "invalid_request",
                     "code, redirect_uri, and code_verifier are required.",
@@ -184,10 +230,14 @@ async def token(
                 resource=resource,
             )
         elif grant_type == "refresh_token":
-            if not refresh_token:
+            refresh_token = form.get("refresh_token", "")
+            scope = form.get("scope")
+            if not refresh_token or len(refresh_token) > 300:
                 raise svc.OAuthProtocolError(
                     "invalid_request", "refresh_token is required."
                 )
+            if scope is not None and len(scope) > 300:
+                raise svc.OAuthProtocolError("invalid_request", "scope is too long.")
             result = await svc.refresh_access_token(
                 db,
                 client_id=client_id,

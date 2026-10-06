@@ -269,15 +269,19 @@ class McpBehaviorTests(unittest.IsolatedAsyncioTestCase):
             except ToolError as exc:
                 return exc
 
-    async def test_no_credential_tool_error_exact(self):
-        from mcp.server.mcpserver.exceptions import ToolError
+    async def test_no_credential_returns_oauth_challenge(self):
+        from mcp.types import CallToolResult
         r = await self._call(actor=None)
-        self.assertIsInstance(r, ToolError)
-        self.assertTrue(str(r).startswith("Authentication required."))
+        self.assertIsInstance(r, CallToolResult)
+        self.assertTrue(r.is_error)
+        meta = r.meta or {}
+        challenge = meta.get("mcp/www_authenticate") or []
+        self.assertTrue(challenge)
+        self.assertIn('scope="read"', challenge[0])
 
     async def test_actor_id_and_params_propagated(self):
         from unittest.mock import MagicMock
-        actor = MagicMock(); actor.id = 4242
+        actor = MagicMock(); actor.id = 4242; actor.auth_kind = "agent"; actor.scopes = []
         captured = {}
         svc_result = {"items": [{"id": 1}], "counts": {"all": 1},
                       "page": 1, "page_size": 20}
@@ -293,7 +297,7 @@ class McpBehaviorTests(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_visibility_tool_error(self):
         from mcp.server.mcpserver.exceptions import ToolError
         from unittest.mock import MagicMock
-        actor = MagicMock(); actor.id = 1
+        actor = MagicMock(); actor.id = 1; actor.auth_kind = "agent"; actor.scopes = []
         r = await self._call(actor=actor, visibility="secret")
         self.assertIsInstance(r, ToolError)
         self.assertIn("visibility", str(r))

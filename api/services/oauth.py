@@ -29,11 +29,21 @@ AUTH_REQUEST_SECONDS = 600
 
 
 class OAuthProtocolError(Exception):
-    def __init__(self, error: str, description: str, *, status_code: int = 400):
+    def __init__(
+        self,
+        error: str,
+        description: str,
+        *,
+        status_code: int = 400,
+        redirect_uri: str | None = None,
+        state: str | None = None,
+    ):
         super().__init__(description)
         self.error = error
         self.description = description
         self.status_code = status_code
+        self.redirect_uri = redirect_uri
+        self.state = state
 
 
 def issuer_url() -> str:
@@ -236,17 +246,30 @@ async def begin_authorization(
         raise OAuthProtocolError("unauthorized_client", "Unknown OAuth client.")
     if redirect_uri not in tuple(client["redirect_uris"] or ()):
         raise OAuthProtocolError("invalid_request", "redirect_uri is not registered.")
+    def authorized_error(error: str, description: str) -> OAuthProtocolError:
+        return OAuthProtocolError(
+            error,
+            description,
+            redirect_uri=redirect_uri,
+            state=state,
+        )
+
     if response_type != "code":
-        raise OAuthProtocolError(
+        raise authorized_error(
             "unsupported_response_type", "Only response_type=code is supported."
         )
     if resource != mcp_resource_url():
-        raise OAuthProtocolError("invalid_target", "resource does not identify this MCP server.")
+        raise authorized_error(
+            "invalid_target", "resource does not identify this MCP server."
+        )
     if code_challenge_method != "S256" or not PKCE_CHALLENGE_RE.fullmatch(code_challenge):
-        raise OAuthProtocolError(
+        raise authorized_error(
             "invalid_request", "PKCE S256 code_challenge is required."
         )
-    scopes = _scope_tuple(scope, default_read=True)
+    try:
+        scopes = _scope_tuple(scope, default_read=True)
+    except OAuthProtocolError as exc:
+        raise authorized_error(exc.error, exc.description) from exc
     request_id = _plain("hgo_req_", 32)
     expires = datetime.now(timezone.utc) + timedelta(seconds=AUTH_REQUEST_SECONDS)
     await db.execute(text("""
