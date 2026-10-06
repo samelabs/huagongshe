@@ -9,12 +9,15 @@ CREATE TABLE IF NOT EXISTS community.oauth_clients (
     grant_types text[] NOT NULL DEFAULT ARRAY['authorization_code','refresh_token']::text[],
     response_types text[] NOT NULL DEFAULT ARRAY['code']::text[],
     scopes text[] NOT NULL DEFAULT ARRAY['read','reaction:write','skill:write']::text[],
+    application_type text NOT NULL DEFAULT 'web',
     created_at timestamptz NOT NULL DEFAULT now(),
     disabled_at timestamptz,
     CONSTRAINT oauth_clients_auth_method_check
       CHECK (token_endpoint_auth_method='none'),
     CONSTRAINT oauth_clients_scopes_check
-      CHECK (scopes <@ ARRAY['read','reaction:write','skill:write']::text[])
+      CHECK (scopes <@ ARRAY['read','reaction:write','skill:write']::text[]),
+    CONSTRAINT oauth_clients_application_type_check
+      CHECK (application_type IN ('web','native'))
 );
 
 CREATE TABLE IF NOT EXISTS community.oauth_authorization_codes (

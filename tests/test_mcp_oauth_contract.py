@@ -41,6 +41,22 @@ class McpOAuthContractTests(unittest.TestCase):
             reaction_src,
         )
 
+    def test_optional_private_tools_enforce_oauth_read_scope(self):
+        source = inspect.getsource(mcp_server.build_mcp_server)
+        for tool_name in ("get_reaction", "get_skill", "render_reaction_svg"):
+            with self.subTest(tool=tool_name):
+                start = source.index(f"async def {tool_name}(")
+                tail = source[start:]
+                next_tool = tail.find("@server.tool", 1)
+                body = tail if next_tool < 0 else tail[:next_tool]
+                self.assertIn("_optional_tool_actor(", body)
+                self.assertIn('oauth_scope="read"', body)
+
+    def test_invalid_ai_key_does_not_masquerade_as_oauth_relink(self):
+        source = inspect.getsource(mcp_server._require_tool_actor)
+        self.assertIn('startswith("hgs_")', source)
+        self.assertIn("Connect an HGS AI Key", source)
+
     def test_existing_ai_key_path_is_preserved(self):
         src = inspect.getsource(mcp_server._actor_from_headers)
         self.assertIn('token.startswith("hgo_at_")', src)

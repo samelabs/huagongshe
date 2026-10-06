@@ -27,6 +27,7 @@ class RegistrationBody(BaseModel):
         default_factory=lambda: ["authorization_code", "refresh_token"])
     response_types: list[str] = Field(default_factory=lambda: ["code"])
     scope: str | None = Field(default=None, max_length=200)
+    application_type: str = Field(default="web", max_length=20)
 
 
 def _oauth_error(exc: OAuthError, *, status: int = 400) -> JSONResponse:
@@ -84,6 +85,7 @@ async def register_client(body: RegistrationBody, db=Depends(get_db)):
             grant_types=body.grant_types,
             response_types=body.response_types,
             scope=body.scope,
+            application_type=body.application_type,
         )
     except OAuthError as exc:
         return _oauth_error(exc)
@@ -145,6 +147,7 @@ async def authorize(
     db=Depends(get_db),
 ):
     _check_same_origin_post(request)
+    await enforce_http("oauth-authorize", str(actor.id), 60, 300)
     try:
         data = await svc.validate_authorization_request(
             db,
@@ -187,16 +190,17 @@ async def authorize(
 
 @router.post("/oauth/token")
 async def token(
-    grant_type: str = Form(...),
-    client_id: str = Form(...),
-    resource: str = Form(...),
-    code: str | None = Form(default=None),
-    redirect_uri: str | None = Form(default=None),
-    code_verifier: str | None = Form(default=None),
-    refresh_token: str | None = Form(default=None),
-    scope: str | None = Form(default=None),
+    grant_type: str = Form(..., min_length=1, max_length=40),
+    client_id: str = Form(..., min_length=1, max_length=300),
+    resource: str = Form(..., min_length=1, max_length=2000),
+    code: str | None = Form(default=None, max_length=240),
+    redirect_uri: str | None = Form(default=None, max_length=2000),
+    code_verifier: str | None = Form(default=None, max_length=200),
+    refresh_token: str | None = Form(default=None, max_length=300),
+    scope: str | None = Form(default=None, max_length=300),
     db=Depends(get_db),
 ):
+    await enforce_http("oauth-token", client_id[:80], 180, 60)
     try:
         if grant_type == "authorization_code":
             if not code or not redirect_uri or not code_verifier:

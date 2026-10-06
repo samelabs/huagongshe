@@ -55,6 +55,7 @@ def protected_resource_metadata() -> dict[str, Any]:
         "authorization_servers": [issuer_url()],
         "scopes_supported": list(OAUTH_SCOPES),
         "bearer_methods_supported": ["header"],
+        "resource_documentation": f"{issuer_url()}/mcp-guide",
     }
 
 
@@ -98,23 +99,33 @@ def parse_scopes(raw: str | None, *, default_read: bool = True) -> tuple[str, ..
     return tuple(scope for scope in OAUTH_SCOPES if scope in requested)
 
 
-def _validate_redirect_uri(uri: str) -> str:
+def _validate_redirect_uri(uri: str, *, application_type: str = "web") -> str:
     try:
         parsed = urlparse(uri)
     except ValueError as exc:
         raise OAuthError("invalid_redirect_uri", "redirect_uri is invalid.") from exc
     if (
-        parsed.scheme != "https"
-        or not parsed.netloc
+        not parsed.netloc
         or parsed.fragment
         or parsed.username
         or parsed.password
     ):
         raise OAuthError(
             "invalid_redirect_uri",
-            "redirect_uri must be an absolute HTTPS URL without a fragment or userinfo.",
+            "redirect_uri must be absolute and must not contain a fragment or userinfo.",
         )
-    return uri
+    if parsed.scheme == "https":
+        return uri
+    if (
+        application_type == "native"
+        and parsed.scheme == "http"
+        and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+    ):
+        return uri
+    raise OAuthError(
+        "invalid_redirect_uri",
+        "Web clients require HTTPS; native clients may also use localhost loopback HTTP.",
+    )
 
 
 async def register_client(
@@ -126,15 +137,22 @@ async def register_client(
     grant_types: list[str],
     response_types: list[str],
     scope: str | None,
+    application_type: str | None = None,
 ) -> dict[str, Any]:
     if not redirect_uris or len(redirect_uris) > 20:
         raise OAuthError(
             "invalid_client_metadata",
             "redirect_uris must contain between 1 and 20 URLs.",
         )
+    app_type = application_type or "web"
+    if app_type not in ("web", "native"):
+        raise OAuthError(
+            "invalid_client_metadata",
+            "application_type must be web or native.",
+        )
     unique_uris: list[str] = []
     for uri in redirect_uris:
-        value = _validate_redirect_uri(str(uri).strip())
+        value = _validate_redirect_uri(str(uri).strip(), application_type=app_type)
         if value not in unique_uris:
             unique_uris.append(value)
 
@@ -171,10 +189,11 @@ async def register_client(
     await db.execute(text("""
         INSERT INTO community.oauth_clients(
             client_id,client_name,redirect_uris,token_endpoint_auth_method,
-            grant_types,response_types,scopes
+            grant_types,response_types,scopes,application_type
         ) VALUES (
             :client_id,:client_name,CAST(:redirect_uris AS jsonb),
-            :token_endpoint_auth_method,:grant_types,:response_types,:scopes
+            :token_endpoint_auth_method,:grant_types,:response_types,:scopes,
+            :application_type
         )
     """), {
         "client_id": client_id,
@@ -184,6 +203,7 @@ async def register_client(
         "grant_types": grants,
         "response_types": responses,
         "scopes": list(scopes),
+        "application_type": app_type,
     })
     await db.commit()
     return {
@@ -195,6 +215,7 @@ async def register_client(
         "grant_types": grants,
         "response_types": responses,
         "scope": " ".join(scopes),
+        "application_type": app_type,
     }
 
 

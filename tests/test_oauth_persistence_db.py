@@ -69,6 +69,7 @@ class OAuthPersistenceTests(unittest.IsolatedAsyncioTestCase):
             grant_types=["authorization_code", "refresh_token"],
             response_types=["code"],
             scope="read reaction:write skill:write",
+            application_type="web",
         )
 
     async def test_authorization_code_pkce_access_and_refresh_rotation(self):
@@ -76,6 +77,7 @@ class OAuthPersistenceTests(unittest.IsolatedAsyncioTestCase):
         challenge = oauth.pkce_challenge(verifier)
         async with self.Session() as db:
             client = await self._client(db)
+            self.assertEqual(client["application_type"], "web")
             request = await oauth.validate_authorization_request(
                 db,
                 response_type="code",

@@ -37,6 +37,32 @@ class OAuthContractTests(unittest.TestCase):
         with self.assertRaises(oauth.OAuthError):
             oauth.pkce_challenge("short")
 
+    def test_redirect_uri_policy_supports_native_loopback_only(self):
+        self.assertEqual(
+            oauth._validate_redirect_uri(
+                "https://chatgpt.com/connector/oauth/test",
+                application_type="web",
+            ),
+            "https://chatgpt.com/connector/oauth/test",
+        )
+        self.assertEqual(
+            oauth._validate_redirect_uri(
+                "http://127.0.0.1:7777/callback",
+                application_type="native",
+            ),
+            "http://127.0.0.1:7777/callback",
+        )
+        with self.assertRaises(oauth.OAuthError):
+            oauth._validate_redirect_uri(
+                "http://example.com/callback",
+                application_type="native",
+            )
+        with self.assertRaises(oauth.OAuthError):
+            oauth._validate_redirect_uri(
+                "http://127.0.0.1:7777/callback",
+                application_type="web",
+            )
+
     def test_oauth_is_mcp_only_at_rest_boundary(self):
         security = (REPO / "api/core/security.py").read_text(encoding="utf-8")
         self.assertNotIn("hgo_at_", security)
@@ -59,6 +85,7 @@ class OAuthContractTests(unittest.TestCase):
         self.assertIn("token_hash bytea", migration)
         self.assertIn("code_hash bytea", migration)
         self.assertIn("issuer text NOT NULL", migration)
+        self.assertIn("application_type text NOT NULL", migration)
         self.assertNotIn("token_plain", migration)
         self.assertNotIn("code_plain", migration)
 

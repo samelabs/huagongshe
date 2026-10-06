@@ -410,6 +410,11 @@ async def _require_tool_actor(
     auth = _bearer(headers)
     actor = await _actor_from_headers(headers)
     if actor is None:
+        if auth and auth[7:].strip().startswith("hgs_"):
+            raise ToolError(
+                "Authentication required. Connect an HGS AI Key with "
+                "Authorization: Bearer <AI Key>."
+            )
         description = (
             "Authentication required. Connect your HGS account to continue."
             if not auth else
@@ -466,23 +471,6 @@ async def _optional_tool_actor(
             description=f"The connection needs the {oauth_scope} scope.",
         )
     return actor, None
-
-
-def _require(actor: Actor | None, scope: str) -> Actor:
-    """Legacy helper retained for direct tests and non-challenge call sites."""
-    if actor is None:
-        raise ToolError("Authentication required.")
-    if actor.auth_kind not in ("agent", "oauth", "session"):
-        raise ToolError("Unsupported authentication type.")
-    if actor.auth_kind in ("agent", "oauth") and scope not in actor.scopes:
-        raise ToolError(f"The credential is missing the required scope: {scope}.")
-    return actor
-
-
-def _require_login(actor: Actor | None) -> Actor:
-    if actor is None:
-        raise ToolError("Authentication required.")
-    return actor
 
 
 async def _resolve_skill_slug(candidate: str, actor: Actor | None) -> int:
