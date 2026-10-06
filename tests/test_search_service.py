@@ -214,7 +214,7 @@ class McpSearchContractTests(unittest.TestCase):
                 patch("api.core.rate_limit.structure_enter", gate_429):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(q="CCO", mode="substructure", ctx=_Ctx()))
-        self.assertEqual(str(ctx.exception), "结构检索并发已达上限，请稍后重试")
+        self.assertEqual(str(ctx.exception), "Structure-search concurrency limit reached. Try again shortly.")
 
 
 class RatePolicyTests(unittest.TestCase):

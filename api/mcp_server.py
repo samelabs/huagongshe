@@ -91,6 +91,26 @@ def _render_busy() -> ToolError:
     return ToolError("Rendering concurrency limit reached. Try again shortly.")
 
 
+def _validation_error_message(prefix: str, exc: Exception) -> str:
+    """Keep field-level Pydantic context while exposing an English MCP error."""
+    errors = getattr(exc, "errors", None)
+    if callable(errors):
+        parts: list[str] = []
+        for item in errors()[:4]:
+            loc = ".".join(str(value) for value in item.get("loc", ()))
+            msg = str(item.get("msg", "invalid value"))
+            parts.append(f"{loc}: {msg}" if loc else msg)
+        if parts:
+            return f"{prefix}: " + "; ".join(parts)
+    return prefix
+
+
+def _detail_tail(detail: str, marker: str) -> str:
+    if marker not in detail:
+        return ""
+    return detail.split(marker, 1)[1].strip()
+
+
 def _rate_error_message(exc: Exception) -> str:
     """English MCP boundary for neutral rate/resource errors."""
     name = type(exc).__name__
@@ -99,33 +119,43 @@ def _rate_error_message(exc: Exception) -> str:
     if name == "LimiterUnavailable":
         return "Rate-limit service is temporarily unavailable. Try again shortly."
     if name == "ResourceBusy":
-        return "The requested resource is busy. Try again shortly."
+        return "Structure-search concurrency limit reached. Try again shortly."
     return "The request could not be admitted by the resource limiter."
 
 
 def _search_error_message(exc: Exception) -> str:
-    return {
-        "invalid_structure": "The structure could not be parsed.",
-        "query_too_short": "The search query is too short.",
-        "substructure_too_small": "The substructure query is too small; provide a more specific structure.",
-        "invalid_doi": "The DOI is invalid.",
-        "backend_unavailable": "Search is temporarily unavailable. Try again or use a more precise query.",
-    }.get(getattr(exc, "kind", ""), "The chemistry search could not be completed.")
+    kind = getattr(exc, "kind", "")
+    if kind == "invalid_structure":
+        return "The SMILES structure could not be recognized."
+    if kind == "query_too_short":
+        return "Name queries require at least 3 characters, or at least 2 CJK characters."
+    if kind == "substructure_too_small":
+        return "The substructure query is too small; provide a more specific structure."
+    if kind == "invalid_doi":
+        return "The DOI is invalid."
+    if kind == "backend_unavailable":
+        return "Search timed out. Use a more specific name, identifier, or structure."
+    return "The chemistry search could not be completed."
 
 
 def _reaction_error_message(exc: Exception) -> str:
     kind = getattr(exc, "kind", "")
+    detail = str(getattr(exc, "detail", "") or "")
     if kind == "invalid_structure":
-        return "A reaction participant structure could not be parsed."
+        value = _detail_tail(detail, "无法解析参与物结构：")
+        return (
+            f"Could not parse reaction participant structure: {value}"
+            if value else "Could not parse a reaction participant structure."
+        )
     if kind == "duplicate_participant":
         return "Merge duplicate entries with the same compound and role, then set occurrence_count."
     if kind == "invalid_reaction":
         return "The reaction structure could not be parsed by RDKit."
     status = getattr(exc, "status", "")
     if status == "CONFLICT":
-        return "Chemical identity conflict: mutually exclusive identity evidence prevents automatic creation."
+        return "Chemical identity conflict prevents automatic reaction creation."
     if status == "AMBIGUOUS":
-        return "Chemical identity is ambiguous: multiple candidates exist without enough structural evidence."
+        return "Chemical identity is ambiguous; multiple candidates require manual resolution."
     name = type(exc).__name__
     if name == "MissingIdempotencyKeyError":
         return "idempotency_key is required for authenticated reaction creation."
@@ -134,12 +164,34 @@ def _reaction_error_message(exc: Exception) -> str:
     return "The reaction request could not be completed."
 
 
+def _stoichiometry_error_message(exc: Exception) -> str:
+    detail = str(exc)
+    if detail.startswith("基准 index ") and detail.endswith(" 超出组分范围"):
+        value = detail[len("基准 index "):-len(" 超出组分范围")]
+        return f"Basis index {value} is outside the component range."
+    if detail.startswith("组分 ") and "）缺少 eq（仅溶剂可留空）" in detail:
+        middle = detail[len("组分 "):].split("）缺少 eq", 1)[0]
+        if "（" in middle:
+            index, role = middle.split("（", 1)
+            return f"Component {index} ({role}) is missing eq; only solvent rows may omit eq."
+    if detail == "按浓度定容仅支持单一溶剂行":
+        return "Concentration-based volume calculation supports only one solvent row."
+    if detail.startswith("组分 ") and "）的 SMILES 无法解析：" in detail:
+        left, smiles = detail.split("）的 SMILES 无法解析：", 1)
+        middle = left[len("组分 "):]
+        if "（" in middle:
+            index, role = middle.split("（", 1)
+            return f"Component {index} ({role}) has an unparseable SMILES: {smiles}"
+    return "Stoichiometry input is invalid."
+
+
 def _skill_error_message(exc: Exception) -> str:
     name = type(exc).__name__
+    detail = str(getattr(exc, "detail", "") or "")
     if name == "SkillNotAccessibleError":
         return "Skill not found or not accessible."
     if name == "SkillCategoryError":
-        return "The requested skill category is unavailable."
+        return "The requested skill category does not exist or is disabled."
     if name == "SkillSlugConflictError":
         return "A skill with the same slug already exists for this user."
     if name == "MissingSkillIdempotencyKeyError":
@@ -147,15 +199,47 @@ def _skill_error_message(exc: Exception) -> str:
     if name == "SkillIdempotencyKeyTooLongError":
         return "idempotency_key must not exceed 200 characters."
     if name == "SkillArchiveValidationError":
-        return {
-            "archive_too_large": "The skill archive exceeds the allowed size.",
-            "invalid_archive": "The supplied file is not a valid ZIP archive.",
-            "unsafe_path": "The skill archive contains an unsafe path.",
-            "decompression": "The skill archive failed decompression safety checks.",
-            "empty_archive": "The skill archive is empty.",
-            "archive_limit": "The skill archive exceeds file or content limits.",
-            "manifest_invalid": "SKILL.md or its manifest metadata is invalid.",
-        }.get(getattr(exc, "kind", ""), "The skill archive is invalid.")
+        kind = getattr(exc, "kind", "")
+        tail = detail.split("：", 1)[1].strip() if "：" in detail else ""
+        if kind == "archive_too_large":
+            return "The skill archive exceeds the allowed ZIP size."
+        if kind == "invalid_archive":
+            return "The supplied file is not a valid ZIP archive."
+        if kind == "unsafe_path":
+            if detail.startswith("目录层级过深："):
+                return f"Archive path is nested too deeply: {tail}"
+            if detail.startswith("不允许符号链接："):
+                return f"Symbolic links are not allowed in skill archives: {tail}"
+            return f"Unsafe archive path: {tail}" if tail else "The skill archive contains an unsafe path."
+        if kind == "decompression":
+            return (
+                f"Suspicious compression ratio detected for archive entry: {tail}"
+                if tail else "The skill archive failed decompression safety checks."
+            )
+        if kind == "empty_archive":
+            return "The skill archive contains no files."
+        if kind == "archive_limit":
+            if detail.startswith("文件数超过 "):
+                value = detail[len("文件数超过 "):].split(" ", 1)[0]
+                return f"The skill archive exceeds the {value}-file limit."
+            if detail.startswith("解包后总量超过 "):
+                value = detail[len("解包后总量超过 "):].split(" ", 1)[0]
+                return f"The extracted skill archive exceeds the {value} total-size limit."
+            if detail.startswith("单文件超过 "):
+                rest = detail[len("单文件超过 "):]
+                limit, _, path = rest.partition(" 上限：")
+                return f"Archive entry {path} exceeds the {limit} per-file limit."
+            return "The skill archive exceeds a file or content limit."
+        if kind == "manifest_invalid":
+            if detail == "压缩包根目录必须包含 SKILL.md":
+                return "SKILL.md must exist at the root of the archive."
+            if detail == "SKILL.md frontmatter 必须包含 name 和 description":
+                return "SKILL.md frontmatter must include name and description."
+            if detail.startswith("二进制文件只能放在 assets/ 或 examples/ 目录："):
+                return f"Binary files are allowed only under assets/ or examples/: {tail}"
+            if detail.startswith("技能名无法转为合法 slug："):
+                return f"The skill name cannot be converted to a valid slug: {tail}"
+            return "SKILL.md or its manifest metadata is invalid."
     return "The skill request could not be completed."
 
 
@@ -603,7 +687,7 @@ def build_mcp_server() -> MCPServer:
                 concentration_mol_per_l=concentration_mol_per_l,
             )
         except Exception as exc:
-            raise ToolError("Invalid stoichiometry fields.") from exc
+            raise ToolError(_validation_error_message("Invalid stoichiometry fields", exc)) from exc
         # 限流桶与 REST 同构(登录=u{id} 桶, 匿名=anon 桶) —— G2.1 起 MCP
         # 直调 transport-neutral service, 限流作为 entrypoint policy 在本
         # adapter 显式执行, 与 HTTP adapter 同桶同身份方案(行为不变)。
@@ -616,7 +700,7 @@ def build_mcp_server() -> MCPServer:
                                       _settings.api_stoich_limit_per_minute, 60)
             return await stoich_service.compute(body)
         except ValueError as exc:
-            raise ToolError("Stoichiometry input is invalid or contains an unparseable SMILES.") from exc
+            raise ToolError(_stoichiometry_error_message(exc)) from exc
         except _RateLimitError as exc:
             raise ToolError(_rate_error_message(exc)) from exc
 
@@ -664,7 +748,7 @@ def build_mcp_server() -> MCPServer:
         try:
             body = ReactionBody(**reaction)
         except Exception as exc:
-            raise ToolError("Invalid reaction draft fields.") from exc
+            raise ToolError(_validation_error_message("Invalid reaction draft fields", exc)) from exc
         # G3.1B: 直调 shared validation service(A005 validate 关闭);
         # neutral validation/rate error → ToolError(detail)。
         try:

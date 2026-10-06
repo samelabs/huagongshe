@@ -274,7 +274,7 @@ class McpErrorBoundaryTests(unittest.TestCase):
                 patch.object(svc, "compute", fake_compute):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(**self._body_kwargs()))
-        self.assertEqual(str(ctx.exception), "请求过于频繁，请稍后重试")
+        self.assertEqual(str(ctx.exception), "Too many requests. Try again shortly.")
         self.assertEqual(computed, [])
 
     def test_503_becomes_tool_error_compute_not_called(self):
@@ -298,7 +298,7 @@ class McpErrorBoundaryTests(unittest.TestCase):
                 patch.object(svc, "compute", fake_compute):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(**self._body_kwargs()))
-        self.assertEqual(str(ctx.exception), "限速服务暂时不可用，请稍后重试")
+        self.assertEqual(str(ctx.exception), "Rate-limit service is temporarily unavailable. Try again shortly.")
         self.assertEqual(computed, [])
 
     def test_validation_value_error_still_tool_error(self):
@@ -317,7 +317,7 @@ class McpErrorBoundaryTests(unittest.TestCase):
                 patch.object(svc, "compute", bad_compute):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(**self._body_kwargs()))
-        self.assertEqual(str(ctx.exception), "基准 index 9 超出组分范围")
+        self.assertEqual(str(ctx.exception), "Basis index 9 is outside the component range.")
 
     def test_unexpected_exception_not_swallowed(self):
         """意外异常(非 ValueError/HTTPException)必须原样穿透, 不得被

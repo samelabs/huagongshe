@@ -67,6 +67,24 @@ class McpMetadataContractTests(unittest.TestCase):
         bad = [value for value in values if CJK_RE.search(value)]
         self.assertEqual(bad, [], f"agent-facing MCP metadata still contains CJK: {bad}")
 
+    def test_error_translation_preserves_dynamic_context(self):
+        import api.mcp_server as mcp
+
+        class ReactionError(Exception):
+            kind = "invalid_structure"
+            detail = "无法解析参与物结构：$$"
+
+        self.assertEqual(
+            mcp._reaction_error_message(ReactionError()),
+            "Could not parse reaction participant structure: $$",
+        )
+        self.assertEqual(
+            mcp._stoichiometry_error_message(
+                ValueError("基准 index 9 超出组分范围")
+            ),
+            "Basis index 9 is outside the component range.",
+        )
+
     def test_annotations_explain_known_non_read_side_effects(self):
         # These two tools are intentionally not marked read-only even though
         # their names look read-like:

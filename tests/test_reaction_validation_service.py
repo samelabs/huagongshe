@@ -354,7 +354,7 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         from mcp.server.mcpserver.exceptions import ToolError
         r = await self._call("RAISE_VALIDATION", _Actor(7))
         self.assertIsInstance(r, ToolError)
-        self.assertEqual(str(r), "无法解析参与物结构：$$$")
+        self.assertEqual(str(r), "Could not parse reaction participant structure: $$$")
 
     async def test_rate_error_tool_error_detail(self):
         from mcp.server.mcpserver.exceptions import ToolError
