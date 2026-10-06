@@ -27,8 +27,7 @@ export function EntityReferencePicker({
   const [error, setError] = useState("");
   const total = chemicalIds.length + reactionIds.length;
 
-  async function search(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function search() {
     const q = query.trim();
     if (!q || disabled) return;
     setSearching(true);
@@ -73,21 +72,28 @@ export function EntityReferencePicker({
 
   return (
     <div className="wb-note-references">
-      <form className="wb-note-reference-input" onSubmit={search}>
+      <div className="wb-note-reference-input">
         <input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void search();
+            }
+          }}
           placeholder={t.me.notesReferenceSearchPlaceholder}
           disabled={disabled}
           autoComplete="off"
           spellCheck={false}
         />
-        <button type="submit" className="wb-btn wb-btn-ghost"
+        <button type="button" className="wb-btn wb-btn-ghost"
+          onClick={() => void search()}
           disabled={disabled || searching || !query.trim()}>
           {searching ? t.common.loading : t.me.notesReferenceSearch}
         </button>
-      </form>
+      </div>
 
       {error && <p className="wb-note-error">{error}</p>}
       {results && !hasResults && <small>{t.me.notesReferenceNoResults}</small>}

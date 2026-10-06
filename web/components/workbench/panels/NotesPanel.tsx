@@ -61,7 +61,10 @@ export function NotesPanel({
   }, [visibility, page]);
 
   useEffect(() => {
-    if (createOpen) setCreating(true);
+    if (createOpen) {
+      setEditing(null);
+      setCreating(true);
+    }
   }, [createOpen, initialChemicalId, initialReactionId]);
 
   function closeEditor() {
@@ -116,6 +119,9 @@ export function NotesPanel({
 
       {(creating || editing) && (
         <NoteEditor
+          key={editing
+            ? `edit-${editing.id}`
+            : `new-${initialChemicalId ?? 0}-${initialReactionId ?? 0}-${createOpen ? 1 : 0}`}
           note={editing}
           initialChemicalIds={!editing && initialChemicalId ? [initialChemicalId] : []}
           initialReactionIds={!editing && initialReactionId ? [initialReactionId] : []}

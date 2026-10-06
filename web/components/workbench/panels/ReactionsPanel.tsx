@@ -56,8 +56,10 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
         : <WbEmpty text={t.me.emptyReactions} action />)}
       {state === "ready" && total > data.page_size && (
         <Pagination page={page} pageSize={data.page_size} total={total} href={(value) => {
-          const filter = visibility === "all" ? "" : `visibility=${visibility}`;
-          return withLocale(`/aichem?${[filter, value > 1 ? `page=${value}` : ""].filter(Boolean).join("&")}`.replace(/\?$/, ""), locale);
+          return withLocale(
+            `/aichem?tab=mine${visibility === "all" ? "" : `&visibility=${visibility}`}${value > 1 ? `&page=${value}` : ""}`,
+            locale,
+          );
         }} />
       )}
     </section>

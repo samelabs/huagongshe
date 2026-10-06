@@ -1256,11 +1256,19 @@
   .wb-burger { display: flex; }
   .wb-shell .mobile-tab-bar { display: flex; }
 
-  /* 顶栏紧凑 */
+  /* 手机顶栏: 品牌 + 两个创建动作 + 菜单。Home 走底栏，Search/Account 走抽屉。 */
   .wb-topbar {
     padding: 0 var(--wb-sp-4);
-    gap: var(--wb-sp-3);
+    gap: var(--wb-sp-2);
   }
+  .wb-topbar-inner { gap: var(--wb-sp-2); }
+  .wb-topbar-user { display: none; }
+  .wb-topnav {
+    margin-left: auto;
+    gap: 2px;
+  }
+  .wb-topnav-link-nav { display: none; }
+  .wb-topnav-link { padding: var(--wb-sp-2); }
   .wb-topnav-label { display: none; }
 
   /* 内容区 */
