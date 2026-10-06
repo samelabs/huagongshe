@@ -104,7 +104,7 @@ class ServiceTests(unittest.TestCase):
                 _Boom(), "benzoic acid", "exact", None, 1, 30, 0))
         self.assertEqual(ctx.exception.kind, "backend_unavailable")
         self.assertEqual(ctx.exception.detail,
-                         "Search timed out. Use a more specific name, identifier, or structure.")
+                         "查询超时，请使用更精确的名称、标识符或结构")
 
 
 class HttpContractTests(unittest.TestCase):
@@ -186,7 +186,7 @@ class McpSearchContractTests(unittest.TestCase):
             return None
         with patch.object(m, "_actor_from_headers", anon), \
                 patch.object(svc, "execute_search",
-                             side_effect=svc.SearchError(svc.BACKEND_UNAVAILABLE, "Search timed out. Use a more specific name, identifier, or structure.")):
+                             side_effect=svc.SearchError(svc.BACKEND_UNAVAILABLE, "查询超时，请使用更精确的名称、标识符或结构")):
             with self.assertRaises(ToolError) as ctx:
                 asyncio.run(fn(q="CCO", mode="exact"))
         self.assertEqual(str(ctx.exception),
