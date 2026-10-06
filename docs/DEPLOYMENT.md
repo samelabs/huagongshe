@@ -37,7 +37,9 @@ python -m ops.deploy --dry-run       # 只打印计划
 owner 职责仅限：root guard → build Web → 按 CanonicalApps 逐个
 `pm2 start ecosystem.config.cjs --only <app>`（不存在时）或 `pm2 restart <app>`（已存在时）
 → readiness（API 8000 health / Web 3001 health / worker online，均有界等待）
-→ public smoke → `pm2 save`。
+→ public smoke（canonical HTTPS `https://huagongshe.com/api/health`：一次请求验证
+nginx vhost + TLS + API upstream 整链；非 200 / body 异常 / 网络错误 fail closed）
+→ `pm2 save`。
 
 失败语义：任一步失败 → 非零退出、不伪报 success；不自动回滚（人工决策）。
 

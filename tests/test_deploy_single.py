@@ -21,8 +21,7 @@ from tests.deploy_fakes import FakeRunner  # noqa: E402
 
 def _ok_world() -> FakeRunner:
     r = FakeRunner()
-    r.http_ok_urls = {D.API_HEALTH, D.WEB_HEALTH,
-                      "http://127.0.0.1/api/health"}
+    r.http_ok_urls = {D.API_HEALTH, D.WEB_HEALTH}
     return r
 
 
@@ -163,6 +162,35 @@ class ReadinessAndSmokeTests(unittest.TestCase):
              mock.patch.object(D.os, "geteuid", return_value=1000):
             self.assertFalse(D.deploy(runner=r, skip_build=True))
             sm.assert_called_once()
+
+
+class PublicSmokeContractTests(unittest.TestCase):
+    """12. public smoke 契约: canonical HTTPS URL + fail closed(不真实访问公网)。"""
+
+    def test_public_smoke_url_is_canonical_https(self):
+        self.assertEqual(D.PUBLIC_SMOKE_URL, "https://huagongshe.com/api/health")
+        self.assertNotIn("127.0.0.1", D.PUBLIC_SMOKE_URL)
+
+    def test_public_smoke_success_returns_true(self):
+        # mock http_ok, 零真实网络访问
+        with mock.patch.object(D, "http_ok", return_value=(True, "status=200")):
+            self.assertTrue(D.public_smoke())
+
+    def test_public_smoke_public_failure_fail_closed(self):
+        # 公网 health 非 ok(非 200/网络错误/异常 body) → deploy False
+        for fail in ((False, "status=502"), (False, "RemoteDisconnected(...)")):
+            with mock.patch.object(D, "http_ok", return_value=fail), \
+                 mock.patch.object(D, "wait_http_ok", return_value=True), \
+                 mock.patch.object(D, "wait_worker_online", return_value=True), \
+                 mock.patch.object(D.os, "geteuid", return_value=1000):
+                self.assertFalse(D.deploy(runner=FakeRunner(), skip_build=True),
+                                 f"public health failure must fail deploy: {fail}")
+
+    def test_public_smoke_hits_canonical_url_only(self):
+        with mock.patch.object(D, "http_ok",
+                               return_value=(True, "status=200")) as h:
+            D.public_smoke()
+            h.assert_called_once_with(D.PUBLIC_SMOKE_URL)
 
 
 class WorkerStabilityGateTests(unittest.TestCase):

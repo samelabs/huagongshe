@@ -37,6 +37,10 @@ API_PORT = 8000
 WEB_PORT = 3001
 API_HEALTH = f"http://127.0.0.1:{API_PORT}/api/health"
 WEB_HEALTH = f"http://127.0.0.1:{WEB_PORT}/api/health"
+# canonical public ingress smoke: 走真实公网 vhost(nginx + TLS + canonical host + API upstream),
+# 不再重复裸 loopback readiness(8000/3001 已在 readiness 阶段覆盖; 裸 IP 无 Host 会被
+# 00-default-444 default_server 444 断连)。
+PUBLIC_SMOKE_URL = "https://huagongshe.com/api/health"
 SPEC = REPO / "ecosystem.config.cjs"
 
 # nginx canonical(一次性 bootstrap 用; 日常发布不触碰)
@@ -247,8 +251,14 @@ def wait_http_ok(url: str, timeout: float = 90.0, poll: float = 2.0) -> bool:
 # ------------------------------------------------------------- smoke -------
 
 def public_smoke() -> bool:
-    """公网面最小 smoke(API health + MCP version)。经 nginx 固定 upstream。"""
-    ok_api, d1 = http_ok("http://127.0.0.1/api/health")
+    """canonical HTTPS API health public smoke。
+
+    经公网 canonical ingress(https://huagongshe.com/api/health)验证:
+    nginx canonical vhost → TLS → API upstream(127.0.0.1:8000)整链。
+    HTTP 非 200 / body 无 status=ok / 网络错误一律 fail closed。
+    不含 MCP protocol handshake(历史 docstring 的 "MCP version" 描述与实现不符, 已删)。
+    """
+    ok_api, d1 = http_ok(PUBLIC_SMOKE_URL)
     _event("smoke.api", ok=ok_api, detail=d1)
     return ok_api
 
