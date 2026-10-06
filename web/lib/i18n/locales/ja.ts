@@ -354,6 +354,7 @@ const ja: Dictionary = {
     notesAddReference: '関連付け',
     notesRemoveReference: '関連を削除',
     notesReferenceHint: 'HCID / HRID をコンテキストとして関連付けます。関連はノートのライフサイクルを所有しません。',
+    notesCancel: 'キャンセル',
     notesSave: 'ノートを保存',
     notesSaving: '保存中…',
     notesSaveFailed: 'ノートを保存できませんでした。内容を確認して再試行してください。',
