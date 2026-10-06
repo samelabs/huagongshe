@@ -1,7 +1,8 @@
 export type LoadState = "idle" | "loading" | "ready" | "error";
-export type WorkbenchTab = "home" | "search" | "stoich" | "mine" | "saved" | "activity" | "followers" | "following" | "skills" | "profile" | "avatar" | "security" | "api-tokens";
+export type WorkbenchTab = "home" | "notes" | "search" | "stoich" | "mine" | "saved" | "activity" | "followers" | "following" | "skills" | "profile" | "avatar" | "security" | "api-tokens";
 export type ReactionVisibility = "all" | "public" | "private";
 export type SavedKind = "chemicals" | "reactions";
+export type NoteVisibility = "all" | "public" | "private";
 
 export type SkillItem = {
   id: number;
@@ -68,6 +69,23 @@ export type PageResponse<T> = {
   page_size: number;
 };
 
+
+export type NoteItem = {
+  id: number;
+  owner_user_id: number;
+  visibility: "public" | "private";
+  moderation_status: "visible" | "hidden";
+  content: string;
+  created_at: string;
+  updated_at: string;
+  username: string;
+  display_name: string | null;
+  chemical_ids: number[];
+  reaction_ids: number[];
+};
+
+export type NoteResponse = PageResponse<NoteItem>;
+
 export type Notice = {
   id: number;
   event_type: "new_reaction";
@@ -90,7 +108,7 @@ export type NoticeResponse = {
  * 加新能力 = 新建 panel 组件 + registry.ts 加一行。
  * 不改 WorkbenchNav、不改路由、不改 CSS。
  */
-export type PanelSection = "work" | "social" | "account";
+export type PanelSection = "workspace" | "tools" | "agent" | "network" | "account";
 
 /** 每个面板自治：自己 fetch 数据，自己管理三态 */
 export interface PanelProps {
