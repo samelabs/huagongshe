@@ -360,7 +360,7 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         from mcp.server.mcpserver.exceptions import ToolError
         r = await self._call("RAISE_RATE", _Actor(7))
         self.assertIsInstance(r, ToolError)
-        self.assertEqual(str(r), "请求过于频繁，请稍后重试")
+        self.assertEqual(str(r), "Too many requests. Try again shortly.")
 
     async def test_malformed_body_prefix_unchanged(self):
         from mcp.server.mcpserver.exceptions import ToolError
@@ -374,7 +374,7 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
                     ctx=type("C", (), {"headers": {}})())
                 self.fail("expected ToolError")
             except ToolError as exc:
-                self.assertTrue(str(exc).startswith("草稿字段不合法: "))
+                self.assertEqual(str(exc), "Invalid reaction draft fields.")
 
 
 class _Actor:
