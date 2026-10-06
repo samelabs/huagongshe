@@ -76,6 +76,31 @@ class OAuthContractTests(unittest.TestCase):
             ))
         self.assertEqual(raised.exception.error, "invalid_client_metadata")
 
+    def test_dcr_default_grant_is_authorization_code_only(self):
+        class CaptureDb:
+            def __init__(self):
+                self.params = None
+
+            async def execute(self, statement, params=None):
+                self.params = params
+
+            async def commit(self):
+                return None
+
+        db = CaptureDb()
+        registered = asyncio.run(svc.register_client(
+            db,
+            redirect_uris=["https://chatgpt.com/callback"],
+            client_name="default grant",
+            token_endpoint_auth_method="none",
+            grant_types=None,
+            response_types=None,
+            application_type="web",
+        ))
+        self.assertEqual(registered["grant_types"], ["authorization_code"])
+        self.assertEqual(registered["response_types"], ["code"])
+        self.assertEqual(db.params["grant_types"], ["authorization_code"])
+
     def test_dcr_does_not_treat_explicit_empty_lists_as_omitted(self):
         class NeverDb:
             async def execute(self, *args, **kwargs):

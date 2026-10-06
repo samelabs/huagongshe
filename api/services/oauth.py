@@ -170,10 +170,10 @@ async def register_client(
         raise OAuthProtocolError(
             "invalid_client_metadata", "client_name must be a string."
         )
-    grants = (
-        ["authorization_code", "refresh_token"]
-        if grant_types is None else grant_types
-    )
+    # RFC 7591 default: omitting grant_types means authorization_code only.
+    # refresh_token is opt-in client capability and is enforced again at the
+    # token endpoint so registration metadata and runtime behavior cannot drift.
+    grants = ["authorization_code"] if grant_types is None else grant_types
     if (
         not isinstance(grants, list)
         or "authorization_code" not in grants
@@ -226,7 +226,7 @@ async def register_client(
 
 async def _load_client(db, client_id: str):
     return (await db.execute(text("""
-        SELECT client_id,client_name,redirect_uris
+        SELECT client_id,client_name,redirect_uris,grant_types
         FROM community.oauth_clients
         WHERE client_id=:client_id AND disabled_at IS NULL
     """), {"client_id": client_id})).mappings().first()
@@ -363,12 +363,16 @@ async def complete_authorization(
 
 
 async def _issue_token_pair(
-    db, *, user_id: int, client_id: str, scopes: tuple[str, ...], resource: str
+    db,
+    *,
+    user_id: int,
+    client_id: str,
+    scopes: tuple[str, ...],
+    resource: str,
+    issue_refresh: bool,
 ) -> dict[str, Any]:
     access = _plain("hgo_at_", 32)
-    refresh = _plain("hgo_rt_", 40)
     access_expiry = datetime.now(timezone.utc) + timedelta(seconds=ACCESS_TOKEN_SECONDS)
-    refresh_expiry = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
     await db.execute(text("""
         INSERT INTO community.oauth_access_tokens(
             token_hash,user_id,client_id,scopes,resource,expires_at
@@ -381,25 +385,29 @@ async def _issue_token_pair(
         "resource": resource,
         "expires_at": access_expiry,
     })
-    await db.execute(text("""
-        INSERT INTO community.oauth_refresh_tokens(
-            token_hash,user_id,client_id,scopes,resource,expires_at
-        ) VALUES (:token_hash,:user_id,:client_id,:scopes,:resource,:expires_at)
-    """), {
-        "token_hash": _digest(refresh),
-        "user_id": user_id,
-        "client_id": client_id,
-        "scopes": list(scopes),
-        "resource": resource,
-        "expires_at": refresh_expiry,
-    })
-    return {
+    result: dict[str, Any] = {
         "access_token": access,
         "token_type": "Bearer",
         "expires_in": ACCESS_TOKEN_SECONDS,
-        "refresh_token": refresh,
         "scope": " ".join(scopes),
     }
+    if issue_refresh:
+        refresh = _plain("hgo_rt_", 40)
+        refresh_expiry = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
+        await db.execute(text("""
+            INSERT INTO community.oauth_refresh_tokens(
+                token_hash,user_id,client_id,scopes,resource,expires_at
+            ) VALUES (:token_hash,:user_id,:client_id,:scopes,:resource,:expires_at)
+        """), {
+            "token_hash": _digest(refresh),
+            "user_id": user_id,
+            "client_id": client_id,
+            "scopes": list(scopes),
+            "resource": resource,
+            "expires_at": refresh_expiry,
+        })
+        result["refresh_token"] = refresh
+    return result
 
 
 async def exchange_authorization_code(
@@ -413,8 +421,13 @@ async def exchange_authorization_code(
 ) -> dict[str, Any]:
     if resource != mcp_resource_url():
         raise OAuthProtocolError("invalid_target", "resource does not identify this MCP server.")
-    if await _load_client(db, client_id) is None:
+    client = await _load_client(db, client_id)
+    if client is None:
         raise OAuthProtocolError("invalid_client", "Unknown OAuth client.", status_code=401)
+    if "authorization_code" not in tuple(client["grant_types"] or ()):
+        raise OAuthProtocolError(
+            "unauthorized_client", "Client is not registered for authorization_code."
+        )
     row = (await db.execute(text("""
         SELECT id,user_id,client_id,redirect_uri,scopes,resource,code_challenge
         FROM community.oauth_authorization_codes
@@ -441,6 +454,7 @@ async def exchange_authorization_code(
         client_id=client_id,
         scopes=tuple(row["scopes"] or ()),
         resource=resource,
+        issue_refresh="refresh_token" in tuple(client["grant_types"] or ()),
     )
     await db.commit()
     return result
@@ -456,8 +470,13 @@ async def refresh_access_token(
 ) -> dict[str, Any]:
     if resource != mcp_resource_url():
         raise OAuthProtocolError("invalid_target", "resource does not identify this MCP server.")
-    if await _load_client(db, client_id) is None:
+    client = await _load_client(db, client_id)
+    if client is None:
         raise OAuthProtocolError("invalid_client", "Unknown OAuth client.", status_code=401)
+    if "refresh_token" not in tuple(client["grant_types"] or ()):
+        raise OAuthProtocolError(
+            "unauthorized_client", "Client is not registered for refresh_token."
+        )
     row = (await db.execute(text("""
         SELECT id,user_id,client_id,scopes,resource
         FROM community.oauth_refresh_tokens
@@ -480,6 +499,7 @@ async def refresh_access_token(
         client_id=client_id,
         scopes=requested,
         resource=resource,
+        issue_refresh=True,
     )
     await db.commit()
     return result

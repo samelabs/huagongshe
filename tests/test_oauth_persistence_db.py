@@ -6,7 +6,7 @@ import hashlib
 import re
 import unittest
 import uuid
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 from sqlalchemy import text
@@ -52,6 +52,60 @@ class OAuthPersistenceTests(unittest.IsolatedAsyncioTestCase):
                 text("DELETE FROM community.users WHERE id=:id"), {"id": self.user_id}
             )
         await self.engine.dispose()
+
+    async def test_authorization_code_only_client_gets_no_refresh_token(self):
+        redirect_uri = "https://chatgpt.com/connector/oauth/code-only"
+        verifier = "c" * 43
+        challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(verifier.encode()).digest()
+        ).rstrip(b"=").decode()
+
+        async with self.Session() as db:
+            client = await svc.register_client(
+                db,
+                redirect_uris=[redirect_uri],
+                client_name="Code only",
+                token_endpoint_auth_method="none",
+                grant_types=None,
+                response_types=None,
+                application_type="web",
+            )
+            self.assertEqual(client["grant_types"], ["authorization_code"])
+            pending = await svc.begin_authorization(
+                db,
+                user_id=self.user_id,
+                client_id=client["client_id"],
+                redirect_uri=redirect_uri,
+                response_type="code",
+                scope="read",
+                state=None,
+                code_challenge=challenge,
+                code_challenge_method="S256",
+                resource=svc.mcp_resource_url(),
+            )
+            redirect = await svc.complete_authorization(
+                db, user_id=self.user_id,
+                request_id=pending["request_id"], approve=True,
+            )
+            code = parse_qs(urlparse(redirect).query)["code"][0]
+            tokens = await svc.exchange_authorization_code(
+                db,
+                client_id=client["client_id"],
+                code=code,
+                redirect_uri=redirect_uri,
+                code_verifier=verifier,
+                resource=svc.mcp_resource_url(),
+            )
+            self.assertNotIn("refresh_token", tokens)
+            with self.assertRaises(svc.OAuthProtocolError) as denied:
+                await svc.refresh_access_token(
+                    db,
+                    client_id=client["client_id"],
+                    refresh_token="hgo_rt_not-issued",
+                    scope="read",
+                    resource=svc.mcp_resource_url(),
+                )
+            self.assertEqual(denied.exception.error, "unauthorized_client")
 
     async def test_full_code_flow_and_refresh_rotation(self):
         redirect_uri = "https://chatgpt.com/connector/oauth/test"
