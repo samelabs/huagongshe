@@ -4,6 +4,8 @@ import { WorkbenchLayout } from "@/components/workbench/WorkbenchLayout";
 import type {
   ChemicalFollow,
   NoticeResponse,
+  NoteResponse,
+  NoteVisibility,
   PageResponse,
   ReactionResponse,
   ReactionVisibility,
@@ -21,8 +23,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
   return { title: t.me.title, robots: { index: false, follow: false } };
 }
-const tabs = new Set<WorkbenchTab>(["home", "search", "stoich", "mine", "saved", "skills", "activity", "followers", "following"]);
+const tabs = new Set<WorkbenchTab>(["home", "notes", "search", "stoich", "mine", "saved", "skills", "activity", "followers", "following"]);
 const visibilities = new Set<ReactionVisibility>(["all", "public", "private"]);
+const noteVisibilities = new Set<NoteVisibility>(["all", "public", "private"]);
 const savedKinds = new Set<SavedKind>(["chemicals", "reactions"]);
 
 async function ssrGet<T>(cookieHeader: string | null, path: string): Promise<T | null> {
@@ -34,7 +37,16 @@ async function ssrGet<T>(cookieHeader: string | null, path: string): Promise<T |
   }
 }
 
-export default async function AichemPage({ searchParams }: { searchParams: Promise<{ tab?: string | string[]; visibility?: string | string[]; kind?: string | string[]; page?: string | string[]; q?: string | string[] }> }) {
+export default async function AichemPage({ searchParams }: { searchParams: Promise<{
+  tab?: string | string[];
+  visibility?: string | string[];
+  kind?: string | string[];
+  page?: string | string[];
+  q?: string | string[];
+  new?: string | string[];
+  chemical?: string | string[];
+  reaction?: string | string[];
+}> }) {
   const h = await headers();
   const cookieHeader = h.get("cookie");
 
@@ -47,6 +59,9 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
   const visibility = typeof requestedVisibility === "string" && visibilities.has(requestedVisibility as ReactionVisibility)
     ? requestedVisibility as ReactionVisibility
     : "all";
+  const noteVisibility = typeof requestedVisibility === "string" && noteVisibilities.has(requestedVisibility as NoteVisibility)
+    ? requestedVisibility as NoteVisibility
+    : "all";
   const requestedKind = query.kind;
   const savedKind = typeof requestedKind === "string" && savedKinds.has(requestedKind as SavedKind)
     ? requestedKind as SavedKind
@@ -54,13 +69,26 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
   const requestedPage = typeof query.page === "string" ? Number.parseInt(query.page, 10) : 1;
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const searchQuery = typeof query.q === "string" ? query.q : undefined;
+  const createNote = activeTab === "notes" && query.new === "1";
+  const initialChemicalId = typeof query.chemical === "string" && /^\d+$/.test(query.chemical)
+    ? Number(query.chemical) : undefined;
+  const initialReactionId = typeof query.reaction === "string" && /^\d+$/.test(query.reaction)
+    ? Number(query.reaction) : undefined;
 
   // 1. 先拿 summary（followers/following 依赖 username）
   const summary = await ssrGet<Summary>(cookieHeader, "/users/me/dashboard");
 
   // 2. 当前 tab 数据并行预取（只发一个请求，不浪费）
+  const initialNotes = (activeTab === "notes" || activeTab === "home")
+    ? ssrGet<NoteResponse>(
+        cookieHeader,
+        activeTab === "home"
+          ? "/users/me/notes?visibility=all&page=1&page_size=4"
+          : `/users/me/notes?visibility=${noteVisibility}&page=${page}&page_size=20`,
+      )
+    : null;
   const initialReactions = activeTab === "home"
-    ? ssrGet<ReactionResponse>(cookieHeader, "/users/me/reactions?visibility=public&page=1&page_size=4")
+    ? ssrGet<ReactionResponse>(cookieHeader, "/users/me/reactions?visibility=all&page=1&page_size=4")
     : activeTab === "mine"
       ? ssrGet<ReactionResponse>(cookieHeader, `/users/me/reactions?visibility=${visibility}&page=${page}&page_size=20`)
       : null;
@@ -81,7 +109,8 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
     : null;
 
   // 等待并行请求完成
-  const [reactions, chemicals, savedReactions, notices, people, skills] = await Promise.all([
+  const [notes, reactions, chemicals, savedReactions, notices, people, skills] = await Promise.all([
+    initialNotes,
     initialReactions,
     initialChemicals,
     initialSavedReactions,
@@ -95,8 +124,10 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
       activeTab={activeTab}
       page={page}
       visibility={visibility}
+      noteVisibility={noteVisibility}
       savedKind={savedKind}
       summary={summary}
+      initialNotes={notes}
       initialReactions={reactions}
       initialChemicals={chemicals}
       initialSavedReactions={savedReactions}
@@ -104,6 +135,9 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
       initialPeople={people}
       initialSkills={skills}
       searchQuery={searchQuery}
+      createNote={createNote}
+      initialChemicalId={initialChemicalId}
+      initialReactionId={initialReactionId}
     />
   );
 }
