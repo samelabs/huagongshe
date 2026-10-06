@@ -273,7 +273,7 @@ class McpBehaviorTests(unittest.IsolatedAsyncioTestCase):
         from mcp.server.mcpserver.exceptions import ToolError
         r = await self._call(actor=None)
         self.assertIsInstance(r, ToolError)
-        self.assertTrue(str(r).startswith("此操作需要 AI Key"))
+        self.assertTrue(str(r).startswith("Authentication required."))
 
     async def test_actor_id_and_params_propagated(self):
         from unittest.mock import MagicMock
