@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:locale": "tsx --test lib/localePath.test.mjs lib/languageSwitcher.test.mjs lib/proxy.test.mjs lib/runtimeI18n.test.mjs lib/alternates.test.mjs"
   },
   "dependencies": {
     "next": "16.2.10",
@@ -18,6 +19,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

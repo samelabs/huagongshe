@@ -16,8 +16,8 @@
  * secondary: 主标题是本地化名称且存在不同的英文常用名时给出英文名;
  *            主标题本身已是英文名时不重复展示。
  *
- * locale: SITE_LOCALE(web/lib/locale.ts)是公开站 formatter/name 的单一 locale
- *         来源; resolveChemicalName 当前恒以 zh-CN 调用, 行为与本步前完全一致。
+ * locale: 公开详情页按 runtime locale 传参调用 resolveChemicalName;
+ *         SITE_LOCALE(web/lib/locale.ts)仍是 formatter 类常量的单一来源。
  */
 
 import { SITE_LOCALE } from "./locale";

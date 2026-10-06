@@ -4,16 +4,12 @@
  * SUT: web/lib/localePath.ts 的 replaceLocalePrefix(自 LanguageSwitcher 迁入,
  * 已删除组件内复制实现)。本文件只含断言, 不复制业务函数。
  *
- * 运行(项目未声明 tsx 依赖, 用本地 tsc 临时编译到 /tmp 后执行):
- *   TMP_DIR="$(mktemp -d)"
- *   ./node_modules/.bin/tsc lib/localePath.ts lib/i18n/locales.ts \
- *     --target ES2022 --module commonjs --moduleResolution node \
- *     --skipLibCheck --outDir "$TMP_DIR" --noEmit false
- *   cp lib/languageSwitcher.test.mjs "$TMP_DIR/" && cd "$TMP_DIR" && node --test languageSwitcher.test.mjs
- *   (完成后删除 $TMP_DIR; tsx 门禁化在 CI Gate 批统一处理)
+ * v1.6.0: tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
+ * (tsx --test 直接加载真实 .ts SUT, 不再使用 tsc 临时编译到 /tmp 的人工协议):
+ *   npx tsx --test lib/languageSwitcher.test.mjs
  *
- * 断言装载点: 编译产物在运行时通过 require("./localePath") 取真实 SUT,
- * 找不到(直接 node 跑源码目录)时显式 fail, 禁止静默回退到镜像实现。
+ * 断言装载点: 通过 require("./localePath.ts") 取真实 SUT,
+ * 找不到时显式 fail, 禁止静默回退到镜像实现。
  */
 
 const test = (await import("node:test")).test;
@@ -24,10 +20,10 @@ const req = createRequire(import.meta.url);
 
 let replaceLocalePrefix;
 try {
-  // 编译产物为 CommonJS(见文件头 tsc 协议)
-  ({ replaceLocalePrefix } = req("./localePath.js"));
+  // tsx 装载下直接加载 .ts 源(真实 SUT)
+  ({ replaceLocalePrefix } = req("./localePath.ts"));
 } catch {
-  ({ replaceLocalePrefix } = await import("./localePath.js"));
+  ({ replaceLocalePrefix } = await import("./localePath.ts"));
 }
 if (typeof replaceLocalePrefix !== "function") {
   console.error("FATAL: 未加载到真实 helper(web/lib/localePath.ts 编译产物)。按文件头协议用 tsc 编译到临时目录后运行。");

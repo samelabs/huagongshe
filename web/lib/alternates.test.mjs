@@ -5,20 +5,17 @@
  * - ogLocaleTag: 直接 import 真实实现验证五 locale 映射(不维护镜像映射表)
  * - localizedAbsoluteUrl: SITE_ORIGIN + withLocale 组合
  *
- * 运行(tsx 未声明为项目依赖, 用本地 tsc 临时编译到 /tmp 后执行):
- *   TMP_DIR="$(mktemp -d)"
- *   ./node_modules/.bin/tsc lib/alternates.ts lib/localePath.ts lib/i18n/locales.ts \
- *     --target ES2022 --module commonjs --moduleResolution node \
- *     --skipLibCheck --outDir "$TMP_DIR" --noEmit false
- *   cp lib/alternates.test.mjs "$TMP_DIR/" && cd "$TMP_DIR" && node --test alternates.test.mjs
+ * 运行(v1.6.0: tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`,
+ * tsx --test 直接加载真实 .ts SUT, 不再使用 tsc 临时编译到 /tmp 的人工协议):
+ *   npx tsx --test lib/alternates.test.mjs
  */
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 const req = createRequire(import.meta.url);
-const { localeAlternates, ogLocaleTag, localizedAbsoluteUrl, SITE_ORIGIN } = req("./alternates.js");
-const { SUPPORTED_LOCALES } = req("./i18n/locales.js");
+const { localeAlternates, ogLocaleTag, localizedAbsoluteUrl, SITE_ORIGIN } = req("./alternates.ts");
+const { SUPPORTED_LOCALES } = req("./i18n/locales.ts");
 
 test("canonical 指向当前 locale 版本(带前缀)", () => {
   assert.equal(localeAlternates("/chemical/2244", "en")?.canonical, "/en/chemical/2244");

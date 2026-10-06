@@ -3,19 +3,19 @@
  *
  * 结构:
  *   lib/i18n/locales.ts      locale 定义(唯一权威列表) + fallback 规则
- *   lib/i18n/locales/zh-CN.ts zh-CN 完整字典(现网唯一完整语言包)
+ *   lib/i18n/locales/*.ts    五语言完整字典: zh-CN / en / ja / ko / de
+ *                            (均已注册, 同一 Dictionary 结构, tsc 校验)
  *   lib/i18n/index.ts        本文件: 字典注册表 + getDictionary + 兼容出口
  *
  * 字典类型: Dictionary = typeof zhCN —— 直接从中文字典推导(as const 对象
- * 的字面量类型), 不手写第二份 interface, 未来 en/ja/ko/de 字典必须满足
- * 同一 Dictionary 结构(可先 as const 写出再由 tsc 校验)。
+ * 的字面量类型), 不手写第二份 interface, en/ja/ko/de 字典满足
+ * 同一 Dictionary 结构。
  *
- * fallback: 未知 locale → FALLBACK_LOCALE(en)。en/ja/ko/de 完整字典尚未
- * 提供, 注册表暂只含 zh-CN —— getDictionary 对未注册 locale 抛出明确错误
- * 而不是伪造英文内容; 待 en 字典落地后在 DICTIONARIES 注册即可启用。
+ * fallback: 未知 locale → FALLBACK_LOCALE(en)。五语言字典均已注册,
+ * getDictionary 对未注册 locale(白名单外的值)抛出明确错误而不是伪造内容。
  *
  * 兼容出口: `import t from "@/lib/i18n"` 继续返回 zh-CN 字典(默认语言),
- * 全站 70 处 import 不变、页面输出不变。
+ * 全站既有 import 不变、页面输出不变。
  */
 
 import type { Dictionary } from "./locales/zh-CN";
@@ -52,11 +52,11 @@ export function getDictionary(locale: string): Dictionary {
   const dict = DICTIONARIES[normalized];
   if (!dict) {
     throw new Error(
-      `i18n: locale "${locale}" 的字典尚未注册(现仅 zh-CN; fallback ${FALLBACK_LOCALE} 字典待补齐)`,
+      `i18n: locale "${locale}" 的字典尚未注册(受支持 locale 应全部注册; 缺 ${normalized})`,
     );
   }
   return dict;
 }
 
-/** 默认语言(当前站点唯一语言包)——兼容既有 `import t from "@/lib/i18n"`。 */
+/** 默认语言(zh-CN)——兼容既有 `import t from "@/lib/i18n"`。 */
 export default zhCN;

@@ -2,8 +2,8 @@
  * i18n locale 定义 · 与 web/lib/locale.ts 协调的单一权威来源
  *
  * - SUPPORTED_LOCALES: 站点支持的全部 locale(zh-CN/en/ja/ko/de)
- * - FALLBACK_LOCALE: 未提供完整字典前的 fallback 规则(英文);
- *   zh-CN 是当前唯一有完整字典的 locale, 其余字典待后续补齐。
+ * - FALLBACK_LOCALE: 未知/未支持 locale 的 fallback(英文);
+ *   五语言均已提供完整字典并注册。
  * - Locale / NonFallbackLocale: 从 SUPPORTED_LOCALES 推导的字符串字面量
  *   联合类型, 不手写第二份列表。
  *

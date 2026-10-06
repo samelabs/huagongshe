@@ -1,16 +1,13 @@
-// withLocale()/stripLocalePrefix()/isPathAtOrBelow() locale-aware 路径 helper 测试
+// withLocale()/stripLocalePrefix()/isPathAtOrBelow()/applyLocale() locale-aware 路径 helper 测试
 // SUT: web/lib/localePath.ts(真实实现, 无镜像)。
-// 运行(tsx 未声明为项目依赖, 用本地 tsc 临时编译到 /tmp 后执行, 同 languageSwitcher.test.mjs 协议):
-//   TMP_DIR="$(mktemp -d)"
-//   ./node_modules/.bin/tsc lib/localePath.ts lib/i18n/locales.ts \
-//     --target ES2022 --module commonjs --moduleResolution node \
-//     --skipLibCheck --outDir "$TMP_DIR" --noEmit false
-//   cp lib/localePath.test.mjs "$TMP_DIR/" && cd "$TMP_DIR" && node --test localePath.test.mjs
+// v1.6.0: tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
+// (tsx --test 直接加载真实 .ts SUT, 不再使用 tsc 临时编译到 /tmp 的人工协议):
+//   npx tsx --test lib/localePath.test.mjs
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 const req = createRequire(import.meta.url);
-const { withLocale, stripLocalePrefix, isPathAtOrBelow, splitLocalePrefix, replaceLocalePrefix, applyLocale } = req("./localePath.js");
+const { withLocale, stripLocalePrefix, isPathAtOrBelow, splitLocalePrefix, replaceLocalePrefix, applyLocale } = req("./localePath.ts");
 
 test("普通公开路径加 locale 前缀", () => {
   assert.equal(withLocale("/search", "ja"), "/ja/search");
