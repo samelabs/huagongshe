@@ -671,8 +671,12 @@ async def get_chemical_detail(
                     db, "cas_locator", cas_number=cas_number)
                 cb_raw_state = "negative" if fresh_negative else "absent"
             else:
+                # P1-1: 生命周期必须跟随实际命中的行(fallback en 行按 en 判定/刷新),
+                # 不能跟随 requested locale。
+                selected_locale = cb_row["locale"]
                 decision = await cb_module.cb_decide(
-                    db, chemical_id, cb_number=cb_row.get("cb_number"))
+                    db, chemical_id, locale=selected_locale,
+                    cb_number=cb_row.get("cb_number"))
                 if decision in ("serve_fresh",):
                     cb_entry = cb_row.get("entry")
                     cb_suppliers = await cb_module.get_suppliers(db, chemical_id)
@@ -683,7 +687,8 @@ async def get_chemical_detail(
                     if decision == "enqueue_refresh":
                         await cb_module.enqueue_cas_job(
                             db, chemical_id=chemical_id, cas_number=cas_number,
-                            priority=40, request_context={"reason": "stale_refresh"})
+                            priority=40, locale=selected_locale,
+                            request_context={"reason": "stale_refresh"})
                         await db.commit()
                     cb_raw_state = "queued"
                 else:  # skip: 多语言前置缺 cb_number — zh 主行不可达, 防御

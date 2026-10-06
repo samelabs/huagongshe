@@ -92,8 +92,16 @@ function detectLocale(cookieHeader: string | null, acceptLanguage: string | null
       .map((c) => c.trim())
       .find((c) => c.startsWith(`${LOCALE_COOKIE}=`));
     if (cookie) {
-      const value = decodeURIComponent(cookie.slice(LOCALE_COOKIE.length + 1));
-      if (isSupportedLocale(value)) return value;
+      const raw = cookie.slice(LOCALE_COOKIE.length + 1);
+      // malformed cookie(如非法 % 序列)会让 decodeURIComponent 抛 URIError → 500;
+      // 只保护 decode: 异常值忽略, 继续走 Accept-Language → FALLBACK_LOCALE。
+      // 不删 cookie、不加额外响应逻辑。
+      try {
+        const value = decodeURIComponent(raw);
+        if (isSupportedLocale(value)) return value;
+      } catch {
+        // malformed cookie: ignore and continue locale negotiation
+      }
     }
   }
   return negotiateAcceptLanguage(acceptLanguage) ?? FALLBACK_LOCALE;

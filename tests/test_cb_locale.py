@@ -27,7 +27,7 @@ from api.services import chemical_semantic as cs  # noqa: E402
 def _row(locale: str, cb_number: str | None, entry: dict | None = None):
     return {"chemical_id": 1, "cas_number": "50-00-0", "entry": entry,
             "last_status": "ok", "fetched_at": None, "cb_number": cb_number,
-            "_locale": locale}  # _locale 仅测试观测用
+            "locale": locale}
 
 
 class _Db:
@@ -97,17 +97,20 @@ class RowSelectionTests(unittest.TestCase):
         db, row = self._get({("ja", "CB1"): _row("ja", "CB1", {"identity": {"cn": "ja行"}})}, locale="ja")
         self.assertIsNotNone(row)
         self.assertEqual(row["entry"]["identity"]["cn"], "ja行")
+        self.assertEqual(row["locale"], "ja")
         self.assertEqual(db.queries[0], ("ja", True))  # 首查即 requested+imprint
 
     def test_ko_present_returns_ko(self):
         db, row = self._get({("ko", "CB1"): _row("ko", "CB1", {"identity": {"cn": "ko行"}})}, locale="ko")
         self.assertIsNotNone(row)
         self.assertEqual(row["entry"]["identity"]["cn"], "ko行")
+        self.assertEqual(row["locale"], "ko")
 
     def test_de_present_returns_de(self):
         _, row = self._get({("de", "CB1"): _row("de", "CB1", {"identity": {"cn": "de行"}})}, locale="de")
         self.assertIsNotNone(row)
         self.assertEqual(row["entry"]["identity"]["cn"], "de行")
+        self.assertEqual(row["locale"], "de")
 
     def test_zh_present_returns_zh(self):
         _, row = self._get({("zh-CN", "CB1"): _row("zh-CN", "CB1", {"identity": {"cn": "zh行"}})}, locale="zh-CN")
@@ -118,6 +121,7 @@ class RowSelectionTests(unittest.TestCase):
         db, row = self._get({("en", "CB1"): _row("en", "CB1", {"identity": {"cn": "en行"}})})
         self.assertIsNotNone(row)
         self.assertEqual(row["entry"]["identity"]["cn"], "en行")
+        self.assertEqual(row["locale"], "en")
         # 顺序: (ja,True) 空 → (en,True) 命中
         self.assertEqual(db.queries, [("ja", True), ("en", True)])
 
@@ -125,6 +129,7 @@ class RowSelectionTests(unittest.TestCase):
         db, row = self._get({("en", "CB9"): _row("en", "CB9", {"identity": {"cn": "en-legacy"}})})
         self.assertIsNotNone(row)
         self.assertEqual(row["entry"]["identity"]["cn"], "en-legacy")
+        self.assertEqual(row["locale"], "en")
         self.assertEqual(db.queries, [
             ("ja", True), ("en", True), ("ja", False), ("en", False)])
 
@@ -139,12 +144,14 @@ class RowSelectionTests(unittest.TestCase):
         db = _Db({("en", "CB1"): _row("en", "CB1", {"identity": {"cn": "en行"}})})
         row = asyncio.run(cb_module.get_externals_row(db, 1))
         self.assertIsNotNone(row)
+        self.assertEqual(row["locale"], "en")
         self.assertEqual(db.queries[0], ("en", True))
 
     def test_invalid_locale_defaults_en(self):
         db = _Db({("en", "CB1"): _row("en", "CB1", {"identity": {"cn": "en行"}})})
         row = asyncio.run(cb_module.get_externals_row(db, 1, locale="fr"))
         self.assertIsNotNone(row)
+        self.assertEqual(row["locale"], "en")
         self.assertEqual(db.queries[0], ("en", True))
 
     def test_imprint_row_preferred_over_legacy(self):

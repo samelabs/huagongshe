@@ -81,6 +81,26 @@ export function withLocale(path: string, locale: Locale): string {
 }
 
 /**
+ * applyLocale · 把内部公开路径强制切换到目标 locale。
+ *
+ * 与 withLocale 的幂等契约互补: withLocale 对已带 locale 前缀的路径原样返回
+ * (大量既有调用依赖); applyLocale 则先把已有前缀剥掉再交给 withLocale 重建,
+ * 用于"登录页切语言后, 登录成功的 next 回跳必须落在当前 locale"这类场景。
+ * 复用 stripLocalePrefix + withLocale(排除表/静态资源/外部 URL 判定不建第二套):
+ *  "/ja/aichem" + en → "/en/aichem"; "/aichem" + ko → "/ko/aichem";
+ *  "/samelabs/users"、"/api/…"、静态文件、外部 URL → 原样; query 完整保留。
+ */
+export function applyLocale(path: string, locale: Locale): string {
+  if (!path.startsWith("/")) return path; // 相对路径/锚点等不处理
+  if (isExternal(path)) return path;
+  // 前缀剥离只看 pathname, query 交给 withLocale 原样保留
+  const queryAt = path.indexOf("?");
+  const pathnameOnly = queryAt === -1 ? path : path.slice(0, queryAt);
+  const query = queryAt === -1 ? "" : path.slice(queryAt);
+  return withLocale(stripLocalePrefix(pathnameOnly) + query, locale);
+}
+
+/**
  * stripLocalePrefix · pathname locale 前缀剥离 SSOT(消费 splitLocalePrefix)。
  *
  * "/ja/aichem" → "/aichem"; "/en" → "/"; "/chemical/1" 原样。

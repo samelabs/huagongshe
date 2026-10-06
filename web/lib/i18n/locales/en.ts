@@ -137,6 +137,7 @@ const en: Dictionary = {
       monoMass: 'Monoisotopic mass',
       nameCn: 'Chinese name',
       nameEn: 'English name',
+      localName: 'Local name',
       molecularWeight: 'Molecular weight',
     },
     names: {

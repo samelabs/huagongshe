@@ -138,6 +138,7 @@ const ja: Dictionary = {
       monoMass: '単同位体質量',
       nameCn: '中国語名',
       nameEn: '英語名',
+      localName: '現地名',
       molecularWeight: '分子量',
     },
     names: {

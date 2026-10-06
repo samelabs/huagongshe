@@ -164,7 +164,7 @@ class FullOrchestrationTests(unittest.TestCase):
 
     def _full(self, pb_details=None, pb_exc=None, cb_row=None, cb_exc=None,
               cas="7732-18-5", cb_decision="serve_fresh", cb_suppliers=None,
-              negative=False):
+              negative=False, locale=None, seen=None):
         from api.services import chemicals as svc
 
         pb_default = {
@@ -186,9 +186,13 @@ class FullOrchestrationTests(unittest.TestCase):
             async def fake_get_row(d, cid, locale=None):
                 if cb_exc is not None:
                     raise cb_exc
+                if seen is not None:
+                    seen["requested_locale"] = locale
                 return cb_row
 
-            async def fake_decide(d, cid, cb_number=None):
+            async def fake_decide(d, cid, locale="zh-CN", cb_number=None):
+                if seen is not None:
+                    seen.setdefault("decide", []).append(locale)
                 return cb_decision
 
             async def fake_suppliers(d, cid):
@@ -204,6 +208,14 @@ class FullOrchestrationTests(unittest.TestCase):
             context = await _fake_context()
             from api.services import cb as cb_module
             from api.services import enrichment as enrichment_module
+
+            async def fake_enqueue(d, *, chemical_id, cas_number, priority,
+                                   locale="zh-CN", request_context=None,
+                                   source_cb_number=None):
+                if seen is not None:
+                    seen["enqueue_locale"] = locale
+                return 99
+
             with patch.object(svc, "fetch_chemicals", fetch), \
                  patch.object(svc, "fill_detail_context", context), \
                  patch.object(enrichment_module, "enqueue_chemical_if_needed", fake_pb), \
@@ -211,9 +223,9 @@ class FullOrchestrationTests(unittest.TestCase):
                  patch.object(cb_module, "cb_decide", fake_decide), \
                  patch.object(cb_module, "get_suppliers", fake_suppliers), \
                  patch.object(cb_module, "negative_is_fresh", fake_negative), \
-                 patch.object(cb_module, "enqueue_cas_job", AsyncMock(return_value=99)):
+                 patch.object(cb_module, "enqueue_cas_job", fake_enqueue):
                 return await svc.get_chemical_detail(
-                    db, 1, actor_id=None, priority=50, enrich="full")
+                    db, 1, actor_id=None, priority=50, enrich="full", locale=locale)
 
         return asyncio.run(go())
 
@@ -223,7 +235,7 @@ class FullOrchestrationTests(unittest.TestCase):
             "props": [{"key": "bp", "label": "沸点", "text": "100°C", "v": 100, "unit": "°C"}],
             "safety": {"急救": "清水冲洗"},
             "prose": [{"title": "用途", "text": "溶剂"}],
-        }, "cb_number": "CB1"}, cb_suppliers=[{"ref": "r1", "name": "SupA"}])
+        }, "cb_number": "CB1", "locale": "zh-CN"}, cb_suppliers=[{"ref": "r1", "name": "SupA"}])
         d = result["details"]
         self.assertEqual(d["description"]["record_description"], "PB desc")
         self.assertEqual(d["properties"]["pb_computed"]["xlogp"], -0.5)
@@ -241,7 +253,7 @@ class FullOrchestrationTests(unittest.TestCase):
         """PB 物性与 CB 物性并存 — 相似字段两条独立证据, 无覆盖。"""
         result = self._full(cb_row={"entry": {
             "props": [{"key": "bp", "label": "沸点", "text": "99.9°C"}],
-        }, "cb_number": "CB1"})
+        }, "cb_number": "CB1", "locale": "zh-CN"})
         props = result["details"]["properties"]
         self.assertIn("Boiling Point", props["pb_physical_properties"]["entries"])
         self.assertEqual(props["cb_experimental"][0]["text"], "99.9°C")
@@ -255,14 +267,14 @@ class FullOrchestrationTests(unittest.TestCase):
 
     def test_full_cb_only(self):
         result = self._full(pb_details={"record_description": None, "fetched_at": None},
-                            cb_row={"entry": {"identity": {"cn": "水"}}, "cb_number": "CB1"})
+                            cb_row={"entry": {"identity": {"cn": "水"}}, "cb_number": "CB1", "locale": "zh-CN"})
         d = result["details"]
         self.assertEqual(d["names"]["cb_identity"]["cn"], "水")
         self.assertEqual(d["provenance"]["pubchem"]["state"], "current")
 
     def test_full_pb_fail_cb_success_not_500(self):
         result = self._full(pb_exc=RuntimeError("pb down"),
-                            cb_row={"entry": {"identity": {"cn": "水"}}, "cb_number": "CB1"})
+                            cb_row={"entry": {"identity": {"cn": "水"}}, "cb_number": "CB1", "locale": "zh-CN"})
         d = result["details"]
         self.assertEqual(d["provenance"]["pubchem"]["state"], "unavailable")
         self.assertEqual(d["names"]["cb_identity"]["cn"], "水")
@@ -288,11 +300,51 @@ class FullOrchestrationTests(unittest.TestCase):
         self.assertEqual(result["enrichment"]["sources"]["cb"], "none")
 
     def test_semantic_shape_no_provider_top_level(self):
-        result = self._full(cb_row={"entry": {"identity": {}}, "cb_number": "CB1"})
+        result = self._full(cb_row={"entry": {"identity": {}}, "cb_number": "CB1", "locale": "zh-CN"})
         for key in result["details"]:
             self.assertIn(key, ("description", "names", "properties", "safety",
                                 "industry", "suppliers", "provenance"),
                           f"一级 key 必须是语义 section, 不允许 provider namespace: {key}")
+
+
+class LocaleLifecycleChainTests(unittest.TestCase):
+    """P1-1: 实际命中 locale 在 row selection → lifecycle decision →
+    refresh enqueue 整条链不断(fake 记录收到的 locale, 锁死连接点)。"""
+
+    def test_requested_ja_hit_ja_decides_ja(self):
+        seen = {}
+        self._full_locale(seen, cb_row={"entry": {"identity": {"cn": "x"}},
+                                        "cb_number": "CB1", "locale": "ja"},
+                           locale="ja")
+        self.assertEqual(seen["requested_locale"], "ja")
+        self.assertEqual(seen["decide"], ["ja"])
+
+    def test_requested_ja_fallback_en_decides_en(self):
+        seen = {}
+        self._full_locale(seen, cb_row={"entry": {"identity": {"cn": "x"}},
+                                        "cb_number": "CB1", "locale": "en"},
+                           locale="ja")
+        self.assertEqual(seen["requested_locale"], "ja")
+        self.assertEqual(seen["decide"], ["en"])
+
+    def test_stale_ja_enqueues_refresh_ja(self):
+        seen = {}
+        self._full_locale(seen, cb_row={"entry": {"identity": {"cn": "x"}},
+                                        "cb_number": "CB1", "locale": "ja"},
+                           locale="ja", cb_decision="enqueue_refresh")
+        self.assertEqual(seen["decide"], ["ja"])
+        self.assertEqual(seen["enqueue_locale"], "ja")
+
+    def test_stale_fallback_en_enqueues_refresh_en(self):
+        seen = {}
+        self._full_locale(seen, cb_row={"entry": {"identity": {"cn": "x"}},
+                                        "cb_number": "CB1", "locale": "en"},
+                           locale="ja", cb_decision="enqueue_refresh")
+        self.assertEqual(seen["decide"], ["en"])
+        self.assertEqual(seen["enqueue_locale"], "en")
+
+    def _full_locale(self, seen, **kwargs):
+        FullOrchestrationTests()._full(**kwargs, seen=seen)
 
 
 class RemovedSurfaceTests(unittest.TestCase):

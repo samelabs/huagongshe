@@ -144,6 +144,7 @@ const t = {
       monoMass: '单同位素质量',
       nameCn: '中文名',
       nameEn: '英文名',
+      localName: '本地名称',
       molecularWeight: '分子量',
     },
     names: {

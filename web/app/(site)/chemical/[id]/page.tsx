@@ -227,7 +227,7 @@ export default async function ChemicalPage({ params }: {
             <dl className="identity-table">
               <Identity label={t.chemical.names.preferred} value={chemical.preferred_name} />
               <Identity label="IUPAC" value={chemical.iupac_name} />
-              {cbIdentity.cn ? <Identity label={t.chemical.identity.nameCn} value={String(cbIdentity.cn)} /> : null}
+              {cbIdentity.cn ? <Identity label={locale === "zh-CN" ? t.chemical.identity.nameCn : t.chemical.identity.localName} value={String(cbIdentity.cn)} /> : null}
               {cbIdentity.en ? <Identity label={t.chemical.identity.nameEn} value={String(cbIdentity.en)} /> : null}
               {cbIdentity.formula ? <Identity label={t.chemical.identity.formula} value={String(cbIdentity.formula)} /> : null}
               {cbIdentity.mw != null ? <Identity label={t.chemical.identity.molecularWeight} value={String(cbIdentity.mw)} /> : null}

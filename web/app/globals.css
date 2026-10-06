@@ -411,7 +411,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .identity-table > div { border-bottom: 1px solid var(--line); padding: 13px 0; display: grid; grid-template-columns: 170px 1fr; gap: 22px; }
 .identity-table dt { color: var(--muted); font-size: var(--text); }
 .identity-table dd { margin: 0; font-size: var(--text); }
-.chemical-aside { position: sticky; top: 94px; display: grid; gap: 16px; }
+.chemical-aside { position: sticky; top: 30px; display: grid; gap: 16px; }
 .chemical-aside section, .reaction-aside > section { border: 1px solid var(--line); padding: 19px; }
 .chemical-aside h2, .reaction-aside h2 { margin: 0 0 15px; font-size: var(--text-lg); }
 .chemical-aside dl, .reaction-aside dl { margin: 0; }
@@ -467,8 +467,8 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--max)) / 2
 .synonym-full { margin-top: var(--space-2); }
 .synonym-more { margin-top: var(--space-1); }
 @media (max-width: 900px) {
-  .chem-local-nav { display: flex; position: sticky; top: 58px; z-index: 20; }
-  .chem-section { scroll-margin-top: 120px; }
+  .chem-local-nav { display: flex; position: sticky; top: 0; z-index: 20; }
+  .chem-section { scroll-margin-top: 62px; }
 }
 @media (max-width: 680px) {
   .evidence-flat { grid-template-columns: 1fr; gap: var(--space-1); }
@@ -539,7 +539,7 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .workup-list span { color: var(--muted); line-height: 1.7; overflow-wrap: anywhere; }
 /* Safety: 用户/来源文本 —— 明确、有区别, 但不夸大危险结论 */
 .safety-panel { border-left: 3px solid var(--warning-border); padding-left: var(--space-4); }
-.reaction-aside { position: sticky; top: 94px; display: grid; gap: 16px; }
+.reaction-aside { position: sticky; top: 30px; display: grid; gap: 16px; }
 .source-expression { border: 1px solid var(--line); padding: 15px 18px; }
 .source-expression summary { cursor: pointer; color: var(--muted); font-size: var(--fs-meta); }
 .source-expression p { margin: var(--space-3) 0 0; color: var(--quiet); font-size: var(--fs-caption); overflow-wrap: anywhere; word-break: break-word; }

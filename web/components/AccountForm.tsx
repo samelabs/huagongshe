@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
-import { withLocale } from "@/lib/localePath";
+import { applyLocale } from "@/lib/localePath";
 import zhCN from "@/lib/i18n/locales/zh-CN";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
@@ -87,7 +87,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
           const response = await fetch(`/api/auth/${kind}`, {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
           });
-          if (response.ok) { await refresh(); router.push(withLocale(nextPath, locale)); router.refresh(); return; }
+          if (response.ok) { await refresh(); router.push(applyLocale(nextPath, locale)); router.refresh(); return; }
           const error = await response.json().catch(() => null);
           setMessage(apiError(error?.detail, t));
         } catch {

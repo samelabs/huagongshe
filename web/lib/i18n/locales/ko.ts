@@ -140,6 +140,7 @@ const ko: Dictionary = {
       monoMass: '단동위원소 질량',
       nameCn: '중국어명',
       nameEn: '영어명',
+      localName: '현지명',
       molecularWeight: '분자량',
     },
     names: {

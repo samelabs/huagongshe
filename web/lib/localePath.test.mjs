@@ -10,7 +10,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 const req = createRequire(import.meta.url);
-const { withLocale, stripLocalePrefix, isPathAtOrBelow, splitLocalePrefix, replaceLocalePrefix } = req("./localePath.js");
+const { withLocale, stripLocalePrefix, isPathAtOrBelow, splitLocalePrefix, replaceLocalePrefix, applyLocale } = req("./localePath.js");
 
 test("普通公开路径加 locale 前缀", () => {
   assert.equal(withLocale("/search", "ja"), "/ja/search");
@@ -109,4 +109,39 @@ test("/mcp 只排除自身与子树, /mcp-guide 正常加 locale", () => {
   assert.equal(withLocale("/mcp", "ja"), "/mcp");
   assert.equal(withLocale("/mcp/x", "ja"), "/mcp/x");
   assert.equal(withLocale("/mcp-guide", "ja"), "/ja/mcp-guide");
+});
+
+/* ─────── P1-2: applyLocale — 强制切换到目标 locale(登录回跳契约) ─────── */
+
+test("applyLocale: 已带 locale 前缀的路径替换为当前 locale", () => {
+  assert.equal(applyLocale("/ja/aichem", "en"), "/en/aichem");
+  assert.equal(applyLocale("/en/search?q=abc", "ko"), "/ko/search?q=abc");
+  assert.equal(applyLocale("/ja/search?q=x", "de"), "/de/search?q=x");
+});
+
+test("applyLocale: 纯 locale 前缀 /en + ja → /ja", () => {
+  assert.equal(applyLocale("/en", "ja"), "/ja");
+});
+
+test("applyLocale: 无前缀路径加前缀", () => {
+  assert.equal(applyLocale("/aichem", "de"), "/de/aichem");
+  assert.equal(applyLocale("/", "ja"), "/ja");
+});
+
+test("applyLocale: NON_LOCALIZED_PREFIXES 原样返回", () => {
+  assert.equal(applyLocale("/samelabs/users", "ja"), "/samelabs/users");
+  assert.equal(applyLocale("/api/health", "ja"), "/api/health");
+  assert.equal(applyLocale("/mcp", "ko"), "/mcp");
+  assert.equal(applyLocale("/ja/api/health", "en"), "/api/health");
+});
+
+test("applyLocale: 静态文件与外部 URL 原样返回", () => {
+  assert.equal(applyLocale("/icon.png", "ja"), "/icon.png");
+  assert.equal(applyLocale("/docs/paper.pdf", "ko"), "/docs/paper.pdf");
+  assert.equal(applyLocale("https://example.com/x", "ja"), "https://example.com/x");
+  assert.equal(applyLocale("#top", "de"), "#top");
+});
+
+test("applyLocale: query 完整保留", () => {
+  assert.equal(applyLocale("/ja/search?q=x&tab=all", "de"), "/de/search?q=x&tab=all");
 });

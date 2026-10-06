@@ -160,3 +160,17 @@ test("/ja/mcp、/ja/api/*、/ja/samelabs/*、/ja/.well-known/* 均不 rewrite(un
     assert.equal(proxy(nextReq(p)), undefined, p);
   }
 });
+
+/* ─────── P2/P3: malformed site_locale cookie 不再 500, 正常协商 redirect ─────── */
+
+test("malformed cookie + Accept-Language ja → 307 /ja/(不再 URIError)", () => {
+  const r = proxy(nextReq("/", { cookie: "site_locale=%E0%A4%A", al: "ja-JP,ja;q=0.9" }));
+  assert.equal(r.status, 307);
+  assert.equal(getRedirectUrl(r), ORIGIN + "/ja/");
+});
+
+test("malformed cookie + 无支持语言 → 307 /en/", () => {
+  const r = proxy(nextReq("/chemical/123", { cookie: "site_locale=%E0%A4%A", al: "fr-FR,fr;q=0.9" }));
+  assert.equal(r.status, 307);
+  assert.equal(getRedirectUrl(r), ORIGIN + "/en/chemical/123");
+});

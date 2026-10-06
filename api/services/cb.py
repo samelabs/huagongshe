@@ -69,7 +69,7 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
     async def _query(loc: str, match_cb: bool) -> dict[str, Any] | None:
         if match_cb:
             row = (await db.execute(text("""
-                SELECT x.chemical_id,x.cas_number,x.entry,x.last_status,x.fetched_at,x.cb_number
+                SELECT x.chemical_id,x.cas_number,x.entry,x.last_status,x.fetched_at,x.cb_number,x.locale
                 FROM chemistry.chemical_cb x
                 JOIN chemistry.chemicals c ON c.id=x.chemical_id
                 WHERE x.chemical_id=:chemical_id AND x.locale=:locale
@@ -78,7 +78,7 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
             """), {"chemical_id": chemical_id, "locale": loc})).mappings().fetchone()
         else:
             row = (await db.execute(text("""
-                SELECT chemical_id,cas_number,entry,last_status,fetched_at,cb_number
+                SELECT chemical_id,cas_number,entry,last_status,fetched_at,cb_number,locale
                 FROM chemistry.chemical_cb
                 WHERE chemical_id=:chemical_id AND locale=:locale
                 LIMIT 1
