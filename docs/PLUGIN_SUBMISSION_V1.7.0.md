@@ -45,6 +45,7 @@ The package deliberately contains no credentials, reviewer account instructions,
 HCID and HRID are product identifiers needed to continue chemistry workflows. Reaction and skill outputs may also include timestamps that are part of the existing frozen HGS MCP contract.
 
 `create_reaction` currently returns the existing service projection, including `created_by_user_id` and `created_via`. OpenAI review guidance prefers omitting internal account identifiers when they are not required. W5 does not silently change this frozen W3 return structure. Treat this as a live Scan Tools/manual-review checkpoint: if the reviewer flags the field, changing the MCP result contract requires an explicit compatibility decision rather than an OpenAI-only service fork.
+
 ## Review account contract
 
 Reviewer credentials must be entered only in the OpenAI review dashboard, never committed to Git.

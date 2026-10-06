@@ -20,7 +20,7 @@ export default function PrivacyPage() {
 
     <section className="guide-section">
       <h2>Information we process</h2>
-      <p>Depending on how you use the service, we process account information such as username, display name, email address, profile or avatar information; authentication and security data such as password hashes, sessions, API-token metadata, OAuth client and grant records, scopes, and security events; user-created content such as saved reactions, reusable skills, and Notes; and chemistry requests such as names, CAS numbers, HCIDs, HRIDs, SMILES, reaction data, and stoichiometry inputs.</p>
+      <p>Depending on how you use the service, we process account information such as username, display name, email address, profile or avatar information; authentication and security data such as password hashes, sessions, API-token metadata, OAuth client and grant records, scopes, network/request metadata such as IP address and user agent where processed by service infrastructure, and security events; user-created content such as saved reactions, reusable skills, and Notes; and chemistry requests such as names, CAS numbers, HCIDs, HRIDs, SMILES, reaction data, and stoichiometry inputs.</p>
       <p>When you use Huagongshe through ChatGPT or another MCP client, Huagongshe receives only the OAuth and tool requests sent to the MCP server. Huagongshe does not request or reconstruct your full chat history.</p>
     </section>
 
@@ -33,7 +33,7 @@ export default function PrivacyPage() {
     <section className="guide-section">
       <h2>Sharing and service providers</h2>
       <p>We may use hosting, network, database, email, security, and operational service providers to run Huagongshe. Chemistry-source providers may receive the identifiers required for enrichment. If you invoke Huagongshe through OpenAI products, OpenAI separately processes your conversation and connection under its own terms and privacy practices.</p>
-      <p>Public website pages may load analytics or advertising scripts when those features are enabled in the site configuration. The MCP tool transport itself does not embed browser advertising scripts.</p>
+      <p>Public website pages may load analytics or advertising scripts when those features are enabled in the site configuration; those providers may receive browser, device, or network metadata needed to deliver their service. The MCP tool transport itself does not embed browser advertising scripts.</p>
     </section>
 
     <section className="guide-section">
@@ -48,7 +48,7 @@ export default function PrivacyPage() {
 
     <section className="guide-section">
       <h2>Your controls</h2>
-      <p>You can control the visibility of supported user records, revoke AI Keys, disconnect an OAuth connection from the client that created it, and change your password to invalidate active HGS sessions and user credentials covered by the password-rotation security flow. For account or data deletion requests, contact support.</p>
+      <p>You can control the visibility of supported user records and revoke AI Keys. Disconnecting an OAuth connection in the client stops that client from using the connection; changing your HGS password also revokes active HGS sessions, AI Keys, and OAuth grants covered by the password-rotation security flow. For account or data deletion requests, contact support.</p>
     </section>
 
     <section className="guide-section">
