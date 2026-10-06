@@ -41,13 +41,17 @@ def _now() -> datetime:
 
 # CB 详情读路径 locale 白名单 — 与 web/lib/i18n/locales.ts SUPPORTED_LOCALES 同源
 # (API 侧唯一权威列表; 未列出的 locale 一律回落 en, 不做第二套协商)。
-CB_DETAIL_LOCALES = ("zh-CN", "en", "ja", "ko", "de")
+# v1.6.0 收口: 此前 CB_DETAIL_LOCALES 与 CB_LOCALES 两份重复定义(silent drift 风险),
+# 现合并为单一权威 tuple; normalize/get_externals_row/cb_decide 全部消费同一份。
+# ru 已摘(0831 误加未实测, ru 页对爬虫全封)。
+CB_LOCALES = ("zh-CN", "en", "ja", "de", "ko")
+CB_DETAIL_LOCALES = CB_LOCALES  # 历史别名, 保留引用面; 定义唯一
 CB_DETAIL_DEFAULT_LOCALE = "en"
 
 
 def normalize_cb_locale(value: str | None) -> str:
     """详情读路径 locale 归一: 未指定/非法 → en(默认), 合法原样。"""
-    if value in CB_DETAIL_LOCALES:
+    if value in CB_LOCALES:
         return value  # type: ignore[return-value]
     return CB_DETAIL_DEFAULT_LOCALE
 
@@ -77,10 +81,15 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
                 LIMIT 1
             """), {"chemical_id": chemical_id, "locale": loc})).mappings().fetchone()
         else:
+            # legacy fallback(步骤 3/4): 同 locale 多个非-imprint source row 时,
+            # ORDER BY cb_number ASC 建立稳定 tie-break — 只消除数据库随机性,
+            # 不把时间/热度解释成 source 优先级, 不参与身份裁定, 数据零修改
+            # (v1.6.0: 生产 84 组 no-imprint-match 暴露面实证需要确定性)。
             row = (await db.execute(text("""
                 SELECT chemical_id,cas_number,entry,last_status,fetched_at,cb_number,locale
                 FROM chemistry.chemical_cb
                 WHERE chemical_id=:chemical_id AND locale=:locale
+                ORDER BY cb_number ASC NULLS LAST
                 LIMIT 1
             """), {"chemical_id": chemical_id, "locale": loc})).mappings().fetchone()
         return dict(row) if row else None
@@ -553,8 +562,7 @@ async def apply_structure_fill(
 
 # ---- 五态判定(数据链收口§5, DATA_CHAIN_REFACTOR_PLAN) ------
 # 锚 = chemical_cb 行 (chemical_id, locale)。时间窗口配置化, 可调。
-
-CB_LOCALES = ("zh-CN", "en", "ja", "de", "ko")  # ru已摘(0831误加未实测, ru页对爬虫全封)
+# (locale 白名单已上移至模块头 CB_LOCALES 单一权威定义)
 
 
 # ---------------------------------------------------------------------------

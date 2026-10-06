@@ -49,10 +49,13 @@ class _Db:
         imprint = "CB1"
         if match_cb:
             return self.table.get((locale, imprint))
-        for (loc, cbn), row in self.table.items():
-            if loc == locale and cbn != imprint:
-                return row
-        return None
+        # legacy 查询: 模拟生产 SQL 的 ORDER BY cb_number ASC NULLS LAST LIMIT 1
+        # (v1.6.0 确定性 tie-break) — dict 顺序无关, 恒取最小 cb_number。
+        candidates = [(cbn, row) for (loc, cbn), row in self.table.items()
+                      if loc == locale and cbn != imprint]
+        if not candidates:
+            return None
+        return min(candidates, key=lambda kv: kv[0])[1]
 
     async def execute(self, sql, params=None):
         locale = (params or {}).get("locale", "zh-CN")
@@ -84,6 +87,18 @@ class NormalizeLocaleTests(unittest.TestCase):
 
     def test_missing_invalid_fallback_en(self):
         for loc in (None, "", "fr", "zh-TW", "EN", "ja-JP", "xx"):
+            self.assertEqual(cb_module.normalize_cb_locale(loc), "en")
+
+    def test_single_locale_ssot_normalize_and_lifecycle_share_one_set(self):
+        """v1.6.0 收口: normalize(get_externals_row 归一入口)与 lifecycle(cb_decide)
+        必须消费同一份 locale 定义 — 历史两份 tuple 漂移风险的回归锁。"""
+        self.assertIs(cb_module.CB_DETAIL_LOCALES, cb_module.CB_LOCALES)
+        # normalize 全集 = lifecycle 全集: 每个 normalize 接受的 locale,
+        # cb_decide 不得 skip(非法集), 反之亦然
+        for loc in ("zh-CN", "en", "ja", "ko", "de"):
+            self.assertIn(loc, cb_module.CB_LOCALES)
+            self.assertEqual(cb_module.normalize_cb_locale(loc), loc)
+        for loc in (None, "", "fr", "ru"):
             self.assertEqual(cb_module.normalize_cb_locale(loc), "en")
 
 
@@ -173,6 +188,64 @@ class RowSelectionTests(unittest.TestCase):
         db2 = _Db({})
         asyncio.run(cb_module.get_externals_row(db2, 1, locale="en"))
         self.assertEqual(db2.queries, [("en", True), ("en", False)])
+
+
+class DeterministicLegacyFallbackTests(unittest.TestCase):
+    """v1.6.0: legacy fallback 确定性 — 同 locale 多个非-imprint row 时
+    无论输入顺序如何都选同一最小 cb_number; 选择链 precedence 不变;
+    selected row locale 继续穿透 cb_decide/enqueue。"""
+
+    def test_sql_has_deterministic_order_by(self):
+        # legacy fallback SQL 必须带 ORDER BY cb_number ASC(消除 LIMIT 1 随机性)
+        import inspect
+        src = inspect.getsource(cb_module.get_externals_row)
+        self.assertIn("ORDER BY cb_number ASC NULLS LAST", src)
+
+    def test_requested_imprint_still_beats_legacy(self):
+        # precedence 锁定: requested locale imprint 命中 → 不走 legacy
+        db = _Db({
+            ("ja", "CB9"): _row("ja", "CB9", {"identity": {"cn": "ja-legacy"}}),
+            ("ja", "CB1"): _row("ja", "CB1", {"identity": {"cn": "ja-imprint"}}),
+        })
+        row = asyncio.run(cb_module.get_externals_row(db, 1, locale="ja"))
+        self.assertEqual(row["cb_number"], "CB1")
+        self.assertEqual(db.queries, [("ja", True)])
+
+    def test_en_imprint_still_beats_requested_legacy(self):
+        # precedence 锁定: requested legacy 前先试 en imprint
+        db = _Db({
+            ("ja", "CB5"): _row("ja", "CB5", {"identity": {"cn": "ja-legacy"}}),
+            ("en", "CB1"): _row("en", "CB1", {"identity": {"cn": "en-imprint"}}),
+        })
+        row = asyncio.run(cb_module.get_externals_row(db, 1, locale="ja"))
+        self.assertEqual(row["cb_number"], "CB1")
+        self.assertEqual(row["locale"], "en")
+        self.assertEqual(db.queries, [("ja", True), ("en", True)])
+
+    def test_legacy_picks_min_cb_number_regardless_of_insertion_order(self):
+        # 多个非-imprint row: 输入顺序调换, 结果同选最小 cb_number(CB2 < CB7)
+        for order in (("CB7", "CB2"), ("CB2", "CB7")):
+            table = {}
+            for cbn in order:
+                table[("ja", cbn)] = _row("ja", cbn,
+                                          {"identity": {"cn": f"ja-{cbn}"}})
+            db = _Db(table)
+            row = asyncio.run(cb_module.get_externals_row(db, 1, locale="ja"))
+            self.assertEqual(row["cb_number"], "CB2",
+                             f"插入顺序 {order} 必须同选最小 cb_number")
+            self.assertEqual(row["locale"], "ja")
+
+    def test_legacy_en_fallback_also_deterministic(self):
+        table = {}
+        for cbn in ("CB9", "CB3"):
+            table[("en", cbn)] = _row("en", cbn, {"identity": {"cn": f"en-{cbn}"}})
+        db = _Db(table)
+        row = asyncio.run(cb_module.get_externals_row(db, 1, locale="ja"))
+        # 四步全走: (ja,True)(en,True)(ja,False)(en,False) — legacy en 命中 CB3
+        self.assertEqual(db.queries, [
+            ("ja", True), ("en", True), ("ja", False), ("en", False)])
+        self.assertEqual(row["cb_number"], "CB3")
+        self.assertEqual(row["locale"], "en")
 
 
 class SingleSourceTests(unittest.TestCase):
