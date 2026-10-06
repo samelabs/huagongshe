@@ -79,7 +79,7 @@ export function NoteEditor({
       />
       {error && <p className="wb-note-error">{error}</p>}
       <div className="wb-note-editor-actions">
-        <button type="button" className="wb-btn wb-btn-ghost" onClick={onCancel} disabled={busy}>{t.common.cancel}</button>
+        <button type="button" className="wb-btn wb-btn-ghost" onClick={onCancel} disabled={busy}>{t.me.notesCancel}</button>
         <button type="submit" className="wb-btn wb-btn-primary" disabled={busy || !content.trim()}>
           {busy ? t.me.notesSaving : t.me.notesSave}
         </button>
