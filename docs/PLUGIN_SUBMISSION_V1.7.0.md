@@ -14,7 +14,7 @@ Status: pre-deployment execution artifact
 
 ## Package
 
-The portable submission package lives at `plugins/huagongshe/`:
+The portable submission package lives at `plugins/huagongshe/`. Its package version starts at `1.0.0` independently of the HGS product `VERSION` file:
 
 - `plugin.json` — listing metadata, five positive review cases, three negative review cases, and release notes.
 - `mcp.json` — one remote Streamable HTTP MCP server.

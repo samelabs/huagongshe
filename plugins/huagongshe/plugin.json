@@ -74,9 +74,9 @@
             },
             {
               "description": "Validate and create a private reaction after explicit user confirmation.",
-              "prompt": "I confirm that you may validate and save this reaction as private using the source and conditions I provided in this conversation. Do not add any missing chemistry facts.",
+              "prompt": "I confirm that you may validate and save this private self-reported reaction: reactants ethanol (CCO) and acetic acid (CC(=O)O), product ethyl acetate (CCOC(=O)C), source type self. No conditions or yield are known; do not invent them.",
               "tools_triggered": "validate_reaction, create_reaction",
-              "expected_behavior": "Use the user-provided reaction draft, validate it first, preserve unknown fields as unknown, and create one private reaction only after the explicit confirmation. Reuse an idempotency key for retries of the same create action."
+              "expected_behavior": "Treat the prompt as explicit confirmation, build the draft only from the supplied reactants, product, visibility, and self source, validate it first, leave unknown optional fields empty, then create one private reaction. Reuse an idempotency key for retries of the same create action."
             }
           ],
           "negative": [

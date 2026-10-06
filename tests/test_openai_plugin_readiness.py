@@ -125,7 +125,12 @@ class OpenAIPluginPackageTests(unittest.TestCase):
             "client_secret", "access_token", "refresh_token",
         ):
             self.assertNotIn(banned, keys)
-        self.assertNotIn("demo_recording_url", keys)
+        demo_url = self.ext.get("review", {}).get("demo_recording_url")
+        if demo_url is not None:
+            parsed = urlparse(demo_url)
+            self.assertEqual(parsed.scheme, "https")
+            self.assertTrue(parsed.netloc)
+            self.assertNotEqual(parsed.netloc, "example.com")
         self.assertNotIn("screenshots", self.interface)
         serialized = json.dumps(self.manifest).lower()
         self.assertNotIn("note:write", serialized)
