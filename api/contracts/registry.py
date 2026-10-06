@@ -245,6 +245,37 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
+        # notes(v1.7.0: independent user context; Web-first, no MCP surface)
+        # ------------------------------------------------------------------
+        Family("note.read", E.READ, scenarios=(
+            S("detail", A.PUBLIC_OR_ACTOR, entrypoints=(
+                I(T.HTTP, "GET /api/notes/{note_id}"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE),
+              note="public visible anonymous; private owner context is exposed only "
+                   "when the resolved actor is an interactive session"),
+            S("list_own", A.SESSION, entrypoints=(
+                I(T.HTTP, "GET /api/users/me/notes"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("chemical_public", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/chemicals/{chemical_id}/notes"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("reaction_public", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/reactions/{reaction_id}/notes"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+        )),
+        Family("note.write", E.WRITE, scenarios=(
+            S("create", A.SESSION, entrypoints=(
+                I(T.HTTP, "POST /api/notes"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("update", A.SESSION, entrypoints=(
+                I(T.HTTP, "PUT /api/notes/{note_id}"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("delete", A.SESSION, entrypoints=(
+                I(T.HTTP, "DELETE /api/notes/{note_id}"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+        )),
+
+        # ------------------------------------------------------------------
         # account / auth / profile / token / avatar(G1A: 文件粘合, 职责分域登记)
         # ------------------------------------------------------------------
         Family("account.auth", E.WRITE, scenarios=(
