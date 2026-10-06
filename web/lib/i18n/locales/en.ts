@@ -353,6 +353,7 @@ const en: Dictionary = {
     notesAddReference: 'Link',
     notesRemoveReference: 'Remove reference',
     notesReferenceHint: 'Link HCIDs and HRIDs for context; references do not own the note lifecycle.',
+    notesCancel: 'Cancel',
     notesSave: 'Save note',
     notesSaving: 'Saving…',
     notesSaveFailed: 'Could not save the note. Check the content and try again.',
