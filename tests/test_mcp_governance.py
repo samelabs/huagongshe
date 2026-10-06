@@ -223,7 +223,7 @@ class SkillSlugResolution(unittest.TestCase):
     def test_not_found_is_tool_error(self):
         result, _ = self._resolve(None, [])
         self.assertIsInstance(result, ToolError)
-        self.assertIn("不存在或不可访问", str(result))
+        self.assertIn("not found or not accessible", str(result))
 
     def test_single_match_returns_id(self):
         result, _ = self._resolve(None, [163])
@@ -233,7 +233,7 @@ class SkillSlugResolution(unittest.TestCase):
         result, _ = self._resolve(actor(), [11, 12])
         self.assertIsInstance(result, ToolError)
         self.assertIn("numeric skill_id", str(result))
-        self.assertIn("多个可访问技能", str(result))
+        self.assertIn("Multiple accessible skills", str(result))
 
     def test_inaccessible_private_duplicate_does_not_leak(self):
         # 候选集里只有可访问的那一个 → 正常返回; 不可访问的 private 同名技能
@@ -315,7 +315,7 @@ class ToolSurfaceAndVersion(unittest.TestCase):
 
     def test_search_docs_state_has_more_authority(self):
         src = (REPO / "api" / "mcp_server.py").read_text(encoding="utf-8")
-        self.assertIn("has_more 是下一页是否存在", src)
+        self.assertIn("has_more is authoritative for pagination", src)
         self.assertIn("total=None", src)
         agent_src = (REPO / "api" / "agent.py").read_text(encoding="utf-8")
         self.assertIn("has_more", agent_src)
@@ -462,7 +462,7 @@ class RenderResourceGate(unittest.TestCase):
         with self.assertRaises(Exception) as ctx:
             asyncio.run(build_server().call_tool(
                 "render_molecule_svg", {"smiles": "CCO"}, context=FakeCtx()))
-        self.assertIn("上限", str(ctx.exception))
+        self.assertIn("concurrency limit", str(ctx.exception))
         self.assertFalse([step for step in ORDER if step[0] == "rdkit"])
 
     def test_redis_failure_fails_closed_without_rdkit(self):
