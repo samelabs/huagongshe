@@ -136,9 +136,14 @@ async def register_client(
     response_types: list[str] | None,
     application_type: str | None,
 ) -> dict[str, Any]:
-    if not redirect_uris or len(redirect_uris) > 10:
+    if (
+        not isinstance(redirect_uris, list)
+        or not redirect_uris
+        or len(redirect_uris) > 10
+        or any(not isinstance(uri, str) for uri in redirect_uris)
+    ):
         raise OAuthProtocolError(
-            "invalid_client_metadata", "redirect_uris must contain 1-10 entries."
+            "invalid_client_metadata", "redirect_uris must contain 1-10 string entries."
         )
     if any(not _valid_redirect_uri(uri) for uri in redirect_uris):
         raise OAuthProtocolError(
@@ -150,13 +155,23 @@ async def register_client(
             "invalid_client_metadata",
             "This authorization server registers public clients only.",
         )
-    grants = grant_types or ["authorization_code", "refresh_token"]
-    if any(value not in ("authorization_code", "refresh_token") for value in grants):
+    if client_name is not None and not isinstance(client_name, str):
         raise OAuthProtocolError(
-            "invalid_client_metadata", "Unsupported grant_types value."
+            "invalid_client_metadata", "client_name must be a string."
+        )
+    grants = grant_types or ["authorization_code", "refresh_token"]
+    if (
+        not isinstance(grants, list)
+        or "authorization_code" not in grants
+        or any(not isinstance(value, str) or value not in ("authorization_code", "refresh_token")
+               for value in grants)
+    ):
+        raise OAuthProtocolError(
+            "invalid_client_metadata",
+            "grant_types must include authorization_code and contain only supported values.",
         )
     responses = response_types or ["code"]
-    if responses != ["code"]:
+    if not isinstance(responses, list) or responses != ["code"]:
         raise OAuthProtocolError(
             "invalid_client_metadata", "Only response_type=code is supported."
         )

@@ -78,6 +78,7 @@ async def authorize(
             url=f"/login?next={quote(next_path, safe='')}",
             status_code=302,
         )
+    await enforce_http("oauth-authorize", str(actor.id), 60, 300)
     try:
         pending = await svc.begin_authorization(
             db,
@@ -138,6 +139,10 @@ async def authorize_decision(
     actor: Actor = Depends(current_session),
     db: AsyncSession = Depends(get_db),
 ):
+    if decision not in ("approve", "deny"):
+        return _oauth_error(
+            svc.OAuthProtocolError("invalid_request", "decision must be approve or deny.")
+        )
     try:
         redirect = await svc.complete_authorization(
             db,
@@ -152,16 +157,17 @@ async def authorize_decision(
 
 @router.post("/token")
 async def token(
-    grant_type: str = Form(...),
-    client_id: str = Form(...),
-    resource: str = Form(...),
-    code: str | None = Form(default=None),
-    redirect_uri: str | None = Form(default=None),
-    code_verifier: str | None = Form(default=None),
-    refresh_token: str | None = Form(default=None),
-    scope: str | None = Form(default=None),
+    grant_type: str = Form(..., min_length=1, max_length=40),
+    client_id: str = Form(..., min_length=1, max_length=300),
+    resource: str = Form(..., min_length=1, max_length=2000),
+    code: str | None = Form(default=None, max_length=200),
+    redirect_uri: str | None = Form(default=None, max_length=2000),
+    code_verifier: str | None = Form(default=None, max_length=200),
+    refresh_token: str | None = Form(default=None, max_length=300),
+    scope: str | None = Form(default=None, max_length=300),
     db: AsyncSession = Depends(get_db),
 ):
+    await enforce_http("oauth-token", client_id[:80], 180, 60)
     try:
         if grant_type == "authorization_code":
             if not code or not redirect_uri or not code_verifier:

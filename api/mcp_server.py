@@ -410,6 +410,11 @@ async def _require_tool_actor(
     auth = _bearer(headers)
     actor = await _actor_from_headers(headers)
     if actor is None:
+        if auth and auth[7:].strip().startswith("hgs_"):
+            raise ToolError(
+                "Authentication required. Connect an HGS AI Key with "
+                "Authorization: Bearer <AI Key>."
+            )
         description = (
             "Authentication required. Connect your HGS account to continue."
             if not auth else
@@ -436,21 +441,38 @@ async def _require_tool_actor(
     raise ToolError("Unsupported authentication type.")
 
 
-def _require(actor: Actor | None, scope: str) -> Actor:
-    """Legacy helper retained for direct tests and non-challenge call sites."""
-    if actor is None:
-        raise ToolError("Authentication required.")
-    if actor.auth_kind not in ("agent", "oauth", "session"):
-        raise ToolError("Unsupported authentication type.")
-    if actor.auth_kind in ("agent", "oauth") and scope not in actor.scopes:
-        raise ToolError(f"The credential is missing the required scope: {scope}.")
-    return actor
+async def _optional_tool_actor(
+    headers: Any,
+    *,
+    oauth_scope: str,
+) -> tuple[Actor | None, CallToolResult | None]:
+    """Optional identity for mixed public/private tools.
 
-
-def _require_login(actor: Actor | None) -> Actor:
+    Anonymous calls stay anonymous. Existing HGS AI Keys preserve their historic
+    behavior. An OAuth credential, however, must be valid and carry the scope
+    advertised by the tool before it may unlock user-private data.
+    """
+    auth = _bearer(headers)
+    actor = await _actor_from_headers(headers)
     if actor is None:
-        raise ToolError("Authentication required.")
-    return actor
+        if auth and auth[7:].strip().startswith("hgo_at_"):
+            return None, _oauth_challenge(
+                oauth_scope,
+                error="invalid_token",
+                description=(
+                    "The supplied access token is invalid or expired. "
+                    "Reconnect your HGS account."
+                ),
+            )
+        return None, None
+
+    if actor.auth_kind == "oauth" and oauth_scope not in actor.scopes:
+        return None, _oauth_challenge(
+            oauth_scope,
+            error="insufficient_scope",
+            description=f"The connection needs the {oauth_scope} scope.",
+        )
+    return actor, None
 
 
 async def _resolve_skill_slug(candidate: str, actor: Actor | None) -> int:
@@ -604,7 +626,10 @@ def build_mcp_server() -> MCPServer:
         also read their own private reaction record."""
         from .services.reactions import load_reaction_detail
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
+        actor, auth_result = await _optional_tool_actor(
+            ctx.headers if ctx else None, oauth_scope="read")
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
         if not 1 <= reaction_id <= 2_147_483_647:
             raise ToolError("reaction_id is out of range.")
         # G2.5B: 直调 transport-neutral service(None=不存在或不可见);
@@ -683,7 +708,10 @@ def build_mcp_server() -> MCPServer:
         """
         from .services import rendering as render_service
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
+        actor, auth_result = await _optional_tool_actor(
+            ctx.headers if ctx else None, oauth_scope="read")
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
         width = min(max(width, 50), 800)
         height = min(max(height, 50), 800)
         async with async_session() as session:
@@ -758,7 +786,10 @@ def build_mcp_server() -> MCPServer:
         from .services.skills import SkillNotAccessibleError
         from .services.skills import get_skill_detail as _detail_service
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
+        actor, auth_result = await _optional_tool_actor(
+            ctx.headers if ctx else None, oauth_scope="read")
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
         if isinstance(skill_id, str):
             candidate = skill_id.strip()
             if candidate.isdigit():

@@ -54,6 +54,17 @@ class McpOAuthContractTests(unittest.TestCase):
         self.assertIn('"agent" if auth_kind in ("agent", "oauth") else "web"', reactions)
         self.assertIn('auth_kind in ("agent", "oauth")', skills)
 
+    def test_optional_private_tools_use_read_scope_gate(self):
+        source = inspect.getsource(mcp_server.build_mcp_server)
+        for tool_name in ("get_reaction", "get_skill", "render_reaction_svg"):
+            with self.subTest(tool=tool_name):
+                start = source.index(f"async def {tool_name}(")
+                tail = source[start:]
+                next_tool = tail.find("@server.tool", 1)
+                body = tail if next_tool < 0 else tail[:next_tool]
+                self.assertIn("_optional_tool_actor(", body)
+                self.assertIn('oauth_scope="read"', body)
+
     def test_rest_bearer_resolver_does_not_claim_oauth_tokens(self):
         from api.core import security
         source = inspect.getsource(security.resolve_actor)

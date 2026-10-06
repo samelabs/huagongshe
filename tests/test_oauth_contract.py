@@ -1,6 +1,7 @@
 """Pure OAuth 2.1 contract tests."""
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import os
@@ -56,6 +57,23 @@ class OAuthContractTests(unittest.TestCase):
         with self.assertRaises(svc.OAuthProtocolError) as raised:
             svc._scope_tuple("read note:write")
         self.assertEqual(raised.exception.error, "invalid_scope")
+
+    def test_dcr_rejects_malformed_metadata_before_db(self):
+        class NeverDb:
+            async def execute(self, *args, **kwargs):
+                raise AssertionError("DB must not be touched for invalid DCR metadata")
+
+        with self.assertRaises(svc.OAuthProtocolError) as raised:
+            asyncio.run(svc.register_client(
+                NeverDb(),
+                redirect_uris=[123],
+                client_name="bad",
+                token_endpoint_auth_method="none",
+                grant_types=["authorization_code"],
+                response_types=["code"],
+                application_type="web",
+            ))
+        self.assertEqual(raised.exception.error, "invalid_client_metadata")
 
 
 if __name__ == "__main__":
