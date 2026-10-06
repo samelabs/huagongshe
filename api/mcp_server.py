@@ -91,6 +91,74 @@ def _render_busy() -> ToolError:
     return ToolError("Rendering concurrency limit reached. Try again shortly.")
 
 
+def _rate_error_message(exc: Exception) -> str:
+    """English MCP boundary for neutral rate/resource errors."""
+    name = type(exc).__name__
+    if name == "RateLimited":
+        return "Too many requests. Try again shortly."
+    if name == "LimiterUnavailable":
+        return "Rate-limit service is temporarily unavailable. Try again shortly."
+    if name == "ResourceBusy":
+        return "The requested resource is busy. Try again shortly."
+    return "The request could not be admitted by the resource limiter."
+
+
+def _search_error_message(exc: Exception) -> str:
+    return {
+        "invalid_structure": "The structure could not be parsed.",
+        "query_too_short": "The search query is too short.",
+        "substructure_too_small": "The substructure query is too small; provide a more specific structure.",
+        "invalid_doi": "The DOI is invalid.",
+        "backend_unavailable": "Search is temporarily unavailable. Try again or use a more precise query.",
+    }.get(getattr(exc, "kind", ""), "The chemistry search could not be completed.")
+
+
+def _reaction_error_message(exc: Exception) -> str:
+    kind = getattr(exc, "kind", "")
+    if kind == "invalid_structure":
+        return "A reaction participant structure could not be parsed."
+    if kind == "duplicate_participant":
+        return "Merge duplicate entries with the same compound and role, then set occurrence_count."
+    if kind == "invalid_reaction":
+        return "The reaction structure could not be parsed by RDKit."
+    status = getattr(exc, "status", "")
+    if status == "CONFLICT":
+        return "Chemical identity conflict: mutually exclusive identity evidence prevents automatic creation."
+    if status == "AMBIGUOUS":
+        return "Chemical identity is ambiguous: multiple candidates exist without enough structural evidence."
+    name = type(exc).__name__
+    if name == "MissingIdempotencyKeyError":
+        return "idempotency_key is required for authenticated reaction creation."
+    if name == "IdempotencyKeyTooLongError":
+        return "idempotency_key must not exceed 200 characters."
+    return "The reaction request could not be completed."
+
+
+def _skill_error_message(exc: Exception) -> str:
+    name = type(exc).__name__
+    if name == "SkillNotAccessibleError":
+        return "Skill not found or not accessible."
+    if name == "SkillCategoryError":
+        return "The requested skill category is unavailable."
+    if name == "SkillSlugConflictError":
+        return "A skill with the same slug already exists for this user."
+    if name == "MissingSkillIdempotencyKeyError":
+        return "idempotency_key is required for authenticated skill creation."
+    if name == "SkillIdempotencyKeyTooLongError":
+        return "idempotency_key must not exceed 200 characters."
+    if name == "SkillArchiveValidationError":
+        return {
+            "archive_too_large": "The skill archive exceeds the allowed size.",
+            "invalid_archive": "The supplied file is not a valid ZIP archive.",
+            "unsafe_path": "The skill archive contains an unsafe path.",
+            "decompression": "The skill archive failed decompression safety checks.",
+            "empty_archive": "The skill archive is empty.",
+            "archive_limit": "The skill archive exceeds file or content limits.",
+            "manifest_invalid": "SKILL.md or its manifest metadata is invalid.",
+        }.get(getattr(exc, "kind", ""), "The skill archive is invalid.")
+    return "The skill request could not be completed."
+
+
 def _client_ip(headers: Any) -> str:
     """匿名限流分桶键: 取 x-forwarded-for 首段(nginx 注入), 缺省 unknown。"""
     if not headers:
@@ -127,7 +195,7 @@ async def _render_enter(actor: Actor | None, headers: Any = None) -> list[str]:
         # enforce/lease 侧 fail-closed 的 LimiterUnavailable 与 RateLimited
         # 统一转成 MCP ToolError(G2.R: core 已 neutral, 此处捕语义异常)。
         await rate_limit.release_leases(held, MCP_RENDER_BUCKET)
-        raise ToolError(exc.detail) from exc
+        raise ToolError(_rate_error_message(exc)) from exc
 
 
 async def _render_exit(held: list[str]) -> None:
@@ -293,9 +361,9 @@ def build_mcp_server() -> MCPServer:
                     actor_id=actor.id if actor else None,
                 )
             except _SearchError as exc:
-                raise ToolError(exc.detail) from exc
+                raise ToolError(_search_error_message(exc)) from exc
             except RateLimitError as exc:
-                raise ToolError(exc.detail) from exc
+                raise ToolError(_rate_error_message(exc)) from exc
 
     @server.tool(name="get_chemical", title="Get chemical", annotations=ANN_CHEMICAL_OPEN)
     async def get_chemical(
@@ -330,7 +398,7 @@ def build_mcp_server() -> MCPServer:
                     enrich=_normalize_enrich(enrich),
                 )
             except _ChemicalNotFoundError as exc:
-                raise ToolError(str(exc)) from exc
+                raise ToolError("Chemical not found.") from exc
 
     @server.tool(name="get_reaction", title="Get reaction", annotations=ANN_READ_CLOSED)
     async def get_reaction(
@@ -506,7 +574,7 @@ def build_mcp_server() -> MCPServer:
                     session, resolved_id,
                     actor_id=actor.id if actor else None)
             except SkillNotAccessibleError as exc:
-                raise ToolError(str(exc)) from exc
+                raise ToolError(_skill_error_message(exc)) from exc
 
     @server.tool(name="calculate_stoichiometry", title="Calculate stoichiometry", annotations=ANN_READ_CLOSED)
     async def calculate_stoichiometry(
@@ -529,10 +597,13 @@ def build_mcp_server() -> MCPServer:
         from .services import stoichiometry as stoich_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
-        body = ScaleInput(
-            components=components, basis=basis,
-            concentration_mol_per_l=concentration_mol_per_l,
-        )
+        try:
+            body = ScaleInput(
+                components=components, basis=basis,
+                concentration_mol_per_l=concentration_mol_per_l,
+            )
+        except Exception as exc:
+            raise ToolError("Invalid stoichiometry fields.") from exc
         # 限流桶与 REST 同构(登录=u{id} 桶, 匿名=anon 桶) —— G2.1 起 MCP
         # 直调 transport-neutral service, 限流作为 entrypoint policy 在本
         # adapter 显式执行, 与 HTTP adapter 同桶同身份方案(行为不变)。
@@ -545,9 +616,9 @@ def build_mcp_server() -> MCPServer:
                                       _settings.api_stoich_limit_per_minute, 60)
             return await stoich_service.compute(body)
         except ValueError as exc:
-            raise ToolError(str(exc)) from exc
+            raise ToolError("Stoichiometry input is invalid or contains an unparseable SMILES.") from exc
         except _RateLimitError as exc:
-            raise ToolError(exc.detail) from exc
+            raise ToolError(_rate_error_message(exc)) from exc
 
     # ---------------- 写工具(需要 AI Key) ----------------
 
@@ -593,14 +664,16 @@ def build_mcp_server() -> MCPServer:
         try:
             body = ReactionBody(**reaction)
         except Exception as exc:
-            raise ToolError(f"Invalid draft fields: {exc}") from exc
+            raise ToolError("Invalid reaction draft fields.") from exc
         # G3.1B: 直调 shared validation service(A005 validate 关闭);
         # neutral validation/rate error → ToolError(detail)。
         try:
             return await validate_reaction_draft(
                 actor_id=actor.id, body=body)
-        except (ReactionValidationError, _RateLimitError) as exc:
-            raise ToolError(str(exc)) from exc
+        except ReactionValidationError as exc:
+            raise ToolError(_reaction_error_message(exc)) from exc
+        except _RateLimitError as exc:
+            raise ToolError(_rate_error_message(exc)) from exc
 
     @server.tool(name="validate_skill", title="Validate skill package", annotations=ANN_READ_CLOSED)
     async def validate_skill(
@@ -641,7 +714,7 @@ def build_mcp_server() -> MCPServer:
                 "files": [{"path": p, "size_bytes": len(d)} for p, d in manifest["files"]],
             }
         except SkillArchiveValidationError as exc:
-            raise ToolError(exc.detail) from exc
+            raise ToolError(_skill_error_message(exc)) from exc
 
     @server.tool(name="create_skill", title="Create skill", annotations=ANN_CREATE_CLOSED)
     async def create_skill(
@@ -689,11 +762,12 @@ def build_mcp_server() -> MCPServer:
                     category=(category or None),
                     idempotency_key=(idempotency_key or None),
                     archive_loader=_archive_loader)
+        except _RateLimitError as exc:
+            raise ToolError(_rate_error_message(exc)) from exc
         except (SkillArchiveValidationError, SkillCategoryError,
                 SkillSlugConflictError, MissingSkillIdempotencyKeyError,
-                SkillIdempotencyKeyTooLongError, SkillNotAccessibleError,
-                _RateLimitError) as exc:
-            raise ToolError(str(exc.detail) if hasattr(exc, "detail") else str(exc)) from exc
+                SkillIdempotencyKeyTooLongError, SkillNotAccessibleError) as exc:
+            raise ToolError(_skill_error_message(exc)) from exc
 
     @server.tool(name="create_reaction", title="Create reaction", annotations=ANN_CREATE_OPEN)
     async def create_reaction(
@@ -732,12 +806,14 @@ def build_mcp_server() -> MCPServer:
                 return await _create_service(
                     session, actor_id=actor.id, auth_kind=actor.auth_kind,
                     body=body, idempotency_key=idempotency_key)
-        except (ReactionValidationError, _RateLimitError,
+        except _RateLimitError as exc:
+            raise ToolError(_rate_error_message(exc)) from exc
+        except (ReactionValidationError,
                 MissingIdempotencyKeyError, IdempotencyKeyTooLongError) as exc:
-            raise ToolError(str(exc)) from exc
+            raise ToolError(_reaction_error_message(exc)) from exc
         except UnresolvedIdentityError as exc:
-            # E9-B: CONFLICT/AMBIGUOUS → 未创建任何行(detail=409 语义)
-            raise ToolError(exc.detail) from exc
+            # E9-B: CONFLICT/AMBIGUOUS → no rows created.
+            raise ToolError(_reaction_error_message(exc)) from exc
 
     return server
 
