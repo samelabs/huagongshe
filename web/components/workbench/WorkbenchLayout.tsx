@@ -5,6 +5,7 @@ import { useWorkbenchCounts } from "./WorkbenchCountsContext";
 import { useDictionary } from "@/components/shared/I18nContext";
 import { ActivityPanel } from "./panels/ActivityPanel";
 import { HomePanel } from "./panels/HomePanel";
+import { NotesPanel } from "./panels/NotesPanel";
 import { RelationshipsPanel } from "./panels/RelationshipsPanel";
 import { ReactionsPanel } from "./panels/ReactionsPanel";
 import { SavedPanel } from "./panels/SavedPanel";
@@ -14,6 +15,8 @@ import { StoichPanel } from "./panels/StoichPanel";
 import type {
   ChemicalFollow,
   NoticeResponse,
+  NoteResponse,
+  NoteVisibility,
   PageResponse,
   Reaction,
   ReactionResponse,
@@ -29,8 +32,10 @@ export function WorkbenchLayout({
   activeTab,
   page,
   visibility,
+  noteVisibility,
   savedKind,
   summary,
+  initialNotes,
   initialReactions,
   initialChemicals,
   initialSavedReactions,
@@ -38,12 +43,17 @@ export function WorkbenchLayout({
   initialPeople,
   initialSkills,
   searchQuery,
+  createNote,
+  initialChemicalId,
+  initialReactionId,
 }: {
   activeTab: WorkbenchTab;
   page: number;
   visibility: ReactionVisibility;
+  noteVisibility: NoteVisibility;
   savedKind: SavedKind;
   summary: Summary | null;
+  initialNotes: NoteResponse | null;
   initialReactions: ReactionResponse | null;
   initialChemicals: PageResponse<ChemicalFollow> | null;
   initialSavedReactions: PageResponse<Reaction> | null;
@@ -51,6 +61,9 @@ export function WorkbenchLayout({
   initialPeople: PageResponse<PersonSummary> | null;
   initialSkills: PageResponse<SkillItem> | null;
   searchQuery?: string;
+  createNote?: boolean;
+  initialChemicalId?: number;
+  initialReactionId?: number;
 }) {
   const { user, ready: authReady } = useAccount();
   const t = useDictionary();
@@ -60,7 +73,15 @@ export function WorkbenchLayout({
 
   return (
     <>
-      {activeTab === "home" && <HomePanel counts={counts} initialReactions={initialReactions} />}
+      {activeTab === "home" && <HomePanel counts={counts} initialNotes={initialNotes} initialReactions={initialReactions} />}
+      {activeTab === "notes" && <NotesPanel
+        page={page}
+        visibility={noteVisibility}
+        initialData={initialNotes}
+        createOpen={createNote}
+        initialChemicalId={initialChemicalId}
+        initialReactionId={initialReactionId}
+      />}
       {activeTab === "search" && <SearchPanel initialQuery={searchQuery} />}
       {activeTab === "stoich" && <StoichPanel />}
       {activeTab === "mine" && <ReactionsPanel page={page} visibility={visibility} initialData={initialReactions} />}
