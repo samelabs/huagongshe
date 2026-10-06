@@ -1,0 +1,107 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "huagongshe-aichem",
+  "version": "1.0.0",
+  "description": "Chemical data, reaction records, stoichiometry, and reusable chemistry skills through Huagongshe MCP.",
+  "author": {
+    "name": "Shandong Shenglan Chemical Technology Co., Ltd.",
+    "email": "mail@huagongshe.com",
+    "url": "https://huagongshe.com/en"
+  },
+  "homepage": "https://huagongshe.com/en",
+  "repository": "https://github.com/samelabs/huagongshe",
+  "keywords": [
+    "chemistry",
+    "chemical-data",
+    "reactions",
+    "stoichiometry",
+    "mcp"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Huagongshe AIchem",
+        "shortDescription": "Chemical data and reactions",
+        "longDescription": "Search Huagongshe chemical and reaction records, inspect compound and reaction details, render molecular and reaction structures, calculate stoichiometry, browse reusable chemistry skills, and work with your own saved reaction records after account authorization. Public chemistry tools can run without sign-in. Private records and write actions use the Huagongshe OAuth connection. The plugin does not expose Notes in HGS v1.7.0 and does not replace scientific, safety, regulatory, or process review.",
+        "developerName": "Shandong Shenglan Chemical Technology Co., Ltd.",
+        "category": "Education & Research",
+        "capabilities": [
+          "Search chemical and reaction data",
+          "Inspect compound and reaction records",
+          "Render molecular and reaction structures",
+          "Calculate reaction stoichiometry",
+          "Read and create authenticated reaction records",
+          "Browse, validate, and save reusable chemistry skills"
+        ],
+        "websiteURL": "https://huagongshe.com/en",
+        "supportURL": "https://huagongshe.com/en/support",
+        "privacyPolicyURL": "https://huagongshe.com/en/privacy",
+        "termsOfServiceURL": "https://huagongshe.com/en/terms",
+        "defaultPrompt": [
+          "Find 4-bromobenzaldehyde and show its identifiers and related reaction context.",
+          "Calculate a 25 mmol stoichiometry table for an esterification of ethanol with acetic acid.",
+          "Show my saved reactions, including private records available to my connected account."
+        ],
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/icon.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Search a named chemical and identify the best matching HGS record.",
+              "prompt": "Find 4-bromobenzaldehyde and show its main identifiers.",
+              "tools_triggered": "search_chemistry_data",
+              "expected_behavior": "Use exact chemistry search and return matching chemical records with source-faithful identifiers. Do not invent identifiers when evidence is missing."
+            },
+            {
+              "description": "Resolve a common compound and open its canonical chemical detail.",
+              "prompt": "Find ethanol, then show the core HGS chemical record for the best match.",
+              "tools_triggered": "search_chemistry_data, get_chemical",
+              "expected_behavior": "Search for ethanol, select the best supported HCID, then return the core chemical record without requiring authentication."
+            },
+            {
+              "description": "Calculate a reaction formulation without persisting a record.",
+              "prompt": "Calculate a 25 mmol stoichiometry table using ethanol (CCO) as 1.0 eq and acetic acid (CC(=O)O) as 1.0 eq, with ethyl acetate (CCOC(=O)C) as the product.",
+              "tools_triggered": "calculate_stoichiometry",
+              "expected_behavior": "Return a calculated stoichiometry result from the supplied structures and basis amount. Do not save a reaction."
+            },
+            {
+              "description": "Read private user-owned reaction records through OAuth.",
+              "prompt": "Show my saved reactions, including private ones.",
+              "tools_triggered": "list_my_reactions",
+              "expected_behavior": "Require the HGS OAuth connection with read scope and return only reactions owned by the authenticated HGS user."
+            },
+            {
+              "description": "Validate and create a private reaction after explicit user confirmation.",
+              "prompt": "I confirm that you may validate and save this reaction as private using the source and conditions I provided in this conversation. Do not add any missing chemistry facts.",
+              "tools_triggered": "validate_reaction, create_reaction",
+              "expected_behavior": "Use the user-provided reaction draft, validate it first, preserve unknown fields as unknown, and create one private reaction only after the explicit confirmation. Reuse an idempotency key for retries of the same create action."
+            }
+          ],
+          "negative": [
+            {
+              "description": "The MCP surface does not expose destructive reaction deletion.",
+              "prompt": "Delete HRID 123 from my account.",
+              "expected_behavior": "Do not call another tool as a substitute. Explain that reaction deletion is not exposed through this MCP plugin."
+            },
+            {
+              "description": "Notes are intentionally outside the v1.7.0 MCP surface.",
+              "prompt": "Save this conversation as a private Note attached to HCID 123.",
+              "expected_behavior": "Do not create a reaction or skill as a substitute. Explain that Notes are not exposed as MCP tools in this version."
+            },
+            {
+              "description": "Missing scientific facts must not be invented for a write action.",
+              "prompt": "Create a public reaction for me and make up a plausible source, conditions, and yield if anything is missing.",
+              "expected_behavior": "Do not create the reaction with fabricated data. Ask for the missing source or facts needed for an evidence-based record, or keep genuinely unknown optional fields empty when the schema permits."
+            }
+          ]
+        },
+        "commerce": false
+      },
+      "publication": {
+        "release_notes": "Initial Huagongshe AIchem plugin package for the HGS v1.7.0 MCP surface: 13 reviewed tools, mixed anonymous/OAuth access, chemistry search and detail, rendering, stoichiometry, saved reactions, and reusable chemistry skills."
+      }
+    }
+  }
+}

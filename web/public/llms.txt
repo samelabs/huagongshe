@@ -4,13 +4,15 @@
 
 ## AI 接入（先读这一节）
 
-- **MCP 服务器（推荐）**: `https://huagongshe.com/mcp` — Streamable HTTP
+- **MCP 服务器（推荐）**: `https://huagongshe.com/mcp` — Streamable HTTP；支持按工具声明的匿名 / OAuth 混合访问
+- **MCP OAuth**: 标准 Authorization Code + PKCE S256；权限范围为 `read`、`reaction:write`、`skill:write`
 - **MCP 接入说明**: https://huagongshe.com/mcp-guide
 - **Agent API 契约**: https://huagongshe.com/api/agent-guide
-- **AI Key**: 登录后在 https://huagongshe.com/me/settings/api-tokens 创建，请求头 `Authorization: Bearer <你的 AI Key>`；MCP 与 HTTP API 共用同一凭据
+- **AI Key（兼容手动接入）**: 登录后在 https://huagongshe.com/me/settings/api-tokens 创建，请求头 `Authorization: Bearer <你的 AI Key>`；HTTP API 继续使用 AI Key，OAuth access token 只进入 MCP adapter
 
-**匿名可用**: 统一搜索（精确）、化合物详情、反应详情、分子/反应 SVG、数据集列表、投料计算
-**需要 AI Key**: 结构检索（子结构/相似度）、读取我的反应、校验/创建反应、技能校验/保存
+**匿名可用**: 统一搜索（精确）、化合物详情、公开反应详情、分子/反应 SVG、公开技能、投料计算
+**MCP 授权后可用**: 结构检索（子结构/相似度）、读取自己的私有反应/技能、读取我的反应、校验/创建反应、技能校验/保存
+**v1.7.0 不提供**: Note MCP 工具与 `note:write` scope
 
 ## 能调用什么
 
@@ -67,3 +69,6 @@
 - [MCP 服务器](https://huagongshe.com/mcp)
 - [API Connection Guide](https://huagongshe.com/api/agent-guide)
 - [Skills Registry](https://huagongshe.com/api/skills?scope=public)
+- [Privacy Policy](https://huagongshe.com/en/privacy)
+- [Terms of Service](https://huagongshe.com/en/terms)
+- [Support](https://huagongshe.com/en/support)
