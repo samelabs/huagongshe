@@ -88,7 +88,7 @@ ANN_CREATE_OPEN = ToolAnnotations(
 
 
 def _render_busy() -> ToolError:
-    return ToolError("渲染并发已达上限，请稍后重试")
+    return ToolError("Rendering concurrency limit reached. Try again shortly.")
 
 
 def _client_ip(headers: Any) -> str:
@@ -251,14 +251,15 @@ def build_mcp_server() -> MCPServer:
         page_size: int = 30,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """按名称、CAS、HCID、CID、InChIKey、DOI、SMILES 或结构查询化合物和反应。
+        """Search chemicals and reactions by name, CAS, HCID, PubChem CID, InChIKey,
+        DOI, SMILES, substructure, or similarity.
 
-        mode: exact(默认) / substructure / similarity。
-        threshold: similarity 模式阈值(0.4-1.0, 默认 0.7), 与 REST 同语义。
-        total=None 表示当前查询模式未计算完整 total；has_more 是下一页是否存在
-        的权威字段(不要用 total 反推是否还有下一页)。
-        capped=true 仅 substructure 模式出现: 已达产品返回上限(250), 数据库
-        真实总匹配数未知 — 此时 total 不是数据库真实总数, 不得如此描述。
+        mode: exact (default), substructure, or similarity.
+        threshold: similarity cutoff from 0.4 to 1.0 (default 0.7).
+        total=None means a complete total was not computed for this search mode.
+        has_more is authoritative for pagination; do not infer it from total.
+        capped=true can occur for substructure search when the 250-result product
+        cap is reached. In that case the database-wide match count is unknown.
         """
         if mode not in ("exact", "substructure", "similarity"):
             raise ToolError("mode must be one of: exact, substructure, similarity.")
@@ -302,11 +303,12 @@ def build_mcp_server() -> MCPServer:
         enrich: str = "core",
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """读取一个 HCID 的结构、标识符、性质和关联反应概况。
+        """Return chemical context for one HCID.
 
-        enrich: core = canonical 投影(零 provider 访问);
-        full = core + 统一语义详情(描述/名称/性质/安全/工业应用/供应商/溯源,
-        数据源各自保留独立值与来源)。
+        enrich=core returns the canonical projection without provider access.
+        enrich=full adds unified semantic detail: descriptions, names, properties,
+        safety, industrial context, suppliers, and provenance. Source-specific
+        values remain distinct and retain their source attribution.
         """
         if enrich not in ("core", "full"):
             raise ToolError("enrich must be either core or full.")
@@ -335,7 +337,8 @@ def build_mcp_server() -> MCPServer:
         reaction_id: int,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """读取一个 HRID。携带 Token 时也可读取自己的私有记录。"""
+        """Return one reaction by HRID. With an authenticated credential, the owner may
+        also read their own private reaction record."""
         from .services.reactions import load_reaction_detail
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
@@ -361,8 +364,12 @@ def build_mcp_server() -> MCPServer:
         height: int = 300,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> str:
-        """获取化合物的 2D 结构图(SVG 文本)，width/height 指定像素尺寸(50-800)。
-        chemical_id(库内化合物)或 smiles(任意结构, ≤512 字符)二选一。"""
+        """Render a 2D molecular structure as SVG text.
+
+        Provide either chemical_id for an HGS chemical or smiles for a direct
+        structure (maximum 512 characters). width and height are clamped to
+        50-800 pixels.
+        """
         from .services import rendering as render_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
@@ -406,8 +413,11 @@ def build_mcp_server() -> MCPServer:
         height: int = 300,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> str:
-        """获取反应方程式的 2D 结构图(SVG 文本)。width/height 指定像素尺寸
-        (50-800, 超出范围将被截断到边界值, 默认 800×300)。"""
+        """Render a reaction equation as SVG text.
+
+        width and height are clamped to 50-800 pixels. The default output size is
+        800×300.
+        """
         from .services import rendering as render_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
@@ -443,7 +453,8 @@ def build_mcp_server() -> MCPServer:
         page_size: int = 30,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """列出技能。scope=public 匿名可用; scope=mine 需要 AI Key。"""
+        """List reusable skills. scope=public is available anonymously; scope=mine
+        requires authentication and returns the caller's own skills."""
         from .services.skills import list_skills as _list_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
@@ -468,8 +479,11 @@ def build_mcp_server() -> MCPServer:
         skill_id: int | str,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """读取一个技能的 manifest、文件清单和 SKILL.md 全文(文本文件不含二进制)。
-        skill_id 支持数字 id 或 slug 字符串(如 huagongshe-reaction-publisher)。"""
+        """Return a skill manifest, file list, and full SKILL.md text.
+
+        skill_id accepts either a numeric ID or a slug such as
+        huagongshe-reaction-publisher. Binary file contents are not returned.
+        """
         from .services.skills import SkillNotAccessibleError
         from .services.skills import get_skill_detail as _detail_service
 
@@ -501,13 +515,13 @@ def build_mcp_server() -> MCPServer:
         concentration_mol_per_l: float | None = None,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """投料计算：角色化组分 + 基准投料量 → 整表投料量/理论收率/溶剂定容。
+        """Scale a reaction formulation from one basis amount.
 
-        components[{role(REACTANT/REAGENT/CATALYST/SOLVENT/PRODUCT), smiles, eq, label?}]
-        basis{index, amount_value, amount_unit(g/mg/mol/mmol)}。
-        非溶剂组分 eq 必填；最多 30 个组分。
-
-        示例(arguments): {"components":[{"role":"REACTANT","smiles":"O=C(O)c1ccccc1O","eq":1},{"role":"REAGENT","smiles":"CC(=O)OC(=O)C","eq":1.05},{"role":"PRODUCT","smiles":"CC(=O)Oc1ccccc1C(=O)O","eq":1}],"basis":{"index":0,"amount_value":10,"amount_unit":"g"}}
+        components entries use role (REACTANT/REAGENT/CATALYST/SOLVENT/PRODUCT),
+        smiles, eq, and optional label. basis contains index, amount_value, and
+        amount_unit (g, mg, mol, or mmol). eq is required for non-solvent
+        components. Maximum 30 components. Optionally provide
+        concentration_mol_per_l for solvent volume calculation.
         """
         from .core import rate_limit as _rate_limit
         from .core.rate_limit import RateLimitError as _RateLimitError
@@ -544,7 +558,7 @@ def build_mcp_server() -> MCPServer:
         page_size: int = 20,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """读取 AI Key 所属用户自己的反应记录(需 AI Key)。"""
+        """List reaction records owned by the authenticated HGS user."""
         from .services.reactions import list_my_reactions as _list_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
@@ -566,7 +580,10 @@ def build_mcp_server() -> MCPServer:
         reaction: dict[str, Any],
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """校验反应草稿(RDKit 标准化, 不保存)。需要 reaction:write 权限的 Token。"""
+        """Validate and canonicalize a reaction draft without saving it.
+
+        Requires reaction:write permission.
+        """
         from .core.rate_limit import RateLimitError as _RateLimitError
         from .services.reactions import ReactionValidationError
         from .services.reactions import validate_reaction_draft
@@ -590,9 +607,11 @@ def build_mcp_server() -> MCPServer:
         zip_base64: str,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """校验技能 zip 草稿(不保存): 结构、配额、frontmatter、脚本语法与危险调用警告。
+        """Validate a skill ZIP without saving it.
 
-        zip_base64: 技能 zip 文件的 base64 编码(上限 10MB 解码后)。
+        Checks archive structure, quotas, frontmatter, script syntax, and risky
+        call warnings. zip_base64 is the base64-encoded ZIP; the decoded archive
+        is limited by the server's skill ZIP size policy.
         """
         import asyncio as _asyncio
         import base64 as _base64
@@ -631,9 +650,10 @@ def build_mcp_server() -> MCPServer:
         idempotency_key: str = "",
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """把用户确认后的技能 zip 保存到该用户的技能容器(需 skill:write Token)。
+        """Create a private skill from a user-confirmed ZIP package.
 
-        个人技能恒为 private。idempotency_key: 同一次保存的重试复用，其他技能不得复用。
+        Requires skill:write permission. Personal skills are always private.
+        Reuse the same idempotency_key only when retrying the same create action.
         """
         import base64 as _base64
         import binascii
@@ -681,10 +701,12 @@ def build_mcp_server() -> MCPServer:
         idempotency_key: str,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """保存用户确认后的反应记录(需 reaction:write Token + Idempotency-Key)。
+        """Create a user-confirmed reaction record.
 
-        必须先用 validate_reaction 校验并让用户确认草稿后再调用；visibility 默认 private。
-        成功返回 HRID、页面链接和新建 HCID。
+        Requires reaction:write permission and an idempotency_key. Validate the
+        draft first and obtain user confirmation before creating it. New records
+        should default to private. The result includes the HRID, page URL, and any
+        newly created HCIDs.
         """
         from .core.rate_limit import RateLimitError as _RateLimitError
         from .services.reactions import (IdempotencyKeyTooLongError,
