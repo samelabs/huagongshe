@@ -3,6 +3,7 @@
 产品定位: 主要 Agent 接入层是 MCP(https://huagongshe.com/mcp)。
 本 router 服务于不支持 MCP 的 AI 客户端、用户自己的 HTTP automation、
 以及既有 hgs_* AI Key 客户端; 是兼容面, 不是与 MCP 平级的新 Agent 平台。
+(Contract text is served in English; this module docstring stays internal.)
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ router = APIRouter(tags=["agent"])
 @router.get(
     "/agent-guide",
     operation_id="get_agent_connection_guide",
-    summary="REST / AI Key 兼容接入面: 读取 AI 可用操作(主要接入层为 MCP)",
+    summary="REST / AI Key compatibility surface: read AI-available operations (MCP is the primary integration)",
 )
 async def agent_guide(
     authorization: str | None = Header(default=None),
@@ -32,7 +33,7 @@ async def agent_guide(
     """Return the complete, bounded operation guide; a Bearer token also confirms its owner."""
     bearer_supplied = bool(authorization and authorization.lower().startswith("bearer "))
     if bearer_supplied and actor is None:
-        raise HTTPException(401, "AI Key 无效、已过期或已删除")
+        raise HTTPException(401, "AI Key is invalid, expired, or deleted")
 
     agent = actor if actor and actor.auth_kind == "agent" else None
     origin = settings.public_base_url.rstrip("/")
@@ -60,21 +61,21 @@ async def agent_guide(
                 if agent else None
             ),
             "instruction": (
-                "连接已确认。只使用下列 operations；能力均以本契约为准。"
+                "Connection confirmed. Use only the operations listed below; capabilities are bounded by this contract."
                 if agent
-                else "公开操作可直接使用。如需访问个人数据或受授权操作，请在账户设置创建 AI Key，并以 Authorization: Bearer <AI Key> 再次读取本入口以确认连接。"
+                else "Public operations work without authentication. To access personal data or authorized operations, create an AI Key in account settings, then read this entry again with Authorization: Bearer <AI Key> to confirm the connection."
             ),
         },
         "authentication": {
             "type": "bearer",
             "header": "Authorization: Bearer <AI Key>",
             "scopes": list(agent.scopes) if agent else ["read", "reaction:write", "skill:write"],
-            "token_handling": "AI Key 仅发送给 huagongshe.com，不写入公开提示词、代码、文件或日志。",
+            "token_handling": "Send the AI Key only to huagongshe.com; never write it into public prompts, code, files, or logs.",
         },
         "discovery": {
             "skill_help_url": f"{origin}/skills",
             "optional_skill_url": skill_url,
-            "instruction": "先从 operations 选择操作；能力均以本契约为准，不依赖 OpenAPI。",
+            "instruction": "Choose an operation from the list below; capabilities are bounded by this contract, not by OpenAPI.",
         },
         "operations": [
             {
@@ -82,114 +83,114 @@ async def agent_guide(
                 "method": "GET",
                 "path": "/api/search",
                 "auth": "public_or_bearer",
-                "purpose": "按名称、CAS、HCID、CID、InChIKey、DOI、SMILES 或结构查询化合物和反应",
-                "input": "q 必填；mode 为 exact、substructure 或 similarity；page 默认1最大20；page_size 默认30最大100；total=None 表示当前查询模式未计算完整总数，has_more 是下一页存在性的权威字段；capped=true 仅 substructure 模式出现，表示已达产品返回上限（250），数据库真实总匹配数未知，total 不得当作数据库真实总数",
+                "purpose": "Search compounds and reactions by name, CAS, HCID, CID, InChIKey, DOI, SMILES, or structure",
+                "input": "q is required; mode is exact, substructure, or similarity; page defaults to 1 with max 20; page_size defaults to 30 with max 100; total=None means the full count was not computed for the current mode, and has_more is the authoritative next-page indicator; capped=true appears only in substructure mode and means the product return cap (250) was reached — the true database match count is unknown and total must not be treated as the real total",
             },
             {
                 "id": "get_chemical",
                 "method": "GET",
                 "path": "/api/chemicals/{chemical_id}",
                 "auth": "public_or_bearer",
-                "purpose": "读取一个 HCID 的结构、标识符、性质和关联反应概况",
-                "input": "enrich=core（默认，仅 canonical 数据）或 full（统一语义详情：描述/名称与别名/性质/安全与法规/工业应用/供应商/溯源；数据源各自保留独立值与来源）",
+                "purpose": "Read one HCID's structure, identifiers, properties, and related reaction overview",
+                "input": "enrich=core (default, canonical data only) or full (unified semantic detail: descriptions/names and synonyms/properties/safety and regulatory/industrial applications/suppliers/provenance; each source keeps its own values and attribution)",
             },
             {
                 "id": "get_reaction",
                 "method": "GET",
                 "path": "/api/reactions/{reaction_id}",
                 "auth": "public_or_bearer",
-                "purpose": "读取一个 HRID；AI Key 所属用户也可读取自己的私有记录",
+                "purpose": "Read one HRID; the AI Key's owner may also read their own private records",
             },
             {
                 "id": "render_molecule_svg",
                 "method": "GET",
                 "path": "/api/mol/{chemical_id}/svg?w=&h=",
                 "auth": "public",
-                "purpose": "获取化合物的 2D 结构图（SVG），w/h 指定尺寸",
+                "purpose": "Get the 2D structure image (SVG) of a compound; w/h set the size",
             },
             {
                 "id": "render_reaction_svg",
                 "method": "GET",
                 "path": "/api/reactions/{reaction_id}/svg?w=&h=",
                 "auth": "public",
-                "purpose": "获取反应方程式的 2D 结构图（SVG），w/h 指定尺寸",
+                "purpose": "Get the 2D structure image (SVG) of a reaction equation; w/h set the size",
             },
             {
                 "id": "list_my_reactions",
                 "method": "GET",
                 "path": "/api/users/me/reactions",
                 "auth": "bearer",
-                "purpose": "读取 AI Key 所属用户自己的反应记录",
-                "input": "visibility 为 all、private 或 public；支持 page 和 page_size",
+                "purpose": "Read the AI Key owner's own reaction records",
+                "input": "visibility is all, private, or public; supports page and page_size",
             },
             {
                 "id": "list_skills",
                 "method": "GET",
                 "path": "/api/skills",
                 "auth": "public_or_bearer",
-                "purpose": "列出技能：scope=public 浏览平台公开技能池（含官方与开源社区技能），scope=mine 读取 AI Key 所属用户自己的技能",
-                "input": "scope 为 public 或 mine（mine 需 AI Key）；q 关键词搜索；category 分类过滤；支持 page 和 page_size",
+                "purpose": "List skills: scope=public browses the platform's public skill pool (official and open community skills); scope=mine reads the AI Key owner's own skills",
+                "input": "scope is public or mine (mine requires an AI Key); q keyword search; category filter; supports page and page_size",
             },
             {
                 "id": "get_skill",
                 "method": "GET",
                 "path": "/api/skills/{skill_id}",
                 "auth": "public_or_bearer",
-                "purpose": "读取一个技能的 manifest、文件树和 SKILL.md 全文；AI Key 所属用户也可读取自己的私有技能",
+                "purpose": "Read a skill's manifest, file tree, and full SKILL.md text; the AI Key owner may also read their own private skills",
             },
             {
                 "id": "download_skill_archive",
                 "method": "GET",
                 "path": "/api/skills/{skill_id}/archive",
                 "auth": "public_or_bearer",
-                "purpose": "下载技能完整 zip 包，用于在用户本地 AI 环境装载；含脚本的技能执行前必须人工审阅",
+                "purpose": "Download a skill's complete zip for loading into the user's local AI environment; skills containing scripts must be reviewed by a human before execution",
             },
             {
                 "id": "calculate_stoichiometry",
                 "method": "POST",
                 "path": "/api/stoichiometry/scale",
                 "auth": "public_or_bearer",
-                "purpose": "投料计算：按角色列出反应全部组分，以任一组分（限量试剂或目标产物）的投料量为摩尔基准，换算整表投料量并给出产物理论收率",
-                "input": "components[{role(REACTANT/REAGENT/CATALYST/SOLVENT/PRODUCT),smiles,eq,label?}]（最多30个，非溶剂 eq 必填）+ basis{index,amount_value,amount_unit(g/mg/mol/mmol)} + 可选 concentration_mol_per_l（溶剂按浓度定容只给体积）",
+                "purpose": "Scale calculation: list all reaction components by role and, using any single component's charge (limiting reagent or target product) as the molar basis, convert the full charge table and report the theoretical product yield",
+                "input": "components[{role(REACTANT/REAGENT/CATALYST/SOLVENT/PRODUCT),smiles,eq,label?}] (max 30; eq required for non-solvents) + basis{index,amount_value,amount_unit(g/mg/mol/mmol)} + optional concentration_mol_per_l (solvent volume is derived from concentration)",
             },
             {
                 "id": "validate_reaction",
                 "method": "POST",
                 "path": "/api/reactions/validate",
                 "auth": "bearer:reaction:write",
-                "purpose": "校验反应草稿并返回 RDKit 标准化后的 reaction SMILES 和参与物",
+                "purpose": "Validate a reaction draft and return the RDKit-normalized reaction SMILES and participants",
             },
             {
                 "id": "validate_skill",
                 "method": "POST",
                 "path": "/api/skills/validate",
                 "auth": "bearer:skill:write",
-                "purpose": "校验技能 zip 草稿（不保存）：结构、配额、文件数、frontmatter、脚本语法与危险调用警告",
-                "input": "multipart 字段 file=<技能 zip>",
+                "purpose": "Validate a skill zip draft (not saved): structure, quotas, file count, frontmatter, script syntax, and dangerous-call warnings",
+                "input": "multipart field file=<skill zip>",
             },
             {
                 "id": "create_skill",
                 "method": "POST",
                 "path": "/api/skills",
                 "auth": "bearer:skill:write",
-                "purpose": "把用户确认后的技能 zip 保存到该用户的技能容器；个人技能恒为 private",
-                "required_header": "Idempotency-Key；同一次保存的重试复用，其他技能不得复用",
+                "purpose": "Save a user-confirmed skill zip into that user's skill container; personal skills are always private",
+                "required_header": "Idempotency-Key; reuse it for retries of the same save, never across different skills",
             },
             {
                 "id": "create_reaction",
                 "method": "POST",
                 "path": "/api/reactions",
                 "auth": "bearer:reaction:write",
-                "purpose": "在用户确认后把同一份已校验草稿保存到该用户的反应库",
-                "required_header": "Idempotency-Key；同一次保存的重试复用，其他草稿不得复用",
+                "purpose": "After user confirmation, save an already-validated draft into the user's reaction library",
+                "required_header": "Idempotency-Key; reuse it for retries of the same save, never across different drafts",
             },
         ],
         "payload_hints": {
             "required": ["visibility", "participants", "source_type"],
             "participant_required": ["role", "smiles"],
             "participant_roles": ["REACTANT", "REAGENT", "CATALYST", "SOLVENT", "PRODUCT"],
-            "minimum_structure": "至少一个 REACTANT 和一个 PRODUCT",
-            "visibility": "未得到公开确认时使用 private；public 必须由用户明确确认",
+            "minimum_structure": "At least one REACTANT and one PRODUCT",
+            "visibility": "Use private unless publicity has been confirmed; public requires the user's explicit confirmation",
             "paired_fields": [
                 "amount_value + amount_unit",
                 "concentration_value + concentration_unit",
@@ -198,38 +199,38 @@ async def agent_guide(
                 "pressure_value + pressure_unit",
             ],
             "source_types": {
-                "self": "用户本人实验",
-                "doi": "同时提供 doi",
-                "patent": "同时提供 patent",
-                "url": "同时提供 source_url",
-                "database": "同时提供 source_citation",
-                "other": "同时提供 source_citation",
+                "self": "the user's own experiment",
+                "doi": "also provide doi",
+                "patent": "also provide patent",
+                "url": "also provide source_url",
+                "database": "also provide source_citation",
+                "other": "also provide source_citation",
             },
         },
         "workflow": [
-            "读取用户提供的网页、文档、图片或文本并保留来源证据",
-            "只提取明确事实；结构有歧义或必要字段缺失时先询问用户",
-            "形成结构化草稿；用户未决定公开时设置 visibility=private",
-            "向用户展示参与物、条件、来源和可见范围并取得保存确认",
-            "使用同一份 payload 调用 POST /api/reactions/validate",
-            "校验通过后，携带唯一 Idempotency-Key 调用 POST /api/reactions",
-            "返回 HRID、页面地址、可见范围和 created_chemical_ids",
+            "Read the web page, document, image, or text provided by the user and keep the source evidence",
+            "Extract only explicit facts; ask the user first when the structure is ambiguous or required fields are missing",
+            "Build a structured draft; set visibility=private until the user decides to publish",
+            "Show the participants, conditions, source, and visibility to the user and obtain save confirmation",
+            "Call POST /api/reactions/validate with the same payload",
+            "Once validation passes, call POST /api/reactions with a unique Idempotency-Key",
+            "Return the HRID, page URL, visibility, and created_chemical_ids",
         ],
         "rules": [
-            "不得编造 SMILES、来源、条件、用量、收率或实验过程；未知可选字段应省略。",
-            "查到多个可能结构时让用户选择，不按结果顺序猜测。",
-            "同一角色和标准结构不得拆成重复参与物；使用 occurrence_count。",
-            "校验不会保存；只有 POST /api/reactions 会创建记录。",
-            "AI Key 只开放查询、校验和新建；编辑、可见性调整与删除在网页完成。",
-            "未收到成功响应不得声称已保存。",
+            "Never invent SMILES, sources, conditions, quantities, yields, or experimental procedures; omit unknown optional fields.",
+            "If multiple plausible structures are found, let the user choose instead of guessing by result order.",
+            "Do not split the same role and canonical structure into duplicate participants; use occurrence_count.",
+            "Validation never saves; only POST /api/reactions creates a record.",
+            "The AI Key only allows querying, validating, and creating; editing, visibility changes, and deletion are done on the website.",
+            "Do not claim a save succeeded without a success response.",
         ],
         "errors": {
-            "400_or_422": "按 detail 修正字段或结构后重新校验，不补猜缺失事实",
-            "401": "停止操作；AI Key 无效、已过期或已删除，请用户重新授权",
-            "403": "停止操作；当前授权不允许该动作，不尝试其他接口绕过",
-            "404": "核对稳定标识符，不推测相邻 ID",
-            "409": "按 detail 处理重复参与物或幂等冲突",
-            "429": "遵循 Retry-After，降低请求频率",
+            "400_or_422": "Fix the fields or structure per the detail and validate again; do not guess missing facts",
+            "401": "Stop; the AI Key is invalid, expired, or deleted — ask the user to re-authorize",
+            "403": "Stop; the current authorization does not permit this action; do not try to bypass via other endpoints",
+            "404": "Double-check the stable identifier; do not guess adjacent IDs",
+            "409": "Handle duplicate participants or idempotency conflicts per the detail",
+            "429": "Honor Retry-After and reduce the request rate",
         },
         "rate_limits": {
             "reaction_writes_per_minute": settings.api_reaction_write_limit_per_minute,

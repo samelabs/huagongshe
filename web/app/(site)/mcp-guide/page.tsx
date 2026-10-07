@@ -51,12 +51,26 @@ export default function McpPage() {
           <code className="mcp-connect-value">https://huagongshe.com/mcp</code>
         </div>
         <div className="mcp-connect-row">
+          <span className="mcp-connect-label">{t.mcp.connectAnonLabel}</span>
+          <span className="mcp-connect-value">{t.mcp.connectAnonDesc}</span>
+        </div>
+        <div className="mcp-connect-row">
+          <span className="mcp-connect-label">{t.mcp.connectOauthLabel}</span>
+          <span className="mcp-connect-value">{t.mcp.connectOauthDesc}</span>
+        </div>
+      </div>
+    </section>
+
+    <section className="guide-section">
+      <div className="section-heading"><div><p className="page-kicker">{t.mcp.connectCompatKicker}</p></div></div>
+      <div className="mcp-connect">
+        <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.mcp.connectTokenLabel}</span>
-          <code className="mcp-connect-value">Authorization: Bearer &lt;你的AI Key&gt;</code>
+          <code className="mcp-connect-value">Authorization: Bearer &lt;AI Key&gt;</code>
         </div>
         <p className="mcp-connect-desc">{t.mcp.connectTokenDesc}</p>
         <div className="guide-actions">
-          <Link className="button primary" href={withLocale("/me/settings/api-tokens", locale)}>{t.mcp.connectTokenCta}</Link>
+          <Link className="button secondary" href={withLocale("/me/settings/api-tokens", locale)}>{t.mcp.connectTokenCta}</Link>
         </div>
       </div>
     </section>
@@ -65,6 +79,7 @@ export default function McpPage() {
       <div className="section-heading"><div><p className="page-kicker">{t.mcp.commonKicker}</p></div></div>
       <p className="guide-ref-intro">{t.mcp.commonDesc}</p>
       <CopyJson />
+      <p className="guide-ref-intro">{t.mcp.compatJsonDesc}</p>
     </section>
 
     <section className="guide-section">

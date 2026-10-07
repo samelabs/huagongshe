@@ -679,13 +679,18 @@ const de: Dictionary = {
     /* ── Verbindungsinformationen ── */
     connectKicker: 'Verbindungsinformationen',
     connectUrlLabel: 'MCP Server',
-    connectTokenLabel: 'AI Key (bei Bedarf)',
-    connectTokenDesc: 'Öffentliche Funktionen sind anonym nutzbar. Für persönliche Daten, Struktursuchen und Schreibvorgänge ist ein AI Key erforderlich — erstellbar und jederzeit widerrufbar unter Kontoeinstellungen → AI Key. Trage in das Token-Feld nur den AI Key selbst ein; „Authorization: Bearer <dein AI Key>“ als Ganzes gehört nur in ein benutzerdefiniertes Header-Feld.',
+    connectAnonLabel: 'Öffentliche Werkzeuge',
+    connectAnonDesc: 'Öffentliche Abfragewerkzeuge funktionieren anonym; keine Authentifizierung erforderlich.',
+    connectOauthLabel: 'Standardautorisierung für geschützte Werkzeuge',
+    connectOauthDesc: 'Struktursuche, persönliche Daten und Schreibvorgänge erfordern eine Kontoautorisierung. Clients mit Standard-MCP-OAuth leiten dich automatisch durch die HGS-Kontoverbindung (Authorization Code + PKCE S256, Scopes read / reaction:write / skill:write) — bestätige einfach auf der Autorisierungsseite.',
+    connectCompatKicker: 'AI-Key-Kompatibilität',
+    connectTokenLabel: 'AI Key (Kompatibilität)',
+    connectTokenDesc: 'MCP-Clients ohne Standard-OAuth-Kontoverknüpfung, HTTP-Automatisierung und bestehende Integrationen können weiterhin einen AI Key verwenden: erstellbar und jederzeit widerrufbar unter Kontoeinstellungen → AI Key; sende ihn als Authorization: Bearer <AI Key>. Dies ist der Kompatibilitätspfad, nicht die Standard-MCP-Authentifizierung.',
     connectTokenCta: 'AI Key erstellen',
-    /* ── Wichtige Agent-Clients ── */
-    agentsKicker: 'Wichtige Agent-Clients',
+    /* ── Wichtige Agent-Clients (Kompatibilitätseinrichtung) ── */
+    agentsKicker: 'Wichtige Agent-Clients (Kompatibilitätseinrichtung)',
     qwenTitle: 'Qianwen Office QwenWork',
-    qwenDesc: 'Offizieller Client von Alibaba. Unterstützt Remote-MCP über Streamable HTTP.',
+    qwenDesc: 'Offizieller Client von Alibaba mit Streamable-HTTP-Remote-MCP-Unterstützung. Unten: manuelle AI-Key-Kompatibilitätseinrichtung.',
     qwenSteps: [
       'Desktop-Client von Qianwen Office öffnen',
       'In der linken Navigation „Erweiterungen“ → „Connectors“ öffnen',
@@ -694,7 +699,7 @@ const de: Dictionary = {
       'Auf „+ Header hinzufügen“ klicken: Authorization = Bearer <dein AI Key>',
     ],
     workbuddyTitle: 'Tencent WorkBuddy',
-    workbuddyDesc: 'Unterstützt offiziell benutzerdefinierte MCP-Connectors.',
+    workbuddyDesc: 'Unterstützt offiziell benutzerdefinierte MCP-Connectors. Unten: manuelle AI-Key-Kompatibilitätseinrichtung.',
     workbuddySteps: [
       'WorkBuddy öffnen',
       'Im linken Menü „Experten · Skills · Connectors“ → „Connectors“ wählen',
@@ -702,7 +707,7 @@ const de: Dictionary = {
       'Server-URL einfügen und Auth-Header hinzufügen: Authorization = Bearer <dein AI Key>',
     ],
     doubaoTitle: 'Doubao Work',
-    doubaoDesc: 'Agent-Produkt mit Unterstützung für benutzerdefinierte MCP-Connectors. Folge der Anleitung im Produkt.',
+    doubaoDesc: 'Agent-Produkt mit Unterstützung für benutzerdefinierte MCP-Connectors. Unten: manuelle AI-Key-Kompatibilitätseinrichtung; folge der Anleitung im Produkt.',
     doubaoSteps: [
       'Desktop-Version von Doubao Work herunterladen (doubao.com/work) oder die aktuelle Doubao-Desktop-Version verwenden',
       'Bei den Connectors „Benutzerdefiniertes MCP“ wählen und die Server-URL eingeben',
@@ -710,41 +715,39 @@ const de: Dictionary = {
     ],
     /* ── Allgemeine Konfiguration ── */
     commonKicker: 'Allgemeine JSON-Konfiguration',
-    commonDesc: 'Clients mit JSON-Einfügen (QwenWork „JSON-Konfiguration einfügen“, WorkBuddy mcp.json usw.) können folgendes direkt verwenden:',
+    commonDesc: 'Die standardmäßige Minimalkonfiguration benötigt nur die Remote-MCP-URL (Clients mit Standard-OAuth-Unterstützung starten die Kontoverbindung bei Bedarf automatisch):',
     commonJson: `{
   "mcpServers": {
     "huagongshe": {
       "type": "streamable-http",
-      "url": "https://huagongshe.com/mcp",
-      "headers": {
-        "Authorization": "Bearer <dein AI Key>"
-      }
+      "url": "https://huagongshe.com/mcp"
     }
   }
 }`,
+    compatJsonDesc: 'Wenn du den AI-Key-Kompatibilitätspfad nutzt, ergänze unter headers: Authorization: Bearer <dein AI Key>.',
     /* ── Werkzeugliste ── */
     toolsKicker: 'Für die KI verfügbare Werkzeuge',
-    toolsIntro: 'Insgesamt 13 Werkzeuge. Die öffentliche Suche erfordert keine Anmeldung. Für Struktursuchen, persönliche Daten und Schreibvorgänge ist ein AI Key (reaction:write / skill:write) erforderlich.',
+    toolsIntro: 'Insgesamt 13 Werkzeuge. Die öffentliche Suche erfordert keine Anmeldung. Für Struktursuchen, persönliche Daten und Schreibvorgänge ist eine Autorisierung erforderlich (Standard-OAuth oder der AI-Key-Kompatibilitätspfad; reaction:write / skill:write).',
     tools: [
-      { name: 'search_chemistry_data', auth: 'Öffentlich / AI Key', desc: 'Suche über Namen, CAS, SMILES, DOI u. a.; Teilstruktur/Ähnlichkeit erfordern einen AI Key' },
+      { name: 'search_chemistry_data', auth: 'Öffentlich / Autorisiert', desc: 'Suche über Namen, CAS, SMILES, DOI u. a.; Teilstruktur/Ähnlichkeit erfordern eine Autorisierung' },
       { name: 'get_chemical', auth: 'Öffentlich', desc: 'Verbindungsdetails: enrich=core für Struktur, Bezeichner und zugehörige Reaktionen; full zusätzlich integrierte semantische Details (Beschreibung, Eigenschaften, Sicherheit, Anbieter u. a.)' },
-      { name: 'get_reaction', auth: 'Öffentlich / AI Key', desc: 'Öffentliche Reaktionen anonym lesbar; private Einträge nur für die Eigentümerin oder den Eigentümer' },
+      { name: 'get_reaction', auth: 'Öffentlich / Autorisiert', desc: 'Öffentliche Reaktionen anonym lesbar; private Einträge nur für ihre Eigentümerin oder ihren Eigentümer' },
       { name: 'render_molecule_svg', auth: 'Öffentlich', desc: '2D-Strukturbild eines Moleküls (SVG)' },
       { name: 'render_reaction_svg', auth: 'Öffentlich', desc: 'Bild einer Reaktionsgleichung (SVG)' },
-      { name: 'list_skills', auth: 'Öffentlich / AI Key', desc: 'scope=public anonym durchsuchbar; mine listet die eigenen Skills' },
-      { name: 'get_skill', auth: 'Öffentlich / AI Key', desc: 'Öffentliche Skills anonym lesbar; private nur für die Eigentümerin oder den Eigentümer' },
+      { name: 'list_skills', auth: 'Öffentlich / Autorisiert', desc: 'scope=public anonym durchsuchbar; mine listet die eigenen Skills' },
+      { name: 'get_skill', auth: 'Öffentlich / Autorisiert', desc: 'Öffentliche Skills anonym lesbar; private nur für ihre Eigentümerin oder ihren Eigentümer' },
       { name: 'calculate_stoichiometry', auth: 'Öffentlich', desc: 'Ansatzrechnung: Mol-Basis in eine komplette Einwaage-Tabelle mit theoretischer Ausbeute umrechnen' },
-      { name: 'list_my_reactions', auth: 'AI Key', desc: 'Eigene Reaktionsaufzeichnungen auflisten' },
-      { name: 'validate_reaction', auth: 'AI Key', desc: 'Reaktionsentwurf mit RDKit validieren (wird nicht gespeichert)' },
-      { name: 'create_reaction', auth: 'AI Key', desc: 'Bestätigte Reaktionsaufzeichnung speichern (idempotent, standardmäßig privat)' },
-      { name: 'validate_skill', auth: 'AI Key', desc: 'Skill-ZIP-Entwurf validieren (wird nicht gespeichert)' },
-      { name: 'create_skill', auth: 'AI Key', desc: 'Skill im eigenen Bereich speichern (immer privat)' },
+      { name: 'list_my_reactions', auth: 'OAuth / AI-Key-Kompatibilität', desc: 'Eigene Reaktionsaufzeichnungen auflisten' },
+      { name: 'validate_reaction', auth: 'OAuth / AI-Key-Kompatibilität', desc: 'Reaktionsentwurf mit RDKit validieren (wird nicht gespeichert)' },
+      { name: 'create_reaction', auth: 'OAuth / AI-Key-Kompatibilität', desc: 'Bestätigte Reaktionsaufzeichnung speichern (idempotent, standardmäßig privat)' },
+      { name: 'validate_skill', auth: 'OAuth / AI-Key-Kompatibilität', desc: 'Skill-ZIP-Entwurf validieren (wird nicht gespeichert)' },
+      { name: 'create_skill', auth: 'OAuth / AI-Key-Kompatibilität', desc: 'Skill im eigenen Bereich speichern (immer privat)' },
     ],
     /* ── Vertrauensregeln ── */
     trustKicker: 'Daten und Berechtigungen',
     trust1: 'Reaktionsaufzeichnungen sind standardmäßig privat; für die Veröffentlichung ist deine ausdrückliche Bestätigung erforderlich',
     trust2: 'Vor dem Speichern zeigt die KI den Entwurf und holt deine Bestätigung ein',
-    trust3: 'AI Keys lassen sich jederzeit widerrufen. Gib sie nur an huagongshe.com weiter',
+    trust3: 'Autorisierungen und AI Keys lassen sich jederzeit widerrufen. Gib sie nur an huagongshe.com weiter',
     trust4: 'Jedes Speichern verwendet einen eindeutigen Idempotency-Key — Wiederholungen erzeugen keine doppelten Einträge',
     copyJson: (copied: boolean) => copied ? 'Kopiert' : 'JSON kopieren',
   },
@@ -754,13 +757,13 @@ const de: Dictionary = {
     title: 'KI-Chemie-Workbench',
     desc: '化工社 ist dein KI-Chemie-Workbench. Nach der Anbindung kannst du der KI Literatur, Patente und Versuchsnotizen übergeben — sie extrahiert Reaktionen, validiert Strukturen und speichert in deinem Workbench.',
     hero: 'KI-Chemie-Workbench',
-    heroBody: 'Verbinde zuerst die KI: MCP-fähige Clients nutzen den MCP Server, HTTP-Agenten die API-Vereinbarung. Für Schreibvorgänge ist ein AI Key erforderlich.',
+    heroBody: 'Verbinde zuerst die KI: MCP-fähige Clients nutzen den MCP Server mit Standard-MCP-OAuth, HTTP-Agenten die API-Vereinbarung (AI-Key-Kompatibilitätspfad). Für Schreibvorgänge ist eine Kontoautorisierung erforderlich.',
     /* ── Anbindung ── */
     connectKicker: 'Anbindung',
     connectMcpLabel: 'MCP Server',
-    connectKeyLabel: 'AI Key',
-    connectKeyDesc: 'Die öffentliche Suche (Verbindungen und Reaktionen finden) funktioniert ohne Anmeldung. Für Lese- und Schreibzugriff auf deine Reaktionsaufzeichnungen ist ein AI Key erforderlich.',
-    keyCta: 'AI Key erstellen →',
+    connectKeyLabel: 'Geschützte Vorgänge (AI-Key-Kompatibilität)',
+    connectKeyDesc: 'Die öffentliche Suche (Verbindungen und Reaktionen finden) funktioniert ohne Anmeldung. Für Lese- und Schreibzugriff auf deine Reaktionsaufzeichnungen ist eine Kontoautorisierung erforderlich (Standard-MCP-OAuth oder der AI-Key-Kompatibilitätspfad).',
+    keyCta: 'AI-Key-Kompatibilität: erstellen →',
     /* ── Was die KI kann ── */
     capabilityKicker: 'Was die KI für dich tun kann',
     cap1Title: 'Daten nachschlagen',
@@ -770,10 +773,10 @@ const de: Dictionary = {
     cap2Badge: '',
     cap3Title: 'Strukturen validieren',
     cap3Desc: 'Nach der Extraktion standardisiert und prüft RDKit die Strukturen. Bei Mehrdeutigkeiten wird nachgefragt, nicht geraten.',
-    cap3Badge: 'AI Key erforderlich',
+    cap3Badge: 'Autorisierung erforderlich',
     cap4Title: 'Aufzeichnungen speichern',
     cap4Desc: 'Nach der Bestätigung wird im Workbench gespeichert — standardmäßig privat. Du erhältst HRID und Seitenlink zurück.',
-    cap4Badge: 'AI Key erforderlich',
+    cap4Badge: 'Autorisierung erforderlich',
     mcpCta: 'MCP-Anleitung ansehen →',
     fallbackTitle: 'Ohne Werkzeuganbindung?',
     fallbackDesc: 'Unterstützt deine KI weder MCP noch HTTP-Werkzeugaufrufe, kopiere den Prompt und lass sie einen strukturierten Entwurf erstellen, den du auf der 化工社-Website selbst speicherst. Dies ist keine API-/MCP-Anbindung.',
@@ -794,8 +797,8 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     /* ── Daten und Berechtigungen ── */
     trustKicker: 'Daten und Berechtigungen',
     trust1: 'Reaktionsaufzeichnungen sind standardmäßig privat; für die Veröffentlichung ist deine ausdrückliche Bestätigung erforderlich',
-    trust2: 'AI Keys lassen sich in den Kontoeinstellungen ansehen, kopieren und widerrufen',
-    trust3: 'Gib AI Keys nur an huagongshe.com weiter',
+    trust2: 'Kontoautorisierungen und AI Keys lassen sich in den Kontoeinstellungen ansehen und widerrufen',
+    trust3: 'Gib Autorisierungsdaten nur an huagongshe.com weiter',
     /* ── Teilen ── */
     share: 'Teilen',
     shareCopied: 'Link kopiert',

@@ -676,13 +676,18 @@ const ja: Dictionary = {
     /* ── 接続情報 ── */
     connectKicker: '接続情報',
     connectUrlLabel: 'MCP Server',
-    connectTokenLabel: 'AI Key（必要に応じて）',
-    connectTokenDesc: '公開機能は匿名で利用できます。個人データ・構造検索・書き込み操作には AI Key が必要です。アカウント設定 → AI Key で作成でき、いつでも削除できます。トークン欄には AI Key 本体のみを貼り付けてください。Authorization: Bearer <あなたの AI Key> と全体を書くのはカスタム Header の場合だけです。',
+    connectAnonLabel: '公開ツール',
+    connectAnonDesc: '公開クエリツールは匿名で利用できます。認証は不要です。',
+    connectOauthLabel: '保護されたツールの標準認可',
+    connectOauthDesc: '構造検索・個人データ・書き込み操作にはアカウント認可が必要です。標準 MCP OAuth に対応したクライアントは、HGS アカウント接続（Authorization Code + PKCE S256、スコープ read / reaction:write / skill:write）を自動的に案内します。認可ページで確認してください。',
+    connectCompatKicker: 'AI Key 互換チャネル',
+    connectTokenLabel: 'AI Key（互換）',
+    connectTokenDesc: '標準 OAuth アカウント連結に対応しない MCP クライアント、HTTP オートメーション、既存の統合では、引き続き AI Key を利用できます。アカウント設定 → AI Key で作成し、いつでも削除可能です。リクエストヘッダーは Authorization: Bearer <AI Key>。これは互換チャネルであり、MCP の標準認証ではありません。',
     connectTokenCta: 'AI Key を作成',
-    /* ── 主要エージェントクライアント ── */
-    agentsKicker: '主要エージェントクライアント',
+    /* ── 主要エージェントクライアント（互換設定） ── */
+    agentsKicker: '主要エージェントクライアント（互換設定）',
     qwenTitle: '千問弁公 QwenWork',
-    qwenDesc: 'Alibaba 公式。Streamable HTTP リモート MCP に対応しています。',
+    qwenDesc: 'Alibaba 公式。Streamable HTTP リモート MCP に対応。以下は AI Key による手動互換設定です。',
     qwenSteps: [
       '千問弁公のデスクトップクライアントを開く',
       '左側ナビゲーションの「拡張」→「コネクタ」を開く',
@@ -691,7 +696,7 @@ const ja: Dictionary = {
       '「+ Header を追加」をクリック: Authorization = Bearer <あなたの AI Key>',
     ],
     workbuddyTitle: 'Tencent WorkBuddy',
-    workbuddyDesc: 'カスタム MCP コネクタを公式サポートしています。',
+    workbuddyDesc: 'カスタム MCP コネクタを公式サポート。以下は AI Key による手動互換設定です。',
     workbuddySteps: [
       'WorkBuddy を開く',
       '左側メニューの「専門家 · スキル · コネクタ」→「コネクタ」を選択',
@@ -699,7 +704,7 @@ const ja: Dictionary = {
       'サーバー URL を貼り付け、認証 Header を追加: Authorization = Bearer <あなたの AI Key>',
     ],
     doubaoTitle: '豆包工作（Doubao Work）',
-    doubaoDesc: 'カスタム MCP コネクタに対応したエージェント製品です。製品内の案内に従ってください。',
+    doubaoDesc: 'カスタム MCP コネクタに対応したエージェント製品。以下は AI Key による手動互換設定です。製品内の案内に従ってください。',
     doubaoSteps: [
       '豆包工作のデスクトップ版をダウンロード（公式サイト doubao.com/work）、または最新の豆包デスクトップ版を利用',
       'コネクタでカスタム MCP を選び、サーバー URL を入力',
@@ -707,41 +712,39 @@ const ja: Dictionary = {
     ],
     /* ── 汎用設定 ── */
     commonKicker: '汎用 JSON 設定',
-    commonDesc: 'JSON の貼り付けに対応するクライアント（QwenWork の「JSON 設定を貼り付け」、WorkBuddy の mcp.json など）はそのまま利用できます:',
+    commonDesc: '標準の最小構成にはリモート MCP URL だけが必要です（標準 OAuth 対応クライアントは必要時にアカウント接続を開始します）:',
     commonJson: `{
   "mcpServers": {
     "huagongshe": {
       "type": "streamable-http",
-      "url": "https://huagongshe.com/mcp",
-      "headers": {
-        "Authorization": "Bearer <あなたの AI Key>"
-      }
+      "url": "https://huagongshe.com/mcp"
     }
   }
 }`,
+    compatJsonDesc: 'AI Key 互換チャネルを使う場合は、headers に Authorization: Bearer <あなたの AI Key> を追加してください。',
     /* ── ツール一覧 ── */
     toolsKicker: 'AI が利用できるツール',
-    toolsIntro: '全 13 ツール。公開検索はログイン不要です。構造検索・個人データ・書き込み操作には AI Key（reaction:write / skill:write）が必要です。',
+    toolsIntro: '全 13 ツール。公開検索はログイン不要です。構造検索・個人データ・書き込み操作には認可が必要です（標準 OAuth、または AI Key 互換チャネル。reaction:write / skill:write）。',
     tools: [
-      { name: 'search_chemistry_data', auth: '公開 / AI Key', desc: '名称・CAS・SMILES・DOI などによる統合検索。部分構造・類似度には AI Key が必要' },
+      { name: 'search_chemistry_data', auth: '公開 / 認可', desc: '名称・CAS・SMILES・DOI などによる統合検索。部分構造・類似度には認可が必要' },
       { name: 'get_chemical', auth: '公開', desc: '化合物詳細: enrich=core で構造・識別子・関連反応。full で統合セマンティック詳細（説明・物性・安全・サプライヤーなど）を追加' },
-      { name: 'get_reaction', auth: '公開 / AI Key', desc: '公開反応は匿名で閲覧可。非公開記録は本人のみ' },
+      { name: 'get_reaction', auth: '公開 / 認可', desc: '公開反応は匿名で閲覧可。非公開記録は本人のみ' },
       { name: 'render_molecule_svg', auth: '公開', desc: '分子の 2D 構造図（SVG）' },
       { name: 'render_reaction_svg', auth: '公開', desc: '反応式の図（SVG）' },
-      { name: 'list_skills', auth: '公開 / AI Key', desc: 'scope=public は匿名で閲覧可。mine は自分のスキルを一覧' },
-      { name: 'get_skill', auth: '公開 / AI Key', desc: '公開スキルは匿名で閲覧可。非公開は本人のみ' },
+      { name: 'list_skills', auth: '公開 / 認可', desc: 'scope=public は匿名で閲覧可。mine は自分のスキルを一覧' },
+      { name: 'get_skill', auth: '公開 / 認可', desc: '公開スキルは匿名で閲覧可。非公開は本人のみ' },
       { name: 'calculate_stoichiometry', auth: '公開', desc: 'スケール計算: モル基準から全仕込み表と理論収率への換算' },
-      { name: 'list_my_reactions', auth: 'AI Key', desc: '自分の反応記録を一覧' },
-      { name: 'validate_reaction', auth: 'AI Key', desc: 'RDKit による反応ドラフトの検証（保存されません）' },
-      { name: 'create_reaction', auth: 'AI Key', desc: '確認済みの反応記録を保存（冪等・デフォルトで非公開）' },
-      { name: 'validate_skill', auth: 'AI Key', desc: 'スキル zip ドラフトの検証（保存されません）' },
-      { name: 'create_skill', auth: 'AI Key', desc: 'スキルを自分のコンテナに保存（常に非公開）' },
+      { name: 'list_my_reactions', auth: 'OAuth / AI Key 互換', desc: '自分の反応記録を一覧' },
+      { name: 'validate_reaction', auth: 'OAuth / AI Key 互換', desc: 'RDKit による反応ドラフトの検証（保存されません）' },
+      { name: 'create_reaction', auth: 'OAuth / AI Key 互換', desc: '確認済みの反応記録を保存（冪等・デフォルトで非公開）' },
+      { name: 'validate_skill', auth: 'OAuth / AI Key 互換', desc: 'スキル zip ドラフトの検証（保存されません）' },
+      { name: 'create_skill', auth: 'OAuth / AI Key 互換', desc: 'スキルを自分のコンテナに保存（常に非公開）' },
     ],
     /* ── 信頼のルール ── */
     trustKicker: 'データと認証',
     trust1: '反応記録はデフォルトで非公開。公開にはあなたの明示的な確認が必要です',
     trust2: '保存前に AI はドラフトを表示し、確認を得なければなりません',
-    trust3: 'AI Key はいつでも削除できます。huagongshe.com 以外には送信しないでください',
+    trust3: '認可と AI Key はいつでも取り消せます。huagongshe.com 以外には送信しないでください',
     trust4: '保存ごとに一意の Idempotency-Key を使用するため、再試行で重複記録は作られません',
     copyJson: (copied: boolean) => copied ? 'コピーしました' : 'JSON をコピー',
   },
@@ -751,13 +754,13 @@ const ja: Dictionary = {
     title: 'AIケミストリーワークベンチ',
     desc: '化工社はあなたのAIケミストリーワークベンチです。接続すれば、文献・特許・実験記録を AI に渡して、反応の抽出・構造の検証・ワークベンチへの保存ができます。',
     hero: 'AIケミストリーワークベンチ',
-    heroBody: 'まず AI を接続しましょう。リモート MCP 対応クライアントは MCP サーバーを、HTTP 呼び出しのエージェントは API 契約を参照します。書き込み操作には AI Key が必要です。',
+    heroBody: 'まず AI を接続しましょう。リモート MCP 対応クライアントは MCP サーバーを標準 MCP OAuth で利用し、HTTP 呼び出しのエージェントは API 契約（AI Key 互換チャネル）を参照します。書き込み操作にはアカウント認可が必要です。',
     /* ── 接続入口 ── */
     connectKicker: '接続方法',
     connectMcpLabel: 'MCP Server',
-    connectKeyLabel: 'AI Key',
-    connectKeyDesc: '公開検索（化合物・反応の検索）は認証なしで呼び出せます。自分の反応記録の読み書きには AI Key が必要です。',
-    keyCta: 'AI Key を作成 →',
+    connectKeyLabel: '保護された操作（AI Key 互換）',
+    connectKeyDesc: '公開検索（化合物・反応の検索）は認証なしで呼び出せます。自分の反応記録の読み書きにはアカウント認可が必要です（標準 MCP OAuth、または AI Key 互換チャネル）。',
+    keyCta: 'AI Key 互換チャネル: 作成 →',
     /* ── AI でできること ── */
     capabilityKicker: 'AI でできること',
     cap1Title: 'データを調べる',
@@ -767,10 +770,10 @@ const ja: Dictionary = {
     cap2Badge: '',
     cap3Title: '構造を検証',
     cap3Desc: '抽出後、RDKit で標準化・検証します。構造が曖昧な場合は確認を求め、推測は行いません。',
-    cap3Badge: 'AI Key 必要',
+    cap3Badge: '認可が必要',
     cap4Title: '記録を保存',
     cap4Desc: '確認後、ワークベンチに保存します。デフォルトで非公開。HRID とページリンクが返されます。',
-    cap4Badge: 'AI Key 必要',
+    cap4Badge: '認可が必要',
     mcpCta: 'MCP 接続方法を見る →',
     fallbackTitle: 'ツール接続がない場合',
     fallbackDesc: '利用中の AI が MCP や HTTP ツール呼び出しに対応していない場合は、プロンプトをコピーして AI に構造化ドラフトを作らせ、化工社のウェブページで自分で保存できます。これは API/MCP 接続ではありません。',
@@ -791,8 +794,8 @@ const ja: Dictionary = {
     /* ── データと認証 ── */
     trustKicker: 'データと認証',
     trust1: '反応記録はデフォルトで非公開。公開にはあなたの明示的な確認が必要です',
-    trust2: 'AI Key はアカウント設定で表示・コピー・削除できます',
-    trust3: 'AI Key は huagongshe.com 以外には送信しない',
+    trust2: 'アカウント認可と AI Key はアカウント設定で確認・取り消しできます',
+    trust3: '認可情報は huagongshe.com 以外には送信しない',
     /* ── 共有 ── */
     share: '共有',
     shareCopied: 'リンクをコピーしました',

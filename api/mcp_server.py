@@ -109,6 +109,41 @@ def _render_busy() -> ToolError:
     return ToolError("Rendering concurrency limit reached. Try again shortly.")
 
 
+# MCP validation translator (A-03, v1.7 agent-contract closeout):
+# reaction schemas raise Chinese ValueError messages for the REST/Web surface.
+# The MCP boundary maps those known messages to English; unknown messages get a
+# safe neutral fallback instead of leaking raw text. Field locations are kept.
+_VALIDATION_MESSAGE_MAP = {
+    "只有产物可以填写收率": "yield is only allowed for PRODUCT participants",
+    "投料数值和单位必须同时填写": "amount_value and amount_unit must be provided together",
+    "浓度数值和单位必须同时填写": "concentration_value and concentration_unit must be provided together",
+    "DOI 格式不正确": "invalid DOI format",
+    "至少需要一个反应物和一个产物": "at least one REACTANT and one PRODUCT are required",
+    "温度数值和单位必须同时填写": "temperature_value and temperature_unit must be provided together",
+    "反应时间数值和单位必须同时填写": "duration_value and duration_unit must be provided together",
+    "压力数值和单位必须同时填写": "pressure_value and pressure_unit must be provided together",
+    "来源链接必须以 http:// 或 https:// 开头": "source_url must start with http:// or https://",
+}
+
+
+def _english_validation_message(raw: str) -> str:
+    """Map a known schema validation message to English; neutral fallback otherwise."""
+    text = raw.strip()
+    if text.startswith("Value error, "):
+        text = text[len("Value error, "):]
+    if text in _VALIDATION_MESSAGE_MAP:
+        return _VALIDATION_MESSAGE_MAP[text]
+    if text.startswith("来源类型") and "缺少对应的来源信息" in text:
+        # f-string message: 来源类型 {source_type} 缺少对应的来源信息
+        # (the f-string gap may render as a regular or full-width space)
+        source_type = text[len("来源类型"):].split("缺少", 1)[0].strip() or "value"
+        return f"source_type '{source_type}' is missing its required source evidence"
+    if not text:
+        return "invalid value"
+    # Unknown message: keep neutral English, never leak the raw text.
+    return "invalid value"
+
+
 def _validation_error_message(prefix: str, exc: Exception) -> str:
     """Keep field-level Pydantic context while exposing an English MCP error."""
     errors = getattr(exc, "errors", None)
@@ -116,7 +151,7 @@ def _validation_error_message(prefix: str, exc: Exception) -> str:
         parts: list[str] = []
         for item in errors()[:4]:
             loc = ".".join(str(value) for value in item.get("loc", ()))
-            msg = str(item.get("msg", "invalid value"))
+            msg = _english_validation_message(str(item.get("msg", "invalid value")))
             parts.append(f"{loc}: {msg}" if loc else msg)
         if parts:
             return f"{prefix}: " + "; ".join(parts)
@@ -1061,7 +1096,7 @@ def build_mcp_server() -> MCPServer:
         try:
             body = ReactionBody(**reaction)
         except Exception as exc:
-            raise ToolError(f"Invalid draft fields: {exc}") from exc
+            raise ToolError(_validation_error_message("Invalid draft fields", exc)) from exc
         try:
             # G3.1C: 直调 shared create service(A005 create 关闭);
             # neutral validation/rate/idempotency error → ToolError(detail)。

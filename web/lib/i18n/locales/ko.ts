@@ -678,13 +678,18 @@ const ko: Dictionary = {
     /* ── 연결 정보 ── */
     connectKicker: '연결 정보',
     connectUrlLabel: 'MCP Server',
-    connectTokenLabel: 'AI Key(필요 시)',
-    connectTokenDesc: '공개 기능은 익명으로 이용할 수 있습니다. 개인 데이터·구조 검색·쓰기 작업에는 AI Key가 필요합니다. 계정 설정 → AI Key에서 만들 수 있고 언제든 삭제할 수 있습니다. 토큰 칸에는 AI Key 값만 붙여넣고, Authorization: Bearer <내 AI Key> 전체를 쓰는 것은 사용자 지정 Header 경우에만 해당합니다.',
+    connectAnonLabel: '공개 도구',
+    connectAnonDesc: '공개 조회 도구는 익명으로 이용할 수 있습니다. 인증이 필요 없습니다.',
+    connectOauthLabel: '보호된 도구의 표준 인가',
+    connectOauthDesc: '구조 검색·개인 데이터·쓰기 작업에는 계정 인가가 필요합니다. 표준 MCP OAuth를 지원하는 클라이언트는 HGS 계정 연결(Authorization Code + PKCE S256, 스코프 read / reaction:write / skill:write)을 자동으로 안내합니다. 인가 페이지에서 확인하면 됩니다.',
+    connectCompatKicker: 'AI Key 호환 채널',
+    connectTokenLabel: 'AI Key(호환)',
+    connectTokenDesc: '표준 OAuth 계정 연결을 지원하지 않는 MCP 클라이언트, HTTP 자동화, 기존 통합에서는 AI Key를 계속 사용할 수 있습니다. 계정 설정 → AI Key에서 만들고 언제든 삭제할 수 있습니다. 요청 헤더는 Authorization: Bearer <AI Key>. 이것은 호환 채널이며 MCP의 표준 인증 방식이 아닙니다.',
     connectTokenCta: 'AI Key 만들기',
-    /* ── 주요 에이전트 클라이언트 ── */
-    agentsKicker: '주요 에이전트 클라이언트',
+    /* ── 주요 에이전트 클라이언트(호환 설정) ── */
+    agentsKicker: '주요 에이전트 클라이언트(호환 설정)',
     qwenTitle: '첸원오피스 QwenWork',
-    qwenDesc: 'Alibaba 공식 클라이언트. Streamable HTTP 원격 MCP를 지원합니다.',
+    qwenDesc: 'Alibaba 공식 클라이언트. Streamable HTTP 원격 MCP 지원. 아래는 AI Key 수동 호환 설정입니다.',
     qwenSteps: [
       '첸원오피스 데스크톱 클라이언트를 엽니다',
       '왼쪽 내비게이션에서 「확장」→「커넥터」를 엽니다',
@@ -693,7 +698,7 @@ const ko: Dictionary = {
       '「+ Header 추가」를 클릭: Authorization = Bearer <내 AI Key>',
     ],
     workbuddyTitle: 'Tencent WorkBuddy',
-    workbuddyDesc: '사용자 지정 MCP 커넥터를 공식 지원합니다.',
+    workbuddyDesc: '사용자 지정 MCP 커넥터를 공식 지원. 아래는 AI Key 수동 호환 설정입니다.',
     workbuddySteps: [
       'WorkBuddy를 엽니다',
       '왼쪽 메뉴에서 「전문가 · 스킬 · 커넥터」→「커넥터」를 선택합니다',
@@ -701,7 +706,7 @@ const ko: Dictionary = {
       '서버 주소를 붙여넣고 인증 Header를 추가합니다: Authorization = Bearer <내 AI Key>',
     ],
     doubaoTitle: '더우바오 워크(Doubao Work)',
-    doubaoDesc: '사용자 지정 MCP 커넥터를 지원하는 에이전트 제품입니다. 제품 내 안내를 따르세요.',
+    doubaoDesc: '사용자 지정 MCP 커넥터를 지원하는 에이전트 제품. 아래는 AI Key 수동 호환 설정이며 제품 내 안내를 따르세요.',
     doubaoSteps: [
       '더우바오 워크 데스크톱 버전을 내려받습니다(공식 사이트 doubao.com/work). 또는 최신 더우바오 데스크톱 버전을 사용하세요',
       '커넥터에서 사용자 지정 MCP를 선택하고 서버 주소를 입력합니다',
@@ -709,41 +714,39 @@ const ko: Dictionary = {
     ],
     /* ── 공통 설정 ── */
     commonKicker: '공통 JSON 설정',
-    commonDesc: 'JSON 붙여넣기를 지원하는 클라이언트(QwenWork 「JSON 설정 붙여넣기」, WorkBuddy mcp.json 등)에서 바로 사용할 수 있습니다:',
+    commonDesc: '표준 최소 설정에는 원격 MCP URL만 필요합니다(표준 OAuth 지원 클라이언트는 필요 시 계정 연결을 시작합니다):',
     commonJson: `{
   "mcpServers": {
     "huagongshe": {
       "type": "streamable-http",
-      "url": "https://huagongshe.com/mcp",
-      "headers": {
-        "Authorization": "Bearer <내 AI Key>"
-      }
+      "url": "https://huagongshe.com/mcp"
     }
   }
 }`,
+    compatJsonDesc: 'AI Key 호환 채널을 사용하는 경우 headers에 Authorization: Bearer <내 AI Key>를 추가하세요.',
     /* ── 도구 목록 ── */
     toolsKicker: 'AI가 사용할 수 있는 도구',
-    toolsIntro: '총 13개 도구. 공개 검색은 로그인이 필요 없습니다. 구조 검색·개인 데이터·쓰기 작업에는 AI Key(reaction:write / skill:write)가 필요합니다.',
+    toolsIntro: '총 13개 도구. 공개 검색은 로그인이 필요 없습니다. 구조 검색·개인 데이터·쓰기 작업에는 인가가 필요합니다(표준 OAuth 또는 AI Key 호환 채널. reaction:write / skill:write).',
     tools: [
-      { name: 'search_chemistry_data', auth: '공개 / AI Key', desc: '이름·CAS·SMILES·DOI 등 통합 검색. 부분 구조/유사도에는 AI Key 필요' },
+      { name: 'search_chemistry_data', auth: '공개 / 인가', desc: '이름·CAS·SMILES·DOI 등 통합 검색. 부분 구조/유사도에는 인가 필요' },
       { name: 'get_chemical', auth: '공개', desc: '화합물 상세: enrich=core는 구조·식별자·관련 반응, full은 통합 시맨틱 상세(설명·물성·안전·공급사 등)를 추가' },
-      { name: 'get_reaction', auth: '공개 / AI Key', desc: '공개 반응은 익명으로 읽을 수 있습니다. 비공개 기록은 소유자만' },
+      { name: 'get_reaction', auth: '공개 / 인가', desc: '공개 반응은 익명으로 읽을 수 있습니다. 비공개 기록은 소유자만' },
       { name: 'render_molecule_svg', auth: '공개', desc: '분자 2D 구조 이미지(SVG)' },
       { name: 'render_reaction_svg', auth: '공개', desc: '반응식 이미지(SVG)' },
-      { name: 'list_skills', auth: '공개 / AI Key', desc: 'scope=public은 익명으로 탐색 가능, mine은 내 스킬 목록' },
-      { name: 'get_skill', auth: '공개 / AI Key', desc: '공개 스킬은 익명으로 읽기 가능, 비공개는 소유자만' },
+      { name: 'list_skills', auth: '공개 / 인가', desc: 'scope=public은 익명으로 탐색 가능, mine은 내 스킬 목록' },
+      { name: 'get_skill', auth: '공개 / 인가', desc: '공개 스킬은 익명으로 읽기 가능, 비공개는 소유자만' },
       { name: 'calculate_stoichiometry', auth: '공개', desc: '스케일 계산: 몰 기준을 전체 투입량 표와 이론 수율로 환산' },
-      { name: 'list_my_reactions', auth: 'AI Key', desc: '내 반응 기록 목록' },
-      { name: 'validate_reaction', auth: 'AI Key', desc: 'RDKit으로 반응 초안 검증(저장되지 않음)' },
-      { name: 'create_reaction', auth: 'AI Key', desc: '확인된 반응 기록 저장(멱등, 기본 비공개)' },
-      { name: 'validate_skill', auth: 'AI Key', desc: '스킬 zip 초안 검증(저장되지 않음)' },
-      { name: 'create_skill', auth: 'AI Key', desc: '스킬을 내 컨테이너에 저장(항상 비공개)' },
+      { name: 'list_my_reactions', auth: 'OAuth / AI Key 호환', desc: '내 반응 기록 목록' },
+      { name: 'validate_reaction', auth: 'OAuth / AI Key 호환', desc: 'RDKit으로 반응 초안 검증(저장되지 않음)' },
+      { name: 'create_reaction', auth: 'OAuth / AI Key 호환', desc: '확인된 반응 기록 저장(멱등, 기본 비공개)' },
+      { name: 'validate_skill', auth: 'OAuth / AI Key 호환', desc: '스킬 zip 초안 검증(저장되지 않음)' },
+      { name: 'create_skill', auth: 'OAuth / AI Key 호환', desc: '스킬을 내 컨테이너에 저장(항상 비공개)' },
     ],
     /* ── 신뢰 규칙 ── */
     trustKicker: '데이터 및 권한',
     trust1: '반응 기록은 기본적으로 비공개입니다. 공개에는 사용자의 명시적 확인이 필요합니다',
     trust2: '저장 전에 AI가 초안을 보여주고 확인을 받아야 합니다',
-    trust3: 'AI Key는 언제든 삭제할 수 있습니다. huagongshe.com에만 전송하세요',
+    trust3: '인가와 AI Key는 언제든 취소할 수 있습니다. huagongshe.com에만 전송하세요',
     trust4: '저장마다 고유한 Idempotency-Key를 사용하므로 재시도해도 중복 기록이 생기지 않습니다',
     copyJson: (copied: boolean) => copied ? '복사됨' : 'JSON 복사',
   },
@@ -753,13 +756,13 @@ const ko: Dictionary = {
     title: 'AI 화학 워크벤치',
     desc: '化工社는 당신의 AI 화학 워크벤치입니다. 연결하면 문헌·특허·실험 기록을 AI에 맡겨 반응을 추출하고, 구조를 검증하고, 워크벤치에 저장할 수 있습니다.',
     hero: 'AI 화학 워크벤치',
-    heroBody: '먼저 AI를 연결하세요. 원격 MCP를 지원하는 클라이언트는 MCP 서버를, HTTP를 호출하는 에이전트는 API 계약을 참조합니다. 쓰기 작업에는 AI Key가 필요합니다.',
+    heroBody: '먼저 AI를 연결하세요. 원격 MCP를 지원하는 클라이언트는 표준 MCP OAuth로 MCP 서버를 사용하고, HTTP를 호출하는 에이전트는 API 계약(AI Key 호환 채널)을 참조합니다. 쓰기 작업에는 계정 인가가 필요합니다.',
     /* ── 연결 입구 ── */
     connectKicker: '연결하기',
     connectMcpLabel: 'MCP Server',
-    connectKeyLabel: 'AI Key',
-    connectKeyDesc: '공개 검색(검색·화합물·반응)은 인증 없이 호출할 수 있습니다. 내 반응 기록을 읽거나 저장하려면 AI Key가 필요합니다.',
-    keyCta: 'AI Key 만들기 →',
+    connectKeyLabel: '보호된 작업(AI Key 호환)',
+    connectKeyDesc: '공개 검색(검색·화합물·반응)은 인증 없이 호출할 수 있습니다. 내 반응 기록을 읽거나 저장하려면 계정 인가가 필요합니다(표준 MCP OAuth 또는 AI Key 호환 채널).',
+    keyCta: 'AI Key 호환 채널: 만들기 →',
     /* ── AI로 할 수 있는 것 ── */
     capabilityKicker: 'AI로 할 수 있는 일',
     cap1Title: '데이터 조회',
@@ -769,10 +772,10 @@ const ko: Dictionary = {
     cap2Badge: '',
     cap3Title: '구조 검증',
     cap3Desc: '추출 후 RDKit으로 표준화·검증합니다. 구조가 모호하면 확인을 요청하며, 추측하지 않습니다.',
-    cap3Badge: 'AI Key 필요',
+    cap3Badge: '인가 필요',
     cap4Title: '기록 저장',
     cap4Desc: '확인 후 워크벤치에 저장합니다. 기본적으로 비공개이며 HRID와 페이지 링크를 돌려줍니다.',
-    cap4Badge: 'AI Key 필요',
+    cap4Badge: '인가 필요',
     mcpCta: 'MCP 연결 방법 보기 →',
     fallbackTitle: '도구 연동이 없나요?',
     fallbackDesc: '현재 AI가 MCP나 HTTP 도구 호출을 지원하지 않으면, 아래 프롬프트를 복사해 AI가 구조화된 초안을 만들도록 하고 化工社 웹에서 직접 저장하세요. 이것은 API/MCP 연결이 아닙니다.',
@@ -793,8 +796,8 @@ const ko: Dictionary = {
     /* ── 데이터 및 권한 ── */
     trustKicker: '데이터 및 권한',
     trust1: '반응 기록은 기본적으로 비공개입니다. 공개에는 사용자의 명시적 확인이 필요합니다',
-    trust2: 'AI Key는 계정 설정에서 확인·복사·삭제할 수 있습니다',
-    trust3: 'AI Key는 huagongshe.com에만 전송하세요',
+    trust2: '계정 인가와 AI Key는 계정 설정에서 확인하거나 취소할 수 있습니다',
+    trust3: '인가 자격 증명은 huagongshe.com에만 전송하세요',
     /* ── 공유 ── */
     share: '공유',
     shareCopied: '링크가 복사되었습니다',

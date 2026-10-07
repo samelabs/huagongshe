@@ -338,7 +338,7 @@ const t = {
     homeRecentReactions: '最近的反应',
     homeViewAll: '查看全部',
     homeGuideTitle: '连接 AI 助手',
-    homeGuideDesc: 'MCP 服务器 https://huagongshe.com/mcp；写操作（保存反应、技能）在账户设置创建 AI Key',
+    homeGuideDesc: 'MCP 服务器 https://huagongshe.com/mcp；受保护工具经 MCP OAuth 授权（AI Key 为兼容通道）',
     homeGuideCta: '查看 MCP 接入方法 →',
     searchHint: '在化学数据库中查询化合物和反应',
     searchButton: '查询',
@@ -681,13 +681,18 @@ const t = {
     /* ── 连接信息 ── */
     connectKicker: '连接信息',
     connectUrlLabel: 'MCP Server',
-    connectTokenLabel: 'AI Key（按需）',
-    connectTokenDesc: '公开能力匿名可用；个人数据、结构检索及写操作需要 AI Key。在 账户设置 → AI Key 创建，随时可删除。Token 栏只粘贴 AI Key 本身；自定义 Header 才写全 Authorization: Bearer <你的AI Key>。',
+    connectAnonLabel: '公开工具',
+    connectAnonDesc: '公开查询类工具匿名可用，无需任何认证。',
+    connectOauthLabel: '受保护工具的标准授权',
+    connectOauthDesc: '结构检索、个人数据与写操作需要账户授权。支持标准 MCP OAuth 的客户端会自动发起 HGS OAuth 账户连接（Authorization Code + PKCE S256，权限范围 read / reaction:write / skill:write），在授权页确认即可。',
+    connectCompatKicker: 'AI Key 兼容通道',
+    connectTokenLabel: 'AI Key（兼容）',
+    connectTokenDesc: '不支持标准 OAuth 账户连接的 MCP 客户端、HTTP automation 及既有集成，可继续使用 AI Key：登录后在 账户设置 → AI Key 创建，随时可删除；请求头 Authorization: Bearer <AI Key>。这是兼容通道，不是 MCP 的标准认证方式。',
     connectTokenCta: '创建 AI Key',
-    /* ── 三大智能体 ── */
-    agentsKicker: '主流智能体接入',
+    /* ── 主流智能体（兼容配置） ── */
+    agentsKicker: '主流智能体接入（兼容配置）',
     qwenTitle: '千问办公 QwenWork',
-    qwenDesc: '阿里官方支持 Streamable HTTP 远程 MCP。',
+    qwenDesc: '阿里官方支持 Streamable HTTP 远程 MCP。以下为 AI Key 手动兼容配置。',
     qwenSteps: [
       '打开千问办公桌面客户端',
       '左侧导航「扩展」→「连接器」',
@@ -696,7 +701,7 @@ const t = {
       '点「+ 添加 Header」：Authorization = Bearer <你的AI Key>',
     ],
     workbuddyTitle: '腾讯 WorkBuddy',
-    workbuddyDesc: '官方支持自定义 MCP 连接器。',
+    workbuddyDesc: '官方支持自定义 MCP 连接器。以下为 AI Key 手动兼容配置。',
     workbuddySteps: [
       '打开 WorkBuddy',
       '左侧菜单「专家 · 技能 · 连接器」→ 选「连接器」',
@@ -704,7 +709,7 @@ const t = {
       '粘贴服务器地址，添加认证 Header：Authorization = Bearer <你的AI Key>',
     ],
     doubaoTitle: '豆包工作',
-    doubaoDesc: '支持自定义 MCP 连接器的 Agent 产品。以产品内指引为准。',
+    doubaoDesc: '支持自定义 MCP 连接器的 Agent 产品。以下为 AI Key 手动兼容配置，以产品内指引为准。',
     doubaoSteps: [
       '下载豆包工作电脑版（官网 doubao.com/work），或使用最新豆包电脑版',
       '在连接器中选择自定义 MCP，填写服务器地址',
@@ -712,41 +717,39 @@ const t = {
     ],
     /* ── 通用配置 ── */
     commonKicker: '通用配置 JSON',
-    commonDesc: '支持粘贴 JSON 的客户端（QwenWork「粘贴 JSON 配置」、WorkBuddy mcp.json 等）可直接使用：',
+    commonDesc: '标准最小配置只需远程 MCP URL（支持标准 OAuth 的客户端会在需要时自动发起账户连接）：',
     commonJson: `{
   "mcpServers": {
     "huagongshe": {
       "type": "streamable-http",
-      "url": "https://huagongshe.com/mcp",
-      "headers": {
-        "Authorization": "Bearer <你的AI Key>"
-      }
+      "url": "https://huagongshe.com/mcp"
     }
   }
 }`,
+    compatJsonDesc: '使用 AI Key 兼容通道时，可在 headers 中附带 Authorization: Bearer <你的AI Key>。',
     /* ── 工具清单 ── */
     toolsKicker: 'AI 可用的工具',
-    toolsIntro: '共 13 个工具：公开查询无需登录；结构检索、个人数据与保存类操作需要 AI Key（reaction:write / skill:write）。',
+    toolsIntro: '共 13 个工具：公开查询无需登录；结构检索、个人数据与写操作需要授权（标准 OAuth，或 AI Key 兼容通道；reaction:write / skill:write）。',
     tools: [
-      { name: 'search_chemistry_data', auth: '公开 / AI Key', desc: '按名称、CAS、SMILES、DOI 等统一检索；子结构/相似度需 AI Key' },
+      { name: 'search_chemistry_data', auth: '公开 / 授权', desc: '按名称、CAS、SMILES、DOI 等统一检索；子结构/相似度需授权' },
       { name: 'get_chemical', auth: '公开', desc: '化合物详情：enrich=core 结构/标识符/关联反应；full 增加统一语义详情（描述/性质/安全/供应商等）' },
-      { name: 'get_reaction', auth: '公开 / AI Key', desc: '公开反应匿名可读；私有记录仅本人' },
+      { name: 'get_reaction', auth: '公开 / 授权', desc: '公开反应匿名可读；私有记录仅本人' },
       { name: 'render_molecule_svg', auth: '公开', desc: '分子 2D 结构图（SVG）' },
       { name: 'render_reaction_svg', auth: '公开', desc: '反应方程式图（SVG）' },
-      { name: 'list_skills', auth: '公开 / AI Key', desc: 'public 匿名可浏览；mine 列出自己的技能' },
-      { name: 'get_skill', auth: '公开 / AI Key', desc: 'public 匿名可读；private 仅本人' },
+      { name: 'list_skills', auth: '公开 / 授权', desc: 'public 匿名可浏览；mine 列出自己的技能' },
+      { name: 'get_skill', auth: '公开 / 授权', desc: 'public 匿名可读；private 仅本人' },
       { name: 'calculate_stoichiometry', auth: '公开', desc: '投料计算：摩尔基准换算整表投料量与理论收率' },
-      { name: 'list_my_reactions', auth: 'AI Key', desc: '列出自己的反应记录' },
-      { name: 'validate_reaction', auth: 'AI Key', desc: 'RDKit 校验反应草稿（不保存）' },
-      { name: 'create_reaction', auth: 'AI Key', desc: '保存确认后的反应记录（幂等，默认私有）' },
-      { name: 'validate_skill', auth: 'AI Key', desc: '校验技能 zip 草稿（不保存）' },
-      { name: 'create_skill', auth: 'AI Key', desc: '保存技能到你的容器（恒为私有）' },
+      { name: 'list_my_reactions', auth: 'OAuth / AI Key 兼容', desc: '列出自己的反应记录' },
+      { name: 'validate_reaction', auth: 'OAuth / AI Key 兼容', desc: 'RDKit 校验反应草稿（不保存）' },
+      { name: 'create_reaction', auth: 'OAuth / AI Key 兼容', desc: '保存确认后的反应记录（幂等，默认私有）' },
+      { name: 'validate_skill', auth: 'OAuth / AI Key 兼容', desc: '校验技能 zip 草稿（不保存）' },
+      { name: 'create_skill', auth: 'OAuth / AI Key 兼容', desc: '保存技能到你的容器（恒为私有）' },
     ],
     /* ── 安全规则 ── */
     trustKicker: '数据与授权',
     trust1: '反应记录默认私有，公开需要你明确确认',
     trust2: '保存前 AI 必须向你展示草稿并取得确认',
-    trust3: 'AI Key 随时可删除，只发送给 huagongshe.com',
+    trust3: '授权与 AI Key 随时可撤销，只发送给 huagongshe.com',
     trust4: '每次保存使用唯一 Idempotency-Key，重试不会产生重复记录',
     copyJson: (copied: boolean) => copied ? '已复制' : '复制 JSON',
   },
@@ -756,13 +759,13 @@ const t = {
     title: 'AI化学工作台',
     desc: '化工社是你的AI化学工作台。接入后，把文献、专利和实验记录交给AI，即可提取反应、校验结构、保存到你的工作台。',
     hero: 'AI化学工作台',
-    heroBody: '先把 AI 接进来：支持远程 MCP 的客户端用 MCP 服务器；需要 HTTP 调用的 Agent 读 API 契约。写操作需要 AI Key。',
+    heroBody: '先把 AI 接进来：支持远程 MCP 的客户端连接 MCP 服务器，标准授权用 MCP OAuth；需要 HTTP 调用的 Agent 读 API 契约（AI Key 兼容通道）。写操作需要账户授权。',
     /* ── 接入入口(第一屏) ── */
     connectKicker: '接入入口',
     connectMcpLabel: 'MCP 服务器',
-    connectKeyLabel: 'AI Key',
-    connectKeyDesc: '公开查询（搜索、化合物、反应）无需认证直接调用；读取或保存你自己的反应记录需要 AI Key。',
-    keyCta: '创建 AI Key →',
+    connectKeyLabel: '受保护操作（AI Key 兼容）',
+    connectKeyDesc: '公开查询（搜索、化合物、反应）无需认证直接调用；读取或保存你自己的反应记录需要账户授权（标准 MCP OAuth，或 AI Key 兼容通道）。',
+    keyCta: 'AI Key 兼容通道：创建 AI Key →',
     /* ── 用AI做什么 ── */
     capabilityKicker: '用AI做什么',
     cap1Title: '查数据',
@@ -772,10 +775,10 @@ const t = {
     cap2Badge: '',
     cap3Title: '校验结构',
     cap3Desc: 'AI提取后用RDKit标准化校验。结构有歧义会问你，不猜测。',
-    cap3Badge: '需AI Key',
+    cap3Badge: '需授权',
     cap4Title: '保存记录',
     cap4Desc: '确认后保存到你的工作台，默认私有。返回HRID和页面链接。',
-    cap4Badge: '需AI Key',
+    cap4Badge: '需授权',
     mcpCta: '查看 MCP 接入方法 →',
     fallbackTitle: '没有工具接入？',
     fallbackDesc: '如果当前 AI 不支持 MCP 或 HTTP 工具调用，可以复制提示词让 AI 先整理结构化草稿，再由你在化工社网页保存。这不是 API/MCP 连接。',
@@ -795,8 +798,8 @@ const t = {
     /* ── 数据与授权 ── */
     trustKicker: '数据与授权',
     trust1: '反应记录默认私有，公开需要你明确确认',
-    trust2: 'AI Key 可在账户设置中查看、复制或删除',
-    trust3: 'AI Key 只发送给huagongshe.com',
+    trust2: '账户授权与 AI Key 可在账户设置中查看或撤销',
+    trust3: '授权凭据只发送给 huagongshe.com',
     /* ── 分享 ── */
     share: '分享',
     shareCopied: '链接已复制',

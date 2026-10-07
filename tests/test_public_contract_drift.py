@@ -19,7 +19,7 @@ sys.path.insert(0, str(REPO))
 
 LLMS = REPO / "web" / "public" / "llms.txt"
 
-_TOOL_COUNT_RE = re.compile(r"MCP 工具（(\d+) 个）")
+_TOOL_COUNT_RE = re.compile(r"MCP tools \((\d+) total\)")
 _ENDPOINT_RE = re.compile(r"`(GET|POST|PUT|PATCH|DELETE) (/api/[^`?\s]*)")
 
 

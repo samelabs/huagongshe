@@ -380,7 +380,7 @@ class RemovedSurfaceTests(unittest.TestCase):
             content = f.read()
         self.assertNotIn("externals", content)
         self.assertNotIn("get_chemical_externals", content)
-        self.assertIn("13 个", content)
+        self.assertIn("13 total", content)
 
 
 class McpCoreFullDifferenceTests(unittest.TestCase):

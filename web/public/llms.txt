@@ -1,72 +1,72 @@
-# 化工社 (huagongshe.com)
+# Huagongshe (huagongshe.com)
 
-> 化工社：查询化合物与反应数据、计算投料、保存反应记录。人和 AI 都能直接使用。
+> Huagongshe: look up compounds and reaction data, scale recipes, and keep your own reaction records. Usable directly by humans and AI.
 
-## AI 接入（先读这一节）
+## AI integration (read this first)
 
-- **MCP 服务器（推荐）**: `https://huagongshe.com/mcp` — Streamable HTTP；支持按工具声明的匿名 / OAuth 混合访问
-- **MCP OAuth**: 标准 Authorization Code + PKCE S256；权限范围为 `read`、`reaction:write`、`skill:write`
-- **MCP 接入说明**: https://huagongshe.com/mcp-guide
-- **REST / AI Key 兼容面**: `https://huagongshe.com/api/agent-guide` — 服务不支持 MCP 的客户端与既有 hgs_* AI Key 自动化; 主要 Agent 接入层是上面的 MCP
-- **AI Key（兼容手动接入）**: 登录后在 https://huagongshe.com/me/settings/api-tokens 创建，请求头 `Authorization: Bearer <你的 AI Key>`；HTTP API 继续使用 AI Key，OAuth access token 只进入 MCP adapter
+- **MCP server (recommended)**: `https://huagongshe.com/mcp` — Streamable HTTP transport; mixed anonymous / OAuth access depending on each tool's declaration
+- **MCP OAuth**: standard Authorization Code flow with PKCE S256; scopes are `read`, `reaction:write`, `skill:write`
+- **MCP connection guide**: https://huagongshe.com/mcp-guide
+- **REST / AI Key compatibility surface**: `https://huagongshe.com/api/agent-guide` — for clients that cannot use MCP and for existing hgs_* AI Key automation; the primary agent integration layer is the MCP server above
+- **AI Key (manual compatibility)**: create one after logging in at https://huagongshe.com/me/settings/api-tokens; send it as `Authorization: Bearer <AI Key>`. The HTTP API keeps using AI Keys; an OAuth access token is never accepted as a REST bearer credential and only enters the MCP adapter.
 
-**匿名可用**: 统一搜索（精确）、化合物详情、公开反应详情、分子/反应 SVG、公开技能、投料计算
-**MCP 授权后可用**: 结构检索（子结构/相似度）、读取自己的私有反应/技能、读取我的反应、校验/创建反应、技能校验/保存
-**v1.7.0 不提供**: Note MCP 工具与 `note:write` scope
+**Anonymous**: unified search (exact mode), compound detail, public reaction detail, molecule/reaction SVG, public skills, stoichiometry calculation
+**After MCP OAuth authorization**: structure search (substructure/similarity), reading your own private reactions/skills, listing your reactions, validating/creating reactions, validating/saving skills
+**Not provided in v1.7.0**: Note MCP tools and the `note:write` scope
 
-## 能调用什么
+## What you can call
 
-### MCP 工具（13 个）
+### MCP tools (13 total)
 
-统一搜索、化合物详情（core/full）、反应详情、分子/反应 SVG 渲染、技能库浏览、投料计算、我的反应、反应校验/保存、技能校验/保存。权限要求同上。
+Unified search, compound detail (core/full), reaction detail, molecule/reaction SVG rendering, skill registry browsing, stoichiometry calculation, my reactions, reaction validate/save, skill validate/save. Permission requirements as above.
 
 ### HTTP API
 
-| 能力 | 端点 | 说明 |
+| Capability | Endpoint | Notes |
 |------|------|------|
-| 统一搜索 | `GET /api/search` | 名称、CAS、InChIKey、SMILES、结构检索（精确匿名可用；子结构/相似度需 AI Key）|
-| 化合物详情 | `GET /api/chemicals/{id}?enrich=core\|full` | core=结构/标识符/关联反应；full=统一语义详情（描述/名称/性质/安全/工业应用/供应商/溯源） |
-| 反应详情 | `GET /api/reactions/{id}` | 参与物、条件、产率、来源、操作步骤 |
-| 分子渲染 | `GET /api/mol/{hcid}/svg?w=&h=` | HCID → SVG 结构图 |
-| 投料计算 | `POST /api/stoichiometry/scale` | 角色化组分 + 基准投料量 → 整表投料量/理论收率/溶剂定容（RDKit）|
-| 数据集列表 | `GET /api/datasets` | 反应来源数据集 |
+| Unified search | `GET /api/search` | Names, CAS, InChIKey, SMILES, structure search (exact is anonymous; substructure/similarity require an AI Key) |
+| Compound detail | `GET /api/chemicals/{id}?enrich=core\|full` | core = structure/identifiers/related reactions; full = unified semantic detail (descriptions/names/properties/safety/industrial uses/suppliers/provenance) |
+| Reaction detail | `GET /api/reactions/{id}` | Participants, conditions, yields, source, procedure |
+| Molecule rendering | `GET /api/mol/{hcid}/svg?w=&h=` | HCID → SVG structure image |
+| Stoichiometry | `POST /api/stoichiometry/scale` | Role-tagged components + a basis charge → full charge table / theoretical yield / solvent volume (RDKit) |
+| Dataset list | `GET /api/datasets` | Reaction source datasets |
 
-### 需要 AI Key 的操作
+### Operations that require an AI Key
 
-| 能力 | 端点 | 说明 |
+| Capability | Endpoint | Notes |
 |------|------|------|
-| 我的反应 | `GET /api/users/me/reactions` | 读取 AI Key 所属用户的反应库 |
-| 校验草稿 | `POST /api/reactions/validate` | RDKit 标准化校验，不保存 |
-| 创建反应 | `POST /api/reactions` | 保存到用户反应库（需 Idempotency-Key）|
+| My reactions | `GET /api/users/me/reactions` | Read the AI Key owner's reaction library |
+| Validate draft | `POST /api/reactions/validate` | RDKit canonicalization check, nothing saved |
+| Create reaction | `POST /api/reactions` | Saves into the user's reaction library (requires an Idempotency-Key) |
 
-## 安全规则
+## Safety rules
 
-- AI Key 仅发送给 `huagongshe.com`，不写入公开提示词、代码或日志。
-- 创建/校验反应时，先展示草稿给用户确认，再保存。默认 `private`，公开需用户明确确认。
+- Send AI Keys only to `huagongshe.com`; never write them into public prompts, code, or logs.
+- When creating/validating a reaction, show the draft to the user for confirmation before saving. Default to `private`; going public requires the user's explicit confirmation.
 
-## 速率限制
+## Rate limits
 
-按身份计数，超限返回 `429` + `Retry-After` 头。
+Counted per identity; over the limit the API returns `429` with a `Retry-After` header.
 
-| 类型 | 限制 |
+| Type | Limit |
 |------|------|
-| 结构检索（子结构/相似度）| 每身份 6 次/分钟；全局 30 次/分钟；同时在跑 2（身份）/ 4（全局）|
-| 反应校验 | 20 次/分钟 |
-| 反应写入 | 10 次/分钟，200 次/天 |
-| 投料计算 | 30 次/分钟 |
-| 技能保存 | 20 次/小时 |
+| Structure search (substructure/similarity) | 6 per minute per identity; 30 per minute global; 2 (identity) / 4 (global) concurrent |
+| Reaction validation | 20 per minute |
+| Reaction writes | 10 per minute, 200 per day |
+| Stoichiometry calculation | 30 per minute |
+| Skill saves | 20 per hour |
 
-## 标识符说明
+## Identifiers
 
-- **HCID** (Huagongshe Chemical ID): 化合物内部 ID，如 `12345678`
-- **HRID** (Huagongshe Reaction ID): 反应内部 ID，如 `8765432`
-- 搜索支持前缀写法: `id:12345`, `cid:2244`, `cas:64-17-5`, `inchikey:LFQSCWFLJHTTHZ-UHFFFAOYSA-N`
+- **HCID** (Huagongshe Chemical ID): internal compound ID, e.g. `12345678`
+- **HRID** (Huagongshe Reaction ID): internal reaction ID, e.g. `8765432`
+- Search supports prefixes: `id:12345`, `cid:2244`, `cas:64-17-5`, `inchikey:LFQSCWFLJHTTHZ-UHFFFAOYSA-N`
 
 ## Links
 
 - [Website](https://huagongshe.com)
-- [MCP 接入说明](https://huagongshe.com/mcp-guide)
-- [MCP 服务器](https://huagongshe.com/mcp)
+- [MCP connection guide](https://huagongshe.com/mcp-guide)
+- [MCP server](https://huagongshe.com/mcp)
 - [API Connection Guide](https://huagongshe.com/api/agent-guide)
 - [Skills Registry](https://huagongshe.com/api/skills?scope=public)
 - [Privacy Policy](https://huagongshe.com/en/privacy)
