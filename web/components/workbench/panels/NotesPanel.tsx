@@ -13,11 +13,34 @@ import type { LoadState, NoteItem, NoteResponse, NoteVisibility, PanelProps } fr
 
 const empty = (): NoteResponse => ({ items: [], total: 0, page: 1, page_size: 20 });
 
-/** Entity filter param serialization: chemical wins when both are present. */
-function filterQuery(chemicalId?: number, reactionId?: number): string {
-  if (chemicalId != null) return `&chemical=${chemicalId}`;
-  if (reactionId != null) return `&reaction=${reactionId}`;
-  return "";
+/** Entity filter param serialization — single source of truth for both the
+ * page URL params (chemical/reaction) and the API query params
+ * (chemical_id/reaction_id). Chemical wins when both are present (P-8). */
+function filterParams(chemicalId?: number, reactionId?: number): URLSearchParams {
+  const params = new URLSearchParams();
+  if (chemicalId != null) params.set("chemical", String(chemicalId));
+  else if (reactionId != null) params.set("reaction", String(reactionId));
+  return params;
+}
+
+/** Full list-page URL params for a given view state. */
+function listParams(visibility: NoteVisibility, chemicalId?: number, reactionId?: number, page = 1): URLSearchParams {
+  const params = filterParams(chemicalId, reactionId);
+  if (visibility !== "all") params.set("visibility", visibility);
+  if (page > 1) params.set("page", String(page));
+  return params;
+}
+
+/** API query string: URL filter names map 1:1 to chemical_id/reaction_id. */
+function apiListQuery(visibility: NoteVisibility, chemicalId?: number, reactionId?: number, page = 1): string {
+  const params = new URLSearchParams();
+  params.set("visibility", visibility);
+  const filter = filterParams(chemicalId, reactionId);
+  if (filter.has("chemical")) params.set("chemical_id", filter.get("chemical")!);
+  else if (filter.has("reaction")) params.set("reaction_id", filter.get("reaction")!);
+  params.set("page", String(page));
+  params.set("page_size", "20");
+  return params.toString();
 }
 
 export function NotesPanel({
@@ -44,6 +67,7 @@ export function NotesPanel({
   const [data, setData] = useState<NoteResponse>(initialData ?? empty());
   const [state, setState] = useState<LoadState>(initialData ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [editing, setEditing] = useState<NoteItem | null>(null);
   const [creating, setCreating] = useState(createOpen);
   const [createContext, setCreateContext] = useState(() => ({
@@ -57,11 +81,8 @@ export function NotesPanel({
   const filterKey = filterChemicalId != null ? "chemical" : filterReactionId != null ? "reaction" : null;
   const filterId = filterChemicalId ?? filterReactionId;
 
-  function listHref(targetPage: number) {
-    return withLocale(
-      `/aichem?tab=notes${visibility === "all" ? "" : `&visibility=${visibility}`}${filterQuery(filterChemicalId, filterReactionId)}${targetPage > 1 ? `&page=${targetPage}` : ""}`,
-      locale,
-    );
+  function listHref(targetPage: number): string {
+    return withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(visibility, filterChemicalId, filterReactionId, targetPage)) }).toString()}`, locale);
   }
 
   function redirectIfPageIsEmpty(value: NoteResponse): boolean {
@@ -76,7 +97,7 @@ export function NotesPanel({
     setState("loading");
     setError(null);
     try {
-      const value = await apiGet<NoteResponse>(`/users/me/notes?visibility=${visibility}${filterQuery(filterChemicalId, filterReactionId).replace("&", "&")}&page=${page}&page_size=20`);
+      const value = await apiGet<NoteResponse>(`/users/me/notes?${apiListQuery(visibility, filterChemicalId, filterReactionId, page)}`);
       if (requestId !== latestLoad.current) return;
       if (redirectIfPageIsEmpty(value)) return;
       setData(value);
@@ -113,42 +134,48 @@ export function NotesPanel({
   function closeEditor() {
     setCreating(false);
     setEditing(null);
-    if (createOpen) router.replace(withLocale(`/aichem?tab=notes${filterQuery(filterChemicalId, filterReactionId)}`, locale));
+    if (createOpen) router.replace(listHref(1));
   }
 
-  async function handleSaved() {
+  /** R3: never strand the user on a list where the note they just saved
+   * cannot appear. page=1 + the list can show it → refresh in place;
+   * otherwise navigate to page 1 of the filter with the saved note's
+   * own visibility (a private note saved under a public filter etc.). */
+  async function handleSaved(saved: NoteItem) {
     const created = creating && !editing;
     setCreating(false);
     setEditing(null);
+    if (created) setCreateContext({ chemicalIds: [], reactionIds: [] });
 
-    if (created) {
-      setCreateContext({ chemicalIds: [], reactionIds: [] });
-      // 新建后必须让用户看见刚保存的记录。page=1 + 无筛选可原地刷新；
-      // 其他筛选/页码回到当前筛选列表首页，避免保存成功后落在看不到新记录的列表。
-      if (page === 1 && filterKey === null) {
-        await load();
-        if (createOpen) router.replace(withLocale(`/aichem?tab=notes${filterQuery(filterChemicalId, filterReactionId)}`, locale));
-      } else {
-        router.replace(withLocale(`/aichem?tab=notes${filterQuery(filterChemicalId, filterReactionId)}`, locale));
-      }
+    const visibleHere = visibility === "all" || visibility === saved.visibility;
+    const inFilter = filterKey === null
+      || (filterKey === "chemical" && saved.chemical_ids.includes(filterChemicalId!))
+      || (filterKey === "reaction" && saved.reaction_ids.includes(filterReactionId!));
+
+    if (page === 1 && visibleHere && inFilter) {
+      await load();
+      if (createOpen) router.replace(listHref(1));
       return;
     }
-
-    // 编辑保存后刷新当前列表；若 URL 仍带 new=1（例如从新建态切到编辑），
-    // 同时归一回 Notes 列表，避免 URL 与实际编辑器状态分叉。
-    await load();
-    if (createOpen) router.replace(withLocale(`/aichem?tab=notes${filterQuery(filterChemicalId, filterReactionId)}`, locale));
+    const params = new URLSearchParams({ tab: "notes" });
+    params.set("visibility", saved.visibility);
+    const filter = filterParams(filterChemicalId, filterReactionId);
+    filter.forEach((value, key) => params.set(key, value));
+    router.replace(withLocale(`/aichem?${params.toString()}`, locale));
   }
 
   async function remove(note: NoteItem) {
     if (!window.confirm(t.me.notesDeleteConfirm)) return;
+    setActionError(null);
     try {
       await apiDelete(`/notes/${note.id}`);
       if (editing?.id === note.id) setEditing(null);
       await load();
     } catch (err) {
+      // R6: keep the loaded list interactive — surface the failure without
+      // switching the whole panel to a fatal error state.
+      setActionError(t.notes.deleteFailed);
       setError(err);
-      setState("error");
     }
   }
 
@@ -181,7 +208,7 @@ export function NotesPanel({
           <Link
             key={value}
             className={visibility === value ? "active" : ""}
-            href={withLocale(`/aichem?tab=notes${value === "all" ? "" : `&visibility=${value}`}${filterQuery(filterChemicalId, filterReactionId)}`, locale)}
+            href={withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(value, filterChemicalId, filterReactionId)) }).toString()}`, locale)}
           >
             {labels[value]}
           </Link>
@@ -195,7 +222,7 @@ export function NotesPanel({
           <span className="wb-filter-crumb">
             {filterKey === "chemical" ? t.notes.filterChemical : t.notes.filterReaction}: <EntityId kind={filterKey} id={filterId!} compact />
           </span>
-          <Link className="text-button" href={withLocale(`/aichem?tab=notes${visibility === "all" ? "" : `&visibility=${visibility}`}`, locale)}>
+          <Link className="text-button" href={withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(visibility)) }).toString()}`, locale)}>
             {t.notes.filterClear}
           </Link>
         </div>
@@ -216,6 +243,10 @@ export function NotesPanel({
 
       {state === "loading" && <PanelLoading variant="list" />}
       {state === "error" && <PanelError error={error} />}
+      {/* R6: delete failure keeps the list mounted with a recoverable state */}
+      {actionError && state !== "error" && (
+        <p className="wb-panel-inline-error" role="alert">{actionError}</p>
+      )}
       {state === "ready" && (data.items.length ? (
         <div className="wb-note-list">
           {data.items.map((note) => (
@@ -256,10 +287,7 @@ export function NotesPanel({
           page={page}
           pageSize={data.page_size}
           total={data.total}
-          href={(value) => withLocale(
-            `/aichem?tab=notes${visibility === "all" ? "" : `&visibility=${visibility}`}${filterQuery(filterChemicalId, filterReactionId)}${value > 1 ? `&page=${value}` : ""}`,
-            locale,
-          )}
+          href={(value) => listHref(value)}
         />
       )}
     </section>

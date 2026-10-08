@@ -425,6 +425,10 @@ const t = {
     createReaction: '新建反应',
     writeNote: '写笔记',
 
+    /* R6 */
+    profileLoadFailed: '公开笔记加载失败',
+    deleteFailed: '删除失败,请重试',
+
   },
 
 

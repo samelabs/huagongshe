@@ -128,6 +128,7 @@ export function HomePanel({ counts, initialNotes, initialReactions }: {
                   <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
                 </div>
                 <p className="note-clamp">{note.content}</p>
+                <span className="note-view-full">{t.notes.viewFull}</span>
               </Link>
             ))}
           </div>

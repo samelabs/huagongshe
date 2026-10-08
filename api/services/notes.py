@@ -232,11 +232,17 @@ async def update_note(
     chemical_ids: list[int],
     reaction_ids: list[int],
 ) -> dict[str, Any]:
+    # R5: access check BEFORE any write. The row-locking read must apply the
+    # same G2 visibility rule as reads: hidden notes and inactive owners are
+    # 404 for everyone, so an update can never commit and only then 404 —
+    # and a hidden note can never be mutated back into visibility.
     current = (await db.execute(text("""
-        SELECT owner_user_id
-        FROM community.notes
-        WHERE id=:id
-        FOR UPDATE
+        SELECT n.owner_user_id
+        FROM community.notes n
+        JOIN community.users u ON u.id=n.owner_user_id AND u.status='active'
+        WHERE n.id=:id
+          AND n.moderation_status='visible'
+        FOR UPDATE OF n
     """), {"id": note_id})).first()
     if current is None or int(current[0]) != actor_id:
         raise NoteNotAccessibleError("笔记不存在")
@@ -272,10 +278,16 @@ async def update_note(
 
 
 async def delete_note(db, *, note_id: int, actor_id: int) -> None:
+    # Same G2 rule as read/update (R5): hidden notes and inactive owners are
+    # 404 for everyone — the owner cannot delete a hidden note either.
     result = await db.execute(text("""
-        DELETE FROM community.notes
-        WHERE id=:id AND owner_user_id=:owner
-        RETURNING id
+        DELETE FROM community.notes n
+        USING community.users u
+        WHERE n.id=:id
+          AND n.owner_user_id=:owner
+          AND u.id=n.owner_user_id AND u.status='active'
+          AND n.moderation_status='visible'
+        RETURNING n.id
     """), {"id": note_id, "owner": actor_id})
     if result.scalar() is None:
         await db.rollback()
@@ -293,7 +305,9 @@ async def list_my_notes(
     page: int,
     page_size: int,
 ) -> dict[str, Any]:
-    conditions = ["n.owner_user_id=:owner"]
+    # R5: hidden notes must not appear as unopenable cards in the owner's
+    # own list (reads 404 for everyone) — exclude them at the source.
+    conditions = ["n.owner_user_id=:owner", "n.moderation_status='visible'"]
     params: dict[str, Any] = {
         "owner": actor_id,
         "limit": page_size,

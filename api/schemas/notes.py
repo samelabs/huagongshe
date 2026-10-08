@@ -37,13 +37,19 @@ def sanitize_note_content(value: str) -> str:
 
 class NoteBody(BaseModel):
     visibility: Literal["public", "private"] = "private"
-    content: str = Field(min_length=1, max_length=MAX_NOTE_CONTENT_LENGTH)
+    # No Field max_length here: the limit is enforced AFTER sanitization in
+    # normalize_content (R4). A declared max_length would run first and
+    # wrongly reject raw input >30000 whose sanitized form fits.
+    content: str = Field(min_length=1)
     chemical_ids: list[int] = Field(default_factory=list)
     reaction_ids: list[int] = Field(default_factory=list)
 
     @field_validator("content")
     @classmethod
     def normalize_content(cls, value: str) -> str:
+        # R4: sanitize FIRST, then apply the final length cap so that a raw
+        # payload over 30000 chars which fits after Cf/Cc removal is accepted,
+        # and anything still over 30000 after sanitization is rejected.
         value = sanitize_note_content(value).strip()
         if not value:
             raise ValueError("笔记内容不能为空")

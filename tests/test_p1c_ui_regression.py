@@ -81,12 +81,13 @@ class ListRefreshTests(unittest.TestCase):
         )
 
     def test_delete_failure_keeps_recoverable_state(self):
-        # delete error sets the panel error state WITHOUT wiping the list
-        # data (state → "error" but data is untouched; editor kept)
-        self.assertRegex(
-            self.panel,
-            r"catch \(err\) \{\s*setError\(err\);\s*setState\(\"error\"\);",
-        )
+        # R6: delete failure must NOT switch the panel to a fatal error
+        # state — the list stays mounted and an inline recoverable error
+        # (dictionary-sourced) is shown instead.
+        remove_fn = self.panel[self.panel.index("async function remove"):]
+        remove_fn = remove_fn[:remove_fn.index("const labels")]
+        self.assertNotIn('setState("error")', remove_fn)
+        self.assertIn("setActionError(t.notes.deleteFailed)", remove_fn)
         self.assertNotIn("setData(empty())", self.panel.split("async function remove")[1])
 
 
@@ -105,7 +106,9 @@ class CreatePreassociationTests(unittest.TestCase):
 
     def test_save_returns_to_filtered_list(self):
         panel = read("components/workbench/panels/NotesPanel.tsx")
-        self.assertIn("filterQuery(filterChemicalId, filterReactionId)", panel)
+        # R2: filter params flow through the shared URLSearchParams helpers
+        self.assertIn("filterParams(filterChemicalId, filterReactionId)", panel)
+        self.assertIn("listHref(1)", panel)
 
 
 class BackForwardUrlStateTests(unittest.TestCase):
@@ -113,7 +116,8 @@ class BackForwardUrlStateTests(unittest.TestCase):
 
     def test_url_is_replaced_when_editor_closes(self):
         panel = read("components/workbench/panels/NotesPanel.tsx")
-        self.assertIn('router.replace(withLocale(`/aichem?tab=notes', panel)
+        self.assertIn("router.replace(listHref(1))", panel)
+        self.assertIn("router.replace(withLocale(`/aichem?${params.toString()}`, locale))", panel)
 
 
 class P3TruncationTests(unittest.TestCase):
@@ -229,7 +233,8 @@ class P8FilterUITests(unittest.TestCase):
         page = read("app/(workbench)/aichem/page.tsx")
         self.assertIn("filterChemicalId != null ? `&chemical_id=", page)
         panel = read("components/workbench/panels/NotesPanel.tsx")
-        self.assertIn("&chemical=${chemicalId}", panel)
+        # client query builds chemical_id from the same URL param name
+        self.assertIn('params.set("chemical_id", filter.get("chemical")!)', panel)
 
 
 class DictionaryTreeTests(unittest.TestCase):

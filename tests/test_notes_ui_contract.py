@@ -30,10 +30,17 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertIn("createContext.reactionIds", src)
         self.assertIn("latestLoad = useRef(0)", src)
         self.assertIn("const created = creating && !editing", src)
-        self.assertIn("page === 1 && visibility === \"all\"", src)
+        # R3 landing semantics: after save the user must never be stranded on
+        # a list where the saved note cannot appear. page 1 + the list can
+        # show it (visibility and entity filter both match) → refresh in
+        # place; otherwise navigate to the saved note's own visibility list.
+        self.assertIn("const visibleHere = visibility === \"all\" || visibility === saved.visibility", src)
+        self.assertIn("page === 1 && visibleHere && inFilter", src)
+        self.assertIn('params.set("visibility", saved.visibility)', src)
         self.assertIn("redirectIfPageIsEmpty", src)
         self.assertIn("Math.ceil(value.total / value.page_size)", src)
-        self.assertIn('router.replace(withLocale("/aichem?tab=notes", locale))', src)
+        # normalized landing URL construction (URLSearchParams, not string concat)
+        self.assertIn("router.replace(withLocale(`/aichem?${params.toString()}`, locale))", src)
 
     def test_mobile_topbar_keeps_creation_actions_without_desktop_duplication(self):
         nav = (REPO / "web/components/workbench/WbTopnav.tsx").read_text(encoding="utf-8")

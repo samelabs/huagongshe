@@ -418,6 +418,10 @@ const en: Dictionary = {
     createReaction: 'New reaction',
     writeNote: 'Write a note',
 
+    /* R6 */
+    profileLoadFailed: 'Failed to load public notes',
+    deleteFailed: 'Delete failed, please retry',
+
   },
 
 

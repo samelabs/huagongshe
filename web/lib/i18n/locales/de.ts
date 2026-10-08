@@ -422,6 +422,10 @@ const de: Dictionary = {
     createReaction: 'Neue Reaktion',
     writeNote: 'Notiz schreiben',
 
+    /* R6 */
+    profileLoadFailed: 'Öffentliche Notizen konnten nicht geladen werden',
+    deleteFailed: 'Löschen fehlgeschlagen, bitte erneut versuchen',
+
   },
 
 

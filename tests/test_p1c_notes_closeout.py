@@ -61,12 +61,12 @@ class P5SanitizerUnitTests(unittest.TestCase):
             NoteBody(content="   ", visibility="private")
 
     def test_length_limit_after_sanitize(self):
-        # 30001 visible chars after stripping Cf → rejected
-        with self.assertRaises(ValidationError):
-            NoteBody(content="a" * 29_999 + "\u200d" * 10, visibility="private")
-        # 30000 after sanitize → accepted (29990 visible + 10 Cf stripped)
+        # R4: length is enforced AFTER sanitization. Raw >30000 whose
+        # sanitized form fits is ACCEPTED; still >30000 after sanitize rejects.
         body = NoteBody(content="a" * 29_990 + "\u200d" * 10, visibility="private")
         self.assertEqual(len(body.content), 29_990)
+        with self.assertRaises(ValidationError):
+            NoteBody(content="b" * 30_001, visibility="private")
 
     def test_create_and_update_share_rule(self):
         # Both create and update validate through the same NoteBody model.

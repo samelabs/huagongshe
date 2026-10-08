@@ -421,6 +421,10 @@ const ko: Dictionary = {
     createReaction: '반응 만들기',
     writeNote: '노트 쓰기',
 
+    /* R6 */
+    profileLoadFailed: '공개 노트를 불러오지 못했습니다',
+    deleteFailed: '삭제에 실패했습니다. 다시 시도해 주세요',
+
   },
 
 

@@ -256,6 +256,11 @@ def _fams() -> list[Family]:
             S("mine", A.SESSION, entrypoints=(
                 I(T.HTTP, "GET /api/users/me/notes"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("user_public", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/users/{username}/notes"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE),
+              note="public profile block: public+visible notes of an active "
+                   "user; web-only, anonymous read, no MCP surface"),
             S("chemical_public", A.ANONYMOUS, entrypoints=(
                 I(T.HTTP, "GET /api/chemicals/{chemical_id}/notes"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),

@@ -53,9 +53,12 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   catch { contentUnavailable = true; }
 
   // P-2: public notes block — first page of 8; total=0 renders no DOM at all.
+  // R6: distinguish load failure from a true total=0 — only a successful
+  // response with total 0 renders no DOM; a failure renders an error line.
   let notesBlock: NotesBlock | null = null;
+  let notesUnavailable = false;
   try { notesBlock = await apiGet<NotesBlock>(`/users/${encodeURIComponent(username)}/notes?page=1&page_size=8`); }
-  catch { notesBlock = null; }
+  catch { notesUnavailable = true; }
 
   const base = withLocale(`/user/${encodeURIComponent(profile.username)}`, locale);
   return <div className="content-page public-profile-page">
@@ -107,8 +110,14 @@ export default async function UserPage({ params, searchParams }: { params: Promi
       </nav>}
     </section>
 
-    {/* P-2: 公开笔记区块 — total=0 整块不渲染(公开主页特定例外) */}
-    {notesBlock && notesBlock.total > 0 && (
+    {/* P-2: 公开笔记区块 — 成功且 total=0 整块不渲染;加载失败渲染字典错误文案(R6) */}
+    {notesUnavailable && (
+      <section className="wb-section public-profile-content">
+        <div className="wb-panel-head"><div><h2>{t.notes.profileTitle}</h2></div></div>
+        <p className="quiet-empty">{t.notes.profileLoadFailed}</p>
+      </section>
+    )}
+    {!notesUnavailable && notesBlock && notesBlock.total > 0 && (
       <section className="wb-section public-profile-content">
         <div className="wb-panel-head"><div><h2>{t.notes.profileTitle}</h2></div><strong>{notesBlock.total}</strong></div>
         <div className="entity-note-list profile-note-list">

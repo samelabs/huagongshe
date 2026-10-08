@@ -419,6 +419,10 @@ const ja: Dictionary = {
     createReaction: '反応を作成',
     writeNote: 'ノートを書く',
 
+    /* R6 */
+    profileLoadFailed: '公開ノートの読み込みに失敗しました',
+    deleteFailed: '削除に失敗しました。もう一度お試しください',
+
   },
 
 
