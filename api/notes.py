@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlalchemy import text
 
 from .core.database import get_db
 from .core.security import Actor, current_session, public_or_actor
@@ -18,6 +19,7 @@ from .services.notes import (
     get_note as get_note_service,
     list_entity_notes,
     list_my_notes,
+    list_public_user_notes,
     update_note as update_note_service,
 )
 
@@ -119,6 +121,31 @@ async def my_notes(
         reaction_id=reaction_id,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/users/{username}/notes")
+async def public_user_notes(
+    username: str,
+    page: int = Query(1, ge=1, le=500),
+    page_size: int = Query(20, ge=1, le=50),
+    db=Depends(get_db),
+):
+    """Public notes of an active user, for the public profile page.
+
+    Registered after /users/me/notes so the literal path wins for `me`.
+    Inactive or missing users 404; private/hidden notes never appear.
+    """
+    if username == "me":  # pragma: no cover - guarded by route order
+        raise HTTPException(404, "用户不存在")
+    user_row = (await db.execute(text("""
+        SELECT id FROM community.users
+        WHERE lower(username)=lower(:username) AND status='active'
+    """), {"username": username})).scalar()
+    if user_row is None:
+        raise HTTPException(404, "用户不存在")
+    return await list_public_user_notes(
+        db, user_id=int(user_row), page=page, page_size=page_size,
     )
 
 

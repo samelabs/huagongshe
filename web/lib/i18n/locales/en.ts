@@ -402,6 +402,22 @@ const en: Dictionary = {
     add: 'Add note',
     emptyPublic: 'No public linked notes yet.',
     loadFailed: 'Could not load notes.',
+    /* ── Phase 1c: detail page / profile block / private section / filter / truncation / stoich ── */
+    detailTitle: 'Note',
+    updatedLabel: 'Updated',
+    visibilityPublic: 'Public',
+    visibilityPrivate: 'Private',
+    viewFull: 'View full note',
+    profileTitle: 'Public notes',
+    mineSection: 'My private notes',
+    mineManage: 'Manage in notes panel',
+    filterChemical: 'Chemical',
+    filterReaction: 'Reaction',
+    filterClear: 'Clear filter',
+    filterEmpty: 'You have no notes referencing this entity yet.',
+    createReaction: 'New reaction',
+    writeNote: 'Write a note',
+
   },
 
 

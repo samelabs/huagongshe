@@ -406,6 +406,22 @@ const de: Dictionary = {
     add: 'Notiz hinzufügen',
     emptyPublic: 'Noch keine öffentlichen verknüpften Notizen.',
     loadFailed: 'Notizen konnten nicht geladen werden.',
+    /* ── Phase 1c: Detailseite / Profil / privat / Filter / Kürzung / Stoich ── */
+    detailTitle: 'Notiz',
+    updatedLabel: 'Aktualisiert',
+    visibilityPublic: 'Öffentlich',
+    visibilityPrivate: 'Privat',
+    viewFull: 'Ganze Notiz ansehen',
+    profileTitle: 'Öffentliche Notizen',
+    mineSection: 'Meine privaten Notizen',
+    mineManage: 'Im Notiz-Panel verwalten',
+    filterChemical: 'Verbindung',
+    filterReaction: 'Reaktion',
+    filterClear: 'Filter entfernen',
+    filterEmpty: 'Du hast noch keine Notizen zu diesem Eintrag.',
+    createReaction: 'Neue Reaktion',
+    writeNote: 'Notiz schreiben',
+
   },
 
 

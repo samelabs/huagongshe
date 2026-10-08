@@ -403,7 +403,7 @@ export default async function ChemicalPage({ params }: {
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
           </section>
 
-          <EntityNotes entity="chemical" entityId={chemical.id} canAdd={hasSession} />
+          <EntityNotes entity="chemical" entityId={chemical.id} canAdd={hasSession} privateContext={hasSession ? { chemical: chemical.id } : undefined} />
 
         </main>
 

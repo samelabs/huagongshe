@@ -202,15 +202,19 @@ async def create_note(
 
 
 async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
+    # G2/P-1: hidden notes 404 for everyone (including the owner); private
+    # notes only for the owning session; public+visible notes anonymously.
+    # Inactive owners 404 via the users join.
     row = (await db.execute(text("""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
                n.created_at,n.updated_at,u.username,u.display_name
         FROM community.notes n
         JOIN community.users u ON u.id=n.owner_user_id AND u.status='active'
         WHERE n.id=:id
+          AND n.moderation_status='visible'
           AND (
             n.owner_user_id=:actor
-            OR (n.visibility='public' AND n.moderation_status='visible')
+            OR n.visibility='public'
           )
     """), {"id": note_id, "actor": actor_id or 0})).mappings().first()
     if row is None:
@@ -329,6 +333,47 @@ async def list_my_notes(
         LIMIT :limit OFFSET :offset
     """), params)).mappings().all()
     return _page_payload(await _hydrate_rows(db, rows, viewer_id=actor_id), total, page, page_size)
+
+
+async def list_public_user_notes(
+    db,
+    *,
+    user_id: int,
+    page: int,
+    page_size: int,
+) -> dict[str, Any]:
+    """Public notes of one active user, for the public profile page.
+
+    G2: only visibility='public' AND moderation_status='visible' AND
+    active owner rows are returned; reference serialization reuses the
+    shared read-time privacy filtering (no private HRID leak).
+    """
+    params: dict[str, Any] = {
+        "owner": user_id,
+        "limit": page_size,
+        "offset": (page - 1) * page_size,
+    }
+    base_where = """
+        n.owner_user_id=:owner
+        AND n.visibility='public'
+        AND n.moderation_status='visible'
+    """
+    total = int((await db.execute(text(f"""
+        SELECT count(*)
+        FROM community.notes n
+        JOIN community.users u ON u.id=n.owner_user_id AND u.status='active'
+        WHERE {base_where}
+    """), params)).scalar() or 0)
+    rows = (await db.execute(text(f"""
+        SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
+               n.created_at,n.updated_at,u.username,u.display_name
+        FROM community.notes n
+        JOIN community.users u ON u.id=n.owner_user_id AND u.status='active'
+        WHERE {base_where}
+        ORDER BY n.updated_at DESC,n.id DESC
+        LIMIT :limit OFFSET :offset
+    """), params)).mappings().all()
+    return _page_payload(await _hydrate_rows(db, rows, viewer_id=None), total, page, page_size)
 
 
 async def list_entity_notes(

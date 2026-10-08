@@ -74,6 +74,11 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
     ? Number(query.chemical) : undefined;
   const initialReactionId = typeof query.reaction === "string" && /^\d+$/.test(query.reaction)
     ? Number(query.reaction) : undefined;
+  // P-8: notes-tab entity filter (chemical precedence). Distinct from the
+  // create-preset params: new=1 + chemical/reaction stays a pre-association;
+  // without new=1 the same param filters the list.
+  const filterChemicalId = activeTab === "notes" && !createNote ? initialChemicalId : undefined;
+  const filterReactionId = activeTab === "notes" && !createNote ? initialReactionId : undefined;
 
   // 1. 先拿 summary（followers/following 依赖 username）
   const summary = await ssrGet<Summary>(cookieHeader, "/users/me/dashboard");
@@ -84,7 +89,7 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
         cookieHeader,
         activeTab === "home"
           ? "/users/me/notes?visibility=all&page=1&page_size=4"
-          : `/users/me/notes?visibility=${noteVisibility}&page=${page}&page_size=20`,
+          : `/users/me/notes?visibility=${noteVisibility}${filterChemicalId != null ? `&chemical_id=${filterChemicalId}` : ""}${filterReactionId != null ? `&reaction_id=${filterReactionId}` : ""}&page=${page}&page_size=20`,
       )
     : null;
   const initialReactions = activeTab === "home"
@@ -138,6 +143,8 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
       createNote={createNote}
       initialChemicalId={initialChemicalId}
       initialReactionId={initialReactionId}
+      filterChemicalId={filterChemicalId}
+      filterReactionId={filterReactionId}
     />
   );
 }

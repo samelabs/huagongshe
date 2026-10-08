@@ -409,6 +409,22 @@ const t = {
     add: '记一条',
     emptyPublic: '还没有公开的关联笔记。',
     loadFailed: '笔记读取失败。',
+    /* ── Phase 1c: 详情页 / 公开主页 / 私有区块 / 实体过滤 / 截断 / Stoich ── */
+    detailTitle: '笔记',
+    updatedLabel: '更新于',
+    visibilityPublic: '公开',
+    visibilityPrivate: '私有',
+    viewFull: '查看全文',
+    profileTitle: '公开笔记',
+    mineSection: '我的私有笔记',
+    mineManage: '在笔记面板管理',
+    filterChemical: '化合物',
+    filterReaction: '反应',
+    filterClear: '清除筛选',
+    filterEmpty: '该实体还没有你的笔记。',
+    createReaction: '新建反应',
+    writeNote: '写笔记',
+
   },
 
 

@@ -122,12 +122,12 @@ export function HomePanel({ counts, initialNotes, initialReactions }: {
           </div>
           <div className="wb-home-note-list">
             {notes.map((note) => (
-              <Link key={note.id} href={withLocale("/aichem?tab=notes", locale)} className="wb-home-note">
+              <Link key={note.id} href={withLocale(`/note/${note.id}`, locale)} className="wb-home-note">
                 <div>
                   <span>{note.visibility === "private" ? t.common.private : t.common.public}</span>
                   <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
                 </div>
-                <p>{note.content}</p>
+                <p className="note-clamp">{note.content}</p>
               </Link>
             ))}
           </div>

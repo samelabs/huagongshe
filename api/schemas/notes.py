@@ -2,25 +2,53 @@
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 MAX_NOTE_REFERENCES = 20
+MAX_NOTE_CONTENT_LENGTH = 30000
+
+
+def sanitize_note_content(value: str) -> str:
+    """Server-authoritative content normalization for Note create/update.
+
+    - CRLF / CR newlines are normalized to LF.
+    - LF (\\n) and TAB (\\t) are preserved.
+    - All other Unicode Cc control characters are removed.
+    - All Unicode Cf format characters (BOM, ZWJ, ZWNJ, direction marks, ...)
+      are removed. Consequences, accepted by design: ZWJ-composed emoji
+      sequences are not preserved byte-for-byte, and stored content is
+      canonical (no invisible formatting characters).
+    - CJK text, kana, hangul, SMILES and ordinary emoji pass through unchanged.
+    """
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
+    kept: list[str] = []
+    for ch in value:
+        category = unicodedata.category(ch)
+        if category == "Cc" and ch not in ("\n", "\t"):
+            continue
+        if category == "Cf":
+            continue
+        kept.append(ch)
+    return "".join(kept)
 
 
 class NoteBody(BaseModel):
     visibility: Literal["public", "private"] = "private"
-    content: str = Field(min_length=1, max_length=30000)
+    content: str = Field(min_length=1, max_length=MAX_NOTE_CONTENT_LENGTH)
     chemical_ids: list[int] = Field(default_factory=list)
     reaction_ids: list[int] = Field(default_factory=list)
 
     @field_validator("content")
     @classmethod
     def normalize_content(cls, value: str) -> str:
-        value = value.strip()
+        value = sanitize_note_content(value).strip()
         if not value:
             raise ValueError("笔记内容不能为空")
+        if len(value) > MAX_NOTE_CONTENT_LENGTH:
+            raise ValueError(f"笔记内容不能超过 {MAX_NOTE_CONTENT_LENGTH} 字符")
         return value
 
     @field_validator("chemical_ids", "reaction_ids")

@@ -36,6 +36,8 @@ export function WorkbenchLayout({
   savedKind,
   summary,
   initialNotes,
+  filterChemicalId,
+  filterReactionId,
   initialReactions,
   initialChemicals,
   initialSavedReactions,
@@ -54,6 +56,8 @@ export function WorkbenchLayout({
   savedKind: SavedKind;
   summary: Summary | null;
   initialNotes: NoteResponse | null;
+  filterChemicalId?: number;
+  filterReactionId?: number;
   initialReactions: ReactionResponse | null;
   initialChemicals: PageResponse<ChemicalFollow> | null;
   initialSavedReactions: PageResponse<Reaction> | null;
@@ -81,6 +85,8 @@ export function WorkbenchLayout({
         createOpen={createNote}
         initialChemicalId={initialChemicalId}
         initialReactionId={initialReactionId}
+        filterChemicalId={filterChemicalId}
+        filterReactionId={filterReactionId}
       />}
       {activeTab === "search" && <SearchPanel initialQuery={searchQuery} />}
       {activeTab === "stoich" && <StoichPanel />}

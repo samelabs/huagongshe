@@ -199,7 +199,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
               </div>
             </section>
           )}
-          <EntityNotes entity="reaction" entityId={reaction.id} canAdd={hasSession} />
+          <EntityNotes entity="reaction" entityId={reaction.id} canAdd={hasSession} privateContext={hasSession ? { reaction: reaction.id } : undefined} />
         </main>
 
         {/* ── Secondary rail (desktop) ── */}

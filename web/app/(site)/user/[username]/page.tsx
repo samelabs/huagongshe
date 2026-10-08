@@ -18,6 +18,8 @@ type Profile = {
   is_following: boolean; is_followed_by: boolean; is_mutual: boolean; is_me: boolean;
 };
 type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
+type NoteCard = { id: number; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
+type NotesBlock = { items: NoteCard[]; total: number };
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
@@ -49,6 +51,11 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   let contentUnavailable = false;
   try { reactions = await apiGet<Reaction[]>(`/users/${encodeURIComponent(username)}/reactions?page=${page}&page_size=20`); }
   catch { contentUnavailable = true; }
+
+  // P-2: public notes block — first page of 8; total=0 renders no DOM at all.
+  let notesBlock: NotesBlock | null = null;
+  try { notesBlock = await apiGet<NotesBlock>(`/users/${encodeURIComponent(username)}/notes?page=1&page_size=8`); }
+  catch { notesBlock = null; }
 
   const base = withLocale(`/user/${encodeURIComponent(profile.username)}`, locale);
   return <div className="content-page public-profile-page">
@@ -99,5 +106,23 @@ export default async function UserPage({ params, searchParams }: { params: Promi
         {page * 20 < profile.public_reactions ? <Link href={`${base}?page=${page + 1}`}>{t.common.next}</Link> : <span />}
       </nav>}
     </section>
+
+    {/* P-2: 公开笔记区块 — total=0 整块不渲染(公开主页特定例外) */}
+    {notesBlock && notesBlock.total > 0 && (
+      <section className="wb-section public-profile-content">
+        <div className="wb-panel-head"><div><h2>{t.notes.profileTitle}</h2></div><strong>{notesBlock.total}</strong></div>
+        <div className="entity-note-list profile-note-list">
+          {notesBlock.items.map((note) => (
+            <article className="entity-note-card" key={note.id}>
+              <header>
+                <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
+                <Link href={withLocale(`/note/${note.id}`, locale)}>{t.notes.viewFull}</Link>
+              </header>
+              <p className="note-clamp">{note.content}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    )}
   </div>;
 }

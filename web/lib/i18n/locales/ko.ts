@@ -405,6 +405,22 @@ const ko: Dictionary = {
     add: '노트 추가',
     emptyPublic: '공개된 연결 노트가 아직 없습니다.',
     loadFailed: '노트를 불러오지 못했습니다.',
+    /* ── Phase 1c: 상세 페이지 / 프로필 / 비공개 / 필터 / 잘라내기 / Stoich ── */
+    detailTitle: '노트',
+    updatedLabel: '업데이트',
+    visibilityPublic: '공개',
+    visibilityPrivate: '비공개',
+    viewFull: '전체 보기',
+    profileTitle: '공개 노트',
+    mineSection: '내 비공개 노트',
+    mineManage: '노트 패널에서 관리',
+    filterChemical: '화합물',
+    filterReaction: '반응',
+    filterClear: '필터 해제',
+    filterEmpty: '이 항목을 참조하는 노트가 아직 없습니다.',
+    createReaction: '반응 만들기',
+    writeNote: '노트 쓰기',
+
   },
 
 

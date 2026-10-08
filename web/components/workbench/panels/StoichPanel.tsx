@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
@@ -269,6 +270,11 @@ export function StoichPanel() {
               <strong>{result.solvent_volume_ml} mL</strong>
             </div>
           )}
+          {/* P-7: 下游动作仅在计算成功且结果有效时出现 */}
+          <div className="wb-stoich-actions">
+            <Link className="wb-btn wb-btn-ghost" href={withLocale("/submit", locale)}>{t.notes.createReaction}</Link>
+            <Link className="wb-btn wb-btn-ghost" href={withLocale("/aichem?tab=notes&new=1", locale)}>{t.notes.writeNote}</Link>
+          </div>
         </div>
       )}
 

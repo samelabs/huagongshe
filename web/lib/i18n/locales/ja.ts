@@ -403,6 +403,22 @@ const ja: Dictionary = {
     add: 'ノートを追加',
     emptyPublic: '公開された関連ノートはまだありません。',
     loadFailed: 'ノートを読み込めませんでした。',
+    /* ── Phase 1c: 詳細ページ / プロフィール / プライベート / フィルタ / 切り詰め / Stoich ── */
+    detailTitle: 'ノート',
+    updatedLabel: '更新日時',
+    visibilityPublic: '公開',
+    visibilityPrivate: '非公開',
+    viewFull: '全文を見る',
+    profileTitle: '公開ノート',
+    mineSection: '自分の非公開ノート',
+    mineManage: 'ノートパネルで管理',
+    filterChemical: '化合物',
+    filterReaction: '反応',
+    filterClear: 'フィルタを解除',
+    filterEmpty: 'このエンティティに関連するノートはまだありません。',
+    createReaction: '反応を作成',
+    writeNote: 'ノートを書く',
+
   },
 
 

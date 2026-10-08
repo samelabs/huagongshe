@@ -1345,3 +1345,27 @@ select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow)
 .entity-note-card>p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;margin:10px 0 0}
 .entity-note-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .entity-note-links>a{display:inline-flex;border:1px solid var(--line,#e5e7eb);border-radius:999px;padding:3px 8px;text-decoration:none}
+
+/* ── Phase 1c: Notes 产品闭环 ── */
+/* P-3: 卡片 6 行截断(保留 pre-wrap/anywhere; 30000 字符不横溢不无限长) */
+.note-clamp{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
+.note-view-full{display:inline-block;margin-top:8px}
+/* P-1: Note 详情页(全文, 不截断) */
+.note-detail-page .note-detail{border:1px solid var(--line,#e5e7eb);border-radius:12px;padding:20px 24px;background:var(--paper,#fff)}
+.note-detail-head h1{font-size:1.15rem;margin:0 0 8px}
+.note-detail-meta{display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:.86rem;color:var(--quiet,#64748b)}
+.note-detail-meta a{font-weight:600;color:inherit}
+.note-vis-badge{display:inline-flex;border-radius:999px;padding:2px 10px;font-size:.75rem;border:1px solid var(--line,#e5e7eb)}
+.note-vis-badge.is-public{color:#047857;border-color:#a7f3d0}
+.note-vis-badge.is-private{color:#92400e;border-color:#fde68a}
+.note-detail-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;margin:16px 0 0;font-size:.95rem}
+.note-detail-links{margin-top:16px}
+/* P-6: 实体页私有区块(公开区块上方, 只读) */
+.entity-note-private{border:1px dashed var(--line,#d1d5db);border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.entity-note-private-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.entity-note-private-head h3{margin:0;font-size:.95rem}
+/* P-8: 实体过滤面包屑 */
+.wb-filter-crumbs{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:.85rem;color:var(--quiet,#64748b)}
+.wb-filter-crumb{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line,#e5e7eb);border-radius:999px;padding:3px 10px}
+/* P-7: Stoich 成功态下游动作 */
+.wb-stoich-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
