@@ -4,7 +4,8 @@ import { getRequestDictionary } from "@/lib/serverI18n";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
-  return { title: t.auth.title };
+  // S4 (G1.5-A): 登录页不参与索引(鉴权入口无索引价值), 仍可跟随回跳链接
+  return { title: t.auth.title, robots: { index: false, follow: true } };
 }
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
   const t = await getRequestDictionary();

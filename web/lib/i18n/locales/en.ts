@@ -83,6 +83,7 @@ const en: Dictionary = {
 
   /* ── Search ────────────────────────────────────────── */
   search: {
+    seoDesc: 'Search chemistry data by name, CAS number, InChIKey, SMILES, or structure across Huagongshe.',
     title: 'Search chemistry data',
     noResultsFor: (query: string) => `No records match "${query}"`,
     noResultsHint: 'You can try:',

@@ -87,6 +87,7 @@ const de: Dictionary = {
 
   /* ── Suche ──────────────────────────────────────────── */
   search: {
+    seoDesc: 'Durchsuche Huagongshe-Chemiedaten nach Name, CAS-Nummer, InChIKey, SMILES oder Struktur.',
     title: 'Chemiedaten durchsuchen',
     noResultsFor: (query: string) => `Keine Einträge für „${query}“ gefunden`,
     noResultsHint: 'Versuche Folgendes:',

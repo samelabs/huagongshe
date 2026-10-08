@@ -5,10 +5,33 @@ import { ChemicalResult } from "@/components/ChemicalResult";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ReactionResult } from "@/components/ReactionResult";
 import { apiGet, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
+import { localeAlternates } from "@/lib/alternates";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
+import type { Metadata } from "next";
 
 type SearchParams = { q?: string; mode?: string; page?: string };
+
+/**
+ * S2 (G1.5-A): 搜索页 metadata。
+ * - 无参数入口 /search: 各语言独立 title/description/canonical/hreflang, 可索引。
+ * - 带查询参数(q/mode/page)的内部结果页: noindex,follow —— 不为无限查询词
+ *   生成 canonical/hreflang 集合, 也不进入 Sitemap。
+ */
+export async function generateMetadata({ searchParams }: { searchParams: Promise<SearchParams> }): Promise<Metadata> {
+  const params = await searchParams;
+  const hasQuery = Boolean(params.q || params.mode || params.page);
+  if (hasQuery) {
+    return { robots: { index: false, follow: true } };
+  }
+  const t = await getRequestDictionary();
+  const locale = await getRequestLocale();
+  return {
+    title: t.search.title,
+    description: t.search.seoDesc,
+    alternates: localeAlternates("/search", locale),
+  };
+}
 
 const PAGE_SIZE = 30;
 

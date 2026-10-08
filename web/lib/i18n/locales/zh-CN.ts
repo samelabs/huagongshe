@@ -90,6 +90,7 @@ const t = {
 
   /* ── 搜索 ────────────────────────────────────────────── */
   search: {
+    seoDesc: '在化工社按名称、CAS 号、InChIKey、SMILES 或结构检索化学数据。',
     title: '查询化学数据',
     noResultsFor: (query: string) => `没有找到与「${query}」匹配的记录`,
     noResultsHint: '可以尝试以下方式：',

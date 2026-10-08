@@ -86,6 +86,7 @@ const ko: Dictionary = {
 
   /* ── 검색 ───────────────────────────────────────────── */
   search: {
+    seoDesc: '이름, CAS 번호, InChIKey, SMILES 또는 구조로 화공사의 화학 데이터를 검색.',
     title: '화학 데이터 검색',
     noResultsFor: (query: string) => `"${query}"에 대한 일치 기록을 찾지 못했습니다`,
     noResultsHint: '다음 방법을 시도해 보세요:',

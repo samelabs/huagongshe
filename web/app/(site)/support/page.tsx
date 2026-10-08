@@ -1,12 +1,33 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Support",
-  description: "Support information for Huagongshe web, API, MCP, OAuth, and plugin connections.",
-};
+import { getRequestLocale } from "@/lib/serverI18n";
+
+/**
+ * S3 (G1.5-A): 法律/支持页正文只有英文权威版。
+ * - 英文路径 (/en/support): canonical + 可索引。
+ * - 非英文路径: noindex,follow(正文仍是英文, 不宣称存在译文),
+ *   不声明语言互备(没有真实对应译文页面)。
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const canonical = "/en/support";
+  if (locale === "en") {
+    return {
+      title: "Support",
+      description: "Support information for Huagongshe web, API, MCP, OAuth, and plugin connections.",
+      alternates: { canonical },
+    };
+  }
+  return {
+    title: "Support",
+    description: "Support information for Huagongshe web, API, MCP, OAuth, and plugin connections.",
+    alternates: { canonical },
+    robots: { index: false, follow: true },
+  };
+}
 
 export default function SupportPage() {
-  return <article className="content-page guide-page legal-page">
+  return <article lang="en" className="content-page guide-page legal-page">
     <header className="page-head guide-hero">
       <p className="page-kicker">Huagongshe</p>
       <h1>Support</h1>

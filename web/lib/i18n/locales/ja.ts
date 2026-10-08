@@ -84,6 +84,7 @@ const ja: Dictionary = {
 
   /* ── 検索 ───────────────────────────────────────────── */
   search: {
+    seoDesc: '名称、CAS番号、InChIKey、SMILES、構造で化工社のケミストリーデータを検索。',
     title: 'ケミストリーデータを検索',
     noResultsFor: (query: string) => `「${query}」に一致する記録は見つかりませんでした`,
     noResultsHint: '次の方法をお試しください：',
