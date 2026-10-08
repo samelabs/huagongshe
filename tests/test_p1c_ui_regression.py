@@ -106,9 +106,11 @@ class CreatePreassociationTests(unittest.TestCase):
 
     def test_save_returns_to_filtered_list(self):
         panel = read("components/workbench/panels/NotesPanel.tsx")
-        # R2: filter params flow through the shared URLSearchParams helpers
-        self.assertIn("filterParams(filterChemicalId, filterReactionId)", panel)
+        # R2/F2: filter flows through the shared helpers; the landing URL
+        # keeps an entity filter ONLY when the saved note still references it
+        self.assertIn("listParams(visibility, filterChemicalId, filterReactionId", panel)
         self.assertIn("listHref(1)", panel)
+        self.assertIn("saved.chemical_ids.includes(filterChemicalId!)", panel)
 
 
 class BackForwardUrlStateTests(unittest.TestCase):
@@ -231,7 +233,8 @@ class P8FilterUITests(unittest.TestCase):
 
     def test_ssr_and_client_same_filter_condition(self):
         page = read("app/(workbench)/aichem/page.tsx")
-        self.assertIn("filterChemicalId != null ? `&chemical_id=", page)
+        # F1: SSR prefetch goes through ssrNotesQuery (chemical precedence)
+        self.assertIn("ssrNotesQuery(noteVisibility, filterChemicalId, filterReactionId, page)", page)
         panel = read("components/workbench/panels/NotesPanel.tsx")
         # client query builds chemical_id from the same URL param name
         self.assertIn('params.set("chemical_id", filter.get("chemical")!)', panel)

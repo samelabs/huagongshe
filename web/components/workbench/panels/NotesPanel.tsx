@@ -157,10 +157,18 @@ export function NotesPanel({
       if (createOpen) router.replace(listHref(1));
       return;
     }
+    // F2: the landing list must actually contain the saved note. When the
+    // note no longer matches the current entity filter, DROP the filter
+    // instead of keeping it — keeping it would navigate to a list the note
+    // cannot appear in. Keep it only when the note still references the
+    // filtered entity (e.g. an edit that removed other references).
     const params = new URLSearchParams({ tab: "notes" });
     params.set("visibility", saved.visibility);
-    const filter = filterParams(filterChemicalId, filterReactionId);
-    filter.forEach((value, key) => params.set(key, value));
+    if (filterKey === "chemical" && saved.chemical_ids.includes(filterChemicalId!)) {
+      params.set("chemical", String(filterChemicalId));
+    } else if (filterKey === "reaction" && saved.reaction_ids.includes(filterReactionId!)) {
+      params.set("reaction", String(filterReactionId));
+    }
     router.replace(withLocale(`/aichem?${params.toString()}`, locale));
   }
 

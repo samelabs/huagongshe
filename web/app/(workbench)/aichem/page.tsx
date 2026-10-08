@@ -28,6 +28,21 @@ const visibilities = new Set<ReactionVisibility>(["all", "public", "private"]);
 const noteVisibilities = new Set<NoteVisibility>(["all", "public", "private"]);
 const savedKinds = new Set<SavedKind>(["chemicals", "reactions"]);
 
+/**
+ * F1: SSR notes prefetch query. Chemical takes precedence when both
+ * chemical= and reaction= are present — mirroring the client-side
+ * apiListQuery exactly so first paint and client refresh agree.
+ */
+function ssrNotesQuery(visibility: string, chemicalId: number | undefined, reactionId: number | undefined, page: number): string {
+  const params = new URLSearchParams();
+  params.set("visibility", visibility);
+  if (chemicalId != null) params.set("chemical_id", String(chemicalId));
+  else if (reactionId != null) params.set("reaction_id", String(reactionId));
+  params.set("page", String(page));
+  params.set("page_size", "20");
+  return params.toString();
+}
+
 async function ssrGet<T>(cookieHeader: string | null, path: string): Promise<T | null> {
   if (!cookieHeader) return null;
   try {
@@ -89,7 +104,7 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
         cookieHeader,
         activeTab === "home"
           ? "/users/me/notes?visibility=all&page=1&page_size=4"
-          : `/users/me/notes?visibility=${noteVisibility}${filterChemicalId != null ? `&chemical_id=${filterChemicalId}` : ""}${filterReactionId != null ? `&reaction_id=${filterReactionId}` : ""}&page=${page}&page_size=20`,
+          : `/users/me/notes?${ssrNotesQuery(noteVisibility, filterChemicalId, filterReactionId, page)}`,
       )
     : null;
   const initialReactions = activeTab === "home"
