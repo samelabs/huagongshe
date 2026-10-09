@@ -366,7 +366,8 @@ class DictionaryTreeConsistencyContract(unittest.TestCase):
     def test_mcp_key_tree_identical_across_locales(self):
         trees = {loc: self._key_tree(_mcp_section(loc)) for loc in LOCALES}
         base = trees["zh-CN"]
-        self.assertEqual(len(base), 35)  # 30 original keys + 4 OAuth positioning + compatJsonDesc
+        self.assertEqual(len(base), 38)  # 35 previous MCP keys + 3 Plugin status keys
+        self.assertTrue({"pluginKicker", "pluginTitle", "pluginStatus"} <= base)
         for locale in LOCALES:
             self.assertEqual(trees[locale], base, locale)
 
