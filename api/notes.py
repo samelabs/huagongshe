@@ -46,7 +46,11 @@ async def create_note(
             reaction_ids=body.reaction_ids,
         )
     except NoteReferenceError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        # v1.7.0 L2: detail 升级为 {message, kind} 结构 — message 保持中文
+        # 原文, kind 是稳定机器码(前端五语言分类); 纯字符串消费者的旧
+        # 形态由 ApiError 结构分支兼容。
+        raise HTTPException(
+            400, {"message": str(exc), "kind": exc.kind}) from exc
 
 
 @router.get("/notes/{note_id}")
@@ -88,7 +92,11 @@ async def update_note(
     except NoteNotAccessibleError as exc:
         raise _note_not_found(exc) from exc
     except NoteReferenceError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        # v1.7.0 L2: detail 升级为 {message, kind} 结构 — message 保持中文
+        # 原文, kind 是稳定机器码(前端五语言分类); 纯字符串消费者的旧
+        # 形态由 ApiError 结构分支兼容。
+        raise HTTPException(
+            400, {"message": str(exc), "kind": exc.kind}) from exc
 
 
 @router.delete("/notes/{note_id}", status_code=204)

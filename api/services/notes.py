@@ -18,7 +18,22 @@ class NoteNotAccessibleError(Exception):
 
 
 class NoteReferenceError(Exception):
-    """One or more requested entity references are invalid or inaccessible."""
+    """One or more requested entity references are invalid or inaccessible.
+
+    kind 是稳定机器码(v1.7.0 L2: 前端按 kind 做五语言分类提示, 不解析
+    中文 detail 原文); str(exc) 保持中文原文, adapter 层将 HTTP 400
+    detail 升级为 {message, kind} 结构。
+    - chemical_not_found: 部分 HCID 不存在
+    - reaction_not_accessible: HRID 不存在/不可访问(含非 owner 私有)
+    - public_requires_public: 公开笔记关联了非公开可见反应
+    """
+
+    kind: str = "reaction_not_accessible"
+
+    def __init__(self, detail: str, *, kind: str | None = None):
+        super().__init__(detail)
+        if kind is not None:
+            self.kind = kind
 
 
 class NoteEntityNotFoundError(Exception):
@@ -112,7 +127,8 @@ async def _validate_references(
             SELECT id FROM chemistry.chemicals WHERE id = ANY(:ids)
         """), {"ids": chemical_ids})).scalars().all())
         if existing != set(chemical_ids):
-            raise NoteReferenceError("一个或多个化合物不存在")
+            raise NoteReferenceError(
+                "一个或多个化合物不存在", kind="chemical_not_found")
 
     if not reaction_ids:
         return
@@ -125,7 +141,8 @@ async def _validate_references(
 
     by_id = {int(row["id"]): row for row in rows}
     if set(by_id) != set(reaction_ids):
-        raise NoteReferenceError("一个或多个反应不存在或不可访问")
+        raise NoteReferenceError(
+            "一个或多个反应不存在或不可访问", kind="reaction_not_accessible")
 
     for reaction_id in reaction_ids:
         row = by_id[reaction_id]
@@ -134,11 +151,19 @@ async def _validate_references(
             and row["moderation_status"] == "visible"
         )
         owned = row["created_by_user_id"] is not None and int(row["created_by_user_id"]) == actor_id
-        if visibility == "public":
-            if not public_visible:
-                raise NoteReferenceError("公开笔记只能关联公开可见的反应")
-        elif not (public_visible or owned):
-            raise NoteReferenceError("一个或多个反应不存在或不可访问")
+        # v1.7.0 权限边界收口: 非所有者 + 非公开可见 → 统一
+        # reaction_not_accessible, 与 HRID 不存在不可区分(不泄露存在性);
+        # 无论笔记可见性与 HRID 是否真实存在。
+        if not public_visible and not owned:
+            raise NoteReferenceError(
+                "一个或多个反应不存在或不可访问",
+                kind="reaction_not_accessible")
+        if visibility == "public" and not public_visible:
+            # 仅所有者会走到这里(自己的非公开 HRID 进公开笔记): 保留
+            # 准确提示, 所有者本就知道该反应存在, 无泄露。
+            raise NoteReferenceError(
+                "公开笔记只能关联公开可见的反应",
+                kind="public_requires_public")
 
 
 async def _replace_references(

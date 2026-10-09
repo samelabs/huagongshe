@@ -44,7 +44,23 @@ export function NoteEditor({
         : await apiPost<NoteItem>("/notes", JSON.stringify(body));
       onSaved(saved);
     } catch (err) {
-      setError(err instanceof ApiError && err.detail ? err.detail : t.me.notesSaveFailed);
+      // v1.7.0 L2(+补正): 先按 HTTP 状态区分会话/限流 — 与失败原因一致;
+      // 400 引用校验按 kind 机器码映射五语言分类提示; 其余未知失败安全
+      // 回退 notesSaveFailed, 不展示原始技术错误或中文原文。
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setError(t.me.notesSessionExpired);
+        } else if (err.status === 429) {
+          setError(t.search.errRateLimit);
+        } else if (err.status === 400 && err.detailKind) {
+          const byKind = t.me.notesRefError[err.detailKind as keyof typeof t.me.notesRefError];
+          setError(byKind ?? t.me.notesSaveFailed);
+        } else {
+          setError(t.me.notesSaveFailed);
+        }
+      } else {
+        setError(t.me.notesSaveFailed);
+      }
     } finally {
       setBusy(false);
     }
