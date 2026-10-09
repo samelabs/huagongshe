@@ -1,0 +1,158 @@
+/* ═══════════════════════════════════════════════════════════════
+   tokens.css — HGS 设计 token 唯一来源（docs/DESIGN_SYSTEM.md）
+   ═══════════════════════════════════════════════════════════════
+   - 组件只引用「语义层」token；原始色阶只在本文件内被引用。
+   - 本文件之外禁止出现 hex / rgb 色值字面量（tests/test_ui_token_contract.py）。
+   - 工作台 --wb-* 只能是本文件 token 的别名，不得自带取值。
+   - 只有浅色主题；token 按语义命名，为后续暗色模式留口。 */
+
+:root {
+  /* ── 原始色阶 · Blue（品牌） ─────────────────────────────── */
+  --blue-50:  #EEF5FF;
+  --blue-100: #DCEBFF;
+  --blue-200: #B8D7FF;
+  --blue-300: #86BBFF;
+  --blue-400: #4FA2FF;   /* 深色底上的标志 */
+  --blue-500: #1E90FF;   /* 品牌蓝：标志、焦点环、选中指示（非文字） */
+  --blue-600: #1468D0;   /* 操作蓝：按钮、链接（白底 5.4:1） */
+  --blue-700: #0F56AD;
+  --blue-800: #0C4489;
+  --blue-900: #0A2F5E;
+
+  /* ── 原始色阶 · 墨蓝中性 ─────────────────────────────────── */
+  --n-0:   #FFFFFF;
+  --n-25:  #F7F9FC;
+  --n-50:  #F0F3F8;
+  --n-100: #E3E8EF;
+  --n-200: #CDD6E1;
+  --n-300: #A9B6C6;
+  --n-400: #8494A8;
+  --n-500: #5F7389;   /* 最浅的可读文字（4.9:1） */
+  --n-700: #33475D;
+  --n-900: #16263A;
+
+  /* ── 原始色阶 · 反应灰蓝 / 状态 ───────────────────────────── */
+  --rx-50:  #EEF2F7;
+  --rx-200: #C9D5E2;
+  --rx-500: #5B7A99;
+  --rx-700: #3D5878;
+  --ok-50:  #ECF8F0;  --ok-200:  #B7E2C4;  --ok-600:  #15803D;
+  --warn-50:#FFF7E8;  --warn-200:#F5D9A3;  --warn-700:#A15C07;
+  --err-50: #FDF1F2;  --err-200: #F3C4C9;  --err-600: #C42B3C;  --err-700: #A9202F;
+
+  /* ══ 语义层（组件只用这一层） ═════════════════════════════ */
+  /* 面 */
+  --bg-page:    var(--n-25);
+  --bg-surface: var(--n-0);
+  --bg-subtle:  var(--n-50);
+  --bg-hover:   var(--n-50);
+  --bg-pressed: var(--n-100);
+  --bg-inverse: var(--n-900);   /* Toast */
+  --overlay:    rgba(22, 38, 58, .40);
+
+  /* 线 */
+  --border:        var(--n-100);
+  --border-strong: var(--n-200);
+
+  /* 文字 */
+  --text:             var(--n-900);
+  --text-2:           var(--n-700);
+  --text-muted:       var(--n-500);
+  --text-placeholder: var(--n-400);
+  --text-disabled:    var(--n-300);
+  --text-inverse:     var(--n-0);
+
+  /* 品牌与操作 */
+  --brand:          var(--blue-500);
+  --action:         var(--blue-600);
+  --action-hover:   var(--blue-700);
+  --action-pressed: var(--blue-800);
+  --action-subtle:  var(--blue-50);
+  --action-subtle-hover: var(--blue-100);
+  --action-border:  var(--blue-200);
+  --action-ink:     var(--blue-700);   /* 浅蓝底上的文字 */
+  --focus:          var(--blue-500);
+  --focus-halo:     rgba(30, 144, 255, .28);
+
+  /* 实体（只用于 EntityBadge 与实体强调） */
+  --entity-chem:      var(--blue-600);
+  --entity-chem-bg:   var(--blue-50);
+  --entity-chem-line: var(--blue-200);
+  --entity-rx:        var(--rx-700);
+  --entity-rx-bg:     var(--rx-50);
+  --entity-rx-line:   var(--rx-200);
+
+  /* 状态（fg / bg / border） */
+  --ok:   var(--ok-600);   --ok-bg:   var(--ok-50);   --ok-border:   var(--ok-200);
+  --warn: var(--warn-700); --warn-bg: var(--warn-50); --warn-border: var(--warn-200);
+  --err:  var(--err-600);  --err-bg:  var(--err-50);  --err-border:  var(--err-200);
+  --err-hover: var(--err-700);
+
+  /* ── 字体 ─────────────────────────────────────────────────── */
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* 字号 8 档（最小 12；EntityBadge xs 前缀 11.5 为唯一例外） */
+  --fs-12: 12px;  /* 说明、来源标签、徽标 */
+  --fs-13: 13px;  /* 元数据、标签 */
+  --fs-14: 14px;  /* 数据值、界面默认、按钮 */
+  --fs-16: 16px;  /* 正文、卡片标题、移动端输入 */
+  --fs-18: 18px;  /* 弹窗标题、子标题 */
+  --fs-22: 22px;  /* 区块标题 */
+  --fs-28: 28px;  /* 页面标题、统计数字；移动端实体名 */
+  --fs-40: 40px;  /* 实体名、首页标题（桌面） */
+
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semibold:600;
+  --fw-display: 650;   /* ≥ 22px 标题 */
+
+  --lh-tight: 1.15;   /* ≥ 28px */
+  --lh-heading: 1.3;
+  --lh-ui: 1.5;
+  --lh-prose: 1.65;
+
+  --ls-display: -.025em;  /* 40 */
+  --ls-title:   -.02em;   /* 28 */
+  --ls-heading: -.015em;  /* 22 */
+
+  /* 间距 */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-6: 24px; --sp-8: 32px; --sp-12: 48px; --sp-16: 64px;
+
+  /* 圆角 */
+  --r-xs:   6px;    /* 标签、徽标 */
+  --r-sm:   8px;    /* 按钮、输入框 */
+  --r-md:   12px;   /* 卡片、面板 */
+  --r-lg:   16px;   /* 弹窗、抽屉 */
+  --r-pill: 999px;  /* 头像、计数 */
+
+  /* 阴影：只给浮层 */
+  --shadow-float: 0 12px 32px rgba(22, 38, 58, .12), 0 2px 6px rgba(22, 38, 58, .06);
+
+  /* 控件高度 */
+  --h-sm: 32px;
+  --h-md: 40px;
+  --h-lg: 48px;
+  --touch-min: 44px;
+
+  /* 布局 */
+  --header-h:   60px;
+  --header-h-m: 52px;
+  --tabbar-h:   64px;
+  --sidebar-w:  232px;
+  --rail-w:     260px;
+  --rail-w-wide:320px;
+  --w-reading:  720px;
+  --w-content:  1040px;
+  --w-wide:     1200px;
+
+  /* 动效 */
+  --dur-fast: 120ms;
+  --dur:      200ms;
+  --ease:     cubic-bezier(.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur: 0ms; }
+}

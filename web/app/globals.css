@@ -65,7 +65,7 @@
   --text-xs: 10px;   /* kicker、badge */
 
   /* ══ Design System v2 Foundation tokens（0911）═══════════════
-     公开产品层的唯一规范 scale（docs/DESIGN_SYSTEM_V2.md §3–4）。
+     公开产品层的唯一规范 scale（docs/DESIGN_SYSTEM.md; 迁移中，取值以 web/app/tokens.css 为准）。
      --text-* 四档保留给 operations/紧凑数据行；public 新代码一律
      用本块语义 token，不再新造字号/间距/圆角/宽度值。 */
 
