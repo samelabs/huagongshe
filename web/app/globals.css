@@ -23,9 +23,9 @@ h2, h3 { font-weight: var(--fw-semibold); }
 .site-header { z-index: 30; border-bottom: 1px solid var(--border); background: var(--bg-surface); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
 .header-inner { width: min(var(--w-wide), calc(100% - 40px)); min-width: 0; height: 64px; margin: 0 auto; display: flex; align-items: center; }
 .brand { display: inline-flex; align-items: center; padding: 12px 0; }  /* 44px 级触控区, 不改 header 高度 */
-/* HGS lockup (components/ui/HgsLogo): 字标 currentColor, 图形标 var(--brand) */
-.hgs-logo { display: inline-flex; align-items: center; gap: 10px; color: var(--text-2); }
-.brand:hover .hgs-logo { color: var(--action); }
+/* HGS lockup (components/ui/HgsLogo): 字标 currentColor, 图形标 var(--brand);
+   品牌色不随交互状态变化(DESIGN_SYSTEM §2.2), 无 hover 变色 */
+.hgs-logo { display: inline-flex; align-items: center; gap: 10px; color: var(--text); }
 .hgs-logo-zh { display: inline-flex; align-items: center; gap: 10px; }
 .hgs-logo-divider { width: 1px; height: 16px; background: var(--border-strong); }
 .hgs-logo-zh-text { font-size: var(--fs-14); font-weight: var(--fw-medium); letter-spacing: .08em; color: var(--text-2); }

@@ -7,6 +7,10 @@
  * 依赖仓库内的 sharp（web/node_modules），不新增依赖。SVG 源文件与产物都入库；
  * 改品牌先改 public/brand/ 源文件，再重跑本脚本。产物清单：
  *
+ *   ⚠ og.png 的文字（“化工社 · AI 化学工作台”）由 librsvg 按本机字体渲染，
+ *   依赖 macOS 自带的 PingFang SC——只在 macOS 上重新生成；生成的 PNG 入库，
+ *   CI 不重跑本脚本（其他机器的 fontconfig 会渲染出不同字形）。
+ *
  *   public/favicon.ico            16(mark-16)/32(mark)/48(mark)，PNG-in-ICO
  *   app/icon.png                  512 透明底 hgs-mark.svg
  *   app/apple-icon.png            180 直角满底渐变 + 白色线框图形标 62% 宽

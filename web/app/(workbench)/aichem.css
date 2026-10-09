@@ -42,14 +42,14 @@
   gap: var(--wb-sp-5);
 }
 
-/* HGS lockup (HgsLogo): 字标 currentColor, 尺寸/中文副标由 globals.css .hgs-logo 系列控制 */
+/* HGS lockup (HgsLogo): 字标 currentColor, 尺寸/中文副标由 globals.css .hgs-logo 系列控制;
+   品牌色不随交互状态变化(DESIGN_SYSTEM §2.2), 无 hover 变色 */
 .wb-logo {
   display: inline-flex;
   align-items: center;
-  color: var(--text-2);
+  color: var(--text);
   white-space: nowrap;
 }
-.wb-logo:hover { color: var(--action); }
 
 /* ── 顶部导航 ── */
 .wb-topnav {

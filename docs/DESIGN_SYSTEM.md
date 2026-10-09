@@ -46,6 +46,8 @@ React 实现：`<HgsLogo variant="lockup" | "mark" | "wordmark" size={28} />`，
 ### 2.2 规则
 
 - 最小尺寸 16px；16px 时使用 `hgs-mark-16`。
+- HgsLogo 组件最小 size 为 20；16px 的简化图形标只用于 favicon，不进入组件。
+- HgsLogo 需要 locale 时由服务端传入；客户端组件使用 lockup 时从 I18nContext 读取。
 - 四周留白 ≥ 图形标宽度的 1/4。
 - 不加渐变（App 图标除外）、阴影或描边；不改比例；不换色。
 - 尺寸：网站顶栏 28，手机顶栏 24，登录页和空状态 44，App 图标 512。
