@@ -22,9 +22,9 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: t.brand.name,
       locale: ogLocaleTag(locale),
       type: "website",
-      images: [{ url: "/logo.png", width: 512, height: 512, alt: t.brand.ogAlt }],
+      images: [{ url: "/og.png", width: 1200, height: 630, alt: t.brand.ogAlt }],
     },
-    twitter: { card: "summary", title: t.brand.seoTitle, description: t.brand.seoDescShort, images: ["/logo.png"] },
+    twitter: { card: "summary_large_image", title: t.brand.seoTitle, description: t.brand.seoDescShort, images: ["/og.png"] },
   };
 }
 

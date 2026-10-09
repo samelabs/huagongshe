@@ -22,6 +22,10 @@ Checks:
    start with var(--, no literals of its own.
 5. --green* / --warm* tokens must not reappear.
 6. No alert( / confirm( / prompt( calls in TSX.
+7. Brand: components/ui/HgsLogo.tsx geometry (polygon points, path d)
+   must stay byte-identical to web/public/brand/*.svg source files.
+8. Brand: public/brand/*.svg is the only place besides the line
+   whitelist where hex values are allowed (brand source files).
 """
 
 from __future__ import annotations
@@ -61,7 +65,31 @@ HEX_LINE_WHITELIST: list[tuple[str, str, str]] = [
     # 分类颜色是数据（读写数据库，喂给 <input type="color">，只认 hex 字面量）
     ("components/samelabs/SkillsAdminPanel.tsx", 'color: "#1e90ff"',
      "category color form default; DB-bound data, input[type=color] needs a hex"),
+    # HgsLogo 的白色横画随 hgs-mark.svg 源文件逐字交付（§7 geometry 契约的组成部分）
+    ("components/ui/HgsLogo.tsx", '<g fill="#FFFFFF">',
+     "brand mark knockout white, byte-identical to public/brand/hgs-mark.svg"),
 ]
+
+# ── §2 brand: public/brand/*.svg 是品牌源文件, 色值是其交付物的一部分 ─────────
+# 文件级白名单: 目录里新增 SVG 必须显式登记在这里(双向钉死, 防止借目录夹带)。
+HEX_FILE_WHITELIST: dict[str, str] = {
+    "public/brand/hgs-mark.svg": "品牌图形标源文件(blue-500 + 白色横画)",
+    "public/brand/hgs-mark-on-dark.svg": "深色底图形标源文件(blue-400)",
+    "public/brand/hgs-mark-line.svg": "线框图形标源文件(currentColor)",
+    "public/brand/hgs-mark-16.svg": "16px 简化版图形标源文件",
+    "public/brand/hgs-wordmark.svg": "字标源文件(currentColor)",
+    "public/brand/hgs-lockup.svg": "横版组合源文件(静态场景)",
+    "public/brand/hgs-app-icon.svg": "App 图标源文件(渐变例外见 DESIGN_SYSTEM §2.2)",
+}
+
+
+def brand_svg_files() -> list[Path]:
+    return sorted((WEB / "public" / "brand").glob("*.svg"))
+
+
+def hex_scan_files() -> list[Path]:
+    # hex/rgb/hsl 扫描覆盖面 = 组件样式 + 品牌 SVG 源文件(后者整体在文件白名单里)
+    return scan_files() + brand_svg_files()
 
 # ── native-dialog violations owned by a later step (ConfirmDialog rollout) ──
 KNOWN_DIALOG_CALLS: dict[str, str] = {
@@ -72,8 +100,10 @@ KNOWN_DIALOG_CALLS: dict[str, str] = {
 
 def hex_findings() -> list[tuple[str, int, str]]:
     findings: list[tuple[str, int, str]] = []
-    for p in scan_files():
+    for p in hex_scan_files():
         r = rel(p)
+        if r in HEX_FILE_WHITELIST:
+            continue
         for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             hits = HEX_RE.findall(line)
             if not hits:
@@ -138,7 +168,9 @@ class ColorLiteralTests(unittest.TestCase):
 
     def test_no_rgb_or_hsl_function_literals(self):
         findings = []
-        for p in scan_files():
+        for p in hex_scan_files():
+            if rel(p) in HEX_FILE_WHITELIST:
+                continue
             for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
                 if "rgb(" in line or "hsl(" in line:
                     findings.append((rel(p), i, line.strip()[:140]))
@@ -189,6 +221,37 @@ class ForbiddenTokenTests(unittest.TestCase):
                     "var(--green", line, f"{rel(p)}:{i} uses deleted --green* token")
                 self.assertNotIn(
                     "var(--warm", line, f"{rel(p)}:{i} uses deleted --warm* token")
+
+
+class BrandAssetTests(unittest.TestCase):
+    """DESIGN_SYSTEM §2: React 实现的 SVG geometry 与品牌源文件逐字一致。"""
+
+    def test_hgs_logo_geometry_matches_brand_svgs(self):
+        logo = (WEB / "components" / "ui" / "HgsLogo.tsx").read_text(encoding="utf-8")
+        mark = (WEB / "public" / "brand" / "hgs-mark.svg").read_text(encoding="utf-8")
+        wordmark = (WEB / "public" / "brand" / "hgs-wordmark.svg").read_text(encoding="utf-8")
+        # 图形标: polygon points 逐字照抄
+        for pts in re.findall(r'<polygon points="([^"]+)"', mark):
+            self.assertIn(f'points="{pts}"', logo,
+                          f"HgsLogo mark polygon diverged from hgs-mark.svg: {pts}")
+        # 字标: path d 逐字照抄
+        for d in re.findall(r'<path d="([^"]+)"', wordmark):
+            self.assertIn(f'd="{d}"', logo,
+                          f"HgsLogo wordmark path diverged from hgs-wordmark.svg: {d}")
+
+    def test_brand_svg_hex_whitelist_is_exact(self):
+        # 双向钉死: public/brand 下每个 svg 都登记在白名单里(新文件必须显式登记),
+        # 白名单里每个条目都真实存在(删源文件必须同步删条目)。
+        on_disk = {rel(p) for p in brand_svg_files()}
+        listed = set(HEX_FILE_WHITELIST)
+        self.assertEqual(
+            listed, on_disk,
+            f"brand svg whitelist out of sync: only-on-disk={sorted(on_disk - listed)}, "
+            f"only-in-whitelist={sorted(listed - on_disk)}")
+
+    def test_brand_whitelist_entries_exist(self):
+        for wf in HEX_FILE_WHITELIST:
+            self.assertTrue((WEB / wf).exists(), f"brand whitelist file missing: {wf}")
 
 
 class DialogCallTests(unittest.TestCase):
