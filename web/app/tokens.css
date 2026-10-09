@@ -50,6 +50,12 @@
   --bg-inverse: var(--n-900);   /* Toast */
   --overlay:    rgba(22, 38, 58, .40);
 
+  /* 深色底 inverse —— 只用于后台深色侧栏和深色代码块 */
+  --bg-inverse-2:    var(--n-700);   /* 深色底上的边框、次级面 */
+  --text-inverse-2:  var(--n-200);   /* 深色底上的正文 */
+  --text-inverse-muted: var(--n-400);/* 深色底上的标签 */
+  --code-inverse:    var(--blue-100);/* 深色代码块文字 */
+
   /* 线 */
   --border:        var(--n-100);
   --border-strong: var(--n-200);

@@ -63,20 +63,6 @@ HEX_LINE_WHITELIST: list[tuple[str, str, str]] = [
      "category color form default; DB-bound data, input[type=color] needs a hex"),
 ]
 
-# ── colors with no equal-value token in tokens.css — awaiting decision ───────
-# (Step 1 report §5; later steps will either map them to status tokens or
-# extend the scale. The strict test below stays expectedFailure meanwhile.)
-KNOWN_HEX_PENDING: dict[str, set[str]] = {
-    "app/globals.css": {
-        "#22364d", "#0f1b2a", "#cfe3f7",              # .admin-pre 深色代码块
-        "#16283c", "#101d2c", "#7fa3c9", "#b9c9dc",   # .admin-nav 深色侧栏
-        "#8a6d00", "#e0c56e", "#fdf6e3",              # pipe 琥珀系（warn 近似但非等值）
-        "#b33", "#e6b3b3", "#fdf0f0",                 # pipe 红系（err 近似但非等值）
-        "#2e9e44", "#2e9e4488",                       # .pipe-dot.ok
-        "#047857", "#a7f3d0", "#92400e", "#fde68a",   # .note-vis-badge
-    },
-}
-
 # ── native-dialog violations owned by a later step (ConfirmDialog rollout) ──
 KNOWN_DIALOG_CALLS: dict[str, str] = {
     "components/workbench/panels/NotesPanel.tsx": "window.confirm(",
@@ -84,18 +70,15 @@ KNOWN_DIALOG_CALLS: dict[str, str] = {
 }
 
 
-def hex_findings(exclude_pending: bool) -> list[tuple[str, int, str]]:
+def hex_findings() -> list[tuple[str, int, str]]:
     findings: list[tuple[str, int, str]] = []
     for p in scan_files():
         r = rel(p)
-        pending = KNOWN_HEX_PENDING.get(r, set()) if exclude_pending else set()
         for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             hits = HEX_RE.findall(line)
             if not hits:
                 continue
             if any(r == wf and content in line for wf, content, _ in HEX_LINE_WHITELIST):
-                continue
-            if pending and all(h in pending for h in hits):
                 continue
             findings.append((r, i, line.strip()[:140]))
     return findings
@@ -146,15 +129,9 @@ class ColorLiteralTests(unittest.TestCase):
                 f"stale whitelist entry: {wf}: {content}",
             )
 
-    def test_known_pending_hex_actually_present(self):
-        for wf, hexes in KNOWN_HEX_PENDING.items():
-            text = (WEB / wf).read_text(encoding="utf-8")
-            for h in hexes:
-                self.assertIn(h, text, f"pending hex {h} no longer occurs in {wf}: prune it")
-
-    def test_no_color_literals_beyond_whitelist_and_pending(self):
-        findings = hex_findings(exclude_pending=True)
-        self.assertEqual([], findings, "new hex/rgb-literal style colors appeared")
+    def test_no_hex_literals_beyond_whitelist(self):
+        findings = hex_findings()
+        self.assertEqual([], findings, "hex color literal outside the file+line whitelist")
 
     def test_no_rgb_or_hsl_function_literals(self):
         findings = []
@@ -166,10 +143,6 @@ class ColorLiteralTests(unittest.TestCase):
         # NOTE: rgba() (box-shadow tints) is deliberately out of scope in Step 1;
         # DESIGN_SYSTEM §11.4 (shadow policy) owns it in a later step.
 
-    @unittest.expectedFailure
-    def test_no_hex_literals_at_all(self):
-        # strict target: everything in KNOWN_HEX_PENDING is resolved by later steps
-        self.assertEqual([], hex_findings(exclude_pending=False))
 
 
 class FontSizeTests(unittest.TestCase):

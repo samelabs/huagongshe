@@ -63,6 +63,7 @@ React 实现：`<HgsLogo variant="lockup" | "mark" | "wordmark" size={28} />`，
 | `--brand` / `--focus` | blue-500 | 标志、焦点环、选中指示条。**不能用作文字颜色** |
 | `--action-subtle` / `--action-ink` | blue-50 / blue-700 | 浅蓝底和其上的文字（tonal 按钮、选中项） |
 | `--bg-page` / `--bg-surface` / `--bg-subtle` | n-25 / 白 / n-50 | 页面底 / 卡片 / 次级面和 hover |
+| `--bg-inverse-2` / `--text-inverse-2` / `--text-inverse-muted` / `--code-inverse` | n-700 / n-200 / n-400 / blue-100 | inverse 系列只用于后台深色侧栏和深色代码块 |
 | `--border` / `--border-strong` | n-100 / n-200 | 卡片和分割线 / 输入框和次按钮 |
 | `--entity-chem*` / `--entity-rx*` | 蓝 / 灰蓝 | 只用于 EntityBadge |
 | `--ok*` `--warn*` `--err*` | 绿 / 琥珀 / 红 | 只表示状态 |
