@@ -1,131 +1,111 @@
 /* ═══════════════════════════════════════════════════════════════
    aichem-tokens.css — AI化学工作台 设计 Token
    ═══════════════════════════════════════════════════════════════
-   设计原则：
-   - Operate surface — 操作效率优先，非营销页
-   - 8px 网格系统 — 所有间距是 4 的倍数
-   - 字号 7 级阶梯 — 严格递减，层级靠字号+字重双维度区分
-   - 零外部依赖 — 不引用 globals.css 的任何变量
+   v1.7 起本文件不再自带任何取值：所有 --wb-* 只是 web/app/tokens.css
+   语义 token 的别名（docs/DESIGN_SYSTEM.md §10）。aichem.css 继续
+   引用 --wb-* 名称，取值统一由 tokens.css 决定（契约测试保证
+   每个别名的值都以 var(-- 开头）。
    ═══════════════════════════════════════════════════════════════ */
 
 :where(.wb-shell) {
 
   /* ═══ 色阶 ════════════════════════════════════════════════════ */
 
-  /* 品牌 · Dodger Blue */
-  --wb-blue:        #1e90ff;
-  --wb-blue-deep:   #1577e0;
-  --wb-blue-strong: #0f5fba;
-  --wb-blue-pale:   #e8f2ff;
-  --wb-blue-tint:   #f5f9ff;
-  --wb-blue-border: #b8dbff;
+  /* 品牌（文字/按钮用 action，装饰沿用 blue 系语义位） */
+  --wb-blue:        var(--action);
+  --wb-blue-deep:   var(--action-hover);
+  --wb-blue-strong: var(--action-ink);
+  --wb-blue-pale:   var(--action-subtle);
+  --wb-blue-tint:   var(--bg-subtle);
+  --wb-blue-border: var(--action-border);
 
   /* 中性 · 墨蓝灰 */
-  --wb-ink:         #1a2b3c;
-  --wb-heading:     #243b53;
-  --wb-muted:       #5e7d99;
-  --wb-quiet:       #829ab1;
-  --wb-faint:       #a8b8c8;
-  --wb-line:        #dfe5ee;
-  --wb-line-strong: #cbd4e2;
-  --wb-wash:        #f6f8fb;
-  --wb-paper:       #fff;
-  --wb-inverse:     #fff;  /* 反色文本：品牌蓝/墨色底上的文字 */
+  --wb-ink:         var(--text);
+  --wb-heading:     var(--text);
+  --wb-muted:       var(--text-muted);
+  --wb-quiet:       var(--text-muted);
+  --wb-faint:       var(--text-disabled);
+  --wb-line:        var(--border);
+  --wb-line-strong: var(--border-strong);
+  --wb-wash:        var(--bg-page);
+  --wb-paper:       var(--bg-surface);
+  --wb-inverse:     var(--text-inverse);  /* 反色文本：品牌蓝/墨色底上的文字 */
 
   /* 反应色（实体标识） */
-  --wb-reaction:      #6b8aab;
-  --wb-reaction-ink:  #3d5878;
-  --wb-reaction-bg:   #eef2f6;
+  --wb-reaction:      var(--entity-rx-line);
+  --wb-reaction-ink:  var(--entity-rx);
+  --wb-reaction-bg:   var(--entity-rx-bg);
 
   /* 语义色 */
-  --wb-danger:        #c0392b;
-  --wb-success:       #1a7a4c;
-  --wb-warning:       #d48806;
-  --wb-warning-border:#f5d98a;
+  --wb-danger:        var(--err);
+  --wb-success:       var(--ok);
+  --wb-warning:       var(--warn);
+  --wb-warning-border:var(--warn-border);
 
   /* 交互反馈 */
-  --wb-glow:   rgba(30, 144, 255, .10);
-  --wb-hover:  rgba(0, 0, 0, .02);
-  --wb-active: rgba(0, 0, 0, .04);
-  --wb-overlay:rgba(0, 0, 0, .40);
+  --wb-glow:   var(--focus-halo);
+  --wb-hover:  var(--bg-hover);
+  --wb-active: var(--bg-pressed);
+  --wb-overlay:var(--overlay);
 
   /* ═══ 字体族 ══════════════════════════════════════════════════ */
-  --wb-font-ui: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
-  --wb-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --wb-font-ui: var(--font-ui);
+  --wb-font-mono: var(--font-mono);
 
-  /* ═══ 字号阶梯 — 7 级，严格递减 ══════════════════════════════ */
-  /*
-     用法对照表：
-     --wb-fs-xl  (18px) → 首页问候语（唯一的大字）
-     --wb-fs-lg  (15px) → 面板标题 / 抽屉标题
-     --wb-fs     (14px) → 正文 / 菜单项 / 分类标题（同号不同粗）
-     --wb-fs-sm  (12px) → 副标题 / badge / 元数据
-     --wb-fs-xs  (11px) → 时间戳 / 微标签
-     --wb-fs-micro(7px) → 化学计量表表头/基准标签(stoich thead/basis-tag)专用微型标签。
-                          不再用于 HCID/HRID 实体ID —— EntityId 已统一走全局 .entity-id
-                          规则(globals.css, Design System v2), prefix 最低 12px。
-     --wb-fs-stat(24px) → 统计数字（首页统计卡片）
-  */
-  --wb-fs-xl:   18px;
-  --wb-fs-lg:   15px;
-  --wb-fs:      14px;
-  --wb-fs-sm:   12px;
-  --wb-fs-xs:   11px;
-  --wb-fs-micro: 7px;
-  --wb-fs-stat: 24px;
+  /* ═══ 字号阶梯 — 7 级并回 tokens 8 档 ══════════════════════════
+     micro 7px / xs 11px 提升到 12px 可读下限；lg 15→16；stat 24→28 */
+  --wb-fs-xl:   var(--fs-18);
+  --wb-fs-lg:   var(--fs-16);
+  --wb-fs:      var(--fs-14);
+  --wb-fs-sm:   var(--fs-12);
+  --wb-fs-xs:   var(--fs-12);
+  --wb-fs-micro:var(--fs-12);
+  --wb-fs-stat: var(--fs-28);
 
   /* iOS 输入框防缩放 */
-  --wb-fs-input: 16px;
+  --wb-fs-input:var(--fs-16);
 
   /* ═══ 字重 ════════════════════════════════════════════════════ */
-  --wb-w-regular:  400;
-  --wb-w-medium:   500;
-  --wb-w-semibold: 600;
-  --wb-w-bold:     700;
+  --wb-w-regular:  var(--fw-regular);
+  --wb-w-medium:   var(--fw-medium);
+  --wb-w-semibold: var(--fw-semibold);
+  --wb-w-bold:     var(--fw-display);
 
-  /* ═══ 间距阶梯 — 8px 网格，4px 微调 ═══════════════════════════ */
-  /*
-     --wb-sp-1  (4px)  → 微间距（badge padding, 图标间距）
-     --wb-sp-2  (8px)  → 小间距（列表项间距, 搜索框内间距）
-     --wb-sp-3  (12px) → 标准间距（卡片内边距, nav-link padding-x）
-     --wb-sp-4  (16px) → section 间距, 面板内 gap
-     --wb-sp-5  (20px) → 内容区内边距, form-section padding
-     --wb-sp-6  (24px) → 空状态 padding
-     --wb-sp-7  (32px) → 大间距（空状态 padding, section 分隔）
-     --wb-sp-8  (40px) → section 分隔
-     --wb-sp-9  (48px) → 鉴权提示 padding
-  */
-  --wb-sp-1: 4px;
-  --wb-sp-2: 8px;
-  --wb-sp-3: 12px;
-  --wb-sp-4: 16px;
-  --wb-sp-5: 20px;
-  --wb-sp-6: 24px;
-  --wb-sp-7: 32px;
-  --wb-sp-8: 40px;
-  --wb-sp-9: 48px;
+  /* ═══ 间距阶梯 — 8px 网格并回 tokens 刻度 ══════════════════════
+     20 与 40 不在新刻度：sp-5→sp-6(24)、sp-8→sp-12(48)，其余同值 */
+  --wb-sp-1: var(--sp-1);
+  --wb-sp-2: var(--sp-2);
+  --wb-sp-3: var(--sp-3);
+  --wb-sp-4: var(--sp-4);
+  --wb-sp-5: var(--sp-6);
+  --wb-sp-6: var(--sp-6);
+  --wb-sp-7: var(--sp-8);
+  --wb-sp-8: var(--sp-12);
+  --wb-sp-9: var(--sp-12);
 
-  /* ═══ 尺寸 ════════════════════════════════════════════════════ */
-  --wb-sidebar:    200px;
-  --wb-topbar-h:   56px;
-  --wb-tabbar-h:   50px;
-  --wb-btn-h:      38px;
-  --wb-avatar-sm:  36px;
-  --wb-avatar-md:  40px;
-  --wb-content-max: 760px;
+  /* ═══ 尺寸 ════════════════════════════════════════════════════
+     sidebar 200→232；topbar 56→60；tabbar 50→64；btn 38→40；
+     avatar 并入控件高度档（36→40）；content-max 760→720 */
+  --wb-sidebar:    var(--sidebar-w);
+  --wb-topbar-h:   var(--header-h);
+  --wb-tabbar-h:   var(--tabbar-h);
+  --wb-btn-h:      var(--h-md);
+  --wb-avatar-sm:  var(--h-md);
+  --wb-avatar-md:  var(--h-md);
+  --wb-content-max: var(--w-reading);
 
-  /* ═══ 圆角阶梯 ════════════════════════════════════════════════ */
-  --wb-r-xs:   3px;    /* entity-id */
-  --wb-r-sm:   6px;    /* 按钮, 输入框, 筛选条 */
-  --wb-r-md:   8px;    /* 卡片, 面板 */
-  --wb-r-lg:   10px;   /* 统计卡片 */
-  --wb-r-pill: 999px;  /* follow-button, badge */
+  /* ═══ 圆角阶梯 — r-xs 3→6、r-sm 6→8、r-md 8→12、r-lg 10→12 ═══ */
+  --wb-r-xs:   var(--r-xs);
+  --wb-r-sm:   var(--r-sm);
+  --wb-r-md:   var(--r-md);
+  --wb-r-lg:   var(--r-md);
+  --wb-r-pill: var(--r-pill);
 
   /* ═══ 动画 ════════════════════════════════════════════════════ */
-  --wb-transition: .15s ease;
+  --wb-transition: var(--dur-fast) var(--ease);
 
   /* ═══ 行高 ════════════════════════════════════════════════════ */
-  --wb-lh-tight:   1.2;
-  --wb-lh-normal:  1.5;
-  --wb-lh-relaxed: 1.65;
+  --wb-lh-tight:   var(--lh-tight);
+  --wb-lh-normal:  var(--lh-ui);
+  --wb-lh-relaxed: var(--lh-prose);
 }

@@ -1174,7 +1174,7 @@
   transform: translateX(100%);
   transition: transform .22s cubic-bezier(.4, 0, .2, 1);
   visibility: hidden;
-  border-radius: 0 0 0 12px;
+  border-radius: 0 0 0 var(--wb-r-md);
 }
 .wb-drawer.open {
   transform: translateX(0);
@@ -1419,7 +1419,7 @@
 /* ── wb 域滚动条 — 自包含，不依赖站点域 token ── */
 .wb-shell * { scrollbar-width: thin; scrollbar-color: var(--wb-line-strong) transparent; }
 .wb-shell *::-webkit-scrollbar { width: 6px; height: 6px; }
-.wb-shell *::-webkit-scrollbar-thumb { background: var(--wb-line-strong); border-radius: 3px; }
+.wb-shell *::-webkit-scrollbar-thumb { background: var(--wb-line-strong); border-radius: var(--wb-r-xs); }
 .wb-shell *::-webkit-scrollbar-track { background: transparent; }
 .wb-stoich-rhead,
 .wb-stoich-rrow {
