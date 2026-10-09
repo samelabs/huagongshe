@@ -11,8 +11,9 @@ import { WorkbenchCountsProvider } from "@/components/workbench/WorkbenchCountsC
 import { MobileTabBar } from "@/components/shared/MobileTabBar";
 import { headers as nextHeaders } from "next/headers";
 import { apiGet } from "@/lib/api";
-import { getRequestLocale } from "@/lib/serverI18n";
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale, splitLocalePrefix } from "@/lib/localePath";
+import { HgsLogo } from "@/components/ui/HgsLogo";
 import type { User } from "@/lib/api";
 import type { Summary } from "@/components/workbench/types";
 import "./aichem-tokens.css";
@@ -33,6 +34,7 @@ async function getSummary(cookieHeader: string): Promise<Summary | null> {
 
 export default async function WorkbenchLayout({ children }: { children: React.ReactNode }) {
   const locale = await getRequestLocale();
+  const t = await getRequestDictionary();
   const h = await headers();
   const cookieHeader = h.get("cookie");
   const user = await getUser(cookieHeader);
@@ -54,7 +56,9 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
     <div className="wb-shell">
       <header className="wb-topbar">
         <div className="wb-topbar-inner">
-          <Link href={withLocale("/", locale)} className="wb-logo">huagongshe.com</Link>
+          <Link href={withLocale("/", locale)} className="wb-logo" aria-label={t.nav.home}>
+            <HgsLogo variant="lockup" locale={locale} />
+          </Link>
 
           <WbTopnav />
 

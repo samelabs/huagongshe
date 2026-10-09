@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HeaderAccount } from "@/components/HeaderAccount";
 import { MobileTabBar } from "@/components/shared/MobileTabBar";
+import { HgsLogo } from "@/components/ui/HgsLogo";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 
@@ -12,7 +13,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <header className="site-header">
         <div className="header-inner">
           <Link href={withLocale("/", locale)} className="brand" aria-label={t.nav.home}>
-            <span className="brand-domain">huagongshe.com</span>
+            <HgsLogo variant="lockup" locale={locale} />
           </Link>
           <HeaderAccount />
         </div>
