@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import asyncio
+import ast
 import inspect
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -164,7 +165,8 @@ class FullOrchestrationTests(unittest.TestCase):
 
     def _full(self, pb_details=None, pb_exc=None, cb_row=None, cb_exc=None,
               cas="7732-18-5", cb_decision="serve_fresh", cb_suppliers=None,
-              negative=False, locale=None, seen=None):
+              negative=False, locale=None, seen=None, allow_cb_enqueue=None,
+              rec=None):
         from api.services import chemicals as svc
 
         pb_default = {
@@ -176,8 +178,6 @@ class FullOrchestrationTests(unittest.TestCase):
         pb_payload = pb_details if pb_details is not None else pb_default
 
         async def go():
-            db = _make_db(cas=cas)
-
             async def fake_pb(db_, cid, *, priority, allow_refresh=True, actor=None):
                 if pb_exc is not None:
                     raise pb_exc
@@ -214,8 +214,13 @@ class FullOrchestrationTests(unittest.TestCase):
                                    source_cb_number=None):
                 if seen is not None:
                     seen["enqueue_locale"] = locale
+                    seen["enqueue_calls"] = seen.get("enqueue_calls", 0) + 1
                 return 99
 
+            kwargs = {}
+            if allow_cb_enqueue is not None:
+                kwargs["allow_cb_enqueue"] = allow_cb_enqueue
+            db = _make_db(rec, cas=cas) if rec is not None else _make_db(cas=cas)
             with patch.object(svc, "fetch_chemicals", fetch), \
                  patch.object(svc, "fill_detail_context", context), \
                  patch.object(enrichment_module, "enqueue_chemical_if_needed", fake_pb), \
@@ -225,7 +230,8 @@ class FullOrchestrationTests(unittest.TestCase):
                  patch.object(cb_module, "negative_is_fresh", fake_negative), \
                  patch.object(cb_module, "enqueue_cas_job", fake_enqueue):
                 return await svc.get_chemical_detail(
-                    db, 1, actor_id=None, priority=50, enrich="full", locale=locale)
+                    db, 1, actor_id=None, priority=50, enrich="full",
+                    locale=locale, **kwargs)
 
         return asyncio.run(go())
 
@@ -345,6 +351,238 @@ class LocaleLifecycleChainTests(unittest.TestCase):
 
     def _full_locale(self, seen, **kwargs):
         FullOrchestrationTests()._full(**kwargs, seen=seen)
+
+
+class RestCbReadOnlyTests(unittest.TestCase):
+    """v1.7 B1: REST 详情(allow_cb_enqueue=False)CB 只读收口。
+
+    任务卡冻结: fresh/absent/negative/stale 四分支均不得 enqueue_cas_job/
+    同步 CB 抓取/CB 任务写入; 陈旧数据照常展示但状态如实 stale。
+    """
+
+    CB_ROW = {"entry": {"identity": {"cn": "水"},
+                        "props": [{"key": "bp", "label": "沸点",
+                                   "text": "100°C"}]},
+              "cb_number": "CB1", "locale": "zh-CN"}
+
+    def test_rest_full_fresh_no_enqueue(self):
+        # 验收1: fresh 数据正常展示, 不入队
+        rec = _Recorder()
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=self.CB_ROW, cb_suppliers=[{"ref": "r1", "name": "SupA"}],
+            allow_cb_enqueue=False, rec=rec, seen=seen)
+        d = result["details"]
+        self.assertEqual(d["names"]["cb_identity"]["cn"], "水")
+        self.assertEqual(d["properties"]["cb_experimental"][0]["text"], "100°C")
+        self.assertEqual(d["suppliers"]["items"][0]["name"], "SupA")
+        self.assertEqual(d["provenance"]["cb"]["state"], "current")
+        self.assertNotIn("enqueue_calls", seen, "fresh 分支不得入队")
+
+    def test_rest_full_stale_no_enqueue_reports_stale(self):
+        # 验收2+3: 陈旧 CB 不入队、不 commit, 状态如实 stale 不虚报 queued
+        rec = _Recorder()
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=self.CB_ROW, cb_decision="enqueue_refresh",
+            allow_cb_enqueue=False, rec=rec, seen=seen)
+        d = result["details"]
+        self.assertEqual(d["names"]["cb_identity"]["cn"], "水",
+                         "陈旧 CB 数据必须照常展示")
+        self.assertNotIn("enqueue_calls", seen, "stale 分支不得入队")
+        self.assertEqual(rec.calls.get("commit", 0), 0, "不得 commit CB 任务")
+        self.assertEqual(d["provenance"]["cb"]["state"], "stale")
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "stale")
+        self.assertEqual(result["enrichment"]["status"], "stale")
+
+    def test_rest_full_stale_en_fallback_no_enqueue_reports_stale(self):
+        # 验收3: 语言回退(en)命中陈旧行同样只读, 判定跟随实际 locale
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row={"entry": {"identity": {"cn": "en-stale"}},
+                    "cb_number": "CB1", "locale": "en"},
+            cb_decision="enqueue_refresh", locale="ja",
+            allow_cb_enqueue=False, seen=seen)
+        self.assertEqual(seen["decide"], ["en"])
+        self.assertNotIn("enqueue_calls", seen)
+        self.assertEqual(result["details"]["names"]["cb_identity"]["cn"], "en-stale")
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "stale")
+
+    def test_rest_full_absent_no_enqueue(self):
+        # 验收2: 无 CB 行(absent)不触发首次抓取
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=None, allow_cb_enqueue=False, seen=seen)
+        self.assertNotIn("enqueue_calls", seen, "absent 分支不得首次入队")
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "none")
+
+    def test_rest_full_fresh_negative_no_enqueue(self):
+        # 验收2: fresh negative 不触发抓取
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=None, negative=True, allow_cb_enqueue=False, seen=seen)
+        self.assertNotIn("enqueue_calls", seen)
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "none")
+
+    def test_rest_full_defensive_enqueue_first_stays_readonly(self):
+        # 防御分支 enqueue_first(有行但状态未知): REST 只读收口下同样不入队
+        rec = _Recorder()
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=self.CB_ROW, cb_decision="enqueue_first",
+            allow_cb_enqueue=False, rec=rec, seen=seen)
+        self.assertNotIn("enqueue_calls", seen)
+        self.assertEqual(rec.calls.get("commit", 0), 0)
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "stale")
+
+    def test_rest_full_pb_queued_survives_cb_readonly(self):
+        # 验收5: CB 禁入队不得关闭 PB 补全 — PB queued 照常
+        from api.services import chemicals as svc
+        from api.services import cb as cb_module
+        from api.services import enrichment as enrichment_module
+
+        async def go():
+            db = _make_db()
+
+            async def fake_pb(db_, cid, *, priority, allow_refresh=True, actor=None):
+                return {"record_description": "PB"}, 555, True
+
+            async def fake_get_row(d, cid, locale=None):
+                return self.CB_ROW
+
+            async def fake_decide(d, cid, locale="zh-CN", cb_number=None):
+                return "enqueue_refresh"
+
+            async def fake_suppliers(d, cid):
+                return []
+
+            async def fake_negative(d, kind, **k):
+                return False
+
+            async def fake_enqueue_cb(d, **k):
+                raise AssertionError("CB 不得入队")
+
+            fetch = await _fake_fetch()
+            context = await _fake_context()
+            with patch.object(svc, "fetch_chemicals", fetch), \
+                 patch.object(svc, "fill_detail_context", context), \
+                 patch.object(enrichment_module, "enqueue_chemical_if_needed", fake_pb), \
+                 patch.object(cb_module, "get_externals_row", fake_get_row), \
+                 patch.object(cb_module, "cb_decide", fake_decide), \
+                 patch.object(cb_module, "get_suppliers", fake_suppliers), \
+                 patch.object(cb_module, "negative_is_fresh", fake_negative), \
+                 patch.object(cb_module, "enqueue_cas_job", fake_enqueue_cb):
+                return await svc.get_chemical_detail(
+                    db, 1, actor_id=None, priority=50, enrich="full",
+                    allow_cb_enqueue=False)
+
+        result = asyncio.run(go())
+        self.assertEqual(result["enrichment"]["job_id"], 555, "PB queued 不受影响")
+        self.assertEqual(result["enrichment"]["sources"]["pubchem"], "queued")
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "stale")
+
+
+class McpCbRefreshPreservedTests(unittest.TestCase):
+    """验收4: MCP full 默认(allow_cb_enqueue=True)CB 刷新能力不变。"""
+
+    CB_ROW = {"entry": {"identity": {"cn": "水"}}, "cb_number": "CB1",
+              "locale": "zh-CN"}
+
+    def test_default_stale_enqueues_refresh_and_reports_queued(self):
+        rec = _Recorder()
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=self.CB_ROW, cb_decision="enqueue_refresh", rec=rec, seen=seen)
+        self.assertEqual(seen.get("enqueue_calls"), 1, "默认行为必须照旧入队")
+        self.assertEqual(rec.calls.get("commit", 0), 1)
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "queued")
+        self.assertEqual(result["details"]["names"]["cb_identity"]["cn"], "水")
+
+    def test_default_stale_locale_chain_unchanged(self):
+        # P1-1 语义保留: 命中 locale 贯穿 decide/enqueue
+        seen = {}
+        FullOrchestrationTests()._full(
+            cb_row={"entry": {"identity": {"cn": "x"}}, "cb_number": "CB1",
+                    "locale": "ja"},
+            cb_decision="enqueue_refresh", locale="ja", seen=seen)
+        self.assertEqual(seen["decide"], ["ja"])
+        self.assertEqual(seen["enqueue_locale"], "ja")
+
+    def test_service_default_allows_enqueue_signature(self):
+        # 契约: 默认 True — 未显式关闭的既有调用方(MCP)行为不变
+        import inspect
+        from api.services import chemicals as svc
+        sig = inspect.signature(svc.get_chemical_detail)
+        self.assertIn("allow_cb_enqueue", sig.parameters)
+        self.assertIs(sig.parameters["allow_cb_enqueue"].default, True)
+
+    def test_mcp_tool_does_not_pass_readonly_flag(self):
+        # MCP get_chemical 源码不含 allow_cb_enqueue(不修改 MCP 契约)
+        import inspect
+        import api.mcp_server as mcp
+        src = inspect.getsource(mcp)
+        tree = ast.parse(src)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "get_chemical":
+                seg = ast.get_source_segment(src, node)
+                self.assertIsNotNone(seg)
+                self.assertNotIn("allow_cb_enqueue", seg)
+
+
+class RestAdapterReadOnlyFlagTests(unittest.TestCase):
+    """REST adapter 契约: /chemicals/{id} 显式传 allow_cb_enqueue=False。"""
+
+    def test_routes_passes_allow_cb_enqueue_false(self):
+        import inspect
+        import api.routes as routes
+        src = inspect.getsource(routes.chemical_detail)
+        self.assertIn("allow_cb_enqueue=False", src)
+
+    def test_http_full_fresh_never_enqueues(self):
+        # 端到端(HTTP 入口 → service): REST full 显式传 allow_cb_enqueue=False
+        # (真实 handler, dependency_overrides 注入桩 db/匿名 actor)。
+        import api.routes as routes_mod
+        from api.core.database import get_db
+        from api.core.security import public_or_actor
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        seen = {}
+
+        async def fake_detail(db, cid, *, actor_id, priority, enrich,
+                              locale=None, allow_cb_enqueue=True):
+            seen["allow_cb_enqueue"] = allow_cb_enqueue
+            seen["enrich"] = enrich
+            seen["locale"] = locale
+            return {"id": cid, "details": None,
+                    "enrichment": {"status": "current"}}
+
+        async def go():
+            app = FastAPI()
+            app.include_router(routes_mod.router)
+
+            async def _stub_db():
+                yield None
+
+            async def _anon_actor():
+                return None
+
+            app.dependency_overrides[get_db] = _stub_db
+            app.dependency_overrides[public_or_actor] = _anon_actor
+            with patch.object(routes_mod, "get_chemical_detail", fake_detail):
+                transport = ASGITransport(app=app)
+                async with AsyncClient(transport=transport,
+                                       base_url="http://test") as client:
+                    r = await client.get("/chemicals/1",
+                                         params={"enrich": "full", "locale": "ja"})
+                return r
+
+        r = asyncio.run(go())
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIs(seen.get("allow_cb_enqueue"), False,
+                      "REST adapter 必须显式传 allow_cb_enqueue=False")
+        self.assertEqual(seen.get("enrich"), "full")
+        self.assertEqual(seen.get("locale"), "ja")
 
 
 class RemovedSurfaceTests(unittest.TestCase):

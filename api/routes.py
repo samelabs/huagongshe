@@ -123,6 +123,10 @@ async def chemical_detail(
             priority=80 if actor is not None else 50,
             enrich=normalize_enrich(enrich),
             locale=locale,
+            # v1.7 B1: 网页详情只读收口 — REST full 绝不触发 CB 刷新/首次
+            # 入队; 陈旧 CB 数据照常展示(状态 stale)。MCP full 不走本
+            # adapter, 保留既有 CB 刷新能力。
+            allow_cb_enqueue=False,
         )
     except ChemicalNotFoundError as exc:
         raise HTTPException(404, "化合物不存在") from exc
