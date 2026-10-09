@@ -85,9 +85,12 @@ def hex_findings() -> list[tuple[str, int, str]]:
 
 
 def font_size_findings() -> list[tuple[str, int, str]]:
-    # one fallback level is allowed: var(--wb-fs-sm, var(--fs-12))
+    # allowed: var(--fs-*) (optionally with a one-level token fallback),
+    # inherit, the 16px input iOS-zoom guard, and a responsive clamp whose
+    # BOTH ends are var(--fs-*) tokens (middle term free, e.g. 3.5vw)
     single = r"var\(--(wb-)?fs[a-z0-9-]*(?:, ?var\(--(wb-)?fs[a-z0-9-]*\))?\)"
-    allowed = re.compile(rf"^(?:{single}|inherit|16px)$")
+    clamp = rf"clamp\(var\(--fs-[a-z0-9-]+\), [^,]+, var\(--fs-[a-z0-9-]+\)\)"
+    allowed = re.compile(rf"^(?:{single}|{clamp}|inherit|16px)$")
     findings: list[tuple[str, int, str]] = []
     for p in scan_files():
         if p.suffix != ".css":
@@ -146,18 +149,8 @@ class ColorLiteralTests(unittest.TestCase):
 
 
 class FontSizeTests(unittest.TestCase):
-    def test_only_violations_are_deferred_clamps(self):
-        # guard: the expectedFailure test below may only fail on clamp() values;
-        # any other off-scale font-size is a fresh regression and fails here
-        for _f, _ln, value in font_size_findings():
-            self.assertTrue(
-                value.startswith("clamp("),
-                f"non-clamp font-size violation: {_f}:{_ln} {value}",
-            )
-
-    @unittest.expectedFailure
     def test_font_size_takes_only_scale_tokens(self):
-        # clamp() headlines are deferred to a later step (report §6)
+        # var(--fs-*) (+fallback) / token-to-token clamp / inherit / 16px input guard
         self.assertEqual([], font_size_findings())
 
 

@@ -82,7 +82,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .hero { text-align: center; padding: clamp(64px, 12vh, 110px) 0 56px; }
 .hero h1 {
   margin: 0 0 6px;
-  font-size: clamp(28px, 4vw, 40px);
+  font-size: clamp(var(--fs-28), 4vw, var(--fs-40));
   font-weight: 600;
   line-height: 1.25;
   letter-spacing: -.015em;
@@ -90,7 +90,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 }
 .hero-subtitle {
   margin: 0;
-  font-size: clamp(15px, 1.8vw, 18px);
+  font-size: clamp(var(--fs-16), 1.8vw, var(--fs-18));
   font-weight: 400;
   color: var(--text-muted);
   line-height: 1.5;
@@ -202,13 +202,13 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
  * .page-kicker / 描述 p / .text-button 统一间距。
  */
 .page-head { max-width: var(--w-reading); margin-bottom: 36px; }
-.page-head h1 { margin: 0; font-size: clamp(27px, 3.5vw, 35px); font-weight: var(--fw-medium); line-height: 1.28; letter-spacing: -.008em; }
+.page-head h1 { margin: 0; font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); line-height: 1.28; letter-spacing: -.008em; }
 .page-head > p:not(.page-kicker) { margin: 14px 0 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.75; }
 .page-head > .text-button { margin-top: 12px; display: inline-block; }
 
 /* 兼容旧类名 → 新体系（渐进迁移，后续删除旧类名） */
 .page-title, .guide-hero { max-width: var(--w-reading); margin-bottom: 36px; }
-.page-title h1, .guide-hero h1, .search-head h1 { margin: 0; font-size: clamp(27px, 3.5vw, 35px); font-weight: var(--fw-medium); line-height: 1.28; letter-spacing: -.008em; }
+.page-title h1, .guide-hero h1, .search-head h1 { margin: 0; font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); line-height: 1.28; letter-spacing: -.008em; }
 .page-title > p:not(.page-kicker), .guide-hero > p:not(.page-kicker), .search-head > p:not(.page-kicker) { margin: 14px 0 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.75; }
 .page-title > .text-button, .guide-hero > .text-button { margin-top: 12px; display: inline-block; }
 .section-heading { margin-bottom: 16px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
@@ -231,7 +231,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .empty-state--search .button { margin-top: 10px; }
 .quiet-empty { margin: 0; padding: 24px 0; color: var(--text-muted); font-size: var(--fs-13); }
 .error-page { padding-top: clamp(72px, 12vh, 130px); text-align: center; }
-.error-page h1 { margin-bottom: 12px; font-size: clamp(26px, 3.5vw, 35px); font-weight: var(--fw-medium); }
+.error-page h1 { margin-bottom: 12px; font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); }
 .error-page > p:not(.eyebrow) { margin-bottom: 24px; color: var(--text-muted); }
 .context-loading { padding: 35px 0; color: var(--text-muted); }
 
@@ -308,7 +308,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .chemical-identity > * { min-width: 0; }
 .chemical-structure { height: 300px; display: flex; align-items: center; justify-content: center; }
 .chemical-structure img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.chemical-title-block h1 { margin: 0; max-width: 650px; font-size: clamp(27px, 3.7vw, 37px); font-weight: var(--fw-medium); line-height: 1.27; letter-spacing: -.008em; overflow-wrap: anywhere; }
+.chemical-title-block h1 { margin: 0; max-width: 650px; font-size: clamp(var(--fs-28), 3.7vw, var(--fs-40)); font-weight: var(--fw-medium); line-height: 1.27; letter-spacing: -.008em; overflow-wrap: anywhere; }
 .iupac-name { margin: 14px 0 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.6; }
 .identity-primary { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 8px; }
 .identity-primary span { border-radius: var(--r-xs); padding: 6px 9px; color: var(--action-hover); background: var(--action-subtle); font-size: var(--fs-13); }
@@ -508,7 +508,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .public-profile-header { grid-template-columns: 112px minmax(0,1fr); }
 .profile-avatar { width: 104px; height: 104px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--text-inverse); background: var(--brand); font-size: var(--fs-28); font-weight: 750; }
 .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.profile-header h1 { margin: 0; font-size: clamp(24px, 3vw, 31px); font-weight: var(--fw-medium); letter-spacing: -.008em; }
+.profile-header h1 { margin: 0; font-size: clamp(var(--fs-22), 3vw, var(--fs-28)); font-weight: var(--fw-medium); letter-spacing: -.008em; }
 .profile-username { margin: 6px 0 0; color: var(--text-muted); font-size: var(--fs-13); }
 .profile-title { margin: 4px 0 0; color: var(--text-2); font-size: var(--fs-13); font-weight: 500; }
 .profile-meta { margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--text-muted); font-size: var(--fs-13); }
@@ -643,7 +643,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 .auth-page { width: min(900px, calc(100% - 40px)); margin: 0 auto; padding: 80px 0 100px; display: grid; grid-template-columns: 1fr 390px; gap: 80px; align-items: start; }
 .auth-intro { padding-top: 35px; }
-.auth-intro h1 { margin: 0; font-size: clamp(27px,3.5vw,35px); font-weight: var(--fw-medium); letter-spacing: -.012em; }
+.auth-intro h1 { margin: 0; font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); letter-spacing: -.012em; }
 .auth-intro > p:last-of-type { margin: 16px 0 25px; color: var(--text-muted); line-height: 1.8; }
 .auth-intro ul { margin: 0; padding-left: 18px; color: var(--text-muted); font-size: var(--fs-13); line-height: 2; }
 .auth-panel { border: 1px solid var(--border); padding: 28px; }
@@ -685,7 +685,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .login-link { padding: 7px 9px; }
   footer { padding: 18px 14px; }
   .hero { padding: 44px 0 36px; }
-  .hero h1 { font-size: clamp(24px, 6.5vw, 28px); }
+  .hero h1 { font-size: clamp(var(--fs-22), 6vw, var(--fs-28)); }
   .hero-subtitle { font-size: var(--fs-14); }
   .hero .search-wrap { margin-top: 24px; }
   .search-head h1 + .search-wrap { margin-top: 24px; }
@@ -770,7 +770,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .content-page, .home, .auth-page { width: calc(100% - 24px); }
   .hero h1 { font-size: var(--fs-22); }
   .search-submit-btn { padding: 0 16px; }
-  .page-title h1, .search-head h1, .reaction-title h1 { font-size: clamp(22px, 5.5vw, 27px); overflow-wrap: anywhere; }
+  .page-title h1, .search-head h1, .reaction-title h1 { font-size: clamp(var(--fs-22), 6vw, var(--fs-28)); overflow-wrap: anywhere; }
   .chemical-result { grid-template-columns: 82px minmax(0,1fr); gap: 10px; }
   .chemical-result-structure { height: 82px; }
   .structure-code { max-width: 100%; }
@@ -810,7 +810,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 .kdense-hero h1 {
   /* 对齐公共 page-head 标度(guide/mcp-guide 同款), 不再自成一套 */
-  font-size: clamp(27px, 3.5vw, 35px); font-weight: var(--fw-medium); color: var(--text);
+  font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); color: var(--text);
   margin: 0 0 10px; letter-spacing: -.008em; line-height: 1.28;
 }
 
@@ -967,7 +967,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 /* 手机端 */
 @media (max-width: 640px) {
   .kdense-hero { padding: 24px 16px 20px; }
-  .kdense-hero h1 { font-size: clamp(24px, 6.5vw, 27px); }
+  .kdense-hero h1 { font-size: clamp(var(--fs-22), 6vw, var(--fs-28)); }
   .kdense-subtitle { font-size: var(--fs-12); }
   .kdense-source { font-size: var(--fs-12); }
   .kdense-cats { padding: 12px 16px; gap: 6px; }
