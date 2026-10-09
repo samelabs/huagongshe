@@ -7,9 +7,11 @@ import { SITE_ORIGIN } from "@/lib/alternates";
 import { pwaAppName } from "@/lib/pwa";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
+import "./tokens.css";
 import "./globals.css";
 import "./account-menu.css";
 export const viewport: Viewport = {
+  // metadata 约定只接受字符串字面量，无法引用 CSS 变量；此值与 tokens.css 的 --brand(blue-500) 一致
   themeColor: "#1e90ff",
   width: "device-width",
   initialScale: 1,

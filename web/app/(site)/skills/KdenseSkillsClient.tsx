@@ -24,7 +24,7 @@ function CategoryIcon({ cat, size = 28 }: { cat: Category | undefined; size?: nu
   return (
     <span
       className="cat-icon"
-      style={{ width: size, height: size, backgroundColor: cat?.color || "#636e72" }}
+      style={{ width: size, height: size, backgroundColor: cat?.color || "var(--n-500)" }}
       aria-hidden="true"
     >
       {cat?.abbr || "SK"}
@@ -168,7 +168,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
 function SkillCard({ skill, cat, labels }: { skill: Skill; cat: Category | undefined; labels: Dictionary }) {
   return (
     <article className="kdense-card">
-      <div className="kdense-card-accent" style={{ backgroundColor: cat?.color || "#636e72" }} />
+      <div className="kdense-card-accent" style={{ backgroundColor: cat?.color || "var(--n-500)" }} />
       <div className="kdense-card-body">
         <div className="kdense-card-head">
           <h3 className="kdense-card-name">{skill.slug}</h3>

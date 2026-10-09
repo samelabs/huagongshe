@@ -5,7 +5,7 @@
    - 身份菜单 ≠ 工作台导航：只承载身份与账户级入口
    - 三个挂载点（站点 header / 工作台顶栏 / 工作台抽屉）共用此文件
    - token 走 fallback 链：工作台内 .wb-shell 作用域的 wb-* 接管，
-     站点侧回落 globals.css 的同名语义 token —— 不产生跨文件依赖
+     站点侧回落 tokens.css 的全局语义 token —— 不产生跨文件依赖
    ═══════════════════════════════════════════════════════════════ */
 
 .am-menu { position: relative; }
@@ -13,12 +13,12 @@
 /* 触发器 — 默认（站点 header）密度 */
 .am-menu > summary {
   min-height: 38px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   padding: 4px 7px 4px 5px;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--wb-ink, var(--ink));
+  color: var(--wb-ink, var(--text));
   cursor: pointer;
   list-style: none;
 }
@@ -35,9 +35,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--wb-inverse, #fff);
-  background: var(--wb-blue, var(--blue));
-  font-size: var(--wb-fs-sm, var(--text-sm));
+  color: var(--wb-inverse, var(--text-inverse));
+  background: var(--wb-blue, var(--action));
+  font-size: var(--wb-fs-sm, var(--fs-12));
   font-weight: 700;
 }
 
@@ -45,14 +45,14 @@
   max-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: var(--wb-fs, var(--text));
+  font-size: var(--wb-fs, var(--fs-13));
 }
 
 .am-chevron {
   width: 6px;
   height: 6px;
-  border-right: 1.5px solid var(--wb-quiet, var(--quiet));
-  border-bottom: 1.5px solid var(--wb-quiet, var(--quiet));
+  border-right: 1.5px solid var(--wb-quiet, var(--text-placeholder));
+  border-bottom: 1.5px solid var(--wb-quiet, var(--text-placeholder));
   transform: translateY(-2px) rotate(45deg);
   transition: transform .15s ease;
   flex-shrink: 0;
@@ -66,40 +66,40 @@
   top: calc(100% + 9px);
   right: 0;
   width: 220px;
-  border: 1px solid var(--wb-line, var(--line));
-  border-radius: 9px;
+  border: 1px solid var(--wb-line, var(--border));
+  border-radius: var(--r-sm);
   padding: 8px;
-  color: var(--wb-ink, var(--ink));
-  background: var(--wb-paper, #fff);
+  color: var(--wb-ink, var(--text));
+  background: var(--wb-paper, var(--bg-surface));
   box-shadow: 0 18px 50px rgba(0, 0, 0, .10);
 }
 .am-profile {
-  border-bottom: 1px solid var(--wb-line, var(--line));
+  border-bottom: 1px solid var(--wb-line, var(--border));
   padding: 9px 10px 11px;
   display: grid;
   gap: 3px;
 }
 .am-profile strong { overflow: hidden; text-overflow: ellipsis; }
-.am-profile span { color: var(--wb-quiet, var(--quiet)); font-size: var(--wb-fs-sm, var(--text-sm)); }
+.am-profile span { color: var(--wb-quiet, var(--text-muted)); font-size: var(--wb-fs-sm, var(--fs-12)); }
 
 .am-links { padding: 6px 0; display: grid; }
 .am-links a,
 .am-dropdown > button {
   width: 100%;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   padding: 9px 10px;
   display: block;
-  color: var(--wb-muted, var(--muted));
+  color: var(--wb-muted, var(--text-muted));
   background: transparent;
   cursor: pointer;
-  font-size: var(--wb-fs, var(--text));
+  font-size: var(--wb-fs, var(--fs-13));
   text-align: left;
 }
 .am-dropdown > button {
-  border-top: 1px solid var(--wb-line, var(--line));
-  border-radius: 0 0 5px 5px;
-  color: var(--wb-quiet, var(--quiet));
+  border-top: 1px solid var(--wb-line, var(--border));
+  border-radius: 0 0 var(--r-xs) var(--r-xs);
+  color: var(--wb-quiet, var(--text-muted));
 }
 
 /* ── 挂载点变体：只调布局密度，不动内容 ── */
@@ -116,9 +116,9 @@
 /* ── hover（触屏不走） ── */
 @media (hover: hover) {
   .am-menu > summary:hover,
-  .am-menu[open] > summary { background: var(--wb-wash, var(--wash)); }
+  .am-menu[open] > summary { background: var(--wb-wash, var(--bg-page)); }
   .am-links a:hover,
-  .am-dropdown > button:hover { color: var(--wb-blue, var(--blue)); background: var(--wb-blue-pale, var(--blue-pale)); }
+  .am-dropdown > button:hover { color: var(--wb-blue, var(--action)); background: var(--wb-blue-pale, var(--action-subtle)); }
 }
 
 /* ── 手机 ── */
@@ -139,21 +139,21 @@
 .lang-switcher summary {
   display: inline-flex; align-items: center; gap: 4px;
   cursor: pointer; list-style: none; padding: 6px 10px;
-  font-size: var(--fs-sm, 13px); color: var(--quiet, #64748b);
-  border-radius: 8px;
+  font-size: var(--fs-13); color: var(--text-muted);
+  border-radius: var(--r-sm);
 }
 .lang-switcher summary::-webkit-details-marker { display: none; }
-.lang-switcher summary:hover { color: var(--blue, #1e90ff); }
+.lang-switcher summary:hover { color: var(--action); }
 .lang-switcher-menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 60;
   display: flex; flex-direction: column; min-width: 120px;
-  background: var(--bg-card, #fff); border: 1px solid var(--line, #e2e8f0);
-  border-radius: 10px; box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
   padding: 4px;
 }
 .lang-switcher-menu a {
-  padding: 8px 12px; border-radius: 6px; font-size: var(--fs-sm, 13px);
-  color: var(--ink, #0f172a); text-decoration: none; white-space: nowrap;
+  padding: 8px 12px; border-radius: var(--r-xs); font-size: var(--fs-13);
+  color: var(--text); text-decoration: none; white-space: nowrap;
 }
-.lang-switcher-menu a:hover { background: var(--bg-hover, #f1f5f9); }
-.lang-switcher-menu a.current { color: var(--blue, #1e90ff); font-weight: 600; }
+.lang-switcher-menu a:hover { background: var(--bg-hover); }
+.lang-switcher-menu a.current { color: var(--action); font-weight: 600; }

@@ -36,7 +36,7 @@ export function MobileTabBar() {
 
 function homeIcon(active: boolean) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--blue)" : "var(--quiet)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--action)" : "var(--text-muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 11l9-8 9 8" />
       <path d="M5 10v10h14V10" />
     </svg>
@@ -45,7 +45,7 @@ function homeIcon(active: boolean) {
 
 function flaskIcon(active: boolean) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--blue)" : "var(--quiet)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--action)" : "var(--text-muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 3h6" />
       <path d="M10 3v6.5L5 18a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-8.5V3" />
       <path d="M7.5 15h9" />
@@ -55,7 +55,7 @@ function flaskIcon(active: boolean) {
 
 function userIcon(active: boolean) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--blue)" : "var(--quiet)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--action)" : "var(--text-muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
     </svg>
