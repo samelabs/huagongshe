@@ -63,6 +63,7 @@ export function ApiTokenSettings() {
         if (error instanceof ApiError && error.status === 409) setMessage(t.settings.ai.limitReached);
         else if (error instanceof ApiError && error.status === 401) setMessage(t.settings.ai.relogin);
         else if (error instanceof ApiError && error.status === 502) setMessage(t.settings.ai.upstreamDown);
+        else if (error instanceof ApiError && (error.status === 400 || error.status === 422)) setMessage(t.settings.ai.createFailed);
         else setMessage(t.common.networkError);
       } finally { setCreating(false); }
     }}>

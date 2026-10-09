@@ -52,6 +52,9 @@ async function getSSRUser(cookieHeader: string | null): Promise<User | null> {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const config = await getSiteConfig();
   const analytics = config.analytics?.scripts;
+  // The admin-configured ID is interpolated into inline JS: validate its grammar first.
+  const analyticsId = analytics?.provider === "51la" && typeof analytics.id === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(analytics.id)
+    ? analytics.id : null;
   const adsense = config.ads?.adsense;
   const h = await headers();
   const cookieHeader = h.get("cookie");
@@ -66,10 +69,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang={locale}>
       <head>
         <link rel="llms-txt" href="/llms.txt" />
-        {analytics?.enabled && analytics.id && analytics.provider === "51la" && (
+        {analytics?.enabled && analyticsId && (
           <>
             <script charSet="UTF-8" id="LA_COLLECT" src="//sdk.51.la/js-sdk-pro.min.js" />
-            <script dangerouslySetInnerHTML={{ __html: `LA.init({id:"${analytics.id}",ck:"${analytics.id}"})` }} />
+            <script dangerouslySetInnerHTML={{ __html: `LA.init({id:${JSON.stringify(analyticsId)},ck:${JSON.stringify(analyticsId)}})` }} />
           </>
         )}
         {adsense?.enabled && adsense.client && (

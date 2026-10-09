@@ -43,6 +43,11 @@ export default function McpPage() {
       <p>{t.mcp.heroBody}</p>
     </header>
 
+    <section className="guide-section" id="chatgpt-plugin">
+      <div className="section-heading"><div><p className="page-kicker">{t.mcp.pluginKicker}</p><h2>{t.mcp.pluginTitle}</h2></div></div>
+      <p className="guide-ref-intro">{t.mcp.pluginStatus}</p>
+    </section>
+
     <section className="guide-section">
       <div className="section-heading"><div><p className="page-kicker">{t.mcp.connectKicker}</p></div></div>
       <div className="mcp-connect">

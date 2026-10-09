@@ -65,6 +65,7 @@ const en: Dictionary = {
     tabMe: 'Me',
     bottomNav: 'Bottom navigation',
     workbenchNav: 'Workbench navigation',
+    languageSwitcher: "Change language",
     footer: 'Huagongshe Open Program',
   },
 
@@ -79,6 +80,7 @@ const en: Dictionary = {
     entryMcp: 'Connect MCP',
     entryWorkbench: 'Web workbench',
     entrySkills: 'Skills',
+    entryPlugin: "ChatGPT / Plugin (not listed)",
   },
 
   /* ── Search ────────────────────────────────────────── */
@@ -476,7 +478,7 @@ const en: Dictionary = {
     },
     ai: {
       title: 'AI Key',
-      desc: 'An AI Key authorizes an AI agent to access your personal data and permitted capabilities via the Huagongshe HTTP API or MCP Server. Keys can only be changed or deleted on the website.',
+      desc: "An AI Key lets trusted clients access authorized capabilities through the Huagongshe HTTP API or MCP Server. You can create, copy, and delete keys on this website. Prefer account authorization via MCP OAuth when supported.",
       loginHint: 'Sign in to manage your AI Keys.',
       placeholder: 'e.g. Literature organizer',
       days30: '30 days',
@@ -488,7 +490,7 @@ const en: Dictionary = {
       created: 'AI Key created',
       copied: 'Copied',
       copyFailed: 'Copy failed. Please copy manually.',
-      copyHint: 'AI Keys can be viewed, copied, or deleted in account settings. Never send an AI Key to any service other than huagongshe.com.',
+      copyHint: "Only configure AI Keys in trusted clients. Check that they connect to https://huagongshe.com/mcp or the official HGS API. Never paste keys into public chats or untrusted websites.",
       loadFailed: 'Failed to load the AI Key list. Please try again later.',
       createFailed: 'Failed to create the AI Key.',
       revokeFailed: 'Failed to delete. Please try again later.',
@@ -693,6 +695,9 @@ const en: Dictionary = {
   mcp: {
     hero: 'Connect to the Huagongshe MCP Server',
     heroBody: 'Huagongshe runs a remote MCP Server. Once an MCP-capable AI client connects, it can call Huagongshe capabilities directly: compounds, reactions, structure processing, scale calculation, and your personal workbench.',
+    pluginKicker: "ChatGPT / Plugin",
+    pluginTitle: "ChatGPT plugin status",
+    pluginStatus: "The ChatGPT Plugin package is prepared for submission but is not yet listed or installable. Compatible MCP clients can connect to the existing Huagongshe remote MCP Server.",
     /* ── Connection info ── */
     connectKicker: 'Connection info',
     connectUrlLabel: 'MCP Server',

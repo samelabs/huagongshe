@@ -69,6 +69,7 @@ const de: Dictionary = {
     tabMe: 'Mein Bereich',
     bottomNav: 'Untere Navigation',
     workbenchNav: 'Workbench-Navigation',
+    languageSwitcher: "Sprache wechseln",
     footer: '化工社 Open Project',
   },
 
@@ -83,6 +84,7 @@ const de: Dictionary = {
     entryMcp: 'MCP verbinden',
     entryWorkbench: 'Web-Workbench',
     entrySkills: 'Skills',
+    entryPlugin: "ChatGPT / Plugin (nicht gelistet)",
   },
 
   /* ── Suche ──────────────────────────────────────────── */
@@ -480,7 +482,7 @@ const de: Dictionary = {
     },
     ai: {
       title: 'AI Key',
-      desc: 'Ein AI Key ist die Zugangsberechtigung, mit der eine KI über die HTTP-API oder den MCP Server von 化工社 auf deine persönlichen Daten und freigegebenen Funktionen zugreift. Erstellen und Widerrufen sind nur über die Website möglich.',
+      desc: "Ein AI Key erlaubt vertrauenswürdigen Clients den Zugriff auf berechtigte Funktionen der Huagongshe-HTTP-API oder des MCP-Servers. Du kannst Schlüssel auf dieser Website erstellen, kopieren und löschen. Bevorzuge die Kontoautorisierung über MCP OAuth, wenn unterstützt.",
       loginHint: 'Melde dich an, um AI Keys zu verwalten.',
       placeholder: 'z. B. Literaturverwaltung',
       days30: '30 Tage',
@@ -492,7 +494,7 @@ const de: Dictionary = {
       created: 'AI Key erstellt',
       copied: 'Kopiert',
       copyFailed: 'Kopieren fehlgeschlagen. Bitte manuell kopieren.',
-      copyHint: 'AI Keys lassen sich in den Kontoeinstellungen ansehen, kopieren und löschen. Gib deinen AI Key niemals an Dienste außerhalb von huagongshe.com weiter.',
+      copyHint: "Verwende AI Keys nur in vertrauenswürdigen Clients und prüfe, dass sie https://huagongshe.com/mcp oder die offizielle HGS-API kontaktieren. Füge Schlüssel niemals in öffentliche Chats oder nicht vertrauenswürdige Websites ein.",
       loadFailed: 'AI-Key-Liste konnte nicht geladen werden. Bitte später erneut versuchen.',
       createFailed: 'AI Key konnte nicht erstellt werden.',
       revokeFailed: 'Widerrufen fehlgeschlagen. Bitte später erneut versuchen.',
@@ -697,6 +699,9 @@ const de: Dictionary = {
   mcp: {
     hero: 'Mit dem 化工社 MCP Server verbinden',
     heroBody: '化工社 stellt einen entfernten MCP Server bereit. Verbinde dich aus einem MCP-fähigen KI-Client, um direkt auf Verbindungen, Reaktionen, Strukturverarbeitung, Ansatzrechnung und deinen persönlichen Workbench zuzugreifen.',
+    pluginKicker: "ChatGPT / Plugin",
+    pluginTitle: "Status des ChatGPT-Plugins",
+    pluginStatus: "Das ChatGPT-Plugin-Paket ist für die Einreichung vorbereitet, aber noch nicht im Plugin-Verzeichnis gelistet oder installierbar. Kompatible MCP-Clients können den bestehenden Remote-MCP-Server nutzen.",
     /* ── Verbindungsinformationen ── */
     connectKicker: 'Verbindungsinformationen',
     connectUrlLabel: 'MCP Server',

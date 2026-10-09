@@ -18,7 +18,7 @@
  */
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useLocale } from "@/components/shared/I18nContext";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { SUPPORTED_LOCALES, isPathAtOrBelow, replaceLocalePrefix } from "@/lib/localePath";
 
 /** 各语言自称(固定, 不翻译) */
@@ -31,6 +31,7 @@ const NATIVE_NAMES: Record<string, string> = {
 };
 
 export function LanguageSwitcher() {
+  const t = useDictionary();
   const locale = useLocale();
   const pathname = usePathname() ?? "/";
   const searchParams = useSearchParams();
@@ -41,7 +42,7 @@ export function LanguageSwitcher() {
   if (isPathAtOrBelow(pathname, "/samelabs")) return null;
 
   return (
-    <details className="lang-switcher" aria-label="Language">
+    <details className="lang-switcher" aria-label={t.nav.languageSwitcher}>
       <summary>
         <span aria-hidden="true">🌐</span>
         <span className="lang-switcher-current">{NATIVE_NAMES[locale] ?? locale}</span>

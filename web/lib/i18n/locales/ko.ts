@@ -68,6 +68,7 @@ const ko: Dictionary = {
     tabMe: '마이페이지',
     bottomNav: '하단 내비게이션',
     workbenchNav: '워크벤치 내비게이션',
+    languageSwitcher: "언어 변경",
     footer: '化工社 오픈 프로젝트',
   },
 
@@ -82,6 +83,7 @@ const ko: Dictionary = {
     entryMcp: 'MCP 연결',
     entryWorkbench: '웹 워크벤치',
     entrySkills: 'Skills',
+    entryPlugin: "ChatGPT / Plugin(미등록)",
   },
 
   /* ── 검색 ───────────────────────────────────────────── */
@@ -479,7 +481,7 @@ const ko: Dictionary = {
     },
     ai: {
       title: 'AI Key',
-      desc: 'AI Key는 AI가 化工社 HTTP API 또는 MCP Server를 통해 당신의 개인 데이터와 허용된 기능에 접근하는 인증 정보입니다. 변경과 삭제는 웹사이트에서만 가능합니다.',
+      desc: "AI Key는 신뢰할 수 있는 클라이언트가 化工社 HTTP API 또는 MCP Server의 허용된 기능을 이용하기 위한 인증 정보입니다. 웹사이트에서 생성·복사·삭제할 수 있습니다. 지원되는 경우 표준 MCP OAuth 계정 인증을 우선하세요.",
       loginHint: '로그인하여 AI Key를 관리하세요.',
       placeholder: '예: 문헌 정리 도구',
       days30: '30일',
@@ -491,7 +493,7 @@ const ko: Dictionary = {
       created: 'AI Key가 생성되었습니다',
       copied: '복사됨',
       copyFailed: '복사에 실패했습니다. 직접 복사해 주세요.',
-      copyHint: 'AI Key는 계정 설정에서 확인·복사·삭제할 수 있습니다. huagongshe.com 이외의 서비스로 AI Key를 보내지 마세요.',
+      copyHint: "AI Key는 신뢰할 수 있는 클라이언트에만 설정하고 연결 대상이 https://huagongshe.com/mcp 또는 공식 HGS API인지 확인하세요. 공개 채팅이나 신뢰할 수 없는 사이트에 붙여넣지 마세요.",
       loadFailed: 'AI Key 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
       createFailed: 'AI Key 생성에 실패했습니다.',
       revokeFailed: '삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.',
@@ -696,6 +698,9 @@ const ko: Dictionary = {
   mcp: {
     hero: '化工社 MCP Server에 연결',
     heroBody: '化工社는 원격 MCP Server를 제공합니다. MCP를 지원하는 AI 클라이언트에서 연결하면 화합물·반응·구조 처리·스케일 계산·개인 워크벤치 기능을 직접 호출할 수 있습니다.',
+    pluginKicker: "ChatGPT / Plugin",
+    pluginTitle: "ChatGPT 플러그인 등록 상태",
+    pluginStatus: "ChatGPT Plugin 패키지는 제출 준비가 되었지만 아직 플러그인 디렉터리에 등록되지 않아 직접 설치할 수 없습니다. 호환되는 MCP 클라이언트는 기존 원격 MCP Server를 사용할 수 있습니다.",
     /* ── 연결 정보 ── */
     connectKicker: '연결 정보',
     connectUrlLabel: 'MCP Server',

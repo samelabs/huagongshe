@@ -49,6 +49,7 @@ export default async function Home() {
           <Link className="button primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Link>
           <Link className="button secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Link>
           <Link className="button secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Link>
+          <Link className="button secondary" href={`${withLocale("/mcp-guide", locale)}#chatgpt-plugin`}>{t.home.entryPlugin}</Link>
         </nav>
       </section>
     </div>

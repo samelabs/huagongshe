@@ -64,7 +64,7 @@ class ProductVersionContract(unittest.TestCase):
 
 
 class HomePageEntryContract(unittest.TestCase):
-    """首页源码结构契约: 一级入口只保留 MCP / Skills / Workbench。"""
+    """首页源码结构契约: MCP / Skills / Workbench / Plugin，AI Key 不单列。"""
 
     @classmethod
     def setUpClass(cls):
@@ -74,6 +74,8 @@ class HomePageEntryContract(unittest.TestCase):
         self.assertIn('"/mcp-guide"', self.source)
         self.assertIn('"/skills"', self.source)
         self.assertIn('"/aichem"', self.source)
+        self.assertIn("entryPlugin", self.source)
+        self.assertIn("#chatgpt-plugin", self.source)
 
     def test_agent_api_not_a_home_entry(self):
         self.assertNotIn('"/api/agent-guide"', self.source)
@@ -115,6 +117,9 @@ class CompatibilitySurfaceKept(unittest.TestCase):
             source = (WEB / "lib" / "i18n" / "locales" / f"{locale}.ts").read_text(encoding="utf-8")
             self.assertNotIn("entryApi", source, locale)
             self.assertNotIn("entryKey", source, locale)
+            self.assertIn("entryPlugin", source, locale)
+            self.assertIn("pluginStatus", source, locale)
+            self.assertIn("languageSwitcher", source, locale)
 
 
 class PluginDistributionBoundary(unittest.TestCase):

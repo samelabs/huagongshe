@@ -370,7 +370,35 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
         if mode == 0o120000:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.UNSAFE_PATH, f"不允许符号链接：{name}")
-        raw_bytes = archive.read(info)
+        # Validate ZIP metadata before decompression; cap actual reads too.
+        # Previously archive.read() expanded the entire entry before quota checks.
+        if len(entries) >= settings.skill_max_files:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"文件数超过 {settings.skill_max_files} 上限")
+        # Keep the old DECOMPRESSION-before-quota error precedence.
+        if info.compress_size and info.file_size > info.compress_size * MAX_COMPRESSION_RATIO:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.DECOMPRESSION,
+                f"压缩比异常（疑似 zip 炸弹）：{name}")
+        if info.file_size > settings.skill_file_max_bytes:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"单文件超过 {settings.skill_file_max_bytes // (1024 * 1024)}MB 上限：{name}")
+        if sum(len(data) for _, data in entries) + info.file_size > settings.skill_total_max_bytes:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"解包后总量超过 {settings.skill_total_max_bytes // (1024 * 1024)}MB 上限")
+        with archive.open(info) as member:
+            raw_bytes = member.read(settings.skill_file_max_bytes + 1)
+        if len(raw_bytes) > settings.skill_file_max_bytes:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"单文件超过 {settings.skill_file_max_bytes // (1024 * 1024)}MB 上限：{name}")
+        if sum(len(data) for _, data in entries) + len(raw_bytes) > settings.skill_total_max_bytes:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"解包后总量超过 {settings.skill_total_max_bytes // (1024 * 1024)}MB 上限")
         if info.compress_size and len(raw_bytes) > info.compress_size * MAX_COMPRESSION_RATIO:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.DECOMPRESSION,

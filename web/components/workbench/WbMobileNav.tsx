@@ -76,6 +76,7 @@ export function WbMobileNav({ counts, user }: {
         role="dialog"
         aria-label={t.nav.menu}
         aria-hidden={!open}
+        inert={!open}
       >
         <div className="wb-drawer-head">
           <AccountMenu user={user} variant="drawer" />

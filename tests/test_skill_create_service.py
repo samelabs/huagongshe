@@ -284,6 +284,21 @@ class ArchiveKernelTests(unittest.TestCase):
         self._assert(raw, SkillArchiveValidationError.MANIFEST_INVALID,
                      "压缩包根目录必须包含 SKILL.md")
 
+    def test_oversized_zip_member_rejected_before_decompression(self):
+        """Oversized declared members are rejected without opening their compressed data."""
+        member = "assets/oversized.bin"
+        # Stored mode isolates the declared size limit from compression-ratio policy.
+        archive_bytes = io.BytesIO()
+        with zipfile.ZipFile(archive_bytes, "w", zipfile.ZIP_STORED) as z:
+            z.writestr(member, b"A" * (svc.settings.skill_file_max_bytes + 1))
+            z.writestr("SKILL.md", SKILL_MD)
+        raw = archive_bytes.getvalue()
+        with patch.object(zipfile.ZipFile, "open",
+                          side_effect=AssertionError("oversized ZIP entry was opened")):
+            self._assert(
+                raw, SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"单文件超过 {svc.settings.skill_file_max_bytes // (1024 * 1024)}MB 上限：{member}")
+
     def test_binary_outside_allowed_dirs(self):
         raw = _zip_bytes({"SKILL.md": SKILL_MD, "blob.bin": b"\x00\x01"})
         self._assert(raw, SkillArchiveValidationError.MANIFEST_INVALID,

@@ -110,6 +110,8 @@ class RefreshUseCasePolicyTests(unittest.TestCase):
 
     def test_h_allow_refresh_false_zero_enqueue(self):
         """H: allow_refresh=False → stale 时零 enqueue, 返回 needs_refresh=True。"""
+        if DB_URL is None:
+            self.skipTest("缺少合规 TEST_DATABASE_URL：此测试必须在测试库中运行")
         import asyncio
         from datetime import datetime, timedelta, timezone
         from sqlalchemy import text as sql_text
@@ -158,6 +160,8 @@ class RefreshUseCasePolicyTests(unittest.TestCase):
     def test_f_public_anonymous_refresh_enqueues(self):
         """F: 匿名(无 actor)详情读驱动回补仍按产品策略入队(行为不变,
         依据已从 loopback 换为 use-case)。以 stale 行直调验证 priority=50 路径。"""
+        if DB_URL is None:
+            self.skipTest("缺少合规 TEST_DATABASE_URL：此测试必须在测试库中运行")
         import asyncio
         from sqlalchemy import text as sql_text
         from sqlalchemy.ext.asyncio import create_async_engine

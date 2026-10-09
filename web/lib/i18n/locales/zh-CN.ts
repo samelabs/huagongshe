@@ -72,6 +72,7 @@ const t = {
     tabMe: '我的',
     bottomNav: '底部导航',
     workbenchNav: '工作台导航',
+    languageSwitcher: "切换语言",
     footer: '化工社开放计划',
   },
 
@@ -86,6 +87,7 @@ const t = {
     entryMcp: 'MCP 接入',
     entryWorkbench: '网页工作台',
     entrySkills: 'Skills',
+    entryPlugin: "ChatGPT / Plugin（未上架）",
   },
 
   /* ── 搜索 ────────────────────────────────────────────── */
@@ -482,7 +484,7 @@ const t = {
     },
     ai: {
       title: 'AI Key',
-      desc: 'AI Key 用于授权 AI 通过化工社 HTTP API 或 MCP Server 访问你的个人数据和受授权能力。修改和删除仍需在网页完成。',
+      desc: "AI Key 用于让受信任的客户端访问化工社 HTTP API 或 MCP Server 的授权能力。可在网站创建、复制和删除。支持标准 MCP OAuth 时应优先使用账户授权。",
       loginHint: '登录后管理 AI Key。',
       placeholder: '例如：文献整理工具',
       days30: '30天',
@@ -494,7 +496,7 @@ const t = {
       created: 'AI Key 已创建',
       copied: '已复制',
       copyFailed: '复制失败，请手动复制。',
-      copyHint: 'AI Key 可在账户设置中查看、复制或删除。请勿将 AI Key 发送给 huagongshe.com 以外的服务。',
+      copyHint: "仅在信任的客户端配置 AI Key，并核对连接目标为 https://huagongshe.com/mcp 或官方 HGS API。不要把密钥粘贴到公开聊天或不可信网站。",
       loadFailed: 'AI Key 列表读取失败，请稍后重试。',
       createFailed: 'AI Key 创建失败。',
       revokeFailed: '删除失败，请稍后重试。',
@@ -699,6 +701,9 @@ const t = {
   mcp: {
     hero: '连接化工社 MCP Server',
     heroBody: '化工社提供远程 MCP Server。支持 MCP 的 AI 客户端连接后，可以直接调用化工社的化合物、反应、结构处理、投料计算和个人工作台能力。',
+    pluginKicker: "ChatGPT / Plugin",
+    pluginTitle: "ChatGPT 插件接入状态",
+    pluginStatus: "ChatGPT Plugin 已准备提交，但尚未在插件目录上架，当前不能直接安装。支持远程 MCP 的客户端可连接现有化工社 MCP Server。",
     /* ── 连接信息 ── */
     connectKicker: '连接信息',
     connectUrlLabel: 'MCP Server',
