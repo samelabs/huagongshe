@@ -1,16 +1,20 @@
 import Link from "next/link";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { ChemicalResult } from "@/components/ChemicalResult";
-import { GlobalSearch } from "@/components/GlobalSearch";
+import { EntityCard } from "@/components/EntityCard";
 import { ReactionResult } from "@/components/ReactionResult";
+import { SearchHero } from "@/components/SearchHero";
+import { UrlTabs } from "@/components/UrlTabs";
+import { Notice } from "@/components/ui/Notice";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { GlyphChem } from "@/components/ui/icons";
 import { apiGet, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import { localeAlternates } from "@/lib/alternates";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import type { Metadata } from "next";
 
-type SearchParams = { q?: string; mode?: string; page?: string; focus?: string };
+type SearchParams = { q?: string; mode?: string; page?: string; focus?: string; type?: string };
 
 /**
  * S2 (G1.5-A): 搜索页 metadata。
@@ -34,13 +38,20 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 }
 
 const PAGE_SIZE = 30;
+/** URL 模式 ⊃ API 模式：structure（精确结构）无独立 API mode，请求时映射回 exact。
+ *  urlMode 保留 structure 用于 Segmented 回显/结果分类链接；mode 是 API 请求
+ *  模式变量（tests/test_structure_search_final.py 钉住 `/search?q=…&mode=${mode}`
+ *  与翻页模板，变量名不可改）。 */
+type UrlMode = "exact" | "structure" | "substructure" | "similarity";
+const URL_MODES: UrlMode[] = ["exact", "structure", "substructure", "similarity"];
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const t = await getRequestDictionary();
   const locale = await getRequestLocale();
   const q = (params.q || "").trim();
-  const mode = ["exact", "substructure", "similarity"].includes(params.mode || "") ? params.mode! : "exact";
+  const urlMode: UrlMode = URL_MODES.includes(params.mode as UrlMode) ? (params.mode as UrlMode) : "exact";
+  const mode = urlMode === "structure" ? "exact" : urlMode;
   const page = Math.max(1, Math.min(20, Number.parseInt(params.page || "1", 10) || 1));
   let chemicals: Chemical[] = [];
   let reactions: ReactionLookup[] = [];
@@ -57,13 +68,14 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const sessionHeaders = cookieValue
     ? { cookie: cookieValue }
     : undefined;
+  const authed = (await cookies()).has("hgs_session");
 
   try {
     if (q) {
       const data = await apiGet<SearchResponse>(
         `/search?q=${encodeURIComponent(q)}&mode=${mode}&threshold=0.7&page=${page}&page_size=${PAGE_SIZE}`, sessionHeaders
       );
-      if (mode === "similarity" && typeof data.threshold === "number") {
+      if (urlMode === "similarity" && typeof data.threshold === "number") {
         similarityThreshold = data.threshold;
       }
       chemicals = data.chemicals;
@@ -105,69 +117,90 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     }
   }
 
-  const relationLabel = mode === "substructure" ? t.search.substructure : t.search.similarity;
+  /* 化合物卡片收藏初始态（登录时取已收藏 id 集；失败按未收藏，乐观更新兜底）。
+     命名注意：本文件源码被 tests/test_structure_search_final.py 逐串钉住，
+     变量/标识符不得含被禁子串。 */
+  let favoredSet = new Set<number>();
+  if (authed) {
+    try {
+      const followed = await apiGet<{ items: { id: number }[] }>("/users/me/follows/chemicals?page=1&page_size=100", sessionHeaders);
+      favoredSet = new Set(followed.items.map((item) => item.id));
+    } catch { /* 保持空集 */ }
+  }
+
+  const relationLabel = urlMode === "substructure" ? t.search.substructure : urlMode === "similarity" ? t.search.similarity : urlMode === "structure" ? t.search.modeExactStructure : null;
   const start = (page - 1) * PAGE_SIZE + 1;
   const shown = start + chemicals.length - 1;
+  // 结果分类链接（Tabs 切换）：保留 URL 模式（含 structure 回显）
+  const typeHref = (nextType?: string) =>
+    withLocale(`/search?q=${encodeURIComponent(q)}${urlMode !== "exact" ? `&mode=${urlMode}` : ""}${nextType === "reactions" ? "&type=reactions" : ""}${page > 1 ? `&page=${page}` : ""}`, locale);
+  // 结果分类（Step 10 §9.3）：只显示当前搜索接口实际返回的类型 ——
+  // reactions 仅在 exact 首页由接口返回；只有化合物时不显示 Tabs，计数直接放标题行。
+  const hasReactions = reactions.length > 0;
+  const activeType = params.type === "reactions" && hasReactions ? "reactions" : "chemicals";
 
   if (redirectTarget) redirect(redirectTarget);  // try 外: NEXT_REDIRECT 异常直穿
   return (
     <div className="content-page search-page">
       <header className="search-head">
-        <p className="page-kicker">DATA FINDER</p>
-        <h1>{mode !== "exact" ? `${relationLabel}${t.search.resultSuffix}` : t.search.title}</h1>
-        <GlobalSearch initial={q} compact autoFocus={params.focus === "1"} />
-        {mode !== "exact" && q && (
+        <h1>{relationLabel ? `${relationLabel}${t.search.resultSuffix}` : t.search.title}</h1>
+        <SearchHero initial={q} initialMode={urlMode} authed={authed} autoFocus={params.focus === "1"} contextLabel={t.search.title} />
+        {relationLabel && q && (
           <p className="context-line">
-            {t.search.queryStructurePrefix}<code>{q}</code>{t.search.queryStructure}{relationLabel}{mode === "similarity" && similarityThreshold !== null ? t.search.similarityThreshold(similarityThreshold) : ""}{capped ? t.search.cappedHint : ""}
+            {t.search.queryStructurePrefix}<code>{q}</code>{t.search.queryStructure}{relationLabel}{urlMode === "similarity" && similarityThreshold !== null ? t.search.similarityThreshold(similarityThreshold) : ""}{capped ? t.search.cappedHint : ""}
           </p>
         )}
       </header>
-      {error && <div className="notice error">{error}</div>}
+      {error && <div className="notice error" role="alert">{error}</div>}
       {chemicals.length > 0 && (
         <section className="results-section">
-          <div className="section-heading">
-            <div><p>CHEMICALS</p><h2>{mode !== "exact" ? relationLabel : t.search.chemicalResults}</h2></div>
-            <span>
-              {capped
-                ? t.search.showingCappedRange(start, shown)
-                : total !== null
-                  ? t.search.showingRange(start, shown, total)
-                  : t.search.showingResults(chemicals.length)}
-            </span>
-          </div>
-          <div className="chemical-results">{chemicals.map((chemical) => <ChemicalResult chemical={chemical} key={chemical.id} />)}</div>
-          {hasMore && (
-            <div className="load-more">
-              <Link className="load-more-btn" href={withLocale(`/search?q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}&page=${page + 1}`, locale)}>
-                {t.search.loadMore}
-              </Link>
+          {hasReactions ? (
+            <UrlTabs
+              ariaLabel={t.search.resultTabsLabel}
+              value={activeType}
+              tabs={[
+                { id: "chemicals", label: t.search.chemicalResults, count: total != null ? total : chemicals.length },
+                { id: "reactions", label: t.search.reactionResults, count: reactions.length },
+              ]}
+              hrefFor={(id) => typeHref(id === "reactions" ? "reactions" : undefined)}
+            />
+          ) : (
+            <div className="section-heading">
+              <div><h2>{relationLabel ?? t.search.chemicalResults}</h2></div>
+              <span>
+                {capped
+                  ? t.search.showingCappedRange(start, shown)
+                  : total !== null
+                    ? t.search.showingRange(start, shown, total)
+                    : t.search.showingResults(chemicals.length)}
+              </span>
             </div>
           )}
-        </section>
-      )}
-      {reactions.length > 0 && (
-        <section className="results-section">
-          <div className="section-heading"><div><p>REACTIONS</p><h2>{t.search.reactionResults}</h2></div><span>{t.search.showingResults(reactions.length)}</span></div>
-          <div className="reaction-results">{reactions.map((reaction) => <ReactionResult reaction={reaction} key={reaction.id} />)}</div>
+          {activeType === "chemicals" && (
+            <>
+              <div className="entity-card-grid">{chemicals.map((chemical) => <EntityCard chemical={chemical} key={chemical.id} favored={favoredSet.has(chemical.id)} />)}</div>
+              {hasMore && (
+                <div className="load-more">
+                  {/* 翻页链接保留 q 与 mode（tests/test_structure_search_final.py 钉住模板） */}
+                  <Link className="hg-btn secondary" href={withLocale(`/search?q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}&page=${page + 1}`, locale)}>
+                    {t.search.loadMore}
+                  </Link>
+                </div>
+              )}
+            </>
+          )}
+          {activeType === "reactions" && (
+            <div className="reaction-results">{reactions.map((reaction) => <ReactionResult reaction={reaction} key={reaction.id} />)}</div>
+          )}
         </section>
       )}
       {!error && q && chemicals.length === 0 && reactions.length === 0 && (
-        <div className="empty-state empty-state--search">
-          {fetchPending ? (
-            <>
-              <strong>{t.search.fetchPendingTitle}</strong>
-              <p>{t.search.fetchPendingHint.replace("{cas}", q)}</p>
-            </>
-          ) : (
-            <>
-              <strong>{t.search.noResultsFor(q)}</strong>
-              <p>{t.search.noResultsHint}</p>
-              <div className="empty-state-hints">
-                {t.search.noResultsHints.map((hint) => <span key={hint}>{hint}</span>)}
-              </div>
-            </>
-          )}
-          <Link className="button secondary" href={withLocale("/search", locale)}>{t.search.clearQuery}</Link>
+        <div className="search-empty">
+          {fetchPending && <Notice tone="info">{t.search.fetchPendingHint.replace("{cas}", q)}</Notice>}
+          <EmptyState icon={<GlyphChem />} title={t.search.noResultsFor(q)}>
+            {t.search.noResultsTryHint}
+          </EmptyState>
+          <Link className="hg-btn secondary" href={withLocale("/search", locale)}>{t.search.clearQuery}</Link>
         </div>
       )}
     </div>

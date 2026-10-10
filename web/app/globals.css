@@ -261,6 +261,48 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .context-line { font-size: var(--fs-13); }
 .search-head .context-line { margin-top: 14px; }
 .context-line a { color: var(--action); }
+
+/* ── 搜索结果卡片 EntityCard（Step 10 §9.3）：缩略图 112×84 + HCID sm +
+   名称(fs-16/600) + 元信息 + 右侧收藏 ghost icon；SMILES 不在卡片显示 ── */
+.entity-card-grid { display: grid; gap: 10px; }
+.entity-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--sp-4);
+  align-items: center;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  transition: border-color .15s, box-shadow .15s;
+}
+@media (hover:hover) {
+  .entity-card:hover { border-color: var(--action-border); box-shadow: 0 2px 8px rgba(0,0,0,.04); }
+}
+.entity-card-thumb {
+  width: 112px;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+.entity-card-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.entity-card-copy { min-width: 0; display: grid; gap: 4px; justify-items: start; }
+.entity-card h3 { margin: 0; font-size: var(--fs-16); font-weight: 600; line-height: 1.35; }
+.entity-card h3 a { color: var(--text); }
+.entity-card-meta { margin: 0; color: var(--text-muted); font-size: var(--fs-13); line-height: 1.5; overflow-wrap: anywhere; }
+.entity-card > .hg-btn { align-self: start; }
+
+/* 搜索路由加载态（loading.tsx）：Skeleton card × 3 */
+.search-skeleton { display: grid; gap: 10px; margin-top: 36px; }
+.search-skeleton .hg-sk { height: 110px; }
+/* 空结果：Notice（CAS 获取中）+ EmptyState + 清空查询 */
+.search-empty { display: grid; gap: var(--sp-4); justify-items: center; margin-top: var(--sp-6); }
+.search-empty .hg-notice, .search-empty .hg-empty { width: 100%; }
 /* 结果页空态提示（2026-08-27 收敛：/search 是结果页，发现职责归首页） */
 .results-section + .results-section { margin-top: 44px; }
 .load-more { text-align: center; margin-top: 32px; }
@@ -932,6 +974,9 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .srch-box { flex-direction: column; align-items: stretch; }
   .srch-box .hg-btn { width: 100%; }
   .search-head .srch-hero { width: 100%; }
+  /* 搜索卡片手机：收藏按钮绝对定位右上角，缩略图+信息两列铺满 */
+  .entity-card { position: relative; grid-template-columns: auto minmax(0, 1fr); padding-right: var(--sp-4); }
+  .entity-card > .hg-btn { position: absolute; top: var(--sp-2); right: var(--sp-2); }
   .content-page { padding-top: 28px; }
   .section-heading { align-items: flex-start; gap: 12px; }
   .section-heading > span { flex: 0 0 auto; }
