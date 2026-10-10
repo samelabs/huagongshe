@@ -836,22 +836,32 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .avatar-settings-preview > span { display: flex; align-items: center; justify-content: center; color: var(--text-inverse); background: var(--brand); font-size: var(--fs-22); font-weight: 700; }
 .avatar-settings-preview > div { display: grid; gap: 4px; }
 .avatar-settings-preview small { color: var(--text-muted); font-size: var(--fs-12); }
-.token-create { display: grid; grid-template-columns: 1fr 160px auto; }
-.token-secret { margin-top: 15px; border: 1px solid var(--warn-border); padding: 13px; display: grid; gap: 8px; background: rgba(212,136,6,.06); font-size: var(--fs-12); }
-.token-secret > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.token-value { width: 100%; border: 1px solid var(--warn-border); border-radius: var(--r-sm); padding: 11px; color: var(--text); background: var(--bg-surface); font-family: var(--font-mono); font-size: var(--fs-12); line-height: 1.65; overflow-wrap: anywhere; }
-.token-secret > span { color: var(--text-muted); font-size: var(--fs-12); }
-.token-actions { display: flex; gap: 8px; align-items: center; }
-.token-actions .text-button { white-space: nowrap; }
+.token-create { display: grid; grid-template-columns: minmax(0, 1fr) 180px auto; gap: 12px; align-items: end; }
+.token-create .hg-field { min-width: 0; }
+/* Step 11 Part D：明文 Key = CodeField + Notice warn + 使用提示 */
+.token-secret { margin-top: 16px; border: 1px solid var(--warn-border); border-radius: var(--r-sm); padding: 14px; display: grid; gap: 10px; background: rgba(212,136,6,.06); font-size: var(--fs-12); }
+.token-secret strong { color: var(--text); }
+.token-secret .hg-notice { background: var(--bg-surface); }
+.token-secret-hint { margin: 0; color: var(--text-muted); font-size: var(--fs-12); line-height: 1.7; }
+.token-actions { display: flex; gap: 8px; align-items: center; flex: none; }
+.token-row-code { margin-top: 6px; max-width: 380px; }
 
 .token-list { margin-top: 18px; display: grid; gap: 8px; }
-.token-list article { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface); }
+.token-list article { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--bg-surface); }
 .token-list article > div { min-width: 0; display: grid; gap: 4px; }
 .token-list strong { overflow-wrap: anywhere; }
 .token-list span { color: var(--text-muted); font-size: var(--fs-12); }
 .token-list small { color: var(--text-muted); font-size: var(--fs-12); }
 .api-guide-link { color: var(--action); font-size: var(--fs-13); }
 .token-help-links { margin-top: 14px; display: flex; gap: 18px; }
+
+/* 手机（≤640）：设置页创建表单与明文 Key 单列，复制字段整行内部滚动 */
+@media (max-width: 640px) {
+  .token-create { grid-template-columns: minmax(0, 1fr); }
+  .avatar-upload { flex-direction: column; align-items: stretch; }
+  .token-list article { flex-direction: column; align-items: flex-start; }
+  .token-row-code { max-width: none; }
+}
 
 /* ── 文档页（§9.6，Step 11）：阅读版式 --w-reading 720；h2 与实体页分区同规格 ── */
 .guide-page { max-width: var(--w-reading); }

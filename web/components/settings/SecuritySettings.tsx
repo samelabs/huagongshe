@@ -6,7 +6,12 @@ import { LoginRequired } from "@/components/settings/SettingsAuth";
 import { apiPost } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
+import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Field";
+import { Notice } from "@/components/ui/Notice";
 
+/** 安全设置（Step 11 Part D）：同版式整理（Field/Input/Button loading），
+ *  不新增功能——改密成功仍跳登录页（密码轮换安全流程），失败 Notice err。 */
 export function SecuritySettings() {
   const t = useDictionary();
   const locale = useLocale();
@@ -17,7 +22,7 @@ export function SecuritySettings() {
   if (!user) return <LoginRequired text={t.settings.security.loginHint} />;
 
   return <section className="form-section">
-    <div className="form-section-head"><span>{t.settings.security.kicker}</span><div><h2>{t.settings.security.title}</h2><p>{t.settings.security.desc}</p></div></div>
+    <div className="form-section-head"><div><h2>{t.settings.security.title}</h2><p>{t.settings.security.desc}</p></div></div>
     <form className="form-fields" onSubmit={async (event) => {
       event.preventDefault();
       if (busy) return;
@@ -33,11 +38,17 @@ export function SecuritySettings() {
         setMessage(t.settings.security.failed);
       } finally { setBusy(false); }
     }}>
-      <label>{t.settings.security.current}<input name="current_password" type="password" autoComplete="current-password" required /></label>
-      <label>{t.settings.security.new}<input name="new_password" type="password" autoComplete="new-password" minLength={8} required /></label>
-      <label>{t.settings.security.confirm}<input name="confirm_password" type="password" autoComplete="new-password" minLength={8} required /></label>
-      <button type="submit" className="button primary small" disabled={busy}>{busy ? t.settings.security.submitting : t.settings.security.submitBtn}</button>
+      <Field label={t.settings.security.current} required>
+        <Input name="current_password" type="password" autoComplete="current-password" required />
+      </Field>
+      <Field label={t.settings.security.new} required help={t.settings.security.requirement}>
+        <Input name="new_password" type="password" autoComplete="new-password" minLength={8} required />
+      </Field>
+      <Field label={t.settings.security.confirm} required>
+        <Input name="confirm_password" type="password" autoComplete="new-password" minLength={8} required />
+      </Field>
+      <Button type="submit" variant="primary" loading={busy}>{busy ? t.settings.security.submitting : t.settings.security.submitBtn}</Button>
     </form>
-    {message && <p className="form-message bad">{message}</p>}
+    {message && <Notice tone="err">{message}</Notice>}
   </section>;
 }

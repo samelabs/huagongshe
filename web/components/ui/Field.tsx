@@ -13,7 +13,7 @@ function classesOf(base: string, extra: (string | false | undefined)[], classNam
   return [base, ...extra.filter(Boolean), className ?? ""].filter(Boolean).join(" ");
 }
 
-export function Input({ invalid, mono, className, ...rest }: React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; mono?: boolean }) {
+export function Input({ invalid, mono, className, ...rest }: React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; mono?: boolean; ref?: React.Ref<HTMLInputElement> }) {
   return <input className={classesOf("hg-input", [mono && "mono", invalid && "is-error"], className)} {...rest} />;
 }
 

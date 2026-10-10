@@ -6,6 +6,10 @@ import { LoginRequired } from "@/components/settings/SettingsAuth";
 import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
+import { Button } from "@/components/ui/Button";
+import { Field, Input, Textarea } from "@/components/ui/Field";
+import { Notice } from "@/components/ui/Notice";
+import { useToast } from "@/components/ui/Toast";
 
 type Profile = {
   display_name: string;
@@ -23,13 +27,15 @@ const EMPTY: Profile = {
   institution: "", title: "", website: "", orcid: "",
 };
 
+/** 资料设置（Step 11 Part D）：ui Field/Input/Textarea；保存结果 Toast（IX-2）；
+ *  提交 primary + loading 宽度锁定（IX-4）。字段错误显示在输入框下方。 */
 export function ProfileSettings() {
   const t = useDictionary();
   const locale = useLocale();
+  const toast = useToast();
   const { user, ready, refresh } = useAccount();
   const [profile, setProfile] = useState<Profile>(EMPTY);
-  const [message, setMessage] = useState("");
-  const [messageKind, setMessageKind] = useState<"ok" | "bad">("ok");
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof Profile, string>>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -56,48 +62,69 @@ export function ProfileSettings() {
 
   function update(field: keyof Profile, value: string) {
     setProfile((prev) => ({ ...prev, [field]: value }));
+    setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
   }
 
   return <section className="form-section">
-    <div className="form-section-head"><span>{t.settings.profile.kicker}</span><div><h2>{t.settings.profile.title}</h2><p>{t.settings.profile.desc}</p></div></div>
+    <div className="form-section-head"><div><h2>{t.settings.profile.title}</h2><p>{t.settings.profile.desc}</p></div></div>
 
     <form className="form-fields" onSubmit={async (event) => {
       event.preventDefault();
       if (busy) return;
-      setBusy(true); setMessage("");
+      const errors: Partial<Record<keyof Profile, string>> = {};
+      if (!profile.display_name.trim()) errors.display_name = t.settings.profile.requiredHint;
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(profile.email)) errors.email = t.settings.profile.emailHint;
+      if (profile.orcid && !/^\d{4}-\d{4}-\d{4}-[\dX]{4}$/.test(profile.orcid)) errors.orcid = t.settings.profile.orcidHint;
+      setFieldErrors(errors);
+      if (Object.keys(errors).length > 0) return;
+      setBusy(true);
       try {
         await apiPatch(`/users/me`, JSON.stringify(profile));
         await refresh();
-        setMessageKind("ok"); setMessage(t.settings.profile.saved);
+        toast.success(t.settings.profile.saved);
       } catch (err) {
-        setMessageKind("bad");
-        setMessage(err instanceof ApiError && err.status === 400 ? t.settings.profile.saveFailed : t.common.networkError);
+        toast.error(err instanceof ApiError && err.status === 400 ? t.settings.profile.saveFailed : t.common.networkError);
       } finally { setBusy(false); }
     }}>
-      <label>{t.settings.profile.username}<span className="field-hint">@{user.username}（{t.settings.profile.usernameHint}）</span></label>
+      <Field label={t.settings.profile.username} help={`@${user.username}（${t.settings.profile.usernameHint}）`} />
       <a className="settings-preview-link" href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)} target="_blank" rel="noopener noreferrer">{t.settings.profile.previewProfile}</a>
 
       <div className="form-fields two-columns">
-        <label>{t.settings.profile.displayName}<input value={profile.display_name} onChange={(e) => update("display_name", e.target.value)} maxLength={80} required /></label>
-        <label>{t.settings.profile.email}<input type="email" value={profile.email} onChange={(e) => update("email", e.target.value)} maxLength={200} required /></label>
+        <Field label={t.settings.profile.displayName} required error={fieldErrors.display_name}>
+          <Input value={profile.display_name} onChange={(e) => update("display_name", e.target.value)} maxLength={80} required invalid={Boolean(fieldErrors.display_name)} />
+        </Field>
+        <Field label={t.settings.profile.email} required error={fieldErrors.email}>
+          <Input type="email" value={profile.email} onChange={(e) => update("email", e.target.value)} maxLength={200} required invalid={Boolean(fieldErrors.email)} />
+        </Field>
       </div>
 
       <div className="form-fields two-columns">
-        <label>{t.settings.profile.institution}<input value={profile.institution} onChange={(e) => update("institution", e.target.value)} maxLength={200} placeholder={t.settings.profile.institutionPH} /></label>
-        <label>{t.settings.profile.fieldTitle}<input value={profile.title} onChange={(e) => update("title", e.target.value)} maxLength={200} placeholder={t.settings.profile.titlePH} /></label>
+        <Field label={t.settings.profile.institution}>
+          <Input value={profile.institution} onChange={(e) => update("institution", e.target.value)} maxLength={200} placeholder={t.settings.profile.institutionPH} />
+        </Field>
+        <Field label={t.settings.profile.fieldTitle}>
+          <Input value={profile.title} onChange={(e) => update("title", e.target.value)} maxLength={200} placeholder={t.settings.profile.titlePH} />
+        </Field>
       </div>
 
       <div className="form-fields two-columns">
-        <label>{t.settings.profile.location}<input value={profile.location} onChange={(e) => update("location", e.target.value)} maxLength={100} placeholder={t.settings.profile.locationPH} /></label>
-        <label>{t.settings.profile.website}<input value={profile.website} onChange={(e) => update("website", e.target.value)} maxLength={500} placeholder={t.settings.profile.websitePH} /></label>
+        <Field label={t.settings.profile.location}>
+          <Input value={profile.location} onChange={(e) => update("location", e.target.value)} maxLength={100} placeholder={t.settings.profile.locationPH} />
+        </Field>
+        <Field label={t.settings.profile.website}>
+          <Input value={profile.website} onChange={(e) => update("website", e.target.value)} maxLength={500} placeholder={t.settings.profile.websitePH} />
+        </Field>
       </div>
 
-      <label>{t.settings.profile.orcid}<span className="field-hint">{t.settings.profile.orcidHint}</span><input value={profile.orcid} onChange={(e) => update("orcid", e.target.value)} maxLength={19} placeholder={t.settings.profile.orcidPH} /></label>
+      <Field label={t.settings.profile.orcid} help={t.settings.profile.orcidHint} error={fieldErrors.orcid}>
+        <Input value={profile.orcid} onChange={(e) => update("orcid", e.target.value)} maxLength={19} placeholder={t.settings.profile.orcidPH} mono invalid={Boolean(fieldErrors.orcid)} />
+      </Field>
 
-      <label>{t.settings.profile.bio}<textarea value={profile.bio} onChange={(e) => update("bio", e.target.value)} maxLength={500} rows={4} placeholder={t.settings.profile.bioPH} /></label>
+      <Field label={t.settings.profile.bio}>
+        <Textarea value={profile.bio} onChange={(e) => update("bio", e.target.value)} maxLength={500} rows={4} placeholder={t.settings.profile.bioPH} />
+      </Field>
 
-      <button type="submit" className="button primary" disabled={busy}>{busy ? t.settings.profile.saving : t.settings.profile.saveBtn}</button>
+      <Button type="submit" variant="primary" loading={busy}>{busy ? t.settings.profile.saving : t.settings.profile.saveBtn}</Button>
     </form>
-    {message && <p className={`form-message ${messageKind}`}>{message}</p>}
   </section>;
 }
