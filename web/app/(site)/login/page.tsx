@@ -7,11 +7,19 @@ export async function generateMetadata(): Promise<Metadata> {
   // S4 (G1.5-A): 登录页不参与索引(鉴权入口无索引价值), 仍可跟随回跳链接
   return { title: t.auth.title, robots: { index: false, follow: true } };
 }
+/** Step 11 §9.6：居中单列 ≤400（intro + 表单卡），next 回跳逻辑不动。 */
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
   const t = await getRequestDictionary();
   const query = await searchParams;
   const nextPath = safeNextPath(typeof query.next === "string" ? query.next : null);
-  return <div className="auth-page"><section className="auth-intro"><p className="page-kicker">{t.auth.kicker}</p><h1>{t.auth.loginTitle}</h1><p>{t.auth.intro}</p><ul>{t.auth.features.map((feature) => <li key={feature}>{feature}</li>)}</ul></section><section className="auth-panel"><AccountForm nextPath={nextPath} /></section></div>;
+  return <div className="auth-page">
+    <section className="auth-intro">
+      <h1>{t.auth.loginTitle}</h1>
+      <p>{t.auth.intro}</p>
+      <ul>{t.auth.features.map((feature) => <li key={feature}>{feature}</li>)}</ul>
+    </section>
+    <section className="auth-panel"><AccountForm nextPath={nextPath} /></section>
+  </div>;
 }
 
 function safeNextPath(value: string | null) {

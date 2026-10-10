@@ -900,6 +900,16 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .guide-trust-list li { color: var(--text-muted); font-size: var(--fs-13); line-height: 1.7; padding-left: 16px; position: relative; }
 .guide-trust-list li::before { content: ""; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--brand); }
 
+/* ── 法务/支持页（Step 11）：更新日期 meta 行 + 条款编号 + 阅读版式正文 ── */
+.legal-meta { margin: 10px 0 0; color: var(--text-muted); font-size: var(--fs-13); font-variant-numeric: tabular-nums; }
+.legal-page { counter-reset: legalsec; }
+.legal-page .guide-section { counter-increment: legalsec; }
+.legal-page .guide-section > h2::before { content: counter(legalsec) ".\00a0"; color: var(--text-muted); font-weight: 600; }
+.legal-page .guide-section p,
+.legal-page .guide-section li { color: var(--text-2); font-size: var(--fs-14); line-height: 1.8; }
+.legal-page .guide-section ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.legal-page .footer-link { color: var(--action); }
+
 .admin-table { border-top: 1px solid var(--border); }
 .admin-table article { border-bottom: 1px solid var(--border); padding: 13px 0; display: grid; grid-template-columns: 1fr auto auto; gap: 15px; align-items: center; }
 .admin-table article > div { min-width: 0; display: grid; gap: 4px; }
@@ -942,12 +952,13 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .notice.success { color: var(--ok); background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--r-sm); padding: 10px 14px; }
 .button.primary.small { padding: 7px 16px; font-size: var(--fs-13); }
 
-.auth-page { width: min(900px, calc(100% - 40px)); margin: 0 auto; padding: 80px 0 100px; display: grid; grid-template-columns: 1fr 390px; gap: 80px; align-items: start; }
-.auth-intro { padding-top: 35px; }
-.auth-intro h1 { margin: 0; font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); letter-spacing: -.012em; }
-.auth-intro > p:last-of-type { margin: 16px 0 25px; color: var(--text-muted); line-height: 1.8; }
-.auth-intro ul { margin: 0; padding-left: 18px; color: var(--text-muted); font-size: var(--fs-13); line-height: 2; }
-.auth-panel { border: 1px solid var(--border); padding: 28px; }
+/* ── 登录/注册（Step 11 §9.6）：居中单列 ≤400，触控友好的 lg 控件 ── */
+.auth-page { width: min(400px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 100px; display: grid; gap: 22px; justify-items: stretch; }
+.auth-intro { text-align: center; }
+.auth-intro h1 { margin: 0; font-size: var(--fs-28); font-weight: var(--fw-medium); letter-spacing: -.012em; }
+.auth-intro > p { margin: 12px 0 0; color: var(--text-muted); font-size: var(--fs-14); line-height: 1.8; }
+.auth-intro ul { margin: 14px 0 0; padding-left: 18px; color: var(--text-muted); font-size: var(--fs-13); line-height: 2; text-align: left; }
+.auth-panel { border: 1px solid var(--border); border-radius: var(--r-md); padding: 24px; background: var(--bg-surface); display: grid; gap: 16px; }
 .tabs { margin-bottom: 25px; border-bottom: 1px solid var(--border); display: flex; gap: 25px; }
 .tabs button { border: 0; border-bottom: 2px solid transparent; padding: 0 2px 11px; color: var(--text-muted); background: none; cursor: pointer; }
 .tabs button.active { border-color: var(--brand); color: var(--action); }
@@ -963,7 +974,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .chemical-layout { grid-template-columns: 1fr; gap: 45px; }
   .chemical-aside { position: static; }
   .reaction-sides { grid-template-columns: 1fr; }
-  .auth-page { grid-template-columns: 1fr; gap: 30px; padding-top: 45px; }
+  .auth-page { width: min(400px, calc(100% - 28px)); padding-top: 40px; }
   .auth-intro { padding-top: 0; }
 
   .admin-shell { grid-template-columns: 1fr; gap: 18px; }
@@ -978,7 +989,8 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .reaction-result-head { padding: 12px 12px 8px; }
   .reaction-result-foot { padding: 10px 12px; flex-wrap: wrap; }
   .reaction-badges { display: none; }
-  .content-page, .home, .auth-page { width: min(100% - 28px, var(--w-wide)); }
+  .content-page, .home { width: min(100% - 28px, var(--w-wide)); }
+  .auth-page { width: min(400px, 100% - 28px); }
   footer { padding: 18px 14px; }
   .hero { padding: 44px 0 36px; }
   .hero h1 { font-size: clamp(var(--fs-22), 6vw, var(--fs-28)); }
@@ -1063,7 +1075,8 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 }
 @media (max-width: 420px) {
-  .content-page, .home, .auth-page { width: calc(100% - 24px); }
+  .content-page, .home { width: calc(100% - 24px); }
+  .auth-page { width: min(400px, 100% - 24px); }
   .hero h1 { font-size: var(--fs-22); }
   .search-submit-btn { padding: 0 16px; }
   .page-title h1, .search-head h1, .reaction-title h1 { font-size: clamp(var(--fs-22), 6vw, var(--fs-28)); overflow-wrap: anywhere; }

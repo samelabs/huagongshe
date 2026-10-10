@@ -29,9 +29,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function PrivacyPage() {
   return <article lang="en" className="content-page guide-page legal-page">
     <header className="page-head guide-hero">
-      <p className="page-kicker">Legal</p>
       <h1>Privacy Policy</h1>
-      <p>Effective October 6, 2026</p>
+      <p className="legal-meta">Effective October 6, 2026</p>
     </header>
 
     <section className="guide-section">

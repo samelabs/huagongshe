@@ -5,9 +5,16 @@ import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { applyLocale } from "@/lib/localePath";
+import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Field";
+import { Notice } from "@/components/ui/Notice";
+import { Segmented } from "@/components/ui/Segmented";
 import zhCN from "@/lib/i18n/locales/zh-CN";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
+/** 登录/注册表单（Step 11 §9.6）：ui 表单控件 + 错误 Notice err（写明原因，
+ *  不暴露错误码，IX-12）；提交 primary lg（触控 ≥44px）。请求路径与
+ *  字段 name 与旧版逐字一致（登录回跳/工具登录流依赖这些锚点）。 */
 export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
   const router = useRouter();
   const t = useDictionary();
@@ -55,14 +62,23 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
     return () => clearTimeout(timer);
   }, [username, kind, checkUsername]);
 
+  const usernameState = usernameCheck.status;
+  const usernameHelp = usernameState === "idle" ? t.auth.usernameRule : usernameCheck.msg;
+
   return (
     <>
-      <div className="tabs">
-        <button type="button" className={kind === "login" ? "active" : ""} disabled={busy} onClick={() => { setKind("login"); setMessage(""); }}>{t.auth.title}</button>
-        <button type="button" className={kind === "register" ? "active" : ""} disabled={busy} onClick={() => { setKind("register"); setMessage(""); }}>{t.auth.registerTitle}</button>
-      </div>
+      <Segmented
+        ariaLabel={t.auth.title}
+        value={kind}
+        onChange={(next) => { setKind(next); setMessage(""); }}
+        options={[
+          { value: "login", label: t.auth.title },
+          { value: "register", label: t.auth.registerTitle },
+        ]}
+      />
       <form className="form-stack" onSubmit={async (event) => {
         event.preventDefault();
+        if (busy) return;  // loading 不落 disabled：提交重入在 handler 拦截
         setBusy(true); setMessage("");
         const values = new FormData(event.currentTarget);
         if (kind === "register" && values.get("password") !== values.get("confirm_password")) {
@@ -98,8 +114,8 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
       }}>
         {kind === "register" ? (
           <>
-            <label>{t.auth.username}
-              <input
+            <Field label={t.auth.username} required help={usernameHelp} error={usernameState === "taken" || usernameState === "invalid" ? usernameCheck.msg : undefined}>
+              <Input
                 name="username"
                 required minLength={4} maxLength={30}
                 pattern="[a-z0-9_]{4,30}"
@@ -107,25 +123,29 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
                 autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className={usernameCheck.status === "taken" || usernameCheck.status === "invalid" ? "input-error" : usernameCheck.status === "ok" ? "input-ok" : ""}
+                invalid={usernameState === "taken" || usernameState === "invalid"}
               />
-            </label>
-            <p className={`field-hint ${usernameCheck.status === "ok" ? "good" : usernameCheck.status === "taken" || usernameCheck.status === "invalid" ? "bad" : ""}`}>
-              {usernameCheck.msg || t.auth.usernameRule}
-            </p>
-            <label>{t.auth.email}<input name="email" type="email" required autoComplete="email" /></label>
+            </Field>
+            <Field label={t.auth.email} required>
+              <Input name="email" type="email" required autoComplete="email" />
+            </Field>
           </>
-        ) : <label>{t.auth.usernameOrEmail}<input name="account" required autoComplete="username" /></label>}
-        <label>{t.auth.password}<input name="password" type="password" required minLength={kind === "register" ? 8 : 1} autoComplete={kind === "login" ? "current-password" : "new-password"} /></label>
-        {kind === "register" && (
-          <>
-            <p className="field-hint">{t.auth.passwordHint}</p>
-            <label>{t.auth.confirmPassword}<input name="confirm_password" type="password" required minLength={8} autoComplete="new-password" /></label>
-          </>
+        ) : (
+          <Field label={t.auth.usernameOrEmail} required>
+            <Input name="account" required autoComplete="username" />
+          </Field>
         )}
-        {message && <p className="form-message bad">{message}</p>}
-        <button type="submit" className="button primary" disabled={busy}>{busy ? t.auth.submitting : t.auth.submit(kind)}</button>
+        <Field label={t.auth.password} required help={kind === "register" ? t.auth.passwordHint : undefined}>
+          <Input name="password" type="password" required minLength={kind === "register" ? 8 : 1} autoComplete={kind === "login" ? "current-password" : "new-password"} />
+        </Field>
+        {kind === "register" && (
+          <Field label={t.auth.confirmPassword} required>
+            <Input name="confirm_password" type="password" required minLength={8} autoComplete="new-password" />
+          </Field>
+        )}
+        <Button type="submit" variant="primary" size="lg" loading={busy}>{busy ? t.auth.submitting : t.auth.submit(kind)}</Button>
       </form>
+      {message && <Notice tone="err">{message}</Notice>}
     </>
   );
 }
