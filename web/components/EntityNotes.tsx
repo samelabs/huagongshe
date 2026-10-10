@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { EntityId } from "@/components/shared/EntityId";
+import { Avatar } from "@/components/ui/Avatar";
+import { EntityBadge } from "@/components/ui/EntityBadge";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { apiGet, isApiNotFound, type NoteResponse } from "@/lib/api";
 import { withLocale } from "@/lib/localePath";
@@ -10,8 +11,8 @@ import { withLocale } from "@/lib/localePath";
 type PrivateContext = { chemical?: number; reaction?: number } | null;
 
 /** Read-time privacy: private notes are fetched with the viewer session and
- * rendered in a separate block above the public block; nothing private ever
- * enters the public block data (different request, different state). */
+ *  rendered in a separate block above the public block; nothing private ever
+ *  enters the public block data (different request, different state). */
 function MyPrivateNotes({ context }: { context: PrivateContext }) {
   const t = useDictionary();
   const locale = useLocale();
@@ -87,7 +88,7 @@ export function EntityNotes({ entity, entityId, canAdd, privateContext }: {
   return (
     <section className="chem-section entity-notes" id="linked-notes">
       <div className="section-heading entity-notes-heading">
-        <div><p>NOTES</p><h2>{t.notes.linkedTitle}</h2></div>
+        <h2>{t.notes.linkedTitle}</h2>
         {canAdd && <Link className="text-button" href={withLocale(createHref, locale)}>{t.notes.add}</Link>}
       </div>
       {privateContext && <MyPrivateNotes context={privateContext} />}
@@ -98,15 +99,16 @@ export function EntityNotes({ entity, entityId, canAdd, privateContext }: {
         <div className="entity-note-list">
           {data.items.map((note) => (
             <article className="entity-note-card" key={note.id}>
-              <header>
+              <header className="entity-note-meta">
+                <Avatar id={note.owner_user_id} name={note.display_name || note.username} size={24} />
                 <Link href={withLocale(`/user/${note.username}`, locale)}>{note.display_name || `@${note.username}`}</Link>
                 <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
               </header>
-              <p className="note-clamp">{note.content}</p>
+              <p className="note-clamp-2">{note.content}</p>
               {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
                 <div className="entity-note-links">
-                  {note.chemical_ids.map((id) => <Link key={`c-${id}`} href={withLocale(`/chemical/${id}`, locale)}><EntityId kind="chemical" id={id} compact /></Link>)}
-                  {note.reaction_ids.map((id) => <Link key={`r-${id}`} href={withLocale(`/reaction/${id}`, locale)}><EntityId kind="reaction" id={id} compact /></Link>)}
+                  {note.chemical_ids.map((id) => <Link key={`c-${id}`} href={withLocale(`/chemical/${id}`, locale)}><EntityBadge kind="chemical" id={id} size="xs" compact /></Link>)}
+                  {note.reaction_ids.map((id) => <Link key={`r-${id}`} href={withLocale(`/reaction/${id}`, locale)}><EntityBadge kind="reaction" id={id} size="xs" compact /></Link>)}
                 </div>
               )}
               <Link className="text-button note-view-full" href={withLocale(`/note/${note.id}`, locale)}>{t.notes.viewFull}</Link>

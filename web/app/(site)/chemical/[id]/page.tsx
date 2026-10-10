@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
+import { ChemicalActions } from "@/components/ChemicalActions";
+import { ChemPageNav } from "@/components/ChemPageNav";
 import { DetailRefresher } from "@/components/DetailRefresher";
-import { EntityId } from "@/components/shared/EntityId";
+import { EntityBadge } from "@/components/ui/EntityBadge";
 import { EntityNotes } from "@/components/EntityNotes";
-import { FollowButton } from "@/components/shared/FollowButton";
+import { CodeField } from "@/components/ui/CodeField";
+import { Tag } from "@/components/ui/Tag";
 import { Molecule } from "@/components/Molecule";
 import { ReactionList } from "@/components/ReactionList";
-import { ShareButton } from "@/components/ShareButton";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
 import { cbInFlight } from "@/components/chemicalStatus";
 import { isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
-import { apiGet, isApiNotFound, type Chemical, type ReactionSummary, type SemanticDetail } from "@/lib/api";
+import { apiGet, isApiNotFound, type Chemical, type ReactionSummary, type SemanticDetail, type ProseItem } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
@@ -20,18 +23,17 @@ import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alter
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /**
- * Chemical Detail — semantic-first (Design System v2, Issue #4; E9-B 后端合流)。
+ * Chemical Detail — semantic-first（DESIGN_SYSTEM §9.1 v1.7 Step 6 重排）。
  *
- * 一级 IA = 语义主题, 来源只是 evidence:
- *   Overview → Names & Identifiers → Properties → Safety & Regulatory
- *   → Chemistry & Industry → Reactions
- * 硬约束: 不为视觉整合发明数据合并; CB/PB 各自保留原值与来源。
- *
- * E9-B: semantic 组合已下沉后端(enrich=full), 页面只做 presentation;
- * 数据请求 = chemical full + reactions(不再请求 /externals)。
+ * 一级 IA = 语义主题；分区内按来源分组（每组以来源标签开头，v1.7 不做
+ * 跨来源同名属性合并）。头部 = 左内容 + 右 300 结构图；右侧栏 = 本页导航
+ * （IntersectionObserver 高亮）+ 记录信息；≤900 本页导航为顶部横向 Tabs。
+ * 硬约束: 只重组展示——数据请求 = chemical full + reactions，不新增不改删。
  */
 
-const SYN_PREVIEW = 10; // Names 默认展示条数(8–12 区间取 10)
+const SYN_PREVIEW = 12; // Names 默认展示条数（§9.1 前 12 个 Tag）
+const COLLAPSE_ITEMS = 2; // 长证据折叠阈值：超过 2 条
+const COLLAPSE_CHARS = 240; // 或单条超过 240 字
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -101,7 +103,9 @@ export default async function ChemicalPage({ params }: {
   // 数据事实: PubChem 摄入时 preferred_name = properties.Title or record_title,
   // 抽样 6/6 record_title 与 preferred_name 同值, 单独入链只会制造第二套 fallback。
   const { title, secondary } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
-  const identifiers = identifierGroups(chemical);
+  const iupacShow = chemical.iupac_name
+    && chemical.iupac_name.toLowerCase() !== title.toLowerCase()
+    && chemical.iupac_name.toLowerCase() !== (secondary || "").toLowerCase() ? chemical.iupac_name : null;
 
   // Names: synonyms(主源) + CB aliases 视觉去重(仅展示层, 不写回)
   const synonyms = chemical.synonyms || [];
@@ -120,6 +124,14 @@ export default async function ChemicalPage({ params }: {
   const synShownInPreview = previewAliases.filter((a) => a.source === "syn").length;
   const cbRest = aliasUnion.slice(SYN_PREVIEW).filter((a) => a.source === "cb");
   const hasAliasRest = aliasUnion.length > SYN_PREVIEW;
+  const identifiers = identifierGroups(chemical);
+  // Names 节只在有实际内容时渲染（种子/本地建行化合物可能全空）。
+  // 注意: 这里是"是否有值"的存在性判断, 不是显示名 fallback —— 显示仍走
+  // resolveChemicalName 单链（tests/test_chemical_name_resolver 不变量）。
+  const hasNames = aliasUnion.length > 0 || identifiers.length > 0 || [
+    chemical.preferred_name, chemical.iupac_name, secondary,
+    cbIdentity.cn, cbIdentity.en, cbIdentity.formula, cbIdentity.mw,
+  ].some((v) => v != null && v !== "");
 
   // semantic sections(presentation 分组, 数据已在后端定型)
   const props = detail?.properties;
@@ -128,18 +140,31 @@ export default async function ChemicalPage({ params }: {
   const pbComputed = props?.pb_computed;
   const hasComputed = Boolean(pbComputed && Object.keys(pbComputed).length > 0);
   const pbPhysical = evidenceEntries(props?.pb_physical_properties);
-  const hasProperties = hasComputed || (props?.cb_experimental?.length ?? 0) > 0
-    || (props?.cb_prose?.length ?? 0) > 0 || pbPhysical.length > 0;
+  const hasPbProps = hasComputed || pbPhysical.length > 0;
+  const hasCbProps = (props?.cb_experimental?.length ?? 0) > 0 || (props?.cb_prose?.length ?? 0) > 0;
+  const hasProperties = hasPbProps || hasCbProps;
   const pbSafetySections = safety?.pb_sections ?? {};
-  const hasSafetyReal = Object.keys(pbSafetySections).some((k) => evidenceEntries(pbSafetySections[k]).length > 0)
-    || Object.keys(safety?.cb_safety ?? {}).length > 0
+  const hasPbSafety = Object.keys(pbSafetySections).some((k) => evidenceEntries(pbSafetySections[k]).length > 0);
+  const hasCbSafety = Object.keys(safety?.cb_safety ?? {}).length > 0
     || (safety?.cb_toxicity?.length ?? 0) > 0 || (safety?.cb_packaging?.length ?? 0) > 0;
+  const hasSafetyReal = hasPbSafety || hasCbSafety;
   const pbIndustrySections = industry?.pb_sections ?? {};
-  const hasIndustry = (industry?.cb_uses?.length ?? 0) > 0 || (industry?.cb_preparation?.length ?? 0) > 0
+  const hasPbIndustry = Object.keys(pbIndustrySections).some((k) => evidenceEntries(pbIndustrySections[k]).length > 0);
+  const hasCbIndustry = (industry?.cb_uses?.length ?? 0) > 0 || (industry?.cb_preparation?.length ?? 0) > 0
     || (industry?.cb_updown?.up?.length ?? 0) > 0 || (industry?.cb_updown?.down?.length ?? 0) > 0
     || (industry?.cb_price?.length ?? 0) > 0 || (detail?.suppliers.items.length ?? 0) > 0
-    || (industry?.cb_notes?.length ?? 0) > 0
-    || Object.keys(pbIndustrySections).some((k) => evidenceEntries(pbIndustrySections[k]).length > 0);
+    || (industry?.cb_notes?.length ?? 0) > 0;
+  const hasIndustry = hasPbIndustry || hasCbIndustry;
+
+  // 记录面板：来源 = 有数据/在途的源；更新 = PubChem 拉取时间；状态 = enrichment
+  const recordSources: ("pubchem" | "cb" | "dsstox")[] = ([
+    ["pubchem", sourceAlive(detail?.provenance.pubchem.state) || chemical.pubchem_cid != null],
+    ["cb", sourceAlive(detail?.provenance.cb.state)],
+    ["dsstox", chemical.dtxsid != null],
+  ] as ["pubchem" | "cb" | "dsstox", boolean][])
+    .filter(([, has]) => has)
+    .map(([key]) => key);
+  const recordUpdated = detail?.provenance.pubchem.fetched_at ?? null;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -158,7 +183,7 @@ export default async function ChemicalPage({ params }: {
   // TOC 只列实际渲染的 section(rail TOC 与 tablet/mobile local nav 共用此唯一列表)
   const tocSections: [string, string][] = [
     ["overview", t.chemical.page.overview],
-    ["names", t.chemical.page.names],
+    ...(hasNames ? [["names", t.chemical.page.names] as [string, string]] : []),
     ...(hasProperties ? [["properties", t.chemical.page.properties] as [string, string]] : []),
     ...(hasSafetyReal ? [["safety", t.chemical.page.safety] as [string, string]] : []),
     ...(hasIndustry ? [["industry", t.chemical.page.industry] as [string, string]] : []),
@@ -171,75 +196,76 @@ export default async function ChemicalPage({ params }: {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href={withLocale("/", locale)}>{t.chemical.home}</Link><span>/</span><span>{t.chemical.detail}</span></nav>
 
-      {/* ── Chemical Entity Header ── */}
-      <header className="chemical-identity">
-        <div className="chemical-structure"><Molecule chemicalId={chemical.id} label={title} width={360} height={280} alt={t.chemical.structureAlt(title)} /></div>
-        <div className="chemical-title-block">
-          <EntityId kind="chemical" id={chemical.id} ariaLabel={t.common.hcidLabel(chemical.id)} />
-          <h1>{title}</h1>
-          {secondary && <p className="iupac-name">{secondary}</p>}
-          {chemical.iupac_name && chemical.iupac_name.toLowerCase() !== title.toLowerCase()
-            && chemical.iupac_name.toLowerCase() !== (secondary || "").toLowerCase()
-            && <p className="iupac-name">{chemical.iupac_name}</p>}
-          <div className="identity-primary">
-            {chemical.molecular_formula && <span>{chemical.molecular_formula}</span>}
-            {chemical.average_mass != null && <span>{formatNumber(chemical.average_mass, locale)} g/mol</span>}
-            {chemical.cas_numbers[0] && <span>CAS {chemical.cas_numbers[0]}</span>}
-          </div>
-          <div className="context-actions">
-            <FollowButton endpoint={`/chemicals/${chemical.id}/follow`} initial={Boolean(chemical.is_following)} count={chemical.follower_count || 0} label="favor" />
-            <ShareButton title={title} />
-          </div>
-          <div className="context-secondary-actions">
-            {hasSession ? (chemical.smiles ? (<>
-              <Link className="text-button" href={withLocale(`/search?q=${encodeURIComponent(chemical.smiles)}&mode=substructure`, locale)}>{t.chemical.substructure}</Link>
-              <Link className="text-button" href={withLocale(`/search?q=${encodeURIComponent(chemical.smiles)}&mode=similarity`, locale)}>{t.chemical.similarity}</Link>
-            </>) : null) : (
-              <Link className="text-button" href={withLocale(`/login?next=${encodeURIComponent(`/chemical/${chemical.id}`)}`, locale)}>{t.chemical.structureLogin}</Link>
-            )}
-          </div>
+      {/* ── Entity Header（§9.1：左内容 + 右 300 结构图卡片） ── */}
+      <header className="chem-head">
+        <EntityBadge kind="chemical" id={chemical.id} size="lg" copyable ariaLabel={t.common.hcidLabel(chemical.id)} />
+        <h1 className="chem-head-name">{title}</h1>
+        {secondary && <p className="chem-head-alt">{secondary}</p>}
+        {iupacShow && <p className="chem-head-iupac">{iupacShow}</p>}
+        <div className="chem-head-chips">
+          {chemical.molecular_formula && <Tag>{chemical.molecular_formula}</Tag>}
+          {chemical.average_mass != null && <Tag>{formatNumber(chemical.average_mass, locale)} g/mol</Tag>}
+          {chemical.cas_numbers[0] && <Tag>CAS {chemical.cas_numbers[0]}</Tag>}
+          {chemical.pubchem_cid != null && <Tag>PubChem CID {chemical.pubchem_cid}</Tag>}
         </div>
+        <ChemicalActions
+          chemicalId={chemical.id}
+          smiles={chemical.smiles}
+          initialFollowing={Boolean(chemical.is_following)}
+          initialCount={chemical.follower_count || 0}
+          authed={hasSession}
+          title={title}
+        />
+        <figure className="chem-head-struct">
+          <Molecule chemicalId={chemical.id} label={title} width={276} height={206} alt={t.chemical.structureAlt(title)} />
+          <figcaption>RDKit 2D</figcaption>
+        </figure>
       </header>
 
-      {/* ── Tablet/Mobile local nav(rail 桌面专属) ── */}
-      <nav className="chem-local-nav" aria-label={t.chemical.page.onThisPage}>
-        {tocSections.map(([anchor, label]) => <a key={anchor} href={`#${anchor}`}>{label}</a>)}
-      </nav>
+      {/* 补全中（enrichment queued / CB 在途）：头部下方 Notice + 原轮询逻辑 */}
+      <DetailRefresher active={refreshActive} />
+
+      {/* ── ≤900 顶部横向 Tabs（桌面由右侧栏承担导航） ── */}
+      <ChemPageNav sections={tocSections} variant="tabs" />
 
       <div className="chemical-layout">
         <main className="chemical-main">
 
           {/* ── 1. Overview ── */}
           <section className="chem-section" id="overview">
-            <SectionHead anchor="overview" eyebrow="OVERVIEW" title={t.chemical.page.overview} />
+            <SectionHead title={t.chemical.page.overview} />
             {detail?.description.record_description && <div className="description-panel"><p>{detail.description.record_description}</p></div>}
-            <DetailRefresher active={refreshActive} />
-            <dl className="identity-table">
-              <Identity label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono />
-              <Identity label="InChIKey" value={chemical.inchikey} mono />
-              <Identity label={t.chemical.identity.formula} value={chemical.molecular_formula} />
-              <Identity label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass, locale)} g/mol` : null} />
-              <Identity label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, locale, 8) : null} />
+            <dl className="chem-dl">
+              <DataRow label={t.chemical.identity.standardSmiles}>
+                {chemical.smiles && <CodeField value={chemical.smiles} copyLabel={`${t.common.copy} SMILES`} />}
+              </DataRow>
+              <DataRow label="InChIKey">
+                {chemical.inchikey && <CodeField value={chemical.inchikey} copyLabel={`${t.common.copy} InChIKey`} />}
+              </DataRow>
+              <DataRow label={t.chemical.identity.formula} value={chemical.molecular_formula} />
+              <DataRow label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass, locale)} g/mol` : null} />
+              <DataRow label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, locale, 8) : null} />
             </dl>
           </section>
 
           {/* ── 2. Names & Identifiers ── */}
+          {hasNames && (
           <section className="chem-section" id="names">
-            <SectionHead anchor="names" eyebrow="NAMES" title={t.chemical.page.names} />
-            <dl className="identity-table">
-              <Identity label={t.chemical.names.preferred} value={chemical.preferred_name} />
-              <Identity label="IUPAC" value={chemical.iupac_name} />
-              {cbIdentity.cn ? <Identity label={locale === "zh-CN" ? t.chemical.identity.nameCn : t.chemical.identity.localName} value={String(cbIdentity.cn)} /> : null}
-              {cbIdentity.en ? <Identity label={t.chemical.identity.nameEn} value={String(cbIdentity.en)} /> : null}
-              {cbIdentity.formula ? <Identity label={t.chemical.identity.formula} value={String(cbIdentity.formula)} /> : null}
-              {cbIdentity.mw != null ? <Identity label={t.chemical.identity.molecularWeight} value={String(cbIdentity.mw)} /> : null}
+            <SectionHead title={t.chemical.page.names} />
+            <dl className="chem-dl">
+              <DataRow label={t.chemical.names.preferred} value={chemical.preferred_name} />
+              <DataRow label="IUPAC" value={chemical.iupac_name} />
+              {cbIdentity.cn ? <DataRow label={locale === "zh-CN" ? t.chemical.identity.nameCn : t.chemical.identity.localName} value={String(cbIdentity.cn)} /> : null}
+              {cbIdentity.en ? <DataRow label={t.chemical.identity.nameEn} value={String(cbIdentity.en)} /> : null}
+              {cbIdentity.formula ? <DataRow label={t.chemical.identity.formula} value={String(cbIdentity.formula)} /> : null}
+              {cbIdentity.mw != null ? <DataRow label={t.chemical.identity.molecularWeight} value={String(cbIdentity.mw)} /> : null}
             </dl>
             {(synTotal > 0 || cbAliasOnly.length > 0) && (
               <div className="chem-names-block">
                 {/* 不显示 aggregate 总数: 视觉列表是 synonyms + CB aliases 去重 union, 无可靠 union total */}
                 <h3 className="chem-subhead">{t.chemical.synonyms.title}</h3>
                 <div className="alias-list">
-                  {previewAliases.map((a) => <span key={`${a.source}-${a.value}`} className={a.source === "cb" ? "casext-tag" : undefined}>{a.value}</span>)}
+                  {previewAliases.map((a) => <Tag key={`${a.source}-${a.value}`}>{a.value}</Tag>)}
                 </div>
                 {hasAliasRest && (
                   <details className="synonym-disclosure">
@@ -255,51 +281,59 @@ export default async function ChemicalPage({ params }: {
             {identifiers.length > 0 && (
               <div className="chem-names-block">
                 <h3 className="chem-subhead">{t.chemical.page.dbIdentifiers}</h3>
-                <dl className="identity-table">
-                  {identifiers.map(([label, values]) => <div key={label}><dt>{label}</dt><dd>{values.join("、")}</dd></div>)}
+                <dl className="chem-dl">
+                  {identifiers.map(([label, values]) => <DataRow key={label} label={label} value={values.join("、")} />)}
                 </dl>
               </div>
             )}
           </section>
+          )}
 
-          {/* ── 3. Properties ── */}
+          {/* ── 3. Properties（分区内按来源分组） ── */}
           {hasProperties && (
             <section className="chem-section" id="properties">
-              <SectionHead anchor="properties" eyebrow="PROPERTIES" title={t.chemical.page.properties} />
-              {hasComputed && pbComputed && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.knowledge.descriptors}{enrichment.status !== "current" && enrichment.status !== "degraded" && <span className="chem-subhead-note">{enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued}</span>}</h3>
-                  <dl className="metric-grid">
-                    <Metric label="XLogP" value={pbComputed.xlogp} locale={locale} />
-                    <Metric label={t.chemical.knowledge.tpsa} value={pbComputed.topological_polar_surface_area} suffix=" Å²" locale={locale} />
-                    <Metric label={t.chemical.knowledge.hbd} value={pbComputed.hbond_donor_count} locale={locale} />
-                    <Metric label={t.chemical.knowledge.hba} value={pbComputed.hbond_acceptor_count} locale={locale} />
-                    <Metric label={t.chemical.knowledge.rotatable} value={pbComputed.rotatable_bond_count} locale={locale} />
-                    <Metric label={t.chemical.knowledge.heavyAtoms} value={pbComputed.heavy_atom_count} locale={locale} />
-                    <Metric label={t.chemical.knowledge.charge} value={pbComputed.formal_charge} locale={locale} />
-                    <Metric label={t.chemical.knowledge.complexity} value={pbComputed.complexity} locale={locale} />
-                  </dl>
-                </div>
+              <SectionHead title={t.chemical.page.properties} />
+              {hasPbProps && (
+                <SourceGroup name="PubChem">
+                  {hasComputed && pbComputed && (
+                    <div className="chem-sub-block">
+                      <h3 className="chem-subhead">{t.chemical.knowledge.descriptors}{enrichment.status !== "current" && enrichment.status !== "degraded" && <span className="chem-subhead-note">{enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued}</span>}</h3>
+                      <dl className="chem-dl">
+                        <DataRow label="XLogP" value={fmt(pbComputed.xlogp, locale)} />
+                        <DataRow label={t.chemical.knowledge.tpsa} value={pbComputed.topological_polar_surface_area != null ? `${fmt(pbComputed.topological_polar_surface_area, locale)} Å²` : null} />
+                        <DataRow label={t.chemical.knowledge.hbd} value={fmt(pbComputed.hbond_donor_count, locale)} />
+                        <DataRow label={t.chemical.knowledge.hba} value={fmt(pbComputed.hbond_acceptor_count, locale)} />
+                        <DataRow label={t.chemical.knowledge.rotatable} value={fmt(pbComputed.rotatable_bond_count, locale)} />
+                        <DataRow label={t.chemical.knowledge.heavyAtoms} value={fmt(pbComputed.heavy_atom_count, locale)} />
+                        <DataRow label={t.chemical.knowledge.charge} value={fmt(pbComputed.formal_charge, locale)} />
+                        <DataRow label={t.chemical.knowledge.complexity} value={fmt(pbComputed.complexity, locale)} />
+                      </dl>
+                    </div>
+                  )}
+                  {pbPhysical.length > 0 && (
+                    <div className="chem-sub-block">
+                      <h3 className="chem-subhead">{t.chemical.knowledge.experimental}</h3>
+                      <EvidenceList entries={pbPhysical} source="PubChem" dict={t} />
+                    </div>
+                  )}
+                </SourceGroup>
               )}
-              {pbPhysical.length > 0 && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.knowledge.experimental}</h3>
-                  <EvidenceList entries={pbPhysical} />
-                </div>
-              )}
-              {(props?.cb_experimental?.length ?? 0) > 0 && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.props}</h3>
-                  <dl className="identity-table">
-                    {(props?.cb_experimental ?? []).map((p) => <div key={`${p.label}-${p.text?.slice(0, 12)}`}><dt>{p.label}</dt><dd>{p.v != null ? `${p.v}${p.unit ? ` ${p.unit}` : ""} · ${p.text}` : p.text}</dd></div>)}
-                  </dl>
-                </div>
-              )}
-              {(props?.cb_prose?.length ?? 0) > 0 && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.chemicalProps}</h3>
-                  <ProseList prose={props?.cb_prose ?? []} />
-                </div>
+              {hasCbProps && (
+                <SourceGroup name="ChemicalBook">
+                  {(props?.cb_experimental?.length ?? 0) > 0 && (
+                    <div className="chem-sub-block">
+                      <h3 className="chem-subhead">{t.chemical.casext.props}</h3>
+                      <dl className="chem-dl">
+                        {(props?.cb_experimental ?? []).map((p) => (
+                          <DataRow key={`${p.label}-${p.text?.slice(0, 12)}`} label={p.label ?? ""} value={p.v != null ? `${p.v}${p.unit ? ` ${p.unit}` : ""} · ${p.text}` : p.text} />
+                        ))}
+                      </dl>
+                    </div>
+                  )}
+                  {(props?.cb_prose?.length ?? 0) > 0 && (
+                    <ProseBlock title={t.chemical.casext.chemicalProps} prose={props?.cb_prose ?? []} source="ChemicalBook" dict={t} />
+                  )}
+                </SourceGroup>
               )}
             </section>
           )}
@@ -307,32 +341,34 @@ export default async function ChemicalPage({ params }: {
           {/* ── 4. Safety & Regulatory ── */}
           {hasSafetyReal && (
             <section className="chem-section" id="safety">
-              <SectionHead anchor="safety" eyebrow="SAFETY" title={t.chemical.page.safety} />
-              {Object.entries(pbSafetySections).map(([key, block]) => evidenceEntries(block).length > 0 ? (
-                <div className="chem-sub-block" key={key}>
-                  <h3 className="chem-subhead">{pbSectionTitle(key, t)}</h3>
-                  <EvidenceList entries={evidenceEntries(block)} />
-                </div>
-              ) : null)}
-              {safety?.cb_safety && Object.keys(safety.cb_safety).length > 0 && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.safety}</h3>
-                  <dl className="identity-table">
-                    {Object.entries(safety.cb_safety).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
-                  </dl>
-                </div>
+              <SectionHead title={t.chemical.page.safety} />
+              {hasPbSafety && (
+                <SourceGroup name="PubChem">
+                  {Object.entries(pbSafetySections).map(([key, block]) => evidenceEntries(block).length > 0 ? (
+                    <div className="chem-sub-block" key={key}>
+                      <h3 className="chem-subhead">{pbSectionTitle(key, t)}</h3>
+                      <EvidenceList entries={evidenceEntries(block)} source="PubChem" dict={t} />
+                    </div>
+                  ) : null)}
+                </SourceGroup>
               )}
-              {(safety?.cb_toxicity?.length ?? 0) > 0 && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.toxicity}</h3>
-                  <ProseList prose={safety?.cb_toxicity ?? []} />
-                </div>
-              )}
-              {(safety?.cb_packaging?.length ?? 0) > 0 && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.packaging}</h3>
-                  <ProseList prose={safety?.cb_packaging ?? []} />
-                </div>
+              {hasCbSafety && (
+                <SourceGroup name="ChemicalBook">
+                  {safety?.cb_safety && Object.keys(safety.cb_safety).length > 0 && (
+                    <div className="chem-sub-block">
+                      <h3 className="chem-subhead">{t.chemical.casext.safety}</h3>
+                      <dl className="chem-dl">
+                        {Object.entries(safety.cb_safety).map(([k, v]) => <DataRow key={k} label={k} value={String(v)} />)}
+                      </dl>
+                    </div>
+                  )}
+                  {(safety?.cb_toxicity?.length ?? 0) > 0 && (
+                    <ProseBlock title={t.chemical.casext.toxicity} prose={safety?.cb_toxicity ?? []} source="ChemicalBook" dict={t} />
+                  )}
+                  {(safety?.cb_packaging?.length ?? 0) > 0 && (
+                    <ProseBlock title={t.chemical.casext.packaging} prose={safety?.cb_packaging ?? []} source="ChemicalBook" dict={t} />
+                  )}
+                </SourceGroup>
               )}
             </section>
           )}
@@ -340,65 +376,64 @@ export default async function ChemicalPage({ params }: {
           {/* ── 5. Chemistry & Industry ── */}
           {hasIndustry && (
             <section className="chem-section" id="industry">
-              <SectionHead anchor="industry" eyebrow="INDUSTRY" title={t.chemical.page.industry} />
-              {Object.entries(pbIndustrySections).map(([key, block]) => evidenceEntries(block).length > 0 ? (
-                <div className="chem-sub-block" key={key}>
-                  <h3 className="chem-subhead">{pbSectionTitle(key, t)}</h3>
-                  <EvidenceList entries={evidenceEntries(block)} />
-                </div>
-              ) : null)}
-              {(industry?.cb_uses?.length ?? 0) > 0 && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.uses}</h3>
-                  <ProseList prose={industry?.cb_uses ?? []} />
-                </div>
+              <SectionHead title={t.chemical.page.industry} />
+              {hasPbIndustry && (
+                <SourceGroup name="PubChem">
+                  {Object.entries(pbIndustrySections).map(([key, block]) => evidenceEntries(block).length > 0 ? (
+                    <div className="chem-sub-block" key={key}>
+                      <h3 className="chem-subhead">{pbSectionTitle(key, t)}</h3>
+                      <EvidenceList entries={evidenceEntries(block)} source="PubChem" dict={t} />
+                    </div>
+                  ) : null)}
+                </SourceGroup>
               )}
-              {(industry?.cb_preparation?.length ?? 0) > 0 && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.preparation}</h3>
-                  <ProseList prose={industry?.cb_preparation ?? []} />
-                </div>
-              )}
-              {(industry?.cb_updown?.up?.length ?? 0) > 0 || (industry?.cb_updown?.down?.length ?? 0) > 0 ? (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.updown}</h3>
-                  <div className="casext-updown">
-                    {(["up", "down"] as const).map((dir) => {
-                      const items = dir === "up" ? industry?.cb_updown?.up : industry?.cb_updown?.down;
-                      if (!items?.length) return null;
-                      return <div key={dir}><h4>{dir === "up" ? t.chemical.casext.upstream : t.chemical.casext.downstream}</h4><div className="casext-tags">{items.map((n) => <span key={`${dir}-${n.name}`} className="casext-tag">{n.name}</span>)}</div></div>;
-                    })}
-                  </div>
-                </div>
-              ) : null}
-              {(industry?.cb_price?.length ?? 0) > 0 && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.price}</h3>
-                  <dl className="identity-table">
-                    {(industry?.cb_price ?? []).map((r) => <div key={`${r.code}-${r.package}`}><dt>{`${r.code} · ${r.package}`}</dt><dd>{`${r.name} — ${r.price}`}</dd></div>)}
-                  </dl>
-                </div>
-              )}
-              {(detail?.suppliers.items.length ?? 0) > 0 && (
-                <div className="chem-sub-block" id="suppliers">
-                  <h3 className="chem-subhead">{t.chemical.casext.suppliers} <span className="chem-subhead-note">{new Intl.NumberFormat(locale).format(detail?.suppliers.items.length ?? 0)} {t.chemical.casext.supplierUnit}</span></h3>
-                  <div className="casext-suppliers">
-                    {(detail?.suppliers.items ?? []).map((s) => <SupplierCard key={s.ref} supplier={s} labels={t} />)}
-                  </div>
-                </div>
-              )}
-              {(industry?.cb_notes?.length ?? 0) > 0 && (
-                <div className="chem-sub-block">
-                  <h3 className="chem-subhead">{t.chemical.casext.safetyNotes}</h3>
-                  <ProseList prose={industry?.cb_notes ?? []} />
-                </div>
+              {hasCbIndustry && (
+                <SourceGroup name="ChemicalBook">
+                  {(industry?.cb_uses?.length ?? 0) > 0 && (
+                    <ProseBlock title={t.chemical.casext.uses} prose={industry?.cb_uses ?? []} source="ChemicalBook" dict={t} />
+                  )}
+                  {(industry?.cb_preparation?.length ?? 0) > 0 && (
+                    <ProseBlock title={t.chemical.casext.preparation} prose={industry?.cb_preparation ?? []} source="ChemicalBook" dict={t} />
+                  )}
+                  {(industry?.cb_updown?.up?.length ?? 0) > 0 || (industry?.cb_updown?.down?.length ?? 0) > 0 ? (
+                    <div className="chem-sub-block">
+                      <h3 className="chem-subhead">{t.chemical.casext.updown}</h3>
+                      <div className="casext-updown">
+                        {(["up", "down"] as const).map((dir) => {
+                          const items = dir === "up" ? industry?.cb_updown?.up : industry?.cb_updown?.down;
+                          if (!items?.length) return null;
+                          return <div key={dir}><h4>{dir === "up" ? t.chemical.casext.upstream : t.chemical.casext.downstream}</h4><div className="casext-tags">{items.map((n) => <span key={`${dir}-${n.name}`} className="casext-tag">{n.name}</span>)}</div></div>;
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                  {(industry?.cb_price?.length ?? 0) > 0 && (
+                    <div className="chem-sub-block">
+                      <h3 className="chem-subhead">{t.chemical.casext.price}</h3>
+                      <dl className="chem-dl">
+                        {(industry?.cb_price ?? []).map((r) => <DataRow key={`${r.code}-${r.package}`} label={`${r.code} · ${r.package}`} value={`${r.name} — ${r.price}`} />)}
+                      </dl>
+                    </div>
+                  )}
+                  {(detail?.suppliers.items.length ?? 0) > 0 && (
+                    <div className="chem-sub-block" id="suppliers">
+                      <h3 className="chem-subhead">{t.chemical.casext.suppliers} <span className="chem-subhead-note">{new Intl.NumberFormat(locale).format(detail?.suppliers.items.length ?? 0)} {t.chemical.casext.supplierUnit}</span></h3>
+                      <div className="casext-suppliers">
+                        {(detail?.suppliers.items ?? []).map((s) => <SupplierCard key={s.ref} supplier={s} labels={t} />)}
+                      </div>
+                    </div>
+                  )}
+                  {(industry?.cb_notes?.length ?? 0) > 0 && (
+                    <ProseBlock title={t.chemical.casext.safetyNotes} prose={industry?.cb_notes ?? []} source="ChemicalBook" dict={t} />
+                  )}
+                </SourceGroup>
               )}
             </section>
           )}
 
           {/* ── 6. Reactions ── */}
           <section className="chem-section" id="reactions">
-            <SectionHead anchor="reactions" eyebrow="REACTIONS" title={t.chemical.relatedReactions}
+            <SectionHead title={t.chemical.relatedReactions}
               note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined} />
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
           </section>
@@ -407,20 +442,23 @@ export default async function ChemicalPage({ params }: {
 
         </main>
 
-        {/* ── Secondary rail (desktop) ── */}
+        {/* ── Secondary rail (desktop；≤900 移到正文末尾) ── */}
         <aside className="chemical-aside">
-          <section>
-            <h2>{t.chemical.page.onThisPage}</h2>
-            <nav className="chem-toc">
-              {tocSections.map(([anchor, label]) => <a key={anchor} href={`#${anchor}`}>{label}</a>)}
-            </nav>
-          </section>
-          <section>
-            <h2>{t.chemical.page.keyIdentifiers}</h2>
+          <ChemPageNav sections={tocSections} variant="rail" />
+          <section className="chem-record">
+            <h2>{t.chemical.page.record}</h2>
             <dl>
-              {chemical.cas_numbers[0] && <div><dt>CAS</dt><dd>{chemical.cas_numbers.join("、")}</dd></div>}
-              {chemical.pubchem_cid != null && <div><dt>PubChem CID</dt><dd>{chemical.pubchem_cid}</dd></div>}
-              {chemical.inchikey && <div><dt>InChIKey</dt><dd className="mono chem-rail-id">{chemical.inchikey}</dd></div>}
+              {recordSources.length > 0 && (
+                <div><dt>{t.chemical.page.recordSources}</dt><dd>{recordSources.map((key) => recordSourceName(key)).join(" · ")}</dd></div>
+              )}
+              {recordUpdated && (
+                <div><dt>{t.chemical.page.recordUpdated}</dt><dd>{new Date(recordUpdated).toLocaleDateString(locale)}</dd></div>
+              )}
+              <div><dt>{t.chemical.page.recordStatus}</dt><dd>
+                {enrichment.status === "queued" ? <Tag tone="blue" dot>{t.chemical.page.statusQueued}</Tag>
+                  : enrichment.status === "current" ? <Tag tone="ok" dot>{t.chemical.page.statusOk}</Tag>
+                  : <Tag tone="warn" dot>{t.chemical.page.statusStale}</Tag>}
+              </dd></div>
             </dl>
           </section>
           <section className="contribute-panel">
@@ -436,38 +474,45 @@ export default async function ChemicalPage({ params }: {
 
 /* ── 小组件 ── */
 
-function SectionHead({ anchor, eyebrow, title, note }: { anchor: string; eyebrow: string; title: string; note?: string }) {
+/** 一级 section 标题：h2 22/600/--ls-heading，右侧可选计数注记（§9.1 v1.7 去 eyebrow） */
+function SectionHead({ title, note }: { title: string; note?: string }) {
   return (
-    <div className="section-heading" id={`${anchor}-head`}>
-      <div><p>{eyebrow}</p><h2>{title}</h2></div>
+    <div className="section-heading chem-section-head">
+      <h2>{title}</h2>
       {note && <span>{note}</span>}
     </div>
   );
 }
 
-function Identity({ label, value, mono = false }: { label: string; value: string | null | undefined; mono?: boolean }) {
-  if (!value) return null;
-  return <div><dt>{label}</dt><dd className={mono ? "mono" : ""}>{value}</dd></div>;
+/** DataRow：dl 两列，标签列 140（手机 96），13px muted 标签 / fs-14 值 / 1px 分割线 */
+function DataRow({ label, value, children }: { label: string; value?: string | null; children?: ReactNode }) {
+  if (value == null && children == null) return null;
+  return <div><dt>{label}</dt><dd>{children ?? value}</dd></div>;
 }
 
-function Metric({ label, value, suffix = "", locale }: { label: string; value: number | null | undefined; suffix?: string; locale: string }) {
-  if (value == null) return null;
-  return <div><dt>{label}</dt><dd>{new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(value)}{suffix}</dd></div>;
+/** 来源分组：每组以来源标签开头（§9.1 修订；v1.7 不做跨来源合并） */
+function SourceGroup({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <div className="chem-src-group">
+      <h3 className="chem-src-head"><Tag tone="src">{name}</Tag></h3>
+      {children}
+    </div>
+  );
 }
 
-/** disclosure 新规: 摘要(短)直接可见, 长列表默认折叠 — 不删数据。 */
-function EvidenceList({ entries }: { entries: EvidenceEntry[] }) {
+/** PB evidence 列表：短数值行直接可见；超过 2 条或单条 >240 字折叠为「条目名 · N 条 · 来源」 */
+function EvidenceList({ entries, source, dict }: { entries: EvidenceEntry[]; source: string; dict: Dictionary }) {
   return (
     <div className="evidence-list">
       {entries.map((entry, index) => (
         entry.values.length === 1 && isSummary(entry) ? (
           <div key={`${entry.label}-${index}`} className="evidence-flat">
-            <dt>{entry.label}</dt>
-            <dd>{entry.values[0]}</dd>
+            <span className="k">{entry.label}</span>
+            <span className="v">{entry.values[0]}</span>
           </div>
         ) : (
           <details key={`${entry.label}-${index}`}>
-            <summary>{entry.label}<span className="evidence-count">{entry.values.length}</span></summary>
+            <summary>{entry.label}<span className="evidence-meta"> · {dict.chemical.page.itemsCount(entry.values.length)} · {source}</span></summary>
             <div>{entry.values.map((value, vi) => <p key={vi}>{value}</p>)}</div>
           </details>
         )
@@ -476,11 +521,18 @@ function EvidenceList({ entries }: { entries: EvidenceEntry[] }) {
   );
 }
 
-function ProseList({ prose }: { prose: { title: string; text: string }[] }) {
+/** CB 长文列表：超过 2 条或单条 >240 字时整块折叠，summary =「条目名 · N 条 · 来源」 */
+function ProseBlock({ title, prose, source, dict }: { title: string; prose: ProseItem[]; source: string; dict: Dictionary }) {
+  const collapsible = prose.length > COLLAPSE_ITEMS || prose.some((item) => item.text.length > COLLAPSE_CHARS);
+  const list = <div className="casext-prose-list">{prose.map((item) => <p key={item.title + item.text.slice(0, 24)}><strong>{item.title}</strong>{item.text}</p>)}</div>;
+  if (!collapsible) {
+    return <div className="chem-sub-block"><h3 className="chem-subhead">{title}</h3>{list}</div>;
+  }
   return (
-    <div className="casext-prose-list">
-      {prose.map((item) => <p key={item.title + item.text.slice(0, 24)}><strong>{item.title}</strong>{item.text}</p>)}
-    </div>
+    <details className="chem-sub-block prose-disclosure">
+      <summary className="chem-subhead">{title}<span className="evidence-meta"> · {dict.chemical.page.itemsCount(prose.length)} · {source}</span></summary>
+      {list}
+    </details>
   );
 }
 
@@ -558,6 +610,20 @@ function pbSectionTitle(key: string, labels: Dictionary): string {
     uses_and_manufacturing: labels.chemical.knowledge.uses,
   };
   return map[key] ?? key;
+}
+
+/** 来源「有数据或在途」才进记录面板（none/unavailable 不展示） */
+function sourceAlive(state: string | null | undefined): boolean {
+  return state === "current" || state === "queued" || state === "stale";
+}
+
+function recordSourceName(key: "pubchem" | "cb" | "dsstox"): string {
+  return key === "pubchem" ? "PubChem" : key === "cb" ? "ChemicalBook" : "DSSTox";
+}
+
+function fmt(value: number | null | undefined, locale: string): string | null {
+  if (value == null) return null;
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(value);
 }
 
 function formatNumber(value: number, locale: string, digits = 4) {
