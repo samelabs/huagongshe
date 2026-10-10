@@ -925,6 +925,18 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     contentError: 'Content could not be loaded. Please try again later.',
     peopleCount: (n: number) => `Saved by ${n}`,
     joinedAt: (date: string) => `Joined: ${date}`,
+    tabReactions: 'Reactions',
+    tabNotes: 'Notes',
+    profileTabsLabel: 'Profile content',
+    emptyReactionsVisitor: 'No public reactions yet.',
+    emptyReactionsSelf: 'You have no public reactions yet.',
+    emptyNotesVisitor: 'No public notes yet.',
+    emptyNotesSelf: 'You have no public notes yet.',
+    enterWorkbench: 'Open workbench',
+    followersMore: (n: number) => ` and ${n} more`,
+    aboutTitle: 'About',
+    institutionLabel: 'Institution',
+    joinedLabel: 'Joined',
   },
 
   /* ── Admin console ─────────────────────────────────── */

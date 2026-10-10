@@ -931,6 +931,19 @@ const t = {
     contentError: '内容暂时无法加载，请稍后重试。',
     peopleCount: (n: number) => `${n} 人收藏`,
     joinedAt: (date: string) => `加入时间：${date}`,
+    /* Step 10 §9.5：Tabs / 空状态 / 右栏 */
+    tabReactions: '反应',
+    tabNotes: '笔记',
+    profileTabsLabel: '主页内容分类',
+    emptyReactionsVisitor: 'TA 还没有公开反应',
+    emptyReactionsSelf: '你还没有公开反应',
+    emptyNotesVisitor: 'TA 还没有公开笔记',
+    emptyNotesSelf: '你还没有公开笔记',
+    enterWorkbench: '进入工作台',
+    followersMore: (n: number) => ` 等 ${n} 人`,
+    aboutTitle: '关于',
+    institutionLabel: '机构',
+    joinedLabel: '加入时间',
   },
 
   /* ── 管理后台 ────────────────────────────────────────── */

@@ -926,6 +926,18 @@ const ja: Dictionary = {
     contentError: 'コンテンツを読み込めませんでした。後でもう一度お試しください。',
     peopleCount: (n: number) => `${n} 人が保存`,
     joinedAt: (date: string) => `登録日: ${date}`,
+    tabReactions: '反応',
+    tabNotes: 'ノート',
+    profileTabsLabel: 'プロフィールのコンテンツ',
+    emptyReactionsVisitor: '公開されている反応はまだありません。',
+    emptyReactionsSelf: '公開されている反応はまだありません。',
+    emptyNotesVisitor: '公開されているノートはまだありません。',
+    emptyNotesSelf: '公開されているノートはまだありません。',
+    enterWorkbench: 'ワークベンチへ',
+    followersMore: (n: number) => ` ほか ${n} 人`,
+    aboutTitle: '概要',
+    institutionLabel: '所属機関',
+    joinedLabel: '登録日',
   },
 
   /* ── 管理コンソール ─────────────────────────────────── */

@@ -928,6 +928,18 @@ const ko: Dictionary = {
     contentError: '콘텐츠를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
     peopleCount: (n: number) => `${n}명이 저장`,
     joinedAt: (date: string) => `가입일: ${date}`,
+    tabReactions: '반응',
+    tabNotes: '노트',
+    profileTabsLabel: '프로필 콘텐츠',
+    emptyReactionsVisitor: '아직 공개 반응이 없습니다.',
+    emptyReactionsSelf: '아직 공개 반응이 없습니다.',
+    emptyNotesVisitor: '아직 공개 노트가 없습니다.',
+    emptyNotesSelf: '아직 공개 노트가 없습니다.',
+    enterWorkbench: '워크벤치 열기',
+    followersMore: (n: number) => ` 외 ${n}명`,
+    aboutTitle: '소개',
+    institutionLabel: '소속 기관',
+    joinedLabel: '가입일',
   },
 
   /* ── 관리 콘솔 ──────────────────────────────────────── */

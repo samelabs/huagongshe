@@ -929,6 +929,18 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     contentError: 'Inhalte konnten nicht geladen werden. Bitte später erneut versuchen.',
     peopleCount: (n: number) => `Von ${n} gespeichert`,
     joinedAt: (date: string) => `Beigetreten: ${date}`,
+    tabReactions: 'Reaktionen',
+    tabNotes: 'Notizen',
+    profileTabsLabel: 'Profilinhalte',
+    emptyReactionsVisitor: 'Noch keine öffentlichen Reaktionen.',
+    emptyReactionsSelf: 'Du hast noch keine öffentlichen Reaktionen.',
+    emptyNotesVisitor: 'Noch keine öffentlichen Notizen.',
+    emptyNotesSelf: 'Du hast noch keine öffentlichen Notizen.',
+    enterWorkbench: 'Zur Werkbank',
+    followersMore: (n: number) => ` und ${n} weitere`,
+    aboutTitle: 'Über',
+    institutionLabel: 'Institution',
+    joinedLabel: 'Beigetreten',
   },
 
   /* ── Admin-Konsole ──────────────────────────────────── */

@@ -608,6 +608,140 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .profile-pagination a:last-child { justify-self: end; }
 .profile-pagination small { color: var(--text-muted); font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
 
+/* ══ 公开主页（Step 10 §9.5：社交名片 + 研究档案）═════════════════
+   .pf-head 三列：Avatar 80 | 信息 | 操作；正文 .pf-body = 列表 + 右栏 rail。
+   手机（≤640，参考 §12 第三屏）：头像 64 + 三项数据横排 → 名字+关系 Tag →
+   简介 → 职位·机构 → 两个 lg 按钮并排 → Tabs → 列表（.pf-info 提升为
+   display:contents 让各段成为 header 的 grid item，纯 CSS 重排）。 */
+.profile-page .hg-tabs { margin: var(--sp-6) 0 var(--sp-4); }
+.pf-head {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
+  gap: var(--sp-6);
+  align-items: start;
+  padding: var(--sp-2) 0 var(--sp-6);
+  border-bottom: 1px solid var(--border);
+}
+.pf-info { min-width: 0; display: grid; gap: 4px; justify-items: start; }
+.pf-info h1 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  font-size: var(--fs-28);
+  font-weight: 650;
+  letter-spacing: var(--ls-title);
+  line-height: var(--lh-tight);
+  color: var(--text);
+}
+.pf-handle { margin: 0; color: var(--text-muted); font-size: var(--fs-14); }
+.pf-job { margin: 0; color: var(--text-2); font-size: var(--fs-14); font-weight: 500; }
+.pf-bio { margin: var(--sp-1) 0 0; max-width: 60ch; color: var(--text-2); font-size: var(--fs-14); line-height: 1.65; overflow-wrap: anywhere; }
+.pf-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px var(--sp-4); margin-top: var(--sp-1); color: var(--text-muted); font-size: var(--fs-13); }
+.pf-meta svg { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
+.pf-meta span { display: inline-flex; align-items: center; }
+.pf-counts { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px var(--sp-6); margin-top: var(--sp-3); }
+.pf-counts span, .pf-counts a { display: inline-flex; align-items: baseline; gap: 6px; color: var(--text-muted); font-size: var(--fs-13); text-decoration: none; }
+.pf-counts strong { color: var(--text); font-weight: 650; font-size: var(--fs-16); font-variant-numeric: tabular-nums; }
+.pf-counts a:hover strong { color: var(--action); }
+.pf-acts { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+
+/* 正文两栏：列表 + 右栏（手机 rail 落到正文下方，IX-11） */
+.pf-body { display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); gap: var(--sp-8); align-items: start; }
+.pf-main { min-width: 0; display: grid; gap: var(--sp-4); }
+
+/* 反应两列卡片：方程式高 110 白底 + 底部 HRID md / 收藏 / 关注数 / 日期 */
+.pf-rx-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.pf-rx-card { min-width: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); overflow: hidden; }
+.pf-rx-eq { display: flex; align-items: center; justify-content: center; height: 110px; background: var(--bg-surface); }
+.pf-rx-eq img { max-width: 100%; max-height: 110px; object-fit: contain; }
+.pf-rx-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 6px var(--sp-3); padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--border); }
+.pf-rx-meta { color: var(--text-muted); font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
+.pf-rx-foot > .hg-btn { margin-left: auto; }
+.pf-rx-foot > .hg-btn:first-child { margin-left: 0; }
+
+/* 笔记卡：标题 + 两行摘要 + 关联徽标 xs + 日期，整卡进入详情 */
+.pf-note-list { display: grid; gap: var(--sp-3); }
+.pf-note-card { display: grid; gap: var(--sp-2); padding: var(--sp-4); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); text-decoration: none; }
+@media (hover:hover) {
+  .pf-note-card:hover { border-color: var(--action-border); }
+  .pf-note-card:hover .pf-note-head h3 { color: var(--action); }
+}
+.pf-note-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.pf-note-head h3 { margin: 0; font-size: var(--fs-16); font-weight: 600; line-height: 1.4; color: var(--text); }
+.pf-note-head time { flex: none; color: var(--text-muted); font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
+.pf-note-summary {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-13);
+  line-height: 1.6;
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.pf-note-refs { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* 分页（沿用 page 参数）：ghost sm 按钮 + 页码 */
+.pf-pagination { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); padding-top: var(--sp-3); }
+.pf-pagination .hg-btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+.pf-pagination-page { min-width: 64px; text-align: center; color: var(--text-muted); font-size: var(--fs-13); font-variant-numeric: tabular-nums; }
+
+/* 右栏：粉丝（头像叠放 + 人数）与「关于」 */
+.pf-rail { display: grid; gap: var(--sp-3); }
+.pf-rail-card { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); padding: var(--sp-4); display: grid; gap: var(--sp-3); }
+.pf-rail-card h2 { margin: 0; font-size: var(--fs-14); font-weight: 600; color: var(--text); }
+.pf-follower-stack { display: flex; align-items: center; }
+.pf-follower-stack .hg-avatar { border: 2px solid var(--bg-surface); }
+.pf-follower-stack .hg-avatar + .hg-avatar, .pf-follower-stack .hg-avatar + .pf-follower-more { margin-left: -8px; }
+.pf-follower-more {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--bg-surface);
+  background: var(--bg-subtle);
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+.pf-rail-note { margin: 0; color: var(--text-muted); font-size: var(--fs-12); line-height: 1.6; }
+.pf-rail-count { margin: 0; font-size: var(--fs-28); font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.pf-about { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 6px var(--sp-3); margin: 0; }
+.pf-about dt { color: var(--text-muted); font-size: var(--fs-13); }
+.pf-about dd { margin: 0; color: var(--text-2); font-size: var(--fs-14); overflow-wrap: anywhere; }
+
+/* 手机 ≤640：名片改纵向（§12 第三屏） */
+@media (max-width: 640px) {
+  .pf-head { grid-template-columns: 64px minmax(0, 1fr); gap: var(--sp-2) var(--sp-4); padding-bottom: var(--sp-4); }
+  .pf-head > .hg-avatar { width: 64px; height: 64px; grid-row: 1; grid-column: 1; }
+  .pf-info { display: contents; }
+  .pf-info > * { grid-column: 1 / -1; }
+  .pf-counts {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-2);
+    text-align: center;
+    margin: 0;
+  }
+  /* 三项数据（反应/粉丝/关注）— 隐藏「笔记」项 */
+  .pf-counts > span:nth-child(2) { display: none; }
+  .pf-counts span, .pf-counts a { display: grid; justify-items: center; gap: 2px; }
+  .pf-counts strong { font-size: var(--fs-18); }
+  .pf-meta { display: none; }
+  .pf-info h1 { margin-top: var(--sp-2); font-size: var(--fs-22); }
+  .pf-acts { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); }
+  .pf-acts .hg-btn { height: var(--h-lg); }
+  .pf-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); }
+  .pf-rx-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 .avatar-upload, .token-create { display: flex; align-items: center; gap: 9px; }
 .avatar-upload input { padding: 7px; }
 .avatar-remove { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--bg-page); }

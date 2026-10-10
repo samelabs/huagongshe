@@ -13,9 +13,10 @@ import { apiPost, apiDelete, ApiError } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Button, type ButtonVariant, type ButtonSize } from "@/components/ui/Button";
+import { IconStar } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/Toast";
 
-export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = "follow", idleText, activeText, activeHoverText, onChange, variant = "primary", size }: {
+export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = "follow", idleText, activeText, activeHoverText, onChange, variant = "primary", activeVariant, size, iconOnly = false }: {
   endpoint: string;
   initial: boolean;
   count?: number;
@@ -29,7 +30,11 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   onChange?: (following: boolean) => void;
   /** 默认 primary；rail 创建者卡片等场景传 tonal/sm */
   variant?: ButtonVariant;
+  /** 激活态（已关注/已收藏）的变体（Step 10：公开主页「已关注」= secondary） */
+  activeVariant?: ButtonVariant;
   size?: ButtonSize;
+  /** 星标图标按钮（Step 10：搜索卡片 / 主页反应卡收藏）；aria-label 取当前文案 */
+  iconOnly?: boolean;
 }) {
   const router = useRouter();
   const t = useDictionary();
@@ -79,10 +84,29 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   const text = following
     ? activeText || (label === "favor" ? t.follow.favoring : t.follow.following)
     : idleText || (label === "favor" ? t.follow.favor : t.follow.follow);
+  // Step 10：图标形态（星标收藏）—— aria-label 用当前文案，已收藏实心
+  if (iconOnly) {
+    return (
+      <Button
+        variant={variant}
+        size={size}
+        iconOnly
+        aria-label={text}
+        aria-pressed={following}
+        loading={busy}
+        disabled={disabled}
+        className={following ? "hg-star-on" : undefined}
+        onClick={() => void apply(!followingRef.current)}
+      >
+        <IconStar />
+      </Button>
+    );
+  }
   // 已关注且给了 hover 文案：双文案 CSS 切换（IX-6 hover 显示「取消关注」）
   const hoverSwap = following && activeHoverText;
+  const currentVariant = following && activeVariant ? activeVariant : variant;
   return (
-    <Button variant={variant} size={size} aria-pressed={following} loading={busy} disabled={disabled} onClick={() => void apply(!followingRef.current)}>
+    <Button variant={currentVariant} size={size} aria-pressed={following} loading={busy} disabled={disabled} onClick={() => void apply(!followingRef.current)}>
       <span className={hoverSwap ? "hg-hover-swap" : undefined}>
         <span className="when-idle">{text}</span>
         {hoverSwap && <span className="when-hover">{activeHoverText}</span>}
