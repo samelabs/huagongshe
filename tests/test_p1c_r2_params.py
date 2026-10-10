@@ -210,13 +210,16 @@ class R6UiCloseoutTests(unittest.TestCase):
         self.assertIn('className="text-button note-view-full"', src)
         self.assertIn("t.notes.viewFull", src)
         home = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
-        self.assertIn('href={withLocale(`/note/${note.id}`, locale)}', home)
+        # Step 9 重设计：笔记行经 WbListRow（shared.tsx）统一 withLocale
+        self.assertIn('href={`/note/${note.id}`}', home)
+        self.assertIn("withLocale(href, locale)", (REPO / "web/components/workbench/shared.tsx").read_text(encoding="utf-8"))
 
     def test_delete_failure_keeps_list_and_is_recoverable(self):
         src = (REPO / "web/components/workbench/panels/NotesPanel.tsx").read_text(encoding="utf-8")
         # delete error must NOT set the fatal panel error state
         remove_fn = src[src.index("async function remove"):]
-        remove_fn = remove_fn[:remove_fn.index("const labels")]
+        # Step 9 重设计：labels 块改为 filterOptions（Segmented 筛选）
+        remove_fn = remove_fn[:remove_fn.index("const filterOptions")]
         self.assertNotIn('setState("error")', remove_fn)
         self.assertIn("setActionError(t.notes.deleteFailed)", remove_fn)
         # inline error renders while the list stays mounted

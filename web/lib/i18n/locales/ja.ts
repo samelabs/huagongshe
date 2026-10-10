@@ -1080,6 +1080,8 @@ const ja: Dictionary = {
     followToast: 'フォローしました',
     followErr: 'フォローできませんでした。もう一度お試しください',
     unfollow: 'フォロー解除',
+    unfavorToast: '保存を解除しました',
+    unfavorLabel: '保存を解除',
     followBack: 'フォローバック',
     viewProfile: 'プロフィールを見る',
   },

@@ -1085,6 +1085,8 @@ const t = {
     followToast: '已关注',
     followErr: '关注失败，请重试',
     unfollow: '取消关注',
+    unfavorToast: '已取消收藏',
+    unfavorLabel: '取消收藏',
     followBack: '回关',
     viewProfile: '查看主页',
   },

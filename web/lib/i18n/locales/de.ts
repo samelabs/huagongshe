@@ -1083,6 +1083,8 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     followToast: 'Gefolgt',
     followErr: 'Folgen fehlgeschlagen, bitte erneut versuchen',
     unfollow: 'Entfolgen',
+    unfavorToast: 'Aus gespeichert entfernt',
+    unfavorLabel: 'Aus gespeichert entfernen',
     followBack: 'Zurückfolgen',
     viewProfile: 'Profil ansehen',
   },

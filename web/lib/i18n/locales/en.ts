@@ -1079,6 +1079,8 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     followToast: 'Following',
     followErr: "Couldn't follow, please retry",
     unfollow: 'Unfollow',
+    unfavorToast: 'Removed from saved',
+    unfavorLabel: 'Remove from saved',
     followBack: 'Follow back',
     viewProfile: 'View profile',
   },

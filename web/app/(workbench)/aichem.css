@@ -165,31 +165,41 @@
 
 .wb-panel-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--wb-sp-3);
+  flex-wrap: wrap;
   padding-bottom: var(--wb-sp-3);
   border-bottom: 1px solid var(--wb-line);
 }
+.wb-panel-head-main { min-width: 0; display: grid; gap: 2px; }
 .wb-panel-head h2 {
   margin: 0;
-  font-size: var(--wb-fs-lg);
-  font-weight: var(--wb-w-semibold);
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--wb-sp-2);
+  font-size: var(--fs-22);
+  font-weight: 650;
   color: var(--wb-heading);
 }
-.wb-panel-head span {
-  display: block;
-  margin-top: 2px;
+/* 计数紧随标题（§6 Step 9：不单独占位） */
+.wb-panel-head .wb-panel-count {
   font-size: var(--wb-fs-sm);
-  color: var(--wb-quiet);
+  font-weight: var(--wb-w-regular);
+  color: var(--wb-muted);
+  font-variant-numeric: tabular-nums;
 }
-.wb-panel-head strong {
+.wb-panel-head-main p {
+  margin: 0;
   font-size: var(--wb-fs-sm);
   color: var(--wb-muted);
-  font-weight: var(--wb-w-regular);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 60ch;
 }
-.wb-panel-head-side { display: inline-flex; align-items: baseline; gap: var(--wb-sp-3); white-space: nowrap; }
+.wb-panel-head-side { display: inline-flex; align-items: center; gap: var(--wb-sp-2); flex: none; margin-left: auto; }
 
 /* ═══════════════════════════════════════════════════════════════
    L5 — Components
@@ -420,7 +430,7 @@
 }
 .wb-state-error { color: var(--wb-danger); }
 
-/* ── 空状态 ── */
+/* ── 空状态（§6：统一用 ui/EmptyState，见 ui.css .hg-empty） ── */
 .wb-empty {
   padding: var(--wb-sp-7) 0;
   text-align: center;
@@ -431,29 +441,24 @@
   font-size: var(--wb-fs);
 }
 
-/* ── 分页 ── */
+/* ── 分页（§6 Step 9）：上一页 / 页码 / 下一页，按钮 ghost sm ── */
 .wb-pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--wb-sp-4);
+  gap: var(--wb-sp-2);
   margin-top: var(--wb-sp-2);
   padding-top: var(--wb-sp-4);
   border-top: 1px solid var(--wb-line);
 }
-.wb-pagination a {
-  color: var(--wb-blue);
-  font-size: var(--wb-fs-sm);
-}
-.wb-pagination span {
-  width: 28px;
-  display: inline-block;
-}
-.wb-pagination small {
-  color: var(--wb-quiet);
+.wb-pagination .wb-pagination-page {
+  min-width: 64px;
+  text-align: center;
+  color: var(--wb-muted);
   font-size: var(--wb-fs-sm);
   font-variant-numeric: tabular-nums;
 }
+.wb-pagination .hg-btn[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
 
 /* ── 鉴权提示 ── */
 .wb-auth-required {
@@ -573,9 +578,11 @@
 }
 .wb-quick-link-icon svg { width: 16px; height: 16px; }
 
-/* 我的内容行：36px 类型图标块 | 标题+元信息 | 右侧 */
+/* 我的内容行 / 面板列表行（§6 Step 9 WbListRow 共用）：
+   36px 类型图标块或缩略图 | 标题(整行点击目标)+元信息 | 右侧展示+操作 */
 .wb-row-list { display: flex; flex-direction: column; }
 .wb-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--wb-sp-3);
@@ -583,6 +590,8 @@
   border-bottom: 1px solid var(--wb-line);
 }
 .wb-row:last-child { border-bottom: 0; }
+.wb-row:hover { background: var(--bg-hover); }
+.wb-row:focus-within { background: var(--bg-hover); }
 .wb-row-icon {
   flex: none;
   width: 36px;
@@ -597,6 +606,22 @@
 .wb-row-icon svg { width: 18px; height: 18px; }
 .wb-row-icon.reaction { color: var(--wb-reaction-ink); background: var(--wb-reaction-bg); }
 .wb-row-icon img { width: 100%; height: 100%; object-fit: contain; }
+/* 缩略图（方程式/结构式）：高 48（§9.4 我的反应行） */
+.wb-row-thumb {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  min-width: 72px;
+  max-width: 160px;
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-r-sm);
+  background: var(--wb-paper);
+  overflow: hidden;
+  padding: 0 4px;
+}
+.wb-row-thumb img { max-height: 44px; max-width: 100%; object-fit: contain; }
 .wb-row-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .wb-row-title {
   font-size: var(--wb-fs);
@@ -608,7 +633,11 @@
   display: flex;
   align-items: center;
   gap: var(--wb-sp-2);
+  text-decoration: none;
 }
+/* 整行点击：标题链接 ::after 铺满行（近邻定位祖先 = .wb-row） */
+.wb-row-title::after { content: ""; position: absolute; inset: 0; }
+.wb-row-title:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--wb-r-xs); }
 .wb-row-meta {
   display: flex;
   align-items: center;
@@ -616,8 +645,32 @@
   gap: 6px;
   font-size: var(--wb-fs-sm);
   color: var(--wb-quiet);
+  min-width: 0;
 }
-.wb-row-side { flex: none; font-size: var(--wb-fs-sm); color: var(--wb-quiet); white-space: nowrap; }
+/* 反应 SMILES 摘要：等宽 + 单行截断 */
+.wb-row-code {
+  font-family: var(--font-mono);
+  font-size: var(--wb-fs-sm);
+  color: var(--wb-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 44ch;
+}
+.wb-row-side {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wb-sp-2);
+  font-size: var(--wb-fs-sm);
+  color: var(--wb-quiet);
+  white-space: nowrap;
+}
+/* 行内操作按钮：层级高于整行链接，点击不触发行跳转 */
+.wb-row-actions { position: relative; z-index: 1; display: inline-flex; gap: var(--wb-sp-1); }
+/* 收藏面板「取消收藏」图标按钮：当前已收藏（action 色），hover 变 err（IX-6） */
+.wb-unfavor { color: var(--action); }
+.wb-unfavor:hover, .wb-unfavor.is-hover { background: var(--err-bg); color: var(--err); }
 
 /* 我的主页卡片 */
 .wb-profile-top { display: flex; align-items: center; gap: var(--wb-sp-3); }

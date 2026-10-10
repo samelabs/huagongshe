@@ -5,13 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EntityId } from "@/components/shared/EntityId";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { EntityBadge } from "@/components/ui/EntityBadge";
+import { Segmented } from "@/components/ui/Segmented";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
+import { IconNote } from "@/components/ui/icons";
 import { apiDelete, apiGet } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { NoteEditor } from "../NoteEditor";
-import { PanelError, PanelHeading, PanelLoading, Pagination, WbEmpty } from "../shared";
+import { PanelError, PanelHeading, PanelLoading, Pagination, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
 import type { LoadState, NoteItem, NoteResponse, NoteVisibility, PanelProps } from "../types";
 
 const empty = (): NoteResponse => ({ items: [], total: 0, page: 1, page_size: 20 });
@@ -103,6 +107,12 @@ export function NotesPanel({
     return withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(visibility, filterChemicalId, filterReactionId, targetPage)) }).toString()}`, locale);
   }
 
+  /** §6 Step 9：筛选用 Segmented（全部/私有/公开），仍走 URL 参数（可分享/SSR 预取一致） */
+  function switchVisibility(value: NoteVisibility) {
+    if (value === visibility) return;
+    router.push(withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(value, filterChemicalId, filterReactionId)) }).toString()}`, locale));
+  }
+
   function redirectIfPageIsEmpty(value: NoteResponse): boolean {
     if (page <= 1 || value.items.length > 0) return false;
     const lastPage = Math.max(1, Math.ceil(value.total / value.page_size));
@@ -148,6 +158,12 @@ export function NotesPanel({
       setCreating(true);
     }
   }, [createOpen, initialChemicalId, initialReactionId]);
+
+  function openCreate() {
+    setEditing(null);
+    setCreateContext({ chemicalIds: [], reactionIds: [] });
+    setCreating(true);
+  }
 
   function closeEditor() {
     setCreating(false);
@@ -214,11 +230,11 @@ export function NotesPanel({
     }
   }
 
-  const labels: Record<NoteVisibility, string> = {
-    all: t.me.filterAll,
-    private: t.common.private,
-    public: t.common.public,
-  };
+  const filterOptions = [
+    { value: "all" as const, label: t.me.filterAll },
+    { value: "private" as const, label: t.common.private },
+    { value: "public" as const, label: t.common.public },
+  ];
 
   return (
     <section className="wb-panel wb-notes">
@@ -227,28 +243,15 @@ export function NotesPanel({
         subtitle={t.me.notesHint}
         count={state === "ready" ? data.total : "—"}
         unit={t.me.unitNote}
-        action={
-          <button className="wb-btn wb-btn-primary" type="button" onClick={() => {
-            setEditing(null);
-            setCreateContext({ chemicalIds: [], reactionIds: [] });
-            setCreating(true);
-          }}>
-            {t.me.notesNew}
-          </button>
-        }
+        action={<Button variant="primary" size="sm" onClick={openCreate}>{t.me.notesNew}</Button>}
       />
 
-      <nav className="wb-filters" aria-label={t.me.notesFilter}>
-        {(["all", "private", "public"] as NoteVisibility[]).map((value) => (
-          <Link
-            key={value}
-            className={visibility === value ? "active" : ""}
-            href={withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(value, filterChemicalId, filterReactionId)) }).toString()}`, locale)}
-          >
-            {labels[value]}
-          </Link>
-        ))}
-      </nav>
+      <Segmented
+        ariaLabel={t.me.notesFilter}
+        options={filterOptions}
+        value={visibility}
+        onChange={(value) => switchVisibility(value)}
+      />
 
       {/* P-8: entity filter breadcrumb — chemical takes precedence when both
           params exist; clear returns to the unfiltered list. */}
@@ -276,46 +279,46 @@ export function NotesPanel({
         />
       )}
 
-      {state === "loading" && <PanelLoading variant="list" />}
+      {state === "loading" && <PanelLoading variant="list" rows={4} />}
       {state === "error" && <PanelError error={error} />}
       {/* R6: delete failure keeps the list mounted with a recoverable state */}
       {actionError && state !== "error" && (
         <p className="wb-panel-inline-error" role="alert">{actionError}</p>
       )}
       {state === "ready" && (data.items.length ? (
-        <div className="wb-note-list">
+        <div className="wb-row-list">
           {data.items.map((note) => (
-            <article key={note.id} className="wb-note-card">
-              <header>
-                <span>{note.visibility === "private" ? t.common.private : t.common.public}</span>
-                <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleString(locale)}</time>
-              </header>
-              <p className="note-clamp">{note.content}</p>
-              {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
-                <div className="wb-note-links">
-                  {note.chemical_ids.map((id) => (
-                    <Link key={`c-${id}`} href={withLocale(`/chemical/${id}`, locale)}>
-                      <EntityId kind="chemical" id={id} compact />
-                    </Link>
-                  ))}
-                  {note.reaction_ids.map((id) => (
-                    <Link key={`r-${id}`} href={withLocale(`/reaction/${id}`, locale)}>
-                      <EntityId kind="reaction" id={id} compact />
-                    </Link>
-                  ))}
-                </div>
-              )}
-              <footer>
-                {/* 三个操作的语义样式（v1.7）：查看全文=普通链接色；编辑=ghost；删除=danger-quiet */}
-                <Link className="text-button" href={withLocale(`/note/${note.id}`, locale)}>{t.notes.viewFull}</Link>
-                <Button variant="ghost" size="sm" onClick={() => { setCreating(false); setEditing(note); }}>{t.common.edit}</Button>
-                <Button variant="danger-quiet" size="sm" onClick={() => void remove(note)}>{t.common.delete}</Button>
-              </footer>
-            </article>
+            <WbListRow
+              key={note.id}
+              href={`/note/${note.id}`}
+              icon={<IconNote />}
+              title={noteHeadline(note.content) || t.notes.detailTitle}
+              meta={
+                <>
+                  <VisibilityTag visibility={note.visibility} t={t} />
+                  {note.chemical_ids.slice(0, 2).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
+                  {note.reaction_ids.slice(0, 2).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
+                  <time dateTime={note.updated_at}>{relativeTime(note.updated_at, locale)}</time>
+                </>
+              }
+              side={
+                <>
+                  <span>{new Date(note.updated_at).toLocaleDateString(locale)}</span>
+                  <span className="wb-row-actions">
+                    <Button variant="ghost" size="sm" onClick={() => { setCreating(false); setEditing(note); }}>{t.common.edit}</Button>
+                    <Button variant="danger-quiet" size="sm" onClick={() => void remove(note)}>{t.common.delete}</Button>
+                  </span>
+                </>
+              }
+            />
           ))}
         </div>
       ) : (
-        <WbEmpty text={filterKey ? t.notes.filterEmpty : t.me.notesEmpty} />
+        <EmptyState
+          icon={<IconNote />}
+          title={filterKey ? t.notes.filterEmpty : t.me.notesEmpty}
+          action={{ label: t.me.notesNew, onClick: openCreate }}
+        />
       ))}
 
       {state === "ready" && data.total > data.page_size && (

@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
-import { FollowButton } from "@/components/shared/FollowButton";
-import { apiGet, molSvgUrl, reactionSvgUrl } from "@/lib/api";
+import { apiGet, molSvgUrl } from "@/lib/api";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
@@ -16,10 +15,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Segmented } from "@/components/ui/Segmented";
 import { Tabs } from "@/components/ui/Tabs";
-import { Tag } from "@/components/ui/Tag";
-import { useToast } from "@/components/ui/Toast";
 import { IconNote, IconSearch, IconCalc, IconSparkle, IconPlug, IconShare, GlyphChem, GlyphRx } from "@/components/ui/icons";
-import { PanelError, PanelLoading } from "../shared";
+import { useToast } from "@/components/ui/Toast";
+import { ActivityFeedCard, PanelError, PanelLoading, ReactionRow, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
 import type { Counts, LoadState, NoteResponse, PageResponse, Reaction, ReactionResponse } from "../types";
 import type { ChemicalFollow, Notice } from "../types";
 
@@ -48,27 +46,6 @@ type RecentItem =
   | { kind: "note"; id: number; at: string; note: NoteResponse["items"][number] }
   | { kind: "reaction"; id: number; at: string; reaction: Reaction }
   | { kind: "saved"; id: number; at: string; chemical: ChemicalFollow };
-
-/** 相对时间（分钟/小时/天；超过 30 天回退绝对日期） */
-function relativeTime(value: string, locale: string): string {
-  const date = new Date(value).getTime();
-  if (!Number.isFinite(date)) return value;
-  const minutes = Math.round((Date.now() - date) / 60000);
-  const fmt = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  if (minutes < 1) return fmt.format(0, "minute");
-  if (minutes < 60) return fmt.format(-minutes, "minute");
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return fmt.format(-hours, "hour");
-  const days = Math.round(hours / 24);
-  if (days <= 30) return fmt.format(-days, "day");
-  return new Date(value).toLocaleDateString(locale);
-}
-
-/** 笔记标题行：首个非空行（≤60 字） */
-function noteHeadline(content: string): string {
-  const first = content.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
-  return first.length > 60 ? `${first.slice(0, 60)}…` : first;
-}
 
 export function HomePanel({ counts, initialNotes, initialReactions, initialFavorites, initialNotices, initialFavoredIds }: FeedProps) {
   const t = useDictionary();
@@ -295,31 +272,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
             <>
               <div className="wb-feed-list">
                 {feedItems.map((item) => (
-                  <article key={item.id} className="wb-feed-item">
-                    <Avatar id={item.actor_username} name={item.actor_display_name || item.actor_username} size={32} />
-                    <div className="wb-feed-body">
-                      <p className="wb-feed-line">
-                        {t.me.feedActor(item.actor_display_name || item.actor_username)}
-                        <EntityBadge kind="reaction" id={item.reaction_id} size="xs" href={withLocale(`/reaction/${item.reaction_id}`, locale)} ariaLabel={t.common.hridLabel(item.reaction_id)} />
-                      </p>
-                      <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
-                      <Link className="wb-feed-eq" href={withLocale(`/reaction/${item.reaction_id}`, locale)}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={reactionSvgUrl(item.reaction_id, 720, 160)} height={64} alt={t.reaction.equationAlt(item.reaction_id)} loading="lazy" />
-                      </Link>
-                      <div className="wb-feed-actions">
-                        <FollowButton
-                          endpoint={`/reactions/${item.reaction_id}/follow`}
-                          initial={favoredIds.has(item.reaction_id)}
-                          showCount={false}
-                          label="favor"
-                          variant="ghost"
-                          size="sm"
-                        />
-                        <Button variant="ghost" size="sm" href={withLocale(`/reaction/${item.reaction_id}`, locale)}>{t.me.feedOpen}</Button>
-                      </div>
-                    </div>
-                  </article>
+                  <ActivityFeedCard key={item.id} item={item} favored={favoredIds.has(item.reaction_id)} t={t} locale={locale} />
                 ))}
               </div>
               <Link className="wb-feed-all" href={withLocale("/aichem?tab=activity", locale)}>{t.me.feedViewAll}</Link>
@@ -333,13 +286,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
   );
 }
 
-/* ── 行组件 ─────────────────────────────────────────── */
-
-function VisibilityTag({ visibility, t }: { visibility: "public" | "private"; t: ReturnType<typeof useDictionary> }) {
-  return visibility === "private"
-    ? <Tag>{t.common.private}</Tag>
-    : <Tag tone="blue">{t.common.public}</Tag>;
-}
+/* ── 行组件：概览「我的内容」行 = 面板列表行（WbListRow，§6 Step 9）── */
 
 function RecentRow({ item, t, locale }: { item: RecentItem; t: ReturnType<typeof useDictionary>; locale: Locale }) {
   if (item.kind === "note") return <NoteRow note={item.note} t={t} locale={locale} />;
@@ -349,56 +296,40 @@ function RecentRow({ item, t, locale }: { item: RecentItem; t: ReturnType<typeof
 
 function NoteRow({ note, t, locale }: { note: NoteResponse["items"][number]; t: ReturnType<typeof useDictionary>; locale: Locale }) {
   return (
-    <Link className="wb-row" href={withLocale(`/note/${note.id}`, locale)}>
-      <span className="wb-row-icon note" aria-hidden="true"><IconNote /></span>
-      <span className="wb-row-main">
-        <span className="wb-row-title">{noteHeadline(note.content)}</span>
-        <span className="wb-row-meta">
+    <WbListRow
+      href={`/note/${note.id}`}
+      icon={<IconNote />}
+      title={noteHeadline(note.content)}
+      meta={
+        <>
           <VisibilityTag visibility={note.visibility} t={t} />
           {note.chemical_ids.slice(0, 2).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
           {note.reaction_ids.slice(0, 2).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
           <time dateTime={note.updated_at}>{relativeTime(note.updated_at, locale)}</time>
-        </span>
-      </span>
-      <span className="wb-row-side">{new Date(note.updated_at).toLocaleDateString(locale)}</span>
-    </Link>
-  );
-}
-
-function ReactionRow({ item, t, locale }: { item: Reaction; t: ReturnType<typeof useDictionary>; locale: Locale }) {
-  return (
-    <Link className="wb-row" href={withLocale(`/reaction/${item.id}`, locale)}>
-      <span className="wb-row-icon reaction" aria-hidden="true"><GlyphRx /></span>
-      <span className="wb-row-main">
-        <span className="wb-row-title">
-          <EntityBadge kind="reaction" id={item.id} size="sm" ariaLabel={t.common.hridLabel(item.id)} />
-        </span>
-        <span className="wb-row-meta">
-          {item.visibility && <VisibilityTag visibility={item.visibility} t={t} />}
-          <time dateTime={item.updated_at ?? undefined}>{item.updated_at ? relativeTime(item.updated_at, locale) : ""}</time>
-        </span>
-      </span>
-      <span className="wb-row-side">{item.followers != null ? t.user.peopleCount(item.followers) : ""}</span>
-    </Link>
+        </>
+      }
+      side={<span>{new Date(note.updated_at).toLocaleDateString(locale)}</span>}
+    />
   );
 }
 
 function SavedRow({ chemical, t, locale }: { chemical: ChemicalFollow; t: ReturnType<typeof useDictionary>; locale: Locale }) {
   const { title } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
   return (
-    <Link className="wb-row" href={withLocale(`/chemical/${chemical.id}`, locale)}>
-      <span className="wb-row-icon saved" aria-hidden="true">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+    <WbListRow
+      href={`/chemical/${chemical.id}`}
+      thumb={
+        // eslint-disable-next-line @next/next/no-img-element
         <img src={molSvgUrl(chemical.id, 72, 56)} width={36} height={36} alt="" loading="lazy" />
-      </span>
-      <span className="wb-row-main">
-        <span className="wb-row-title">{title}</span>
-        <span className="wb-row-meta">
+      }
+      title={title}
+      meta={
+        <>
           <EntityBadge kind="chemical" id={chemical.id} size="xs" ariaLabel={t.common.hcidLabel(chemical.id)} />
           {chemical.created_at && <time dateTime={chemical.created_at}>{t.me.savedAt(new Date(chemical.created_at).toLocaleDateString(locale))}</time>}
-        </span>
-      </span>
-      <span className="wb-row-side">{chemical.molecular_formula ?? ""}</span>
-    </Link>
+        </>
+      }
+      side={<span>{chemical.molecular_formula ?? ""}</span>}
+    />
   );
 }
