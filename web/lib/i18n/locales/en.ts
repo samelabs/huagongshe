@@ -42,10 +42,22 @@ const en: Dictionary = {
     pageNav: 'Pagination',
     pageOf: (cur: number, total: number) => `Page ${cur} of ${total}`,
     networkError: 'Network error. Please try again later.',
-    hcidLabel: (id: number | string) => `Huagongshe compound record HCID ${id}`,
-    hridLabel: (id: number | string) => `Huagongshe reaction record HRID ${id}`,
+    hcidLabel: (id: number | string) => `Huagongshe compound record HCID $${id}`,
+    hridLabel: (id: number | string) => `Huagongshe reaction record HRID $${id}`,
     breadcrumb: 'Breadcrumb',
     close: 'Close',
+    /* v1.7 组件库 */
+    copy: 'Copy',
+    copied: 'Copied',
+    cancel: 'Cancel',
+    undo: 'Undo',
+    retry: 'Retry',
+    stillProcessing: 'Still processing',
+    copyFailed: 'Copy failed — select the text manually',
+    deletedEntity: 'Deleted',
+    deleteFailed: 'Delete failed, please retry',
+    hcidShort: (id: number | string) => `HCID ${id}`,
+    hridShort: (id: number | string) => `HRID ${id}`,
   },
 
   /* ── Navigation / header ───────────────────────────── */
@@ -284,9 +296,14 @@ const en: Dictionary = {
     yieldLabel: (v: string) => `Yield ${v}%`,
     internalStandard: 'Internal standard',
     otherRole: 'Other',
-    confirmDelete: (id: number) => `Permanently delete HRID ${id}? Linked compounds will not be deleted.`,
-    jsonLdName: (id: number) => `Reaction HRID ${id}`,
-    equationAlt: (id: number) => `HRID ${id} reaction equation`,
+    confirmDelete: (id: number) => `Permanently delete HRID $${id}? Linked compounds will not be deleted.`,
+    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    deleteTitle: 'Delete this reaction?',
+    deleteLabel: 'Delete reaction',
+    deleted: 'Reaction deleted',
+    deleteBody: (id: number) => `HRID ${id} will be permanently deleted. Linked compounds will not be deleted. This cannot be undone.`,
+    jsonLdName: (id: number) => `Reaction HRID $${id}`,
+    equationAlt: (id: number) => `HRID $${id} reaction equation`,
     stepLabel: (n: number) => `Step ${n}`,
     keepPhase: (phase: string) => `Keep ${phase}`,
     targetPh: (v: number) => `Target pH ${v}`,
@@ -434,6 +451,12 @@ const en: Dictionary = {
     /* R6 */
     profileLoadFailed: 'Failed to load public notes',
     deleteFailed: 'Delete failed, please retry',
+
+    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    deleteTitle: 'Delete this note?',
+    deleteLabel: 'Delete note',
+    deleted: 'Note deleted',
+    deleteBody: (excerpt: string) => `“${excerpt}” will be permanently deleted. This cannot be undone.`,
 
   },
 

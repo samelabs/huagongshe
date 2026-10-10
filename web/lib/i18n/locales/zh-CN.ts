@@ -53,6 +53,18 @@ const t = {
     hridLabel: (id: number | string) => `Huagongshe 反应记录 HRID ${id}`,
     breadcrumb: '面包屑',
     close: '关闭',
+    /* ── v1.7 组件库（web/components/ui/）通用文案 ── */
+    copy: '复制',
+    copied: '已复制',
+    cancel: '取消',
+    undo: '撤销',
+    retry: '重试',
+    stillProcessing: '仍在处理',
+    copyFailed: '复制失败，请手动复制',
+    deletedEntity: '已删除',
+    deleteFailed: '删除失败，请重试',
+    hcidShort: (id: number | string) => `HCID ${id}`,
+    hridShort: (id: number | string) => `HRID ${id}`,
   },
 
   /* ── 导航 / 头部 ──────────────────────────────────────── */
@@ -292,6 +304,11 @@ const t = {
     internalStandard: '内标',
     otherRole: '其他',
     confirmDelete: (id: number) => `确定永久删除 HRID ${id}？关联的化合物不会被删除。`,
+    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    deleteTitle: '删除这个反应？',
+    deleteBody: (id: number) => `HRID ${id} 将被永久删除，关联的化合物不会被删除。此操作无法撤销。`,
+    deleteLabel: '删除反应',
+    deleted: '反应已删除',
     jsonLdName: (id: number) => `反应 HRID ${id}`,
     equationAlt: (id: number) => `HRID ${id} 反应方程式`,
     stepLabel: (n: number) => `步骤 ${n}`,
@@ -442,6 +459,11 @@ const t = {
     profileLoadFailed: '公开笔记加载失败',
     deleteFailed: '删除失败,请重试',
 
+    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    deleteTitle: '删除这条笔记？',
+    deleteBody: (excerpt: string) => `「${excerpt}」将被永久删除。此操作无法撤销。`,
+    deleteLabel: '删除笔记',
+    deleted: '笔记已删除',
   },
 
 

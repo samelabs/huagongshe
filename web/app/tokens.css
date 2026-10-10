@@ -36,9 +36,16 @@
   --rx-200: #C9D5E2;
   --rx-500: #5B7A99;
   --rx-700: #3D5878;
-  --ok-50:  #ECF8F0;  --ok-200:  #B7E2C4;  --ok-600:  #15803D;
+  --ok-50:  #ECF8F0;  --ok-200:  #B7E2C4;  --ok-600: #15803D;
   --warn-50:#FFF7E8;  --warn-200:#F5D9A3;  --warn-700:#A15C07;
-  --err-50: #FDF1F2;  --err-200: #F3C4C9;  --err-600: #C42B3C;  --err-700: #A9202F;
+  --err-50: #FDF1F2;  --err-200: #F3C4C9;  --err-600: #C42B3C;  --err-700: #A9202F;  --err-800: #8F1A27;
+
+  /* ── 原始色阶 · 头像（无图片时按用户 id 取模 5 选底色） ── */
+  --avatar-1: var(--blue-600);  /* #1468D0 */
+  --avatar-2: var(--rx-700);    /* #3D5878 */
+  --avatar-3: #0F766E;
+  --avatar-4: #7C5CC4;
+  --avatar-5: #B45309;
 
   /* ══ 语义层（组件只用这一层） ═════════════════════════════ */
   /* 面 */
@@ -93,6 +100,12 @@
   --warn: var(--warn-700); --warn-bg: var(--warn-50); --warn-border: var(--warn-200);
   --err:  var(--err-600);  --err-bg:  var(--err-50);  --err-border:  var(--err-200);
   --err-hover: var(--err-700);
+  --err-pressed: var(--err-800);
+
+  /* 深色 Toast 底上的状态图标色（--bg-inverse 上用） */
+  --toast-ok:  #6EE7A0;
+  --toast-err: #FF9AA5;
+  --toast-action: var(--blue-200);  /* 深色 Toast 上的操作按钮文字 */
 
   /* ── 字体 ─────────────────────────────────────────────────── */
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;

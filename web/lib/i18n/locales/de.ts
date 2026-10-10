@@ -46,10 +46,22 @@ const de: Dictionary = {
     pageNav: 'Seitennavigation',
     pageOf: (cur: number, total: number) => `Seite ${cur} von ${total}`,
     networkError: 'Netzwerkfehler. Bitte später erneut versuchen.',
-    hcidLabel: (id: number | string) => `化工社-Verbindungseintrag HCID ${id}`,
-    hridLabel: (id: number | string) => `化工社-Reaktionseintrag HRID ${id}`,
+    hcidLabel: (id: number | string) => `化工社-Verbindungseintrag HCID $${id}`,
+    hridLabel: (id: number | string) => `化工社-Reaktionseintrag HRID $${id}`,
     breadcrumb: 'Brotkrumen-Navigation',
     close: 'Schließen',
+    /* v1.7 组件库 */
+    copy: 'Kopieren',
+    copied: 'Kopiert',
+    cancel: 'Abbrechen',
+    undo: 'Rückgängig',
+    retry: 'Erneut versuchen',
+    stillProcessing: 'Wird noch verarbeitet',
+    copyFailed: 'Kopieren fehlgeschlagen — Text manuell auswählen',
+    deletedEntity: 'Gelöscht',
+    deleteFailed: 'Löschen fehlgeschlagen, bitte erneut versuchen',
+    hcidShort: (id: number | string) => `HCID ${id}`,
+    hridShort: (id: number | string) => `HRID ${id}`,
   },
 
   /* ── Navigation / Header ────────────────────────────── */
@@ -288,9 +300,14 @@ const de: Dictionary = {
     yieldLabel: (v: string) => `Ausbeute ${v} %`,
     internalStandard: 'Interner Standard',
     otherRole: 'Sonstige',
-    confirmDelete: (id: number) => `HRID ${id} endgültig löschen? Verknüpfte Verbindungen werden nicht gelöscht.`,
-    jsonLdName: (id: number) => `Reaktion HRID ${id}`,
-    equationAlt: (id: number) => `Reaktionsgleichung von HRID ${id}`,
+    confirmDelete: (id: number) => `HRID $${id} endgültig löschen? Verknüpfte Verbindungen werden nicht gelöscht.`,
+    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    deleteTitle: 'Diese Reaktion löschen?',
+    deleteLabel: 'Reaktion löschen',
+    deleted: 'Reaktion gelöscht',
+    deleteBody: (id: number) => `HRID ${id} wird endgültig gelöscht. Verknüpfte Verbindungen werden nicht gelöscht. Dies kann nicht rückgängig gemacht werden.`,
+    jsonLdName: (id: number) => `Reaktion HRID $${id}`,
+    equationAlt: (id: number) => `Reaktionsgleichung von HRID $${id}`,
     stepLabel: (n: number) => `Schritt ${n}`,
     keepPhase: (phase: string) => `${phase}-Phase beibehalten`,
     targetPh: (v: number) => `Ziel-pH ${v}`,
@@ -438,6 +455,12 @@ const de: Dictionary = {
     /* R6 */
     profileLoadFailed: 'Öffentliche Notizen konnten nicht geladen werden',
     deleteFailed: 'Löschen fehlgeschlagen, bitte erneut versuchen',
+
+    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    deleteTitle: 'Diese Notiz löschen?',
+    deleteLabel: 'Notiz löschen',
+    deleted: 'Notiz gelöscht',
+    deleteBody: (excerpt: string) => `„${excerpt}“ wird endgültig gelöscht. Dies kann nicht rückgängig gemacht werden.`,
 
   },
 

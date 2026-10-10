@@ -45,10 +45,22 @@ const ko: Dictionary = {
     pageNav: '페이지 탐색',
     pageOf: (cur: number, total: number) => `${cur} / ${total} 페이지`,
     networkError: '네트워크 오류입니다. 잠시 후 다시 시도해 주세요.',
-    hcidLabel: (id: number | string) => `化工社 화합물 기록 HCID ${id}`,
-    hridLabel: (id: number | string) => `化工社 반응 기록 HRID ${id}`,
+    hcidLabel: (id: number | string) => `化工社 화합물 기록 HCID $${id}`,
+    hridLabel: (id: number | string) => `化工社 반응 기록 HRID $${id}`,
     breadcrumb: '브레드크럼',
     close: '닫기',
+    /* v1.7 组件库 */
+    copy: '복사',
+    copied: '복사됨',
+    cancel: '취소',
+    undo: '실행 취소',
+    retry: '다시 시도',
+    stillProcessing: '아직 처리 중입니다',
+    copyFailed: '복사하지 못했습니다. 직접 선택해 주세요',
+    deletedEntity: '삭제됨',
+    deleteFailed: '삭제에 실패했습니다. 다시 시도해 주세요',
+    hcidShort: (id: number | string) => `HCID ${id}`,
+    hridShort: (id: number | string) => `HRID ${id}`,
   },
 
   /* ── 내비게이션 / 헤더 ──────────────────────────────── */
@@ -287,9 +299,14 @@ const ko: Dictionary = {
     yieldLabel: (v: string) => `수율 ${v}%`,
     internalStandard: '내부 표준',
     otherRole: '기타',
-    confirmDelete: (id: number) => `HRID ${id}을(를) 완전히 삭제할까요? 연결된 화합물은 삭제되지 않습니다.`,
-    jsonLdName: (id: number) => `반응 HRID ${id}`,
-    equationAlt: (id: number) => `HRID ${id} 반응식`,
+    confirmDelete: (id: number) => `HRID $${id}을(를) 완전히 삭제할까요? 연결된 화합물은 삭제되지 않습니다.`,
+    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    deleteTitle: '이 반응을 삭제할까요?',
+    deleteLabel: '반응 삭제',
+    deleted: '반응이 삭제되었습니다',
+    deleteBody: (id: number) => `HRID ${id}이(가) 완전히 삭제됩니다. 연결된 화합물은 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.`,
+    jsonLdName: (id: number) => `반응 HRID $${id}`,
+    equationAlt: (id: number) => `HRID $${id} 반응식`,
     stepLabel: (n: number) => `단계 ${n}`,
     keepPhase: (phase: string) => `${phase} 상 유지`,
     targetPh: (v: number) => `목표 pH ${v}`,
@@ -437,6 +454,12 @@ const ko: Dictionary = {
     /* R6 */
     profileLoadFailed: '공개 노트를 불러오지 못했습니다',
     deleteFailed: '삭제에 실패했습니다. 다시 시도해 주세요',
+
+    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    deleteTitle: '이 노트를 삭제할까요?',
+    deleteLabel: '노트 삭제',
+    deleted: '노트가 삭제되었습니다',
+    deleteBody: (excerpt: string) => `‘${excerpt}’이(가) 완전히 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`,
 
   },
 

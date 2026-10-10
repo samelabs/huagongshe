@@ -43,10 +43,22 @@ const ja: Dictionary = {
     pageNav: 'ページナビゲーション',
     pageOf: (cur: number, total: number) => `${cur} / ${total} ページ`,
     networkError: 'ネットワークエラーです。後でもう一度お試しください。',
-    hcidLabel: (id: number | string) => `化工社 化合物記録 HCID ${id}`,
-    hridLabel: (id: number | string) => `化工社 反応記録 HRID ${id}`,
+    hcidLabel: (id: number | string) => `化工社 化合物記録 HCID $${id}`,
+    hridLabel: (id: number | string) => `化工社 反応記録 HRID $${id}`,
     breadcrumb: 'パンくずリスト',
     close: '閉じる',
+    /* v1.7 组件库 */
+    copy: 'コピー',
+    copied: 'コピーしました',
+    cancel: 'キャンセル',
+    undo: '元に戻す',
+    retry: '再試行',
+    stillProcessing: '処理中です',
+    copyFailed: 'コピーに失敗しました。手動で選択してください',
+    deletedEntity: '削除済み',
+    deleteFailed: '削除に失敗しました。もう一度お試しください',
+    hcidShort: (id: number | string) => `HCID ${id}`,
+    hridShort: (id: number | string) => `HRID ${id}`,
   },
 
   /* ── ナビゲーション / ヘッダー ──────────────────────── */
@@ -285,9 +297,14 @@ const ja: Dictionary = {
     yieldLabel: (v: string) => `収率 ${v}%`,
     internalStandard: '内部標準',
     otherRole: 'その他',
-    confirmDelete: (id: number) => `HRID ${id} を完全に削除しますか？関連する化合物は削除されません。`,
-    jsonLdName: (id: number) => `反応 HRID ${id}`,
-    equationAlt: (id: number) => `HRID ${id} の反応式`,
+    confirmDelete: (id: number) => `HRID $${id} を完全に削除しますか？関連する化合物は削除されません。`,
+    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    deleteTitle: 'この反応を削除しますか？',
+    deleteLabel: '反応を削除',
+    deleted: '反応を削除しました',
+    deleteBody: (id: number) => `HRID ${id} は完全に削除されます。関連する化合物は削除されません。この操作は元に戻せません。`,
+    jsonLdName: (id: number) => `反応 HRID $${id}`,
+    equationAlt: (id: number) => `HRID $${id} の反応式`,
     stepLabel: (n: number) => `工程 ${n}`,
     keepPhase: (phase: string) => `${phase} 相を保持`,
     targetPh: (v: number) => `目標 pH ${v}`,
@@ -435,6 +452,12 @@ const ja: Dictionary = {
     /* R6 */
     profileLoadFailed: '公開ノートの読み込みに失敗しました',
     deleteFailed: '削除に失敗しました。もう一度お試しください',
+
+    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    deleteTitle: 'このノートを削除しますか？',
+    deleteLabel: 'ノートを削除',
+    deleted: 'ノートを削除しました',
+    deleteBody: (excerpt: string) => `「${excerpt}」は完全に削除されます。この操作は元に戻せません。`,
 
   },
 
