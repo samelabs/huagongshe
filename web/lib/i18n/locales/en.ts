@@ -1087,6 +1087,21 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     viewProfile: 'View profile',
   },
 
+  /* ── Editor (IX-5 save status / unsaved guard) ───────── */
+  editor: {
+    saved: 'Saved',
+    saving: 'Saving…',
+    dirty: 'Unsaved changes',
+    failed: 'Save failed',
+    retry: 'Retry',
+    unsavedTitle: 'Discard unsaved changes?',
+    unsavedBody: 'Your edits have not been saved and will be lost if you leave.',
+    unsavedConfirm: 'Discard changes',
+    contentLabel: 'Content',
+    visibilityLabel: 'Visibility',
+    statusLabel: 'Save status',
+  },
+
   /* ── Error pages ───────────────────────────────────── */
   error: {
     title: 'This page could not be loaded',

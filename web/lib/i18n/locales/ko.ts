@@ -1090,6 +1090,21 @@ const ko: Dictionary = {
     viewProfile: '프로필 보기',
   },
 
+  /* ── 편집기(IX-5 저장 상태 / 미저장 가드) ─────────────── */
+  editor: {
+    saved: '저장됨',
+    saving: '저장 중…',
+    dirty: '저장되지 않은 변경 사항',
+    failed: '저장 실패',
+    retry: '다시 시도',
+    unsavedTitle: '저장하지 않은 변경 사항을 버립니까?',
+    unsavedBody: '변경 사항이 아직 저장되지 않았습니다. 떠나면 사라집니다.',
+    unsavedConfirm: '변경 사항 버리기',
+    contentLabel: '내용',
+    visibilityLabel: '공개 범위',
+    statusLabel: '저장 상태',
+  },
+
   /* ── 오류 페이지 ────────────────────────────────────── */
   error: {
     title: '페이지를 일시적으로 불러올 수 없습니다',

@@ -1091,6 +1091,21 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     viewProfile: 'Profil ansehen',
   },
 
+  /* ── Editor (IX-5 Speicherstatus / ungespeichert) ───── */
+  editor: {
+    saved: 'Gespeichert',
+    saving: 'Speichern…',
+    dirty: 'Ungespeicherte Änderungen',
+    failed: 'Speichern fehlgeschlagen',
+    retry: 'Erneut versuchen',
+    unsavedTitle: 'Ungespeicherte Änderungen verwerfen?',
+    unsavedBody: 'Deine Änderungen wurden noch nicht gespeichert und gehen beim Verlassen verloren.',
+    unsavedConfirm: 'Änderungen verwerfen',
+    contentLabel: 'Inhalt',
+    visibilityLabel: 'Sichtbarkeit',
+    statusLabel: 'Speicherstatus',
+  },
+
   /* ── Fehlerseiten ───────────────────────────────────── */
   error: {
     title: 'Seite vorübergehend nicht verfügbar',

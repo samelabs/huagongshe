@@ -1088,6 +1088,21 @@ const ja: Dictionary = {
     viewProfile: 'プロフィールを見る',
   },
 
+  /* ── エディター（IX-5 保存状態 / 未保存ガード） ──────── */
+  editor: {
+    saved: '保存済み',
+    saving: '保存中…',
+    dirty: '未保存の変更あり',
+    failed: '保存に失敗',
+    retry: '再試行',
+    unsavedTitle: '未保存の変更を破棄しますか？',
+    unsavedBody: '変更はまだ保存されていません。このまま離れると失われます。',
+    unsavedConfirm: '変更を破棄',
+    contentLabel: '内容',
+    visibilityLabel: '公開範囲',
+    statusLabel: '保存状態',
+  },
+
   /* ── エラーページ ───────────────────────────────────── */
   error: {
     title: 'ページを一時的に読み込めません',

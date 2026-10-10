@@ -1093,6 +1093,21 @@ const t = {
     viewProfile: '查看主页',
   },
 
+  /* ── 编辑器（IX-5 保存状态 / 未保存拦截） ─────────────── */
+  editor: {
+    saved: '已保存',
+    saving: '保存中…',
+    dirty: '有未保存的修改',
+    failed: '保存失败',
+    retry: '重试',
+    unsavedTitle: '放弃未保存的修改？',
+    unsavedBody: '当前内容尚未保存，离开后将丢失本次修改。',
+    unsavedConfirm: '放弃修改',
+    contentLabel: '内容',
+    visibilityLabel: '可见性',
+    statusLabel: '保存状态',
+  },
+
   /* ── 错误页 ──────────────────────────────────────────── */
   error: {
     title: '页面暂时无法加载',
