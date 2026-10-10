@@ -1,19 +1,25 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 
-export function GlobalSearch({ initial = "", compact = false }: {
+export function GlobalSearch({ initial = "", compact = false, autoFocus = false }: {
   initial?: string;
   compact?: boolean;
+  /** 挂载即聚焦输入框（手机顶栏搜索图标 → /search?focus=1） */
+  autoFocus?: boolean;
 }) {
   const router = useRouter();
   const t = useDictionary();
   const locale = useLocale();
   const [query, setQuery] = useState(initial);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+  }, [autoFocus]);
 
   const submit = () => {
     const value = query.trim();

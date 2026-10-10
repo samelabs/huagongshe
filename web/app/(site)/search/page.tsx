@@ -10,7 +10,7 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import type { Metadata } from "next";
 
-type SearchParams = { q?: string; mode?: string; page?: string };
+type SearchParams = { q?: string; mode?: string; page?: string; focus?: string };
 
 /**
  * S2 (G1.5-A): 搜索页 metadata。
@@ -20,7 +20,7 @@ type SearchParams = { q?: string; mode?: string; page?: string };
  */
 export async function generateMetadata({ searchParams }: { searchParams: Promise<SearchParams> }): Promise<Metadata> {
   const params = await searchParams;
-  const hasQuery = Boolean(params.q || params.mode || params.page);
+  const hasQuery = Boolean(params.q || params.mode || params.page || params.focus);
   if (hasQuery) {
     return { robots: { index: false, follow: true } };
   }
@@ -115,7 +115,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       <header className="search-head">
         <p className="page-kicker">DATA FINDER</p>
         <h1>{mode !== "exact" ? `${relationLabel}${t.search.resultSuffix}` : t.search.title}</h1>
-        <GlobalSearch initial={q} compact />
+        <GlobalSearch initial={q} compact autoFocus={params.focus === "1"} />
         {mode !== "exact" && q && (
           <p className="context-line">
             {t.search.queryStructurePrefix}<code>{q}</code>{t.search.queryStructure}{relationLabel}{mode === "similarity" && similarityThreshold !== null ? t.search.similarityThreshold(similarityThreshold) : ""}{capped ? t.search.cappedHint : ""}

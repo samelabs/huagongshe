@@ -165,6 +165,8 @@
   --w-reading:  720px;
   --w-content:  1040px;
   --w-wide:     1200px;
+  /* 全站顶栏毛玻璃底（DESIGN_SYSTEM §8：白色 86% 透明 + backdrop 模糊） */
+  --header-glass: rgba(255, 255, 255, .86);
 
   /* 动效 */
   --dur-fast: 120ms;

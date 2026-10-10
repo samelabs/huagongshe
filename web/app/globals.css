@@ -20,9 +20,9 @@ h1 { font-weight: var(--fw-medium); }
 h2, h3 { font-weight: var(--fw-semibold); }
 .mono { font-family: var(--font-mono); word-break: break-all; }
 
-.site-header { z-index: 30; border-bottom: 1px solid var(--border); background: var(--bg-surface); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
-.header-inner { width: min(var(--w-wide), calc(100% - 40px)); min-width: 0; height: 64px; margin: 0 auto; display: flex; align-items: center; }
-.brand { display: inline-flex; align-items: center; padding: 12px 0; }  /* 44px 级触控区, 不改 header 高度 */
+/* 顶栏（v1.7 Step 5）= components/shell/SiteHeader（.sh-*，样式在
+   components/shell/shell.css）。旧 .site-header / .header-inner / .brand /
+   .site-main-nav / .login-link / .nav-guide（含 MCP 入口残留）已删除。 */
 /* HGS lockup (components/ui/HgsLogo): 字标 currentColor, 图形标 var(--brand);
    品牌色不随交互状态变化(DESIGN_SYSTEM §2.2), 无 hover 变色 */
 .hgs-logo { display: inline-flex; align-items: center; gap: 10px; color: var(--text); }
@@ -35,9 +35,6 @@ h2, h3 { font-weight: var(--fw-semibold); }
   .hgs-logo svg.hgs-logo-wordmark { width: 44.47px; height: 16.32px; }
   .hgs-logo-zh { display: none; }
 }
-.site-main-nav { min-width: 0; margin-left: auto; display: flex; align-items: center; justify-content: flex-end; gap: 22px; color: var(--text-muted); font-size: var(--fs-13); white-space: nowrap; }
-.login-link { border: 1px solid var(--border-strong); border-radius: var(--r-sm); padding: 8px 13px; min-height: 38px; display: inline-flex; align-items: center; color: var(--text); }
-.nav-guide { min-height: 38px; display: inline-flex; align-items: center; color: inherit; white-space: nowrap; }  /* v1.7: 普通导航项（原微信绿入口按设计规范移除） */
 /* 用户身份菜单样式统一在 app/account-menu.css（AccountMenu 组件专用） */
 
 /* sticky footer: 短页面(main 不足一屏)时 footer 贴视口底, 不再悬在半途 */
@@ -661,11 +658,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .reaction-result-head { padding: 12px 12px 8px; }
   .reaction-result-foot { padding: 10px 12px; flex-wrap: wrap; }
   .reaction-badges { display: none; }
-  .header-inner, .content-page, .home, .auth-page { width: min(100% - 28px, var(--w-wide)); }
-  .header-inner { height: 58px; }
-  .brand { min-width: 0; }
-  .site-main-nav { gap: 8px; font-size: var(--fs-13); }
-  .login-link { padding: 7px 9px; }
+  .content-page, .home, .auth-page { width: min(100% - 28px, var(--w-wide)); }
   footer { padding: 18px 14px; }
   .hero { padding: 44px 0 36px; }
   .hero h1 { font-size: clamp(var(--fs-22), 6vw, var(--fs-28)); }
@@ -744,11 +737,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 }
 @media (max-width: 420px) {
-  .header-inner { width: calc(100% - 20px); }
-  /* 320px 拥挤收敛: spacing/padding 最小收缩, 保住相邻元素零重叠 */
-  .site-main-nav { gap: 4px; }
-  .site-main-nav .lang-switcher summary { padding-left: 4px; padding-right: 4px; }
-  .login-link { padding-left: 8px; padding-right: 8px; }
   .content-page, .home, .auth-page { width: calc(100% - 24px); }
   .hero h1 { font-size: var(--fs-22); }
   .search-submit-btn { padding: 0 16px; }
@@ -998,8 +986,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .mobile-tab-bar .tab-icon { display: flex; align-items: center; justify-content: center; height: 24px; }
   .mobile-tab-bar .tab-label { font-size: var(--fs-12); }
 }
-@media (min-width: 681px) {
-  .mobile-tab-bar { display: none !important; }
+@media (min-width: 641px) {
   /* desktop: local nav 隐藏, 由 secondary rail 的 On this page 承担 */
   .chem-local-nav { display: none; }
 }
@@ -1007,7 +994,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 /* 工作台样式已迁移至 (workbench)/aichem.css，此处无残留 */
 
 @media (hover:hover) {
-  .site-main-nav > a:hover { color: var(--action); }
   footer a:hover { color: var(--action); }
   .button.primary:hover { background: var(--action-hover); }
   .button.secondary:hover { border-color: var(--action); color: var(--action); }
@@ -1231,6 +1217,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .entity-note-card>header a{font-weight:600;color:inherit;text-decoration:none}
 .entity-note-card>p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;margin:10px 0 0}
 .entity-note-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+/* v1.7 EntityBadge 自带边框/底色 —— 外层链接只负责布局,不再画胶囊(避免双层边框) */
 .entity-note-links>a{display:inline-flex;text-decoration:none}
 
 /* ── Phase 1c: Notes 产品闭环 ── */
@@ -1251,7 +1238,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .entity-note-private{border:1px dashed var(--border);border-radius:var(--r-md);padding:12px 16px;margin-bottom:16px}
 .entity-note-private-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .entity-note-private-head h3{margin:0;font-size:var(--fs-14)}
-/* P-8: 实体过滤面包屑 */
+/* P-8: 实体过滤面包屑 —— 徽标自带描边, 容器只保留布局 */
 .wb-filter-crumbs{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:var(--fs-13);color:var(--text-muted)}
 .wb-filter-crumb{display:inline-flex;align-items:center;gap:6px}
 /* P-7: Stoich 成功态下游动作 */

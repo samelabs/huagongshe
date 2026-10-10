@@ -1,19 +1,14 @@
-import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { WorkbenchNav } from "@/components/workbench/WorkbenchNav";
 import { WbMobileNav } from "@/components/workbench/WbMobileNav";
-import { WbTopnav } from "@/components/workbench/WbTopnav";
-import { AccountMenu } from "@/components/shared/AccountMenu";
-import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
-import { WorkbenchCountsProvider } from "@/components/workbench/WorkbenchCountsContext";
 import { MobileTabBar } from "@/components/shared/MobileTabBar";
-import { headers as nextHeaders } from "next/headers";
+import { WorkbenchCountsProvider } from "@/components/workbench/WorkbenchCountsContext";
+import { SiteHeader } from "@/components/shell/SiteHeader";
 import { apiGet } from "@/lib/api";
-import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { getRequestLocale } from "@/lib/serverI18n";
 import { withLocale, splitLocalePrefix } from "@/lib/localePath";
-import { HgsLogo } from "@/components/ui/HgsLogo";
 import type { User } from "@/lib/api";
 import type { Summary } from "@/components/workbench/types";
 import "./aichem-tokens.css";
@@ -34,7 +29,6 @@ async function getSummary(cookieHeader: string): Promise<Summary | null> {
 
 export default async function WorkbenchLayout({ children }: { children: React.ReactNode }) {
   const locale = await getRequestLocale();
-  const t = await getRequestDictionary();
   const h = await headers();
   const cookieHeader = h.get("cookie");
   const user = await getUser(cookieHeader);
@@ -43,7 +37,7 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
     // proxy rewrite 附带 x-site-locale-path 还原原始带前缀路径;
     // 无该 header(未过 locale proxy 的直接访问)保持既有 /login?next=/aichem。
     // locale 前缀判定复用唯一 parser splitLocalePrefix, 不再硬编码五语言 regex。
-    const originalPath = (await nextHeaders()).get("x-site-locale-path");
+    const originalPath = h.get("x-site-locale-path");
     if (originalPath && splitLocalePrefix(originalPath.split("?")[0])) {
       redirect(withLocale(`/login?next=${encodeURIComponent(originalPath)}`, locale));
     }
@@ -54,24 +48,13 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
 
   return (
     <div className="wb-shell">
-      <header className="wb-topbar">
-        <div className="wb-topbar-inner">
-          <Link href={withLocale("/", locale)} className="wb-logo" aria-label={t.nav.home}>
-            <HgsLogo variant="lockup" locale={locale} />
-          </Link>
-
-          <WbTopnav />
-
-          <div className="wb-topbar-user">
-            <div className="wb-topbar-language">
-              <LanguageSwitcher />
-            </div>
-            <AccountMenu user={user} variant="topbar" />
-          </div>
-
-          <WbMobileNav counts={counts} user={user} />
-        </div>
-      </header>
+      {/* v1.7 顶栏统一：全站共用 SiteHeader（原 wb-topbar/WbTopnav 删除）。
+          未读数直传服务端已取的 counts.unread；手机端汉堡按钮（抽屉）经插槽进顶栏；
+          手机底部 tab 由 SiteHeader 内部挂载（与顶栏共用未读上下文）。 */}
+      <SiteHeader
+        initialUnread={counts?.unread ?? 0}
+        mobileActions={<WbMobileNav counts={counts} user={user} />}
+      />
 
       <WorkbenchCountsProvider counts={counts}>
         <div className="wb-body">

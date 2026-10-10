@@ -374,6 +374,8 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 }
 .hg-modal h3 { font-size: var(--fs-18); font-weight: 600; margin: 0; }
 .hg-modal p { margin: 0; color: var(--text-2); }
+/* 覆盖 globals.css 的全局 <footer> 元素规则（border-top + 大内边距 + min-height）：
+   弹窗正文与按钮之间没有分隔线，按钮右对齐（与参考 §6 一致） */
 .hg-modal footer {
   display: flex;
   justify-content: flex-end;

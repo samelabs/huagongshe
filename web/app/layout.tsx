@@ -14,6 +14,8 @@ import "./globals.css";
 import "./account-menu.css";
 // v1.7 组件库样式：tokens.css 之后引入（组件类名 .hg- 覆盖全局默认）
 import "../components/ui/ui.css";
+// v1.7 全局框架（SiteHeader 顶栏 + MobileTabBar 底栏），公开页与工作台共用
+import "../components/shell/shell.css";
 export const viewport: Viewport = {
   // metadata 约定只接受字符串字面量，无法引用 CSS 变量；此值与 tokens.css 的 --brand(blue-500) 一致
   themeColor: "#1e90ff",

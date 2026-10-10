@@ -9,14 +9,15 @@
  *
  * 规则:
  *  - 语言名称恒用各语言自称(zh-CN 简体中文 / en English / ja 日本語 /
- *    ko 한국어 / de Deutsch), 不随界面语言翻译
- *  - 无国旗
+ *    ko 한국어 / de Deutsch), 不随界面语言翻译; 无国旗/无地球图标
+ *  - 触发器视觉 = ghost sm 文字按钮（v1.7 顶栏右侧，DESIGN_SYSTEM §8）
  *  - /samelabs/* 下不渲染(路径检测, 该区域不在 locale 治理范围)
  *  - locale 列表复用 SUPPORTED_LOCALES, 不建第二份
  *  - query 直接取当前路由状态(useSearchParams), 无挂载后快照 ——
  *    客户端搜索导航后切换语言携带的是当前 query, 而非初始 URL 的
  */
 
+import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { SUPPORTED_LOCALES, isPathAtOrBelow, replaceLocalePrefix } from "@/lib/localePath";
@@ -37,16 +38,28 @@ export function LanguageSwitcher() {
   const searchParams = useSearchParams();
   const search = searchParams.toString();
   const suffix = search ? `?${search}` : "";
+  const detailsRef = useRef<HTMLDetailsElement>(null);
 
   // samelabs 后台不在 locale 治理范围(边界语义: /samelabs 与 /samelabs/*, 不含 /samelabs-guide 等)
   if (isPathAtOrBelow(pathname, "/samelabs")) return null;
 
+  // Esc 关闭浮层（IX-10），焦点回触发器
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      const el = detailsRef.current;
+      if (el?.open) {
+        el.open = false;
+        el.querySelector("summary")?.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
-    <details className="lang-switcher" aria-label={t.nav.languageSwitcher}>
-      <summary>
-        <span aria-hidden="true">🌐</span>
-        <span className="lang-switcher-current">{NATIVE_NAMES[locale] ?? locale}</span>
-      </summary>
+    <details className="lang-switcher" aria-label={t.nav.languageSwitcher} ref={detailsRef}>
+      <summary>{NATIVE_NAMES[locale] ?? locale}</summary>
       <div className="lang-switcher-menu" role="menu">
         {SUPPORTED_LOCALES.map((l) => (
           <a

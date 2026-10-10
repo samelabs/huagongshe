@@ -22,84 +22,22 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── 顶栏 ── */
-.wb-topbar {
-  flex-shrink: 0;
-  height: var(--wb-topbar-h);
-  display: flex;
-  align-items: center;
-  gap: var(--wb-sp-5);
-  padding: 0 var(--wb-sp-5);
-  background: var(--wb-paper);
-  border-bottom: 1px solid var(--wb-line);
-}
+/* ── 顶栏 ──
+   v1.7 Step 5：工作台不再有自己的顶栏 —— 全站共用 components/shell/SiteHeader。
+   旧 .wb-topbar / .wb-topbar-inner / .wb-logo / .wb-topnav* / .wb-topbar-user 已删除。 */
 
-.wb-topbar-inner {
-  width: 100%;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--wb-sp-5);
-}
+/* ── 汉堡按钮（挂 SiteHeader mobileActions 插槽；视觉走 .hg-btn ghost icon，
+      此处只负责显隐） ── */
+.wb-burger { flex-shrink: 0; }
 
-/* HGS lockup (HgsLogo): 字标 currentColor, 尺寸/中文副标由 globals.css .hgs-logo 系列控制;
-   品牌色不随交互状态变化(DESIGN_SYSTEM §2.2), 无 hover 变色 */
-.wb-logo {
-  display: inline-flex;
-  align-items: center;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-/* ── 顶部导航 ── */
-.wb-topnav {
-  display: flex;
-  align-items: center;
-  gap: var(--wb-sp-1);
-  white-space: nowrap;
-}
-.wb-topnav-link {
-  display: flex;
-  align-items: center;
+/* ── 快捷操作（Part D 临时安置：侧栏顶部 / 抽屉顶部） ── */
+.wb-quick-actions {
+  display: grid;
   gap: var(--wb-sp-2);
-  padding: var(--wb-sp-1) var(--wb-sp-3);
-  border-radius: var(--wb-r-sm);
-  font-size: var(--wb-fs);
-  color: var(--wb-muted);
-  cursor: pointer;
+  padding: 0 var(--wb-sp-4) var(--wb-sp-4);
 }
-.wb-topnav-link.active { color: var(--wb-blue); }
-.wb-topnav-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.wb-topnav-label { display: inline; }
-
-/* ── 顶栏用户区 ── */
-.wb-topbar-user {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: var(--wb-sp-3);
-  min-width: 0;
-}
-/* 顶栏用户区内容 = 共享 AccountMenu（variant=topbar），样式在 app/account-menu.css */
-
-/* ── 汉堡按钮 ── */
-.wb-burger {
-  width: var(--wb-avatar-sm);
-  height: var(--wb-avatar-sm);
-  border: 1px solid var(--wb-line-strong);
-  border-radius: var(--wb-r-sm);
-  background: transparent;
-  color: var(--wb-ink);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
+.wb-drawer-body .wb-quick-actions { padding: var(--wb-sp-3) var(--wb-sp-2) var(--wb-sp-2); }
+.wb-quick-actions .hg-btn { width: 100%; }
 
 /* ── 主体区 — flex row ── */
 .wb-body {
@@ -960,6 +898,8 @@
   color: var(--wb-quiet);
   font-size: var(--wb-fs-xs);
 }
+/* 危险色只作用于 Token 撤销这类破坏性文字按钮；
+   面板内其余 .text-button（笔记卡「查看全文」等）走全局链接色 var(--action) */
 .wb-panel .token-actions .text-button {
   border: none;
   background: none;
@@ -1144,11 +1084,12 @@
   }
 }
 
+
 /* ═══════════════════════════════════════════════════════════════
    L9 — Mobile
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── 手机抽屉 ── 常驻 DOM，transform 切换 */
+/* ── 手机抽屉 ── 常驻 DOM，transform 切换；v1.7 视觉换新 token（§4 浮层） */
 .wb-drawer-overlay {
   position: fixed; inset: 0;
   background: var(--wb-overlay);
@@ -1170,37 +1111,49 @@
   background: var(--wb-paper);
   display: flex;
   flex-direction: column;
-  box-shadow: -4px 0 24px rgba(0, 0, 0, .12);
+  box-shadow: var(--shadow-float);
   transform: translateX(100%);
   transition: transform .22s cubic-bezier(.4, 0, .2, 1);
   visibility: hidden;
-  border-radius: 0 0 0 var(--wb-r-md);
+  border-radius: 0 0 0 var(--r-lg);
 }
 .wb-drawer.open {
   transform: translateX(0);
   visibility: visible;
 }
 
-/* 抽屉头部 — AccountMenu(variant=drawer) + 关闭按钮 */
+/* 抽屉头部 — 用户信息（身份菜单在顶栏头像 UserMenu）+ 关闭按钮 */
 .wb-drawer-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--wb-sp-3);
-  padding: var(--wb-sp-4);
+  padding: var(--wb-sp-3) var(--wb-sp-4);
   border-bottom: 1px solid var(--wb-line);
 }
-.wb-drawer-close {
-  width: var(--wb-sp-6);
-  height: var(--wb-sp-6);
-  border: 0;
-  border-radius: var(--wb-r-sm);
-  background: transparent;
-  color: var(--wb-muted);
-  cursor: pointer;
+.wb-drawer-user {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  gap: var(--wb-sp-3);
+  min-width: 0;
+}
+.wb-drawer-user-meta {
+  display: grid;
+  min-width: 0;
+}
+.wb-drawer-user-meta strong {
+  font-size: var(--wb-fs);
+  color: var(--wb-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wb-drawer-user-meta span {
+  font-size: var(--wb-fs-xs);
+  color: var(--wb-quiet);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wb-drawer-body {
@@ -1209,6 +1162,14 @@
   padding: var(--wb-sp-2);
   -webkit-overflow-scrolling: touch;
 }
+.wb-drawer-language {
+  padding: var(--wb-sp-2) var(--wb-sp-2) var(--wb-sp-3);
+  border-bottom: 1px solid var(--wb-line);
+  margin-bottom: var(--wb-sp-2);
+}
+.wb-drawer-language .lang-switcher-menu {
+  max-width: calc(100vw - 48px);
+}
 .wb-drawer-nav { display: block; }
 .wb-drawer-nav .wb-nav-group + .wb-nav-group { margin-top: var(--wb-sp-2); }
 .wb-drawer-nav .wb-nav-link {
@@ -1216,8 +1177,10 @@
   font-size: var(--wb-fs);
 }
 
-/* ── 桌面 ≥681px ── */
-@media (min-width: 681px) {
+/* ── 桌面 >640px ──
+   v1.7 Step 5：手机断点与全站统一为 ≤640（SiteHeader 手机态 + MobileTabBar）。
+   641–1024 平板区间：顶栏主导航进「更多」菜单，工作台保持桌面布局。 */
+@media (min-width: 641px) {
   /* 桌面为静态文档流: 短内容时壳高度需至少覆盖视口, 否则露出 body 异色断层 */
   .wb-shell { position: static; min-height: 100dvh; background: var(--wb-paper); }
   .wb-burger { display: none; }
@@ -1251,25 +1214,6 @@
 
   /* 隐藏桌面侧栏，用抽屉替代 */
   .wb-aside { display: none; }
-
-  /* 显示汉堡 + 底部栏 */
-  .wb-burger { display: flex; }
-  .wb-shell .mobile-tab-bar { display: flex; }
-
-  /* 手机顶栏: 品牌 + 两个创建动作 + 菜单。Home 走底栏，Search/Account 走抽屉。 */
-  .wb-topbar {
-    padding: 0 var(--wb-sp-4);
-    gap: var(--wb-sp-2);
-  }
-  .wb-topbar-inner { gap: var(--wb-sp-2); }
-  .wb-topbar-user { display: none; }
-  .wb-topnav {
-    margin-left: auto;
-    gap: 2px;
-  }
-  .wb-topnav-link-nav { display: none; }
-  .wb-topnav-link { padding: var(--wb-sp-2); }
-  .wb-topnav-label { display: none; }
 
   /* 内容区 */
   .wb-main { padding: var(--wb-sp-4); }
@@ -1567,6 +1511,7 @@
   flex-wrap:wrap;
   gap:var(--wb-sp-2);
 }
+/* v1.7 EntityBadge 自带边框/底色 —— 已选引用的移除按钮不再画胶囊(避免双层边框) */
 .wb-note-reference-chips>button{
   display:inline-flex;
   align-items:center;
@@ -1609,6 +1554,7 @@
   gap:var(--wb-sp-2);
   margin-top:var(--wb-sp-2);
 }
+/* v1.7 EntityBadge 自带边框/底色 —— 外层链接只负责布局,不再画胶囊(避免双层边框) */
 .wb-note-links>a{
   display:inline-flex;
   text-decoration:none;
@@ -1670,7 +1616,6 @@
 
 /* ── hover 交互: 只在真指针设备生效(触屏跳过, 避免首点粘滞) ── */
 @media (hover: hover) and (pointer: fine) {
-.wb-topnav-link:hover { color: var(--wb-blue); }
 .wb-nav-link:hover {
   background: var(--wb-wash);
   color: var(--wb-ink);

@@ -1,0 +1,211 @@
+/* ═══════════════════════════════════════════════════════════════
+   shell.css — v1.7 全局框架（DESIGN_SYSTEM §8，参考 §8–11 模板顶栏、§12 手机端）
+   ═══════════════════════════════════════════════════════════════
+   - SiteHeader：公开页与工作台共用的唯一顶栏（桌面 / 平板 / 手机三态）。
+   - MobileTabBar：手机底部 4 tab（查询 / 工作台 / 动态 / 我的）。
+   - 取值只引用 tokens.css 语义 token；浮层阴影只用 --shadow-float。
+   - 由 app/layout.tsx 在 ui.css 之后引入。
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ══ 桌面顶栏（>1024） ═══════════════════════════════════════ */
+.sh-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--header-glass);
+  backdrop-filter: saturate(1.6) blur(10px);
+  -webkit-backdrop-filter: saturate(1.6) blur(10px);
+  /* 不吸顶（v1.6 锚点修复保持）：正常文档流，无 position:sticky */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+.sh-inner {
+  width: min(var(--w-wide), calc(100% - 40px));
+  min-width: 0;
+  margin: 0 auto;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+}
+.sh-logo {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 0; /* 扩大点击区，不改变 header 高度 */
+  flex: none;
+  color: var(--text);
+}
+
+/* 主导航（参考 .p-nav） */
+.sh-nav { display: flex; gap: 2px; flex: none; }
+.sh-nav a {
+  padding: 7px 12px;
+  border-radius: var(--r-xs);
+  color: var(--text-2);
+  font-size: var(--fs-14);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.sh-nav a:hover { background: var(--bg-hover); color: var(--text); }
+.sh-nav a.on { color: var(--text); background: var(--bg-subtle); }
+.sh-nav a:focus-visible, .sh-logo:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-xs); }
+
+/* 全局搜索框（参考 .p-hsearch） */
+.sh-search { flex: 1; max-width: 380px; margin-left: auto; position: relative; min-width: 0; }
+.sh-search input {
+  width: 100%;
+  height: 36px;
+  padding: 0 52px 0 34px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: var(--bg-subtle);
+  font: 400 var(--fs-14) var(--font-ui);
+  color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.sh-search input::placeholder { color: var(--text-muted); }
+.sh-search input:focus { outline: none; border-color: var(--action); background: var(--bg-surface); box-shadow: 0 0 0 4px var(--focus-halo); }
+.sh-search .sh-search-icon {
+  position: absolute; left: 11px; top: 10px;
+  width: 16px; height: 16px; color: var(--text-muted);
+  pointer-events: none;
+}
+.sh-search kbd {
+  position: absolute; right: 8px; top: 8px;
+  font: var(--fs-12) var(--font-mono);
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-xs);
+  padding: 1px 5px;
+  background: var(--bg-surface);
+  pointer-events: none;
+}
+
+/* 右侧区（参考 .p-right） */
+.sh-right { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+.sh-bell { position: relative; }
+.sh-bell-dot {
+  position: absolute; top: 6px; right: 7px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--err);
+  box-shadow: 0 0 0 2px var(--bg-surface);
+}
+
+/* ══ 下拉菜单（头像菜单 / 更多菜单共用） ════════════════════ */
+.sh-menu { position: relative; }
+.sh-menu-trigger { display: inline-flex; align-items: center; gap: 4px; }
+.sh-menu-trigger .sh-chev { width: 14px; height: 14px; color: var(--text-muted); transition: transform var(--dur-fast) var(--ease); }
+.sh-menu.open .sh-menu-trigger .sh-chev { transform: rotate(90deg); }
+.sh-menu-panel {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 60;
+  min-width: 200px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-float);
+  padding: var(--sp-1);
+  display: grid;
+}
+.sh-menu-head { padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border); margin-bottom: var(--sp-1); display: grid; gap: 2px; }
+.sh-menu-head strong { font-size: var(--fs-14); font-weight: 600; color: var(--text); }
+.sh-menu-head span { font-size: var(--fs-12); color: var(--text-muted); }
+.sh-menu-panel a, .sh-menu-panel button {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 8px var(--sp-3);
+  border-radius: var(--r-xs);
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+.sh-menu-panel a:hover, .sh-menu-panel button:hover { background: var(--bg-hover); color: var(--text); }
+.sh-menu-panel a.on { color: var(--text); background: var(--bg-subtle); font-weight: 500; }
+.sh-menu-panel a:focus-visible, .sh-menu-panel button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.sh-menu-panel .sh-menu-logout { color: var(--err); }
+.sh-menu-panel .sh-menu-logout:hover { background: var(--err-bg); color: var(--err); }
+
+/* ══ 平板（641–1024）：主导航收进「更多」，搜索框缩短 ═══════ */
+.sh-more { display: none; }
+@media (min-width: 641px) and (max-width: 1024px) {
+  .sh-nav { display: none; }
+  .sh-inner { gap: var(--sp-3); }
+  .sh-search { max-width: 200px; }
+  .sh-more { display: block; }
+}
+
+/* ══ 手机（≤640）：高 52，标志 + 搜索图标 + 头像/登录 ═══════ */
+.sh-mobile-right { display: none; }
+.sh-login-sm {
+  display: inline-flex;
+  align-items: center;
+  height: var(--h-sm);
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-13);
+  font-weight: 500;
+  color: var(--text-2);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.sh-login-sm:hover { background: var(--bg-hover); color: var(--text); }
+@media (max-width: 640px) {
+  .sh-inner {
+    width: calc(100% - 24px);
+    height: var(--header-h-m);
+    gap: var(--sp-2);
+  }
+  .sh-nav, .sh-search, .sh-more, .sh-bell, .sh-lang, .sh-login-btn { display: none; }
+  .sh-mobile-right { display: flex; align-items: center; gap: var(--sp-1); margin-left: auto; }
+}
+
+/* ══ 手机底部 tab（参考 .m-tab） ════════════════════════════ */
+.sh-tabbar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 40;
+  display: none;
+  grid-template-columns: repeat(4, 1fr);
+  height: var(--tabbar-h);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--header-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 640px) {
+  .sh-tabbar { display: grid; }
+}
+.sh-tab {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 3px;
+  font-size: var(--fs-12);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-tab svg { width: 22px; height: 22px; }
+.sh-tab.on { color: var(--action); }
+.sh-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.sh-tab .sh-tab-badge {
+  position: absolute;
+  top: 6px;
+  left: calc(50% + 6px);
+  background: var(--err);
+  color: var(--text-inverse);
+  font: 600 var(--fs-12) / 1 var(--font-ui);
+  font-style: normal;
+  border-radius: var(--r-pill);
+  padding: 2px 5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-menu-trigger .sh-chev { transition: none; }
+}
