@@ -158,6 +158,10 @@
     height: var(--header-h-m);
     gap: var(--sp-2);
   }
+  /* Step 9 修复：此前只隐藏 .sh-right 的子项（铃铛/语言/登录），漏了
+     UserMenu——手机端 .sh-right 与 .sh-mobile-right 各渲染一个头像菜单，
+     顶栏出现两个「S˅」。整组隐藏，手机只留 .sh-mobile-right 一份。 */
+  .sh-right { display: none; }
   .sh-nav, .sh-search, .sh-more, .sh-bell, .sh-lang, .sh-login-btn { display: none; }
   .sh-mobile-right { display: flex; align-items: center; gap: var(--sp-1); margin-left: auto; }
 }

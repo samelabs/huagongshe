@@ -178,19 +178,10 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
         </div>
       </header>
 
-      {/* 手机（≤640）：我的内容 ↔ 关注动态 切换 */}
-      <div className="wb-home2-switch">
-        <Segmented
-          ariaLabel={t.me.mineTitle}
-          options={[
-            { value: "mine", label: t.me.mineTitle },
-            { value: "feed", label: t.me.mobileFeedLabel(counts.unread) },
-          ]}
-          value={mobileView}
-          onChange={(value) => setMobileView(value)}
-        />
-      </div>
-
+      {/* ── 手机（≤640）：标题行 → 快速检索 → 2×2 快捷入口 → Segmented
+          （我的内容 | 关注动态 · N）→ 列表 → 主页卡片（§9.7 / Step 9 A.3）。
+          Segmented 放进 grid（data-area=switch）：手机在 quick 与 mine 之间，
+          桌面由 CSS 隐藏。 ── */}
       <div className="wb-home2-grid">
         {/* ── 快速检索 + 快捷入口 ── */}
         <section className="wb-card wb-home2-quick" data-area="quick">
@@ -222,6 +213,19 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
             ))}
           </div>
         </section>
+
+        {/* ── 手机切换：我的内容 ↔ 关注动态（桌面隐藏，见 CSS） ── */}
+        <div className="wb-home2-switch" data-area="switch">
+          <Segmented
+            ariaLabel={t.me.mineTitle}
+            options={[
+              { value: "mine", label: t.me.mineTitle },
+              { value: "feed", label: t.me.mobileFeedLabel(counts.unread) },
+            ]}
+            value={mobileView}
+            onChange={(value) => setMobileView(value)}
+          />
+        </div>
 
         {/* ── 我的内容 ── */}
         <section className="wb-card wb-home2-mine" data-area="mine">

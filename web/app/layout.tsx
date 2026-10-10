@@ -4,6 +4,7 @@ import { AccountProvider } from "@/components/shared/AccountContext";
 import { I18nProvider } from "@/components/shared/I18nContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import { HydrationMarker } from "@/components/shell/HydrationMarker";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { SITE_ORIGIN } from "@/lib/alternates";
 import { pwaAppName } from "@/lib/pwa";
@@ -95,6 +96,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             <ToastProvider>
               <ConfirmProvider>
                 {children}
+                {/* 水合哨兵：挂载后 <html data-hydrated=1>，截图工具等待它（Step 9 Part A.1） */}
+                <HydrationMarker />
               </ConfirmProvider>
             </ToastProvider>
           </I18nProvider>

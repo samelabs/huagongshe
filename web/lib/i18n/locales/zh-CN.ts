@@ -349,6 +349,9 @@ const t = {
     tabStoich: '投料计算',
     tabReactions: '我的反应',
     tabSaved: '我的收藏',
+    /* Step 9 A.4：侧栏短文案（§9.4「收藏」「动态」）；面板标题与底部 tab
+       继续用 tabSaved/tabActivity，互不影响 */
+    sideSaved: '收藏',
     tabSkills: '我的技能',
     skillsHint: '上传、下载和管理你的 AI 技能包（zip，根目录含 SKILL.md）',
     skillsUpload: '上传技能包',
@@ -372,6 +375,7 @@ const t = {
     skillDownload: '下载',
     skillDelete: '删除',
     tabActivity: '关注动态',
+    sideActivity: '动态',
     tabFollowers: '粉丝',
     tabFollowing: '关注',
     homeGreeting: (name: string) => `${name}的工作台`,

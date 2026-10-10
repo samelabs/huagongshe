@@ -30,11 +30,13 @@ export const workbenchRegistry: Omit<WorkbenchPanelConfig, "label">[] = [
 
 /** panel id → 当前字典下的导航 label */
 export function panelLabel(id: string, t: Dictionary): string {
+  // Step 9 A.4：saved/activity 用侧栏短文案（§9.4「收藏」「动态」），
+  // 面板标题仍用 tabSaved/tabActivity（长文案），底部 tab 用 nav.* 独立 key。
   const me: Record<string, string> = {
     home: t.me.tabHome, notes: t.nav.tabNotes, search: t.me.tabSearch, stoich: t.me.tabStoich,
-    mine: t.me.tabReactions, saved: t.me.tabSaved, skills: t.me.navSkills,
+    mine: t.me.tabReactions, saved: t.me.sideSaved, skills: t.me.navSkills,
     "api-tokens": t.me.navMcpKey, profile: t.me.navSettings,
-    activity: t.me.tabActivity, following: t.me.tabFollowing, followers: t.me.tabFollowers,
+    activity: t.me.sideActivity, following: t.me.tabFollowing, followers: t.me.tabFollowers,
   };
   return me[id] ?? id;
 }

@@ -508,16 +508,18 @@
 }
 .wb-home2-actions { display: flex; gap: var(--wb-sp-2); flex: none; }
 
-/* 手机 Segmented（我的内容 ↔ 关注动态）：桌面隐藏 */
+/* 手机 Segmented（我的内容 ↔ 关注动态）：桌面隐藏；
+   手机在 grid 内 quick 与 mine 之间（Step 9 A.3 区块顺序） */
 .wb-home2-switch { display: none; }
 
 .wb-home2-grid {
   display: grid;
   gap: var(--sp-6);
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "quick" "mine" "feed" "profile";
+  grid-template-areas: "quick" "switch" "mine" "feed" "profile";
 }
 .wb-home2-grid > [data-area="quick"] { grid-area: quick; }
+.wb-home2-grid > [data-area="switch"] { grid-area: switch; }
 .wb-home2-grid > [data-area="mine"] { grid-area: mine; }
 .wb-home2-grid > [data-area="profile"] { grid-area: profile; }
 .wb-home2-grid > [data-area="feed"] { grid-area: feed; }
@@ -661,16 +663,38 @@
 .wb-feed-actions { display: flex; gap: var(--wb-sp-2); }
 .wb-feed-all { text-align: center; font-size: var(--wb-fs-sm); color: var(--wb-blue); }
 
-/* 手机 ≤640：标题行 fs-22、创建按钮收进顶栏「+」、检索 48 高、
-   Segmented 切换 我的内容/关注动态、主页卡最后 */
+/* 手机 ≤640：标题行 fs-22、创建按钮收进顶栏「+」、
+   快速检索脱离卡片框（48 高、图标入框左侧）＋ 2×2 快捷入口、
+   Segmented 切换 我的内容/关注动态、主页卡最后（Step 9 A.3 顺序） */
 @media (max-width: 640px) {
   .wb-home2-head h2 { font-size: var(--fs-22); }
   .wb-home2-actions { display: none; }
   .wb-home2-switch { display: block; }
   .wb-home2[data-view="mine"] > .wb-home2-grid > [data-area="feed"] { display: none; }
   .wb-home2[data-view="feed"] > .wb-home2-grid > [data-area="mine"] { display: none; }
-  .wb-home2-quick .wb-search-field input { height: 48px; border-radius: var(--wb-r-md); }
-  .wb-home2-quick .wb-search-submit { height: 48px; border-radius: var(--wb-r-md); }
+  /* 快速检索不用卡片外框：直接是输入框（48 高 / r-md / 图标框内左侧）+ 查询按钮。
+     选择器带 .wb-home2 前缀抬特异性，压过卡片基座 .wb-home2 .wb-card。 */
+  .wb-home2 .wb-home2-quick {
+    border: none;
+    background: none;
+    padding: 0;
+  }
+  .wb-home2-quick .wb-search-field { position: relative; }
+  .wb-home2-quick .wb-search-field-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .wb-home2-quick .wb-search-field input {
+    height: 48px;
+    border-radius: var(--r-md);
+    padding-left: 38px;
+    font-size: 16px;
+  }
+  .wb-home2-quick .wb-search-submit { height: 48px; border-radius: var(--r-md); }
 }
 
 /* ── 搜索结果 ── */
