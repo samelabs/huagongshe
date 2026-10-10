@@ -1,34 +1,20 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
+import { CodeField } from "@/components/ui/CodeField";
 
-function CopyJson() {
-  const t = useDictionary();
-  const [copied, setCopied] = useState(false);
-  async function copy() {
-    await navigator.clipboard.writeText(t.mcp.commonJson);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  }
-  return <div className="prompt-box">
-    <pre>{t.mcp.commonJson}</pre>
-    <button type="button" className="button secondary small" onClick={copy}>
-      {t.mcp.copyJson(copied)}
-    </button>
-  </div>;
-}
-
-function AgentCard({ title, desc, steps }: { title: string; desc: string; steps: readonly string[] }) {
-  return <article className="guide-card mcp-agent-card">
+/** 文档页（§9.6，Step 11）：阅读版式 --w-reading 720；配置片段走 CodeField
+ *  multiline（IX-7：复制 aria-live 播报 + ✓ 1.5s，内部滚动不撑破布局）。 */
+function AgentSteps({ title, desc, steps }: { title: string; desc: string; steps: readonly string[] }) {
+  return <div className="guide-prose-list">
     <h3>{title}</h3>
     <p>{desc}</p>
     <ol className="mcp-agent-steps">
       {steps.map((step, i) => <li key={i}>{step}</li>)}
     </ol>
-  </article>;
+  </div>;
 }
 
 export default function McpPage() {
@@ -36,60 +22,57 @@ export default function McpPage() {
   const locale = useLocale();
   return <div className="content-page guide-page mcp-page">
     <header className="page-head guide-hero">
-      <div className="guide-hero-top">
-        <p className="page-kicker">MCP</p>
-      </div>
       <h1>{t.mcp.hero}</h1>
       <p>{t.mcp.heroBody}</p>
     </header>
 
     <section className="guide-section" id="chatgpt-plugin">
-      <div className="section-heading"><div><p className="page-kicker">{t.mcp.pluginKicker}</p><h2>{t.mcp.pluginTitle}</h2></div></div>
-      <p className="guide-ref-intro">{t.mcp.pluginStatus}</p>
+      <div className="section-heading"><div><h2>{t.mcp.pluginTitle}</h2></div></div>
+      <p className="guide-section-intro">{t.mcp.pluginStatus}</p>
     </section>
 
     <section className="guide-section">
-      <div className="section-heading"><div><p className="page-kicker">{t.mcp.connectKicker}</p></div></div>
+      <div className="section-heading"><div><h2>{t.mcp.connectKicker}</h2></div></div>
       <div className="mcp-connect">
         <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.mcp.connectUrlLabel}</span>
-          <code className="mcp-connect-value">https://huagongshe.com/mcp</code>
+          <CodeField value="https://huagongshe.com/mcp" />
         </div>
         <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.mcp.connectAnonLabel}</span>
-          <span className="mcp-connect-value">{t.mcp.connectAnonDesc}</span>
+          <p className="mcp-connect-text">{t.mcp.connectAnonDesc}</p>
         </div>
         <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.mcp.connectOauthLabel}</span>
-          <span className="mcp-connect-value">{t.mcp.connectOauthDesc}</span>
+          <p className="mcp-connect-text">{t.mcp.connectOauthDesc}</p>
         </div>
       </div>
     </section>
 
     <section className="guide-section">
-      <div className="section-heading"><div><p className="page-kicker">{t.mcp.connectCompatKicker}</p></div></div>
+      <div className="section-heading"><div><h2>{t.mcp.connectCompatKicker}</h2></div></div>
       <div className="mcp-connect">
         <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.mcp.connectTokenLabel}</span>
-          <code className="mcp-connect-value">Authorization: Bearer &lt;AI Key&gt;</code>
+          <CodeField value="Authorization: Bearer <AI Key>" />
         </div>
         <p className="mcp-connect-desc">{t.mcp.connectTokenDesc}</p>
         <div className="guide-actions">
-          <Link className="button secondary" href={withLocale("/me/settings/api-tokens", locale)}>{t.mcp.connectTokenCta}</Link>
+          <Link className="hg-btn secondary" href={withLocale("/me/settings/api-tokens", locale)}>{t.mcp.connectTokenCta}</Link>
         </div>
       </div>
     </section>
 
     <section className="guide-section">
-      <div className="section-heading"><div><p className="page-kicker">{t.mcp.commonKicker}</p></div></div>
-      <p className="guide-ref-intro">{t.mcp.commonDesc}</p>
-      <CopyJson />
-      <p className="guide-ref-intro">{t.mcp.compatJsonDesc}</p>
+      <div className="section-heading"><div><h2>{t.mcp.commonKicker}</h2></div></div>
+      <p className="guide-section-intro">{t.mcp.commonDesc}</p>
+      <CodeField value={t.mcp.commonJson} multiline />
+      <p className="guide-section-intro">{t.mcp.compatJsonDesc}</p>
     </section>
 
     <section className="guide-section">
-      <div className="section-heading"><div><p className="page-kicker">{t.mcp.toolsKicker}</p></div></div>
-      <p className="guide-ref-intro">{t.mcp.toolsIntro}</p>
+      <div className="section-heading"><div><h2>{t.mcp.toolsKicker}</h2></div></div>
+      <p className="guide-section-intro">{t.mcp.toolsIntro}</p>
       <table className="guide-ref-table mcp-tools-table">
         <tbody>
           {t.mcp.tools.map((tool) => (
@@ -104,16 +87,16 @@ export default function McpPage() {
     </section>
 
     <section className="guide-section">
-      <div className="section-heading"><div><p className="page-kicker">{t.mcp.agentsKicker}</p></div></div>
-      <div className="guide-cards mcp-agents">
-        <AgentCard title={t.mcp.qwenTitle} desc={t.mcp.qwenDesc} steps={t.mcp.qwenSteps} />
-        <AgentCard title={t.mcp.workbuddyTitle} desc={t.mcp.workbuddyDesc} steps={t.mcp.workbuddySteps} />
-        <AgentCard title={t.mcp.doubaoTitle} desc={t.mcp.doubaoDesc} steps={t.mcp.doubaoSteps} />
+      <div className="section-heading"><div><h2>{t.mcp.agentsKicker}</h2></div></div>
+      <div className="guide-agent-stack">
+        <AgentSteps title={t.mcp.qwenTitle} desc={t.mcp.qwenDesc} steps={t.mcp.qwenSteps} />
+        <AgentSteps title={t.mcp.workbuddyTitle} desc={t.mcp.workbuddyDesc} steps={t.mcp.workbuddySteps} />
+        <AgentSteps title={t.mcp.doubaoTitle} desc={t.mcp.doubaoDesc} steps={t.mcp.doubaoSteps} />
       </div>
     </section>
 
     <section className="guide-section guide-trust">
-      <div className="section-heading"><div><p className="page-kicker">{t.mcp.trustKicker}</p></div></div>
+      <div className="section-heading"><div><h2>{t.mcp.trustKicker}</h2></div></div>
       <ul className="guide-trust-list">
         <li>{t.mcp.trust1}</li>
         <li>{t.mcp.trust2}</li>

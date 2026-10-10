@@ -1,19 +1,13 @@
 "use client";
 
-import { useState } from "react";
+/**
+ * AiSubmissionPrompt — 指南页的 AI 提交提示词（Step 11 §9.6）：
+ * CodeField multiline + CopyButton（IX-7 复制播报/✓ 1.5s），不再手写 clipboard。
+ */
 import { useDictionary } from "@/components/shared/I18nContext";
+import { CodeField } from "@/components/ui/CodeField";
 
 export function AiSubmissionPrompt() {
   const t = useDictionary();
-  const prompt = t.guide.aiPrompt;
-  const [copied, setCopied] = useState(false);
-  async function copy() {
-    await navigator.clipboard.writeText(prompt);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  }
-  return <div className="prompt-box">
-    <pre>{prompt}</pre>
-    <button type="button" className="button secondary small" onClick={copy}>{copied ? t.guide.copyPrompt(true) : t.guide.copyPrompt(false)}</button>
-  </div>;
+  return <CodeField value={t.guide.aiPrompt} copyLabel={t.guide.copyPrompt(false)} multiline />;
 }

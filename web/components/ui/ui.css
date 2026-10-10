@@ -265,7 +265,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   padding: 0 4px 0 var(--sp-3);
   height: var(--h-md);
 }
-.hg-code code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-13); color: var(--text); }
+/* Step 11（IX-7 / §9.6）：内容在字段内部横向滚动（overflow-x），页面不横滚 */
+.hg-code code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-13); color: var(--text); scrollbar-width: thin; }
+/* 多行形态（JSON / 长提示词）：块状布局，按钮常驻右上，纵向限高内部滚动 */
+.hg-code.multiline { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--sp-1) var(--sp-2); padding: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-3); height: auto; }
+.hg-code.multiline code { grid-column: 1; white-space: pre; overflow: auto; max-height: 320px; line-height: 1.65; }
+.hg-code.multiline .hg-copy-wrap { grid-column: 2; grid-row: 1; }
 .hg-copy-wrap { display: contents; }
 .hg-copy {
   height: 30px;

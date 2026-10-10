@@ -853,12 +853,25 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .api-guide-link { color: var(--action); font-size: var(--fs-13); }
 .token-help-links { margin-top: 14px; display: flex; gap: 18px; }
 
-.guide-page { max-width: var(--w-content); }
+/* ── 文档页（§9.6，Step 11）：阅读版式 --w-reading 720；h2 与实体页分区同规格 ── */
+.guide-page { max-width: var(--w-reading); }
 .guide-hero { max-width: var(--w-reading); padding: 30px 0 34px; }
-.guide-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.guide-hero-top { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .guide-hero > p:not(.page-kicker) { max-width: var(--w-reading); margin: 18px 0 0; line-height: 1.8; }
+.guide-section { border-top: 1px solid var(--border); padding: 40px 0; }
+.guide-section .section-heading h2,
+.guide-section > h2 { margin: 0 0 16px; font-size: var(--fs-22); font-weight: 600; letter-spacing: var(--ls-heading); color: var(--text); }
+.guide-section-intro { margin: 0 0 16px; color: var(--text-muted); font-size: var(--fs-14); line-height: 1.75; }
 .guide-actions { margin-top: 22px; display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
-.guide-section { border-top: 1px solid var(--border); padding: 48px 0; }
+
+/* 段落 + 小标题为主（Step 11 去卡片化）：h3 + p 直排 */
+.guide-prose-list { display: grid; gap: 6px; }
+.guide-prose-list + .guide-prose-list,
+.guide-agent-stack .guide-prose-list + .guide-prose-list { margin-top: 22px; }
+.guide-prose-list h3 { margin: 10px 0 0; font-size: var(--fs-16); font-weight: var(--fw-semibold); color: var(--text); }
+.guide-prose-list p { margin: 0; color: var(--text-muted); font-size: var(--fs-14); line-height: 1.75; }
+.guide-inline-badge { display: inline-block; vertical-align: 2px; padding: 1px 8px; border-radius: var(--r-xs); background: var(--bg-page); color: var(--text-muted); font-size: var(--fs-12); letter-spacing: .03em; }
+.mcp-agent-steps { margin: 8px 0 0; padding-left: 20px; color: var(--text-2); font-size: var(--fs-14); line-height: 1.9; }
 .section-heading { margin-bottom: 20px; }
 
 /* ── 能力卡片 ── */
@@ -1083,7 +1096,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   border-bottom: 1px solid var(--action-border);
   padding: 36px 20px 32px;
 }
-.kdense-hero-inner { max-width: var(--w-content); margin: 0 auto; }
+.kdense-hero-inner { max-width: var(--w-reading); margin: 0 auto; }
 .kdense-breadcrumb {
   font-size: var(--fs-12); color: var(--text-muted);
   margin-bottom: 14px;
@@ -1124,7 +1137,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 /* 分类导航 */
 .kdense-cats {
   display: flex; flex-wrap: wrap; gap: 8px;
-  padding: 16px 20px; max-width: var(--w-content); margin: 0 auto;
+  padding: 16px 20px; max-width: var(--w-reading); margin: 0 auto;
   border-bottom: 1px solid var(--border);
 }
 .kdense-cat {
@@ -1148,7 +1161,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 }
 
 /* 内容区 */
-.kdense-content { max-width: var(--w-content); margin: 0 auto; padding: 24px 20px 48px; }
+.kdense-content { max-width: var(--w-reading); margin: 0 auto; padding: 24px 20px 48px; }
 .kdense-empty {
   text-align: center; padding: 48px 0; color: var(--text-muted);
 }
@@ -1379,10 +1392,11 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 }
 
 /* ── MCP 连接器页(自包含, 仅 mcp-* 新类) ────────────────── */
-.mcp-connect { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 16px; background: var(--bg-page); display: flex; flex-direction: column; gap: 10px; }
-.mcp-connect-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.mcp-connect-label { color: var(--text-muted); font-size: var(--fs-12); white-space: nowrap; }
-.mcp-connect-value { font-family: var(--font-mono); font-size: var(--fs-12); color: var(--text); word-break: break-all; }
+.mcp-connect { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 16px; background: var(--bg-page); display: flex; flex-direction: column; gap: 14px; }
+/* Step 11：接入值改 CodeField（label 在上、字段占满行，手机不横滚） */
+.mcp-connect-row { display: grid; gap: 6px; }
+.mcp-connect-label { color: var(--text-muted); font-size: var(--fs-12); }
+.mcp-connect-text { margin: 0; color: var(--text); font-size: var(--fs-13); line-height: 1.7; }
 .mcp-connect-desc { color: var(--text-muted); font-size: var(--fs-12); margin: 0; }
 .mcp-agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .mcp-agent-card { display: flex; flex-direction: column; }
