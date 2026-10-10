@@ -1515,8 +1515,26 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pipe-metrics.pipe-sub { margin-top: 6px; }
 .pipe-meta-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
 @media (max-width: 680px) {
-  .pipe-tr-latest { grid-template-columns: 38px 88px minmax(0, 1fr) 72px; }
-  .pipe-tr-latest span:nth-child(3), .pipe-tr-latest span:nth-child(4) { display: none; }
+  /* G3 收口: 宽表窄屏不再静默裁切（此前 overflow:hidden + 压缩列, 超宽行内容
+     被裁掉但页面零溢出, 探针测不出）—— 容器内横滚, 页面本身不横滚;
+     首列吸左（改动最小: 纯 CSS, 不改面板结构）, 弹性列加下限保证首屏可读。 */
+  .pipe-table { overflow-x: auto; overflow-y: hidden; }
+  .pipe-tr > *:first-child { position: sticky; left: 0; z-index: 1; background: var(--bg-page); box-shadow: inset -1px 0 0 var(--border); }
+  .pipe-tr.pipe-th > *:first-child { background: var(--bg-subtle); }
+  /* 弹性列下限: 问题/标题等 1fr 列首屏不为 0, 余量交给横滚 */
+  .pipe-tr-latest { grid-template-columns: 44px 96px 72px 104px minmax(120px, 1fr) 78px; }
+  .gov-tr-gov, .pipe-tr-gov { grid-template-columns: 48px minmax(150px, 1fr) 160px 80px 70px; }
+  /* 表内触控目标 ≥ 44px（governance「样本」/ pipeline「复活」「立即重试」） */
+  .pipe-table .pipe-retry-btn, .pipe-table .pipe-revive-btn { min-height: 44px; }
+  /* G3: 八个子页其余交互控件触控目标 ≥ 44px（行操作 text-button / 筛选 chips /
+     分页 / 搜索键; 仅后台 .samelabs-page 范围、仅窄屏生效） */
+  .samelabs-page .text-button { min-height: 44px; }
+  .samelabs-page .admin-filters button,
+  .samelabs-page .admin-search button,
+  .samelabs-page .admin-cat-create button,
+  .samelabs-page .admin-pagination-btn,
+  .samelabs-page .pipe-retry-btn,
+  .samelabs-page .pipe-revive-btn { min-height: 44px; }
   .pipe-metrics { grid-template-columns: 1fr 1fr; }
 }
 
