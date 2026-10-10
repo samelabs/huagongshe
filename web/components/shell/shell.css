@@ -95,7 +95,7 @@
 .sh-menu { position: relative; }
 .sh-menu-trigger { display: inline-flex; align-items: center; gap: 4px; }
 .sh-menu-trigger .sh-chev { width: 14px; height: 14px; color: var(--text-muted); transition: transform var(--dur-fast) var(--ease); }
-.sh-menu.open .sh-menu-trigger .sh-chev { transform: rotate(90deg); }
+.sh-menu.open .sh-menu-trigger .sh-chev { transform: rotate(180deg); }
 .sh-menu-panel {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 60;
   min-width: 200px;
@@ -171,9 +171,8 @@
   grid-template-columns: repeat(4, 1fr);
   height: var(--tabbar-h);
   padding-bottom: env(safe-area-inset-bottom);
-  background: var(--header-glass);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* Step 6 修正：不透明底 —— 半透明 + blur 会让正文透出（375 实测可见文字） */
+  background: var(--bg-surface);
   border-top: 1px solid var(--border);
 }
 @media (max-width: 640px) {

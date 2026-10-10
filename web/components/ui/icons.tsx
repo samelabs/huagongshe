@@ -127,9 +127,10 @@ export function IconLock(props: P) {
 }
 
 export function IconChevron(props: P) {
+  // 朝下 chevron（§8 菜单触发器）；展开态由 shell.css 旋转 180° 朝上
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" focusable="false" {...props}>
-      <path d="m15 6-6 6 6 6" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" {...props}>
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
