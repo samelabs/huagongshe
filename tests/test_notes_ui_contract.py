@@ -75,9 +75,33 @@ class NotesUiContractTests(unittest.TestCase):
         for forbidden in ("ReactionsPanel", "SavedPanel", "ActivityPanel"):
             self.assertNotIn(forbidden, src)
 
-    def test_home_orders_notes_before_reactions(self):
-        src = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
-        self.assertLess(src.index("homeRecentNotes"), src.index("homeRecentReactions"))
+    def test_home_overview_carries_create_actions(self):
+        """Step 8 §9.4：桌面创建入口 = 概览标题行（新建笔记 secondary +
+        新建反应 primary）；手机收进顶栏「+」菜单（WbCreateMenu）。"""
+        home = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
+        self.assertIn('href={withLocale("/aichem?tab=notes&new=1", locale)}>{t.me.navNewNote}', home)
+        self.assertIn('href={withLocale("/submit", locale)}>{t.me.navNewReaction}', home)
+        menu = (REPO / "web/components/workbench/WbCreateMenu.tsx").read_text(encoding="utf-8")
+        self.assertIn('href={withLocale("/submit", locale)}', menu)
+        self.assertIn('href={withLocale("/aichem?tab=notes&new=1", locale)}', menu)
+
+    def test_home_recent_merges_three_streams(self):
+        """Step 8 §9.4 概览「最近」：反应/笔记/收藏按时间合并取前 8，
+        全部走既有读接口（SSR 预取）。"""
+        home = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
+        self.assertIn(".slice(0, 8)", home)
+        self.assertIn("sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())", home)
+        page = (REPO / "web/app/(workbench)/aichem/page.tsx").read_text(encoding="utf-8")
+        self.assertIn("/users/me/notes?visibility=all&page=1&page_size=8", page)
+        self.assertIn("/users/me/reactions?visibility=all&page=1&page_size=8", page)
+        self.assertIn("/users/me/follows/chemicals?page=1&page_size=8", page)
+        self.assertIn("/users/me/notifications?page=1&page_size=5", page)
+        # 旧版三统计卡与「连接 AI 助手」大提示框删除（入口收进快捷入口）
+        self.assertNotIn("wb-home-stats", home)
+        self.assertNotIn("wb-home-guide", home)
+        css = (REPO / "web/app/(workbench)/aichem.css").read_text(encoding="utf-8")
+        self.assertNotIn(".wb-home-stats", css)
+        self.assertNotIn(".wb-home-guide", css)
 
     def test_workspace_order_matches_product_ia(self):
         """Step 8 §9.4：registry 分组收敛为 workspace/tools/network/account 四组

@@ -135,9 +135,9 @@ class P3TruncationTests(unittest.TestCase):
     def test_cards_use_clamp_detail_page_does_not(self):
         entity = read("components/EntityNotes.tsx")
         panel = read("components/workbench/panels/NotesPanel.tsx")
-        home = read("components/workbench/panels/HomePanel.tsx")
         detail = read("app/(site)/note/[id]/page.tsx")
-        for src in (entity, panel, home):
+        # Step 8 概览重做：HomePanel 笔记行只取单行标题（CSS 省略号），不再用 clamp
+        for src in (entity, panel):
             self.assertIn('className="note-clamp"', src)
         self.assertNotIn("note-clamp", detail)
         self.assertIn("note-detail-content", detail)

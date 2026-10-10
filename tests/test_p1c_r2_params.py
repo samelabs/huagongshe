@@ -204,9 +204,13 @@ class R3SaveLandingTests(unittest.TestCase):
 
 class R6UiCloseoutTests(unittest.TestCase):
     def test_home_card_has_view_full_hint(self):
-        src = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
-        self.assertIn('className="note-view-full"', src)
+        """R6 查看全文提示：概览重做（Step 8）后 HomePanel 笔记行改为单行标题行
+        （链接直达详情页），note-view-full 提示在 EntityNotes 摘录卡上保留。"""
+        src = (REPO / "web/components/EntityNotes.tsx").read_text(encoding="utf-8")
+        self.assertIn('className="text-button note-view-full"', src)
         self.assertIn("t.notes.viewFull", src)
+        home = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
+        self.assertIn('href={withLocale(`/note/${note.id}`, locale)}', home)
 
     def test_delete_failure_keeps_list_and_is_recoverable(self):
         src = (REPO / "web/components/workbench/panels/NotesPanel.tsx").read_text(encoding="utf-8")

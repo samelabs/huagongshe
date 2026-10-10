@@ -63,6 +63,8 @@ export type ChemicalFollow = {
   name_cn: string | null;
   molecular_formula: string | null;
   smiles: string | null;
+  /** 收藏时间（/users/me/follows/chemicals 返回；概览「最近」合并排序用） */
+  created_at?: string;
 };
 
 export type PageResponse<T> = {

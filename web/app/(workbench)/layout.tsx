@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { WorkbenchNav } from "@/components/workbench/WorkbenchNav";
 import { WbMobileNav } from "@/components/workbench/WbMobileNav";
+import { WbCreateMenu } from "@/components/workbench/WbCreateMenu";
 import { WorkbenchCountsProvider } from "@/components/workbench/WorkbenchCountsContext";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { apiGet } from "@/lib/api";
@@ -64,7 +65,7 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
           手机底部 tab 由 SiteHeader 内部挂载（与顶栏共用未读上下文）。 */}
       <SiteHeader
         initialUnread={counts?.unread ?? 0}
-        mobileActions={<WbMobileNav counts={counts} user={user} />}
+        mobileActions={<><WbCreateMenu /><WbMobileNav counts={counts} user={user} /></>}
       />
 
       <WorkbenchCountsProvider counts={counts}>

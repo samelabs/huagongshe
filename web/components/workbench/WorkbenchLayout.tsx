@@ -39,9 +39,11 @@ export function WorkbenchLayout({
   filterChemicalId,
   filterReactionId,
   initialReactions,
+  initialFavorites,
+  initialNotices,
+  initialFavoredIds,
   initialChemicals,
   initialSavedReactions,
-  initialNotices,
   initialPeople,
   initialSkills,
   searchQuery,
@@ -60,9 +62,12 @@ export function WorkbenchLayout({
   filterChemicalId?: number;
   filterReactionId?: number;
   initialReactions: ReactionResponse | null;
+  /** 概览（§9.4）：我的内容收藏流 / 动态前 5 / 收藏反应 id 集 */
+  initialFavorites: PageResponse<ChemicalFollow> | null;
+  initialNotices: NoticeResponse | null;
+  initialFavoredIds: number[] | null;
   initialChemicals: PageResponse<ChemicalFollow> | null;
   initialSavedReactions: PageResponse<Reaction> | null;
-  initialNotices: NoticeResponse | null;
   initialPeople: PageResponse<PersonSummary> | null;
   initialSkills: PageResponse<SkillItem> | null;
   searchQuery?: string;
@@ -80,7 +85,16 @@ export function WorkbenchLayout({
 
   return (
     <>
-      {activeTab === "home" && <HomePanel counts={counts} initialNotes={initialNotes} initialReactions={initialReactions} />}
+      {activeTab === "home" && (
+        <HomePanel
+          counts={counts}
+          initialNotes={initialNotes}
+          initialReactions={initialReactions}
+          initialFavorites={initialFavorites}
+          initialNotices={initialNotices}
+          initialFavoredIds={initialFavoredIds}
+        />
+      )}
       {activeTab === "notes" && <NotesPanel
         page={page}
         visibility={noteVisibility}
