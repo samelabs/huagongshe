@@ -57,10 +57,8 @@ export default function DevUiPage() {
             <span><EntityBadge kind="reaction" id={2428383} state="private" href="#dev-badge" /></span>
             <span className="lbl">已合并（重定向）</span>
             <span><EntityBadge kind="chemical" id={178844901} state="merged" redirectTo={2244} /></span>
-            <span className="du-row" style={{ gap: 6 }}>
-              <EntityBadge kind="reaction" id={2428390} state="deleted" />
-              <span className="note">已删除</span>
-            </span>
+            {/* deleted 的「已删除」尾注由 EntityBadge 组件内渲染（common.deletedEntity），此处不再重复 */}
+            <span><EntityBadge kind="reaction" id={2428390} state="deleted" /></span>
           </div>
         </div>
         <div className="du-g2">

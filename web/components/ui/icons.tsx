@@ -1,10 +1,11 @@
 /**
  * icons — v1.7 组件库图标（docs/design/hgs-ui-reference.html <symbol> 照抄）。
  *
- * 统一 24 视口、currentColor、默认 aria-hidden；参考里 16 视口的字形
- * （g-chem / g-rx / lock）用 translate+scale(1.5) 等比放进 24 视口，
- * 几何逐字保留。stroke-width / linecap / linejoin 与参考一致，
- * 调用方可通过 props 覆盖尺寸（width/height）与 aria。
+ * 24 视口图标逐字照抄；16 视口字形（g-chem / g-rx / lock）保留参考的
+ * viewBox="0 0 16 16" 与原始坐标 —— 不做视口换算（换算会引入变换矩阵，
+ * 曾把 lock 的几何推到视口右下角外造成字形变形）。渲染尺寸由 CSS
+ * （.hg-eb / .hg-tag 等）或调用方 props 控制，viewBox 与显示尺寸无关。
+ * stroke-width / linecap / linejoin 与参考一致；currentColor、默认 aria-hidden。
  */
 import type { SVGProps } from "react";
 
@@ -118,11 +119,9 @@ export function IconNote(props: P) {
 
 export function IconLock(props: P) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true" focusable="false" {...props}>
-      <g transform="translate(4 4) scale(1.5)">
-        <rect x="3" y="7" width="10" height="7" rx="1.5" />
-        <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
-      </g>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true" focusable="false" {...props}>
+      <rect x="3" y="7" width="10" height="7" rx="1.5" />
+      <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
     </svg>
   );
 }
@@ -196,24 +195,20 @@ export function IconSparkle(props: P) {
   );
 }
 
-/** 实体字形：化合物（六边形，取自标志） */
+/** 实体字形：化合物（六边形，取自标志） — 参考 #g-chem，16 视口原坐标 */
 export function GlyphChem(props: P) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true" focusable="false" {...props}>
-      <g transform="translate(4 4) scale(1.5)">
-        <polygon points="8,1.8 13.4,4.9 13.4,11.1 8,14.2 2.6,11.1 2.6,4.9" />
-      </g>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true" focusable="false" {...props}>
+      <polygon points="8,1.8 13.4,4.9 13.4,11.1 8,14.2 2.6,11.1 2.6,4.9" />
     </svg>
   );
 }
 
-/** 实体字形：反应（→ 箭头） */
+/** 实体字形：反应（→ 箭头） — 参考 #g-rx，16 视口原坐标 */
 export function GlyphRx(props: P) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" {...props}>
-      <g transform="translate(4 4) scale(1.5)">
-        <path d="M1.5 8h11M9.5 4.5 13 8l-3.5 3.5" />
-      </g>
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" {...props}>
+      <path d="M1.5 8h11M9.5 4.5 13 8l-3.5 3.5" />
     </svg>
   );
 }

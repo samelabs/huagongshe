@@ -95,8 +95,12 @@ export function Button(props: ButtonProps) {
     <button
       type={type ?? "button"}
       className={classes(props)}
-      disabled={disabled || loading || undefined}
-      onClick={onClick}
+      // loading 不落 disabled 属性：disabled 会把按钮染成灰色
+      // （.hg-btn:disabled），loading 必须保持原 variant 颜色 + 转圈
+      // + cursor:progress（见 ui.css [aria-busy] 规则）。点击与键盘触发
+      // 由 onClick 守卫拦下，aria-disabled 播报状态。
+      disabled={disabled || undefined}
+      onClick={loading || disabled ? undefined : onClick}
       ref={ref}
       {...stateProps}
       {...rest}

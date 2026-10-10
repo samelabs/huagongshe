@@ -296,7 +296,6 @@ const en: Dictionary = {
     yieldLabel: (v: string) => `Yield ${v}%`,
     internalStandard: 'Internal standard',
     otherRole: 'Other',
-    confirmDelete: (id: number) => `Permanently delete HRID $${id}? Linked compounds will not be deleted.`,
     /* IX-3 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'Delete this reaction?',
     deleteLabel: 'Delete reaction',
@@ -392,7 +391,6 @@ const en: Dictionary = {
       public_requires_public: 'Public notes can only link to publicly visible reactions.',
     },
     notesSessionExpired: 'Your session has expired. Please sign in again before saving.',
-    notesDeleteConfirm: 'Permanently delete this note?',
     notesEmpty: 'No notes yet.',
     notesFilter: 'Note visibility filter',
     unitNote: 'notes',

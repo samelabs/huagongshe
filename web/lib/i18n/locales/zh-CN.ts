@@ -303,7 +303,6 @@ const t = {
     yieldLabel: (v: string) => `收率 ${v}%`,
     internalStandard: '内标',
     otherRole: '其他',
-    confirmDelete: (id: number) => `确定永久删除 HRID ${id}？关联的化合物不会被删除。`,
     /* IX-3 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: '删除这个反应？',
     deleteBody: (id: number) => `HRID ${id} 将被永久删除，关联的化合物不会被删除。此操作无法撤销。`,
@@ -399,7 +398,6 @@ const t = {
       public_requires_public: '公开笔记只能关联公开可见的反应。',
     },
     notesSessionExpired: '登录已失效，请重新登录后再保存。',
-    notesDeleteConfirm: '确定永久删除这条笔记？',
     notesEmpty: '还没有笔记。',
     notesFilter: '笔记可见性筛选',
     unitNote: '条笔记',

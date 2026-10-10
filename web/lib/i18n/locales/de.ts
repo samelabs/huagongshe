@@ -300,7 +300,6 @@ const de: Dictionary = {
     yieldLabel: (v: string) => `Ausbeute ${v} %`,
     internalStandard: 'Interner Standard',
     otherRole: 'Sonstige',
-    confirmDelete: (id: number) => `HRID $${id} endgültig löschen? Verknüpfte Verbindungen werden nicht gelöscht.`,
     /* IX-3 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'Diese Reaktion löschen?',
     deleteLabel: 'Reaktion löschen',
@@ -396,7 +395,6 @@ const de: Dictionary = {
       public_requires_public: 'Öffentliche Notizen können nur öffentlich sichtbare Reaktionen verknüpfen.',
     },
     notesSessionExpired: 'Die Sitzung ist abgelaufen. Bitte erneut anmelden, bevor du speicherst.',
-    notesDeleteConfirm: 'Diese Notiz dauerhaft löschen?',
     notesEmpty: 'Noch keine Notizen.',
     notesFilter: 'Filter: Sichtbarkeit der Notizen',
     unitNote: 'Notizen',

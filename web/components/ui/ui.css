@@ -118,7 +118,15 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-btn:disabled, .hg-btn.is-disabled { background: var(--bg-subtle); color: var(--text-disabled); border-color: transparent; cursor: not-allowed; transform: none; }
 .hg-btn.is-focus { outline: 2px solid var(--focus); outline-offset: 2px; }
 .hg-btn.icon { width: var(--bh); padding: 0; }
-.hg-btn[aria-busy="true"] { cursor: progress; }
+.hg-btn[aria-busy="true"] { cursor: progress; opacity: .85; }
+/* loading 冻结交互反馈：hover/按压不改变颜色（颜色保持原 variant） */
+.hg-btn[aria-busy="true"]:hover, .hg-btn[aria-busy="true"]:active { transform: none; }
+.hg-btn.primary[aria-busy="true"]:hover { background: var(--action); }
+.hg-btn.secondary[aria-busy="true"]:hover { background: var(--bg-surface); }
+.hg-btn.tonal[aria-busy="true"]:hover { background: var(--action-subtle); }
+.hg-btn.danger[aria-busy="true"]:hover { background: var(--err); }
+.hg-btn.danger-quiet[aria-busy="true"]:hover { background: var(--bg-surface); }
+.hg-btn.ghost[aria-busy="true"]:hover { background: transparent; color: var(--text-2); }
 .hg-spin {
   width: 14px; height: 14px; flex: none;
   border-radius: 50%;
@@ -366,7 +374,16 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 }
 .hg-modal h3 { font-size: var(--fs-18); font-weight: 600; margin: 0; }
 .hg-modal p { margin: 0; color: var(--text-2); }
-.hg-modal footer { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-3); }
+.hg-modal footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  min-height: 0;
+  padding: 0;
+  border-top: 0;
+  background: none;
+}
 
 /* ══ EmptyState / Skeleton / Avatar（§6） ════════════════════ */
 .hg-empty { display: grid; justify-items: center; text-align: center; gap: var(--sp-2); padding: var(--sp-12) var(--sp-6); }

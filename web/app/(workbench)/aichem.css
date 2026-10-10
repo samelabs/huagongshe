@@ -960,7 +960,7 @@
   color: var(--wb-quiet);
   font-size: var(--wb-fs-xs);
 }
-.wb-panel .text-button {
+.wb-panel .token-actions .text-button {
   border: none;
   background: none;
   color: var(--wb-danger);
@@ -1571,11 +1571,10 @@
   display:inline-flex;
   align-items:center;
   gap:var(--wb-sp-1);
-  border:1px solid var(--wb-line);
-  border-radius:999px;
-  background:var(--wb-paper);
+  border:0;
+  background:transparent;
   color:var(--wb-ink);
-  padding:4px 9px;
+  padding:0;
   cursor:pointer;
 }
 .wb-note-reference-chips>button span:last-child{color:var(--wb-muted)}
@@ -1611,11 +1610,8 @@
   margin-top:var(--wb-sp-2);
 }
 .wb-note-links>a{
-  border:1px solid var(--wb-line);
-  border-radius:999px;
-  padding:3px 8px;
+  display:inline-flex;
   text-decoration:none;
-  color:var(--wb-blue-deep);
 }
 .wb-note-card>footer{
   display:flex;

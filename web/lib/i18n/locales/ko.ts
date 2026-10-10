@@ -299,7 +299,6 @@ const ko: Dictionary = {
     yieldLabel: (v: string) => `수율 ${v}%`,
     internalStandard: '내부 표준',
     otherRole: '기타',
-    confirmDelete: (id: number) => `HRID $${id}을(를) 완전히 삭제할까요? 연결된 화합물은 삭제되지 않습니다.`,
     /* IX-3 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: '이 반응을 삭제할까요?',
     deleteLabel: '반응 삭제',
@@ -395,7 +394,6 @@ const ko: Dictionary = {
       public_requires_public: '공개 노트에는 공개된 반응만 연결할 수 있습니다.',
     },
     notesSessionExpired: '로그인이 만료되었습니다. 다시 로그인한 후 저장해 주세요.',
-    notesDeleteConfirm: '이 노트를 영구 삭제할까요?',
     notesEmpty: '아직 노트가 없습니다.',
     notesFilter: '노트 공개 범위 필터',
     unitNote: '건',

@@ -297,7 +297,6 @@ const ja: Dictionary = {
     yieldLabel: (v: string) => `収率 ${v}%`,
     internalStandard: '内部標準',
     otherRole: 'その他',
-    confirmDelete: (id: number) => `HRID $${id} を完全に削除しますか？関連する化合物は削除されません。`,
     /* IX-3 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'この反応を削除しますか？',
     deleteLabel: '反応を削除',
@@ -393,7 +392,6 @@ const ja: Dictionary = {
       public_requires_public: '公開ノートに関連付けられるのは公開中の反応のみです。',
     },
     notesSessionExpired: 'セッションが期限切れです。再度ログインしてから保存してください。',
-    notesDeleteConfirm: 'このノートを完全に削除しますか？',
     notesEmpty: 'ノートはまだありません。',
     notesFilter: 'ノートの公開範囲フィルター',
     unitNote: '件',
