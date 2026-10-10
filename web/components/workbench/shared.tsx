@@ -135,11 +135,8 @@ export function relativeTime(value: string, locale: string): string {
   return new Date(value).toLocaleDateString(locale);
 }
 
-/** 笔记标题行：首个非空行（≤60 字）— 概览与笔记面板共用 */
-export function noteHeadline(content: string): string {
-  const first = content.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
-  return first.length > 60 ? `${first.slice(0, 60)}…` : first;
-}
+/** 笔记标题行：首个非空行（≤60 字）— 概览与笔记面板共用（实现在 lib，公开主页服务端同用） */
+export { noteHeadline } from "@/lib/noteHeadline";
 
 /** 可见性 Tag（概览行与笔记/反应面板行共用） */
 export function VisibilityTag({ visibility, t }: { visibility: "public" | "private"; t: Dictionary }) {
@@ -213,11 +210,11 @@ export function ReactionRow({ item, t, locale, actions }: {
       meta={
         <>
           {item.reaction_smiles && <code className="wb-row-code" title={item.reaction_smiles}>{item.reaction_smiles}</code>}
-          {item.updated_at && <time dateTime={item.updated_at}>{relativeTime(item.updated_at, locale)}</time>}
         </>
       }
       side={
         <>
+          {item.updated_at && <time dateTime={item.updated_at}>{relativeTime(item.updated_at, locale)}</time>}
           {item.followers != null && <span className="wb-row-side-info">{t.user.peopleCount(item.followers)}</span>}
           {actions && <span className="wb-row-actions">{actions}</span>}
         </>

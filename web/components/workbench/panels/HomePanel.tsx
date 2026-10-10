@@ -305,10 +305,9 @@ function NoteRow({ note, t, locale }: { note: NoteResponse["items"][number]; t: 
           <VisibilityTag visibility={note.visibility} t={t} />
           {note.chemical_ids.slice(0, 2).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
           {note.reaction_ids.slice(0, 2).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
-          <time dateTime={note.updated_at}>{relativeTime(note.updated_at, locale)}</time>
         </>
       }
-      side={<span>{new Date(note.updated_at).toLocaleDateString(locale)}</span>}
+      side={<time dateTime={note.updated_at}>{relativeTime(note.updated_at, locale)}</time>}
     />
   );
 }
@@ -324,12 +323,14 @@ function SavedRow({ chemical, t, locale }: { chemical: ChemicalFollow; t: Return
       }
       title={title}
       meta={
+        <EntityBadge kind="chemical" id={chemical.id} size="xs" ariaLabel={t.common.hcidLabel(chemical.id)} />
+      }
+      side={
         <>
-          <EntityBadge kind="chemical" id={chemical.id} size="xs" ariaLabel={t.common.hcidLabel(chemical.id)} />
           {chemical.created_at && <time dateTime={chemical.created_at}>{t.me.savedAt(new Date(chemical.created_at).toLocaleDateString(locale))}</time>}
+          <span>{chemical.molecular_formula ?? ""}</span>
         </>
       }
-      side={<span>{chemical.molecular_formula ?? ""}</span>}
     />
   );
 }

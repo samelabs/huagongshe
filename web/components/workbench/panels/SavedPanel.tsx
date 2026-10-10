@@ -162,11 +162,12 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
                     <>
                       <EntityBadge kind="chemical" id={item.id} size="xs" ariaLabel={t.common.hcidLabel(item.id)} />
                       {item.molecular_formula && <span>{item.molecular_formula}</span>}
-                      {item.created_at && <time dateTime={item.created_at}>{t.me.savedAt(new Date(item.created_at).toLocaleDateString(locale))}</time>}
                     </>
                   }
                   side={
-                    <span className="wb-row-actions">
+                    <>
+                      {item.created_at && <time dateTime={item.created_at}>{t.me.savedAt(new Date(item.created_at).toLocaleDateString(locale))}</time>}
+                      <span className="wb-row-actions">
                       <Button
                         variant="ghost"
                         iconOnly
@@ -176,7 +177,8 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
                       >
                         <IconStar />
                       </Button>
-                    </span>
+                      </span>
+                    </>
                   }
                 />
               );

@@ -298,12 +298,11 @@ export function NotesPanel({
                   <VisibilityTag visibility={note.visibility} t={t} />
                   {note.chemical_ids.slice(0, 2).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
                   {note.reaction_ids.slice(0, 2).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
-                  <time dateTime={note.updated_at}>{relativeTime(note.updated_at, locale)}</time>
                 </>
               }
               side={
                 <>
-                  <span>{new Date(note.updated_at).toLocaleDateString(locale)}</span>
+                  <time dateTime={note.updated_at}>{relativeTime(note.updated_at, locale)}</time>
                   <span className="wb-row-actions">
                     <Button variant="ghost" size="sm" onClick={() => { setCreating(false); setEditing(note); }}>{t.common.edit}</Button>
                     <Button variant="danger-quiet" size="sm" onClick={() => void remove(note)}>{t.common.delete}</Button>

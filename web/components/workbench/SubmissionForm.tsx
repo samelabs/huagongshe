@@ -22,7 +22,7 @@ type Participant = {
   amount_value: string; amount_unit: string; equivalents: string;
   concentration_value: string; concentration_unit: string; yield_percent: string;
 };
-/** 校验错误定位到字段：participants = STRUCTURE 区（焦点到第一个 SMILES） */
+/** 校验错误定位到字段：participants = 组分区（焦点到第一个 SMILES） */
 type FieldErrors = Partial<Record<"participants" | "doi" | "patent" | "source_url" | "source_citation", string>>;
 
 let sequence = 1;
@@ -219,7 +219,7 @@ export function SubmissionForm() {
       </div>
 
       <section className="form-section">
-        <div className="form-section-head"><span>ACCESS</span><div><h2>{t.submit.visibilitySource}</h2><p>{t.submit.visibilityHint}</p></div></div>
+        <div className="form-section-head"><div><h2>{t.submit.visibilitySource}</h2><p>{t.submit.visibilityHint}</p></div></div>
         <div className="form-fields two-columns">
           <Field label={t.submit.visibility} htmlFor="sf-visibility">
             <Select id="sf-visibility" name="visibility" value={visibility} onChange={(event) => setVisibility(event.target.value as "public" | "private")} disabled={busy}>
@@ -253,7 +253,7 @@ export function SubmissionForm() {
       </section>
 
       <section className="form-section">
-        <div className="form-section-head"><span>STRUCTURE</span><div><h2>{t.submit.participants}</h2><p>{t.submit.participantsHint}</p></div></div>
+        <div className="form-section-head"><div><h2>{t.submit.participants}</h2><p>{t.submit.participantsHint}</p></div></div>
         {fieldErrors.participants && <Notice tone="err">{fieldErrors.participants}</Notice>}
         <div className="participant-editor-cards">
           {participants.map((item) => <article className="participant-input-card" key={item.key}>
@@ -277,7 +277,7 @@ export function SubmissionForm() {
       </section>
 
       <section className="form-section">
-        <div className="form-section-head"><span>PROCESS</span><div><h2>{t.submit.procedureConditions}</h2><p>{t.submit.procedureHint}</p></div></div>
+        <div className="form-section-head"><div><h2>{t.submit.procedureConditions}</h2><p>{t.submit.procedureHint}</p></div></div>
         <div className="form-fields">
           <Field label={t.submit.procedure} htmlFor="sf-procedure">
             <Textarea id="sf-procedure" name="procedure_details" rows={7} defaultValue={details?.procedure_details || ""} maxLength={30000} />
@@ -316,7 +316,7 @@ function textOrNull(value: string) { const result = value.trim(); return result 
 function numberOrNull(value: string) { return value.trim() === "" ? null : Number(value); }
 function optional(values: FormData, key: string) { return textOrNull(String(values.get(key) || "")); }
 function optionalNumber(values: FormData, key: string) { const value = optional(values, key); return value == null ? null : Number(value); }
-/** 校验错误定位到字段（错误显示在对应 Field 下方 / STRUCTURE 区 Notice） */
+/** 校验错误定位到字段（错误显示在对应 Field 下方 / 组分区 Notice） */
 function validateDraft(participants: Array<{ role: Role; amount_value: number | null; amount_unit: string | null; concentration_value: number | null; concentration_unit: string | null }>, values: FormData, sourceType: SourceType, labels: Dictionary): { field: "participants" | "doi" | "patent" | "source_url" | "source_citation"; message: string } | null {
   if (!participants.some((item) => item.role === "REACTANT") || !participants.some((item) => item.role === "PRODUCT")) return { field: "participants", message: labels.submit.errReactantProduct };
   if (participants.some((item) => (item.amount_value == null) !== (item.amount_unit == null))) return { field: "participants", message: labels.submit.errAmountUnit };

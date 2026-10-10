@@ -671,6 +671,52 @@
 /* 收藏面板「取消收藏」图标按钮：当前已收藏（action 色），hover 变 err（IX-6） */
 .wb-unfavor { color: var(--action); }
 .wb-unfavor:hover, .wb-unfavor.is-hover { background: var(--err-bg); color: var(--err); }
+/* Step 10 Part A.2：已收藏的星标为实心（fill 压过 svg 的 fill="none" 属性） */
+.wb-unfavor svg { fill: currentColor; }
+
+/* Step 10 Part A.1：≤640 列表行改纵向三行布局 —
+   ①类型图标+标题（最多 2 行省略） ②Tag+徽标（可换行） ③时间（左）+操作（右）。
+   .wb-row-main / .wb-row-side 提升为 display:contents，让 title/meta/side
+   直接成为行的 grid item（DOM 不动，纯 CSS 重排）。 */
+@media (max-width: 640px) {
+  .wb-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "icon title"
+      "icon meta"
+      "side side";
+    align-items: start;
+    align-content: start;
+    row-gap: 6px;
+    padding: var(--wb-sp-2) 0 var(--wb-sp-3);
+  }
+  .wb-row-icon,
+  .wb-row-thumb { grid-area: icon; }
+  .wb-row-main { display: contents; }
+  .wb-row-title {
+    grid-area: title;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    align-self: start;
+    white-space: normal;
+    overflow: hidden;
+    line-height: 1.4;
+  }
+  .wb-row-meta { grid-area: meta; }
+  .wb-row-side {
+    grid-area: side;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px var(--wb-sp-3);
+    width: 100%;
+    white-space: normal;
+  }
+  .wb-row-side .wb-row-actions { margin-left: auto; }
+}
 
 /* 我的主页卡片 */
 .wb-profile-top { display: flex; align-items: center; gap: var(--wb-sp-3); }
@@ -1006,8 +1052,9 @@
   box-shadow: 0 0 0 3px var(--wb-glow);
 }
 .wb-panel textarea { resize: vertical; }
-/* select 皮肤统一在 globals.css 元素层（token 同值），此处仅布局+密度 */
-.wb-panel select { width: 100%; min-width: 0; padding: var(--wb-sp-3); font-family: var(--wb-font-ui); font-size: var(--wb-fs); }
+/* select 皮肤统一在 globals.css 元素层（token 同值），此处仅布局+密度；
+   padding-right 保留给 CSS 箭头（globals.css select 元素层绘制） */
+.wb-panel select { width: 100%; min-width: 0; padding: var(--wb-sp-3); padding-right: 34px; font-family: var(--wb-font-ui); font-size: var(--wb-fs); }
 .wb-panel select:focus { border-color: var(--wb-blue); box-shadow: 0 0 0 3px var(--wb-glow); }
 
 /* 设置页按钮 */
@@ -1332,24 +1379,36 @@
   .wb-burger { display: none; }
 }
 
-/* ── 手机 ≤640px ── */
+/* ── 手机 ≤640px ──
+   Step 10：改为文档滚动 —— 壳脱离 fixed inset:0，.wb-body/.wb-main 不再
+   自持 overflow；页面由 document 整体滚动，底部 tab（shell.css .sh-tabbar）
+   保持 fixed。.wb-main 底部让出 tabbar 高度（含安全区），最后一项不被遮挡。
+   全站 sticky 元素核查：工作台域内无 sticky（顶栏本就不吸顶、无本页导航），
+   化合物页 ChemPageNav 在 (site) 域不受影响。 */
 @media (max-width: 640px) {
   .wb-shell {
-    /* 高度来源=基础段 fixed inset:0 视口锚定，此处不重设(规范§2) */
-    /* 底栏 fixed 高度恒定，内容让位同高度（tabbar 见 shell.css .sh-tabbar） */
-    padding-bottom: var(--wb-tabbar-h);
+    position: static;
+    overflow: visible;
+    min-height: 100dvh;
+    /* 让位改由 .wb-main 底部 padding 提供（fixed 底栏叠加在文档滚动之上） */
+    padding-bottom: 0;
   }
-  /* PWA 独立窗口：inset 恒定，让位含安全区 */
+  .wb-body { overflow: visible; }
+  .wb-main {
+    overflow: visible;
+    padding: var(--wb-sp-4);
+    padding-bottom: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom) + var(--wb-sp-4));
+  }
+  /* PWA 独立窗口：让位含安全区（叠加在 .wb-main padding 之上，此处不再重复） */
   @media (display-mode: standalone) {
-    .wb-shell { padding-bottom: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom)); }
+    .wb-shell { padding-bottom: 0; }
   }
 
   /* 隐藏桌面侧栏，用抽屉替代（汉堡按钮在 SiteHeader mobileActions 插槽，
       随 .sh-mobile-right 只在 ≤640 显示） */
   .wb-aside { display: none; }
 
-  /* 内容区 */
-  .wb-main { padding: var(--wb-sp-4); }
+  /* 内容区 padding 已在上方 .wb-main 规则统一（sp-4 四边 + 底部让位 tabbar） */
 
   /* 搜索框+按钮水平 */
   /* 搜索框+按钮水平（已默认水平，无需覆盖） */
