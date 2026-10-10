@@ -345,9 +345,9 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 }
 .hg-toast-host .hg-toast { animation: hg-tin var(--dur) var(--ease); }
 @keyframes hg-tin { from { transform: translateY(8px); opacity: 0; } }
-/* 手机：避开底部 tabbar 与 safe-area */
-@media (max-width: 680px) {
-  .hg-toast-host { bottom: calc(56px + 12px + env(safe-area-inset-bottom, 0px)); }
+/* 手机：避开底部 tabbar（--tabbar-h，≤640 显示）与 safe-area */
+@media (max-width: 640px) {
+  .hg-toast-host { bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ══ ConfirmDialog（§6） ═════════════════════════════════════ */

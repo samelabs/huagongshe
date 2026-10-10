@@ -1,5 +1,4 @@
 import { SiteHeader } from "@/components/shell/SiteHeader";
-import { MobileTabBar } from "@/components/shared/MobileTabBar";
 import { getRequestDictionary } from "@/lib/serverI18n";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
@@ -12,7 +11,6 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <footer>
         <span>{t.nav.footer}：<a href="mailto:mail@huagongshe.com" className="footer-link">mail@huagongshe.com</a></span>
       </footer>
-      <MobileTabBar />
     </div>
   );
 }

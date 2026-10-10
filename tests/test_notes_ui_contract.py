@@ -42,14 +42,18 @@ class NotesUiContractTests(unittest.TestCase):
         # normalized landing URL construction (URLSearchParams, not string concat)
         self.assertIn("router.replace(withLocale(`/aichem?${params.toString()}`, locale))", src)
 
-    def test_mobile_topbar_keeps_creation_actions_without_desktop_duplication(self):
-        nav = (REPO / "web/components/workbench/WbTopnav.tsx").read_text(encoding="utf-8")
-        css = (REPO / "web/app/(workbench)/aichem.css").read_text(encoding="utf-8")
-        self.assertEqual(nav.count('kind: "nav"'), 2)
-        self.assertEqual(nav.count('kind: "action"'), 2)
-        self.assertIn("aria-label={item.label}", nav)
-        self.assertIn(".wb-topnav-link-nav { display: none; }", css)
-        self.assertIn(".wb-topbar-user { display: none; }", css)
+    def test_creation_actions_live_in_sidebar_and_drawer(self):
+        """v1.7 Step 5：顶栏统一为全站 SiteHeader 后，工作台顶栏（WbTopnav）删除，
+        「新建反应 / 新建笔记」临时安置在侧栏顶部（桌面）与抽屉顶部（手机），
+        两处共用 WbQuickActions 单一实现，不与底部 tab 功能重复。"""
+        quick = (REPO / "web/components/workbench/WbQuickActions.tsx").read_text(encoding="utf-8")
+        layout = (REPO / "web/app/(workbench)/layout.tsx").read_text(encoding="utf-8")
+        drawer = (REPO / "web/components/workbench/WbMobileNav.tsx").read_text(encoding="utf-8")
+        self.assertIn('variant="primary" size="sm" href={withLocale("/submit"', quick)
+        self.assertIn('variant="secondary" size="sm" href={withLocale("/aichem?tab=notes&new=1"', quick)
+        self.assertIn("<WbQuickActions />", layout)
+        self.assertIn("<WbQuickActions />", drawer)
+        self.assertFalse((REPO / "web/components/workbench/WbTopnav.tsx").exists())
 
     def test_reaction_pagination_preserves_workbench_tab(self):
         src = (REPO / "web/components/workbench/panels/ReactionsPanel.tsx").read_text(encoding="utf-8")

@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/Button";
 import { IconSearch, IconBell, IconChevron } from "@/components/ui/icons";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { ShellUnreadProvider, useShellUnread } from "./ShellUnread";
+import { MobileTabBar } from "./MobileTabBar";
 
 type NavItem = { href: string; label: string; match: (routePath: string) => boolean };
 
@@ -123,6 +124,8 @@ export function SiteHeader({ initialUnread, mobileActions }: {
           </div>
         </div>
       </header>
+      {/* 底部 tab 与顶栏同一未读上下文（ShellUnreadProvider 内），≤640 显示 */}
+      <MobileTabBar />
     </ShellUnreadProvider>
   );
 }

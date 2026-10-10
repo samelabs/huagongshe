@@ -1043,47 +1043,10 @@
   font-size: var(--wb-fs-sm);
 }
 
-/* ── MobileTabBar ── */
-.wb-shell .mobile-tab-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 40;
-  display: none;
-  /* 高度恒定：浏览器模式零 env() 输入，消除 inset 跳变 */
-  height: var(--wb-tabbar-h);
-  background: var(--wb-paper);
-  border-top: 1px solid var(--wb-line);
-}
-.wb-shell .mobile-tab-bar .tab-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  color: var(--wb-quiet);
-  font-size: var(--wb-fs-xs);
-  text-decoration: none;
-}
-.wb-shell .mobile-tab-bar .tab-item.active { color: var(--wb-blue); }
-.wb-shell .mobile-tab-bar .tab-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--wb-sp-6);
-}
-.wb-shell .mobile-tab-bar .tab-label { font-size: var(--wb-fs-xs); }
-
-/* PWA 独立窗口：inset 恒定，恢复安全区让位 */
-@media (display-mode: standalone) {
-  .wb-shell .mobile-tab-bar {
-    height: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom));
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-}
-
+/* ── MobileTabBar ──
+   v1.7 Step 5：底栏统一为 components/shell/MobileTabBar（.sh-tabbar，样式在
+   components/shell/shell.css）；本文件旧 .mobile-tab-bar 块已删除。
+   PWA 安全区让位由 .sh-tabbar 的 padding-bottom(env(safe-area-inset-bottom)) 处理。 */
 
 /* ═══════════════════════════════════════════════════════════════
    L9 — Mobile
@@ -1186,33 +1149,20 @@
   .wb-burger { display: none; }
 }
 
-/* ── 手机 ≤680px ── */
-@media (max-width: 680px) {
+/* ── 手机 ≤640px ── */
+@media (max-width: 640px) {
   .wb-shell {
     /* 高度来源=基础段 fixed inset:0 视口锚定，此处不重设(规范§2) */
-    /* 底栏 fixed 高度恒定，内容让位同高度 */
+    /* 底栏 fixed 高度恒定，内容让位同高度（tabbar 见 shell.css .sh-tabbar） */
     padding-bottom: var(--wb-tabbar-h);
-  }
-  /* 手机 topbar 不重复显示语言入口; 语言入口位于移动抽屉(wb-drawer-language) */
-  .wb-topbar-language {
-    display: none;
-  }
-
-  /* 抽屉内语言入口: 导航列表上方的普通设置入口, 复用通用 lang-switcher 视觉 */
-  .wb-drawer-language {
-    padding: 4px 0 12px;
-    border-bottom: 1px solid var(--wb-line, rgba(15, 23, 42, 0.08));
-    margin-bottom: 12px;
-  }
-  .wb-drawer-language .lang-switcher-menu {
-    max-width: calc(100vw - 48px);
   }
   /* PWA 独立窗口：inset 恒定，让位含安全区 */
   @media (display-mode: standalone) {
     .wb-shell { padding-bottom: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom)); }
   }
 
-  /* 隐藏桌面侧栏，用抽屉替代 */
+  /* 隐藏桌面侧栏，用抽屉替代（汉堡按钮在 SiteHeader mobileActions 插槽，
+      随 .sh-mobile-right 只在 ≤640 显示） */
   .wb-aside { display: none; }
 
   /* 内容区 */

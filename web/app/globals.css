@@ -947,44 +947,16 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .kdense-card-body { padding: 12px 14px 12px 16px; }
 
 }
-@media (max-width: 680px) {
-  /* 移动端壳层 — 标准范式(cas.cool MODEL A 同构):
-     body 自然滚动, header 在正常文档流(不悬浮), tabbar fixed。
-     无视口单位、无 fixed 壳、无 overflow:hidden(body 成滚动容器是历代
-     冷启动失控的根: 恢复时刻滚动容器归属错位, 软导航一路带病)。 */
-  main { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+/* 移动端壳层 — 标准范式(cas.cool MODEL A 同构):
+   body 自然滚动, header 在正常文档流(不悬浮), tabbar fixed。
+   无视口单位、无 fixed 壳、无 overflow:hidden(body 成滚动容器是历代
+   冷启动失控的根: 恢复时刻滚动容器归属错位, 软导航一路带病)。
+   v1.7 Step 5：底栏 = components/shell/MobileTabBar（.sh-tabbar，
+   样式在 shell.css，≤640 显示）；让位只此一处（main padding-bottom，
+   高度 var(--tabbar-h)=64 + safe-area）。 */
+@media (max-width: 640px) {
+  main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); }
   footer { display: none; }
-
-  /* TabBar: fixed 底栏, 高度 56px, 让位只此一处(main padding-bottom) */
-  .mobile-tab-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 40;
-    display: flex;
-    height: calc(56px + env(safe-area-inset-bottom));
-    padding-bottom: env(safe-area-inset-bottom);
-    background: var(--bg-surface);
-    border-top: 1px solid var(--border);
-  }
-  .mobile-tab-bar .tab-item {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    color: var(--text-muted);
-    font-size: var(--fs-12);
-    line-height: 1;
-    text-decoration: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .mobile-tab-bar .tab-item.active { color: var(--action); }
-  .mobile-tab-bar .tab-icon { display: flex; align-items: center; justify-content: center; height: 24px; }
-  .mobile-tab-bar .tab-label { font-size: var(--fs-12); }
 }
 @media (min-width: 641px) {
   /* desktop: local nav 隐藏, 由 secondary rail 的 On this page 承担 */

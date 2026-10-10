@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { WorkbenchNav } from "./WorkbenchNav";
+import { WbQuickActions } from "./WbQuickActions";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -100,6 +101,8 @@ export function WbMobileNav({ counts, user }: {
         </div>
 
         <div className="wb-drawer-body">
+          <WbQuickActions />
+
           <div className="wb-drawer-language">
             <LanguageSwitcher />
           </div>

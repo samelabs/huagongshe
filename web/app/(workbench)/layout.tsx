@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { WorkbenchNav } from "@/components/workbench/WorkbenchNav";
 import { WbMobileNav } from "@/components/workbench/WbMobileNav";
-import { MobileTabBar } from "@/components/shared/MobileTabBar";
+import { WbQuickActions } from "@/components/workbench/WbQuickActions";
 import { WorkbenchCountsProvider } from "@/components/workbench/WorkbenchCountsContext";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { apiGet } from "@/lib/api";
@@ -59,13 +59,13 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
       <WorkbenchCountsProvider counts={counts}>
         <div className="wb-body">
           <aside className="wb-aside">
+            {/* 临时安置（Step 8 重做工作台时调整位置）：原顶栏「新建反应 / 新建笔记」入口 */}
+            <WbQuickActions />
             <Suspense><WorkbenchNav counts={counts} variant="sidebar" /></Suspense>
           </aside>
           <main className="wb-main">{children}</main>
         </div>
       </WorkbenchCountsProvider>
-
-      <MobileTabBar />
     </div>
   );
 }
