@@ -5,9 +5,12 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { ChemicalActions } from "@/components/ChemicalActions";
 import { ChemPageNav } from "@/components/ChemPageNav";
+import { DataRow } from "@/components/DataRow";
 import { DetailRefresher } from "@/components/DetailRefresher";
+import { GroupToggle } from "@/components/GroupToggle";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { EntityNotes } from "@/components/EntityNotes";
+import { Button } from "@/components/ui/Button";
 import { CodeField } from "@/components/ui/CodeField";
 import { Tag } from "@/components/ui/Tag";
 import { Molecule } from "@/components/Molecule";
@@ -15,7 +18,7 @@ import { ReactionList } from "@/components/ReactionList";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
 import { cbInFlight } from "@/components/chemicalStatus";
 import { isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
-import { apiGet, isApiNotFound, type Chemical, type ReactionSummary, type SemanticDetail, type ProseItem } from "@/lib/api";
+import { apiGet, isApiNotFound, type Chemical, type ReactionSummary, type SemanticDetail, type ProseItem, type CasSupplier } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
@@ -23,17 +26,23 @@ import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alter
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /**
- * Chemical Detail — semantic-first（DESIGN_SYSTEM §9.1 v1.7 Step 6 重排）。
+ * Chemical Detail — semantic-first（DESIGN_SYSTEM §9.1 v1.7 Step 6/7 重排）。
  *
- * 一级 IA = 语义主题；分区内按来源分组（每组以来源标签开头，v1.7 不做
- * 跨来源同名属性合并）。头部 = 左内容 + 右 300 结构图；右侧栏 = 本页导航
- * （IntersectionObserver 高亮）+ 记录信息；≤900 本页导航为顶部横向 Tabs。
+ * 一级 IA = 语义主题；分区内按来源分组（组头一行：组标题 + Tag src；
+ * v1.7 不做跨来源同名属性合并）。篇幅收敛（Step 7）：每个 h3 组默认
+ * 只显示前 6 项（DataRow/已折叠 details 均算 1 项），超出的项服务端
+ * hidden + data-overflow（DOM 保留），GroupToggle 客户端翻转；供应商
+ * 紧凑行默认 5 家；上下游 Tag 每向最多 12 个。没有内容的分区不渲染，
+ * 本页导航同步省略。
  * 硬约束: 只重组展示——数据请求 = chemical full + reactions，不新增不改删。
  */
 
 const SYN_PREVIEW = 12; // Names 默认展示条数（§9.1 前 12 个 Tag）
 const COLLAPSE_ITEMS = 2; // 长证据折叠阈值：超过 2 条
 const COLLAPSE_CHARS = 240; // 或单条超过 240 字
+const GROUP_ITEM_LIMIT = 6; // 组级折叠：h3 组默认可见项数（§9.1 Step 7）
+const SUPPLIER_LIMIT = 5; // 供应商默认显示家数
+const UPDOWN_TAG_LIMIT = 12; // 上下游 Tag 每向默认显示数
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -289,51 +298,45 @@ export default async function ChemicalPage({ params }: {
           </section>
           )}
 
-          {/* ── 3. Properties（分区内按来源分组） ── */}
+          {/* ── 3. Properties（分区内按来源分组；组头一行 + 组级折叠） ── */}
           {hasProperties && (
             <section className="chem-section" id="properties">
               <SectionHead title={t.chemical.page.properties} />
-              {hasPbProps && (
-                <SourceGroup name="PubChem">
-                  {hasComputed && pbComputed && (
-                    <div className="chem-sub-block">
-                      <h3 className="chem-subhead">{t.chemical.knowledge.descriptors}{enrichment.status !== "current" && enrichment.status !== "degraded" && <span className="chem-subhead-note">{enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued}</span>}</h3>
-                      <dl className="chem-dl">
-                        <DataRow label="XLogP" value={fmt(pbComputed.xlogp, locale)} />
-                        <DataRow label={t.chemical.knowledge.tpsa} value={pbComputed.topological_polar_surface_area != null ? `${fmt(pbComputed.topological_polar_surface_area, locale)} Å²` : null} />
-                        <DataRow label={t.chemical.knowledge.hbd} value={fmt(pbComputed.hbond_donor_count, locale)} />
-                        <DataRow label={t.chemical.knowledge.hba} value={fmt(pbComputed.hbond_acceptor_count, locale)} />
-                        <DataRow label={t.chemical.knowledge.rotatable} value={fmt(pbComputed.rotatable_bond_count, locale)} />
-                        <DataRow label={t.chemical.knowledge.heavyAtoms} value={fmt(pbComputed.heavy_atom_count, locale)} />
-                        <DataRow label={t.chemical.knowledge.charge} value={fmt(pbComputed.formal_charge, locale)} />
-                        <DataRow label={t.chemical.knowledge.complexity} value={fmt(pbComputed.complexity, locale)} />
-                      </dl>
-                    </div>
-                  )}
-                  {pbPhysical.length > 0 && (
-                    <div className="chem-sub-block">
-                      <h3 className="chem-subhead">{t.chemical.knowledge.experimental}</h3>
-                      <EvidenceList entries={pbPhysical} source="PubChem" dict={t} />
-                    </div>
-                  )}
-                </SourceGroup>
+              {hasComputed && pbComputed && (
+                <ChemGroup gid="grp-prop-descriptors" title={t.chemical.knowledge.descriptors} source="PubChem" total={8} dict={t}
+                  note={enrichment.status !== "current" && enrichment.status !== "degraded" ? (enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued) : undefined}>
+                  <dl className="chem-dl">
+                    {([
+                      ["XLogP", fmt(pbComputed.xlogp, locale)],
+                      [t.chemical.knowledge.tpsa, pbComputed.topological_polar_surface_area != null ? `${fmt(pbComputed.topological_polar_surface_area, locale)} Å²` : null],
+                      [t.chemical.knowledge.hbd, fmt(pbComputed.hbond_donor_count, locale)],
+                      [t.chemical.knowledge.hba, fmt(pbComputed.hbond_acceptor_count, locale)],
+                      [t.chemical.knowledge.rotatable, fmt(pbComputed.rotatable_bond_count, locale)],
+                      [t.chemical.knowledge.heavyAtoms, fmt(pbComputed.heavy_atom_count, locale)],
+                      [t.chemical.knowledge.charge, fmt(pbComputed.formal_charge, locale)],
+                      [t.chemical.knowledge.complexity, fmt(pbComputed.complexity, locale)],
+                    ] as [string, string | null][]).map(([label, value], i) => (
+                      <DataRow key={label} label={label} value={value} over={i >= GROUP_ITEM_LIMIT} />
+                    ))}
+                  </dl>
+                </ChemGroup>
               )}
-              {hasCbProps && (
-                <SourceGroup name="ChemicalBook">
-                  {(props?.cb_experimental?.length ?? 0) > 0 && (
-                    <div className="chem-sub-block">
-                      <h3 className="chem-subhead">{t.chemical.casext.props}</h3>
-                      <dl className="chem-dl">
-                        {(props?.cb_experimental ?? []).map((p) => (
-                          <DataRow key={`${p.label}-${p.text?.slice(0, 12)}`} label={p.label ?? ""} value={p.v != null ? `${p.v}${p.unit ? ` ${p.unit}` : ""} · ${p.text}` : p.text} />
-                        ))}
-                      </dl>
-                    </div>
-                  )}
-                  {(props?.cb_prose?.length ?? 0) > 0 && (
-                    <ProseBlock title={t.chemical.casext.chemicalProps} prose={props?.cb_prose ?? []} source="ChemicalBook" dict={t} />
-                  )}
-                </SourceGroup>
+              {pbPhysical.length > 0 && (
+                <ChemGroup gid="grp-prop-experimental" title={t.chemical.knowledge.experimental} source="PubChem" total={pbPhysical.length} dict={t}>
+                  <EvidenceList entries={pbPhysical} source="PubChem" dict={t} limit={GROUP_ITEM_LIMIT} />
+                </ChemGroup>
+              )}
+              {(props?.cb_experimental?.length ?? 0) > 0 && (
+                <ChemGroup gid="grp-prop-cb" title={t.chemical.casext.props} source="ChemicalBook" total={(props?.cb_experimental ?? []).length} dict={t}>
+                  <dl className="chem-dl">
+                    {(props?.cb_experimental ?? []).map((p, i) => (
+                      <DataRow key={`${p.label}-${p.text?.slice(0, 12)}`} label={p.label ?? ""} value={p.v != null ? `${p.v}${p.unit ? ` ${p.unit}` : ""} · ${p.text}` : p.text} over={i >= GROUP_ITEM_LIMIT} />
+                    ))}
+                  </dl>
+                </ChemGroup>
+              )}
+              {(props?.cb_prose?.length ?? 0) > 0 && (
+                <ProseGroup gid="grp-prop-prose" title={t.chemical.casext.chemicalProps} prose={props?.cb_prose ?? []} source="ChemicalBook" dict={t} />
               )}
             </section>
           )}
@@ -342,33 +345,26 @@ export default async function ChemicalPage({ params }: {
           {hasSafetyReal && (
             <section className="chem-section" id="safety">
               <SectionHead title={t.chemical.page.safety} />
-              {hasPbSafety && (
-                <SourceGroup name="PubChem">
-                  {Object.entries(pbSafetySections).map(([key, block]) => evidenceEntries(block).length > 0 ? (
-                    <div className="chem-sub-block" key={key}>
-                      <h3 className="chem-subhead">{pbSectionTitle(key, t)}</h3>
-                      <EvidenceList entries={evidenceEntries(block)} source="PubChem" dict={t} />
-                    </div>
-                  ) : null)}
-                </SourceGroup>
+              {Object.entries(pbSafetySections).map(([key, block]) => {
+                const entries = evidenceEntries(block);
+                return entries.length > 0 ? (
+                  <ChemGroup key={key} gid={`grp-safety-${key}`} title={pbSectionTitle(key, t)} source="PubChem" total={entries.length} dict={t}>
+                    <EvidenceList entries={entries} source="PubChem" dict={t} limit={GROUP_ITEM_LIMIT} />
+                  </ChemGroup>
+                ) : null;
+              })}
+              {safety?.cb_safety && Object.keys(safety.cb_safety).length > 0 && (
+                <ChemGroup gid="grp-safety-cb" title={t.chemical.casext.safety} source="ChemicalBook" total={Object.keys(safety.cb_safety).length} dict={t}>
+                  <dl className="chem-dl">
+                    {Object.entries(safety.cb_safety).map(([k, v], i) => <DataRow key={k} label={k} value={String(v)} over={i >= GROUP_ITEM_LIMIT} />)}
+                  </dl>
+                </ChemGroup>
               )}
-              {hasCbSafety && (
-                <SourceGroup name="ChemicalBook">
-                  {safety?.cb_safety && Object.keys(safety.cb_safety).length > 0 && (
-                    <div className="chem-sub-block">
-                      <h3 className="chem-subhead">{t.chemical.casext.safety}</h3>
-                      <dl className="chem-dl">
-                        {Object.entries(safety.cb_safety).map(([k, v]) => <DataRow key={k} label={k} value={String(v)} />)}
-                      </dl>
-                    </div>
-                  )}
-                  {(safety?.cb_toxicity?.length ?? 0) > 0 && (
-                    <ProseBlock title={t.chemical.casext.toxicity} prose={safety?.cb_toxicity ?? []} source="ChemicalBook" dict={t} />
-                  )}
-                  {(safety?.cb_packaging?.length ?? 0) > 0 && (
-                    <ProseBlock title={t.chemical.casext.packaging} prose={safety?.cb_packaging ?? []} source="ChemicalBook" dict={t} />
-                  )}
-                </SourceGroup>
+              {(safety?.cb_toxicity?.length ?? 0) > 0 && (
+                <ProseGroup gid="grp-toxicity" title={t.chemical.casext.toxicity} prose={safety?.cb_toxicity ?? []} source="ChemicalBook" dict={t} />
+              )}
+              {(safety?.cb_packaging?.length ?? 0) > 0 && (
+                <ProseGroup gid="grp-packaging" title={t.chemical.casext.packaging} prose={safety?.cb_packaging ?? []} source="ChemicalBook" dict={t} />
               )}
             </section>
           )}
@@ -377,56 +373,44 @@ export default async function ChemicalPage({ params }: {
           {hasIndustry && (
             <section className="chem-section" id="industry">
               <SectionHead title={t.chemical.page.industry} />
-              {hasPbIndustry && (
-                <SourceGroup name="PubChem">
-                  {Object.entries(pbIndustrySections).map(([key, block]) => evidenceEntries(block).length > 0 ? (
-                    <div className="chem-sub-block" key={key}>
-                      <h3 className="chem-subhead">{pbSectionTitle(key, t)}</h3>
-                      <EvidenceList entries={evidenceEntries(block)} source="PubChem" dict={t} />
-                    </div>
-                  ) : null)}
-                </SourceGroup>
+              {Object.entries(pbIndustrySections).map(([key, block]) => {
+                const entries = evidenceEntries(block);
+                return entries.length > 0 ? (
+                  <ChemGroup key={key} gid={`grp-industry-${key}`} title={pbSectionTitle(key, t)} source="PubChem" total={entries.length} dict={t}>
+                    <EvidenceList entries={entries} source="PubChem" dict={t} limit={GROUP_ITEM_LIMIT} />
+                  </ChemGroup>
+                ) : null;
+              })}
+              {(industry?.cb_uses?.length ?? 0) > 0 && (
+                <ProseGroup gid="grp-uses" title={t.chemical.casext.uses} prose={industry?.cb_uses ?? []} source="ChemicalBook" dict={t} />
               )}
-              {hasCbIndustry && (
-                <SourceGroup name="ChemicalBook">
-                  {(industry?.cb_uses?.length ?? 0) > 0 && (
-                    <ProseBlock title={t.chemical.casext.uses} prose={industry?.cb_uses ?? []} source="ChemicalBook" dict={t} />
-                  )}
-                  {(industry?.cb_preparation?.length ?? 0) > 0 && (
-                    <ProseBlock title={t.chemical.casext.preparation} prose={industry?.cb_preparation ?? []} source="ChemicalBook" dict={t} />
-                  )}
-                  {(industry?.cb_updown?.up?.length ?? 0) > 0 || (industry?.cb_updown?.down?.length ?? 0) > 0 ? (
-                    <div className="chem-sub-block">
-                      <h3 className="chem-subhead">{t.chemical.casext.updown}</h3>
-                      <div className="casext-updown">
-                        {(["up", "down"] as const).map((dir) => {
-                          const items = dir === "up" ? industry?.cb_updown?.up : industry?.cb_updown?.down;
-                          if (!items?.length) return null;
-                          return <div key={dir}><h4>{dir === "up" ? t.chemical.casext.upstream : t.chemical.casext.downstream}</h4><div className="casext-tags">{items.map((n) => <span key={`${dir}-${n.name}`} className="casext-tag">{n.name}</span>)}</div></div>;
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
-                  {(industry?.cb_price?.length ?? 0) > 0 && (
-                    <div className="chem-sub-block">
-                      <h3 className="chem-subhead">{t.chemical.casext.price}</h3>
-                      <dl className="chem-dl">
-                        {(industry?.cb_price ?? []).map((r) => <DataRow key={`${r.code}-${r.package}`} label={`${r.code} · ${r.package}`} value={`${r.name} — ${r.price}`} />)}
-                      </dl>
-                    </div>
-                  )}
-                  {(detail?.suppliers.items.length ?? 0) > 0 && (
-                    <div className="chem-sub-block" id="suppliers">
-                      <h3 className="chem-subhead">{t.chemical.casext.suppliers} <span className="chem-subhead-note">{new Intl.NumberFormat(locale).format(detail?.suppliers.items.length ?? 0)} {t.chemical.casext.supplierUnit}</span></h3>
-                      <div className="casext-suppliers">
-                        {(detail?.suppliers.items ?? []).map((s) => <SupplierCard key={s.ref} supplier={s} labels={t} />)}
-                      </div>
-                    </div>
-                  )}
-                  {(industry?.cb_notes?.length ?? 0) > 0 && (
-                    <ProseBlock title={t.chemical.casext.safetyNotes} prose={industry?.cb_notes ?? []} source="ChemicalBook" dict={t} />
-                  )}
-                </SourceGroup>
+              {(industry?.cb_preparation?.length ?? 0) > 0 && (
+                <ProseGroup gid="grp-preparation" title={t.chemical.casext.preparation} prose={industry?.cb_preparation ?? []} source="ChemicalBook" dict={t} />
+              )}
+              {(industry?.cb_updown?.up?.length ?? 0) > 0 || (industry?.cb_updown?.down?.length ?? 0) > 0 ? (
+                <div className="chem-group">
+                  <h3 className="chem-group-head">{t.chemical.casext.updown}<Tag tone="src">ChemicalBook</Tag></h3>
+                  <div className="chem-group-body casext-updown">
+                    {(["up", "down"] as const).map((dir) => {
+                      const items = dir === "up" ? industry?.cb_updown?.up : industry?.cb_updown?.down;
+                      if (!items?.length) return null;
+                      return <div key={dir}><h4>{dir === "up" ? t.chemical.casext.upstream : t.chemical.casext.downstream}</h4><UpdownTags gid={`grp-updown-${dir}`} direction={dir} items={items} dict={t} /></div>;
+                    })}
+                  </div>
+                </div>
+              ) : null}
+              {(industry?.cb_price?.length ?? 0) > 0 && (
+                <ChemGroup gid="grp-price" title={t.chemical.casext.price} source="ChemicalBook" total={(industry?.cb_price ?? []).length} dict={t}>
+                  <dl className="chem-dl">
+                    {(industry?.cb_price ?? []).map((r, i) => <DataRow key={`${r.code}-${r.package}`} label={`${r.code} · ${r.package}`} value={`${r.name} — ${r.price}`} over={i >= GROUP_ITEM_LIMIT} />)}
+                  </dl>
+                </ChemGroup>
+              )}
+              {(detail?.suppliers.items.length ?? 0) > 0 && (
+                <SupplierList gid="grp-suppliers" items={detail?.suppliers.items ?? []} dict={t} locale={locale} />
+              )}
+              {(industry?.cb_notes?.length ?? 0) > 0 && (
+                <ProseGroup gid="grp-notes" title={t.chemical.casext.safetyNotes} prose={industry?.cb_notes ?? []} source="ChemicalBook" dict={t} />
               )}
             </section>
           )}
@@ -461,10 +445,11 @@ export default async function ChemicalPage({ params }: {
               </dd></div>
             </dl>
           </section>
+          {/* 新建相关反应（PM 决策保留；Step 7 紧凑版：标题 + 一句说明 + tonal sm 按钮） */}
           <section className="contribute-panel">
-            <h2>{t.chemical.newRelated}</h2>
+            <h2 className="contribute-title">{t.chemical.newRelated}</h2>
             <p>{t.chemical.newRelatedHint}</p>
-            <Link href={withLocale(`/submit?chemical=${chemical.id}`, locale)} rel="nofollow">{t.chemical.newReaction}</Link>
+            <Button variant="tonal" size="sm" href={withLocale(`/submit?chemical=${chemical.id}`, locale)}>{t.chemical.newReaction}</Button>
           </section>
         </aside>
       </div>
@@ -484,76 +469,111 @@ function SectionHead({ title, note }: { title: string; note?: string }) {
   );
 }
 
-/** DataRow：dl 两列，标签列 140（手机 96），13px muted 标签 / fs-14 值 / 1px 分割线 */
-function DataRow({ label, value, children }: { label: string; value?: string | null; children?: ReactNode }) {
-  if (value == null && children == null) return null;
-  return <div><dt>{label}</dt><dd>{children ?? value}</dd></div>;
+/** DataRow 已提取为共享组件 components/DataRow（§9.1/§9.2 统一数据行） */
+
+/** 组级折叠超限标记（DataRow 以外的元素用） */
+function overProps(index: number, limit: number) {
+  return index >= limit ? { hidden: true as const, "data-overflow": "" } : {};
 }
 
-/** 来源分组：每组以来源标签开头（§9.1 修订；v1.7 不做跨来源合并） */
-function SourceGroup({ name, children }: { name: string; children: ReactNode }) {
+/**
+ * 来源分组（§9.1 Step 7 组头一行）：h3 组标题在前，Tag src 紧跟同一行。
+ * 篇幅收敛：total > limit 时渲染 GroupToggle（「展开全部 N 项」/「收起」），
+ * 超限项由内容构建方标 data-overflow + hidden（仍在上面的 gid 容器内）。
+ */
+function ChemGroup({ gid, title, source, total, dict, children, note }: {
+  gid: string;
+  title: string;
+  source: string;
+  /** 组内总项数（DataRow/已折叠 details 均算 1 项） */
+  total: number;
+  dict: Dictionary;
+  children: ReactNode;
+  note?: string;
+}) {
   return (
-    <div className="chem-src-group">
-      <h3 className="chem-src-head"><Tag tone="src">{name}</Tag></h3>
-      {children}
+    <div className="chem-group">
+      <h3 className="chem-group-head">{title}<Tag tone="src">{source}</Tag>{note && <span className="chem-subhead-note">{note}</span>}</h3>
+      <div className="chem-group-body" id={gid}>{children}</div>
+      {total > GROUP_ITEM_LIMIT && (
+        <GroupToggle controls={gid} total={total} collapsedLabel={dict.chemical.page.expandAll(total)} expandedLabel={dict.chemical.page.collapse} />
+      )}
     </div>
   );
 }
 
-/** PB evidence 列表：短数值行直接可见；超过 2 条或单条 >240 字折叠为「条目名 · N 条 · 来源」 */
-function EvidenceList({ entries, source, dict }: { entries: EvidenceEntry[]; source: string; dict: Dictionary }) {
+/** PB evidence 列表：短数值行直接可见；超过 2 条或单条 >240 字折叠为「条目名 · N 条 · 来源」。
+ *  组级折叠：limit 之后的条目（含 details）hidden + data-overflow。 */
+function EvidenceList({ entries, source, dict, limit = Infinity }: { entries: EvidenceEntry[]; source: string; dict: Dictionary; limit?: number }) {
   return (
     <div className="evidence-list">
-      {entries.map((entry, index) => (
-        entry.values.length === 1 && isSummary(entry) ? (
-          <div key={`${entry.label}-${index}`} className="evidence-flat">
+      {entries.map((entry, index) => {
+        const over = index >= limit;
+        return entry.values.length === 1 && isSummary(entry) ? (
+          <div key={`${entry.label}-${index}`} className="evidence-flat" hidden={over || undefined} {...(over ? { "data-overflow": "" } : {})}>
             <span className="k">{entry.label}</span>
             <span className="v">{entry.values[0]}</span>
           </div>
         ) : (
-          <details key={`${entry.label}-${index}`}>
+          <details key={`${entry.label}-${index}`} hidden={over || undefined} {...(over ? { "data-overflow": "" } : {})}>
             <summary>{entry.label}<span className="evidence-meta"> · {dict.chemical.page.itemsCount(entry.values.length)} · {source}</span></summary>
             <div>{entry.values.map((value, vi) => <p key={vi}>{value}</p>)}</div>
           </details>
-        )
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-/** CB 长文列表：超过 2 条或单条 >240 字时整块折叠，summary =「条目名 · N 条 · 来源」 */
-function ProseBlock({ title, prose, source, dict }: { title: string; prose: ProseItem[]; source: string; dict: Dictionary }) {
+/** CB 长文组：组头即折叠 summary（「标题 [来源] · N 条」）；≤2 条且短时平铺 */
+function ProseGroup({ gid, title, prose, source, dict }: { gid: string; title: string; prose: ProseItem[]; source: string; dict: Dictionary }) {
   const collapsible = prose.length > COLLAPSE_ITEMS || prose.some((item) => item.text.length > COLLAPSE_CHARS);
   const list = <div className="casext-prose-list">{prose.map((item) => <p key={item.title + item.text.slice(0, 24)}><strong>{item.title}</strong>{item.text}</p>)}</div>;
   if (!collapsible) {
-    return <div className="chem-sub-block"><h3 className="chem-subhead">{title}</h3>{list}</div>;
+    return (
+      <div className="chem-group">
+        <h3 className="chem-group-head">{title}<Tag tone="src">{source}</Tag></h3>
+        <div className="chem-group-body" id={gid}>{list}</div>
+      </div>
+    );
   }
   return (
-    <details className="chem-sub-block prose-disclosure">
-      <summary className="chem-subhead">{title}<span className="evidence-meta"> · {dict.chemical.page.itemsCount(prose.length)} · {source}</span></summary>
-      {list}
+    <details className="chem-group prose-group">
+      <summary className="chem-group-head">{title}<Tag tone="src">{source}</Tag><span className="evidence-meta"> · {dict.chemical.page.itemsCount(prose.length)}</span></summary>
+      <div className="chem-group-body" id={gid}>{list}</div>
     </details>
   );
 }
 
-function SupplierCard({ supplier, labels }: { supplier: { ref: string; name: string; phone: string | null; email: string | null; website: string | null; purity: string | null; pack_price: string | null; remark: string | null }; labels: Dictionary }) {
-  const { name, phone, email, website, purity, pack_price, remark } = supplier;
+/** 上下游 Tag 列表：每向最多 UPDOWN_TAG_LIMIT 个，超出 data-overflow + 「展开」 */
+function UpdownTags({ gid, direction, items, dict }: { gid: string; direction: string; items: { name: string }[]; dict: Dictionary }) {
   return (
-    <article className="casext-supplier">
-      <header><h3>{name}</h3></header>
-      <dl>
-        {purity && <div><dt>{labels.chemical.casext.purity}</dt><dd>{purity}</dd></div>}
-        {pack_price && <div><dt>{labels.chemical.casext.packPrice}</dt><dd>{pack_price}</dd></div>}
-        {phone && <div><dt>{labels.chemical.casext.phone}</dt><dd>{phone}</dd></div>}
-        {email && <div><dt>{labels.chemical.casext.email}</dt><dd>{email}</dd></div>}
-        {website && (
-          <div><dt>{labels.chemical.casext.website}</dt><dd>
-            <a href={website.startsWith("http") ? website : `https://${website}`} target="_blank" rel="nofollow noopener noreferrer">{website}</a>
-          </dd></div>
-        )}
-        {remark && <div><dt>{labels.chemical.casext.remark}</dt><dd>{remark}</dd></div>}
-      </dl>
-    </article>
+    <div className="casext-tags" id={gid}>
+      {items.map((n, i) => <span key={`${direction}-${n.name}`} className="casext-tag" {...overProps(i, UPDOWN_TAG_LIMIT)}>{n.name}</span>)}
+      {items.length > UPDOWN_TAG_LIMIT && (
+        <GroupToggle controls={gid} total={items.length} collapsedLabel={dict.chemical.page.expandTags} expandedLabel={dict.chemical.page.collapse} />
+      )}
+    </div>
+  );
+}
+
+/** 供应商（Step 7 紧凑行）：公司名 + 电话 + 邮箱，默认 5 家，「查看全部 N 家」 */
+function SupplierList({ gid, items, dict, locale }: { gid: string; items: CasSupplier[]; dict: Dictionary; locale: string }) {
+  return (
+    <div className="chem-group">
+      <h3 className="chem-group-head">{dict.chemical.casext.suppliers}<Tag tone="src">ChemicalBook</Tag><span className="chem-subhead-note">{new Intl.NumberFormat(locale).format(items.length)} {dict.chemical.casext.supplierUnit}</span></h3>
+      <div className="chem-group-body supplier-rows" id={gid}>
+        {items.map((s, i) => (
+          <div key={s.ref} className="supplier-row" {...overProps(i, SUPPLIER_LIMIT)}>
+            <span className="supplier-name">{s.name}</span>
+            <span className="supplier-contact">{[s.phone, s.email].filter(Boolean).join(" · ") || "—"}</span>
+          </div>
+        ))}
+      </div>
+      {items.length > SUPPLIER_LIMIT && (
+        <GroupToggle controls={gid} total={items.length} collapsedLabel={dict.chemical.page.viewAllSuppliers(items.length)} expandedLabel={dict.chemical.page.collapse} />
+      )}
+    </div>
   );
 }
 

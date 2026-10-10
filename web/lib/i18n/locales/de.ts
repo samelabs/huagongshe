@@ -188,6 +188,10 @@ const de: Dictionary = {
       recordStatus: 'Status',
       refilling: 'Daten werden von PubChem ergänzt – meist innerhalb einer Minute fertig',
       itemsCount: (n: number) => `${n} ${n === 1 ? 'Eintrag' : 'Einträge'}`,
+      expandAll: (n: number) => `Alle ${n} anzeigen`,
+      collapse: 'Einklappen',
+      viewAllSuppliers: (n: number) => `Alle ${n} anzeigen`,
+      expandTags: 'Mehr',
     },
     roles: {
       reactant: 'als Edukt',

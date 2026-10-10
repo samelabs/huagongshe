@@ -184,6 +184,10 @@ const en: Dictionary = {
       recordStatus: 'Status',
       refilling: 'Fetching data from PubChem — usually done within a minute',
       itemsCount: (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`,
+      expandAll: (n: number) => `Show all ${n}`,
+      collapse: 'Collapse',
+      viewAllSuppliers: (n: number) => `View all ${n}`,
+      expandTags: 'More',
     },
     roles: {
       reactant: 'As reactant',

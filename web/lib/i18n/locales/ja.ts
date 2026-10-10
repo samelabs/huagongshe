@@ -185,6 +185,10 @@ const ja: Dictionary = {
       recordStatus: '状態',
       refilling: 'PubChem からデータを補完しています。通常は 1 分以内に完了します',
       itemsCount: (n: number) => `${n} 件`,
+      expandAll: (n: number) => `すべて表示（${n} 件）`,
+      collapse: '折りたたむ',
+      viewAllSuppliers: (n: number) => `すべて表示（${n} 社）`,
+      expandTags: 'さらに表示',
     },
     roles: {
       reactant: '反応物として',

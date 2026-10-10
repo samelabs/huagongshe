@@ -187,6 +187,10 @@ const ko: Dictionary = {
       recordStatus: '상태',
       refilling: 'PubChem에서 데이터를 보충하는 중입니다. 보통 1분 이내에 완료됩니다',
       itemsCount: (n: number) => `${n}건`,
+      expandAll: (n: number) => `모두 ${n}건 보기`,
+      collapse: '접기',
+      viewAllSuppliers: (n: number) => `모두 ${n}곳 보기`,
+      expandTags: '더 보기',
     },
     roles: {
       reactant: '반응물로',

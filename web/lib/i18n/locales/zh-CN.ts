@@ -191,6 +191,10 @@ const t = {
       recordStatus: '状态',
       refilling: '正在从 PubChem 补全数据，通常 1 分钟内完成',
       itemsCount: (n: number) => `${n} 条`,
+      expandAll: (n: number) => `展开全部 ${n} 项`,
+      collapse: '收起',
+      viewAllSuppliers: (n: number) => `查看全部 ${n} 家`,
+      expandTags: '展开',
     },
     roles: {
       reactant: '作为反应物',
