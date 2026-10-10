@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EntityId } from "@/components/shared/EntityId";
+import { Button } from "@/components/ui/Button";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/components/ui/Toast";
 import { apiDelete, apiGet } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
@@ -64,6 +67,8 @@ export function NotesPanel({
   const t = useDictionary();
   const locale = useLocale();
   const router = useRouter();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [data, setData] = useState<NoteResponse>(initialData ?? empty());
   const [state, setState] = useState<LoadState>(initialData ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);
@@ -172,16 +177,25 @@ export function NotesPanel({
     router.replace(withLocale(`/aichem?${params.toString()}`, locale));
   }
 
+  /** IX-3：删除前确认弹窗（问句标题 + 对象摘录 + 具体动作按钮）；成功/失败都
+   * 用 Toast 反馈；失败保留原列表数据（R6：面板保持可交互，不整页报错）。 */
   async function remove(note: NoteItem) {
-    if (!window.confirm(t.me.notesDeleteConfirm)) return;
+    const excerpt = note.content.length > 24 ? `${note.content.slice(0, 24)}…` : note.content;
+    const ok = await confirm({
+      title: t.notes.deleteTitle,
+      body: t.notes.deleteBody(excerpt),
+      confirmLabel: t.notes.deleteLabel,
+      tone: "danger",
+    });
+    if (!ok) return;
     setActionError(null);
     try {
       await apiDelete(`/notes/${note.id}`);
       if (editing?.id === note.id) setEditing(null);
+      toast.success(t.notes.deleted);
       await load();
     } catch (err) {
-      // R6: keep the loaded list interactive — surface the failure without
-      // switching the whole panel to a fatal error state.
+      toast.error(t.common.deleteFailed);
       setActionError(t.notes.deleteFailed);
       setError(err);
     }
@@ -279,9 +293,10 @@ export function NotesPanel({
                 </div>
               )}
               <footer>
+                {/* 三个操作的语义样式（v1.7）：查看全文=普通链接色；编辑=ghost；删除=danger-quiet */}
                 <Link className="text-button" href={withLocale(`/note/${note.id}`, locale)}>{t.notes.viewFull}</Link>
-                <button type="button" onClick={() => { setCreating(false); setEditing(note); }}>{t.common.edit}</button>
-                <button type="button" onClick={() => void remove(note)}>{t.common.delete}</button>
+                <Button variant="ghost" size="sm" onClick={() => { setCreating(false); setEditing(note); }}>{t.common.edit}</Button>
+                <Button variant="danger-quiet" size="sm" onClick={() => void remove(note)}>{t.common.delete}</Button>
               </footer>
             </article>
           ))}

@@ -21,11 +21,17 @@ Checks:
 4. Every --wb-* in aichem-tokens.css is a pure alias — its value must
    start with var(--, no literals of its own.
 5. --green* / --warm* tokens must not reappear.
-6. No alert( / confirm( / prompt( calls in TSX.
+6. No alert( / confirm( / prompt( calls in TSX. A bare ``confirm(``
+   call is legal only in files that also call ``useConfirm`` — that is
+   the ConfirmDialog API replacing the native dialogs (Step 4).
 7. Brand: components/ui/HgsLogo.tsx geometry (polygon points, path d)
    must stay byte-identical to web/public/brand/*.svg source files.
 8. Brand: public/brand/*.svg is the only place besides the line
    whitelist where hex values are allowed (brand source files).
+9. Entity display: no HCID/HRID display may be spelled (interpolating
+   an id) outside components/ui/EntityBadge.tsx. The i18n dictionaries
+   (lib/i18n/locales, not scanned) and aria-only copy are exempt;
+   EntityBadge keeps its literals behind the component boundary.
 """
 
 from __future__ import annotations
@@ -91,11 +97,31 @@ def hex_scan_files() -> list[Path]:
     # hex/rgb/hsl 扫描覆盖面 = 组件样式 + 品牌 SVG 源文件(后者整体在文件白名单里)
     return scan_files() + brand_svg_files()
 
-# ── native-dialog violations owned by a later step (ConfirmDialog rollout) ──
-KNOWN_DIALOG_CALLS: dict[str, str] = {
-    "components/workbench/panels/NotesPanel.tsx": "window.confirm(",
-    "components/ReactionOwnerActions.tsx": "window.confirm(",
-}
+# ── native-dialog ban (DESIGN_SYSTEM §11.7) ─────────────────────────────
+# ConfirmDialog (Step 4) replaces window.confirm; its hook returns a
+# function named ``confirm``, so a bare ``confirm(`` is legal only in
+# files that also call ``useConfirm``. window.alert/confirm/prompt and
+# bare alert(/prompt( have no legitimate producer and are always banned.
+DIALOG_RE = re.compile(r"(?<![.\w])(alert|confirm|prompt)\s*\(")
+WINDOW_DIALOG_RE = re.compile(r"window\.(alert|confirm|prompt)\s*\(")
+CONFIRM_HOOK = "useConfirm("
+
+
+def dialog_findings() -> list[tuple[str, int, str]]:
+    findings: list[tuple[str, int, str]] = []
+    for p in scan_files():
+        if p.suffix != ".tsx":
+            continue
+        text = p.read_text(encoding="utf-8")
+        has_hook = CONFIRM_HOOK in text
+        for i, line in enumerate(text.splitlines(), 1):
+            if WINDOW_DIALOG_RE.search(line):
+                findings.append((rel(p), i, line.strip()[:120]))
+                continue
+            m = DIALOG_RE.search(line)
+            if m and not (m.group(1) == "confirm" and has_hook):
+                findings.append((rel(p), i, line.strip()[:120]))
+    return findings
 
 
 def hex_findings() -> list[tuple[str, int, str]]:
@@ -255,36 +281,34 @@ class BrandAssetTests(unittest.TestCase):
 
 
 class DialogCallTests(unittest.TestCase):
-    def test_known_dialog_calls_still_present(self):
-        # pin the exact set of known offenders so the guard below can't rot
-        for wf, needle in KNOWN_DIALOG_CALLS.items():
-            self.assertIn(needle, (WEB / wf).read_text(encoding="utf-8"),
-                          f"known dialog call disappeared from {wf}: update both tests")
-
-    def test_no_dialog_calls_beyond_known(self):
-        findings = []
-        for p in scan_files():
-            if p.suffix != ".tsx":
-                continue
-            for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-                if any(tok in line for tok in ("alert(", "confirm(", "prompt(")):
-                    findings.append((rel(p), i, line.strip()[:120]))
-        known = {(f, KNOWN_DIALOG_CALLS[f]) for f in KNOWN_DIALOG_CALLS}
-        fresh = [x for x in findings if not any(x[0] == kf and needle in x[2]
-                                                for kf, needle in known)]
-        self.assertEqual([], fresh, "new alert/confirm/prompt call appeared")
-
-    @unittest.expectedFailure
     def test_no_dialog_calls_at_all(self):
-        # strict target: ConfirmDialog (DESIGN_SYSTEM §6) replaces these later
-        findings = []
-        for p in scan_files():
-            if p.suffix != ".tsx":
-                continue
-            for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-                if any(tok in line for tok in ("alert(", "confirm(", "prompt(")):
-                    findings.append((rel(p), i, line.strip()[:120]))
-        self.assertEqual([], findings)
+        # DESIGN_SYSTEM §11.7：alert/confirm/prompt 一律禁止；
+        # 唯一例外是 useConfirm() 返回的 confirm({...})（ConfirmDialog API）。
+        self.assertEqual([], dialog_findings())
+
+
+# ── entity display spelled outside EntityBadge (DESIGN_SYSTEM §11.8) ──────
+ENTITY_BADGE_FILE = "components/ui/EntityBadge.tsx"
+# HCID/HRID 后面紧跟 id 插值 = 在拼写实体号的展示（模板串或 JSX 文本）
+ENTITY_SPELL_RE = re.compile(r"(HCID|HRID)(\s*\$\{|\s*\{[a-zA-Z_.\[\]]+\})")
+
+
+def entity_spell_findings() -> list[tuple[str, int, str]]:
+    findings: list[tuple[str, int, str]] = []
+    for p in scan_files():
+        if p.suffix != ".tsx" or rel(p) == ENTITY_BADGE_FILE:
+            continue
+        for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            if ENTITY_SPELL_RE.search(line):
+                findings.append((rel(p), i, line.strip()[:120]))
+    return findings
+
+
+class EntityBadgeDisplayTests(unittest.TestCase):
+    def test_no_entity_id_spelled_outside_badge(self):
+        # 字典(lib/i18n/locales，不在扫描面)与纯 aria 文案(无插值)不在此列；
+        # support 页等处的散文提及(“包含 HCID 或 HRID”)没有 id 插值，不算展示。
+        self.assertEqual([], entity_spell_findings())
 
 
 if __name__ == "__main__":
