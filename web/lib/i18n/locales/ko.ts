@@ -610,7 +610,7 @@ const ko: Dictionary = {
       /* Step 11 Part D: 폼 필드 / 해지 확인(IX-3) / 한 번만 표시 / 빈 상태(IX-8) */
       nameLabel: '키 이름',
       daysLabel: '유효 기간',
-      onceNotice: '키가 생성되었습니다. 지금 신뢰할 수 있는 클라이언트 설정에 복사하세요. 이후 아래 목록에서 다시 복사할 수도 있습니다. 키를 공개 채팅이나 신뢰할 수 없는 사이트에 붙여넣지 마세요.',
+      onceNotice: '이 키는 생성 직후 한 번만 표시됩니다. 이 페이지를 벗어나면 다시 볼 수 없으므로 지금 바로 복사해 저장하세요. 키를 공개 채팅이나 신뢰할 수 없는 사이트에 붙여넣지 마세요.',
       revokeConfirmTitle: '이 AI Key를 해지할까요?',
       revokeConfirmBody: (name: string, prefix: string) => `‘${name}’(접두사 ${prefix}…)가 해지됩니다. 이 키를 사용하는 클라이언트는 즉시 접근할 수 없게 되며, 이 작업은 되돌릴 수 없습니다.`,
       revokeConfirmBtn: '키 해지',

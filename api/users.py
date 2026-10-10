@@ -311,10 +311,11 @@ async def delete_avatar(actor: Actor = Depends(current_session), db=Depends(get_
 
 @router.get("/me/tokens")
 async def list_tokens(response: Response, actor: Actor = Depends(current_session), db=Depends(get_db)):
-    # 响应含 token_plain(secret): 明确禁缓存, 不依赖 CDN/浏览器默认
+    # 2026-10-11 收口: 明文不再落库 → 列表只有元数据(token_hash 不可逆, 不回传)。
+    # 响应仍属账户私有数据: 明确禁缓存, 不依赖 CDN/浏览器默认。
     response.headers["Cache-Control"] = "private, no-store"
     rows = (await db.execute(text("""
-        SELECT id,name,token_prefix,scopes,created_at,expires_at,last_used_at,token_plain
+        SELECT id,name,token_prefix,scopes,created_at,expires_at,last_used_at
         FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL
         ORDER BY id DESC
@@ -337,18 +338,19 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
     )
     row = (await db.execute(text("""
         INSERT INTO community.user_api_tokens
-          (user_id,name,token_hash,token_prefix,token_plain,expires_at)
-        VALUES (:user_id,:name,:token_hash,:prefix,:plain,:expires_at)
+          (user_id,name,token_hash,token_prefix,expires_at)
+        VALUES (:user_id,:name,:token_hash,:prefix,:expires_at)
         RETURNING id,name,token_prefix,scopes,created_at,expires_at
     """), {
         "user_id": actor.id, "name": body.name.strip(),
         "token_hash": hashlib.sha256(plain.encode()).digest(), "prefix": plain[:12],
-        "plain": plain, "expires_at": expires,
+        "expires_at": expires,
     })).mappings().one()
     await db.commit()
     # P2 边界归一: Token 创建只返回 credential 与 token metadata。
     # api_base_url / agent_guide_url / agent_connection_text 已删除(前端零真实消费者,
     # onboarding 耦合由 /guide 与 /mcp-guide 平级入口承担)。
+    # 2026-10-11 收口: 明文只在 201 响应返回一次, 不落库(20261011_01 migration)。
     return {
         **dict(row),
         "token": plain,

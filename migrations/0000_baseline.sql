@@ -1461,7 +1461,6 @@ CREATE TABLE community.user_api_tokens (
     expires_at timestamp with time zone,
     last_used_at timestamp with time zone,
     revoked_at timestamp with time zone,
-    token_plain text,
     CONSTRAINT user_api_tokens_name_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80))),
     CONSTRAINT user_api_tokens_scopes_check CHECK ((scopes <@ ARRAY['read'::text, 'reaction:write'::text, 'skill:write'::text]))
 );

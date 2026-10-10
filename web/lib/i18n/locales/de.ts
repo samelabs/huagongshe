@@ -611,7 +611,7 @@ const de: Dictionary = {
       /* Step 11 Part D: Formularfelder / Widerruf bestätigen (IX-3) / einmalige Anzeige / Leerzustand (IX-8) */
       nameLabel: 'Key-Name',
       daysLabel: 'Gültigkeit',
-      onceNotice: 'Key erstellt. Kopiere ihn jetzt in eine vertrauenswürdige Client-Konfiguration; später kannst du ihn auch aus der Liste unten erneut kopieren. Füge den Key nicht in öffentliche Chats oder nicht vertrauenswürdige Seiten ein.',
+      onceNotice: 'Dieser Key wird nur einmal, direkt nach der Erstellung, angezeigt. Nach dem Verlassen dieser Seite kannst du ihn nicht mehr einsehen – kopiere und speichere ihn jetzt. Füge den Key nicht in öffentliche Chats oder nicht vertrauenswürdige Seiten ein.',
       revokeConfirmTitle: 'Diesen AI-Key widerrufen?',
       revokeConfirmBody: (name: string, prefix: string) => `„${name}“ (Präfix ${prefix}…) wird widerrufen. Clients mit diesem Key verlieren sofort den Zugriff. Dies kann nicht rückgängig gemacht werden.`,
       revokeConfirmBtn: 'Key widerrufen',

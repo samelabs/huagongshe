@@ -844,7 +844,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .token-secret .hg-notice { background: var(--bg-surface); }
 .token-secret-hint { margin: 0; color: var(--text-muted); font-size: var(--fs-12); line-height: 1.7; }
 .token-actions { display: flex; gap: 8px; align-items: center; flex: none; }
-.token-row-code { margin-top: 6px; max-width: 380px; }
 
 .token-list { margin-top: 18px; display: grid; gap: 8px; }
 .token-list article { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--bg-surface); }
@@ -855,12 +854,11 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .api-guide-link { color: var(--action); font-size: var(--fs-13); }
 .token-help-links { margin-top: 14px; display: flex; gap: 18px; }
 
-/* 手机（≤640）：设置页创建表单与明文 Key 单列，复制字段整行内部滚动 */
+/* 手机（≤640）：设置页创建表单与 Key 列表单列 */
 @media (max-width: 640px) {
   .token-create { grid-template-columns: minmax(0, 1fr); }
   .avatar-upload { flex-direction: column; align-items: stretch; }
   .token-list article { flex-direction: column; align-items: flex-start; }
-  .token-row-code { max-width: none; }
 }
 
 /* ── 文档页（§9.6，Step 11）：阅读版式 --w-reading 720；h2 与实体页分区同规格 ── */

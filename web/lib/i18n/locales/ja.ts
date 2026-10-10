@@ -608,7 +608,7 @@ const ja: Dictionary = {
       /* Step 11 Part D: フォーム項目 / 失効確認（IX-3）/ 一度だけ表示 / 空状態（IX-8） */
       nameLabel: 'キー名',
       daysLabel: '有効期限',
-      onceNotice: 'キーを作成しました。今すぐ信頼できるクライアント設定にコピーしてください。後から下の一覧でも再コピーできます。キーを公開チャットや信頼できないサイトに貼り付けないでください。',
+      onceNotice: 'このキーは作成直後の一度しか表示されません。このページを離れると再度表示することはできないため、今すぐコピーして保存してください。キーを公開チャットや信頼できないサイトに貼り付けないでください。',
       revokeConfirmTitle: 'この AI Key を失効しますか？',
       revokeConfirmBody: (name: string, prefix: string) => `「${name}」（先頭 ${prefix}…）を失効します。このキーを使うクライアントは直ちにアクセスできなくなります。この操作は取り消せません。`,
       revokeConfirmBtn: 'キーを失効',

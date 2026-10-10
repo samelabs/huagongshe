@@ -607,7 +607,7 @@ const en: Dictionary = {
       /* Step 11 Part D: form fields / revoke confirm (IX-3) / once-only / empty (IX-8) */
       nameLabel: 'Key name',
       daysLabel: 'Validity',
-      onceNotice: 'Key created. Copy it into a trusted client configuration now; you can also copy it again from the list below later. Do not paste the Key into public chats or untrusted sites.',
+      onceNotice: 'This key is shown only once, right after creation. You cannot view it again after leaving this page — copy and save it now. Do not paste the key into public chats or untrusted sites.',
       revokeConfirmTitle: 'Revoke this AI Key?',
       revokeConfirmBody: (name: string, prefix: string) => `“${name}” (prefix ${prefix}…) will be revoked. Clients using this key lose access immediately. This cannot be undone.`,
       revokeConfirmBtn: 'Revoke key',

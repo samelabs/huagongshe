@@ -103,11 +103,10 @@ class TokenRevokeSemanticsTests(unittest.TestCase):
                            "p": await asyncio.to_thread(password_hash, "oldpass1A")})).scalar()
                     await db.execute(text("""
                         INSERT INTO community.user_api_tokens
-                          (user_id,name,token_hash,token_prefix,token_plain)
-                        VALUES (:uid,'t1',:h,'pfx12345678',:plain)
+                          (user_id,name,token_hash,token_prefix)
+                        VALUES (:uid,'t1',:h,'pfx12345678')
                     """), {"uid": uid,
-                           "h": hashlib.sha256(("x"*43).encode()).digest(),
-                           "plain": f"hgs_seed_{RUN}aaa"})
+                           "h": hashlib.sha256(("x"*43).encode()).digest()})
                 actor = self._new_actor(uid)
                 class _Resp:
                     headers: dict = {}
@@ -155,11 +154,10 @@ class TokenRevokeSemanticsTests(unittest.TestCase):
                            "p": "x"*60})).scalar()
                     await db.execute(text("""
                         INSERT INTO community.user_api_tokens
-                          (user_id,name,token_hash,token_prefix,token_plain)
-                        VALUES (:uid,'t1',:h,'pfx22345678',:plain)
+                          (user_id,name,token_hash,token_prefix)
+                        VALUES (:uid,'t1',:h,'pfx22345678')
                     """), {"uid": uid,
-                           "h": hashlib.sha256(("y"*43).encode()).digest(),
-                           "plain": f"hgs_seed_{RUN}bbb"})
+                           "h": hashlib.sha256(("y"*43).encode()).digest()})
                 admin_actor = Actor(id=1, username="admin", display_name="A",
                                     email="adm@t.example", role="admin",
                                     avatar_path=None, auth_kind="session")

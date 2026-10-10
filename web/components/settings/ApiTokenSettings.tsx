@@ -17,13 +17,14 @@ import { useToast } from "@/components/ui/Toast";
 import { IconPlug } from "@/components/ui/icons";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
-type Token = { id: number; name: string; token_prefix: string; token_plain: string | null; created_at: string; expires_at: string | null; last_used_at: string | null };
+type Token = { id: number; name: string; token_prefix: string; created_at: string; expires_at: string | null; last_used_at: string | null };
 type CreatedToken = { token: string };
 
-/** AI Key 管理（Step 11 Part D）：
+/** AI Key 管理（Step 11 Part D；2026-10-11 收口改明文一次性）：
  *  - 撤销走 ConfirmDialog（IX-3：问句标题 + 写明 Key 名称/前缀 + 「撤销 Key」
  *    danger 确认 + 默认焦点「取消」+ Esc 回焦触发按钮）
- *  - 明文 Key 与列表可复制 Key 统一 CodeField（IX-7 播报 + ✓ 1.5s）
+ *  - 明文 Key 只在创建后展示一次（CodeField，IX-7 播报 + ✓ 1.5s）；
+ *    列表只显示名称/前缀/时间等元数据，不再提供复制
  *  - 「只显示一次」用 Notice warn；空列表 EmptyState + 下一步（IX-8）
  *  - 撤销失败 Toast err、行保持原状 */
 export function ApiTokenSettings() {
@@ -135,7 +136,6 @@ export function ApiTokenSettings() {
             <strong>{token.name}</strong>
             <span>{token.token_prefix}… · {status}</span>
             <small>{token.last_used_at ? t.settings.ai.lastUsed(new Date(token.last_used_at).toLocaleString(locale)) : t.settings.ai.neverUsed} · {expires}</small>
-            {token.token_plain && <CodeField value={token.token_plain} copyLabel={t.settings.ai.copyToken} className="token-row-code" />}
           </div>
           <div className="token-actions">
             <Button
