@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
 /**
  * DetailRefresher(0902 P1): 详情页在途数据自动刷新。
  *
  * PB(enrichment.status==='queued')或 CB(externals state 待定但页面缺数据)在途时,
  * 每 4s router.refresh() 重走 SSR 拿新数据; 数据到/90s 超时停。
  * 只在服务端判定"在途"时渲染, 静态页零开销。
+ *
+ * v1.7 Step 6: 在途时同时渲染 Notice info「正在从 PubChem 补全数据…」
+ * （§9.1 头部下方），刷新轮询逻辑不变。
  */
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useDictionary } from "@/components/shared/I18nContext";
+import { Notice } from "@/components/ui/Notice";
+
 export function DetailRefresher({ active }: { active: boolean }) {
   const router = useRouter();
+  const t = useDictionary();
   useEffect(() => {
     if (!active) return;
     const started = Date.now();
@@ -27,5 +33,10 @@ export function DetailRefresher({ active }: { active: boolean }) {
     }, 4_000);
     return () => clearInterval(timer);
   }, [active, router]);
-  return null;
+  if (!active) return null;
+  return (
+    <div className="chem-refill-notice">
+      <Notice tone="info">{t.chemical.page.refilling}</Notice>
+    </div>
+  );
 }
