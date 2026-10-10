@@ -111,6 +111,10 @@ const t = {
     entryWorkbench: '网页工作台',
     entrySkills: 'Skills',
     entryPlugin: "ChatGPT / Plugin（未上架）",
+    /* Step 10：MCP 地址复制按钮 aria / Plugin 状态说明 + Tag warn 文案 */
+    entryMcpCopy: '复制 MCP 服务器地址',
+    entryPluginNote: 'ChatGPT / Plugin',
+    pluginNotListed: '未上架',
   },
 
   /* ── 搜索 ────────────────────────────────────────────── */
@@ -121,7 +125,16 @@ const t = {
     noResultsHint: '可以尝试以下方式：',
     noResultsHints: ['检查名称、CAS、SMILES、CID 的拼写', '换用更精确的标识符（如 CAS 号）', '化合物可用英文名或分子式再试'],
     fetchPendingTitle: '正在获取该 CAS',
-    fetchPendingHint: '正在获取 {cas}',
+    fetchPendingHint: '已开始从外部数据源获取 {cas}，通常 1 分钟内完成，稍后刷新本页',
+    /* Step 10 §9.3：大搜索框（SearchHero）+ 检索方式 Segmented + 结果分类 Tabs */
+    placeholder: '名称、CAS 号、SMILES 或 InChIKey',
+    modeLabel: '检索方式',
+    modeNameCas: '名称 / CAS',
+    modeExactStructure: '精确结构',
+    modeSubstructure: '子结构',
+    modeSimilarity: '相似结构',
+    noResultsTryHint: '试试 CAS 号、SMILES 或英文名',
+    resultTabsLabel: '结果分类',
     clearQuery: '清空查询',
     showingResults: (n: number) => `显示 ${n} 条匹配记录`,
     showingRange: (start: number, end: number, total: number) => `第 ${start}-${end} 条，共 ${total} 条`,

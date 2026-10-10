@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { GlobalSearch } from "@/components/GlobalSearch";
+import { cookies } from "next/headers";
+import { SearchHero } from "@/components/SearchHero";
+import { CodeField } from "@/components/ui/CodeField";
+import { Button } from "@/components/ui/Button";
+import { Tag } from "@/components/ui/Tag";
 import type { Metadata } from "next";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
@@ -31,26 +35,32 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Home() {
   const t = await getRequestDictionary();
   const locale = await getRequestLocale();
+  const authed = (await cookies()).has("hgs_session");
   return (
     <div className="home">
       <section className="hero">
         <h1>{t.home.hero}</h1>
         <p className="hero-subtitle">{t.home.subtitle}</p>
-        <GlobalSearch />
+        <SearchHero authed={authed} />
       </section>
 
-      {/* ── AI 接入入口: 第一屏直接给出地址与三条主入口 ── */}
+      {/* ── AI 接入入口: 第一屏直接给出地址与三条主入口（一级入口钉死为
+          MCP / Skills / 工作台 —— tests/test_v170_release_governance.py）。
+          ChatGPT / Plugin 状态 = 说明文字 + Tag warn「未上架」（不再是按钮），
+          Tag 链到 mcp-guide 的 chatgpt-plugin 锚点。 ── */}
       <section className="home-entry" aria-label={t.home.entryLabel}>
-        <div className="home-entry-mcp">
-          <span className="mcp-connect-label">{t.home.entryMcpLabel}</span>
-          <code className="mcp-connect-value">https://huagongshe.com/mcp</code>
-        </div>
-        <nav className="guide-actions">
-          <Link className="button primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Link>
-          <Link className="button secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Link>
-          <Link className="button secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Link>
-          <Link className="button secondary" href={`${withLocale("/mcp-guide", locale)}#chatgpt-plugin`}>{t.home.entryPlugin}</Link>
+        <CodeField value="https://huagongshe.com/mcp" copyLabel={t.home.entryMcpCopy} className="home-entry-code" />
+        <nav className="guide-actions home-entry-actions">
+          <Button variant="primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Button>
+          <Button variant="secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Button>
+          <Button variant="secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Button>
         </nav>
+        <p className="home-entry-note">
+          {t.home.entryPluginNote}
+          <Link href={withLocale("/mcp-guide#chatgpt-plugin", locale)} aria-label={t.home.entryPlugin}>
+            <Tag tone="warn">{t.home.pluginNotListed}</Tag>
+          </Link>
+        </p>
       </section>
     </div>
   );

@@ -64,19 +64,57 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .hero h1 {
   margin: 0 0 6px;
   font-size: clamp(var(--fs-28), 4vw, var(--fs-40));
-  font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: -.015em;
+  font-weight: 650;
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-display);
   color: var(--text);
 }
 .hero-subtitle {
   margin: 0;
-  font-size: clamp(var(--fs-16), 1.8vw, var(--fs-18));
+  font-size: var(--fs-18);
   font-weight: 400;
-  color: var(--text-muted);
+  color: var(--text-2);
   line-height: 1.5;
 }
 .hero .search-wrap { margin-top: 36px; }
+
+/* ── 大搜索框 + 检索方式（Step 10 §9.3：首页与 /search 共用 SearchHero）── */
+.srch-hero { margin-top: 36px; display: grid; gap: var(--sp-3); justify-items: stretch; text-align: left; }
+.search-head .srch-hero { margin-top: 22px; justify-self: start; width: min(620px, 100%); }
+.srch-box { display: flex; align-items: stretch; gap: var(--sp-2); }
+.srch-box-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 48px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.srch-box-wrap svg { flex: none; width: 18px; height: 18px; color: var(--text-placeholder); }
+.srch-box-wrap:focus-within { border-color: var(--action); box-shadow: 0 0 0 4px var(--focus-halo); }
+.srch-box-wrap:focus-within svg { color: var(--action); }
+.srch-box-wrap input {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--text);
+  font: 400 var(--fs-16)/1 var(--font-ui);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.srch-box-wrap input::placeholder { color: var(--text-placeholder); }
+.srch-box .hg-btn { flex: none; }
+/* 检索方式 Segmented：单行；手机横向滚动（不换行不挤压） */
+.srch-modes { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.srch-modes::-webkit-scrollbar { display: none; }
 
 /* ── 搜索查询入口 ────────────────────────────────── */
 .search-wrap { width: min(620px, 100%); margin: auto; }
@@ -219,9 +257,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .search-page { max-width: var(--w-content); }
 .search-head { max-width: var(--w-reading); margin-bottom: 36px; }
 .search-head .page-kicker { margin-bottom: 6px; }
-.search-head h1 { letter-spacing: -.015em; }
-.search-head h1 + .search-wrap { margin-top: 22px; }
-.search-head .search-wrap { margin-left: 0; }
+.search-head h1 { margin: 0; font-size: var(--fs-28); font-weight: 650; letter-spacing: var(--ls-title); line-height: var(--lh-tight); }
 .context-line { font-size: var(--fs-13); }
 .search-head .context-line { margin-top: 14px; }
 .context-line a { color: var(--action); }
@@ -890,6 +926,12 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .search-input-box { height: 48px; border-radius: var(--r-md); }
   .search-input-box input { font-size: 16px; }
   .search-submit-btn { height: 48px; border-radius: var(--r-md); padding: 0 20px; }
+  /* Step 10：大搜索框（SearchHero）手机 — 查询按钮换到输入框下方占满宽度；
+     Segmented 已自带横向滚动（.srch-modes）。 */
+  .srch-hero { margin-top: 24px; }
+  .srch-box { flex-direction: column; align-items: stretch; }
+  .srch-box .hg-btn { width: 100%; }
+  .search-head .srch-hero { width: 100%; }
   .content-page { padding-top: 28px; }
   .section-heading { align-items: flex-start; gap: 12px; }
   .section-heading > span { flex: 0 0 auto; }
@@ -1298,9 +1340,21 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 
 /* ── 首页 AI 接入入口(第一屏) ── */
-.home-entry { margin-top: 26px; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 16px 18px; background: var(--bg-page); display: grid; gap: 10px; }
-.home-entry-mcp { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.home-entry .guide-actions { margin-top: 0; }
+/* Step 10 Part C：MCP 区块 = CodeField 地址 → 三入口按钮 → 说明 + Tag warn「未上架」 */
+.home-entry { margin-top: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-5); background: var(--bg-surface); display: grid; gap: var(--sp-3); text-align: left; }
+.home-entry-code .hg-code code { font-size: var(--fs-13); }
+.home-entry-actions { margin-top: 0; }
+.home-entry-note {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-13);
+}
+.home-entry-note a { display: inline-flex; text-decoration: none; }
+.home-entry-note a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-xs); }
 
 /* ── 数据看板 v2 (0911) ── */
 .pipe-grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
