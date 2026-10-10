@@ -463,6 +463,8 @@ const t = {
     updatedLabel: '更新于',
     visibilityPublic: '公开',
     visibilityPrivate: '私有',
+    linkedLabel: '关联',
+    editInWorkbench: '编辑',
     viewFull: '查看全文',
     profileTitle: '公开笔记',
     mineSection: '我的私有笔记',

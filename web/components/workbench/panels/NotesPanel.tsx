@@ -51,6 +51,7 @@ export function NotesPanel({
   visibility,
   initialData,
   createOpen = false,
+  editNoteId,
   initialChemicalId,
   initialReactionId,
   filterChemicalId,
@@ -59,6 +60,8 @@ export function NotesPanel({
   visibility: NoteVisibility;
   initialData?: NoteResponse | null;
   createOpen?: boolean;
+  /** Step 7 Part C: /aichem?tab=notes&edit=<id> 直接打开该笔记编辑器 */
+  editNoteId?: number;
   initialChemicalId?: number;
   initialReactionId?: number;
   filterChemicalId?: number;
@@ -81,6 +84,16 @@ export function NotesPanel({
   }));
   const mounted = useRef(false);
   const latestLoad = useRef(0);
+
+  // Step 7 Part C: ?edit=<id> → 拉取该笔记并直接进入编辑器（一次挂载效果）
+  useEffect(() => {
+    if (!editNoteId) return;
+    let active = true;
+    apiGet<NoteItem>(`/notes/${editNoteId}`)
+      .then((note) => { if (active) setEditing(note); })
+      .catch(() => { /* 已删除/无权限时留在列表 */ });
+    return () => { active = false; };
+  }, [editNoteId]);
 
   // One filter identity: chemical takes precedence over reaction (P-8).
   const filterKey = filterChemicalId != null ? "chemical" : filterReactionId != null ? "reaction" : null;

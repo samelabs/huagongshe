@@ -459,6 +459,8 @@ const ko: Dictionary = {
     updatedLabel: '업데이트',
     visibilityPublic: '공개',
     visibilityPrivate: '비공개',
+    linkedLabel: '연결됨',
+    editInWorkbench: '편집',
     viewFull: '전체 보기',
     profileTitle: '공개 노트',
     mineSection: '내 비공개 노트',

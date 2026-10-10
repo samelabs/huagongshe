@@ -456,6 +456,8 @@ const en: Dictionary = {
     updatedLabel: 'Updated',
     visibilityPublic: 'Public',
     visibilityPrivate: 'Private',
+    linkedLabel: 'Linked',
+    editInWorkbench: 'Edit',
     viewFull: 'View full note',
     profileTitle: 'Public notes',
     mineSection: 'My private notes',

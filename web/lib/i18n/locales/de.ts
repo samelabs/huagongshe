@@ -460,6 +460,8 @@ const de: Dictionary = {
     updatedLabel: 'Aktualisiert',
     visibilityPublic: 'Öffentlich',
     visibilityPrivate: 'Privat',
+    linkedLabel: 'Verknüpft',
+    editInWorkbench: 'Bearbeiten',
     viewFull: 'Ganze Notiz ansehen',
     profileTitle: 'Öffentliche Notizen',
     mineSection: 'Meine privaten Notizen',

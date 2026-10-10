@@ -457,6 +457,8 @@ const ja: Dictionary = {
     updatedLabel: '更新日時',
     visibilityPublic: '公開',
     visibilityPrivate: '非公開',
+    linkedLabel: '関連',
+    editInWorkbench: '編集',
     viewFull: '全文を見る',
     profileTitle: '公開ノート',
     mineSection: '自分の非公開ノート',
