@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=core`).catch(() => null);
   // 与页面 H1 同源: 同一 resolver、同一 locale, 不允许 SEO 自己再写一套 fallback
   const { title: displayName } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel, locale);
-  const pageTitle = `${displayName} (HCID ${id})`;
+  const pageTitle = `${displayName} (${t.common.hcidShort(id)})`;
   const description = t.chemical.descFor(displayName);
   return {
     title: pageTitle,

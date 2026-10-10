@@ -54,38 +54,12 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .button:disabled { opacity: .5; cursor: not-allowed; }
 .text-button { border: 0; padding: 0; color: var(--action); background: none; cursor: pointer; font-size: var(--fs-13); }
 .page-kicker, .section-heading p { margin: 0 0 8px; color: var(--action); font-size: var(--fs-12); font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-/* ── EntityId · HCID/HRID 平台实体身份（Design System v2 唯一实现）────
- * HCID = chemistry.chemicals.id · HRID = chemistry.reactions.id
- * 平台记录引用，非 CAS/CID/InChIKey 类科学标识。
- * Full = 实体详情 header；Compact = 搜索卡/成分卡/列表。
- *
- * 形态：typographic accession mark —— 正式数据库记录号式的纯排版标识，
- * 不是 badge/胶囊：无外框、无填充、无阴影、无左侧 accent bar、无圆角容器。
- * HCID 与 HRID 的区别只来自字样与 prefix 文字色，几何完全同构。
- * 旧实现问题（已废）：tinted 背景 + 外框 + 3px 左色条 + 圆角徽章。
+/* ── EntityId · HCID/HRID 平台实体身份 ────────────────────
+ * v1.7 Step 4 起视觉/排版全部由 EntityBadge（components/ui/ui.css 的
+ * .hg-eb）承载；entity-id 只是兼容层（shared/EntityId.tsx）保留的
+ * legacy 定位类名 —— 本文件与其余 CSS 只保留定位/布局规则。
+ * 溢出防线由 .hg-eb 的 overflow:hidden 兜底（flex 子项自动最小尺寸为 0）。
  */
-.entity-id {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 7px;
-  border: 0;
-  padding: 0;
-  color: var(--text);
-  background: transparent;
-  vertical-align: middle;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-}
-.entity-id > span { color: var(--action-ink); font-size: var(--fs-12); font-weight: 700; letter-spacing: .05em; }
-.entity-id > strong { color: var(--text); font-family: var(--font-mono); font-size: var(--fs-14); font-weight: 600; }
-.entity-id.reaction > span { color: var(--entity-rx); }
-.entity-id.compact { gap: 4px; }
-.entity-id.compact > span { font-size: var(--fs-12); letter-spacing: .04em; }
-.entity-id.compact > strong { font-size: var(--fs-13); }
-/* 溢出防线(手机/平板): 作为 flex/grid 子项时允许收缩, 超长 ID 在徽章内断行,
-   不撑破容器、不产生横向滚动、不缩字体。属于唯一全局实现, 非 scoped fork。 */
-.entity-id { min-width: 0; max-width: 100%; }
-.entity-id > strong { overflow-wrap: anywhere; }
 
 /* ── 首页 Hero ── */
 .home { width: min(820px, calc(100% - 40px)); margin: auto; padding-bottom: 48px; }

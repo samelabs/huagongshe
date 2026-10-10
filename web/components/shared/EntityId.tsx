@@ -1,36 +1,30 @@
 "use client";
 
 /**
- * EntityId — HCID/HRID 平台实体身份的唯一实现（Design System v2）。
+ * EntityId — EntityBadge 的兼容包装（v1.7 Step 4 起视觉由 EntityBadge 承载）。
  *
- * HCID = chemistry.chemicals.id，HRID = chemistry.reactions.id。
- * 它们是 Huagongshe 平台记录引用，不是 CAS/CID/InChIKey 这类科学标识：
- * 无 zero padding、无 synthetic encoding、不改数据库 ID，显示即 `HCID 178750460`。
- *
- * - full（默认）：实体详情 header —— 强于普通 metadata、弱于实体名称
- * - compact：搜索结果 / 反应成分卡 / 列表卡 —— 同语义同几何，仅收小 padding/字号
- * - chemical 与 reaction 只差 accent（蓝 / 灰蓝），几何完全同构
- *
- * locale 来源: I18nContext(runtime); ariaLabel 显式覆盖优先。
+ * 旧调用方不改：compact=true → size="xs"，否则 size="sm"；
+ * ariaLabel 透传。根元素保留 legacy 类名 entity-id —— globals.css /
+ * aichem.css 里的既有定位规则（margin / flex 收缩 / 兄弟选择器）继续生效，
+ * 排版规则已由 EntityBadge 的 .hg-eb 样式接管（旧排版块已删除）。
+ * HCID/HRID 字面量只存在于 EntityBadge 与 i18n 字典（契约测试第 8 条）。
  */
-import { useDictionary } from "@/components/shared/I18nContext";
+import { EntityBadge, type EntityBadgeKind } from "@/components/ui/EntityBadge";
 
 export function EntityId({ kind, id, compact = false, ariaLabel }: {
-  kind: "chemical" | "reaction";
+  kind: EntityBadgeKind;
   id: number | string;
   compact?: boolean;
   /** 覆盖默认 aria-label；未传用当前字典 hcidLabel/hridLabel */
   ariaLabel?: string;
 }) {
-  const t = useDictionary();
-  const prefix = kind === "chemical" ? "HCID" : "HRID";
-  const label = ariaLabel
-    ?? (kind === "chemical"
-      ? t.common.hcidLabel(id)
-      : t.common.hridLabel(id));
   return (
-    <span className={`entity-id ${kind}${compact ? " compact" : ""}`} aria-label={label}>
-      <span>{prefix}</span><strong>{id}</strong>
-    </span>
+    <EntityBadge
+      kind={kind}
+      id={id}
+      size={compact ? "xs" : "sm"}
+      ariaLabel={ariaLabel}
+      className="entity-id"
+    />
   );
 }

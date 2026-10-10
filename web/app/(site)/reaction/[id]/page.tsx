@@ -29,10 +29,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   return {
-    title: `HRID ${id}`,
+    title: t.common.hridShort(id),
     description: t.reaction.desc,
     alternates: localeAlternates(canonical, locale),
-    openGraph: { url: withLocale(canonical, locale), title: `HRID ${id}｜${t.brand.name}`, description: t.reaction.desc, locale: ogLocaleTag(locale) },
+    openGraph: { url: withLocale(canonical, locale), title: `${t.common.hridShort(id)}｜${t.brand.name}`, description: t.reaction.desc, locale: ogLocaleTag(locale) },
   };
 }
 
@@ -213,7 +213,7 @@ export default async function ReactionPage({ params }: { params: Promise<{ id: s
           <section>
             <h2>{t.reaction.recordStatus}</h2>
             <dl>
-              <div><dt>{t.reaction.fieldHrid}</dt><dd>HRID {reaction.id}</dd></div>
+              <div><dt>{t.reaction.fieldHrid}</dt><dd><EntityId kind="reaction" id={reaction.id} /></dd></div>
               <div><dt>{t.reaction.fieldVisibility}</dt><dd>{reaction.visibility === "public" ? t.reaction.publicReaction : t.reaction.privateReaction}{reaction.moderation_status !== "visible" && ` · ${t.reaction.hiddenRecord}`}</dd></div>
               <div><dt>{t.reaction.fieldCreated}</dt><dd>{formatDate(reaction.created_at, locale)}</dd></div>
               <div><dt>{t.reaction.fieldUpdated}</dt><dd>{formatDate(reaction.updated_at, locale)}</dd></div>
