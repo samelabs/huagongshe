@@ -158,6 +158,7 @@ const de: Dictionary = {
     newReaction: 'Reaktionsaufzeichnung erstellen',
     errReactions: 'Zugehörige Reaktionen konnten nicht geladen werden. Bitte später erneut versuchen.',
     noReactions: 'Keine Reaktionsaufzeichnungen unter den aktuellen Filterkriterien.',
+    moreReactions: (n: number) => `${n} weitere anzeigen`,
     identity: {
       standardSmiles: 'Standard-SMILES',
       formula: 'Summenformel',

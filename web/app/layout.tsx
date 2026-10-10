@@ -74,7 +74,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const locale = await getRequestLocale();
 
   return (
-    <html lang={locale}>
+    // data-build：dev-only 的 commit 指纹（next.config env 注入），线上只读
+    // 截图断言用；生产构建下 undefined 不输出该属性。
+    <html lang={locale} data-build={process.env.HGS_BUILD_SHA || undefined}>
       <head>
         <link rel="llms-txt" href="/llms.txt" />
         {analytics?.enabled && analyticsId && (

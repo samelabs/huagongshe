@@ -155,6 +155,7 @@ const ja: Dictionary = {
     newReaction: '反応記録を作成',
     errReactions: '関連反応を読み込めませんでした。後でもう一度お試しください。',
     noReactions: '現在のフィルター条件では反応記録がありません。',
+    moreReactions: (n: number) => `さらに ${n} 件表示`,
     identity: {
       standardSmiles: '標準SMILES',
       formula: '分子式',

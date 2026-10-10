@@ -161,6 +161,7 @@ const t = {
     newReaction: '新建反应记录',
     errReactions: '相关反应暂时无法加载，请稍后重试。',
     noReactions: '当前筛选下没有反应记录。',
+    moreReactions: (n: number) => `显示更多（${n} 条）`,
     identity: {
       standardSmiles: '标准SMILES',
       formula: '分子式',

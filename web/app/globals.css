@@ -270,13 +270,32 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .reaction-source-name { margin: 6px 0 0; color: var(--text-muted); font-size: var(--fs-12); overflow-wrap: anywhere; }
 .reaction-badges { display: flex; flex-wrap: wrap; justify-content: end; gap: 6px; }
 .reaction-badges span { height: fit-content; border-radius: 999px; padding: 5px 9px; color: var(--action-hover); background: var(--action-subtle); font-size: var(--fs-12); }
-.reaction-preview { height: 178px; border-top: 1px solid var(--bg-page); border-bottom: 1px solid var(--bg-page); display: block; overflow-x: auto; }
-.reaction-preview img { display: block; width: 100%; min-width: 780px; height: 100%; object-fit: contain; }
-.reaction-preview.unavailable { display: flex; align-items: center; justify-content: center; padding: 20px; color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-13); text-align: center; }
 .reaction-result-foot { padding: 11px 18px; display: flex; justify-content: space-between; gap: 20px; color: var(--text-muted); font-size: var(--fs-12); }
 .reaction-result-foot p { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reaction-result-foot a { flex: 0 0 auto; color: var(--action); }
 .reaction-result-main { padding: 0; }
+
+/* 化合物页「相关反应」压缩卡（Step 8 Part A）：两列网格 + 方程图 96 等比 contain
+   + 单行底栏（HRID 徽标 / 角色 Tag / 来源 Tag）。搜索页 .reaction-result 不受影响。 */
+.reaction-mini-grid { display: grid; gap: 12px; }
+.reaction-mini { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); overflow: hidden; transition: border-color .15s; }
+@media (hover:hover) {
+  .reaction-mini:hover { border-color: var(--action-border); }
+}
+.reaction-mini-img { display: block; height: 96px; background: var(--bg-surface); }
+.reaction-mini-img img { display: block; width: 100%; height: 96px; object-fit: contain; }
+.reaction-mini-img.unavailable { display: flex; align-items: center; justify-content: center; color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-13); text-align: center; }
+.reaction-mini-foot { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--border); overflow: hidden; white-space: nowrap; }
+.reaction-mini-foot .hg-tag { flex: 0 0 auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
+.reaction-mini-more { display: none; margin-top: 12px; padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); color: var(--action); font-size: var(--fs-14); font-weight: 500; }
+@media (min-width: 641px) {
+  .reaction-mini-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  /* 手机默认只展示前 4 张，其余 hidden，「显示更多」展开 */
+  .reaction-mini-grid.collapsed .reaction-mini:nth-child(n + 5) { display: none; }
+  .reaction-mini-more { display: inline-block; }
+}
 
 /* prompt box (guide) */
 .prompt-box { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 16px; background: var(--bg-page); }
@@ -734,7 +753,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .reaction-result-head, .reaction-result-foot { flex-direction: column; }
   .reaction-badges { justify-content: start; }
   .reaction-badges span, .reaction-result-foot p { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
-  .reaction-preview { height: 145px; }
   .chemical-identity { grid-template-columns: 1fr; gap: 12px; }
   .chemical-structure { height: 230px; }
   /* Issue #4: mobile 全部左对齐(molecule 上, identity 下), 不再居中 */
@@ -744,7 +762,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .reaction-title { align-items: start; flex-direction: column; }
   /* 保持结构图可读: 容器内部滚动, 不缩到不可读; document 仍不横向溢出 */
   .rx-equation-card img { min-width: 640px; max-height: 250px; }
-  .reaction-preview img { min-width: 100%; }
   .participant-rows { grid-template-columns: 1fr; }
   .reaction-sides .participant-rows { grid-template-columns: 1fr; }
   .participant-structure { height: 116px; }
@@ -1261,6 +1278,10 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .note-owner-actions{display:flex;gap:var(--sp-2);margin-top:var(--sp-3)}
 .note-detail-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:var(--lh-prose);margin:var(--sp-4) 0 0;font-size:var(--fs-16)}
 .note-detail-links{margin-top:var(--sp-4)}
+/* 笔记标题字号：桌面 fs-28 / 手机 fs-22（Step 8 Part A） */
+@media (max-width: 640px) {
+  .note-detail-head h1{font-size:var(--fs-22)}
+}
 .note-links-title{margin:0 0 var(--sp-2);font-size:var(--fs-14);font-weight:600;color:var(--text)}
 /* P-6: 实体页私有区块(公开区块上方, 只读) */
 .entity-note-private{border:1px dashed var(--border);border-radius:var(--r-md);padding:12px 16px;margin-bottom:16px}

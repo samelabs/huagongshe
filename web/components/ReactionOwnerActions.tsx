@@ -11,11 +11,11 @@ import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 
 /**
- * ReactionOwnerActions — 本人反应操作行（v1.7 Step 7 §9.2）。
+ * ReactionOwnerActions — 本人反应操作行（v1.7 Step 7 §9.2，Step 8 收敛为两项）。
  *
- * 编辑 / 可见性切换（secondary）→ 既有 /submit 编辑表单（可见性在表单内
- * 修改——现有逻辑，无独立切换端点）；删除（danger-quiet）经 useConfirm。
- * 内部改用 ui/Button 组件，对外接口（reactionId）不变。
+ * 编辑 / 删除（danger-quiet，经 useConfirm）。原「可见性切换」按钮同样跳
+ * /submit 编辑表单（无独立切换端点），与「编辑」完全重复——Step 8 删除，
+ * 可见性在编辑表单内修改。
  */
 export function ReactionOwnerActions({ reactionId }: { reactionId: number }) {
   const router = useRouter();
@@ -47,7 +47,6 @@ export function ReactionOwnerActions({ reactionId }: { reactionId: number }) {
   return (
     <div className="owner-actions">
       <Button variant="secondary" href={editHref}>{t.common.edit}</Button>
-      <Button variant="secondary" href={editHref}>{t.reaction.visibilityToggle}</Button>
       <Button variant="danger-quiet" onClick={remove} loading={busy}>{t.common.delete}</Button>
     </div>
   );

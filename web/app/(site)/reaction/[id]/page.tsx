@@ -8,6 +8,7 @@ import { EntityNotes } from "@/components/EntityNotes";
 import { ReactionOwnerActions } from "@/components/ReactionOwnerActions";
 import { ShareButton } from "@/components/ShareButton";
 import { FollowButton } from "@/components/shared/FollowButton";
+import { CreatorFollow } from "@/components/CreatorFollow";
 import { Avatar } from "@/components/ui/Avatar";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { CodeField } from "@/components/ui/CodeField";
@@ -264,13 +265,7 @@ export default async function ReactionPage({ params }: {
                   <Link href={withLocale(`/user/${reaction.creator.username}`, locale)}>{reaction.creator.display_name}</Link>
                   <small>@{reaction.creator.username}</small>
                 </div>
-                <FollowButton
-                  endpoint={`/users/${encodeURIComponent(reaction.creator.username)}/follow`}
-                  initial={false}
-                  showCount={false}
-                  variant="tonal"
-                  size="sm"
-                />
+                <CreatorFollow username={reaction.creator.username} loggedIn={hasSession} />
               </div>
             </section>
           )}
@@ -332,9 +327,18 @@ function buildSummary(reactants: Chemical[], products: Chemical[], auxiliaries: 
 
 /** 最多带 2 个名字, 更多时只保留计数(不臆造 kind 名)。 */
 function namedTail(items: Chemical[], t: Dictionary, locale: Locale): string {
-  const names = items.slice(0, 2).map((item) => resolveChemicalName(item, t.common.hcidLabel, locale).title);
+  const names = items.slice(0, 2).map((item) => dedupeParens(resolveChemicalName(item, t.common.hcidLabel, locale).title));
   if (names.length === 0) return "";
   return ` ${names.join("、")}${items.length > names.length ? ` ${t.reaction.summaryMore(items.length - names.length)}` : ""}`;
+}
+
+/** Step 8 Part A：名称自带「外名 (内名)」且两者相同（忽略大小写与首尾空格）时
+ *  只显示括号外部分（数据源 name_cn 与 preferred_name 同值时曾渲染「水杨酸 (水杨酸)」）。 */
+function dedupeParens(name: string): string {
+  const match = name.match(/^(.+?)\s*[（(](.+)[)）]\s*$/);
+  if (!match) return name;
+  const [, outer, inner] = match;
+  return outer.trim().toLowerCase() === inner.trim().toLowerCase() ? outer.trim() : name;
 }
 
 /** 参与物（§9.2 紧凑行）：64×48 缩略图 + 徽标 sm + 名称 + 用量/当量；桌面两列、手机一列 */

@@ -157,6 +157,7 @@ const ko: Dictionary = {
     newReaction: '반응 기록 만들기',
     errReactions: '관련 반응을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
     noReactions: '현재 필터 조건에 해당하는 반응 기록이 없습니다.',
+    moreReactions: (n: number) => `${n}개 더 보기`,
     identity: {
       standardSmiles: '표준 SMILES',
       formula: '분자식',

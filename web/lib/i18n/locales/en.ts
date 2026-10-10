@@ -154,6 +154,7 @@ const en: Dictionary = {
     newReaction: 'New reaction record',
     errReactions: 'Related reactions could not be loaded. Please try again later.',
     noReactions: 'No reaction records under the current filter.',
+    moreReactions: (n: number) => `Show ${n} more`,
     identity: {
       standardSmiles: 'Standard SMILES',
       formula: 'Molecular formula',

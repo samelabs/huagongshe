@@ -29,12 +29,31 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   };
 }
 
-/** 标题 = 正文第一行（≤60 字，超出省略号）；第一行为空退回「笔记 {id}」（§Part C；
- *  <title>/meta 保持 generic，不入正文）。 */
+/** 笔记标题（Step 8 Part A）：
+ *  - 正文只有一行（非空行计）→「笔记 · 2026/10/10」（本地化日期），不重复正文；
+ *  - 两行及以上 → 第一行作标题（≤60 字超出省略号），正文从第二行开始显示。
+ *  第一行为空退回「笔记 {id}」；<title>/meta 保持 generic，不入正文。 */
 function noteTitle(content: string, id: number, fallback: string): string {
-  const firstLine = content.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
-  if (!firstLine) return `${fallback} ${id}`;
+  const lines = content.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0) return `${fallback} ${id}`;
+  if (lines.length === 1) return "";
+  const firstLine = lines[0];
   return firstLine.length > 60 ? `${firstLine.slice(0, 60)}…` : firstLine;
+}
+
+/** 「笔记 · 本地化日期」标题（单行正文的标题形态） */
+function noteDateTitle(fallback: string, updatedAt: string, locale: string): string {
+  const date = new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(updatedAt));
+  return `${fallback} · ${date}`;
+}
+
+/** 两行及以上时，正文从第二行开始显示：截掉首个非空行（标题行）之前与该行本身。 */
+function contentAfterFirstLine(content: string): string {
+  const lines = content.split("\n");
+  let index = 0;
+  while (index < lines.length && lines[index].trim().length === 0) index += 1;
+  if (index >= lines.length) return content;
+  return lines.slice(index + 1).join("\n");
 }
 
 export default async function NoteDetailPage({ params }: Params) {
@@ -52,7 +71,9 @@ export default async function NoteDetailPage({ params }: Params) {
   } catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
 
   const authorLine = note.display_name || `@${note.username}`;
-  const title = noteTitle(note.content, note.id, t.notes.detailTitle);
+  const singleLineTitle = noteTitle(note.content, note.id, t.notes.detailTitle);
+  const title = singleLineTitle || noteDateTitle(t.notes.detailTitle, note.updated_at, locale);
+  const bodyContent = singleLineTitle ? contentAfterFirstLine(note.content) : note.content;
 
   return (
     <div className="content-page note-detail-page">
@@ -70,8 +91,9 @@ export default async function NoteDetailPage({ params }: Params) {
           {/* 本人操作：NoteOwnerActions 用全局会话比对作者 username，非本人隐藏 */}
           {hasSession && <NoteOwnerActions noteId={note.id} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />}
         </header>
-        {/* Full content: pre-wrap + overflow-wrap; no truncation on the detail page. */}
-        <div className="note-detail-content">{note.content}</div>
+        {/* Full content: pre-wrap + overflow-wrap; no truncation on the detail page.
+            多行笔记的标题行（第一行）不重复出现在正文里。 */}
+        <div className="note-detail-content">{bodyContent}</div>
         {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
           <div className="note-detail-links">
             <h2 className="note-links-title">{t.notes.linkedLabel}</h2>
