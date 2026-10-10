@@ -103,7 +103,7 @@ const en: Dictionary = {
     entryMcp: 'Connect MCP',
     entryWorkbench: 'Web workbench',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin (not listed)",
+    entryPlugin: "ChatGPT / Plugin, not listed",
     entryMcpCopy: 'Copy MCP server address',
     entryPluginNote: 'ChatGPT / Plugin',
     pluginNotListed: 'Not listed',

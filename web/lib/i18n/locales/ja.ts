@@ -104,7 +104,7 @@ const ja: Dictionary = {
     entryMcp: 'MCP 接続',
     entryWorkbench: 'ウェブワークベンチ',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin（未公開）",
+    entryPlugin: "ChatGPT / Plugin、未公開",
     entryMcpCopy: 'MCP サーバーアドレスをコピー',
     entryPluginNote: 'ChatGPT / Plugin',
     pluginNotListed: '未公開',

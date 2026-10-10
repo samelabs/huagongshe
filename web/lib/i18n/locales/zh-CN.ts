@@ -110,7 +110,7 @@ const t = {
     entryMcp: 'MCP 接入',
     entryWorkbench: '网页工作台',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin（未上架）",
+    entryPlugin: "ChatGPT / Plugin，未上架",
     /* Step 10：MCP 地址复制按钮 aria / Plugin 状态说明 + Tag warn 文案 */
     entryMcpCopy: '复制 MCP 服务器地址',
     entryPluginNote: 'ChatGPT / Plugin',
