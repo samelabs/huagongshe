@@ -892,7 +892,8 @@
 }
 .wb-person-row {
   display: grid;
-  grid-template-columns: var(--wb-avatar-md) minmax(0,1fr) auto;
+  /* Step 9 Part B.5：Avatar 40 | 信息 | 关系标签 | 操作 */
+  grid-template-columns: 40px minmax(0,1fr) auto auto;
   gap: var(--wb-sp-3);
   align-items: center;
   padding: var(--wb-sp-3) var(--wb-sp-4);
@@ -901,17 +902,8 @@
   background: var(--wb-paper);
 }
 .wb-person-avatar {
-  width: var(--wb-avatar-md);
-  height: var(--wb-avatar-md);
-  border-radius: 50%;
   display: flex;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  color: var(--wb-inverse);
-  background: var(--wb-blue);
-  font-size: var(--wb-fs);
-  font-weight: var(--wb-w-bold);
   flex-shrink: 0;
 }
 .wb-person-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -1231,14 +1223,8 @@
   border-color: var(--wb-blue);
 }
 
-/* 人员列表里的紧凑 follow-button */
-.wb-shell .wb-person-actions .follow-button {
-  min-height: var(--wb-sp-7);
-}
-.wb-shell .wb-person-actions .follow-button span {
-  padding: 0 var(--wb-sp-3);
-  font-size: var(--wb-fs-sm);
-}
+/* 人员列表里的紧凑关注按钮（Step 9：FollowButton 已是 ui/Button hg-btn sm） */
+.wb-shell .wb-person-actions .hg-btn { min-height: var(--h-sm); }
 
 /* ── MobileTabBar ──
    v1.7 Step 5：底栏统一为 components/shell/MobileTabBar（.sh-tabbar，样式在
@@ -1376,14 +1362,14 @@
     white-space: normal;
   }
 
-  /* 人员列表紧凑 */
+  /* 人员列表紧凑：头像 40 不缩，标签/操作折到第二行 */
   .wb-person-row {
-    grid-template-columns: var(--wb-avatar-sm) minmax(0,1fr);
+    grid-template-columns: 40px minmax(0,1fr);
     padding: var(--wb-sp-3) var(--wb-sp-3);
   }
-  .wb-person-avatar {
-    width: var(--wb-avatar-sm);
-    height: var(--wb-avatar-sm);
+  .wb-person-row .hg-tag {
+    grid-column: 2;
+    justify-self: start;
   }
   .wb-person-actions {
     grid-column: 2;
@@ -1513,15 +1499,28 @@
   min-width: 720px;
 }
 .wb-stoich-rhead {
-  font-size: var(--wb-fs-micro);
+  /* §6 Step 9：表头 12px / 500 / muted */
+  font-size: var(--fs-12);
+  font-weight: 500;
   color: var(--wb-muted);
   border-bottom: 1px solid var(--wb-line);
 }
 .wb-stoich-rrow + .wb-stoich-rrow {
   border-top: 1px solid var(--wb-line);
 }
+.wb-stoich-rrow {
+  /* §6 Step 9：行高 40 */
+  min-height: 40px;
+  align-items: center;
+}
+.wb-stoich-rhead span:nth-child(n+3),
+.wb-stoich-rrow span:nth-child(n+3) {
+  /* §6 Step 9：数字列 tabular-nums 右对齐 */
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 .wb-stoich-rrow span {
-  font-size: var(--wb-fs-xs);
+  font-size: var(--wb-fs);
   color: var(--wb-ink);
 }
 .wb-stoich-tname {

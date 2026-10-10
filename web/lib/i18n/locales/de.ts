@@ -1085,6 +1085,8 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     unfollow: 'Entfolgen',
     unfavorToast: 'Aus gespeichert entfernt',
     unfavorLabel: 'Aus gespeichert entfernen',
+    followsYou: 'Folgt dir',
+    mutual: 'Gegenseitig',
     followBack: 'Zurückfolgen',
     viewProfile: 'Profil ansehen',
   },

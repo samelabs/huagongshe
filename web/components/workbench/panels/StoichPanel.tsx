@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { IconCalc } from "@/components/ui/icons";
+import { Notice } from "@/components/ui/Notice";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import { apiPost, ApiError } from "@/lib/api";
-import { PanelHeading, WbEmpty } from "../shared";
+import { PanelHeading } from "../shared";
 
 type Role = "REACTANT" | "REAGENT" | "CATALYST" | "SOLVENT" | "PRODUCT";
 type Row = { role: Role; smiles: string; eq: string; label: string };
@@ -147,26 +150,23 @@ export function StoichPanel() {
               aria-label={`${t.stoich.colLabel} ${i + 1}`}
             />
             {rows.length > 2 && (
-              <button
-                type="button"
-                className="wb-btn wb-btn-ghost wb-stoich-remove"
+              <Button
+                variant="ghost"
+                size="sm"
+                className="wb-stoich-remove"
                 onClick={() => {
                   setRows((rs) => rs.filter((_, j) => j !== i));
                   setBasisIndex((b) => (i < b ? b - 1 : Math.min(b, rows.length - 2)));
                 }}
               >
                 {t.stoich.removeComponent}
-              </button>
+              </Button>
             )}
           </div>
         ))}
-        <button
-          type="button"
-          className="wb-btn wb-btn-ghost wb-stoich-add"
-          onClick={() => setRows((rs) => [...rs, emptyRow()])}
-        >
+        <Button variant="ghost" size="sm" className="wb-stoich-add" onClick={() => setRows((rs) => [...rs, emptyRow()])}>
           {t.stoich.addComponent}
-        </button>
+        </Button>
 
         <div className="wb-stoich-basisbox">
           <span className="wb-stoich-ref-title">{t.stoich.basisTitle}</span>
@@ -206,24 +206,19 @@ export function StoichPanel() {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="wb-btn wb-btn-primary wb-stoich-submit"
-          disabled={state === "loading"}
-          onClick={calculate}
-        >
+        <Button variant="primary" className="wb-stoich-submit" loading={state === "loading"} onClick={() => void calculate()}>
           {state === "ready" || result ? t.stoich.recalcul : t.stoich.calculate}
-        </button>
+        </Button>
       </div>
 
       {state === "error" && (
-        <div className="wb-state wb-state-error">
+        <Notice tone="err">
           {typeof error === "string"
             ? error
             : error instanceof ApiError && (error.status === 400 || error.status === 422)
               ? t.stoich.errInvalid
               : t.me.errPanel}
-        </div>
+        </Notice>
       )}
 
       {state === "loading" && <div className="wb-state">{t.common.loading}</div>}
@@ -272,13 +267,13 @@ export function StoichPanel() {
           )}
           {/* P-7: 下游动作仅在计算成功且结果有效时出现 */}
           <div className="wb-stoich-actions">
-            <Link className="wb-btn wb-btn-ghost" href={withLocale("/submit", locale)}>{t.notes.createReaction}</Link>
-            <Link className="wb-btn wb-btn-ghost" href={withLocale("/aichem?tab=notes&new=1", locale)}>{t.notes.writeNote}</Link>
+            <Button variant="ghost" size="sm" href={withLocale("/submit", locale)}>{t.notes.createReaction}</Button>
+            <Button variant="ghost" size="sm" href={withLocale("/aichem?tab=notes&new=1", locale)}>{t.notes.writeNote}</Button>
           </div>
         </div>
       )}
 
-      {state === "idle" && <WbEmpty text={t.stoich.empty} />}
+      {state === "idle" && <EmptyState icon={<IconCalc />} title={t.stoich.empty} />}
     </section>
   );
 }

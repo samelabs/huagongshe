@@ -1084,6 +1084,8 @@ const ko: Dictionary = {
     unfollow: '팔로우 취소',
     unfavorToast: '저장을 취소했습니다',
     unfavorLabel: '저장 취소',
+    followsYou: '나를 팔로우함',
+    mutual: '맞팔로우',
     followBack: '맞팔로우',
     viewProfile: '프로필 보기',
   },

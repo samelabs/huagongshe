@@ -51,6 +51,14 @@ export function ShellUnreadProvider({ initial = null, children }: {
   const [unread, setUnread] = useState(initial ?? 0);
   const shouldFetch = user != null && initial == null;
 
+  /* Step 9 Part B.4：进入动态面板标记已读后，WorkbenchCounts.refresh 触发
+     router.refresh()，layout 重取 dashboard 并把新的 initialUnread 传下来。
+     useState 初值只认首次挂载 —— 不跟随 prop 的话底部 tab 的未读徽标会一直
+     停在旧值。SSR 值变化时同步进 state（null = 客户端自取模式不动）。 */
+  useEffect(() => {
+    if (initial != null) setUnread(initial);
+  }, [initial]);
+
   useEffect(() => {
     if (!shouldFetch) return;
     let alive = true;

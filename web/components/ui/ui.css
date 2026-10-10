@@ -418,6 +418,11 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 /* ══ 演示舞台（dev-ui / 文档用：浅灰底居中容器） ════════════ */
 .hg-stage { background: var(--bg-pressed); border-radius: var(--r-md); padding: var(--sp-8) var(--sp-4); display: grid; place-items: center; gap: var(--sp-3); }
 
+/* ══ 悬停换文案（IX-6：已关注 hover → 取消关注）════════════ */
+.hg-hover-swap .when-hover { display: none; }
+.hg-btn:hover .hg-hover-swap .when-idle, .hg-btn.is-hover .hg-hover-swap .when-idle { display: none; }
+.hg-btn:hover .hg-hover-swap .when-hover, .hg-btn.is-hover .hg-hover-swap .when-hover { display: inline; }
+
 @media (prefers-reduced-motion: reduce) {
   .hg-spin, .hg-sk, .hg-toast-host .hg-toast, .hg-modal-back { animation: none; }
 }

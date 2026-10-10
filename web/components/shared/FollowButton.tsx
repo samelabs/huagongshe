@@ -15,7 +15,7 @@ import { withLocale } from "@/lib/localePath";
 import { Button, type ButtonVariant, type ButtonSize } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 
-export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = "follow", idleText, activeText, onChange, variant = "primary", size }: {
+export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = "follow", idleText, activeText, activeHoverText, onChange, variant = "primary", size }: {
   endpoint: string;
   initial: boolean;
   count?: number;
@@ -24,6 +24,8 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   label?: "follow" | "favor";
   idleText?: string;
   activeText?: string;
+  /** IX-6：「已关注」hover 时显示「取消关注」—— 渲染双文案，CSS 悬停切换 */
+  activeHoverText?: string;
   onChange?: (following: boolean) => void;
   /** 默认 primary；rail 创建者卡片等场景传 tonal/sm */
   variant?: ButtonVariant;
@@ -77,9 +79,14 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   const text = following
     ? activeText || (label === "favor" ? t.follow.favoring : t.follow.following)
     : idleText || (label === "favor" ? t.follow.favor : t.follow.follow);
+  // 已关注且给了 hover 文案：双文案 CSS 切换（IX-6 hover 显示「取消关注」）
+  const hoverSwap = following && activeHoverText;
   return (
     <Button variant={variant} size={size} aria-pressed={following} loading={busy} disabled={disabled} onClick={() => void apply(!followingRef.current)}>
-      <span>{text}</span>
+      <span className={hoverSwap ? "hg-hover-swap" : undefined}>
+        <span className="when-idle">{text}</span>
+        {hoverSwap && <span className="when-hover">{activeHoverText}</span>}
+      </span>
       {showCount && <strong className="follow-count">{followers.toLocaleString(locale)}</strong>}
     </Button>
   );

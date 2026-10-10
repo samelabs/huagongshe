@@ -1081,6 +1081,8 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     unfollow: 'Unfollow',
     unfavorToast: 'Removed from saved',
     unfavorLabel: 'Remove from saved',
+    followsYou: 'Follows you',
+    mutual: 'Mutual',
     followBack: 'Follow back',
     viewProfile: 'View profile',
   },

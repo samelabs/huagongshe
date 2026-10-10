@@ -1087,6 +1087,8 @@ const t = {
     unfollow: '取消关注',
     unfavorToast: '已取消收藏',
     unfavorLabel: '取消收藏',
+    followsYou: '关注了你',
+    mutual: '互相关注',
     followBack: '回关',
     viewProfile: '查看主页',
   },

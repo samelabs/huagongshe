@@ -2,9 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ApiError, apiDelete, apiGet, apiPost } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { IconSparkle } from "@/components/ui/icons";
+import { Notice } from "@/components/ui/Notice";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
-import { Pagination, PanelError, PanelHeading, PanelLoading, WbEmpty } from "../shared";
+import { Pagination, PanelError, PanelHeading, PanelLoading } from "../shared";
 import type { LoadState, PageResponse, SkillItem } from "../types";
 
 const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, page_size: 20 });
@@ -120,17 +124,17 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
 
   return (
     <section className="wb-panel">
-      <PanelHeading title={t.me.tabSkills} subtitle={t.me.skillsHint} count={state === "ready" ? skills.total : "—"} unit={t.me.unitSkill} />
+      <PanelHeading title={t.me.navSkills} subtitle={t.me.skillsHint} count={state === "ready" ? skills.total : "—"} unit={t.me.unitSkill} />
       <div className="wb-skills-upload">
         <div className="wb-skills-upload-row">
           <input ref={fileRef} type="file" accept=".zip" aria-label={t.me.skillsPickZip} />
-          <button type="button" className="wb-btn wb-btn-ghost" onClick={handleUpload} disabled={uploading}>
+          <Button variant="secondary" size="sm" loading={uploading} onClick={() => void handleUpload()}>
             {uploading ? t.me.skillsUploading : t.me.skillsUpload}
-          </button>
+          </Button>
         </div>
         <p className="wb-skills-upload-hint">{t.me.skillsUploadHint}</p>
-        {uploadNotice && <p className="wb-skills-notice">{uploadNotice}</p>}
-        {uploadError && <p className="wb-skills-error">{uploadError}</p>}
+        {uploadNotice && <Notice tone="ok">{uploadNotice}</Notice>}
+        {uploadError && <Notice tone="err">{uploadError}</Notice>}
       </div>
       {state === "loading" && <PanelLoading variant="list" />}
       {state === "error" && <PanelError error={error} />}
@@ -148,17 +152,23 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
                 </small>
               </span>
               <span className="wb-skill-actions">
-                <a className="wb-btn wb-btn-ghost" href={`/api/skills/${s.id}/archive`} download={`${s.slug}.zip`}>
+                <a className="hg-btn ghost sm" href={`/api/skills/${s.id}/archive`} download={`${s.slug}.zip`}>
                   {t.me.skillDownload}
                 </a>
-                <button type="button" className="wb-btn wb-btn-danger" onClick={() => handleDelete(s.id, s.slug)}>
+                <Button variant="danger-quiet" size="sm" onClick={() => void handleDelete(s.id, s.slug)}>
                   {t.me.skillDelete}
-                </button>
+                </Button>
               </span>
             </div>
           ))}
         </div>
-      ) : <WbEmpty text={t.me.skillsEmpty} />)}
+      ) : (
+        <EmptyState
+          icon={<IconSparkle />}
+          title={t.me.skillsEmpty}
+          action={{ label: t.me.skillsPickZip, onClick: () => fileRef.current?.click() }}
+        />
+      ))}
       {state === "ready" && skills.total > skills.page_size && (
         <Pagination page={skills.page} pageSize={skills.page_size} total={skills.total} href={(value) => withLocale(`/aichem?tab=skills&page=${value}`, locale)} />
       )}

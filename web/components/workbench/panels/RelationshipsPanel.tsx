@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { PersonList, type PersonSummary } from "@/components/shared/PersonList";
 import { useAccount } from "@/components/shared/AccountContext";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { IconUser, IconUsers } from "@/components/ui/icons";
 import { apiGet } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
@@ -55,9 +57,15 @@ export function RelationshipsPanel({ kind, page, initialData, username }: PanelP
       <PanelHeading title={title} subtitle={kind === "followers" ? t.me.followersHint : t.me.followingHint} count={state === "ready" ? data.total : "—"} unit={t.me.unitPerson} />
       {state === "loading" && <PanelLoading variant="list" />}
       {state === "error" && <PanelError error={error} />}
-      {state === "ready" && (
-        <PersonList items={data.items} empty={kind === "followers" ? t.me.emptyFollowers : t.me.emptyFollowing} kind={kind} onFollowChange={onFollowChange} />
-      )}
+      {state === "ready" && (data.items.length ? (
+        <PersonList items={data.items} kind={kind} onFollowChange={onFollowChange} />
+      ) : (
+        <EmptyState
+          icon={kind === "followers" ? <IconUser /> : <IconUsers />}
+          title={kind === "followers" ? t.me.emptyFollowers : t.me.emptyFollowing}
+          action={{ label: t.nav.tabQuery, href: withLocale("/search", locale) }}
+        />
+      ))}
       {state === "ready" && data.total > data.page_size && (
         <Pagination page={page} pageSize={data.page_size} total={data.total} href={(value) => withLocale(`/aichem?tab=${kind}${value > 1 ? `&page=${value}` : ""}`, locale)} />
       )}

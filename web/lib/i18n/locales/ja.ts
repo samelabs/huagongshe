@@ -1082,6 +1082,8 @@ const ja: Dictionary = {
     unfollow: 'フォロー解除',
     unfavorToast: '保存を解除しました',
     unfavorLabel: '保存を解除',
+    followsYou: 'あなたをフォロー中',
+    mutual: '相互フォロー',
     followBack: 'フォローバック',
     viewProfile: 'プロフィールを見る',
   },
