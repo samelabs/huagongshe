@@ -63,6 +63,10 @@ export function EntityBadge({ kind, id, size = "sm", href, copyable, compact, st
         {kind === "chemical" ? <GlyphChem /> : <GlyphRx />}
         <span>{prefix}</span>
       </span>
+      {/* 前缀与编号之间的空白文本节点: .hg-eb 是 flex 容器(空白不渲染、视觉零变化),
+          但 axe label-content-name-mismatch 的可见文本没有它会把 "HRID 1" 粘成
+          "HRID1" 一个 token, 与 aria-label 匹配失败(G2 收口) */}
+      {" "}
       <span className="v">{id}</span>
       {state === "private" && (
         <span className="x" title={t.common.private}>
