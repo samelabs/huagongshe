@@ -73,8 +73,10 @@ export function ProfileSettings() {
       if (busy) return;
       const errors: Partial<Record<keyof Profile, string>> = {};
       if (!profile.display_name.trim()) errors.display_name = t.settings.profile.requiredHint;
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(profile.email)) errors.email = t.settings.profile.emailHint;
-      if (profile.orcid && !/^\d{4}-\d{4}-\d{4}-[\dX]{4}$/.test(profile.orcid)) errors.orcid = t.settings.profile.orcidHint;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim())) errors.email = t.settings.profile.emailHint;
+      // ORCID 与 API 同口径（api/schemas/users.py clean_orcid）：去非 [\dXx] 后 16 位（末位可 X）；
+      // 带连字符与纯数字两种写法都放行 —— 前端不得比 API 更严。
+      if (profile.orcid && !/^\d{15}[\dX]$/.test(profile.orcid.replace(/[^\dXx]/g, ""))) errors.orcid = t.settings.profile.orcidHint;
       setFieldErrors(errors);
       if (Object.keys(errors).length > 0) return;
       setBusy(true);

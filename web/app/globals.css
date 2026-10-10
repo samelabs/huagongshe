@@ -1367,9 +1367,11 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pipe-chip { font-size: var(--fs-12); color: var(--text-muted); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; }
 .pipe-chip.retry { color: var(--warn); border-color: var(--warn-border); background: var(--warn-bg); }
 .pipe-table { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; display: grid; }
+/* Step 12 A3：分类色改为纯装饰色块（非文本，无对比度要求）；缩写/名称走常规文字色 */
+.sml-cat-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: 0; margin-right: 6px; }
 .pipe-tr { display: grid; grid-template-columns: 90px 1fr 1fr 1fr 1fr; gap: 8px; padding: 9px 16px; align-items: center; font-size: var(--fs-12); border-top: 1px solid var(--border); }
 .pipe-tr:first-child { border-top: none; }
-.pipe-th { font-size: var(--fs-12); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); background: var(--bg-subtle); }
+.pipe-th { font-size: var(--fs-12); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-2); background: var(--bg-subtle); }
 .pipe-locale { font-weight: 700; color: var(--text); }
 .pipe-err { color: var(--err); font-weight: 700; }
 .admin-content { min-width: 0; max-width: var(--w-content); }

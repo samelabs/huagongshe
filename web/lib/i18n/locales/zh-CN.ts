@@ -616,7 +616,7 @@ const t = {
       /* Step 11 Part D：ui 表单字段 / 撤销二次确认（IX-3）/ 只显示一次 / 空态（IX-8） */
       nameLabel: 'Key 名称',
       daysLabel: '有效期',
-      onceNotice: '此 Key 仅在创建后显示一次，离开本页后将无法再次查看，请立即复制并保存。',
+      onceNotice: 'Key 已创建。请立即复制到可信的客户端配置中；之后也可在下方列表中再次复制。不要把 Key 粘贴到公开聊天或不可信网站。',
       revokeConfirmTitle: '撤销这个 AI Key？',
       revokeConfirmBody: (name: string, prefix: string) => `将撤销「${name}」（前缀 ${prefix}…）。使用该 Key 的客户端会立即失去访问权限，此操作不可撤销。`,
       revokeConfirmBtn: '撤销 Key',

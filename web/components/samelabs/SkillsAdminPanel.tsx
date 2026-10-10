@@ -307,7 +307,7 @@ export function SamelabsSkills() {
           <div className="admin-table admin-actions-min">
             {cats.map((c) => <article key={c.id}>
               <div>
-                <strong><span style={{ color: c.color }}>{c.abbr}</span> {c.name}</strong>
+                <strong><i aria-hidden="true" className="sml-cat-dot" style={{ backgroundColor: c.color }} /> {c.abbr} · {c.name}</strong>
                 <span>#{c.id} · {t.admin.categorySort(c.sort_order)}</span>
               </div>
               <div className="admin-user-badges">
