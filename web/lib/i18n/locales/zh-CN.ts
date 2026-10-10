@@ -940,6 +940,8 @@ const t = {
     followedBy: '关注了你',
     mutual: '互相关注',
     editProfile: '编辑资料',
+    /* Step 10 Part E：手机主页分享文字按钮（§12 第三屏） */
+    shareProfile: '分享主页',
     noReactions: '还没有公开反应。',
     contentError: '内容暂时无法加载，请稍后重试。',
     peopleCount: (n: number) => `${n} 人收藏`,

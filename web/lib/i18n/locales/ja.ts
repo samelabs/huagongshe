@@ -933,6 +933,7 @@ const ja: Dictionary = {
     followedBy: 'あなたをフォローしています',
     mutual: '相互フォロー',
     editProfile: 'プロフィールを編集',
+    shareProfile: 'プロフィールを共有',
     noReactions: '公開反応はまだありません。',
     contentError: 'コンテンツを読み込めませんでした。後でもう一度お試しください。',
     peopleCount: (n: number) => `${n} 人が保存`,

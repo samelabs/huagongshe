@@ -936,6 +936,7 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     followedBy: 'Folgt dir',
     mutual: 'Gegenseitig gefolgt',
     editProfile: 'Profil bearbeiten',
+    shareProfile: 'Profil teilen',
     noReactions: 'Noch keine öffentlichen Reaktionen.',
     contentError: 'Inhalte konnten nicht geladen werden. Bitte später erneut versuchen.',
     peopleCount: (n: number) => `Von ${n} gespeichert`,

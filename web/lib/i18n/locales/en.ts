@@ -932,6 +932,7 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     followedBy: 'Follows you',
     mutual: 'Mutual follows',
     editProfile: 'Edit profile',
+    shareProfile: 'Share profile',
     noReactions: 'No public reactions yet.',
     contentError: 'Content could not be loaded. Please try again later.',
     peopleCount: (n: number) => `Saved by ${n}`,

@@ -33,7 +33,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
 RESOLVER_TS = os.path.join(WEB, "lib", "chemicalName.ts")
 CONSUMERS = [
-    "web/components/ChemicalResult.tsx",
+    "web/components/EntityCard.tsx",
     "web/app/(site)/chemical/[id]/page.tsx",
     "web/app/(site)/reaction/[id]/page.tsx",
     "web/components/workbench/panels/SearchPanel.tsx",

@@ -724,6 +724,10 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pf-counts strong { color: var(--text); font-weight: 650; font-size: var(--fs-16); font-variant-numeric: tabular-nums; }
 .pf-counts a:hover strong { color: var(--action); }
 .pf-acts { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+/* 分享双形态（Step 10 Part E）：桌面 ghost 图标；手机文字「分享主页」（下方媒体查询切换）。
+   特异性须带 .pf-acts —— ui.css 的 .hg-btn{display:inline-flex} 后加载会盖掉单类规则。 */
+.pf-share { display: flex; min-width: 0; }
+.pf-acts .pf-share-text { display: none; }
 
 /* 正文两栏：列表 + 右栏（手机 rail 落到正文下方，IX-11） */
 .pf-body { display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); gap: var(--sp-8); align-items: start; }
@@ -814,8 +818,12 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .pf-counts strong { font-size: var(--fs-18); }
   .pf-meta { display: none; }
   .pf-info h1 { margin-top: var(--sp-2); font-size: var(--fs-22); }
-  .pf-acts { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); }
+  /* 关注 + 分享主页：两个 lg 按钮并排等宽（§12 第三屏）；只有分享没有关注时占满整行 */
+  .pf-acts { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); }
   .pf-acts .hg-btn { height: var(--h-lg); }
+  .pf-share:only-child { grid-column: 1 / -1; }
+  .pf-acts .pf-share-icon { display: none; }
+  .pf-acts .pf-share-text { display: inline-flex; width: 100%; }
   .pf-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); }
   .pf-rx-grid { grid-template-columns: minmax(0, 1fr); }
 }

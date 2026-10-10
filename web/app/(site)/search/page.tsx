@@ -45,6 +45,13 @@ const PAGE_SIZE = 30;
 type UrlMode = "exact" | "structure" | "substructure" | "similarity";
 const URL_MODES: UrlMode[] = ["exact", "structure", "substructure", "similarity"];
 
+/** 翻页链接（load-more）：吃 URL 模式（urlMode）而非 API 模式 —— structure
+ *  （精确结构）翻页时不得回退成 exact，否则 Segmented 回显错成「名称/CAS」。
+ *  模板字符串被 tests/test_structure_search_final.py 逐字钉住。 */
+function loadMoreHref(q: string, mode: UrlMode, page: number) {
+  return `/search?q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}&page=${page + 1}`;
+}
+
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const t = await getRequestDictionary();
@@ -181,8 +188,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               <div className="entity-card-grid">{chemicals.map((chemical) => <EntityCard chemical={chemical} key={chemical.id} favored={favoredSet.has(chemical.id)} />)}</div>
               {hasMore && (
                 <div className="load-more">
-                  {/* 翻页链接保留 q 与 mode（tests/test_structure_search_final.py 钉住模板） */}
-                  <Link className="hg-btn secondary" href={withLocale(`/search?q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}&page=${page + 1}`, locale)}>
+                  <Link className="hg-btn secondary" href={withLocale(loadMoreHref(q, urlMode, page), locale)}>
                     {t.search.loadMore}
                   </Link>
                 </div>

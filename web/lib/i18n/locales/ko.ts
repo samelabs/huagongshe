@@ -935,6 +935,7 @@ const ko: Dictionary = {
     followedBy: '나를 팔로우합니다',
     mutual: '맞팔로우',
     editProfile: '프로필 편집',
+    shareProfile: '프로필 공유',
     noReactions: '아직 공개 반응이 없습니다.',
     contentError: '콘텐츠를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
     peopleCount: (n: number) => `${n}명이 저장`,
