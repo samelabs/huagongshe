@@ -280,6 +280,7 @@ const ko: Dictionary = {
     summaryMore: (n: number) => `외 ${n}개`,
     publicReaction: '공개 반응',
     privateReaction: '비공개 반응',
+    visibilityToggle: '공개 범위 변경',
     smiles: '반응 SMILES',
     errProcedure: '기록된 절차가 없습니다',
     conditionFields: {
@@ -1046,6 +1047,8 @@ const ko: Dictionary = {
     favorToast: '저장했습니다',
     undo: '실행 취소',
     favorErr: '저장하지 못했습니다. 다시 시도해 주세요',
+    followToast: '팔로우했습니다',
+    followErr: '팔로우하지 못했습니다. 다시 시도해 주세요',
     unfollow: '팔로우 취소',
     followBack: '맞팔로우',
     viewProfile: '프로필 보기',

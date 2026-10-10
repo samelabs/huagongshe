@@ -362,24 +362,6 @@ details.chem-group[open] > summary::after { content: "▴"; }
 .chem-rail-nav a.on { color: var(--action); border-left-color: var(--action); font-weight: 500; }
 .chem-rail-nav a:hover { text-decoration: none; color: var(--text); }
 .chem-tabs-nav { display: none; }
-.chem-local-nav {
-  /* 唯一 local-nav primitive(Chemical/Reaction 共用): 单行横向页面导航。
-     非胶囊、非 badge: paper 底 + 底部分隔线 + 14px 可读字号。 */
-  display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
-  gap: var(--sp-4);
-  margin: 0 0 var(--sp-4);
-  padding: var(--sp-2) 0 calc(var(--sp-2) + 1px);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-surface);
-}
-.chem-local-nav::-webkit-scrollbar { display: none; }
-.chem-local-nav a { color: var(--text); font-size: var(--fs-14); font-weight: 600; white-space: nowrap; flex-shrink: 0; text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; }
-.chem-local-nav a:hover { color: var(--action); }
-.chem-toc { display: grid; gap: var(--sp-1); }
-.chem-toc a { color: var(--text-muted); font-size: var(--fs-13); }
 .chem-sources { display: grid; gap: var(--sp-2); }
 .chem-source-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); background: var(--bg-surface); }
 .chem-source-row.unavailable { opacity: .55; }
@@ -464,48 +446,51 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .inline-error { margin: 0; color: var(--err); font-size: var(--fs-13); }
 .inline-error a { text-decoration: underline; }
 
-.reaction-title { margin-bottom: var(--sp-8); display: flex; align-items: end; justify-content: space-between; gap: var(--sp-6); }
-.reaction-title h1 { margin: 0; font-size: var(--fs-28); font-weight: var(--fw-medium); letter-spacing: -.008em; overflow-wrap: anywhere; }
-.reaction-title .entity-id { margin-bottom: var(--sp-3); }
-.reaction-title p:last-child { margin: var(--sp-3) 0 0; color: var(--text-muted); font-size: var(--fs-14); }
+/* ══ Reaction Detail v1.7 Step 7（§9.2）：头部 / 反应式卡片 / 参与物紧凑行 ══ */
+.rx-head { display: grid; justify-items: start; gap: var(--sp-2); padding: var(--sp-6) 0 var(--sp-8); border-bottom: 1px solid var(--border); }
+.rx-head-title { margin: var(--sp-3) 0 0; font-size: clamp(var(--fs-28), 3.7vw, var(--fs-40)); font-weight: 650; line-height: 1.15; letter-spacing: var(--ls-display); overflow-wrap: anywhere; }
 /* 事实摘要: 只由结构化字段拼出(反应物→产物 · 催化剂/溶剂 · 温度 · 时间), 无值不出 */
-.reaction-summary { overflow-wrap: anywhere; }
-.reaction-equation { margin-bottom: var(--sp-8); }
-.reaction-equation .section-heading h2 { font-size: var(--fs-22); }
-/* equation 允许比正文宽: 超出部分在容器内局部横向滚动, document 不横向溢出 */
-.reaction-scheme { width: 100%; border: 1px solid var(--border); border-radius: var(--r-md); overflow-x: auto; background: var(--bg-surface); }
-.reaction-scheme img { display: block; width: 100%; min-width: 900px; height: 310px; object-fit: contain; }
-.reaction-scheme.unavailable { min-height: 180px; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-14); text-align: center; }
-.reaction-layout { margin-top: var(--sp-4); display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); gap: 64px; align-items: start; }
-.reaction-main { min-width: 0; display: grid; gap: var(--sp-8); }
+.rx-head-summary { margin: 0; color: var(--text-2); font-size: var(--fs-16); overflow-wrap: anywhere; }
+.rx-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+.owner-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.follow-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* 反应式：满宽白底卡片（手机 overflow-x 滚动不压缩）+ SMILES CodeField */
+.rx-equation { display: grid; gap: var(--sp-3); margin: var(--sp-6) 0 var(--sp-8); }
+.rx-equation-card { width: 100%; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); padding: var(--sp-4) var(--sp-3); overflow-x: auto; }
+.rx-equation-card img { display: block; width: 100%; min-width: 640px; height: auto; max-height: 340px; object-fit: contain; }
+.rx-equation-unavailable { min-height: 140px; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-14); text-align: center; border-radius: var(--r-sm); }
+.rx-smiles-code { margin-top: var(--sp-1); }
+
+/* 参与物（§9.2 紧凑行）：缩略图 64×48 + 徽标 sm + 名称 + 用量；桌面两列手机一列 */
 .reaction-sides { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-6); }
-.participant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: var(--sp-2); }
-.reaction-sides .participant-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
-/* Entity Card: structure → compact HCID → name → formula → 定量 → yield/role */
-.participant-card { min-width: 0; border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-3); display: block; overflow: hidden; transition: .15s ease; }
-.participant-structure { width: 100%; height: 132px; border-bottom: 1px solid var(--bg-page); display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.participant-structure img { max-width: 100%; max-height: 100%; object-fit: contain; }
-.participant-card > div:last-child { min-width: 0; padding-top: var(--sp-2); }
-.participant-card h3 { margin: var(--sp-1) 0; font-size: var(--fs-14); line-height: 1.45; overflow-wrap: anywhere; }
-.participant-card p { margin: 0; color: var(--text-muted); font-size: var(--fs-13); overflow-wrap: anywhere; }
-.role-label { display: block; margin-bottom: var(--sp-1); color: var(--action); font-size: var(--fs-12); font-weight: 800; letter-spacing: .08em; }
-.yield-value { display: block; margin-top: var(--sp-1); color: var(--ok); font-size: var(--fs-13); }
-.condition-list { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
-.condition-list > div { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: var(--sp-3); }
-.condition-list dt { color: var(--text-muted); font-size: var(--fs-12); }
-.condition-list dd { margin: var(--sp-1) 0 0; font-size: var(--fs-14); }
-/* document content: public body typography(不是 admin 13px 密度) */
-.document-text { margin: 0; color: var(--text); font-size: var(--fs-16); line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.participant-section { min-width: 0; }
+.participant-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.reaction-sides .participant-rows { grid-template-columns: minmax(0, 1fr); }
+.participant-row { min-width: 0; display: flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: var(--sp-2); background: var(--bg-surface); text-decoration: none; }
+.participant-row:hover { border-color: var(--action-border); }
+.participant-thumb { flex: none; display: inline-flex; }
+.participant-thumb img { width: 64px; height: 48px; object-fit: contain; }
+.participant-name { min-width: 0; font-size: var(--fs-14); font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.participant-measure { margin-left: auto; display: inline-flex; align-items: baseline; gap: var(--sp-2); color: var(--text-muted); font-size: var(--fs-12); white-space: nowrap; }
+.participant-yield { color: var(--ok); font-weight: 600; }
+/* document content: public body typography(不是 admin 13px 密度); 长文 72ch 上限 */
+.document-text { margin: 0; max-width: 72ch; color: var(--text); font-size: var(--fs-16); line-height: var(--lh-prose); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rx-safety-text { font-size: var(--fs-14); }
 .workup-list { margin: 0; padding: 0; list-style: none; counter-reset: workup; }
 .workup-list li { border-top: 1px solid var(--border); padding: var(--sp-3) 0; display: grid; grid-template-columns: 160px 1fr; gap: var(--sp-6); font-size: var(--fs-14); }
 .workup-list li strong { overflow-wrap: anywhere; }
 .workup-list span { color: var(--text-muted); line-height: 1.7; overflow-wrap: anywhere; }
-/* Safety: 用户/来源文本 —— 明确、有区别, 但不夸大危险结论 */
-.safety-panel { border-left: 3px solid var(--warn-border); padding-left: var(--sp-4); }
-.reaction-aside { position: sticky; top: 30px; display: grid; gap: 16px; }
-.source-expression { border: 1px solid var(--border); padding: 15px 18px; }
-.source-expression summary { cursor: pointer; color: var(--text-muted); font-size: var(--fs-13); }
-.source-expression p { margin: var(--sp-3) 0 0; color: var(--text-muted); font-size: var(--fs-12); overflow-wrap: anywhere; word-break: break-word; }
+/* rail：创建者 / 引用 */
+.rx-creator-row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.rx-creator-id { display: grid; min-width: 0; }
+.rx-creator-id a { color: var(--text); font-weight: 500; text-decoration: none; }
+.rx-creator-id a:hover { color: var(--action); }
+.rx-creator-id small { color: var(--text-muted); font-size: var(--fs-12); }
+.rx-creator-row .hg-btn { margin-left: auto; }
+.rx-citation { display: flex; align-items: center; gap: var(--sp-2); padding: 7px 0; border-bottom: 1px solid var(--bg-page); font-size: var(--fs-13); }
+.rx-citation > a { color: var(--action); overflow-wrap: anywhere; }
+.rx-citation > span { color: var(--text-2); overflow-wrap: anywhere; }
 
 .auth-required { margin-bottom: 25px; border: 1px solid var(--action-border); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 20px; background: var(--bg-subtle); }
 .auth-required div { display: grid; gap: 3px; }
@@ -545,10 +530,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .status.active, .status.visible { color: var(--ok); background: var(--ok-bg); }
 .status.disabled, .status.hidden { color: var(--err); background: var(--err-bg); }
 
-.follow-button { min-height: 36px; border: 1px solid var(--action); border-radius: 999px; padding: 0; display: inline-flex; overflow: hidden; color: var(--action); background: var(--bg-subtle); cursor: pointer; transition: background .15s, color .15s; width: fit-content; }
-.follow-button span { padding: 0 16px; display: flex; align-items: center; font-size: var(--fs-12); font-weight: 600; }
-.follow-button strong { min-width: 42px; border-left: 1px solid var(--action-border); padding: 0 10px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); background: var(--action-subtle); font-size: var(--fs-12); }
-.follow-button.following { color: var(--text-inverse); background: var(--action); border-color: var(--action); }
 .owner-actions { display: flex; gap: 8px; }
 .creator-card > a { display: flex; align-items: center; gap: 10px; }
 .creator-avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--text-inverse); background: var(--brand); font-weight: 700; }
@@ -714,8 +695,8 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 @media (max-width: 900px) {
   .chemical-identity { grid-template-columns: 320px 1fr; gap: 28px; }
-  .chemical-layout, .reaction-layout { grid-template-columns: 1fr; gap: 45px; }
-  .chemical-aside, .reaction-aside { position: static; grid-template-columns: 1fr 1fr; }
+  .chemical-layout { grid-template-columns: 1fr; gap: 45px; }
+  .chemical-aside { position: static; }
   .reaction-sides { grid-template-columns: 1fr; }
   .auth-page { grid-template-columns: 1fr; gap: 30px; padding-top: 45px; }
   .auth-intro { padding-top: 0; }
@@ -758,14 +739,14 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .chemical-structure { height: 230px; }
   /* Issue #4: mobile 全部左对齐(molecule 上, identity 下), 不再居中 */
   .identity-primary, .context-actions { justify-content: flex-start; }
-  .identity-table > div { grid-template-columns: 115px 1fr; }
-  .metric-grid { grid-template-columns: repeat(2, 1fr); }
-  .chemical-aside, .reaction-aside { grid-template-columns: 1fr; }
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+
   .reaction-title { align-items: start; flex-direction: column; }
   /* 保持结构图可读: 容器内部滚动, 不缩到不可读; document 仍不横向溢出 */
-  .reaction-scheme img { min-width: 760px; height: 250px; }
+  .rx-equation-card img { min-width: 640px; max-height: 250px; }
   .reaction-preview img { min-width: 100%; }
-  .participant-grid, .reaction-sides .participant-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
+  .participant-rows { grid-template-columns: 1fr; }
+  .reaction-sides .participant-rows { grid-template-columns: 1fr; }
   .participant-structure { height: 116px; }
   .condition-list { grid-template-columns: repeat(2, 1fr); }
   .workup-list li { grid-template-columns: 1fr; gap: 5px; }
@@ -805,8 +786,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
   /* 手机端内容可读性：禁止截断，允许换行 */
   .structure-code { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
-  .identity-table dd { overflow-wrap: anywhere; }
-  .participant-card { overflow: visible; }
+  
   .reaction-result-foot p { white-space: normal; overflow: visible; }
 
 }
@@ -818,10 +798,10 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .chemical-result { grid-template-columns: 82px minmax(0,1fr); gap: 10px; }
   .chemical-result-structure { height: 82px; }
   .structure-code { max-width: 100%; }
-  .identity-table > div { grid-template-columns: 92px minmax(0,1fr); gap: 12px; }
-  .metric-grid { grid-template-columns: 1fr; }
+    .metric-grid { grid-template-columns: 1fr; }
   .condition-list { grid-template-columns: 1fr; }
-  .participant-grid, .reaction-sides .participant-grid { grid-template-columns: 1fr; }
+  .participant-rows { grid-template-columns: 1fr; }
+  .reaction-sides { grid-template-columns: 1fr; }
   .participant-input-main { grid-template-columns: minmax(0,1fr) auto; }
   .participant-input-main select { grid-column: 1 / -1; }
   .participant-input-main input { grid-column: 1; }
@@ -1034,7 +1014,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 }
 @media (min-width: 641px) {
   /* desktop: local nav 隐藏, 由 secondary rail 的 On this page 承担 */
-  .chem-local-nav { display: none; }
 }
 
 /* 工作台样式已迁移至 (workbench)/aichem.css，此处无残留 */
@@ -1047,7 +1026,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .search-submit-btn:hover { background: var(--action-hover); }
   .breadcrumbs a:hover { color: var(--action); }
   .chemical-result h3 a:hover, .reaction-result h3 a:hover { color: var(--action); }
-  .participant-card:hover { border-color: var(--action-border); }
+  .participant-row:hover { border-color: var(--action-border); }
   .kdense-card:hover { border-color: var(--action-border); box-shadow: 0 2px 12px rgba(0,0,0,.05); }
   .kdense-breadcrumb a:hover { text-decoration: underline; }
   .kdense-cat:hover { border-color: var(--action-border); background: var(--bg-subtle); }
@@ -1238,8 +1217,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 /* ── hover 交互: 只在真指针设备生效(触屏跳过) ── */
 @media (hover: hover) and (pointer: fine) {
-.follow-button:hover { background: var(--action-subtle); }
-.follow-button.following:hover { background: var(--action-hover); }
 .profile-edit-link:hover { background: var(--action-subtle); }
 .dashboard-card:hover { border-color: var(--action-border); box-shadow: 0 4px 16px rgba(30,144,255,.10); transform: translateY(-1px); }
 .dashboard-card:hover::after { opacity: 1; }
@@ -1272,16 +1249,19 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 /* P-3: 卡片 6 行截断(保留 pre-wrap/anywhere; 30000 字符不横溢不无限长) */
 .note-clamp{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
 .note-view-full{display:inline-block;margin-top:8px}
-/* P-1: Note 详情页(全文, 不截断) */
-.note-detail-page .note-detail{border:1px solid var(--border);border-radius:var(--r-md);padding:20px 24px;background:var(--bg-surface)}
-.note-detail-head h1{font-size:var(--fs-18);margin:0 0 8px}
-.note-detail-meta{display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:var(--fs-13);color:var(--text-muted)}
-.note-detail-meta a{font-weight:600;color:inherit}
-.note-vis-badge{display:inline-flex;border-radius:999px;padding:2px 10px;font-size:var(--fs-12);border:1px solid var(--border)}
-.note-vis-badge.is-public{color:var(--action-ink);border-color:var(--action-border)}
-.note-vis-badge.is-private{color:var(--text-2);border-color:var(--border-strong)}
-.note-detail-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;margin:16px 0 0;font-size:var(--fs-16)}
-.note-detail-links{margin-top:16px}
+/* P-1: Note 详情页（§Part C：reading 宽度 / 标题 28 / 元信息行 / 全文 prose） */
+.content-page.note-detail-page{width:min(var(--w-reading), calc(100% - 40px))}
+.note-detail-page .note-detail{border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-6);background:var(--bg-surface);max-width:var(--w-reading)}
+.note-detail-head h1{font-size:var(--fs-28);font-weight:650;letter-spacing:var(--ls-title);line-height:1.25;margin:0 0 var(--sp-2);overflow-wrap:anywhere}
+.note-detail-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);font-size:var(--fs-13);color:var(--text-muted)}
+.note-detail-meta .hg-avatar{flex:none}
+.note-detail-meta a{font-weight:500;color:var(--text)}
+.note-detail-meta a:hover{color:var(--action)}
+.note-detail-meta .hg-tag svg{width:11px;height:11px}
+.note-owner-actions{display:flex;gap:var(--sp-2);margin-top:var(--sp-3)}
+.note-detail-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:var(--lh-prose);margin:var(--sp-4) 0 0;font-size:var(--fs-16)}
+.note-detail-links{margin-top:var(--sp-4)}
+.note-links-title{margin:0 0 var(--sp-2);font-size:var(--fs-14);font-weight:600;color:var(--text)}
 /* P-6: 实体页私有区块(公开区块上方, 只读) */
 .entity-note-private{border:1px dashed var(--border);border-radius:var(--r-md);padding:12px 16px;margin-bottom:16px}
 .entity-note-private-head{display:flex;justify-content:space-between;align-items:center;gap:12px}

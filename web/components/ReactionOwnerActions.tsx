@@ -8,7 +8,15 @@ import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
+import { Button } from "@/components/ui/Button";
 
+/**
+ * ReactionOwnerActions — 本人反应操作行（v1.7 Step 7 §9.2）。
+ *
+ * 编辑 / 可见性切换（secondary）→ 既有 /submit 编辑表单（可见性在表单内
+ * 修改——现有逻辑，无独立切换端点）；删除（danger-quiet）经 useConfirm。
+ * 内部改用 ui/Button 组件，对外接口（reactionId）不变。
+ */
 export function ReactionOwnerActions({ reactionId }: { reactionId: number }) {
   const router = useRouter();
   const t = useDictionary();
@@ -35,5 +43,12 @@ export function ReactionOwnerActions({ reactionId }: { reactionId: number }) {
       toast.error(t.common.deleteFailed);
     }
   }
-  return <div className="owner-actions"><Link className="button secondary small" href={withLocale(`/submit?reaction=${reactionId}`, locale)}>{t.common.edit}</Link><button className="button danger small" onClick={remove} disabled={busy}>{busy ? t.common.deleteInProgress : t.common.delete}</button></div>;
+  const editHref = withLocale(`/submit?reaction=${reactionId}`, locale);
+  return (
+    <div className="owner-actions">
+      <Button variant="secondary" href={editHref}>{t.common.edit}</Button>
+      <Button variant="secondary" href={editHref}>{t.reaction.visibilityToggle}</Button>
+      <Button variant="danger-quiet" onClick={remove} loading={busy}>{t.common.delete}</Button>
+    </div>
+  );
 }

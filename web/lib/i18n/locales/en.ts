@@ -277,6 +277,7 @@ const en: Dictionary = {
     summaryMore: (n: number) => `${n} more`,
     publicReaction: 'Public reaction',
     privateReaction: 'Private reaction',
+    visibilityToggle: 'Change visibility',
     smiles: 'Reaction SMILES',
     errProcedure: 'No procedure recorded',
     conditionFields: {
@@ -1043,6 +1044,8 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     favorToast: 'Saved',
     undo: 'Undo',
     favorErr: "Couldn't save, please retry",
+    followToast: 'Following',
+    followErr: "Couldn't follow, please retry",
     unfollow: 'Unfollow',
     followBack: 'Follow back',
     viewProfile: 'View profile',

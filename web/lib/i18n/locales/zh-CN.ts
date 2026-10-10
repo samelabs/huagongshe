@@ -284,6 +284,7 @@ const t = {
     summaryMore: (n: number) => `等 ${n} 个`,
     publicReaction: '公开反应',
     privateReaction: '私有反应',
+    visibilityToggle: '切换可见性',
     smiles: '反应SMILES',
     errProcedure: '未记录说明',
     conditionFields: {
@@ -1047,6 +1048,8 @@ const t = {
     favorToast: '已收藏',
     undo: '撤销',
     favorErr: '收藏失败，请重试',
+    followToast: '已关注',
+    followErr: '关注失败，请重试',
     unfollow: '取消关注',
     followBack: '回关',
     viewProfile: '查看主页',

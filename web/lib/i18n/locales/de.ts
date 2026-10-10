@@ -281,6 +281,7 @@ const de: Dictionary = {
     summaryMore: (n: number) => `+${n} weitere`,
     publicReaction: 'Öffentliche Reaktion',
     privateReaction: 'Private Reaktion',
+    visibilityToggle: 'Sichtbarkeit ändern',
     smiles: 'Reaktions-SMILES',
     errProcedure: 'Keine Vorschrift aufgezeichnet',
     conditionFields: {
@@ -1047,6 +1048,8 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     favorToast: 'Gespeichert',
     undo: 'Rückgängig',
     favorErr: 'Speichern fehlgeschlagen, bitte erneut versuchen',
+    followToast: 'Gefolgt',
+    followErr: 'Folgen fehlgeschlagen, bitte erneut versuchen',
     unfollow: 'Entfolgen',
     followBack: 'Zurückfolgen',
     viewProfile: 'Profil ansehen',

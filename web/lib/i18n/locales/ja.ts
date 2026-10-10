@@ -278,6 +278,7 @@ const ja: Dictionary = {
     summaryMore: (n: number) => `ほか ${n} 個`,
     publicReaction: '公開反応',
     privateReaction: '非公開反応',
+    visibilityToggle: '公開範囲を変更',
     smiles: '反応SMILES',
     errProcedure: '手順は記録されていません',
     conditionFields: {
@@ -1044,6 +1045,8 @@ const ja: Dictionary = {
     favorToast: '保存しました',
     undo: '元に戻す',
     favorErr: '保存できませんでした。もう一度お試しください',
+    followToast: 'フォローしました',
+    followErr: 'フォローできませんでした。もう一度お試しください',
     unfollow: 'フォロー解除',
     followBack: 'フォローバック',
     viewProfile: 'プロフィールを見る',

@@ -40,6 +40,8 @@ export function PersonList({ items, empty, kind, onFollowChange }: {
           endpoint={`/users/${encodeURIComponent(person.username)}/follow`}
           initial={person.is_following}
           showCount={false}
+          variant="secondary"
+          size="sm"
           idleText={kind === "followers" ? t.follow.followBack : t.follow.follow}
           activeText={t.follow.unfollow}
           onChange={(following) => onFollowChange(person, following)}
