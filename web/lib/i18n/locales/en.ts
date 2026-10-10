@@ -443,8 +443,11 @@ const en: Dictionary = {
     sectionWorkspace: 'Workspace',
     sectionTools: 'Tools',
     sectionAgent: 'Agent',
-    sectionNetwork: 'Network',
+    sectionNetwork: 'Social',
     sectionAccount: 'Account',
+    navSkills: 'My Skills',
+    navMcpKey: 'MCP & AI Keys',
+    navSettings: 'Settings',
   },
 
   notes: {

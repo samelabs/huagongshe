@@ -450,8 +450,11 @@ const t = {
     sectionWorkspace: '工作区',
     sectionTools: '工具',
     sectionAgent: 'Agent',
-    sectionNetwork: '动态',
+    sectionNetwork: '社交',
     sectionAccount: '账户',
+    navSkills: '我的 Skills',
+    navMcpKey: 'MCP 与 AI Key',
+    navSettings: '设置',
   },
 
   notes: {

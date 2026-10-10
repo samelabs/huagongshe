@@ -42,16 +42,16 @@ class NotesUiContractTests(unittest.TestCase):
         # normalized landing URL construction (URLSearchParams, not string concat)
         self.assertIn("router.replace(withLocale(`/aichem?${params.toString()}`, locale))", src)
 
-    def test_creation_actions_live_in_sidebar_and_drawer(self):
-        """v1.7 Step 5：顶栏统一为全站 SiteHeader 后，工作台顶栏（WbTopnav）删除，
-        「新建反应 / 新建笔记」临时安置在侧栏顶部（桌面）与抽屉顶部（手机），
-        两处共用 WbQuickActions 单一实现，不与底部 tab 功能重复。"""
+    def test_creation_actions_live_in_drawer_and_overview(self):
+        """v1.7 Step 8 §9.4：桌面侧栏不再放「新建反应 / 新建笔记」（概览标题行
+        承担创建入口），手机抽屉顶部保留一份（WbQuickActions 单一实现），
+        不与底部 tab 功能重复。"""
         quick = (REPO / "web/components/workbench/WbQuickActions.tsx").read_text(encoding="utf-8")
         layout = (REPO / "web/app/(workbench)/layout.tsx").read_text(encoding="utf-8")
         drawer = (REPO / "web/components/workbench/WbMobileNav.tsx").read_text(encoding="utf-8")
         self.assertIn('variant="primary" size="sm" href={withLocale("/submit"', quick)
         self.assertIn('variant="secondary" size="sm" href={withLocale("/aichem?tab=notes&new=1"', quick)
-        self.assertIn("<WbQuickActions />", layout)
+        self.assertNotIn("<WbQuickActions />", layout)
         self.assertIn("<WbQuickActions />", drawer)
         self.assertFalse((REPO / "web/components/workbench/WbTopnav.tsx").exists())
 
@@ -80,14 +80,37 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertLess(src.index("homeRecentNotes"), src.index("homeRecentReactions"))
 
     def test_workspace_order_matches_product_ia(self):
+        """Step 8 §9.4：registry 分组收敛为 workspace/tools/network/account 四组
+        （agent 并入 tools，api-tokens 移入 tools 作「MCP 与 AI Key」，账户只留
+        设置）。id 与 href 不变（深链/测试钉子稳定），只动展示分组与图标。"""
         src = (REPO / "web/components/workbench/registry.ts").read_text(encoding="utf-8")
         positions = [
-            src.index('{ id: "home",        section: "workspace"'),
-            src.index('{ id: "notes",       section: "workspace"'),
-            src.index('{ id: "mine",        section: "workspace"'),
-            src.index('{ id: "saved",       section: "workspace"'),
+            src.index('{ id: "home",'),
+            src.index('{ id: "notes",'),
+            src.index('{ id: "mine",'),
+            src.index('{ id: "saved",'),
+            src.index('{ id: "search",'),
+            src.index('{ id: "stoich",'),
+            src.index('{ id: "skills",'),
+            src.index('{ id: "api-tokens",'),
+            src.index('{ id: "activity",'),
+            src.index('{ id: "following",'),
+            src.index('{ id: "followers",'),
+            src.index('{ id: "profile",'),
         ]
         self.assertEqual(positions, sorted(positions))
+        self.assertIn('section: "workspace"', src)
+        self.assertIn('section: "tools"', src)
+        self.assertIn('section: "network"', src)
+        self.assertIn('section: "account"', src)
+        self.assertNotIn('section: "agent"', src)
+        # 深链稳定：id 与 href 组合不被分组调整改写
+        self.assertIn('{ id: "api-tokens", section: "tools",     href: "/me/settings/api-tokens"', src)
+        self.assertIn('{ id: "profile",    section: "account",   href: "/me/settings/profile"', src)
+        # 侧栏「笔记」计数来自 Counts.notes（layout 用 notes?page_size=1 补齐）
+        self.assertIn('badge: (c) => c.notes', src)
+        self.assertIn("/users/me/notes?page=1&page_size=1",
+                      (REPO / "web/app/(workbench)/layout.tsx").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

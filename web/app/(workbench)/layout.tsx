@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { WorkbenchNav } from "@/components/workbench/WorkbenchNav";
 import { WbMobileNav } from "@/components/workbench/WbMobileNav";
-import { WbQuickActions } from "@/components/workbench/WbQuickActions";
 import { WorkbenchCountsProvider } from "@/components/workbench/WorkbenchCountsContext";
 import { SiteHeader } from "@/components/shell/SiteHeader";
 import { apiGet } from "@/lib/api";
@@ -27,6 +26,15 @@ async function getSummary(cookieHeader: string): Promise<Summary | null> {
   } catch { return null; }
 }
 
+/** 笔记总数（§9.4 侧栏「笔记」计数）：dashboard counts 不含笔记，
+ *  用既有读接口 /users/me/notes?page_size=1 的 total 补齐（一次请求）。 */
+async function getNotesCount(cookieHeader: string): Promise<number | null> {
+  try {
+    const page = await apiGet<{ total: number }>("/users/me/notes?page=1&page_size=1", { cookie: cookieHeader });
+    return page.total;
+  } catch { return null; }
+}
+
 export default async function WorkbenchLayout({ children }: { children: React.ReactNode }) {
   const locale = await getRequestLocale();
   const h = await headers();
@@ -44,7 +52,10 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
     redirect("/login?next=/aichem");
   }
   const summary = cookieHeader ? await getSummary(cookieHeader) : null;
-  const counts = summary?.counts ?? null;
+  const notesCount = cookieHeader ? await getNotesCount(cookieHeader) : null;
+  const counts = summary?.counts
+    ? { ...summary.counts, notes: notesCount ?? 0 }
+    : null;
 
   return (
     <div className="wb-shell">
@@ -59,8 +70,8 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
       <WorkbenchCountsProvider counts={counts}>
         <div className="wb-body">
           <aside className="wb-aside">
-            {/* 临时安置（Step 8 重做工作台时调整位置）：原顶栏「新建反应 / 新建笔记」入口 */}
-            <WbQuickActions />
+            {/* Step 8 §9.4：桌面侧栏不再放「新建反应/新建笔记」，
+                创建入口移概览页标题行；手机抽屉顶部仍保留一份（WbMobileNav）。 */}
             <Suspense><WorkbenchNav counts={counts} variant="sidebar" /></Suspense>
           </aside>
           <main className="wb-main">{children}</main>

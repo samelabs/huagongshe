@@ -446,8 +446,11 @@ const ko: Dictionary = {
     sectionWorkspace: '워크스페이스',
     sectionTools: '도구',
     sectionAgent: 'Agent',
-    sectionNetwork: '네트워크',
+    sectionNetwork: '소셜',
     sectionAccount: '계정',
+    navSkills: '내 Skills',
+    navMcpKey: 'MCP 및 AI Key',
+    navSettings: '설정',
   },
 
   notes: {

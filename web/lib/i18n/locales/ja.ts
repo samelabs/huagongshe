@@ -444,8 +444,11 @@ const ja: Dictionary = {
     sectionWorkspace: 'ワークスペース',
     sectionTools: 'ツール',
     sectionAgent: 'Agent',
-    sectionNetwork: 'ネットワーク',
+    sectionNetwork: 'ソーシャル',
     sectionAccount: 'アカウント',
+    navSkills: 'マイ Skills',
+    navMcpKey: 'MCP と AI Key',
+    navSettings: '設定',
   },
 
   notes: {

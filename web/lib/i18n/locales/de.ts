@@ -447,8 +447,11 @@ const de: Dictionary = {
     sectionWorkspace: 'Workspace',
     sectionTools: 'Werkzeuge',
     sectionAgent: 'Agent',
-    sectionNetwork: 'Netzwerk',
+    sectionNetwork: 'Soziales',
     sectionAccount: 'Konto',
+    navSkills: 'Meine Skills',
+    navMcpKey: 'MCP & AI Keys',
+    navSettings: 'Einstellungen',
   },
 
   notes: {
