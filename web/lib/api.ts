@@ -2,6 +2,9 @@ const SERVER_API = process.env.API_BASE || process.env.NEXT_PUBLIC_API_BASE || "
 const CLIENT_API = "/api";
 const BASE = typeof window !== "undefined" ? CLIENT_API : SERVER_API;
 
+/** 服务端取 API 原始字节（og 品牌卡拉 /mol/{id}/png）用的唯一 base —— 不建第二份字面量 */
+export const SERVER_API_BASE = SERVER_API;
+
 export class ApiError extends Error {
   /** 服务端 error detail(如 FastAPI {"detail": "..."}), 可能为空 */
   detail?: string;

@@ -25,7 +25,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     // Private note content must never enter shared/public page metadata:
     // the description stays generic by design.
     alternates: localeAlternates(canonical, locale),
+    // og:image / twitter:image = 同目录 opengraph-image.tsx（1200×630 兜底品牌卡，G4；
+    // 卡片同样不含笔记内容）
     openGraph: { url: withLocale(canonical, locale), title: `${t.notes.detailTitle} ${id}｜${t.brand.name}`, description: t.notes.detailTitle, locale: ogLocaleTag(locale) },
+    twitter: { card: "summary_large_image", title: `${t.notes.detailTitle} ${id}｜${t.brand.name}`, description: t.notes.detailTitle },
   };
 }
 

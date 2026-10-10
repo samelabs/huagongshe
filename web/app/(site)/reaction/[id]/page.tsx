@@ -53,7 +53,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     title: t.common.hridShort(id),
     description: t.reaction.desc,
     alternates: localeAlternates(canonical, locale),
+    // og:image / twitter:image = 同目录 opengraph-image.tsx（1200×630 品牌卡，G4）
     openGraph: { url: withLocale(canonical, locale), title: `${t.common.hridShort(id)}｜${t.brand.name}`, description: t.reaction.desc, locale: ogLocaleTag(locale) },
+    twitter: { card: "summary_large_image", title: `${t.common.hridShort(id)}｜${t.brand.name}`, description: t.reaction.desc },
   };
 }
 

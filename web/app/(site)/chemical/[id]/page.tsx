@@ -59,18 +59,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     title: pageTitle,
     description,
     alternates: localeAlternates(canonical, locale),
+    // og:image / twitter:image = 同目录 opengraph-image.tsx（1200×630 品牌卡，
+    // G4 收口）—— 文件路由自动产出，openGraph/twitter 不再手写 images。
     openGraph: {
       url: withLocale(canonical, locale),
       title: `${pageTitle}｜${t.brand.name}`,
       description,
       locale: ogLocaleTag(locale),
-      images: [{ url: `/api/mol/${id}/png`, width: 500, height: 375, alt: t.chemical.structureAlt(displayName) }],
     },
     twitter: {
       card: "summary_large_image",
       title: `${pageTitle}｜${t.brand.name}`,
       description,
-      images: [`/api/mol/${id}/png`],
     },
   };
 }
