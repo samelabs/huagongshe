@@ -1629,7 +1629,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .home-entry-note a { min-height: 44px; }
   .admin-nav a { min-height: 44px; display: inline-flex; align-items: center; }
   .footer-link { min-height: 44px; display: inline-flex; align-items: center; }
-  .hg-copy { width: 44px; height: 44px; }
   .settings-preview-link { min-height: 44px; display: inline-flex; align-items: center; }
   .api-guide-link { min-height: 44px; display: inline-flex; align-items: center; }
   .note-detail-meta a { min-height: 44px; display: inline-flex; align-items: center; }

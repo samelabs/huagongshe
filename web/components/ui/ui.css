@@ -464,3 +464,8 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
      的共同类；置于此处（基座之后）以源序决胜。 */
   .hg-input { min-height: 44px; height: auto; }
 }
+@media (max-width: 640px) {
+  /* BX-A3/VG：手机端复制钮 ≥44 —— 单类规则在 globals 会被本文件基座
+     （后加载）压过，必须钉在组件层（源序决胜） */
+  .hg-copy { width: 44px; height: 44px; }
+}
