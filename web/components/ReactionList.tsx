@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiGet, reactionSvgUrl, type ReactionSummary } from "@/lib/api";
+import { apiGet, reactionSvgUrl, USER_SUBMITTED_SOURCE, type ReactionSummary } from "@/lib/api";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Segmented } from "@/components/ui/Segmented";
 import { Tag } from "@/components/ui/Tag";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
+import { Button } from "@/components/ui/Button";
+import { TextLink } from "@/components/ui/TextLink";
 
 const roles = ["any", "reactant", "product", "reagent", "catalyst", "solvent"] as const;
 type Role = (typeof roles)[number];
@@ -81,7 +83,7 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
                 {reaction.matched_roles.length > 0 && (
                   reaction.matched_roles.map((r) => <Tag key={r}>{roleNames[r.toLowerCase()] ?? r}</Tag>)
                 )}
-                {reaction.dataset_name && <Tag tone="src">{reaction.dataset_name}</Tag>}
+                {reaction.dataset_name && <Tag tone="src">{reaction.dataset_name === USER_SUBMITTED_SOURCE ? t.reaction.userSubmitted : reaction.dataset_name}</Tag>}
                 {!reaction.dataset_name && reaction.doi && <Tag tone="src">DOI</Tag>}
                 {!reaction.dataset_name && !reaction.doi && reaction.patent && <Tag tone="src">{t.reaction.sourceFields.patent}</Tag>}
               </div>
@@ -90,14 +92,14 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
         </div>
       ) : <p className="quiet-empty">{t.chemical.noReactions}</p>}
       {!loading && data.reactions.length > MOBILE_PREVIEW && !expanded && (
-        <button type="button" className="reaction-mini-more" aria-expanded={false} onClick={() => setExpanded(true)}>
+        <Button variant="secondary" size="sm" className="reaction-mini-more" onClick={() => setExpanded(true)}>
           {t.chemical.moreReactions(data.reactions.length - MOBILE_PREVIEW)}
-        </button>
+        </Button>
       )}
       {pageCount > 1 && <nav className="pagination" aria-label={t.common.pageNav}>
-        {page > 1 && <button type="button" className="pagination-link" onClick={() => setPage(page - 1)}>{t.common.prev}</button>}
+        {page > 1 && <TextLink className="pagination-link" onClick={() => setPage(page - 1)}>{t.common.prev}</TextLink>}
         <span>{t.common.pageOf(page, pageCount)}</span>
-        {page < pageCount && <button type="button" className="pagination-link" onClick={() => setPage(page + 1)}>{t.common.next}</button>}
+        {page < pageCount && <TextLink className="pagination-link" onClick={() => setPage(page + 1)}>{t.common.next}</TextLink>}
       </nav>}
     </>
   );

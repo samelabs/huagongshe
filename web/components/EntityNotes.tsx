@@ -7,6 +7,7 @@ import { EntityBadge } from "@/components/ui/EntityBadge";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { apiGet, isApiNotFound, type NoteResponse } from "@/lib/api";
 import { withLocale } from "@/lib/localePath";
+import { TextLink } from "@/components/ui/TextLink";
 
 type PrivateContext = { chemical?: number; reaction?: number } | null;
 
@@ -36,7 +37,7 @@ function MyPrivateNotes({ context }: { context: PrivateContext }) {
     <div className="entity-note-private">
       <div className="entity-note-private-head">
         <h3>{t.notes.mineSection}</h3>
-        <Link className="text-button" href={withLocale(manageHref, locale)}>{t.notes.mineManage}</Link>
+        <TextLink href={withLocale(manageHref, locale)}>{t.notes.mineManage}</TextLink>
       </div>
       <div className="entity-note-list">
         {data.items.map((note) => (
@@ -89,7 +90,7 @@ export function EntityNotes({ entity, entityId, canAdd, privateContext }: {
     <section className="chem-section entity-notes" id="linked-notes">
       <div className="section-heading entity-notes-heading">
         <h2>{t.notes.linkedTitle}</h2>
-        {canAdd && <Link className="text-button" href={withLocale(createHref, locale)}>{t.notes.add}</Link>}
+        {canAdd && <TextLink href={withLocale(createHref, locale)}>{t.notes.add}</TextLink>}
       </div>
       {privateContext && <MyPrivateNotes context={privateContext} />}
       {error && <p className="quiet-empty">{t.notes.loadFailed}</p>}
@@ -111,7 +112,7 @@ export function EntityNotes({ entity, entityId, canAdd, privateContext }: {
                   {note.reaction_ids.map((id) => <Link key={`r-${id}`} href={withLocale(`/reaction/${id}`, locale)}><EntityBadge kind="reaction" id={id} size="xs" compact /></Link>)}
                 </div>
               )}
-              <Link className="text-button note-view-full" href={withLocale(`/note/${note.id}`, locale)}>{t.notes.viewFull}</Link>
+              <TextLink className="note-view-full" href={withLocale(`/note/${note.id}`, locale)}>{t.notes.viewFull}</TextLink>
             </article>
           ))}
         </div>

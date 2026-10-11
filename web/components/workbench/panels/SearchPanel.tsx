@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { apiGet, molSvgUrl, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
+import { apiGet, molSvgUrl, USER_SUBMITTED_SOURCE, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -145,7 +145,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
             {reactions.map((rxn) => (
               <Link key={rxn.id} className="wb-search-reaction" href={withLocale(`/reaction/${rxn.id}`, locale)}>
                 <EntityBadge kind="reaction" id={rxn.id} size="xs" ariaLabel={t.common.hridLabel(rxn.id)} />
-                <small>{rxn.doi || rxn.ord_id || rxn.dataset_name || ""}</small>
+                <small>{rxn.doi || rxn.ord_id || (rxn.dataset_name === USER_SUBMITTED_SOURCE ? t.reaction.userSubmitted : rxn.dataset_name) || ""}</small>
               </Link>
             ))}
           </div>

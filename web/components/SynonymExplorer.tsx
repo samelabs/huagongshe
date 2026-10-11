@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { apiGet } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
+import { TextLink } from "@/components/ui/TextLink";
 
 /**
  * SynonymExplorer (Design System v2, Issue #4 重组)。
@@ -59,9 +60,7 @@ export function SynonymExplorer({ chemicalId, initial, total, shown }: {
     <>
       {rest.map((item) => <span key={item}>{item}</span>)}
       {!done && (
-        <button className="text-button synonym-more" type="button" onClick={loadMore} disabled={busy}>
-          {busy ? t.common.loading : t.chemical.synonyms.loadMore(items.length)}
-        </button>
+        <TextLink className="synonym-more" onClick={loadMore} disabled={busy}>{busy ? t.common.loading : t.chemical.synonyms.loadMore(items.length)}</TextLink>
       )}
       {failed && <p className="inline-error">{t.chemical.synonyms.error}</p>}
     </>

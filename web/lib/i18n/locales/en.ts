@@ -112,6 +112,7 @@ const en: Dictionary = {
 
   /* ── Search ────────────────────────────────────────── */
   search: {
+    seoResultsLabel: 'Search',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: 'Search chemistry data by name, CAS number, InChIKey, SMILES, or structure across Huagongshe.',
     title: 'Search chemistry data',
     noResultsFor: (query: string) => `No records match "${query}"`,
@@ -309,6 +310,7 @@ const en: Dictionary = {
       other: 'Other',
       unknown: 'Unspecified',
     },
+    userSubmitted: 'User submitted',  /* BX-A2：API user_submitted 标记的本地化 */
     sourceFields: {
       type: 'Source type',
       ord: 'ORD record',
@@ -366,6 +368,19 @@ const en: Dictionary = {
     skillLoginRequired: 'Your session has expired. Please sign in again.',
     skillForbidden: 'This account is not allowed to perform this action.',
     skillRateLimited: 'Too many requests. Please try again shortly.',
+    skillErrors: {
+      archive_too_large: 'The archive exceeds the size limit.',
+      invalid_archive: 'The file is not a valid ZIP archive.',
+      unsafe_path: 'The archive contains an unsafe path (traversal, excessive nesting, or symlinks).',
+      decompression: 'Suspicious compression ratio (possible zip bomb).',
+      empty_archive: 'The archive contains no files.',
+      archive_limit: 'The archive exceeds the file-count or total-size limit.',
+      manifest_invalid: 'SKILL.md or its manifest metadata is invalid.',
+      category_invalid: 'The skill category does not exist or is disabled.',
+      slug_conflict: 'A skill with the same slug already exists.',
+      idempotency_key_missing: 'The Idempotency-Key header is missing.',
+      idempotency_key_too_long: 'The Idempotency-Key exceeds 200 characters.',
+    },
     skillRefreshFailed: 'The action succeeded, but the list could not refresh. Reload the page to see the latest state.',
     skillsUploading: 'Uploading…',
     skillsPickZip: 'Choose a zip skill package',
@@ -707,6 +722,8 @@ const en: Dictionary = {
     mismatch: 'The two passwords do not match',
     weakPassword: 'At least 8 characters, combining letters and numbers',
     validationError: 'Your input failed validation',
+    accountTaken: 'That username or email is already taken.',
+    rateLimited: 'Too many attempts. Please try again later.',
     failed: 'Something went wrong. Please try again later.',
     networkFailed: 'Network error. Please try again later.',
     checking: 'Checking…',
@@ -977,6 +994,14 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     errLoadFailed: 'Failed to load data',
     errConfigLoad: 'Failed to load config',
     errSaveFailed: 'Save failed',
+    catErrors: {
+      category_name_length: 'The category name must be 1–40 characters.',
+      category_abbr: 'The abbreviation must be 1–4 English letters.',
+      category_color: 'The color must be in #rrggbb format.',
+      category_exists: 'This category already exists.',
+      category_name_conflict: 'Another category already uses this name.',
+      category_not_found: 'This category does not exist.',
+    },
     saved: (key: string) => `${key} saved`,
     saving: 'Saving…',
     save: 'Save',
@@ -1025,6 +1050,7 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     workerCreated: (v: string) => `Created ${v}`,
     workerDeleteConfirm: (name: string, workerId: string) => `Delete worker "${name}" (${workerId})?`,
     workerDeleteEffect: 'Only workers with no in-flight tasks can be deleted; completed history is kept. The credential is revoked immediately and permanently.',
+    workerDeleteBlocked: 'This worker has jobs in progress and cannot be deleted.',
     workerDeleteBlockedFallback: 'This worker has in-flight tasks and cannot be deleted. Wait for the tasks or disable the node first.',
     /* Dashboard */
     dashboardTitle: 'Overview',
@@ -1141,6 +1167,11 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     unsavedBody: 'Your edits have not been saved and will be lost if you leave.',
     unsavedConfirm: 'Discard changes',
     unsavedCancel: 'Keep editing',
+    /* BX-A1: switching editor context while a save is in flight — honest copy */
+    savingTitle: 'This note is still saving. Switch anyway?',
+    savingBody: 'The save keeps running and nothing is lost; the list refreshes once it completes.',
+    savingConfirm: 'Switch anyway',
+    savingCancel: 'Keep waiting',
     contentLabel: 'Content',
     visibilityLabel: 'Visibility',
     statusLabel: 'Save status',

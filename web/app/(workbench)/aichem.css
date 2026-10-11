@@ -225,36 +225,7 @@
   border-color: var(--wb-ink);
 }
 
-/* ── 按钮 ── */
-.wb-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--wb-sp-2);
-  height: var(--wb-btn-h);
-  padding: 0 var(--wb-sp-4);
-  border: 1px solid transparent;
-  border-radius: var(--wb-r-md);
-  font-size: var(--wb-fs);
-  font-weight: var(--wb-w-medium);
-  white-space: nowrap;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background var(--wb-transition), border-color var(--wb-transition), color var(--wb-transition);
-}
-
-/* 主按钮变体 — 对齐 .wb-panel .button.primary 的既有视觉配方（蓝底反白），收口两套并行 */
-.wb-btn-primary {
-  background: var(--wb-blue);
-  color: var(--wb-inverse);
-}
-.wb-btn-primary:disabled { opacity: .55; cursor: default; }
-
-.wb-btn-ghost {
-  background: var(--wb-paper);
-  color: var(--wb-blue);
-  border-color: var(--wb-line);
-}
+/* ── 按钮（BX-B1）── 旧 wb-btn 家族删除：工作台按钮统一 components/ui Button（hg-btn）。 */
 
 /* ── 搜索框（工作台自有，与主站 .search-wrap 完全独立）── */
 .wb-search-form {
@@ -1134,15 +1105,7 @@
   color: var(--wb-quiet);
   font-size: var(--wb-fs-xs);
 }
-/* 危险色只作用于 Token 撤销这类破坏性文字按钮；
-   面板内其余 .text-button（笔记卡「查看全文」等）走全局链接色 var(--action) */
-.wb-panel .token-actions .text-button {
-  border: none;
-  background: none;
-  color: var(--wb-danger);
-  cursor: pointer;
-  font-size: var(--wb-fs-sm);
-}
+/* BX-B1：旧 token-actions text-button 危险色规则删除（已迁 ui Button danger-quiet）。 */
 .wb-panel .api-guide-link {
   margin-top: var(--wb-sp-4);
   display: inline-block;
@@ -1647,7 +1610,6 @@
 .wb-skill-row strong{color:var(--wb-heading);font-size:var(--wb-fs);font-weight:var(--wb-w-semibold);text-overflow:ellipsis;white-space:nowrap;display:block;overflow:hidden}
 .wb-skill-row small{color:var(--wb-quiet);font-size:var(--wb-fs-xs);text-overflow:ellipsis;white-space:nowrap;display:block;overflow:hidden}
 .wb-skill-actions{gap:var(--wb-sp-2);align-items:center;flex-shrink:0;display:flex}
-.wb-btn-danger{background:var(--wb-paper);color:var(--wb-danger);border-color:var(--wb-line)}
 @media (max-width:680px){.wb-skill-row{flex-direction:column;align-items:stretch}.wb-skill-actions{justify-content:flex-end}}
 
 /* ── Notes ─────────────────────────────────────────── */
@@ -1802,7 +1764,7 @@
 @media(max-width:680px){
   .wb-note-editor{padding:var(--wb-sp-3)}
   .wb-note-reference-input{grid-template-columns:1fr}
-  .wb-note-reference-input .wb-btn{justify-self:start}
+  .wb-note-reference-input .hg-btn{justify-self:start}
   .wb-note-reference-results>button{grid-template-columns:minmax(0,1fr) auto}
   .wb-note-card{padding:var(--wb-sp-3)}
 }

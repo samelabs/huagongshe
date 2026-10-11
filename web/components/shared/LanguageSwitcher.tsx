@@ -20,7 +20,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
-import { SUPPORTED_LOCALES, isPathAtOrBelow, replaceLocalePrefix } from "@/lib/localePath";
+import { SUPPORTED_LOCALES, isPathAtOrBelow, replaceLocalePrefix, rewriteNextParam, type Locale } from "@/lib/localePath";
 
 /** 各语言自称(固定, 不翻译) */
 const NATIVE_NAMES: Record<string, string> = {
@@ -37,7 +37,12 @@ export function LanguageSwitcher() {
   const pathname = usePathname() ?? "/";
   const searchParams = useSearchParams();
   const search = searchParams.toString();
-  const suffix = search ? `?${search}` : "";
+  // BX-A6：next 回跳参数里的语言前缀同步换成目标语言 —— 登录页切语言后
+  // 登录成功必须落在所选语言，而不是跳回旧语言的 next。
+  const suffixFor = (target: Locale) => {
+    const rewritten = rewriteNextParam(search, target);
+    return rewritten ? `?${rewritten}` : "";
+  };
   const detailsRef = useRef<HTMLDetailsElement>(null);
 
   // Esc 关闭浮层（IX-10），焦点回触发器。
@@ -69,7 +74,7 @@ export function LanguageSwitcher() {
             key={l}
             role="menuitem"
             hrefLang={l}
-            href={replaceLocalePrefix(pathname, l) + suffix}
+            href={replaceLocalePrefix(pathname, l) + suffixFor(l)}
             aria-current={l === locale ? "true" : undefined}
             className={l === locale ? "current" : undefined}
           >

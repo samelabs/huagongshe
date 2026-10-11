@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { Segmented } from "@/components/ui/Segmented";
-import zhCN from "@/lib/i18n/locales/zh-CN";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /** 登录/注册表单（Step 11 §9.6）：ui 表单控件 + 错误 Notice err（写明原因，
@@ -42,10 +41,10 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
       // username currently typed.
       if (requestId !== latestCheck.current) return;
       if (!data.available) {
-        // 服务端 reason 是固定中文契约串(/api/auth/check-username): "用户名已被使用" → taken。
-        // 判定锚定 zh 字典常量(与 API 契约一致, 不随展示 locale 变), 提示文案用当前字典。
-        const taken = data.reason === zhCN.auth.usernameTaken;
-        setUsernameCheck({ status: taken ? "taken" : "invalid", msg: taken ? t.auth.usernameTaken : (data.reason || t.auth.usernameUnavailable) });
+        // BX-A2：服务端返回稳定机器码 reason_code（taken / invalid_format），
+        // 提示文案用当前字典渲染 —— 不再消费/比对中文 reason 契约串。
+        const taken = data.reason_code === "taken";
+        setUsernameCheck({ status: taken ? "taken" : "invalid", msg: taken ? t.auth.usernameTaken : t.auth.usernameRule });
       } else {
         setUsernameCheck({ status: "ok", msg: t.auth.usernameAvailable });
       }
@@ -105,7 +104,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
           });
           if (response.ok) { await refresh(); router.push(applyLocale(nextPath, locale)); router.refresh(); return; }
           const error = await response.json().catch(() => null);
-          setMessage(apiError(error?.detail, t));
+          setMessage(apiError(response.status, error?.detail, t));
         } catch {
           setMessage(t.auth.networkFailed);
         } finally {
@@ -150,10 +149,16 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
   );
 }
 
-function apiError(detail: unknown, labels: Dictionary) {
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) {
-    return detail.map((item) => typeof item?.msg === "string" ? item.msg.replace(/^Value error,\s*/, "") : null).filter(Boolean).join("；") || labels.auth.validationError;
+/** BX-A2：登录/注册失败按状态 + 机器码（detail.kind）渲染五语言文案；
+ *  不再透传服务端 message 原文（旧纯字符串 detail 一律落本地化兜底 ——
+ *  同样的规则注册时已在客户端预校验，422 数组亦落通用校验文案）。 */
+function apiError(status: number, detail: unknown, labels: Dictionary) {
+  if (status === 429) return labels.auth.rateLimited;
+  if (detail && typeof detail === "object" && "kind" in (detail as Record<string, unknown>)) {
+    const kind = (detail as { kind?: unknown }).kind;
+    if (kind === "invalid_credentials") return labels.auth.failed;
+    if (kind === "username_or_email_taken") return labels.auth.accountTaken;
   }
+  if (Array.isArray(detail)) return labels.auth.validationError;
   return labels.auth.failed;
 }

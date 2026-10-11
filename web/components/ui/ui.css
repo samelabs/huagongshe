@@ -19,10 +19,12 @@
 /* ══ 实体徽标 HCID / HRID（§5） ═════════════════════════════ */
 .hg-eb {
   --eb-h: 24px;
-  /* 组件级尺寸变量取自 tokens（xs 前缀 11.5/10.5 为设计允许的唯一 <12 例外，
-     见 tokens.css 字号注释）；字面量只存在于此，不进入 font-size 声明 */
+  /* 组件级尺寸变量取自 tokens（xs 前缀 10.5 为设计允许的唯一 <12 例外，
+     见 tokens.css 字号注释）；字面量只存在于此，不进入 font-size 声明。
+     BX-A4：xs 编号从 11.5px 收进 12px 档（§11 只豁免 xs 前缀，不豁免编号）。 */
   --eb-fs: var(--fs-12);
-  --fs-eb-prefix: 11px;
+  /* BX-A4/§11：前缀同样 ≥12（唯一豁免只剩 xs 前缀 10.5） */
+  --fs-eb-prefix: var(--fs-12);
   --eb-ic: 12px;
   display: inline-flex;
   align-items: center;
@@ -57,7 +59,7 @@
 .hg-eb.rx   { --eb-fg: var(--entity-rx);   --eb-bg: var(--entity-rx-bg);   --eb-line: var(--entity-rx-line); }
 a.hg-eb:hover { text-decoration: none; border-color: var(--eb-fg); }
 a.hg-eb:hover .v { background: var(--bg-hover); }
-.hg-eb.xs { --eb-h: 20px; --eb-fs: 11.5px; --fs-eb-prefix: 10.5px; --eb-ic: 11px; }
+.hg-eb.xs { --eb-h: 20px; --eb-fs: var(--fs-12); --fs-eb-prefix: 10.5px; --eb-ic: 11px; }
 .hg-eb.xs .k { padding: 0 5px; }
 .hg-eb.xs .v { padding: 0 5px; }
 .hg-eb.md { --eb-h: 28px; --eb-fs: var(--fs-13); --fs-eb-prefix: var(--fs-12); --eb-ic: 14px; }
@@ -77,6 +79,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 @media (max-width: 680px) {
   a.hg-eb { position: relative; }
   a.hg-eb::after { content: ""; position: absolute; left: -10px; right: -10px; top: 50%; transform: translateY(-50%); height: var(--touch-min); }
+}
+
+/* BX-A3：手机端图标按钮宽度 ≥44 —— globals 的手机块把 --bh 置 auto，
+   .hg-btn.icon 的 width:var(--bh) 会塌缩成图标宽；规则必须在组件层钉住。 */
+@media (max-width: 640px) {
+  .hg-btn.icon { width: 44px; }
 }
 
 /* ══ Button（§6） ════════════════════════════════════════════ */
@@ -207,6 +215,20 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-tag.src { height: 20px; padding: 0 6px; color: var(--text-muted); background: transparent; border: 1px solid var(--border); }
 .hg-tag svg { width: 12px; height: 12px; }
 .hg-tag .hg-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; }
+
+/* ══ TextLink（§6 · BX-B1：旧 text-link/text-button 的唯一归宿） ══════ */
+.hg-text {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--action);
+  cursor: pointer;
+  font-size: var(--fs-13);
+  text-decoration: none;
+}
+.hg-text:hover { text-decoration: underline; }
+.hg-text:disabled { color: var(--text-disabled); cursor: not-allowed; text-decoration: none; }
+.hg-text:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-xs); }
 
 /* ══ Segmented（§6） ═════════════════════════════════════════ */
 .hg-seg { display: inline-flex; padding: 3px; background: var(--bg-subtle); border-radius: var(--r-sm); gap: 2px; }

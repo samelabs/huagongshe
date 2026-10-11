@@ -5,6 +5,10 @@ const BASE = typeof window !== "undefined" ? CLIENT_API : SERVER_API;
 /** 服务端取 API 原始字节（og 品牌卡拉 /mol/{id}/png）用的唯一 base —— 不建第二份字面量 */
 export const SERVER_API_BASE = SERVER_API;
 
+/** BX-A2：用户创建且未填来源引用的反应，dataset_name 返回此稳定枚举标记
+ *  （后端不再返回中文「用户发布」）—— 前端按语言渲染（t.reaction.userSubmitted）。 */
+export const USER_SUBMITTED_SOURCE = "user_submitted";
+
 export class ApiError extends Error {
   /** 服务端 error detail(如 FastAPI {"detail": "..."}), 可能为空 */
   detail?: string;

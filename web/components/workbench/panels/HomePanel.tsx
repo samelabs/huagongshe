@@ -20,6 +20,7 @@ import { useToast } from "@/components/ui/Toast";
 import { ActivityFeedCard, PanelError, PanelLoading, ReactionRow, SlowNotice, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
 import type { Counts, LoadState, NoteResponse, PageResponse, Reaction, ReactionResponse } from "../types";
 import type { ChemicalFollow, Notice } from "../types";
+import { Input } from "@/components/ui/Field";
 
 /**
  * 工作台概览（§9.4 Step 8 重做：工具在左，社交在右）。
@@ -170,7 +171,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
                 <circle cx="11" cy="11" r="7" />
                 <line x1="21" y1="21" x2="16.5" y2="16.5" />
               </svg>
-              <input
+              <Input
                 type="text"
                 enterKeyHint="search"
                 value={query}
@@ -180,7 +181,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
                 autoComplete="off"
                 spellCheck={false}
               />
-              <button type="submit" className="wb-search-submit">{t.me.homeSearchButton}</button>
+              <Button type="submit" variant="secondary" size="sm" className="wb-search-submit">{t.me.homeSearchButton}</Button>
             </div>
           </form>
           <div className="wb-quick-links">

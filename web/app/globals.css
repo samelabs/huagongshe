@@ -43,13 +43,8 @@ main { flex: 1; background: var(--bg-page); }
 footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) / 2)) env(safe-area-inset-bottom); display: flex; justify-content: center; align-items: center; color: var(--text-muted); font-size: var(--fs-13); text-align: center; background: var(--bg-surface); border-top: 1px solid var(--border); }
 .footer-link { color: var(--action); }
 
-.button { min-height: 40px; border: 1px solid transparent; border-radius: var(--r-sm); padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; font-weight: 650; font-size: var(--fs-13); transition: .15s ease; }
-.button.primary { color: var(--text-inverse); background: var(--action); }
-.button.secondary { border-color: var(--border-strong); color: var(--text); background: var(--bg-surface); }
-.button.danger { border-color: var(--err-border); color: var(--err); background: var(--bg-surface); }
-.button.small { min-height: 36px; padding: 0 12px; }
-.button:disabled { opacity: .5; cursor: not-allowed; }
-.text-button { border: 0; padding: 0; color: var(--action); background: none; cursor: pointer; font-size: var(--fs-13); }
+/* BX-B1：旧 button/text-button 类族删除 —— 按钮统一 components/ui Button（hg-btn），
+   行内文字链接/文字按钮统一 ui TextLink（.hg-text，样式在 components/ui/ui.css） */
 .page-kicker, .section-heading p { margin: 0 0 8px; color: var(--action); font-size: var(--fs-12); font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
 /* ── EntityId · HCID/HRID 平台实体身份 ────────────────────
  * v1.7 Step 4 起视觉/排版全部由 EntityBadge（components/ui/ui.css 的
@@ -218,42 +213,31 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 /* ── 页面标题统一体系 ──────────────────────────────
  * .page-head 是所有内容页标题的基类。
  * 所有 h1 共享同一条 font-size / weight / line-height。
- * .page-kicker / 描述 p / .text-button 统一间距。
+ * page-kicker / 描述 p / hg-text 统一间距。
  */
 .page-head { max-width: var(--w-reading); margin-bottom: 36px; }
 .page-head h1 { margin: 0; font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); line-height: 1.28; letter-spacing: -.008em; }
 .page-head > p:not(.page-kicker) { margin: 14px 0 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.75; }
-.page-head > .text-button { margin-top: 12px; display: inline-block; }
+.page-head > .hg-text { margin-top: 12px; display: inline-block; }
 
 /* 兼容旧类名 → 新体系（渐进迁移，后续删除旧类名） */
 .page-title, .guide-hero { max-width: var(--w-reading); margin-bottom: 36px; }
 .page-title h1, .guide-hero h1, .search-head h1 { margin: 0; font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); line-height: 1.28; letter-spacing: -.008em; }
 .page-title > p:not(.page-kicker), .guide-hero > p:not(.page-kicker), .search-head > p:not(.page-kicker) { margin: 14px 0 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.75; }
-.page-title > .text-button, .guide-hero > .text-button { margin-top: 12px; display: inline-block; }
+.page-title > .hg-text, .guide-hero > .hg-text { margin-top: 12px; display: inline-block; }
 .section-heading { margin-bottom: 16px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
 .section-heading h2 { margin: 0; font-size: var(--fs-18); font-weight: var(--fw-semibold); letter-spacing: -.01em; color: var(--text); }
 .section-heading > span { color: var(--text-muted); font-size: var(--fs-13); }
 .notice { border-radius: var(--r-sm); padding: 14px 16px; font-size: var(--fs-13); }
 .notice.error { border: 1px solid var(--err-border); color: var(--err); background: var(--err-bg); }
 .notice p { margin: 4px 0 0; color: var(--text-muted); }
-.empty-state { border: 1px solid var(--border); padding: 56px 20px; text-align: center; }
-.empty-state strong { font-size: var(--fs-18); }
-.empty-state strong, .auth-required strong { color: var(--text); font-weight: var(--fw-semibold); }
-.empty-state p { margin: 9px 0 22px; color: var(--text-muted); }
 /* 搜索空态: 直接回答「没找到什么 + 下一步能做什么」。无插画、无大卡片、无营销文案。 */
-.empty-state--search { display: grid; justify-items: center; gap: 6px; padding: 48px 20px; text-align: center; }
-.empty-state--search .empty-state-icon { display: none; }
-.empty-state--search strong { font-size: var(--fs-16); }
-.empty-state--search p { margin: 0; max-width: 460px; color: var(--text-muted); font-size: var(--fs-13); line-height: 1.7; }
-.empty-state--search .empty-state-hints { margin: 10px 0 4px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-.empty-state--search .empty-state-hints span { color: var(--text-muted); font-size: var(--fs-12); line-height: 1.6; }
-.empty-state--search .button { margin-top: 10px; }
 .quiet-empty { margin: 0; padding: 24px 0; color: var(--text-muted); font-size: var(--fs-13); }
 .error-page { padding-top: clamp(48px, 9vh, 110px); text-align: center; }
 /* FX-4：错误/404 页 = EmptyState（ui 组件）；下方补一个次要首页链接 */
 .error-page .hg-empty { padding: var(--sp-8) var(--sp-6); }
 .error-page-home { margin: 0 0 24px; }
-.error-page-home .text-link { font-size: var(--fs-14); }
+.error-page-home .hg-text { font-size: var(--fs-14); }
 .context-loading { padding: 35px 0; color: var(--text-muted); }
 
 .search-page { max-width: var(--w-content); }
@@ -380,7 +364,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 /* prompt box (guide) */
 .prompt-box { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 16px; background: var(--bg-page); }
 .prompt-box pre { max-height: 200px; margin: 0 0 12px; overflow: auto; color: var(--text); font-family: var(--font-mono); font-size: var(--fs-12); line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
-.prompt-box .button { width: fit-content; flex-shrink: 0; }
 
 /* ══ Chemical Detail 头部（v1.7 Step 6, §9.1）：左内容 + 右 300 结构图卡片 ══ */
 .chem-head {
@@ -936,7 +919,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .admin-table.admin-actions-min article > .admin-user-actions {
     display: flex; flex-flow: row nowrap; align-items: center; gap: 6px; justify-content: flex-end;
   }
-  .admin-table.admin-actions-min article > .admin-user-actions .text-button,
+  .admin-table.admin-actions-min article > .admin-user-actions .hg-text,
   .admin-table.reaction-admin-list article > button { white-space: nowrap; }
   .admin-table.reaction-admin-list article > .status { justify-self: end; white-space: nowrap; }
   .admin-table.reaction-admin-list article > button { justify-self: end; }
@@ -962,7 +945,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .dashboard-section { margin-top: 30px; }
 
 .notice.success { color: var(--ok); background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--r-sm); padding: 10px 14px; }
-.button.primary.small { padding: 7px 16px; font-size: var(--fs-13); }
 
 /* ── 登录/注册（Step 11 §9.6）：居中单列 ≤400，触控友好的 lg 控件 ── */
 .auth-page { width: min(400px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 100px; display: grid; gap: 22px; justify-items: stretch; }
@@ -1108,7 +1090,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .profile-header h1 { font-size: var(--fs-16); }
   .form-section { padding: 15px; }
   .auth-panel { padding: 18px 15px; }
-  .guide-actions .button { width: 100%; }
   .admin-table article { gap: 9px; }
 }
 
@@ -1318,8 +1299,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 @media (hover:hover) {
   footer a:hover { color: var(--action); }
-  .button.primary:hover { background: var(--action-hover); }
-  .button.secondary:hover { border-color: var(--action); color: var(--action); }
   .search-input-box__clear:hover { background: var(--text-placeholder); }
   .search-submit-btn:hover { background: var(--action-hover); }
   .breadcrumbs a:hover { color: var(--action); }
@@ -1533,7 +1512,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .pipe-table .pipe-retry-btn, .pipe-table .pipe-revive-btn { min-height: 44px; }
   /* G3: 八个子页其余交互控件触控目标 ≥ 44px（行操作 text-button / 筛选 chips /
      分页 / 搜索键; 仅后台 .samelabs-page 范围、仅窄屏生效） */
-  .samelabs-page .text-button { min-height: 44px; }
+  .samelabs-page .hg-text { min-height: 44px; }
   .samelabs-page .admin-filters button,
   .samelabs-page .admin-search button,
   .samelabs-page .admin-cat-create button,
@@ -1625,7 +1604,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .hg-eb-copy .hg-copy.mini { width: 44px; height: 44px; }
   .hg-code { min-height: 44px; height: auto; }
   .hg-code.multiline { min-height: 0; }
-  .mcp-connect-row .text-link { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; }
+  .mcp-connect-row .hg-text { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; }
   nav.breadcrumbs a { min-width: 44px; justify-content: center; }
   .kdense-breadcrumb a { min-width: 44px; justify-content: center; }
   .chem-tabs-nav a { min-width: 44px; justify-content: center; }
@@ -1640,4 +1619,14 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   /* 输入框本體即热区：撑到 44 */
   .srch-box-wrap input { min-height: 44px; }
   .kdense-search-bar input { min-height: 44px; box-sizing: border-box; }
+  /* BX-A3：PM 复测补齐 —— text-button 全站（此前仅 samelabs），
+     化合物页关联笔记的动作/作者/查看全文链接、EntityBadge 外层链接、
+     顶栏移动端图标钮（icon 钮宽度随 --bh:auto 塌缩）、工作台卡片头
+     「全部」与 mineTabs、 hg-tabs 触控档。 */
+  .hg-text { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .entity-note-card a { min-height: 44px; display: inline-flex; align-items: center; }
+  .entity-note-links a { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .section-heading .hg-text { padding-inline: 4px; }
+  .wb-card-head a { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .hg-tabs button { min-height: 44px; min-width: 44px; }
 }

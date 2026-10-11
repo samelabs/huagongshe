@@ -3,8 +3,10 @@
 import { useRef, useState } from "react";
 import { EntityId } from "@/components/shared/EntityId";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
-import { apiGet, type SearchResponse } from "@/lib/api";
+import { apiGet, USER_SUBMITTED_SOURCE, type SearchResponse } from "@/lib/api";
 import { resolveChemicalName } from "@/lib/chemicalName";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Field";
 
 const MAX_REFERENCES = 20;
 
@@ -78,7 +80,7 @@ export function EntityReferencePicker({
   return (
     <div className="wb-note-references">
       <div className="wb-note-reference-input">
-        <input
+        <Input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -93,11 +95,11 @@ export function EntityReferencePicker({
           autoComplete="off"
           spellCheck={false}
         />
-        <button type="button" className="wb-btn wb-btn-ghost"
+        <Button type="button" variant="ghost"
           onClick={() => void search()}
           disabled={disabled || searching || !query.trim()}>
           {searching ? t.common.loading : t.me.notesReferenceSearch}
-        </button>
+        </Button>
       </div>
 
       {error && <p className="wb-note-error">{error}</p>}
@@ -125,7 +127,7 @@ export function EntityReferencePicker({
                 onClick={() => add("reaction", reaction.id)}
                 disabled={disabled || selected || total >= MAX_REFERENCES}>
                 <span><strong><EntityId kind="reaction" id={reaction.id} compact /></strong>
-                  <small>{reaction.doi || reaction.ord_id || reaction.dataset_name || ""}</small></span>
+                  <small>{reaction.doi || reaction.ord_id || (reaction.dataset_name === USER_SUBMITTED_SOURCE ? t.reaction.userSubmitted : reaction.dataset_name) || ""}</small></span>
                 <em>{selected ? t.me.notesReferenceAdded : t.me.notesAddReference}</em>
               </button>
             );

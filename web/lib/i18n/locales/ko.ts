@@ -115,6 +115,7 @@ const ko: Dictionary = {
 
   /* ── 검색 ───────────────────────────────────────────── */
   search: {
+    seoResultsLabel: '검색',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: '이름, CAS 번호, InChIKey, SMILES 또는 구조로 화공사의 화학 데이터를 검색.',
     title: '화학 데이터 검색',
     noResultsFor: (query: string) => `"${query}"에 대한 일치 기록을 찾지 못했습니다`,
@@ -312,6 +313,7 @@ const ko: Dictionary = {
       other: '기타',
       unknown: '미표기',
     },
+    userSubmitted: '사용자 제출',  /* BX-A2：API user_submitted 标记的本地化 */
     sourceFields: {
       type: '출처 유형',
       ord: 'ORD 기록',
@@ -369,6 +371,19 @@ const ko: Dictionary = {
     skillLoginRequired: '로그인이 만료되었습니다. 다시 로그인해 주세요.',
     skillForbidden: '이 계정은 이 작업을 수행할 수 없습니다.',
     skillRateLimited: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+    skillErrors: {
+      archive_too_large: '압축 파일이 크기 제한을 초과했습니다.',
+      invalid_archive: '유효한 zip 압축 파일이 아닙니다.',
+      unsafe_path: '압축 파일에 안전하지 않은 경로가 있습니다(경로 통과·과도한 중첩·심볼릭 링크).',
+      decompression: '압축률이 비정상입니다(zip 폭탄 의심).',
+      empty_archive: '압축 파일에 파일이 없습니다.',
+      archive_limit: '파일 수 또는 압축 해제 후 총량이 제한을 초과했습니다.',
+      manifest_invalid: 'SKILL.md 또는 해당 메타데이터가 유효하지 않습니다.',
+      category_invalid: '스킬 카테고리가 존재하지 않거나 비활성화되어 있습니다.',
+      slug_conflict: '같은 slug를 가진 스킬이 이미 존재합니다.',
+      idempotency_key_missing: 'Idempotency-Key 헤더가 없습니다.',
+      idempotency_key_too_long: 'Idempotency-Key가 200자를 초과합니다.',
+    },
     skillRefreshFailed: '작업은 성공했지만 목록 새로고침에 실패했습니다. 페이지를 새로고침하면 최신 상태를 확인할 수 있습니다.',
     skillsUploading: '업로드 중…',
     skillsPickZip: 'zip 스킬 패키지 선택',
@@ -710,6 +725,8 @@ const ko: Dictionary = {
     mismatch: '비밀번호가 일치하지 않습니다',
     weakPassword: '비밀번호는 8자 이상이며 영문자와 숫자를 함께 사용해야 합니다',
     validationError: '입력 내용이 검증을 통과하지 못했습니다',
+    accountTaken: '이 사용자 이름 또는 이메일은 이미 사용 중입니다.',
+    rateLimited: '시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.',
     failed: '작업에 실패했습니다. 잠시 후 다시 시도해 주세요',
     networkFailed: '네트워크 연결에 실패했습니다. 잠시 후 다시 시도해 주세요',
     checking: '확인 중…',
@@ -980,6 +997,14 @@ const ko: Dictionary = {
     errLoadFailed: '데이터를 불러오지 못했습니다',
     errConfigLoad: '설정을 불러오지 못했습니다',
     errSaveFailed: '저장에 실패했습니다',
+    catErrors: {
+      category_name_length: '카테고리 이름은 1–40자여야 합니다.',
+      category_abbr: '약어는 영문 1–4자여야 합니다.',
+      category_color: '색상은 #rrggbb 형식이어야 합니다.',
+      category_exists: '이 카테고리는 이미 존재합니다.',
+      category_name_conflict: '다른 카테고리가 이 이름을 이미 사용하고 있습니다.',
+      category_not_found: '이 카테고리는 존재하지 않습니다.',
+    },
     saved: (key: string) => `${key} 저장됨`,
     saving: '저장 중…',
     save: '저장',
@@ -1028,6 +1053,7 @@ const ko: Dictionary = {
     workerCreated: (v: string) => `생성됨: ${v}`,
     workerDeleteConfirm: (name: string, workerId: string) => `Worker "${name}"(${workerId})을(를) 삭제할까요?`,
     workerDeleteEffect: '진행 중인 작업이 없는 노드만 삭제할 수 있습니다. 완료 이력은 유지됩니다. 삭제 후 해당 자격 증명은 즉시 무효화되며 되돌릴 수 없습니다.',
+    workerDeleteBlocked: '이 Worker는 진행 중인 작업이 있어 삭제할 수 없습니다.',
     workerDeleteBlockedFallback: '이 Worker에는 진행 중인 작업이 있어 삭제할 수 없습니다. 작업이 끝나기를 기다리거나 먼저 노드를 비활성화하세요.',
     /* 개요 */
     dashboardTitle: '개요',
@@ -1144,6 +1170,11 @@ const ko: Dictionary = {
     unsavedBody: '변경 사항이 아직 저장되지 않았습니다. 떠나면 사라집니다.',
     unsavedConfirm: '변경 사항 버리기',
     unsavedCancel: '계속 편집',
+    /* BX-A1: 저장 중 편집 컨텍스트 전환 — 정직한 문구 */
+    savingTitle: '노트를 저장하는 중입니다. 전환할까요?',
+    savingBody: '저장은 계속 완료되며 내용은 사라지지 않습니다. 완료 후 목록이 자동으로 새로 고쳐집니다.',
+    savingConfirm: '전환하기',
+    savingCancel: '계속 대기',
     contentLabel: '내용',
     visibilityLabel: '공개 범위',
     statusLabel: '저장 상태',

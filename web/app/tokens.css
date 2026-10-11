@@ -111,7 +111,8 @@
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
 
-  /* 字号 8 档（最小 12；EntityBadge xs 前缀 11.5 为唯一例外） */
+  /* 字号 8 档（最小 12；EntityBadge xs 前缀 10.5 为唯一例外 —— §11 只豁免前缀，
+     编号同样 ≥12（BX-A4：xs 编号 11.5 → 12）） */
   --fs-12: 12px;  /* 说明、来源标签、徽标 */
   --fs-13: 13px;  /* 元数据、标签 */
   --fs-14: 14px;  /* 数据值、界面默认、按钮 */

@@ -9,6 +9,7 @@ import { IconSparkle } from "@/components/ui/icons";
 import { Notice } from "@/components/ui/Notice";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import { withLocale } from "@/lib/localePath";
 import { Pagination, PanelError, PanelHeading, PanelLoading, SlowNotice } from "../shared";
 import type { LoadState, PageResponse, SkillItem } from "../types";
@@ -18,16 +19,20 @@ const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, pa
 /**
  * v1.7.0 L3(+补正): 上传/删除失败提示按真实状态分类 —
  * 401 会话失效 / 403 权限不足 / 429 限流各自专用文案(不挪用搜索专用
- * 的"结构检索需要登录"); 400/409 展示后端业务校验 detail(zip 结构/
- * slug 冲突/大小上限等可行动信息); 5xx 与网络错误落本地化通用失败,
- * 不暴露内部 API 路径。
+ * 的"结构检索需要登录"); 400/409 按后端业务校验机器码(BX-A2 起 detail
+ * = {message, kind})映射五语言文案(zip 结构/slug 冲突/大小上限等可行动
+ * 信息); 5xx 与网络错误落本地化通用失败, 不暴露内部 API 路径, 也不再
+ * 透传服务端 message 原文(中文)。
  */
-function skillsErrorMessage(error: unknown, t: { me: { skillLoginRequired: string; skillForbidden: string; skillRateLimited: string }; common: { networkError: string } }, fallback: string): string {
+function skillsErrorMessage(error: unknown, t: Dictionary, fallback: string): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return t.me.skillLoginRequired;
     if (error.status === 403) return t.me.skillForbidden;
     if (error.status === 429) return t.me.skillRateLimited;
-    if ((error.status === 400 || error.status === 409) && error.detail) return error.detail;
+    if ((error.status === 400 || error.status === 409) && error.detailKind) {
+      const byKind = t.me.skillErrors[error.detailKind as keyof typeof t.me.skillErrors];
+      if (byKind) return byKind;
+    }
     if (error.status >= 500) return t.common.networkError;
     return fallback;
   }

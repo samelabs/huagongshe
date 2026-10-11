@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 import { severityClass, statusFromCount, statusFromSection } from "@/lib/govSeverity";
+import { TextLink } from "@/components/ui/TextLink";
 
 /* ── A2 治理契约 ──────────────────────────────────────────
    三层语义: source_record / canonical_entity / derived_index — 界面文案钉死。
@@ -87,7 +88,7 @@ export function SamelabsGovernance() {
   };
 
   if (phase === "error") return <div className="notice error">{t.admin.govLoadFailed}
-    <button type="button" className="pipe-retry-btn" onClick={() => { setErr(""); setPhase("loading"); load(); }}>{t.admin.retryNow}</button></div>;
+    <TextLink className="pipe-retry-btn" onClick={() => { setErr(""); setPhase("loading"); load(); }}>{t.admin.retryNow}</TextLink></div>;
   if (!gov) return <p className="context-loading">{t.common.loading}</p>;
 
   const S = gov.sections;
@@ -132,7 +133,7 @@ export function SamelabsGovernance() {
     </header>
 
     {phase === "stale" && <div className="notice warn pipe-stale-banner">{t.admin.refreshFailed(hm(gov.generated_at))}
-      <button type="button" className="pipe-retry-btn" onClick={() => { setPhase("loading"); load(); }}>{t.admin.retryNow}</button></div>}
+      <TextLink className="pipe-retry-btn" onClick={() => { setPhase("loading"); load(); }}>{t.admin.retryNow}</TextLink></div>}
 
     {/* Identity governance */}
     <section className="dashboard-section">
@@ -166,7 +167,7 @@ export function SamelabsGovernance() {
             <span className="pipe-num">{i.val ?? "暂不可用"}</span>
             <span className="pipe-metric-label">{modeNote(i.modeK ?? i.key)}</span>
             <span>{i.drill && i.val && i.val !== "0" && i.val !== "0/0"
-              ? <button type="button" className="pipe-retry-btn" onClick={() => openDrill(i.drill!)}>样本</button>
+              ? <TextLink className="pipe-retry-btn" onClick={() => openDrill(i.drill!)}>样本</TextLink>
               : <span className="pipe-metric-label">{i.val === "0" ? "真 0" : ""}</span>}</span>
           </div>
         ))}
@@ -202,7 +203,7 @@ export function SamelabsGovernance() {
       <div className="pipe-confirm" role="dialog" aria-modal onClick={() => setDrill(null)}>
         <div className="pipe-confirm-box gov-drill-box" onClick={e => e.stopPropagation()}>
           <div className="pipe-group-head"><span className="pipe-group-title">样本 · {drill.key}</span>
-            <button type="button" className="pipe-retry-btn" onClick={() => setDrill(null)}>关闭</button></div>
+            <TextLink className="pipe-retry-btn" onClick={() => setDrill(null)}>关闭</TextLink></div>
           {!drill.data && <p className="context-loading">{t.common.loading}</p>}
           {drill.data && (!drill.data.available
             ? <p className="notice error">{drill.data.error || "当前没有持久化证据，无法 drill-down"}</p>

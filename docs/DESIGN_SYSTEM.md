@@ -205,6 +205,39 @@ React 实现：`<HgsLogo variant="lockup" | "mark" | "wordmark" size={28} />`，
 
 见参考模板第 12 节：化合物详情、工作台（检索、2×2 快捷入口，以及在“我的内容”和“关注动态”之间切换）、公开主页（头像和数字横排，两个主按钮并排）。
 
+### 9.8 状态页（错误 / 404 / 未登录 / 空态 / 长时间加载）（BX-B4）
+
+按「实现后的样子」冻结：
+
+- **空态（EmptyState，components/ui）**：居中图标 + 标题（fs-18）+ 一句说明 + 恰好一个下一步动作（Button tonal sm 或 TextLink）。列表空态给出「去创建/去搜索」的出口，筛选空态说明「该实体还没有你的笔记」这类事实性文案。禁止英文 eyebrow/kicker 与自绘空态。
+- **404**：公开路由经 `(site)/not-found.tsx`（保留站点顶栏页脚），工作台经 `(workbench)/not-found.tsx`；都由根级 `app/not-found.tsx` 同构兜底。EmptyState 标题取 `error.notFoundTitle`，双出口：去搜索（primary 方向）+ 返回首页（TextLink）。页面有自己的 `<title>`（`error.notFoundTitle｜品牌`）；robots 恰好一条 noindex（由 Next 对 404 状态自动注入 —— 全局不再输出 `index, follow`，否则会叠成两条）。
+- **错误边界（error.tsx）**：EmptyState + 「重新加载」Button（client retry）；文案如实（`error.clientTitle/clientBody`：数据未丢失、可重试），不暴露技术细节与内部路径。`(site)` 段错误页保留顶栏页脚。
+- **未登录（auth-required）**：说明行（「登录后可用」）+ 登录 Button；登录后回跳当前路径（`next` 参数，登录页切语言时 next 前缀同步重写）。
+- **长时间加载**：面板/搜索的客户端加载超过 10s 出 SlowNotice（warn + 重试），重试触发重新请求；骨架屏（Skeleton）在首屏占位。加载失败用 PanelError/Notice err，保留可恢复的列表状态（R6：面板不整页报错）。
+- **确认弹窗（ConfirmDialog）**：所有不可逆/丢稿动作先确认 —— 问句标题 + 对象摘录 + 具体动作按钮（「删除笔记」而非「确定」），默认焦点在「取消」，Esc 关闭并回焦触发钮。保存在途切换编辑器用如实文案（「笔记正在保存，确定切换吗？保存会继续完成。」）。
+
+### 9.9 管理端 `/samelabs`（八面板）（BX-B4）
+
+按实现后的样子冻结（视觉全部走 components/ui 原语）：
+
+- **表格（admin-table）**：article 行 = 主信息（strong 标题 + muted 明细行）+ 状态徽标列（status tag：active/disabled、online/lagging/offline）+ 行操作列。窄屏（≤680）自动竖排；`admin-actions-min` 变体给操作列让位。
+- **筛选**：文本检索 = ui Input + Button sm（提交才应用，URL 同步）；枚举筛选 = ui Segmented（全部/公开/私有 等，不自制 chip 按钮）。
+- **分页（AdminPagination）**：上一页/下一页 = ui Button ghost sm + 「第 N / M 页 · 共 X 条」muted 文本；页码进 URL，可分享可回退。
+- **行操作**：轻量动作 = TextLink（启用/停用、设管理员、发布/下架、编辑分类）；不可改动布局内禁止裸 button。
+- **危险确认**：停用账号/删 worker/删技能/下架 先弹 pipe-confirm 问句框：正文写明后果（「停用后该用户的所有会话与凭证失效」），取消 = Button sm，确认 = Button danger sm；API 错误按机器码（detail.kind）渲染本地化文案（如 worker_busy →「该 Worker 有进行中的任务，不能删除」），不透传服务端原文。
+- **发布 Worker 凭证**：一次性凭证只显示一次（admin-pre 代码块 + 复制 TextLink）；scope 用原生 checkbox 行（ui 无 Checkbox 原语，白名单）。
+- 触控目标 ≥44（samelabs-page 内 TextLink 已有手机端最小尺寸规则）。
+
+### 9.10 设置与表单页（BX-B4）
+
+按实现后的样子冻结：
+
+- **表单控件只用 components/ui**：Field（label 在上、help 在下、error 红字）+ Input/Select/Textarea（hg-input 体系：40 高、r-sm、focus 环）。旧 `.button`/`text-button` 类族已删除 —— 主提交 = Button primary，次要 = secondary/ghost sm，行内文字动作 = TextLink。原生 `<button>/<input>/<select>/<textarea>` 只允许出现在契约测试白名单（文件上传、checkbox/radio/color、菜单/组合框内部、搜索壳内层、投料网格）。
+- **设置页（/me/settings）**：左列设置导航 + 右列表单卡（wb-card）。分组用 form-section（小节标题 + 说明行）；每张卡一个保存动作，保存中 Button loading 冻结；成功 Toast，失败 Notice err 保留输入（迟到返回不覆盖已编辑字段 —— touchedRef/dirtyRef）。
+- **账号表单**：登录/注册一张卡居中（≤400）；用户名实时校验（reason_code 机器码 → 本地化提示），密码强度提示在字段 help；提交错误按状态 + kind 渲染（429 限流 / 401 凭证不符 / 409 已被占用），不显示服务端原文。
+- **投料计算器（StoichPanel）**：紧凑网格（wb-stoich-*）是表单规范的唯一豁免面 —— 单元格密度优先，radio 基准选择原生（详见 §11 白名单）。
+- 键盘：label 与控件显式关联（Field htmlFor）；错误聚焦第一个出错字段。
+
 ## 10. 旧 token 迁移表
 
 | 旧 | 新 |
@@ -233,6 +266,9 @@ React 实现：`<HgsLogo variant="lockup" | "mark" | "wordmark" size={28} />`，
 6. 出现 `--green` 或 `--warm` 这两类 token。
 7. 调用 `alert(` / `confirm(` / `prompt(`。
 8. 在 EntityBadge 之外，用字面量拼写 `HCID` / `HRID` 的展示。i18n 字典和 aria 文案不在此列。
+9. 使用旧类名 `button` / `wb-btn` / `empty-state` / `eyebrow` / `text-link` / `text-button`（class 属性或 CSS 定义）—— 按钮统一 components/ui Button（.hg-btn），行内文字动作统一 TextLink（.hg-text），空态统一 EmptyState，分区标题就是 h2（BX-B1）。
+10. 在 `components/ui` 之外写原生 `<button>` / `<input>` / `<select>` / `<textarea>` —— 一律用 ui 原语；确属原语覆盖不了的（文件上传、checkbox/radio/color、菜单与组合框内部、搜索壳内层 input、投料网格），登记在契约测试的行级白名单并注明理由。
+11. 出现 `eyebrow`（英文大写 kicker）类名 —— 英文 eyebrow 已在全站清除，新增分区一律直接用 h2 标题。
 
 ## 12. 验收清单
 

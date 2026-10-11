@@ -30,17 +30,20 @@ export function NoteEditor({
   onCancel,
   onGuardChange,
   resetNonce = 0,
+  session = 0,
 }: {
   note?: NoteItem | null;
   initialChemicalIds?: number[];
   initialReactionIds?: number[];
-  onSaved: (note: NoteItem) => void;
+  onSaved: (note: NoteItem, session: number) => void;
   onCancel: () => void;
-  /** 编辑器处于「有不可丢失状态」（脏草稿或保存在途）时上报 true ——
-   *  NotesPanel 用它拦截 新建/切编辑/切可见性 三条不经过 <a> 的丢稿路径。 */
-  onGuardChange?: (active: boolean) => void;
+  /** 编辑器上报「有不可丢失状态」的细分：脏草稿 / 保存请求进行中 ——
+   *  NotesPanel 分别给出如实的确认文案（BX-A1：保存中切换要说保存会继续完成）。 */
+  onGuardChange?: (state: { dirty: boolean; busy: boolean }) => void;
   /** 父面板「确认放弃后重开」递增号：key 不变（同一笔记）时靠它重置草稿 */
   resetNonce?: number;
+  /** 本次编辑会话号（BX-A1）：随 onSaved 回传，父面板只让发起保存的会话收尾 */
+  session?: number;
 }) {
   const t = useDictionary();
   const confirm = useConfirm();
@@ -68,9 +71,11 @@ export function NoteEditor({
   /** SMK-001：保存在途同样是「有不可丢失的状态」——拦截保护不得被撤掉 */
   const guard = dirty || busy;
 
-  useUnsavedGuard(guard);
+  useUnsavedGuard(guard, busy
+    ? { title: t.editor.savingTitle, body: t.editor.savingBody, confirmLabel: t.editor.savingConfirm, cancelLabel: t.editor.savingCancel }
+    : { title: t.editor.unsavedTitle, body: t.editor.unsavedBody, confirmLabel: t.editor.unsavedConfirm, cancelLabel: t.editor.unsavedCancel });
 
-  useEffect(() => { onGuardChange?.(guard); }, [guard, onGuardChange]);
+  useEffect(() => { onGuardChange?.({ dirty, busy }); }, [dirty, busy, onGuardChange]);
 
   /** SMK-001：key 保持 P1C 契约串（edit-<id>/new-*），同一笔记确认放弃后
    *  重开（key 不变）由 resetNonce 触发内部草稿重置 —— 等价于重挂载。 */
@@ -111,7 +116,9 @@ export function NoteEditor({
       const saved = note
         ? await apiPut<NoteItem>(`/notes/${note.id}`, JSON.stringify(body))
         : await apiPost<NoteItem>("/notes", JSON.stringify(body));
-      onSaved(saved);
+      // BX-A1：带上发起保存的会话号 —— 编辑器若已被确认切换/关闭（unmount 后
+      // 此闭包仍会执行），父面板靠它识别这是过期会话的迟到回执。
+      onSaved(saved, session);
     } catch (err) {
       // v1.7.0 L2(+补正): 先按 HTTP 状态区分会话/限流 — 与失败原因一致;
       // 400 引用校验按 kind 机器码映射五语言分类提示; 其余未知失败安全

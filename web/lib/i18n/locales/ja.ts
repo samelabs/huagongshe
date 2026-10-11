@@ -113,6 +113,7 @@ const ja: Dictionary = {
 
   /* ── 検索 ───────────────────────────────────────────── */
   search: {
+    seoResultsLabel: '検索',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: '名称、CAS番号、InChIKey、SMILES、構造で化工社のケミストリーデータを検索。',
     title: 'ケミストリーデータを検索',
     noResultsFor: (query: string) => `「${query}」に一致する記録は見つかりませんでした`,
@@ -310,6 +311,7 @@ const ja: Dictionary = {
       other: 'その他',
       unknown: '記載なし',
     },
+    userSubmitted: 'ユーザー投稿',  /* BX-A2：API user_submitted 标记的本地化 */
     sourceFields: {
       type: '出典タイプ',
       ord: 'ORDレコード',
@@ -367,6 +369,19 @@ const ja: Dictionary = {
     skillLoginRequired: 'セッションが期限切れです。再度ログインしてください。',
     skillForbidden: 'このアカウントではこの操作を実行できません。',
     skillRateLimited: '操作が集中しています。しばらくしてから再試行してください。',
+    skillErrors: {
+      archive_too_large: 'アーカイブがサイズ上限を超えています。',
+      invalid_archive: '有効な zip アーカイブではありません。',
+      unsafe_path: 'アーカイブに危険なパスが含まれています（トラバーサル・深い階層・シンボリックリンク）。',
+      decompression: '圧縮率が異常です（zip 爆弾の疑い）。',
+      empty_archive: 'アーカイブにファイルがありません。',
+      archive_limit: 'ファイル数または展開後の総量が上限を超えています。',
+      manifest_invalid: 'SKILL.md またはそのメタデータが無効です。',
+      category_invalid: 'スキルカテゴリが存在しないか無効です。',
+      slug_conflict: '同じ slug のスキルが既に存在します。',
+      idempotency_key_missing: 'Idempotency-Key ヘッダーがありません。',
+      idempotency_key_too_long: 'Idempotency-Key が 200 文字を超えています。',
+    },
     skillRefreshFailed: '操作は成功しましたが、一覧の更新に失敗しました。ページを再読み込みすると最新状態を確認できます。',
     skillsUploading: 'アップロード中…',
     skillsPickZip: 'zip スキルパッケージを選択',
@@ -708,6 +723,8 @@ const ja: Dictionary = {
     mismatch: 'パスワードが一致しません',
     weakPassword: 'パスワードは8文字以上で、英字と数字をそれぞれ含めてください',
     validationError: '入力内容が検証を通過しませんでした',
+    accountTaken: 'そのユーザー名またはメールアドレスは既に使用されています。',
+    rateLimited: '試行回数が多すぎます。しばらくしてからもう一度お試しください。',
     failed: '操作に失敗しました。後でもう一度お試しください',
     networkFailed: 'ネットワーク接続に失敗しました。後でもう一度お試しください',
     checking: '確認中…',
@@ -978,6 +995,14 @@ const ja: Dictionary = {
     errLoadFailed: 'データの読み込みに失敗しました',
     errConfigLoad: '設定の読み込みに失敗しました',
     errSaveFailed: '保存に失敗しました',
+    catErrors: {
+      category_name_length: 'カテゴリ名は 1–40 文字で入力してください。',
+      category_abbr: '略称は英字 1–4 文字にしてください。',
+      category_color: '色は #rrggbb 形式にしてください。',
+      category_exists: 'このカテゴリは既に存在します。',
+      category_name_conflict: 'このカテゴリ名は既に使われています。',
+      category_not_found: 'このカテゴリは存在しません。',
+    },
     saved: (key: string) => `${key} を保存しました`,
     saving: '保存中…',
     save: '保存',
@@ -1026,6 +1051,7 @@ const ja: Dictionary = {
     workerCreated: (v: string) => `作成: ${v}`,
     workerDeleteConfirm: (name: string, workerId: string) => `Worker「${name}」（${workerId}）を削除しますか？`,
     workerDeleteEffect: '実行中タスクのないノードのみ削除できます。完了履歴は保持されます。削除後、その認証情報は直ちに失効し復元できません。',
+    workerDeleteBlocked: 'この Worker は進行中のタスクがあるため削除できません。',
     workerDeleteBlockedFallback: 'この Worker には実行中タスクがあるため削除できません。タスクの完了を待つか、先にノードを無効化してください。',
     /* 概要 */
     dashboardTitle: '概要',
@@ -1142,6 +1168,11 @@ const ja: Dictionary = {
     unsavedBody: '変更はまだ保存されていません。このまま離れると失われます。',
     unsavedConfirm: '変更を破棄',
     unsavedCancel: '編集を続ける',
+    /* BX-A1: 保存中に編集コンテキストを切り替える際の正直な文案 */
+    savingTitle: 'ノートを保存中です。切り替えますか？',
+    savingBody: '保存はそのまま完了し、失われることはありません。完了後、リストが自動更新されます。',
+    savingConfirm: '切り替える',
+    savingCancel: '待機する',
     contentLabel: '内容',
     visibilityLabel: '公開範囲',
     statusLabel: '保存状態',

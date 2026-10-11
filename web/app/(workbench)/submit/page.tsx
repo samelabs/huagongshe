@@ -8,6 +8,7 @@ import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
+import { TextLink } from "@/components/ui/TextLink";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
@@ -38,7 +39,7 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           <h2>{editing ? t.submit.editTitle : t.submit.newTitle}</h2>
           <span>{editing ? t.submit.editDesc : t.submit.newDesc}</span>
         </div>
-        <Link className="text-button" href={withLocale("/guide", locale)}>{t.submit.guideLink}</Link>
+        <TextLink href={withLocale("/guide", locale)}>{t.submit.guideLink}</TextLink>
       </div>
       <Suspense><SubmissionForm /></Suspense>
     </section>

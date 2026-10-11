@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { withLocale } from "@/lib/localePath";
+import { TextLink } from "@/components/ui/TextLink";
 
 /** 根错误边界（FX-4 / SMK 遗漏）：ui 组件 + 如实文案（客户端渲染出错，
  *  不说「服务暂时不可用」）。根层无站点顶栏 —— 公开页的顶栏保留由
@@ -26,7 +27,7 @@ export default function ErrorPage({ error, unstable_retry }: {
           {t.error.clientBody}
         </EmptyState>
         <p className="error-page-home">
-          <Link className="text-link" href={withLocale("/", locale)}>{t.error.notFoundHome}</Link>
+          <TextLink className="error-page-home-link" href={withLocale("/", locale)}>{t.error.notFoundHome}</TextLink>
         </p>
       </main>
     </div>

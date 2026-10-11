@@ -120,6 +120,7 @@ const t = {
 
   /* ── 搜索 ────────────────────────────────────────────── */
   search: {
+    seoResultsLabel: '搜索',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: '在化工社按名称、CAS 号、InChIKey、SMILES 或结构检索化学数据。',
     title: '查询化学数据',
     noResultsFor: (query: string) => `没有找到与「${query}」匹配的记录`,
@@ -318,6 +319,7 @@ const t = {
       other: '其他',
       unknown: '未注明',
     },
+    userSubmitted: '用户发布',  /* BX-A2：API user_submitted 标记的本地化 */
     sourceFields: {
       type: '来源类型',
       ord: 'ORD记录',
@@ -377,6 +379,19 @@ const t = {
     skillLoginRequired: '登录已失效，请重新登录后再操作。',
     skillForbidden: '当前账号无权执行此操作。',
     skillRateLimited: '操作过于频繁，请稍后重试。',
+    skillErrors: {
+      archive_too_large: '压缩包超过大小上限',
+      invalid_archive: '不是有效的 zip 压缩包',
+      unsafe_path: '压缩包内含不安全路径（路径穿越、层级过深或符号链接）',
+      decompression: '压缩比异常，疑似压缩包炸弹',
+      empty_archive: '压缩包内没有文件',
+      archive_limit: '文件数或解包后总量超过上限',
+      manifest_invalid: 'SKILL.md 或其清单元数据无效',
+      category_invalid: '技能分类不存在或已停用',
+      slug_conflict: '同名技能已存在（slug 冲突）',
+      idempotency_key_missing: '缺少 Idempotency-Key 请求头',
+      idempotency_key_too_long: 'Idempotency-Key 超过 200 字符',
+    },
     skillRefreshFailed: '操作已成功，列表刷新失败，请刷新页面查看最新状态。',
     skillsUploading: '上传中…',
     skillsPickZip: '选择 zip 技能包',
@@ -716,6 +731,8 @@ const t = {
     mismatch: '两次输入的密码不一致',
     weakPassword: '密码至少8位，并同时包含字母和数字',
     validationError: '输入内容未通过校验',
+    accountTaken: '用户名或邮箱已被使用',
+    rateLimited: '尝试过于频繁，请稍后再试。',
     failed: '操作失败，请稍后重试',
     networkFailed: '网络连接失败，请稍后重试',
     checking: '检查中…',
@@ -987,6 +1004,14 @@ const t = {
     errLoadFailed: '数据加载失败',
     errConfigLoad: '配置加载失败',
     errSaveFailed: '保存失败',
+    catErrors: {
+      category_name_length: '分类名长度须为 1–40 个字符',
+      category_abbr: '缩写须为 1–4 个英文字母',
+      category_color: '色值格式须为 #rrggbb',
+      category_exists: '分类已存在',
+      category_name_conflict: '分类名已存在',
+      category_not_found: '分类不存在',
+    },
     saved: (key: string) => `${key} 已保存`,
     saving: '保存中…',
     save: '保存',
@@ -1035,6 +1060,7 @@ const t = {
     workerCreated: (v: string) => `创建于 ${v}`,
     workerDeleteConfirm: (name: string, workerId: string) => `删除 Worker「${name}」（${workerId}）？`,
     workerDeleteEffect: '仅允许删除没有进行中任务的节点；历史完成记录保留。删除后该凭据立即失效，不可恢复。',
+    workerDeleteBlocked: '该 Worker 有进行中的任务，不能删除。',
     workerDeleteBlockedFallback: '该 Worker 有进行中的任务，不能删除。请先等任务完成或停用该节点。',
     /* 概览 */
     dashboardTitle: '概览',
@@ -1151,6 +1177,11 @@ const t = {
     unsavedBody: '当前内容尚未保存，离开后将丢失本次修改。',
     unsavedConfirm: '放弃修改',
     unsavedCancel: '继续编辑',
+    /* BX-A1：保存进行中切换编辑上下文 —— 保存不会中断，文案如实 */
+    savingTitle: '笔记正在保存，确定切换吗？',
+    savingBody: '保存会继续完成，不会丢失；完成后列表会自动刷新。',
+    savingConfirm: '仍要切换',
+    savingCancel: '继续等待',
     contentLabel: '内容',
     visibilityLabel: '可见性',
     statusLabel: '保存状态',

@@ -124,5 +124,23 @@ export function replaceLocalePrefix(pathname: string, next: Locale): string {
   return `/${next}${pathname === "/" ? "" : pathname}`;
 }
 
+/**
+ * rewriteNextParam · BX-A6：语言切换时同步改写 query 里的 next 回跳参数。
+ *
+ * /zh-CN/login?next=/zh-CN/me/settings 切到 en 时，next 若不跟着换前缀，
+ * 登录成功会落回旧语言页面。next 是内部绝对路径(以单斜杠开头)时用
+ * applyLocale 切到目标 locale；其余 query 原样保留，外部/异常值不动。
+ * 返回新的 query 串（无参数返回 ""）。
+ */
+export function rewriteNextParam(search: string, locale: Locale): string {
+  if (!search) return "";
+  const params = new URLSearchParams(search);
+  const next = params.get("next");
+  if (next && next.startsWith("/") && !next.startsWith("//")) {
+    params.set("next", applyLocale(next, locale));
+  }
+  return params.toString();
+}
+
 export type { Locale };
 export { SUPPORTED_LOCALES };

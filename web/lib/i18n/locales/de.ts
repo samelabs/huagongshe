@@ -116,6 +116,7 @@ const de: Dictionary = {
 
   /* ── Suche ──────────────────────────────────────────── */
   search: {
+    seoResultsLabel: 'Suche',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: 'Durchsuche Huagongshe-Chemiedaten nach Name, CAS-Nummer, InChIKey, SMILES oder Struktur.',
     title: 'Chemiedaten durchsuchen',
     noResultsFor: (query: string) => `Keine Einträge für „${query}“ gefunden`,
@@ -313,6 +314,7 @@ const de: Dictionary = {
       other: 'Sonstiges',
       unknown: 'Ohne Angabe',
     },
+    userSubmitted: 'Von Nutzern eingereicht',  /* BX-A2：API user_submitted 标记的本地化 */
     sourceFields: {
       type: 'Quellentyp',
       ord: 'ORD-Eintrag',
@@ -370,6 +372,19 @@ const de: Dictionary = {
     skillLoginRequired: 'Die Sitzung ist abgelaufen. Bitte erneut anmelden.',
     skillForbidden: 'Dieses Konto darf diese Aktion nicht ausführen.',
     skillRateLimited: 'Zu viele Anfragen. Bitte später erneut versuchen.',
+    skillErrors: {
+      archive_too_large: 'Das Archiv überschreitet die Größenbeschränkung.',
+      invalid_archive: 'Die Datei ist kein gültiges ZIP-Archiv.',
+      unsafe_path: 'Das Archiv enthält einen unsicheren Pfad (Traversal, zu tiefe Verschachtelung oder Symlinks).',
+      decompression: 'Verdächtiges Kompressionsverhältnis (mögliche Zip-Bombe).',
+      empty_archive: 'Das Archiv enthält keine Dateien.',
+      archive_limit: 'Das Archiv überschreitet die Grenze für Dateianzahl oder Gesamtgröße.',
+      manifest_invalid: 'SKILL.md oder seine Manifest-Metadaten sind ungültig.',
+      category_invalid: 'Die Skill-Kategorie existiert nicht oder ist deaktiviert.',
+      slug_conflict: 'Ein Skill mit demselben Slug existiert bereits.',
+      idempotency_key_missing: 'Der Idempotency-Key-Header fehlt.',
+      idempotency_key_too_long: 'Der Idempotency-Key überschreitet 200 Zeichen.',
+    },
     skillRefreshFailed: 'Die Aktion war erfolgreich, aber die Liste konnte nicht aktualisiert werden. Seite neu laden, um den aktuellen Stand zu sehen.',
     skillsUploading: 'Wird hochgeladen…',
     skillsPickZip: 'ZIP-Skill-Paket auswählen',
@@ -711,6 +726,8 @@ const de: Dictionary = {
     mismatch: 'Die Passwörter stimmen nicht überein',
     weakPassword: 'Das Passwort muss mindestens 8 Zeichen haben und mindestens einen Buchstaben und eine Ziffer enthalten',
     validationError: 'Die Eingaben haben die Validierung nicht bestanden',
+    accountTaken: 'Dieser Benutzername oder diese E-Mail ist bereits vergeben.',
+    rateLimited: 'Zu viele Versuche. Bitte später erneut versuchen.',
     failed: 'Aktion fehlgeschlagen. Bitte später erneut versuchen',
     networkFailed: 'Netzwerkverbindung fehlgeschlagen. Bitte später erneut versuchen',
     checking: 'Wird geprüft…',
@@ -981,6 +998,14 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     errLoadFailed: 'Daten konnten nicht geladen werden',
     errConfigLoad: 'Konfiguration konnte nicht geladen werden',
     errSaveFailed: 'Speichern fehlgeschlagen',
+    catErrors: {
+      category_name_length: 'Der Kategoriename muss 1–40 Zeichen lang sein.',
+      category_abbr: 'Die Abkürzung muss aus 1–4 englischen Buchstaben bestehen.',
+      category_color: 'Die Farbe muss im Format #rrggbb angegeben werden.',
+      category_exists: 'Diese Kategorie existiert bereits.',
+      category_name_conflict: 'Eine andere Kategorie verwendet diesen Namen bereits.',
+      category_not_found: 'Diese Kategorie existiert nicht.',
+    },
     saved: (key: string) => `${key} gespeichert`,
     saving: 'Wird gespeichert…',
     save: 'Speichern',
@@ -1029,6 +1054,7 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     workerCreated: (v: string) => `Erstellt: ${v}`,
     workerDeleteConfirm: (name: string, workerId: string) => `Worker „${name}“ (${workerId}) löschen?`,
     workerDeleteEffect: 'Nur Knoten ohne laufende Aufgaben können gelöscht werden. Der Verlauf bleibt erhalten. Nach dem Löschen werden die Zugangsdaten sofort und endgültig ungültig.',
+    workerDeleteBlocked: 'Dieser Worker hat laufende Aufgaben und kann nicht gelöscht werden.',
     workerDeleteBlockedFallback: 'Dieser Worker hat laufende Aufgaben und kann nicht gelöscht werden. Warte auf den Abschluss oder deaktiviere den Knoten zuerst.',
     /* Überblick */
     dashboardTitle: 'Überblick',
@@ -1145,6 +1171,11 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     unsavedBody: 'Deine Änderungen wurden noch nicht gespeichert und gehen beim Verlassen verloren.',
     unsavedConfirm: 'Änderungen verwerfen',
     unsavedCancel: 'Weiter bearbeiten',
+    /* BX-A1: Editor-Kontext wechseln, während gespeichert wird — ehrlicher Wortlaut */
+    savingTitle: 'Notiz wird gerade gespeichert. Trotzdem wechseln?',
+    savingBody: 'Das Speichern läuft weiter und geht nichts verloren; nach Abschluss wird die Liste automatisch aktualisiert.',
+    savingConfirm: 'Trotzdem wechseln',
+    savingCancel: 'Weiter warten',
     contentLabel: 'Inhalt',
     visibilityLabel: 'Sichtbarkeit',
     statusLabel: 'Speicherstatus',

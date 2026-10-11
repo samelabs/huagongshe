@@ -26,6 +26,13 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const hasQuery = Boolean(params.q || params.mode || params.page || params.focus);
   if (hasQuery) {
+    // BX-A5：结果页有自己的 title「<查询词>｜搜索」(+ layout 模板 ｜品牌)；
+    // 无 q（mode/page/focus 内部参数）时不给查询词段。
+    const q = Array.isArray(params.q) ? params.q[0] : params.q;
+    if (q) {
+      const t = await getRequestDictionary();
+      return { title: `${q.slice(0, 60)}｜${t.search.seoResultsLabel}`, robots: { index: false, follow: true } };
+    }
     return { robots: { index: false, follow: true } };
   }
   const t = await getRequestDictionary();

@@ -18,13 +18,21 @@
  *
  * active 语义 = 有不可丢失的状态：草稿脏态 **或 保存请求进行中**（SMK-001：
  * 保存在途时拦截保护不得被撤掉）。调用方传 dirty || busy。
+ *
+ * BX-A1：texts 可覆盖确认文案 —— 保存进行中离开时用「保存会继续完成」的
+ * 如实文案，而非「放弃未保存的修改」。texts 变化只影响下一次弹窗。
  */
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useDictionary } from "@/components/shared/I18nContext";
 
-export function useUnsavedGuard(active: boolean) {
+export function useUnsavedGuard(active: boolean, texts?: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  cancelLabel: string;
+}) {
   const router = useRouter();
   const confirm = useConfirm();
   const t = useDictionary();
@@ -33,6 +41,17 @@ export function useUnsavedGuard(active: boolean) {
   activeRef.current = active;
   /** 哨兵是否在历史栈顶 */
   const sentinelRef = useRef(false);
+  /** BX-A1：弹窗文案走 ref —— <a>/popstate 监听只挂一次，文案取最新 */
+  const textsRef = useRef(texts);
+  textsRef.current = texts;
+  function dialogCopy() {
+    return textsRef.current ?? {
+      title: t.editor.unsavedTitle,
+      body: t.editor.unsavedBody,
+      confirmLabel: t.editor.unsavedConfirm,
+      cancelLabel: t.editor.unsavedCancel,
+    };
+  }
 
   // 刷新 / 关闭：原生 beforeunload
   useEffect(() => {
@@ -68,13 +87,7 @@ export function useUnsavedGuard(active: boolean) {
 
       e.preventDefault();
       e.stopPropagation();
-      void confirm({
-        title: t.editor.unsavedTitle,
-        body: t.editor.unsavedBody,
-        confirmLabel: t.editor.unsavedConfirm,
-        cancelLabel: t.editor.unsavedCancel,
-        tone: "danger",
-      }).then((ok) => {
+      void confirm({ ...dialogCopy(), tone: "danger" }).then((ok) => {
         if (!ok) return;
         activeRef.current = false;
         router.push(url.pathname + url.search + url.hash);
@@ -107,13 +120,7 @@ export function useUnsavedGuard(active: boolean) {
       }
       // 用户按了后退/前进：先把哨兵压回原位（视图留在原地），再确认
       history.pushState({ __hgsDraftGuard: true }, "", window.location.href);
-      void confirm({
-        title: t.editor.unsavedTitle,
-        body: t.editor.unsavedBody,
-        confirmLabel: t.editor.unsavedConfirm,
-        cancelLabel: t.editor.unsavedCancel,
-        tone: "danger",
-      }).then((ok) => {
+      void confirm({ ...dialogCopy(), tone: "danger" }).then((ok) => {
         if (!ok) return;
         // 确认放弃：先弹哨兵，等它落定再退一步 —— 那才是用户要去的上一页
         sentinelRef.current = false;

@@ -39,7 +39,7 @@ export default function McpPage() {
         <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.mcp.pluginKicker}</span>
           <a
-            className="text-link"
+            className="hg-text"
             href="https://github.com/samelabs/huagongshe/tree/main/plugins/huagongshe"
             target="_blank"
             rel="noopener noreferrer"

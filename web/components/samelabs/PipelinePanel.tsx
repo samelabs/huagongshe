@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
+import { Button } from "@/components/ui/Button";
+import { TextLink } from "@/components/ui/TextLink";
 
 /* ── A1 数据契约 ──────────────────────────────────────────
    optional sections 形状: E9-B 后仅 negative(今日有界)留在运行时; seed/supplier 已移除:
@@ -142,9 +144,9 @@ function ErrorRow({ block, onRevive, reviving, reviveNote }: {
           <span key={code} className="pipe-chip error" title={code}>{code.replace(/^(pubchem|cpp|cas)_/, "")} {fmt(n)}</span>
         ))}
       </span>
-      <button type="button" className="pipe-revive-btn" onClick={onRevive} disabled={reviving || total === 0}>
+      <TextLink className="pipe-revive-btn" onClick={onRevive} disabled={reviving || total === 0}>
         {reviving ? "复活中…" : `复活全部 ${total > 0 ? `(${fmt(total)} 条)` : ""}`}
-      </button>
+      </TextLink>
       {reviveNote && <span className="pipe-revive-note">{reviveNote}</span>}
     </div>
   );
@@ -209,7 +211,7 @@ export function SamelabsPipeline() {
   /* ── 首次加载失败: 完整 error state (含重试) ── */
   if (initialError) return <div className="notice error">
     {initialError}
-    <button type="button" className="pipe-retry-btn" onClick={() => { setInitialError(""); setPhase("initial_loading"); load(); }}>{t.admin.retryNow}</button>
+    <TextLink className="pipe-retry-btn" onClick={() => { setInitialError(""); setPhase("initial_loading"); load(); }}>{t.admin.retryNow}</TextLink>
   </div>;
   if (!data) return <p className="context-loading">{t.common.loading}</p>;
 
@@ -260,7 +262,7 @@ export function SamelabsPipeline() {
     {phase === "stale" && (
       <div className="notice warn pipe-stale-banner">
         {t.admin.refreshFailed(lastSuccessAt ? hm(lastSuccessAt.toISOString()) : "—")}
-        <button type="button" className="pipe-retry-btn" onClick={() => { setPhase("refreshing"); load(); }}>{t.admin.retryNow}</button>
+        <TextLink className="pipe-retry-btn" onClick={() => { setPhase("refreshing"); load(); }}>{t.admin.retryNow}</TextLink>
       </div>
     )}
 
@@ -375,8 +377,8 @@ export function SamelabsPipeline() {
           <div className="pipe-confirm-box">
             <p>{t.admin.reviveConfirm(confirmChain.toUpperCase(), fmt(n))}</p>
             <div className="pipe-confirm-actions">
-              <button type="button" className="button" onClick={() => revive(confirmChain)} disabled={n === 0}>确认复活</button>
-              <button type="button" className="pipe-revive-btn" onClick={() => setConfirmChain(null)}>取消</button>
+              <Button variant="primary" size="sm" onClick={() => revive(confirmChain)} disabled={n === 0}>确认复活</Button>
+              <TextLink className="pipe-revive-btn" onClick={() => setConfirmChain(null)}>取消</TextLink>
             </div>
           </div>
         </div>

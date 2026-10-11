@@ -313,3 +313,131 @@ class EntityBadgeDisplayTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ── §11.9–11 BX-B1/B2: 旧类名清零 + ui 之外无原生表单元素 + eyebrow 禁止 ────
+# 迁移终点（BX）：旧类名（button/wb-btn/empty-state/eyebrow/text-link/text-button）
+# 的样式定义与使用全部清除；原生表单元素只允许出现在 components/ui 与下方
+# 行级白名单（每条注明理由，禁止整文件豁免）。
+
+LEGACY_CLASS_ATTR_RE = re.compile(
+    r"""(?:class|className)\s*=\s*["'][^"']*\b(wb-btn|empty-state|eyebrow|text-link|text-button)\b""")
+LEGACY_BUTTON_CLASS_ATTR_RE = re.compile(
+    r"""(?:class|className)\s*=\s*["'][^"']*(?<![\w-])button(?![\w-])[^"']*["']""")
+
+def _css_class_def(name: str) -> re.Pattern:
+    return re.compile(r"(?<![\w-])\." + name + r"(?![\w-])")
+
+NATIVE_FORM_RE = re.compile(r"<(button|input|select|textarea)\b")
+
+# 行级白名单: (relpath, 行内必须包含的子串, 理由)
+NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
+    ("app/(site)/dev-ui/page.tsx", '<button type="button">撤销</button>',
+     "dev 预览页 Toast 撤销钮的静态结构演示：production 构建下 404，非产品界面"),
+    ("components/workbench/panels/SkillsPanel.tsx", 'type="file"',
+     "文件上传 input：必须原生（按钮触发 ref.click()，ui Input 无 file 语义）"),
+    ("components/samelabs/WorkersPanel.tsx", 'type="checkbox"',
+     "复选框：ui 无 Checkbox 原语，浏览器原生勾选框外观"),
+    ("components/samelabs/SkillsAdminPanel.tsx", 'type="color"',
+     "取色器：ui 无 ColorPicker 原语，input[type=color] 原生色板"),
+    ("components/shell/SiteHeader.tsx", "inputRef",
+     "顶栏 ⌘K 搜索框：.sh-search 自有无边框搜索壳体系，内层 input 必须裸置"),
+    ("components/shell/SiteHeader.tsx", "triggerRef",
+     "头像/更多菜单触发器：焦点管理需 ref（ui Button 不转发 ref），sh-menu 键盘体系自有"),
+    ("components/shell/SiteHeader.tsx", "sh-menu-logout",
+     "菜单项行按钮：ui 无 Menu 原语，菜单行自有样式体系"),
+    ("components/workbench/WbCreateMenu.tsx", "triggerRef",
+     "「+ 新建」菜单触发器：焦点管理需 ref（ui Button 不转发 ref）"),
+    ("components/workbench/EntityReferencePicker.tsx", "key={`c-${chemical.id}`}",
+     "组合框选项行：ui 无 Option 原语，选项行自有样式"),
+    ("components/workbench/EntityReferencePicker.tsx", "key={`r-${reaction.id}`}",
+     "组合框选项行：ui 无 Option 原语，选项行自有样式"),
+    ("components/workbench/EntityReferencePicker.tsx", 'onClick={() => remove("chemical", id)}',
+     "已选实体 chip：ui 无可关闭 Chip 原语"),
+    ("components/workbench/EntityReferencePicker.tsx", 'onClick={() => remove("reaction", id)}',
+     "已选实体 chip：ui 无可关闭 Chip 原语"),
+    ("components/workbench/panels/StoichPanel.tsx", "wb-stoich",
+     "投料计算器紧凑网格（§9.4）：单元格级密度需求，hg-input 标准控件尺寸会破坏表格布局；含 radio（ui 无 Radio 原语）"),
+    ("components/SearchHero.tsx", "inputRef",
+     "首页大搜索框内层 input：srch-box-wrap 提供边框/焦点体系，内层必须裸置"),
+    ("app/(site)/skills/KdenseSkillsClient.tsx", 'type="search"',
+     "Skills 分类页搜索框内层 input：kdense-search-bar 自有搜索壳体系（§9.6）"),
+    ("app/(site)/skills/KdenseSkillsClient.tsx", "kdense-cat",
+     "Skills 分类导航 chip（§9.6）：动态数量 + 计数徽标的分类条设计，非 Segmented 场景"),
+]
+
+
+class LegacyClassNameTests(unittest.TestCase):
+    """BX-B1/B2 ①：六类旧类名（class 属性使用 + CSS 定义）全部清零。"""
+
+    def test_no_legacy_class_attributes(self):
+        offenders = []
+        for p in scan_files():
+            for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+                if LEGACY_CLASS_ATTR_RE.search(line):
+                    offenders.append(f"{rel(p)}:{i}: {line.strip()[:90]}")
+        self.assertEqual(offenders, [], "\n".join(offenders))
+
+    def test_no_legacy_class_css_definitions(self):
+        offenders = []
+        for p in scan_files():
+            for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+                for name in ("wb-btn", "empty-state", "eyebrow", "text-link", "text-button"):
+                    if _css_class_def(name).search(line):
+                        offenders.append(f"{rel(p)}:{i}: {line.strip()[:90]}")
+        self.assertEqual(offenders, [], "\n".join(offenders))
+
+    def test_no_bare_button_class_attribute(self):
+        """旧 `.button` 类族（BX-B1 盘点第 7 类）同样清零 —— 按钮统一 .hg-btn。"""
+        offenders = []
+        for p in scan_files():
+            if p.suffix != ".tsx":
+                continue
+            for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+                if LEGACY_BUTTON_CLASS_ATTR_RE.search(line):
+                    offenders.append(f"{rel(p)}:{i}: {line.strip()[:90]}")
+        self.assertEqual(offenders, [], "\n".join(offenders))
+
+
+class NativeFormElementTests(unittest.TestCase):
+    """BX-B1/B2 ②：components/ui 之外不允许原生 button/input/select/textarea，
+    行级白名单除外（每条注明理由）。"""
+
+    def test_no_native_form_elements_outside_ui(self):
+        offenders = []
+        for p in scan_files():
+            if p.suffix != ".tsx" or "components/ui" in rel(p):
+                continue
+            rel_path = rel(p)
+            lines = p.read_text(encoding="utf-8").splitlines()
+            for i, line in enumerate(lines, 1):
+                if not NATIVE_FORM_RE.search(line):
+                    continue
+                # 标签与属性常分行（最多隔两行）—— 以「本行 + 后两行」窗口匹配白名单锚点
+                window = "\n".join([line] + lines[i:i + 2])
+                if any(rel_path == rel_f and needle in window for rel_f, needle, _ in NATIVE_FORM_WHITELIST):
+                    continue
+                offenders.append(f"{rel_path}:{i}: {line.strip()[:90]}")
+        self.assertEqual(offenders, [], "\n".join(offenders))
+
+    def test_whitelist_entries_actually_exist(self):
+        """白名单必须钉住真实存在的行 —— 防止迁移后白名单悄悄过期。"""
+        for rel_f, needle, _reason in NATIVE_FORM_WHITELIST:
+            path = WEB / rel_f
+            self.assertTrue(path.exists(), f"白名单文件不存在: {rel_f}")
+            content = path.read_text(encoding="utf-8")
+            self.assertIn(needle, content, f"白名单锚点失效: {rel_f} :: {needle}")
+
+
+class EyebrowBanTests(unittest.TestCase):
+    """BX-B1/B2 ③：eyebrow（英文大写 kicker）独立成条禁止 —— 分区标题就是 h2。"""
+
+    def test_no_eyebrow_class_anywhere(self):
+        offenders = []
+        for p in scan_files():
+            for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+                if re.search(r"""(?:class|className)\s*=\s*["'][^"']*\beyebrow\b""", line):
+                    offenders.append(f"{rel(p)}:{i}")
+                if _css_class_def("eyebrow").search(line):
+                    offenders.append(f"{rel(p)}:{i} (css)")
+        self.assertEqual(offenders, [], "\n".join(offenders))

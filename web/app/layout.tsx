@@ -36,7 +36,8 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: t.brand.seoTitle, template: `%s｜${t.brand.name}` },
     description: t.brand.seoDesc,
     keywords: [...t.brand.keywords, "AI Chemistry Workspace", "Chemical Knowledge Base", "Reaction Library"],
-    robots: { index: true, follow: true },
+    // BX-A5：不再全局输出 robots=index,follow —— 缺席即默认可索引；
+    // 404 页由 Next 自动注入唯一一条 noindex（此前会与本条叠加成两条）。
   };
 }
 

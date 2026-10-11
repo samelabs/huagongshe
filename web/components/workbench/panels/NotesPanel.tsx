@@ -17,6 +17,7 @@ import { withLocale } from "@/lib/localePath";
 import { NoteEditor } from "../NoteEditor";
 import { PanelError, PanelHeading, PanelLoading, Pagination, SlowNotice, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
 import type { LoadState, NoteItem, NoteResponse, NoteVisibility, PanelProps } from "../types";
+import { TextLink } from "@/components/ui/TextLink";
 
 const empty = (): NoteResponse => ({ items: [], total: 0, page: 1, page_size: 20 });
 
@@ -89,21 +90,41 @@ export function NotesPanel({
   /** SMK-001：每次「确认放弃旧草稿 → 打开新编辑上下文」递增，强制 NoteEditor
    *  重挂载（key 变化）——否则同一 key 下编辑器实例复用，旧草稿残留。 */
   const [editorNonce, setEditorNonce] = useState(0);
-  /** SMK-001：编辑器「有不可丢失状态」（脏草稿/保存在途）——由 NoteEditor 上报 */
-  const [editorGuard, setEditorGuard] = useState(false);
-  const handleGuardChange = useCallback((value: boolean) => setEditorGuard(value), []);
+  /** BX-A1：编辑会话号 —— 每次打开编辑器（新建/切编辑/?edit=/?new=）递增。
+   *  NoteEditor 的保存回执带发起时的会话号；会话已换人时只刷新列表，
+   *  不动当前编辑器（A 保存中途确认切到 B，A 完成后 B 必须原样在）。 */
+  const editorSessionRef = useRef(0);
+  const [editorSession, setEditorSession] = useState(0);
+  const beginEditorSession = useCallback(() => {
+    editorSessionRef.current += 1;
+    setEditorSession(editorSessionRef.current);
+  }, []);
+  /** SMK-001：编辑器「有不可丢失状态」的细分（脏草稿/保存在途）——BX-A1
+   *  起保存中切换给如实的确认文案（保存会继续完成） */
+  const [editorGuard, setEditorGuard] = useState<{ dirty: boolean; busy: boolean }>({ dirty: false, busy: false });
+  const handleGuardChange = useCallback((value: { dirty: boolean; busy: boolean }) => setEditorGuard(value), []);
   const mounted = useRef(false);
   const latestLoad = useRef(0);
 
   // 编辑器关闭后复位面板侧拦截状态
   useEffect(() => {
-    if (!creating && !editing) setEditorGuard(false);
+    if (!creating && !editing) setEditorGuard({ dirty: false, busy: false });
   }, [creating, editing]);
 
   /** SMK-001：切换编辑上下文前的统一丢稿拦截（新建/切编辑/切可见性三条
-   *  不经过 <a> 的路径）。返回 true = 可以继续切换。 */
+   *  不经过 <a> 的路径）。BX-A1：保存在途时文案如实 —— 保存会继续完成。
+   *  返回 true = 可以继续切换。 */
   async function guardDraft(): Promise<boolean> {
-    if (!editorGuard) return true;
+    if (!editorGuard.dirty && !editorGuard.busy) return true;
+    if (editorGuard.busy) {
+      return confirm({
+        title: t.editor.savingTitle,
+        body: t.editor.savingBody,
+        confirmLabel: t.editor.savingConfirm,
+        cancelLabel: t.editor.savingCancel,
+        tone: "danger",
+      });
+    }
     return confirm({
       title: t.editor.unsavedTitle,
       body: t.editor.unsavedBody,
@@ -117,11 +138,12 @@ export function NotesPanel({
   useEffect(() => {
     if (!editNoteId) return;
     let active = true;
+    beginEditorSession();
     apiGet<NoteItem>(`/notes/${editNoteId}`)
       .then((note) => { if (active) setEditing(note); })
       .catch(() => { /* 已删除/无权限时留在列表 */ });
     return () => { active = false; };
-  }, [editNoteId]);
+  }, [editNoteId, beginEditorSession]);
 
   // One filter identity: chemical takes precedence over reaction (P-8).
   const filterKey = filterChemicalId != null ? "chemical" : filterReactionId != null ? "reaction" : null;
@@ -183,9 +205,10 @@ export function NotesPanel({
         chemicalIds: initialChemicalId ? [initialChemicalId] : [],
         reactionIds: initialReactionId ? [initialReactionId] : [],
       });
+      beginEditorSession();
       setCreating(true);
     }
-  }, [createOpen, initialChemicalId, initialReactionId]);
+  }, [createOpen, initialChemicalId, initialReactionId, beginEditorSession]);
 
   function openCreate() {
     void (async () => {
@@ -193,6 +216,7 @@ export function NotesPanel({
       setEditing(null);
       setCreateContext({ chemicalIds: [], reactionIds: [] });
       setEditorNonce((n) => n + 1);
+      beginEditorSession();
       setCreating(true);
     })();
   }
@@ -206,17 +230,25 @@ export function NotesPanel({
   /** R3: never strand the user on a list where the note they just saved
    * cannot appear. page=1 + the list can show it → refresh in place;
    * otherwise navigate to page 1 of the filter with the saved note's
-   * own visibility (a private note saved under a public filter etc.). */
-  async function handleSaved(saved: NoteItem) {
-    const created = creating && !editing;
-    setCreating(false);
-    setEditing(null);
-    if (created) setCreateContext({ chemicalIds: [], reactionIds: [] });
-
+   * own visibility (a private note saved under a public filter etc.).
+   * BX-A1：保存回执只作用于发起本次保存的编辑会话 —— 保存期间用户确认
+   * 切换到另一编辑器（或已关闭）时，这里仅刷新列表，不动当前编辑器、
+   * 不导航（迟到的 setEditing(null)/router.replace 会把新编辑器关掉）。 */
+  async function handleSaved(saved: NoteItem, session: number) {
     const visibleHere = visibility === "all" || visibility === saved.visibility;
     const inFilter = filterKey === null
       || (filterKey === "chemical" && saved.chemical_ids.includes(filterChemicalId!))
       || (filterKey === "reaction" && saved.reaction_ids.includes(filterReactionId!));
+    if (session !== editorSessionRef.current) {
+      // 过期会话的保存回执：当前列表若能直接反映该笔记就原地刷新，否则留待
+      // 下次筛选/翻页自然刷新 —— 绝不动用户正在用的编辑器。
+      if (page === 1 && visibleHere && inFilter) await load();
+      return;
+    }
+    const created = creating && !editing;
+    setCreating(false);
+    setEditing(null);
+    if (created) setCreateContext({ chemicalIds: [], reactionIds: [] });
 
     if (page === 1 && visibleHere && inFilter) {
       await load();
@@ -292,9 +324,9 @@ export function NotesPanel({
           <span className="wb-filter-crumb">
             {filterKey === "chemical" ? t.notes.filterChemical : t.notes.filterReaction}: <EntityId kind={filterKey} id={filterId!} compact />
           </span>
-          <Link className="text-button" href={withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(visibility)) }).toString()}`, locale)}>
+          <TextLink href={withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(visibility)) }).toString()}`, locale)}>
             {t.notes.filterClear}
-          </Link>
+          </TextLink>
         </div>
       )}
 
@@ -308,6 +340,7 @@ export function NotesPanel({
           onSaved={handleSaved}
           onGuardChange={handleGuardChange}
           resetNonce={editorNonce}
+          session={editorSession}
         />
       )}
 
@@ -341,6 +374,7 @@ export function NotesPanel({
                       setCreating(false);
                       setEditing(note);
                       setEditorNonce((n) => n + 1);
+                      beginEditorSession();
                     })(); }}>{t.common.edit}</Button>
                     <Button variant="danger-quiet" size="sm" onClick={() => void remove(note)}>{t.common.delete}</Button>
                   </span>
