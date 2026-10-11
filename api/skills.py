@@ -254,12 +254,17 @@ async def validate_skill(
     require_scope(actor, "skill:write")
     raw = await file.read(settings.skill_zip_max_bytes + 1)
     if len(raw) > settings.skill_zip_max_bytes:
-        raise HTTPException(400, f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
+        # BX-A2：detail 升级为 {message, kind}（与 notes 400 同一先例）——
+        # message 保留原文供 API 调试，kind 是稳定机器码（前端按语言渲染）。
+        raise HTTPException(400, {
+            "message": f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限",
+            "kind": "archive_too_large",
+        })
     # G3.1D: kernel owner 迁 services.skills; neutral → HTTP 400 原文。
     try:
         manifest = await asyncio.to_thread(extract_skill_zip, raw)
     except SkillArchiveValidationError as exc:
-        raise HTTPException(400, exc.detail) from exc
+        raise HTTPException(400, {"message": exc.detail, "kind": exc.kind}) from exc
     return {
         "ok": True,
         "slug": manifest["slug"],
@@ -302,15 +307,15 @@ async def create_skill(
             category=category, idempotency_key=request_idempotency_key,
             archive_loader=archive_loader)
     except SkillArchiveValidationError as exc:
-        raise HTTPException(400, exc.detail) from exc
+        raise HTTPException(400, {"message": exc.detail, "kind": exc.kind}) from exc
     except SkillCategoryError as exc:
-        raise HTTPException(400, exc.detail) from exc
+        raise HTTPException(400, {"message": exc.detail, "kind": "category_invalid"}) from exc
     except SkillSlugConflictError as exc:
-        raise HTTPException(409, exc.detail) from exc
+        raise HTTPException(409, {"message": exc.detail, "kind": "slug_conflict"}) from exc
     except MissingSkillIdempotencyKeyError as exc:
-        raise HTTPException(400, exc.detail) from exc
+        raise HTTPException(400, {"message": exc.detail, "kind": "idempotency_key_missing"}) from exc
     except SkillIdempotencyKeyTooLongError as exc:
-        raise HTTPException(400, exc.detail) from exc
+        raise HTTPException(400, {"message": exc.detail, "kind": "idempotency_key_too_long"}) from exc
     except RateLimitError as exc:
         raise to_http_exception(exc) from exc
 

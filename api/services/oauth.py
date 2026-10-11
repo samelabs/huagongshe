@@ -429,10 +429,12 @@ async def exchange_authorization_code(
             "unauthorized_client", "Client is not registered for authorization_code."
         )
     row = (await db.execute(text("""
-        SELECT id,user_id,client_id,redirect_uri,scopes,resource,code_challenge
-        FROM community.oauth_authorization_codes
-        WHERE code_hash=:digest AND expires_at>now() AND used_at IS NULL
-        FOR UPDATE
+        SELECT c.id,c.user_id,c.client_id,c.redirect_uri,c.scopes,c.resource,c.code_challenge
+        FROM community.oauth_authorization_codes c
+        JOIN community.users u
+          ON u.id=c.user_id AND u.status='active'
+        WHERE c.code_hash=:digest AND c.expires_at>now() AND c.used_at IS NULL
+        FOR UPDATE OF c
     """), {"digest": _digest(code)})).mappings().first()
     if row is None:
         raise OAuthProtocolError("invalid_grant", "Authorization code is invalid or expired.")
@@ -478,10 +480,12 @@ async def refresh_access_token(
             "unauthorized_client", "Client is not registered for refresh_token."
         )
     row = (await db.execute(text("""
-        SELECT id,user_id,client_id,scopes,resource
-        FROM community.oauth_refresh_tokens
-        WHERE token_hash=:digest AND expires_at>now() AND revoked_at IS NULL
-        FOR UPDATE
+        SELECT t.id,t.user_id,t.client_id,t.scopes,t.resource
+        FROM community.oauth_refresh_tokens t
+        JOIN community.users u
+          ON u.id=t.user_id AND u.status='active'
+        WHERE t.token_hash=:digest AND t.expires_at>now() AND t.revoked_at IS NULL
+        FOR UPDATE OF t
     """), {"digest": _digest(refresh_token)})).mappings().first()
     if row is None or row["client_id"] != client_id or row["resource"] != resource:
         raise OAuthProtocolError("invalid_grant", "Refresh token is invalid or expired.")

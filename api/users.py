@@ -67,14 +67,16 @@ async def check_username(username: str = Query(min_length=4, max_length=30), db=
     """注册时实时校验用户名是否可用。
     0904 ⑱: 枚举敞口 — 原无限流, 脚本可批量探测已注册用户名。
     匿名共享桶 30/min(BFF 后无真实 IP, 与 cas-search-fetch 同口径);
-    超限 429, 注册表单降级为提交时校验(不阻塞正常使用)。"""
+    超限 429, 注册表单降级为提交时校验(不阻塞正常使用)。
+    BX-A2：reason 改为 reason_code 稳定机器码（taken / invalid_format），
+    不再返回中文文案 —— 前端按语言渲染。"""
     await enforce_http("check-username", "global", 30, 60)
     if not USERNAME_RE.fullmatch(username):
-        return {"available": False, "reason": "用户名仅支持 4–30 位小写字母、数字或下划线"}
+        return {"available": False, "reason_code": "invalid_format"}
     exists = (await db.execute(text(
         "SELECT 1 FROM community.users WHERE lower(username)=lower(:u) LIMIT 1"
     ), {"u": username})).fetchone()
-    return {"available": not exists, "reason": "用户名已被使用" if exists else None}
+    return {"available": not exists, "reason_code": "taken" if exists else None}
 
 
 @auth_router.post("/register", status_code=201)
@@ -99,7 +101,11 @@ async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
         }
     except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(409, "用户名或邮箱已被使用") from exc
+        # BX-A2：{message, kind}（notes 400 先例）—— 前端按 kind 五语言渲染
+        raise HTTPException(409, {
+            "message": "用户名或邮箱已被使用",
+            "kind": "username_or_email_taken",
+        }) from exc
 
 
 @auth_router.post("/login")
@@ -114,7 +120,11 @@ async def login(body: LoginBody, response: Response, db=Depends(get_db)):
         WHERE (lower(email)=:account OR lower(username)=:account) AND status='active'
     """), {"account": account})).fetchone()
     if not row or not await asyncio.to_thread(password_matches, body.password, row[5]):
-        raise HTTPException(401, "账号或密码不正确")
+        # BX-A2：{message, kind}（notes 400 先例）—— 前端按 kind 五语言渲染
+        raise HTTPException(401, {
+            "message": "账号或密码不正确",
+            "kind": "invalid_credentials",
+        })
     await db.execute(text("UPDATE community.users SET last_login_at=now() WHERE id=:id"), {"id": row[0]})
     await create_session(db, response, int(row[0]))
     return {

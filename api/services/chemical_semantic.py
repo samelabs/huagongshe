@@ -23,10 +23,10 @@ from typing import Any
 
 # PB evidence 语义块 —— 与 web/components/chemicalEvidence.ts 同一白名单
 PB_EVIDENCE_SECTIONS = (
-    "physical_properties", "«redacted:ghs_…»", "hazards", "safety_measures",
+    "physical_properties", "ghs_classification", "hazards", "safety_measures",
     "toxicity", "regulatory", "pharmacology", "uses_and_manufacturing",
 )
-PB_SAFETY_KEYS = ("«redacted:ghs_…»", "hazards", "safety_measures", "toxicity", "regulatory")
+PB_SAFETY_KEYS = ("ghs_classification", "hazards", "safety_measures", "toxicity", "regulatory")
 PB_INDUSTRY_KEYS = ("pharmacology", "uses_and_manufacturing")
 
 # CB computed descriptors(存量 ChemicalDetails 字段, PB source)

@@ -42,6 +42,15 @@ jobs:
             tests.test_notes_ui_contract \
             tests.test_openai_plugin_readiness
 
+      # B5-06: worker 启动路径的无条件 import（含函数级 aiohttp_socks）必须在
+      # 干净 venv（只装 requirements-worker.txt）里可解析 —— 否则生产装完依赖
+      # 启动必崩。AST 级检查抓函数体内的 import，纯 import worker.main 抓不到。
+      - name: Worker clean-venv import check (B5-06)
+        run: |
+          python -m venv /tmp/worker-venv
+          /tmp/worker-venv/bin/pip install --quiet --disable-pip-version-check -r requirements-worker.txt
+          /tmp/worker-venv/bin/python scripts/check_worker_imports.py
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

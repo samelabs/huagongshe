@@ -179,6 +179,8 @@ async def reaction_summaries(
     page: int,
     page_size: int,
 ) -> tuple[int, list[dict[str, Any]]]:
+    """dataset_name 的 'user_submitted' 是稳定枚举标记（BX-A2）：用户创建且
+    未填来源引用的反应 —— 后端不再返回中文「用户发布」，前端按语言渲染。"""
     if not chemical_ids:
         return 0, []
     role_clause = ""
@@ -218,7 +220,7 @@ async def reaction_summaries(
             COALESCE(NULLIF(rx.doi,''),rp.doi),
             COALESCE(NULLIF(rx.patent,''),rp.patent),
             CASE WHEN rx.created_by_user_id IS NOT NULL
-                 THEN COALESCE(NULLIF(rx.source_citation,''),'用户发布') ELSE d.name END,
+                 THEN COALESCE(NULLIF(rx.source_citation,''),'user_submitted') ELSE d.name END,
             (SELECT array_agg(DISTINCT rc.role ORDER BY rc.role)
              FROM chemistry.reaction_chemicals rc
              WHERE rc.reaction_id=rx.id AND rc.chemical_id=ANY(:chemical_ids))
@@ -276,7 +278,7 @@ async def reaction_lookup(
             (
             SELECT
               rx.id,rx.reaction_smiles,NULL::text AS ord_id,
-              COALESCE(NULLIF(rx.source_citation,''),'用户发布') AS dataset_name,
+              COALESCE(NULLIF(rx.source_citation,''),'user_submitted') AS dataset_name,
               rx.doi,rx.patent,'doi' AS match_basis
             FROM chemistry.reactions rx
             WHERE lower(rx.doi)=:doi
@@ -341,7 +343,7 @@ async def reaction_lookup(
         SELECT DISTINCT ON (rx.id)
           rx.id,rx.reaction_smiles,o.reaction_id,
           CASE WHEN rx.created_by_user_id IS NOT NULL
-               THEN COALESCE(NULLIF(rx.source_citation,''),'用户发布') ELSE d.name END,
+               THEN COALESCE(NULLIF(rx.source_citation,''),'user_submitted') ELSE d.name END,
           COALESCE(rx.doi,rp.doi),COALESCE(rx.patent,rp.patent),
           CASE
             WHEN rx.id=:reaction_id_hint THEN 'reaction_id'

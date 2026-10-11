@@ -193,8 +193,10 @@ class WorkerDeleteContractTests(unittest.IsolatedAsyncioTestCase):
         await self._grant_lease("pubchem_jobs")
         code, body = await _call("DELETE", f"/admin/workers/{self.WID}")
         self.assertEqual(409, code)
-        self.assertIn("pubchem_jobs", body["detail"])
-        self.assertIn("不能删除", body["detail"])
+        # BX-A2：detail 升级为 {message, kind, leases} —— 语义不变（哪个表挡了删除）
+        self.assertEqual("worker_busy", body["detail"]["kind"])
+        self.assertIn("pubchem_jobs", body["detail"]["leases"])
+        self.assertIn("不能删除", body["detail"]["message"])
         # worker 行仍在
         code2, workers = await _call("GET", "/admin/workers")
         self.assertEqual(200, code2)
@@ -204,13 +206,13 @@ class WorkerDeleteContractTests(unittest.IsolatedAsyncioTestCase):
         await self._grant_lease("cas_jobs")
         code, body = await _call("DELETE", f"/admin/workers/{self.WID}")
         self.assertEqual(409, code)
-        self.assertIn("cas_jobs", body["detail"])
+        self.assertIn("cas_jobs", body["detail"]["leases"])
 
     async def test_3_identity_lease_blocks_delete(self):
         await self._grant_lease("pubchem_identity_jobs")
         code, body = await _call("DELETE", f"/admin/workers/{self.WID}")
         self.assertEqual(409, code)
-        self.assertIn("pubchem_identity_jobs", body["detail"])
+        self.assertIn("pubchem_identity_jobs", body["detail"]["leases"])
 
     async def test_4_no_lease_deletes(self):
         code, body = await _call("DELETE", f"/admin/workers/{self.WID}")

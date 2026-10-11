@@ -312,6 +312,23 @@ class FullOrchestrationTests(unittest.TestCase):
                                 "industry", "suppliers", "provenance"),
                           f"一级 key 必须是语义 section, 不允许 provider namespace: {key}")
 
+    def test_full_pb_ghs_classification_survives(self):
+        """HGS-A2-01 回归：REST full 的 safety.pb_sections 必须含 GHS 分类。
+
+        事故：chemical_semantic 白名单键名曾被提交成占位符字面量
+        «redacted:ghs_…»（f1b8788），GHS 分类在 detail 投影里静默丢失。
+        """
+        ghs = {"codes": ["H302"], "pictograms": ["GHS07"], "statements": "吞咽有害"}
+        result = self._full(pb_details={
+            "record_description": "PB desc",
+            "xlogp": -0.5,
+            "ghs_classification": ghs,
+            "fetched_at": "2026-09-01T00:00:00+00:00",
+        }, cb_row=None, cas=None)
+        sections = result["details"]["safety"]["pb_sections"]
+        self.assertEqual(sections.get("ghs_classification"), ghs,
+                         "REST full 丢失 GHS 分类（白名单键名回归？）")
+
 
 class LocaleLifecycleChainTests(unittest.TestCase):
     """P1-1: 实际命中 locale 在 row selection → lifecycle decision →

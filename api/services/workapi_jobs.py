@@ -186,8 +186,15 @@ async def complete_pubchem_job(
                     "facts withheld, zero merge (fail-closed)",
                     job[0], chemical_id, expected_cid, inc_cid, inc_ik)
             else:
+                # F-NEW-01: 解析器可能不产出 core.CID（whole_record 现状）。
+                # 已验证的 query binding（job.query_value = worker 实际被派发
+                # 请求的 CID）本身就是可信 CID evidence —— core 缺 CID 时以
+                # expected_cid 进裁定，主表 pubchem_cid 才能回写。行上已有
+                # 不同 CID 仍走既有 cid-conflict 硬闸（不同可信 CID 不得合并），
+                # CID/IK 判定与 same-CID 收敛规则不变。
+                adjudicate_cid = inc_cid if inc_cid is not None else expected_cid
                 chemical_id, grant, conflict = await adjudicate_pubchem_identity(
-                    db, int(chemical_id), inc_cid, inc_ik)
+                    db, int(chemical_id), adjudicate_cid, inc_ik)
 
                 if conflict:
                     # §2.1 fail-closed: identity CONFLICT → 该 payload 的实体事实
@@ -198,7 +205,8 @@ async def complete_pubchem_job(
                         "pubchem_identity_conflict chemical_id=%s incoming_cid=%s "
                         "incoming_ik=%s existing_cid=%s existing_ik=%s reason=%s — "
                         "payload facts withheld (fail-closed)",
-                        chemical_id, inc_cid, inc_ik,
+                        chemical_id, conflict.get("incoming_cid", adjudicate_cid),
+                        inc_ik,
                         conflict.get("existing_cid"), conflict.get("existing_ik"),
                         conflict.get("reason"))
                 else:

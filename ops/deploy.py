@@ -286,8 +286,10 @@ def deploy(runner: Runner | None = None,
 
     if not skip_build:
         _event("build.begin", target="web/.next")
+        # B5-01: 发布构建 fail-closed —— 只允许 npm ci（锁文件可重现）。
+        # 不再回退 npm install：回退会让 lock 与实际安装树漂移，破坏可重现性。
         r = runner.run(["bash", "-lc",
-                        "cd web && (npm ci --no-audit --no-fund || npm install --no-audit --no-fund)"
+                        "cd web && npm ci --no-audit --no-fund"
                         " && npx next build"])
         if r.returncode != 0:
             _event("build.failed")

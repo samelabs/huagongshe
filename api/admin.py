@@ -168,7 +168,13 @@ async def delete_worker(
             counts[table] = int(n)
     if conflicts:
         detail = ", ".join(f"{t} {counts[t]} 条" for t in conflicts)
-        raise HTTPException(409, f"该 worker 有进行中的任务({detail}), 不能删除")
+        # BX-A2：{message, kind, leases}（notes 400 先例 + 结构化 leases 供
+        # 管理端/脚本消费）—— 前端按 kind 五语言渲染，不再透传中文原文。
+        raise HTTPException(409, {
+            "message": f"该 worker 有进行中的任务({detail}), 不能删除",
+            "kind": "worker_busy",
+            "leases": counts,
+        })
     result = (await db.execute(text("""
         DELETE FROM maintenance.worker_clients WHERE worker_id=:wid
     """), {"wid": worker_id})).rowcount
@@ -227,6 +233,13 @@ async def set_user_status(
         await db.execute(text("DELETE FROM community.sessions WHERE user_id=:id"), {"id": user_id})
         # revoke = 物理 DELETE(与用户侧 password change 同一语义), 不留 soft-revoke
         await db.execute(text("DELETE FROM community.user_api_tokens WHERE user_id=:id"), {"id": user_id})
+        # F-OAUTH-01: 停用账号必须同事务撤销全部 OAuth 凭证(照 change_password
+        # 的现成口径) —— 否则停用期间 refresh 可继续轮换、未用 code 可兑换，
+        # 重新启用后旧授权直接复活。客户端注册元数据共享, 不删。
+        await db.execute(text("DELETE FROM community.oauth_authorization_requests WHERE user_id=:id"), {"id": user_id})
+        await db.execute(text("DELETE FROM community.oauth_authorization_codes WHERE user_id=:id"), {"id": user_id})
+        await db.execute(text("DELETE FROM community.oauth_access_tokens WHERE user_id=:id"), {"id": user_id})
+        await db.execute(text("DELETE FROM community.oauth_refresh_tokens WHERE user_id=:id"), {"id": user_id})
     await db.commit()
     return {"id": user_id, "status": body.status}
 
@@ -408,17 +421,18 @@ async def create_category(
     name = body.name.strip()
     abbr = body.abbr.strip().upper()
     color = body.color.strip().lower()
+    # BX-A2：校验错误升级为 {message, kind}（notes 400 先例）—— 前端按 kind 渲染
     if not (1 <= len(name) <= 40):
-        raise HTTPException(400, "分类名长度 1-40")
+        raise HTTPException(400, {"message": "分类名长度 1-40", "kind": "category_name_length"})
     if not re.fullmatch(r"[A-Z]{1,4}", abbr):
-        raise HTTPException(400, "缩写为 1-4 个英文字母")
+        raise HTTPException(400, {"message": "缩写为 1-4 个英文字母", "kind": "category_abbr"})
     if not re.fullmatch(r"#[0-9a-f]{6}", color):
-        raise HTTPException(400, "色值格式 #rrggbb")
+        raise HTTPException(400, {"message": "色值格式 #rrggbb", "kind": "category_color"})
     dup = (await db.execute(text(
         "SELECT 1 FROM community.skill_categories WHERE name=:n"
     ), {"n": name})).scalar()
     if dup is not None:
-        raise HTTPException(409, "分类已存在")
+        raise HTTPException(409, {"message": "分类已存在", "kind": "category_exists"})
     row = (await db.execute(text("""
         INSERT INTO community.skill_categories (name,abbr,color,sort_order,active)
         VALUES (:name,:abbr,:color,:sort,:active) RETURNING id
@@ -437,24 +451,24 @@ async def update_category(
     abbr = body.abbr.strip().upper()
     color = body.color.strip().lower()
     if not (1 <= len(name) <= 40):
-        raise HTTPException(400, "分类名长度 1-40")
+        raise HTTPException(400, {"message": "分类名长度 1-40", "kind": "category_name_length"})
     if not re.fullmatch(r"[A-Z]{1,4}", abbr):
-        raise HTTPException(400, "缩写为 1-4 个英文字母")
+        raise HTTPException(400, {"message": "缩写为 1-4 个英文字母", "kind": "category_abbr"})
     if not re.fullmatch(r"#[0-9a-f]{6}", color):
-        raise HTTPException(400, "色值格式 #rrggbb")
+        raise HTTPException(400, {"message": "色值格式 #rrggbb", "kind": "category_color"})
     row = await db.execute(text("""
         SELECT name FROM community.skill_categories WHERE id=:id
     """), {"id": category_id})
     old_name = row.scalar_one_or_none()
     if old_name is None:
-        raise HTTPException(404, "分类不存在")
+        raise HTTPException(404, {"message": "分类不存在", "kind": "category_not_found"})
     if old_name != name:
         dup = await db.execute(text("""
             SELECT 1 FROM community.skill_categories
             WHERE name=:name AND id<>:id LIMIT 1
         """), {"id": category_id, "name": name})
         if dup.scalar_one_or_none() is not None:
-            raise HTTPException(409, "分类名已存在")
+            raise HTTPException(409, {"message": "分类名已存在", "kind": "category_name_conflict"})
         # 先同步存量技能引用（读旧名），再改字典，两步顺序不可颠倒
         await db.execute(text("""
             UPDATE community.skills SET category=:name

@@ -325,6 +325,21 @@ class WorkerStabilityGateTests(unittest.TestCase):
 class FailureReportingTests(unittest.TestCase):
     """12. failure 非零, 不伪报 success。"""
 
+    def test_build_command_is_npm_ci_only(self):
+        """B5-01: 发布构建只允许 npm ci —— 不得回退 npm install（锁文件可重现）。"""
+        r = _ok_world()
+        with mock.patch.object(D, "wait_http_ok", side_effect=lambda url, **k: url in r.http_ok_urls), \
+             mock.patch.object(D, "wait_worker_online", return_value=True), \
+             mock.patch.object(D.os, "geteuid", return_value=1000), \
+             mock.patch.object(D, "public_smoke", return_value=True):
+            self.assertTrue(D.deploy(runner=r, skip_build=False))
+        build_cmds = [argv for argv in r.argv_log
+                      if argv[0] == "bash" and "next build" in (argv[-1] or "")]
+        self.assertEqual(len(build_cmds), 1)
+        script = build_cmds[0][-1]
+        self.assertIn("npm ci", script)
+        self.assertNotIn("npm install", script)
+
     def test_build_failure_returns_false(self):
         r = _ok_world()
         r.build_ok = False
