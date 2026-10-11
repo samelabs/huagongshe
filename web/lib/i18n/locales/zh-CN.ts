@@ -1153,11 +1153,13 @@ const t = {
 
   /* ── 错误页 ──────────────────────────────────────────── */
   error: {
-    title: '页面暂时无法加载',
-    body: '数据没有丢失，请稍后重试。',
+    clientTitle: '页面出了点问题',
+    clientBody: '这一步没有加载成功。你的数据没有丢失，可以重试，或先回首页。',
     retry: '重新加载',
     notFoundTitle: '没有找到这条记录',
-    notFoundAction: '返回搜索',
+    notFoundBody: '链接可能已失效，或这条记录已被删除。',
+    notFoundHome: '返回首页',
+    notFoundAction: '去搜索',
   },
 
 } as const

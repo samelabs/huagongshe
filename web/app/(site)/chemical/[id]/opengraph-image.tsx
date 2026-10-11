@@ -1,7 +1,8 @@
 import { ImageResponse } from "next/og";
 
 import { OgBrandCard } from "@/components/OgBrandCard";
-import { apiGet, isApiNotFound, type Chemical } from "@/lib/api";
+import { notFound } from "next/navigation";
+import { apiGet, isEntityId, type Chemical } from "@/lib/api";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { fetchMolPngDataUrl, logoDataUrl } from "@/lib/ogAssets";
 import t from "@/lib/i18n";
@@ -23,14 +24,13 @@ export const alt = `${t.brand.name} · 化合物品牌卡`;
 
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // FX-3（SMK-002）：非法 ID 同页面/metadata 一致 404；其余取数失败退兜底卡
+  if (!isEntityId(id)) notFound();
   const locale = await getRequestLocale();
   const dict = await getRequestDictionary();
   const numericId = Number(id);
 
-  const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=core`).catch((error) => {
-    if (isApiNotFound(error)) return null;
-    throw error;
-  });
+  const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=core`).catch(() => null);
   const { title } = chemical
     ? resolveChemicalName({ ...chemical, id }, dict.common.hcidLabel, locale)
     : { title: dict.common.hcidShort(id) };

@@ -1143,11 +1143,13 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
 
   /* ── Error pages ───────────────────────────────────── */
   error: {
-    title: 'This page could not be loaded',
-    body: 'No data was lost. Please try again shortly.',
+    clientTitle: 'Something went wrong',
+    clientBody: 'This step failed to load. Your data is safe — retry, or head back to the home page.',
     retry: 'Reload',
     notFoundTitle: 'Record not found',
-    notFoundAction: 'Back to search',
+    notFoundBody: 'The link may be outdated, or the record has been removed.',
+    notFoundHome: 'Back to home',
+    notFoundAction: 'Go to search',
   },
 
 } /* satisfies Dictionary via the annotation above; kept as a plain literal for type-checking clarity */

@@ -7,7 +7,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { IconLock } from "@/components/ui/icons";
 import { Tag } from "@/components/ui/Tag";
-import { apiGet, isApiNotFound, type NoteItem } from "@/lib/api";
+import { apiGet, isApiNotFound, isApiGone, isEntityId, type NoteItem } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
@@ -16,6 +16,8 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { id } = await params;
+  // FX-3（SMK-002）：非法 ID 与页面同一口径 → 404
+  if (!isEntityId(id)) notFound();
   const canonical = `/note/${id}`;
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
@@ -61,6 +63,8 @@ function contentAfterFirstLine(content: string): string {
 
 export default async function NoteDetailPage({ params }: Params) {
   const { id } = await params;
+  // FX-3（SMK-002 / HGS-WEB-DETAIL-ID-01）：非法 ID 直接 404；后端 422 同 404
+  if (!isEntityId(id)) notFound();
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   const cookieStore = await cookies();
@@ -71,7 +75,12 @@ export default async function NoteDetailPage({ params }: Params) {
     // Server-side read with the viewer session; permission matrix is enforced
     // by GET /api/notes/{id} (public anonymous / owner session; 404 otherwise).
     note = await apiGet<NoteItem>(`/notes/${id}`, hasSession ? { Cookie: cookie } : undefined);
-  } catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
+  } catch (error) {
+    // 404（无此笔记/无权限）与 422（ID 非法）同道落 404 页；
+    // isApiNotFound 为 P1C 隐私契约键（私有笔记按 404 呈现，不泄漏存在性）
+    if (isApiNotFound(error) || isApiGone(error)) notFound();
+    throw error;
+  }
 
   const authorLine = note.display_name || `@${note.username}`;
   const singleLineTitle = noteTitle(note.content, note.id, t.notes.detailTitle);

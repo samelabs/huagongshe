@@ -3,6 +3,8 @@ import { ImageResponse } from "next/og";
 import { OgBrandCard } from "@/components/OgBrandCard";
 import { logoDataUrl } from "@/lib/ogAssets";
 import t from "@/lib/i18n";
+import { notFound } from "next/navigation";
+import { isEntityId } from "@/lib/api";
 import { getRequestDictionary } from "@/lib/serverI18n";
 
 /**
@@ -21,6 +23,8 @@ export const alt = `${t.brand.name} · 笔记品牌卡`;
 
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // FX-3（SMK-002）：非法 ID 与页面同一口径 → 404
+  if (!isEntityId(id)) notFound();
   const t = await getRequestDictionary();
   const logo = await logoDataUrl();
 

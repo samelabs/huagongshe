@@ -1147,11 +1147,13 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
 
   /* ── Fehlerseiten ───────────────────────────────────── */
   error: {
-    title: 'Seite vorübergehend nicht verfügbar',
-    body: 'Deine Daten sind nicht verloren. Bitte später erneut versuchen.',
+    clientTitle: 'Etwas ist schiefgelaufen',
+    clientBody: 'Dieser Schritt konnte nicht geladen werden. Ihre Daten sind sicher — versuchen Sie es erneut oder kehren Sie zur Startseite zurück.',
     retry: 'Neu laden',
     notFoundTitle: 'Dieser Eintrag wurde nicht gefunden',
-    notFoundAction: 'Zurück zur Suche',
+    notFoundBody: 'Der Link ist möglicherweise veraltet oder der Eintrag wurde entfernt.',
+    notFoundHome: 'Zur Startseite',
+    notFoundAction: 'Zur Suche',
   },
 
 }

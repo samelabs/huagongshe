@@ -32,6 +32,18 @@ export function isApiNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 404;
 }
 
+/** FX-3（SMK-002）：记录不存在的错误形态 —— 404（无此记录）与 422（ID 非法，
+ *  FastAPI int-Path 校验拒绝）都应落到前端 404 页，而不是 500。 */
+export function isApiGone(error: unknown): error is ApiError {
+  return error instanceof ApiError && (error.status === 404 || error.status === 422);
+}
+
+/** 实体详情 [id] 段的合法性：仅纯数字（无符号/小数/科学计数）。不满足时
+ * 调用方直接 notFound()，不把非法 ID 打到后端。 */
+export function isEntityId(id: string): boolean {
+  return /^\d+$/.test(id);
+}
+
 async function safeDetail(response: Response): Promise<unknown> {
   try {
     return await response.clone().json();

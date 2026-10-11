@@ -249,9 +249,11 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .empty-state--search .empty-state-hints span { color: var(--text-muted); font-size: var(--fs-12); line-height: 1.6; }
 .empty-state--search .button { margin-top: 10px; }
 .quiet-empty { margin: 0; padding: 24px 0; color: var(--text-muted); font-size: var(--fs-13); }
-.error-page { padding-top: clamp(72px, 12vh, 130px); text-align: center; }
-.error-page h1 { margin-bottom: 12px; font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); }
-.error-page > p:not(.eyebrow) { margin-bottom: 24px; color: var(--text-muted); }
+.error-page { padding-top: clamp(48px, 9vh, 110px); text-align: center; }
+/* FX-4：错误/404 页 = EmptyState（ui 组件）；下方补一个次要首页链接 */
+.error-page .hg-empty { padding: var(--sp-8) var(--sp-6); }
+.error-page-home { margin: 0 0 24px; }
+.error-page-home .text-link { font-size: var(--fs-14); }
 .context-loading { padding: 35px 0; color: var(--text-muted); }
 
 .search-page { max-width: var(--w-content); }

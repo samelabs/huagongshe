@@ -1146,11 +1146,13 @@ const ko: Dictionary = {
 
   /* ── 오류 페이지 ────────────────────────────────────── */
   error: {
-    title: '페이지를 일시적으로 불러올 수 없습니다',
-    body: '데이터는 사라지지 않았습니다. 잠시 후 다시 시도해 주세요.',
+    clientTitle: '페이지에 문제가 발생했습니다',
+    clientBody: '이 단계를 불러오지 못했습니다. 데이터는 안전합니다. 다시 시도하거나 홈으로 돌아가세요.',
     retry: '다시 불러오기',
     notFoundTitle: '이 기록을 찾을 수 없습니다',
-    notFoundAction: '검색으로 돌아가기',
+    notFoundBody: '링크가 만료되었거나 기록이 삭제되었을 수 있습니다.',
+    notFoundHome: '홈으로 돌아가기',
+    notFoundAction: '검색으로 이동',
   },
 
 }

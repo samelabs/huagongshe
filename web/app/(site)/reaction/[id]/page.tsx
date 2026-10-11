@@ -15,7 +15,7 @@ import { CodeField } from "@/components/ui/CodeField";
 import { Notice } from "@/components/ui/Notice";
 import { Tag } from "@/components/ui/Tag";
 import { Molecule } from "@/components/Molecule";
-import { apiGet, isApiNotFound, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
+import { apiGet, isApiGone, isEntityId, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
@@ -46,6 +46,8 @@ function roleNames(t: Dictionary): Record<string, string> {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
+  // FX-3（SMK-002）：非法 ID 与页面同一口径 → 404
+  if (!isEntityId(id)) notFound();
   const canonical = `/reaction/${id}`;
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
@@ -63,6 +65,8 @@ export default async function ReactionPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  // FX-3（SMK-002 / HGS-WEB-DETAIL-ID-01）：非法 ID 直接 404；后端 422 同 404
+  if (!isEntityId(id)) notFound();
   const locale: Locale = await getRequestLocale();
   const t = await getRequestDictionary();
   const cookieStore = await cookies();
@@ -71,7 +75,7 @@ export default async function ReactionPage({ params }: {
   let reaction: ReactionDetail;
   try {
     reaction = await apiGet<ReactionDetail>(`/reactions/${id}`, hasSession ? { Cookie: cookie } : undefined);
-  } catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
+  } catch (error) { if (isApiGone(error)) notFound(); throw error; }
 
   const reactants = reaction.participants.filter((item) => item.role === "REACTANT");
   const products = reaction.participants.filter((item) => item.role === "PRODUCT");

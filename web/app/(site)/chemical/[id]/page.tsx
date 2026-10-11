@@ -18,7 +18,7 @@ import { ReactionList } from "@/components/ReactionList";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
 import { cbInFlight } from "@/components/chemicalStatus";
 import { isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
-import { apiGet, isApiNotFound, type Chemical, type ReactionSummary, type SemanticDetail, type ProseItem, type CasSupplier } from "@/lib/api";
+import { apiGet, isApiGone, isEntityId, type Chemical, type ReactionSummary, type SemanticDetail, type ProseItem, type CasSupplier } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
@@ -46,11 +46,16 @@ const UPDOWN_TAG_LIMIT = 12; // 上下游 Tag 每向默认显示数
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
+  // FX-3（SMK-002）：非法 ID 在 metadata 层同样 404，不给 422/500 留通道
+  if (!isEntityId(id)) notFound();
   const canonical = `/chemical/${id}`;
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   // metadata 只需要 canonical 投影 —— enrich=core(零 provider 访问, E9-B 1.6)
-  const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=core`).catch(() => null);
+  const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=core`).catch((error: unknown) => {
+    if (isApiGone(error)) notFound();
+    return null; // 后端暂不可用：退化为通用标题，不让 metadata 500
+  });
   // 与页面 H1 同源: 同一 resolver、同一 locale, 不允许 SEO 自己再写一套 fallback
   const { title: displayName } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel, locale);
   const pageTitle = `${displayName} (${t.common.hcidShort(id)})`;
@@ -79,6 +84,9 @@ export default async function ChemicalPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  // FX-3（SMK-002 / HGS-WEB-DETAIL-ID-01）：ID 不满足 ^\d+$ 直接 404；
+  // 后端 422（int-Path 校验拒绝，如超大数）同样按 404 呈现
+  if (!isEntityId(id)) notFound();
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   const hasSession = (await cookies()).has("hgs_session");
@@ -89,7 +97,7 @@ export default async function ChemicalPage({ params }: {
 
   const [chemicalResult, reactionsResult] = await Promise.all([
     apiGet<Chemical>(`/chemicals/${id}?enrich=full&locale=${encodeURIComponent(locale)}`, sessionHeaders).catch((error: unknown) => {
-      if (isApiNotFound(error)) notFound();
+      if (isApiGone(error)) notFound();
       throw error;
     }),
     apiGet<{ total: number; page: number; page_size: number; reactions: ReactionSummary[] }>(
