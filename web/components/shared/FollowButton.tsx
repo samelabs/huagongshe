@@ -8,7 +8,7 @@
  * variant/size 可覆盖（默认 primary；创建者卡片等场景传 tonal sm）。
  */
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiPost, apiDelete, ApiError } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
@@ -49,9 +49,23 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   followingRef.current = following;
   const busyRef = useRef(false);
   busyRef.current = busy;
+  /** SMK-012：用户操作过（touched）就不再跟随 props —— 异步回填只同步初始态 */
+  const touchedRef = useRef(false);
+
+  // FX-8b（HGS-ACTIVITY-FAVOR-INIT-01）：初始 props 迟到变化时同步（用户未操作前）
+  useEffect(() => {
+    if (touchedRef.current) return;
+    setFollowing(initial);
+    followingRef.current = initial;
+  }, [initial]);
+  useEffect(() => {
+    if (touchedRef.current) return;
+    setFollowers(count);
+  }, [count]);
 
   async function apply(next: boolean) {
     if (disabled || busyRef.current) return;
+    touchedRef.current = true;
     setBusy(true);
     const prev = followingRef.current;
     const prevCount = followers;
@@ -61,11 +75,13 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
       if (prev) await apiDelete(endpoint);
       else await apiPost(endpoint);
       onChange?.(next);
-      if (next) {
-        toast.success(label === "favor" ? t.follow.favorToast : t.follow.followToast, {
-          action: { label: t.follow.undo, onClick: () => { void apply(false); } },
-        });
-      }
+      // FX-7（SMK-005）：取消方向同样 Toast +「撤销」——两个方向反馈一致（IX-6）
+      toast.success(
+        label === "favor"
+          ? (next ? t.follow.favorToast : t.follow.unfavorToast)
+          : (next ? t.follow.followToast : t.follow.unfollowToast),
+        { action: { label: t.follow.undo, onClick: () => { void apply(!next); } } },
+      );
     } catch (err) {
       setFollowing(prev);
       setFollowers(prevCount);

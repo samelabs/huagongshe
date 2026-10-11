@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ApiError, apiDelete, apiGet, apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { IconSparkle } from "@/components/ui/icons";
 import { Notice } from "@/components/ui/Notice";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Pagination, PanelError, PanelHeading, PanelLoading } from "../shared";
@@ -36,6 +38,8 @@ function skillsErrorMessage(error: unknown, t: { me: { skillLoginRequired: strin
 export function SkillsPanel({ page, initialData }: { page: number; initialData?: PageResponse<SkillItem> | null }) {
   const t = useDictionary();
   const locale = useLocale();
+  const confirm = useConfirm();
+  const router = useRouter();
   const [skills, setSkills] = useState<PageResponse<SkillItem>>(initialData ?? emptyPage<SkillItem>());
   const [state, setState] = useState<LoadState>(initialData ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);
@@ -90,6 +94,8 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
         const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=1&page_size=20`);
         setSkills(value);
         setState("ready");
+        // FX-9b（SMK-014）：上传成功落到第 1 页时同步 URL，避免「看第 1 页、URL 第 N 页」
+        if (page !== 1) router.replace(withLocale("/aichem?tab=skills", locale));
       } catch {
         setUploadNotice(t.me.skillUploaded(created.slug) + warn + " " + t.me.skillRefreshFailed);
       }
@@ -102,6 +108,15 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
   }
 
   async function handleDelete(id: number, slug: string) {
+    // FX-5（SMK-004 / HGS-A3-01）：不可逆删除必须二次确认（IX-3），
+    // 全站唯一漏接确认的删除操作补齐
+    const ok = await confirm({
+      title: t.me.skillDeleteTitle,
+      body: t.me.skillDeleteBody(slug),
+      confirmLabel: t.me.skillDeleteLabel,
+      tone: "danger",
+    });
+    if (!ok) return;
     setUploadNotice(null);
     setUploadError(null);
     try {
@@ -109,11 +124,15 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
       // v1.7.0 L3 补正: 删除成功即成功 — 刷新失败单独提示, 不报"删除失败",
       // 不重复提交删除。
       setUploadNotice(t.me.skillDeleted(slug));
+      // FX-9a（SMK-013）：按当前页刷新；当前页被删空则退回上一页并同步 URL
+      const lastPage = Math.max(1, Math.ceil((skills.total - 1) / 20));
+      const target = Math.min(page, lastPage);
       try {
-        const value = await apiGet<PageResponse<SkillItem>>(
-          `/skills?scope=mine&page=${Math.min(page, Math.max(1, Math.ceil((skills.total - 1) / 20)))}&page_size=20`
-        );
+        const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=${target}&page_size=20`);
         setSkills(value);
+        if (target !== page) {
+          router.replace(withLocale(target > 1 ? `/aichem?tab=skills&page=${target}` : "/aichem?tab=skills", locale));
+        }
       } catch {
         setUploadNotice(t.me.skillDeleted(slug) + " " + t.me.skillRefreshFailed);
       }

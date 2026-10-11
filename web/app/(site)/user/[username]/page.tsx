@@ -78,7 +78,9 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   let favoredReactionIds = new Set<number>();
   if (hasSession) {
     try {
-      const followed = await apiGet<{ items: { id: number }[] }>(`/users/me/follows/reactions?page=1&page_size=100`);
+      // FX-8a（SMK-011 / HGS-PROFILE-FAVOR-SSR-01）：SSR 预取转发会话 Cookie，
+      // 否则永远按匿名渲染为未收藏，首击发出重复 POST
+      const followed = await apiGet<{ items: { id: number }[] }>(`/users/me/follows/reactions?page=1&page_size=100`, headers);
       favoredReactionIds = new Set(followed.items.map((item) => item.id));
     } catch { /* 保持空集 */ }
   }

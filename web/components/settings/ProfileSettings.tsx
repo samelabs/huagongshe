@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
 import { apiGet, apiPatch, ApiError } from "@/lib/api";
@@ -35,6 +35,8 @@ export function ProfileSettings() {
   const toast = useToast();
   const { user, ready, refresh } = useAccount();
   const [profile, setProfile] = useState<Profile>(EMPTY);
+  /** FX-6b（SMK-016）：用户编辑过任何字段后，迟到的 GET 初值不再回填 */
+  const touchedRef = useRef(false);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof Profile, string>>>({});
   const [busy, setBusy] = useState(false);
 
@@ -42,7 +44,7 @@ export function ProfileSettings() {
     if (!user) return;
     let active = true;
     apiGet<Record<string, string>>(`/users/${encodeURIComponent(user.username)}`).then((value) => {
-      if (!active) return;
+      if (!active || touchedRef.current) return;
       setProfile({
         display_name: value.display_name || "",
         bio: value.bio || "",
@@ -61,6 +63,7 @@ export function ProfileSettings() {
   if (!user) return <LoginRequired text={t.settings.profile.loginHint} />;
 
   function update(field: keyof Profile, value: string) {
+    touchedRef.current = true;
     setProfile((prev) => ({ ...prev, [field]: value }));
     setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
   }

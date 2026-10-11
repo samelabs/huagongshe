@@ -56,6 +56,39 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
     return () => { active = false; };
   }, [kind, page]);
 
+  /** FX-9a（SMK-013 / HGS-SAVED-REACTION-PAGE-01）：按当前 URL 页码重拉；
+   * 当前页没有数据了才退回上一页（router.replace 同步 URL）。 */
+  function savedHrefFor(targetPage: number, kindValue: SavedKind): string {
+    const params = new URLSearchParams({ tab: "saved" });
+    if (kindValue === "reactions") params.set("kind", "reactions");
+    if (targetPage > 1) params.set("page", String(targetPage));
+    return withLocale(`/aichem?${params.toString()}`, locale);
+  }
+
+  async function reloadChemicals(targetPage: number) {
+    try {
+      const value = await apiGet<PageResponse<ChemicalFollow>>(`/users/me/follows/chemicals?page=${targetPage}&page_size=40`);
+      if (!value.items.length && targetPage > 1) {
+        router.replace(savedHrefFor(targetPage - 1, "chemicals"));
+        return;
+      }
+      setChemicals(value);
+      setState("ready");
+    } catch { /* 保持当前展示 */ }
+  }
+
+  async function reloadReactions(targetPage: number) {
+    try {
+      const value = await apiGet<PageResponse<Reaction>>(`/users/me/follows/reactions?page=${targetPage}&page_size=20`);
+      if (!value.items.length && targetPage > 1) {
+        router.replace(savedHrefFor(targetPage - 1, "reactions"));
+        return;
+      }
+      setSavedReactions(value);
+      setState("ready");
+    } catch { /* 保持当前展示 */ }
+  }
+
   /** §6 Step 9：Tabs 分 化合物/反应（带计数），切换走 URL 参数（SSR 预取一致） */
   function switchKind(next: string) {
     if (next === kind) return;
@@ -80,21 +113,16 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
               apiPost(`/chemicals/${item.id}/follow`)
                 .then(() => {
                   refreshCounts();
-                  setChemicals((current) =>
-                    current.items.some((row) => row.id === item.id)
-                      ? current
-                      : { ...current, items: [item, ...current.items], total: current.total + 1 });
+                  void reloadChemicals(page);
                 })
                 .catch(() => toast.error(t.follow.favorErr));
             },
           },
         });
+        void reloadChemicals(page); // 当前页删空时由 reload 回退上一页
       })
       .catch(() => {
-        setChemicals((current) =>
-          current.items.some((row) => row.id === item.id)
-            ? current
-            : { ...current, items: [item, ...current.items], total: current.total + 1 });
+        void reloadChemicals(page);
         toast.error(t.follow.favorErr);
       });
   }
@@ -115,19 +143,16 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
               apiPost(`/reactions/${id}/follow`)
                 .then(() => {
                   refreshCounts();
-                  apiGet<PageResponse<Reaction>>(`/users/me/follows/reactions?page=1&page_size=20`)
-                    .then((value) => setSavedReactions(value))
-                    .catch(() => toast.error(t.follow.favorErr));
+                  void reloadReactions(page);
                 })
                 .catch(() => toast.error(t.follow.favorErr));
             },
           },
         });
+        void reloadReactions(page); // 当前页删空时由 reload 回退上一页
       })
       .catch(() => {
-        apiGet<PageResponse<Reaction>>(`/users/me/follows/reactions?page=1&page_size=20`)
-          .then((value) => setSavedReactions(value))
-          .catch(() => {});
+        void reloadReactions(page);
         toast.error(t.follow.favorErr);
       });
   }

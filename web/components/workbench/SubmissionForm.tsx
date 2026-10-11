@@ -62,6 +62,9 @@ export function SubmissionForm() {
   const [message, setMessage] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [dirty, setDirty] = useState(false);
+  /** FX-6a（SMK-003）：异步预填回调读最新脏态 —— 用户已输入时不覆盖 */
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
   const submitting = useRef(false);
   const idempotency = useRef({ key: "", body: "" });
 
@@ -110,7 +113,7 @@ export function SubmissionForm() {
     if (chemicalId) {
       setParticipants([blank("REACTANT"), blank("PRODUCT")]);
       apiGet<{ smiles?: string }>(`/chemicals/${chemicalId}`).then((chemical) => {
-        if (active && chemical.smiles) setParticipants([blank("REACTANT", chemical.smiles), blank("PRODUCT")]);
+        if (active && chemical.smiles && !dirtyRef.current) setParticipants([blank("REACTANT", chemical.smiles), blank("PRODUCT")]);
       }).catch(() => {});
       return () => { active = false; };
     }
