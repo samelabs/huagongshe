@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiPost, apiPut, ApiError } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
 import { Button } from "@/components/ui/Button";
 import { Field, Select, Textarea } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { useToast } from "@/components/ui/Toast";
 import { EntityReferencePicker } from "./EntityReferencePicker";
 import { SaveStatus, type SaveStatusKind } from "./SaveStatus";
 import { useUnsavedGuard } from "./useUnsavedGuard";
@@ -15,9 +16,10 @@ import type { NoteItem } from "./types";
 /**
  * NoteEditor — 手动保存（沿用现有保存方式，IX-5 只加状态与拦截）：
  * - 标题旁显示保存状态：已保存 / 保存中 / 未保存的修改 / 保存失败（带重试）。
- * - 有未保存修改时：站内路由切换弹 useConfirm（放弃修改，danger），
- *   刷新/关闭走 beforeunload；「取消」按钮同样先确认。
- * - 保存失败保留输入内容，Notice err + 重试。
+ * - 有未保存修改或保存在途时：站内路由切换/浏览器后退弹 useConfirm
+ *   （放弃修改，danger），「取消」按钮同样先确认；父面板经 onGuardChange
+ *   同步该状态拦截「新建/切编辑/切可见性」（SMK-001）。
+ * - 保存失败保留输入内容，Toast err + Notice err + 重试。
  * - 字段用 Field 组件（label 在上）。
  */
 export function NoteEditor({
@@ -26,15 +28,23 @@ export function NoteEditor({
   initialReactionIds = [],
   onSaved,
   onCancel,
+  onGuardChange,
+  resetNonce = 0,
 }: {
   note?: NoteItem | null;
   initialChemicalIds?: number[];
   initialReactionIds?: number[];
   onSaved: (note: NoteItem) => void;
   onCancel: () => void;
+  /** 编辑器处于「有不可丢失状态」（脏草稿或保存在途）时上报 true ——
+   *  NotesPanel 用它拦截 新建/切编辑/切可见性 三条不经过 <a> 的丢稿路径。 */
+  onGuardChange?: (active: boolean) => void;
+  /** 父面板「确认放弃后重开」递增号：key 不变（同一笔记）时靠它重置草稿 */
+  resetNonce?: number;
 }) {
   const t = useDictionary();
   const confirm = useConfirm();
+  const toast = useToast();
   const [visibility, setVisibility] = useState<"private" | "public">(note?.visibility ?? "private");
   const [content, setContent] = useState(note?.content ?? "");
   const [chemicalIds, setChemicalIds] = useState<number[]>(note?.chemical_ids ?? initialChemicalIds);
@@ -55,8 +65,29 @@ export function NoteEditor({
     || chemicalIds.join(",") !== baseline.current.chemicalIds
     || reactionIds.join(",") !== baseline.current.reactionIds;
   const dirty = !busy && changed;
+  /** SMK-001：保存在途同样是「有不可丢失的状态」——拦截保护不得被撤掉 */
+  const guard = dirty || busy;
 
-  useUnsavedGuard(dirty);
+  useUnsavedGuard(guard);
+
+  useEffect(() => { onGuardChange?.(guard); }, [guard, onGuardChange]);
+
+  /** SMK-001：key 保持 P1C 契约串（edit-<id>/new-*），同一笔记确认放弃后
+   *  重开（key 不变）由 resetNonce 触发内部草稿重置 —— 等价于重挂载。 */
+  useEffect(() => {
+    setVisibility(note?.visibility ?? "private");
+    setContent(note?.content ?? "");
+    setChemicalIds(note?.chemical_ids ?? initialChemicalIds);
+    setReactionIds(note?.reaction_ids ?? initialReactionIds);
+    baseline.current = {
+      visibility: note?.visibility ?? "private",
+      content: note?.content ?? "",
+      chemicalIds: (note?.chemical_ids ?? initialChemicalIds).join(","),
+      reactionIds: (note?.reaction_ids ?? initialReactionIds).join(","),
+    };
+    setError("");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetNonce]);
 
   const status: SaveStatusKind | null = useMemo(() => {
     if (busy) return "saving";
@@ -85,21 +116,19 @@ export function NoteEditor({
       // v1.7.0 L2(+补正): 先按 HTTP 状态区分会话/限流 — 与失败原因一致;
       // 400 引用校验按 kind 机器码映射五语言分类提示; 其余未知失败安全
       // 回退 notesSaveFailed, 不展示原始技术错误或中文原文。
-      // 输入内容全部保留（IX-5：保存失败不清空输入）。
+      // 输入内容全部保留（IX-5：保存失败不清空输入）；
+      // Toast err 即时反馈 + Notice err 常驻带重试（SMK-001/IX-12）。
+      let message = t.me.notesSaveFailed;
       if (err instanceof ApiError) {
-        if (err.status === 401) {
-          setError(t.me.notesSessionExpired);
-        } else if (err.status === 429) {
-          setError(t.search.errRateLimit);
-        } else if (err.status === 400 && err.detailKind) {
+        if (err.status === 401) message = t.me.notesSessionExpired;
+        else if (err.status === 429) message = t.search.errRateLimit;
+        else if (err.status === 400 && err.detailKind) {
           const byKind = t.me.notesRefError[err.detailKind as keyof typeof t.me.notesRefError];
-          setError(byKind ?? t.me.notesSaveFailed);
-        } else {
-          setError(t.me.notesSaveFailed);
+          message = byKind ?? t.me.notesSaveFailed;
         }
-      } else {
-        setError(t.me.notesSaveFailed);
       }
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -118,6 +147,7 @@ export function NoteEditor({
         title: t.editor.unsavedTitle,
         body: t.editor.unsavedBody,
         confirmLabel: t.editor.unsavedConfirm,
+        cancelLabel: t.editor.unsavedCancel,
         tone: "danger",
       });
       if (!ok) return;

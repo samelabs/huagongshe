@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EntityId } from "@/components/shared/EntityId";
@@ -86,8 +86,32 @@ export function NotesPanel({
     chemicalIds: initialChemicalId ? [initialChemicalId] : [] as number[],
     reactionIds: initialReactionId ? [initialReactionId] : [] as number[],
   }));
+  /** SMK-001：每次「确认放弃旧草稿 → 打开新编辑上下文」递增，强制 NoteEditor
+   *  重挂载（key 变化）——否则同一 key 下编辑器实例复用，旧草稿残留。 */
+  const [editorNonce, setEditorNonce] = useState(0);
+  /** SMK-001：编辑器「有不可丢失状态」（脏草稿/保存在途）——由 NoteEditor 上报 */
+  const [editorGuard, setEditorGuard] = useState(false);
+  const handleGuardChange = useCallback((value: boolean) => setEditorGuard(value), []);
   const mounted = useRef(false);
   const latestLoad = useRef(0);
+
+  // 编辑器关闭后复位面板侧拦截状态
+  useEffect(() => {
+    if (!creating && !editing) setEditorGuard(false);
+  }, [creating, editing]);
+
+  /** SMK-001：切换编辑上下文前的统一丢稿拦截（新建/切编辑/切可见性三条
+   *  不经过 <a> 的路径）。返回 true = 可以继续切换。 */
+  async function guardDraft(): Promise<boolean> {
+    if (!editorGuard) return true;
+    return confirm({
+      title: t.editor.unsavedTitle,
+      body: t.editor.unsavedBody,
+      confirmLabel: t.editor.unsavedConfirm,
+      cancelLabel: t.editor.unsavedCancel,
+      tone: "danger",
+    });
+  }
 
   // Step 7 Part C: ?edit=<id> → 拉取该笔记并直接进入编辑器（一次挂载效果）
   useEffect(() => {
@@ -107,9 +131,13 @@ export function NotesPanel({
     return withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(visibility, filterChemicalId, filterReactionId, targetPage)) }).toString()}`, locale);
   }
 
-  /** §6 Step 9：筛选用 Segmented（全部/私有/公开），仍走 URL 参数（可分享/SSR 预取一致） */
-  function switchVisibility(value: NoteVisibility) {
+  /** §6 Step 9：筛选用 Segmented（全部/私有/公开），仍走 URL 参数（可分享/SSR 预取一致）。
+   *  SMK-017：编辑器有未保存内容时先确认（router.push 不经过 <a> 拦截）。 */
+  async function switchVisibility(value: NoteVisibility) {
     if (value === visibility) return;
+    if (!(await guardDraft())) return;
+    setCreating(false);
+    setEditing(null);
     router.push(withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(value, filterChemicalId, filterReactionId)) }).toString()}`, locale));
   }
 
@@ -160,9 +188,13 @@ export function NotesPanel({
   }, [createOpen, initialChemicalId, initialReactionId]);
 
   function openCreate() {
-    setEditing(null);
-    setCreateContext({ chemicalIds: [], reactionIds: [] });
-    setCreating(true);
+    void (async () => {
+      if (!(await guardDraft())) return;
+      setEditing(null);
+      setCreateContext({ chemicalIds: [], reactionIds: [] });
+      setEditorNonce((n) => n + 1);
+      setCreating(true);
+    })();
   }
 
   function closeEditor() {
@@ -268,14 +300,14 @@ export function NotesPanel({
 
       {(creating || editing) && (
         <NoteEditor
-          key={editing
-            ? `edit-${editing.id}`
-            : `new-${createContext.chemicalIds.join("-") || 0}-${createContext.reactionIds.join("-") || 0}`}
+          key={editing ? `edit-${editing.id}` : `new-${editorNonce}`}
           note={editing}
           initialChemicalIds={!editing ? createContext.chemicalIds : []}
           initialReactionIds={!editing ? createContext.reactionIds : []}
           onCancel={closeEditor}
           onSaved={handleSaved}
+          onGuardChange={handleGuardChange}
+          resetNonce={editorNonce}
         />
       )}
 
@@ -304,7 +336,12 @@ export function NotesPanel({
                 <>
                   <time dateTime={note.updated_at}>{relativeTime(note.updated_at, locale)}</time>
                   <span className="wb-row-actions">
-                    <Button variant="ghost" size="sm" onClick={() => { setCreating(false); setEditing(note); }}>{t.common.edit}</Button>
+                    <Button variant="ghost" size="sm" onClick={() => { void (async () => {
+                      if (!(await guardDraft())) return;
+                      setCreating(false);
+                      setEditing(note);
+                      setEditorNonce((n) => n + 1);
+                    })(); }}>{t.common.edit}</Button>
                     <Button variant="danger-quiet" size="sm" onClick={() => void remove(note)}>{t.common.delete}</Button>
                   </span>
                 </>

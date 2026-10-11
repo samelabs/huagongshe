@@ -40,10 +40,10 @@ export function LanguageSwitcher() {
   const suffix = search ? `?${search}` : "";
   const detailsRef = useRef<HTMLDetailsElement>(null);
 
-  // samelabs 后台不在 locale 治理范围(边界语义: /samelabs 与 /samelabs/*, 不含 /samelabs-guide 等)
-  if (isPathAtOrBelow(pathname, "/samelabs")) return null;
-
-  // Esc 关闭浮层（IX-10），焦点回触发器
+  // Esc 关闭浮层（IX-10），焦点回触发器。
+  // SMK-006 / HGS-LOCALE-HOOK-01：所有 Hook 必须在下面的条件 return 之前 ——
+  // 站点顶栏跨 /samelabs 与公开页常驻，条件 return 早于 Hook 会在客户端
+  // 路由切换时改变 Hook 调用数量，触发 React Rules of Hooks 崩溃。
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
@@ -56,6 +56,9 @@ export function LanguageSwitcher() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, []);
+
+  // samelabs 后台不在 locale 治理范围(边界语义: /samelabs 与 /samelabs/*, 不含 /samelabs-guide 等)
+  if (isPathAtOrBelow(pathname, "/samelabs")) return null;
 
   return (
     <details className="lang-switcher" aria-label={t.nav.languageSwitcher} ref={detailsRef}>

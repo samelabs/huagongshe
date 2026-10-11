@@ -1145,6 +1145,7 @@ const t = {
     unsavedTitle: '放弃未保存的修改？',
     unsavedBody: '当前内容尚未保存，离开后将丢失本次修改。',
     unsavedConfirm: '放弃修改',
+    unsavedCancel: '继续编辑',
     contentLabel: '内容',
     visibilityLabel: '可见性',
     statusLabel: '保存状态',

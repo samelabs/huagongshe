@@ -1136,6 +1136,7 @@ const ja: Dictionary = {
     unsavedTitle: '未保存の変更を破棄しますか？',
     unsavedBody: '変更はまだ保存されていません。このまま離れると失われます。',
     unsavedConfirm: '変更を破棄',
+    unsavedCancel: '編集を続ける',
     contentLabel: '内容',
     visibilityLabel: '公開範囲',
     statusLabel: '保存状態',

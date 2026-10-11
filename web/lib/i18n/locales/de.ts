@@ -1139,6 +1139,7 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     unsavedTitle: 'Ungespeicherte Änderungen verwerfen?',
     unsavedBody: 'Deine Änderungen wurden noch nicht gespeichert und gehen beim Verlassen verloren.',
     unsavedConfirm: 'Änderungen verwerfen',
+    unsavedCancel: 'Weiter bearbeiten',
     contentLabel: 'Inhalt',
     visibilityLabel: 'Sichtbarkeit',
     statusLabel: 'Speicherstatus',

@@ -65,7 +65,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="hg-toast-host" aria-live="polite">
         {items.map((item) => (
-          <div key={item.id} className="hg-toast">
+          <div key={item.id} className={`hg-toast ${item.kind}`}>
             {item.kind === "ok" ? <IconOk className="ok" /> : <IconX className="err" />}
             <span>{item.message}</span>
             {item.action && (

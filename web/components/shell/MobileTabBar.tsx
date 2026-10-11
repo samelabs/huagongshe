@@ -23,9 +23,12 @@ export function MobileTabBar() {
   const locale = useLocale();
   const unread = useShellUnread();
   const routePath = stripLocalePrefix(usePathname() ?? "/");
+  // SMK-006 同类（eslint rules-of-hooks 全仓扫描命中）：useSearchParams 不得
+  // 写在 && 短路右侧 —— 跨路由客户端导航会改变 Hook 调用数量。
+  const tabParam = useSearchParams().get("tab");
   const activityHref = user ? "/aichem?tab=activity" : "/login";
   const meHref = user ? `/user/${encodeURIComponent(user.username)}` : "/login";
-  const isActivity = routePath === "/aichem" && useSearchParams().get("tab") === "activity";
+  const isActivity = routePath === "/aichem" && tabParam === "activity";
   const isWorkbench = !isActivity && (
     routePath === "/aichem" || routePath.startsWith("/aichem/")
     || routePath.startsWith("/submit") || routePath.startsWith("/me")

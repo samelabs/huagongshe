@@ -1135,6 +1135,7 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     unsavedTitle: 'Discard unsaved changes?',
     unsavedBody: 'Your edits have not been saved and will be lost if you leave.',
     unsavedConfirm: 'Discard changes',
+    unsavedCancel: 'Keep editing',
     contentLabel: 'Content',
     visibilityLabel: 'Visibility',
     statusLabel: 'Save status',

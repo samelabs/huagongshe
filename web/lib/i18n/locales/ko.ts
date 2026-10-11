@@ -1138,6 +1138,7 @@ const ko: Dictionary = {
     unsavedTitle: '저장하지 않은 변경 사항을 버립니까?',
     unsavedBody: '변경 사항이 아직 저장되지 않았습니다. 떠나면 사라집니다.',
     unsavedConfirm: '변경 사항 버리기',
+    unsavedCancel: '계속 편집',
     contentLabel: '내용',
     visibilityLabel: '공개 범위',
     statusLabel: '저장 상태',
