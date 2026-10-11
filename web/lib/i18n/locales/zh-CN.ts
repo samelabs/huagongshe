@@ -31,6 +31,7 @@ const t = {
   /* ── 通用交互 ────────────────────────────────────────── */
   common: {
     loading: '加载中…',
+    slowLoading: '仍在处理，请稍候…',
     loadingAccount: '正在读取账号…',
     errRetry: '加载失败，请重试',
     loginRequired: '请先登录',
@@ -111,11 +112,10 @@ const t = {
     entryMcp: 'MCP 接入',
     entryWorkbench: '网页工作台',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin，未上架",
+    entryPlugin: "ChatGPT / Plugin",
     /* Step 10：MCP 地址复制按钮 aria / Plugin 状态说明 + Tag warn 文案 */
     entryMcpCopy: '复制 MCP 服务器地址',
     entryPluginNote: 'ChatGPT / Plugin',
-    pluginNotListed: '未上架',
   },
 
   /* ── 搜索 ────────────────────────────────────────────── */
@@ -817,9 +817,9 @@ const t = {
   mcp: {
     hero: '连接化工社 MCP Server',
     heroBody: '化工社提供远程 MCP Server。支持 MCP 的 AI 客户端连接后，可以直接调用化工社的化合物、反应、结构处理、投料计算和个人工作台能力。',
-    pluginKicker: "ChatGPT / Plugin",
-    pluginTitle: "ChatGPT 插件接入状态",
-    pluginStatus: "ChatGPT Plugin 已准备提交，但尚未在插件目录上架，当前不能直接安装。支持远程 MCP 的客户端可连接现有化工社 MCP Server。",
+    pluginKicker: "插件包",
+    pluginTitle: "ChatGPT 插件接入",
+    pluginStatus: "插件包供支持 ChatGPT 插件协议的客户端下载接入；不装插件也可以直接连接下面的 MCP 端点使用全部能力。",
     /* ── 连接信息 ── */
     connectKicker: '连接信息',
     connectUrlLabel: 'MCP Server',

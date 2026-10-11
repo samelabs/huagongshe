@@ -13,7 +13,7 @@ import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { useWorkbenchCounts } from "../WorkbenchCountsContext";
-import { PanelError, PanelHeading, PanelLoading, Pagination, ReactionRow, WbListRow } from "../shared";
+import { PanelError, PanelHeading, PanelLoading, Pagination, ReactionRow, SlowNotice, WbListRow } from "../shared";
 import type { ChemicalFollow, LoadState, PageResponse, PanelProps, Reaction, SavedKind } from "../types";
 
 const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, page_size: 40 });
@@ -35,25 +35,38 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
   );
   const [error, setError] = useState<unknown>(null);
   const mounted = useRef(false);
+  const latestLoad = useRef(0);
+
+  /** FX-16：客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
+  async function load() {
+    const requestId = ++latestLoad.current;
+    setState("loading");
+    setError(null);
+    try {
+      if (kind === "chemicals") {
+        const value = await apiGet<PageResponse<ChemicalFollow>>(`/users/me/follows/chemicals?page=${page}&page_size=40`);
+        if (requestId !== latestLoad.current) return;
+        setChemicals(value);
+      } else {
+        const value = await apiGet<PageResponse<Reaction>>(`/users/me/follows/reactions?page=${page}&page_size=20`);
+        if (requestId !== latestLoad.current) return;
+        setSavedReactions(value);
+      }
+      setState("ready");
+    } catch (err) {
+      if (requestId !== latestLoad.current) return;
+      setError(err);
+      setState("error");
+    }
+  }
 
   useEffect(() => {
     if (!mounted.current && ((kind === "chemicals" && initialChemicals) || (kind === "reactions" && initialReactions))) {
       mounted.current = true; return;
     }
     mounted.current = true;
-    let active = true;
-    setState("loading");
-    setError(null);
-    if (kind === "chemicals") {
-      apiGet<PageResponse<ChemicalFollow>>(`/users/me/follows/chemicals?page=${page}&page_size=40`)
-        .then((value) => { if (active) { setChemicals(value); setState("ready"); } })
-        .catch((err: unknown) => { if (active) { setError(err); setState("error"); } });
-    } else {
-      apiGet<PageResponse<Reaction>>(`/users/me/follows/reactions?page=${page}&page_size=20`)
-        .then((value) => { if (active) { setSavedReactions(value); setState("ready"); } })
-        .catch((err: unknown) => { if (active) { setError(err); setState("error"); } });
-    }
-    return () => { active = false; };
+    void load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, page]);
 
   /** FX-9a（SMK-013 / HGS-SAVED-REACTION-PAGE-01）：按当前 URL 页码重拉；
@@ -168,7 +181,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
     <section className="wb-panel">
       <PanelHeading title={t.me.tabSaved} subtitle={t.me.savedHint} count={state === "ready" ? data.total : "—"} unit={kind === "chemicals" ? t.me.unitChemical : t.me.unitReaction} />
       <Tabs tabs={tabs} value={kind} onChange={switchKind} ariaLabel={t.me.filterSaved} />
-      {state === "loading" && <PanelLoading variant="list" />}
+      {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && kind === "chemicals" && (chemicals.items.length
         ? <div className="wb-row-list">

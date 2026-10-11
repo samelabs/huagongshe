@@ -46,8 +46,8 @@ export default async function Home() {
 
       {/* ── AI 接入入口: 第一屏直接给出地址与三条主入口（一级入口钉死为
           MCP / Skills / 工作台 —— tests/test_v170_release_governance.py）。
-          ChatGPT / Plugin 状态 = 说明文字 + Tag warn「未上架」（不再是按钮），
-          Tag 链到 mcp-guide 的 chatgpt-plugin 锚点。 ── */}
+          ChatGPT / Plugin = 纯文字入口链到 mcp-guide 的 chatgpt-plugin 锚点
+          （FX-14 / PLUGIN-ENTRY-01，PM 裁定：直接暴露包入口，无上架叙事）。 ── */}
       <section className="home-entry" aria-label={t.home.entryLabel}>
         <CodeField value="https://huagongshe.com/mcp" copyLabel={t.home.entryMcpCopy} className="home-entry-code" />
         <nav className="guide-actions home-entry-actions">
@@ -56,9 +56,8 @@ export default async function Home() {
           <Button variant="secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Button>
         </nav>
         <p className="home-entry-note">
-          {t.home.entryPluginNote}
           <Link href={withLocale("/mcp-guide#chatgpt-plugin", locale)} aria-label={t.home.entryPlugin}>
-            <Tag tone="warn">{t.home.pluginNotListed}</Tag>
+            {t.home.entryPluginNote}
           </Link>
         </p>
       </section>

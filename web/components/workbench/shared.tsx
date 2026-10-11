@@ -138,6 +138,9 @@ export function relativeTime(value: string, locale: string): string {
 /** 笔记标题行：首个非空行（≤60 字）— 概览与笔记面板共用（实现在 lib，公开主页服务端同用） */
 export { noteHeadline } from "@/lib/noteHeadline";
 
+/** FX-16（SMK-018 / IX-4）：客户端加载 >10s 的「仍在处理」Notice + 重试 */
+export { SlowNotice } from "./SlowNotice";
+
 /** 可见性 Tag（概览行与笔记/反应面板行共用） */
 export function VisibilityTag({ visibility, t }: { visibility: "public" | "private"; t: Dictionary }) {
   return visibility === "private"

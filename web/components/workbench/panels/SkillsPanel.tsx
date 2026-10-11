@@ -10,7 +10,7 @@ import { Notice } from "@/components/ui/Notice";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
-import { Pagination, PanelError, PanelHeading, PanelLoading } from "../shared";
+import { Pagination, PanelError, PanelHeading, PanelLoading, SlowNotice } from "../shared";
 import type { LoadState, PageResponse, SkillItem } from "../types";
 
 const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, page_size: 20 });
@@ -48,6 +48,24 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mounted = useRef(false);
+  const latestLoad = useRef(0);
+
+  /** FX-16：客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
+  async function load() {
+    const requestId = ++latestLoad.current;
+    setState("loading");
+    setError(null);
+    try {
+      const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=${page}&page_size=20`);
+      if (requestId !== latestLoad.current) return;
+      setSkills(value);
+      setState("ready");
+    } catch (err) {
+      if (requestId !== latestLoad.current) return;
+      setError(err);
+      setState("error");
+    }
+  }
 
   useEffect(() => {
     if (!mounted.current && initialData) {
@@ -55,25 +73,8 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
       return;
     }
     mounted.current = true;
-    let active = true;
-    setState("loading");
-    setError(null);
-    apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=${page}&page_size=20`)
-      .then((value) => {
-        if (active) {
-          setSkills(value);
-          setState("ready");
-        }
-      })
-      .catch((err: unknown) => {
-        if (active) {
-          setError(err);
-          setState("error");
-        }
-      });
-    return () => {
-      active = false;
-    };
+    void load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, initialData]);
 
   async function handleUpload() {
@@ -155,7 +156,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
         {uploadNotice && <Notice tone="ok">{uploadNotice}</Notice>}
         {uploadError && <Notice tone="err">{uploadError}</Notice>}
       </div>
-      {state === "loading" && <PanelLoading variant="list" />}
+      {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && (skills.items.length ? (
         <div className="wb-skill-list">

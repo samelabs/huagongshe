@@ -17,7 +17,7 @@ import { Segmented } from "@/components/ui/Segmented";
 import { Tabs } from "@/components/ui/Tabs";
 import { IconNote, IconSearch, IconCalc, IconSparkle, IconPlug, IconShare, GlyphChem, GlyphRx } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/Toast";
-import { ActivityFeedCard, PanelError, PanelLoading, ReactionRow, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
+import { ActivityFeedCard, PanelError, PanelLoading, ReactionRow, SlowNotice, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
 import type { Counts, LoadState, NoteResponse, PageResponse, Reaction, ReactionResponse } from "../types";
 import type { ChemicalFollow, Notice } from "../types";
 
@@ -72,7 +72,9 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
     setGreeting(hour < 12 ? t.me.greetingMorning : hour < 18 ? t.me.greetingAfternoon : t.me.greetingEvening);
   }, [t]);
 
-  // SSR 流失败时客户端补拉（与旧版 Home 相同的降级策略）
+  // SSR 流失败时客户端补拉（与旧版 Home 相同的降级策略）；
+  // FX-16：重试 nonce 重新触发补拉（effect 内部对已有数据做空跳过，幂等）
+  const [reloadNonce, setReloadNonce] = useState(0);
   useEffect(() => {
     let active = true;
     const jobs: Promise<unknown>[] = [];
@@ -90,7 +92,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
       .catch((err: unknown) => { if (active) { setError(err); setState("error"); } });
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reloadNonce]);
 
   // 「最近」= 反应/笔记/收藏按时间合并，取前 8
   const recentItems = useMemo<RecentItem[]>(() => {
@@ -103,7 +105,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
       .slice(0, 8);
   }, [recentNotes, recent, favorites]);
 
-  if (state === "loading") return <PanelLoading variant="list" rows={4} />;
+  if (state === "loading") return <section className="wb-panel"><PanelLoading variant="list" rows={4} /><SlowNotice active onRetry={() => setReloadNonce((n) => n + 1)} /></section>;
   if (state === "error") return <PanelError error={error} />;
   if (!counts || !user) return <PanelError />;
 

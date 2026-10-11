@@ -28,6 +28,7 @@ const de: Dictionary = {
   /* ── Allgemeine UI ──────────────────────────────────── */
   common: {
     loading: 'Wird geladen…',
+    slowLoading: 'Wird noch verarbeitet, bitte warten…',
     loadingAccount: 'Konto wird geladen…',
     errRetry: 'Laden fehlgeschlagen. Bitte erneut versuchen.',
     loginRequired: 'Bitte zuerst anmelden',
@@ -46,8 +47,8 @@ const de: Dictionary = {
     pageNav: 'Seitennavigation',
     pageOf: (cur: number, total: number) => `Seite ${cur} von ${total}`,
     networkError: 'Netzwerkfehler. Bitte später erneut versuchen.',
-    hcidLabel: (id: number | string) => `化工社-Verbindungseintrag HCID $${id}`,
-    hridLabel: (id: number | string) => `化工社-Reaktionseintrag HRID $${id}`,
+    hcidLabel: (id: number | string) => `化工社-Verbindungseintrag HCID ${id}`,
+    hridLabel: (id: number | string) => `化工社-Reaktionseintrag HRID ${id}`,
     breadcrumb: 'Brotkrumen-Navigation',
     close: 'Schließen',
     /* v1.7 组件库 */
@@ -108,10 +109,9 @@ const de: Dictionary = {
     entryMcp: 'MCP verbinden',
     entryWorkbench: 'Web-Workbench',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin, nicht gelistet",
+    entryPlugin: "ChatGPT / Plugin",
     entryMcpCopy: 'MCP-Serveradresse kopieren',
     entryPluginNote: 'ChatGPT / Plugin',
-    pluginNotListed: 'Nicht gelistet',
   },
 
   /* ── Suche ──────────────────────────────────────────── */
@@ -339,8 +339,8 @@ const de: Dictionary = {
     deleteLabel: 'Reaktion löschen',
     deleted: 'Reaktion gelöscht',
     deleteBody: (id: number) => `HRID ${id} wird endgültig gelöscht. Verknüpfte Verbindungen werden nicht gelöscht. Dies kann nicht rückgängig gemacht werden.`,
-    jsonLdName: (id: number) => `Reaktion HRID $${id}`,
-    equationAlt: (id: number) => `Reaktionsgleichung von HRID $${id}`,
+    jsonLdName: (id: number) => `Reaktion HRID ${id}`,
+    equationAlt: (id: number) => `Reaktionsgleichung von HRID ${id}`,
     stepLabel: (n: number) => `Schritt ${n}`,
     keepPhase: (phase: string) => `${phase}-Phase beibehalten`,
     targetPh: (v: number) => `Ziel-pH ${v}`,
@@ -812,9 +812,9 @@ const de: Dictionary = {
   mcp: {
     hero: 'Mit dem 化工社 MCP Server verbinden',
     heroBody: '化工社 stellt einen entfernten MCP Server bereit. Verbinde dich aus einem MCP-fähigen KI-Client, um direkt auf Verbindungen, Reaktionen, Strukturverarbeitung, Ansatzrechnung und deinen persönlichen Workbench zuzugreifen.',
-    pluginKicker: "ChatGPT / Plugin",
-    pluginTitle: "Status des ChatGPT-Plugins",
-    pluginStatus: "Das ChatGPT-Plugin-Paket ist für die Einreichung vorbereitet, aber noch nicht im Plugin-Verzeichnis gelistet oder installierbar. Kompatible MCP-Clients können den bestehenden Remote-MCP-Server nutzen.",
+    pluginKicker: "Plugin-Paket",
+    pluginTitle: "ChatGPT-Plugin-Einbindung",
+    pluginStatus: "Das Plugin-Paket ist für Clients mit ChatGPT-Plugin-Protokoll gedacht. Auch ohne Plugin nutzen Sie alle Funktionen direkt über den MCP-Endpunkt unten.",
     /* ── Verbindungsinformationen ── */
     connectKicker: 'Verbindungsinformationen',
     connectUrlLabel: 'MCP Server',

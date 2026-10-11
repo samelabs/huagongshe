@@ -25,6 +25,7 @@ const ja: Dictionary = {
   /* ── 共通 UI ────────────────────────────────────────── */
   common: {
     loading: '読み込み中…',
+    slowLoading: '処理中です。しばらくお待ちください…',
     loadingAccount: 'アカウントを取得中…',
     errRetry: '読み込みに失敗しました。もう一度お試しください。',
     loginRequired: '先にログインしてください',
@@ -43,8 +44,8 @@ const ja: Dictionary = {
     pageNav: 'ページナビゲーション',
     pageOf: (cur: number, total: number) => `${cur} / ${total} ページ`,
     networkError: 'ネットワークエラーです。後でもう一度お試しください。',
-    hcidLabel: (id: number | string) => `化工社 化合物記録 HCID $${id}`,
-    hridLabel: (id: number | string) => `化工社 反応記録 HRID $${id}`,
+    hcidLabel: (id: number | string) => `化工社 化合物記録 HCID ${id}`,
+    hridLabel: (id: number | string) => `化工社 反応記録 HRID ${id}`,
     breadcrumb: 'パンくずリスト',
     close: '閉じる',
     /* v1.7 组件库 */
@@ -105,10 +106,9 @@ const ja: Dictionary = {
     entryMcp: 'MCP 接続',
     entryWorkbench: 'ウェブワークベンチ',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin、未公開",
+    entryPlugin: "ChatGPT / Plugin",
     entryMcpCopy: 'MCP サーバーアドレスをコピー',
     entryPluginNote: 'ChatGPT / Plugin',
-    pluginNotListed: '未公開',
   },
 
   /* ── 検索 ───────────────────────────────────────────── */
@@ -336,8 +336,8 @@ const ja: Dictionary = {
     deleteLabel: '反応を削除',
     deleted: '反応を削除しました',
     deleteBody: (id: number) => `HRID ${id} は完全に削除されます。関連する化合物は削除されません。この操作は元に戻せません。`,
-    jsonLdName: (id: number) => `反応 HRID $${id}`,
-    equationAlt: (id: number) => `HRID $${id} の反応式`,
+    jsonLdName: (id: number) => `反応 HRID ${id}`,
+    equationAlt: (id: number) => `HRID ${id} の反応式`,
     stepLabel: (n: number) => `工程 ${n}`,
     keepPhase: (phase: string) => `${phase} 相を保持`,
     targetPh: (v: number) => `目標 pH ${v}`,
@@ -809,9 +809,9 @@ const ja: Dictionary = {
   mcp: {
     hero: '化工社 MCP Server に接続',
     heroBody: '化工社はリモート MCP Server を提供しています。MCP 対応の AI クライアントから接続すると、化合物・反応・構造処理・スケール計算・個人ワークベンチの機能を直接呼び出せます。',
-    pluginKicker: "ChatGPT / Plugin",
-    pluginTitle: "ChatGPT プラグインの公開状況",
-    pluginStatus: "ChatGPT Plugin は提出準備済みですが、まだプラグインディレクトリに公開されておらず、直接インストールできません。対応する MCP クライアントでは既存のリモート MCP Server を利用できます。",
+    pluginKicker: "プラグインパッケージ",
+    pluginTitle: "ChatGPT プラグイン接入",
+    pluginStatus: "プラグインパッケージは ChatGPT プラグインプロトコルに対応するクライアント向けです。プラグインを入れなくても、下記の MCP エンドポイントに直接接続すれば全機能を利用できます。",
     /* ── 接続情報 ── */
     connectKicker: '接続情報',
     connectUrlLabel: 'MCP Server',

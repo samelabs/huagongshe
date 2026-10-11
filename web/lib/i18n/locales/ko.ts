@@ -27,6 +27,7 @@ const ko: Dictionary = {
   /* ── 공통 UI ────────────────────────────────────────── */
   common: {
     loading: '불러오는 중…',
+    slowLoading: '계속 처리 중입니다. 잠시만 기다려 주세요…',
     loadingAccount: '계정을 불러오는 중…',
     errRetry: '불러오지 못했습니다. 다시 시도해 주세요.',
     loginRequired: '먼저 로그인해 주세요',
@@ -45,8 +46,8 @@ const ko: Dictionary = {
     pageNav: '페이지 탐색',
     pageOf: (cur: number, total: number) => `${cur} / ${total} 페이지`,
     networkError: '네트워크 오류입니다. 잠시 후 다시 시도해 주세요.',
-    hcidLabel: (id: number | string) => `化工社 화합물 기록 HCID $${id}`,
-    hridLabel: (id: number | string) => `化工社 반응 기록 HRID $${id}`,
+    hcidLabel: (id: number | string) => `化工社 화합물 기록 HCID ${id}`,
+    hridLabel: (id: number | string) => `化工社 반응 기록 HRID ${id}`,
     breadcrumb: '브레드크럼',
     close: '닫기',
     /* v1.7 组件库 */
@@ -107,10 +108,9 @@ const ko: Dictionary = {
     entryMcp: 'MCP 연결',
     entryWorkbench: '웹 워크벤치',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin, 미등록",
+    entryPlugin: "ChatGPT / Plugin",
     entryMcpCopy: 'MCP 서버 주소 복사',
     entryPluginNote: 'ChatGPT / Plugin',
-    pluginNotListed: '미등록',
   },
 
   /* ── 검색 ───────────────────────────────────────────── */
@@ -338,8 +338,8 @@ const ko: Dictionary = {
     deleteLabel: '반응 삭제',
     deleted: '반응이 삭제되었습니다',
     deleteBody: (id: number) => `HRID ${id}이(가) 완전히 삭제됩니다. 연결된 화합물은 삭제되지 않습니다. 이 작업은 되돌릴 수 없습니다.`,
-    jsonLdName: (id: number) => `반응 HRID $${id}`,
-    equationAlt: (id: number) => `HRID $${id} 반응식`,
+    jsonLdName: (id: number) => `반응 HRID ${id}`,
+    equationAlt: (id: number) => `HRID ${id} 반응식`,
     stepLabel: (n: number) => `단계 ${n}`,
     keepPhase: (phase: string) => `${phase} 상 유지`,
     targetPh: (v: number) => `목표 pH ${v}`,
@@ -811,9 +811,9 @@ const ko: Dictionary = {
   mcp: {
     hero: '化工社 MCP Server에 연결',
     heroBody: '化工社는 원격 MCP Server를 제공합니다. MCP를 지원하는 AI 클라이언트에서 연결하면 화합물·반응·구조 처리·스케일 계산·개인 워크벤치 기능을 직접 호출할 수 있습니다.',
-    pluginKicker: "ChatGPT / Plugin",
-    pluginTitle: "ChatGPT 플러그인 등록 상태",
-    pluginStatus: "ChatGPT Plugin 패키지는 제출 준비가 되었지만 아직 플러그인 디렉터리에 등록되지 않아 직접 설치할 수 없습니다. 호환되는 MCP 클라이언트는 기존 원격 MCP Server를 사용할 수 있습니다.",
+    pluginKicker: "플러그인 패키지",
+    pluginTitle: "ChatGPT 플러그인 연결",
+    pluginStatus: "플러그인 패키지는 ChatGPT 플러그인 프로토콜을 지원하는 클라이언트용입니다. 플러그인 없이도 아래 MCP 엔드포인트에 직접 연결하면 모든 기능을 사용할 수 있습니다.",
     /* ── 연결 정보 ── */
     connectKicker: '연결 정보',
     connectUrlLabel: 'MCP Server',

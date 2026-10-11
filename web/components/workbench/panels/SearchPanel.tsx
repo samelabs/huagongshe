@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { resolveChemicalName } from "@/lib/chemicalName";
-import { PanelHeading, panelErrorMessage } from "../shared";
+import { PanelHeading, panelErrorMessage, SlowNotice } from "../shared";
 import type { LoadState } from "../types";
 
 type SearchMode = "exact" | "substructure" | "similarity";
@@ -105,9 +105,12 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
       {/* 结果区 */}
       {!submitted && <EmptyState icon={<IconSearch />} title={t.me.searchNoQuery} />}
       {submitted && state === "loading" && (
-        <div className="wb-skeleton-list" aria-hidden="true">
-          {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} variant="card" />)}
-        </div>
+        <>
+          <div className="wb-skeleton-list" aria-hidden="true">
+            {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} variant="card" />)}
+          </div>
+          <SlowNotice active onRetry={() => doSearch(query, mode)} />
+        </>
       )}
       {submitted && state === "error" && (
         <Notice tone="err">{panelErrorMessage(error, t)}</Notice>

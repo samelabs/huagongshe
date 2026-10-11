@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:locale": "tsx --test lib/localePath.test.mjs lib/languageSwitcher.test.mjs lib/proxy.test.mjs lib/runtimeI18n.test.mjs lib/alternates.test.mjs"
+    "test:locale": "tsx --test lib/localePath.test.mjs lib/languageSwitcher.test.mjs lib/proxy.test.mjs lib/runtimeI18n.test.mjs lib/alternates.test.mjs lib/hcidTemplate.test.mjs"
   },
   "dependencies": {
     "next": "16.2.10",

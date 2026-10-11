@@ -26,9 +26,28 @@ export default function McpPage() {
       <p>{t.mcp.heroBody}</p>
     </header>
 
+    {/* FX-14 / PLUGIN-ENTRY-01（PM 裁定）：直接给出 MCP 端点与插件包入口，
+        不再有「已准备提交 / 尚未上架 / 不能直接安装」的上架叙事 */}
     <section className="guide-section" id="chatgpt-plugin">
       <div className="section-heading"><div><h2>{t.mcp.pluginTitle}</h2></div></div>
       <p className="guide-section-intro">{t.mcp.pluginStatus}</p>
+      <div className="mcp-connect">
+        <div className="mcp-connect-row">
+          <span className="mcp-connect-label">{t.mcp.connectUrlLabel}</span>
+          <CodeField value="https://huagongshe.com/mcp" />
+        </div>
+        <div className="mcp-connect-row">
+          <span className="mcp-connect-label">{t.mcp.pluginKicker}</span>
+          <a
+            className="text-link"
+            href="https://github.com/samelabs/huagongshe/tree/main/plugins/huagongshe"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            github.com/samelabs/huagongshe/plugins/huagongshe
+          </a>
+        </div>
+      </div>
     </section>
 
     <section className="guide-section">

@@ -9,7 +9,7 @@ import { Segmented } from "@/components/ui/Segmented";
 import { apiGet } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
-import { PanelError, PanelHeading, PanelLoading, Pagination, ReactionRow } from "../shared";
+import { PanelError, PanelHeading, PanelLoading, Pagination, ReactionRow, SlowNotice } from "../shared";
 import type { LoadState, PanelProps, ReactionResponse, ReactionVisibility } from "../types";
 
 const empty = (): ReactionResponse => ({ items: [], counts: { all: 0, public: 0, private: 0 }, page: 1, page_size: 20 });
@@ -22,18 +22,31 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
   const [state, setState] = useState<LoadState>(initialData ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);
   const mounted = useRef(false);
+  const latestLoad = useRef(0);
+
+  /** FX-16：客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
+  async function load() {
+    const requestId = ++latestLoad.current;
+    setState("loading");
+    setError(null);
+    try {
+      const value = await apiGet<ReactionResponse>(`/users/me/reactions?visibility=${visibility}&page=${page}&page_size=20`);
+      if (requestId !== latestLoad.current) return;
+      setData(value);
+      setState("ready");
+    } catch (err) {
+      if (requestId !== latestLoad.current) return;
+      setError(err);
+      setState("error");
+    }
+  }
 
   useEffect(() => {
     // 首次渲染有 SSR 预取数据时跳过；后续翻页/切筛选走客户端 fetch
     if (!mounted.current && initialData) { mounted.current = true; return; }
     mounted.current = true;
-    let active = true;
-    setState("loading");
-    setError(null);
-    apiGet<ReactionResponse>(`/users/me/reactions?visibility=${visibility}&page=${page}&page_size=20`)
-      .then((value) => { if (active) { setData(value); setState("ready"); } })
-      .catch((err: unknown) => { if (active) { setError(err); setState("error"); } });
-    return () => { active = false; };
+    void load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibility, page]);
 
   const subtitle: Record<ReactionVisibility, string> = { all: t.me.visAll, private: t.me.visPrivate, public: t.me.visPublic };
@@ -64,7 +77,7 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
         value={visibility}
         onChange={(value) => switchVisibility(value)}
       />
-      {state === "loading" && <PanelLoading variant="list" />}
+      {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && (data.items.length
         ? <div className="wb-row-list">{data.items.map((item) => <ReactionRow key={item.id} item={item} t={t} locale={locale} />)}</div>

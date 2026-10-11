@@ -24,6 +24,7 @@ const en: Dictionary = {
   /* ── Common UI ─────────────────────────────────────── */
   common: {
     loading: 'Loading…',
+    slowLoading: 'Still working — please hold on…',
     loadingAccount: 'Loading account…',
     errRetry: 'Failed to load. Please try again.',
     loginRequired: 'Please sign in first',
@@ -42,8 +43,8 @@ const en: Dictionary = {
     pageNav: 'Pagination',
     pageOf: (cur: number, total: number) => `Page ${cur} of ${total}`,
     networkError: 'Network error. Please try again later.',
-    hcidLabel: (id: number | string) => `Huagongshe compound record HCID $${id}`,
-    hridLabel: (id: number | string) => `Huagongshe reaction record HRID $${id}`,
+    hcidLabel: (id: number | string) => `Huagongshe compound record HCID ${id}`,
+    hridLabel: (id: number | string) => `Huagongshe reaction record HRID ${id}`,
     breadcrumb: 'Breadcrumb',
     close: 'Close',
     /* v1.7 组件库 */
@@ -104,10 +105,9 @@ const en: Dictionary = {
     entryMcp: 'Connect MCP',
     entryWorkbench: 'Web workbench',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin, not listed",
+    entryPlugin: "ChatGPT / Plugin",
     entryMcpCopy: 'Copy MCP server address',
     entryPluginNote: 'ChatGPT / Plugin',
-    pluginNotListed: 'Not listed',
   },
 
   /* ── Search ────────────────────────────────────────── */
@@ -335,8 +335,8 @@ const en: Dictionary = {
     deleteLabel: 'Delete reaction',
     deleted: 'Reaction deleted',
     deleteBody: (id: number) => `HRID ${id} will be permanently deleted. Linked compounds will not be deleted. This cannot be undone.`,
-    jsonLdName: (id: number) => `Reaction HRID $${id}`,
-    equationAlt: (id: number) => `HRID $${id} reaction equation`,
+    jsonLdName: (id: number) => `Reaction HRID ${id}`,
+    equationAlt: (id: number) => `HRID ${id} reaction equation`,
     stepLabel: (n: number) => `Step ${n}`,
     keepPhase: (phase: string) => `Keep ${phase}`,
     targetPh: (v: number) => `Target pH ${v}`,
@@ -808,9 +808,9 @@ const en: Dictionary = {
   mcp: {
     hero: 'Connect to the Huagongshe MCP Server',
     heroBody: 'Huagongshe runs a remote MCP Server. Once an MCP-capable AI client connects, it can call Huagongshe capabilities directly: compounds, reactions, structure processing, scale calculation, and your personal workbench.',
-    pluginKicker: "ChatGPT / Plugin",
-    pluginTitle: "ChatGPT plugin status",
-    pluginStatus: "The ChatGPT Plugin package is prepared for submission but is not yet listed or installable. Compatible MCP clients can connect to the existing Huagongshe remote MCP Server.",
+    pluginKicker: "Plugin package",
+    pluginTitle: "ChatGPT plugin access",
+    pluginStatus: "The plugin package is for clients that support the ChatGPT plugin protocol. You can also use every capability by connecting directly to the MCP endpoint below — no plugin required.",
     /* ── Connection info ── */
     connectKicker: 'Connection info',
     connectUrlLabel: 'MCP Server',

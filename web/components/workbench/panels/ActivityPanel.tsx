@@ -7,7 +7,7 @@ import { apiGet, apiPost } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { useWorkbenchCounts } from "../WorkbenchCountsContext";
-import { ActivityFeedCard, PanelError, PanelHeading, PanelLoading, Pagination } from "../shared";
+import { ActivityFeedCard, PanelError, PanelHeading, PanelLoading, Pagination, SlowNotice } from "../shared";
 import type { LoadState, NoticeResponse, PageResponse, PanelProps, Reaction } from "../types";
 
 const empty = (): NoticeResponse => ({ items: [], total: 0, page: 1, page_size: 50 });
@@ -25,6 +25,7 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
   const [favoredIds, setFavoredIds] = useState<Set<number>>(new Set());
   const { refresh: refreshCounts } = useWorkbenchCounts();
   const mounted = useRef(false);
+  const latestLoad = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -33,6 +34,29 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
       .catch(() => {});
     return () => { active = false; };
   }, [page]);
+
+  /** FX-16：客户端重载（请求序号防串台）；SSR 命中时只补标记已读 */
+  async function load() {
+    const requestId = ++latestLoad.current;
+    setState("loading");
+    setError(null);
+    try {
+      const value = await apiGet<NoticeResponse>(`/users/me/notifications?page=${page}&page_size=50`);
+      if (requestId !== latestLoad.current) return;
+      setNotices(value);
+      setState("ready");
+      if (page === 1 && value.items.some((item) => !item.read_at)) {
+        await apiPost("/users/me/notifications/read").catch(() => {});
+        if (requestId !== latestLoad.current) return;
+        setNotices((current) => ({ ...current, items: current.items.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })) }));
+        refreshCounts();
+      }
+    } catch (err) {
+      if (requestId !== latestLoad.current) return;
+      setError(err);
+      setState("error");
+    }
+  }
 
   useEffect(() => {
     if (!mounted.current && initialData) {
@@ -47,30 +71,14 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
       return;
     }
     mounted.current = true;
-    let active = true;
-    setState("loading");
-    setError(null);
-    apiGet<NoticeResponse>(`/users/me/notifications?page=${page}&page_size=50`)
-      .then((value) => {
-        if (!active) return;
-        setNotices(value);
-        setState("ready");
-        if (page === 1 && value.items.some((item) => !item.read_at)) {
-          apiPost("/users/me/notifications/read").then(() => {
-            if (!active) return;
-            setNotices((current) => ({ ...current, items: current.items.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })) }));
-            refreshCounts();
-          }).catch(() => {});
-        }
-      })
-      .catch((err: unknown) => { if (active) { setError(err); setState("error"); } });
-    return () => { active = false; };
+    void load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   return (
     <section className="wb-panel">
       <PanelHeading title={t.me.tabActivity} subtitle={t.me.activityHint} count={state === "ready" ? notices.total : "—"} />
-      {state === "loading" && <PanelLoading variant="list" />}
+      {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && (notices.items.length
         ? <div className="wb-feed-list">

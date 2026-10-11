@@ -15,7 +15,7 @@ import { apiDelete, apiGet } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { NoteEditor } from "../NoteEditor";
-import { PanelError, PanelHeading, PanelLoading, Pagination, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
+import { PanelError, PanelHeading, PanelLoading, Pagination, SlowNotice, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
 import type { LoadState, NoteItem, NoteResponse, NoteVisibility, PanelProps } from "../types";
 
 const empty = (): NoteResponse => ({ items: [], total: 0, page: 1, page_size: 20 });
@@ -311,7 +311,7 @@ export function NotesPanel({
         />
       )}
 
-      {state === "loading" && <PanelLoading variant="list" rows={4} />}
+      {state === "loading" && <><PanelLoading variant="list" rows={4} /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {/* R6: delete failure keeps the list mounted with a recoverable state */}
       {actionError && state !== "error" && (

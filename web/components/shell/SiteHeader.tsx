@@ -63,7 +63,9 @@ export function SiteHeader({ initialUnread, mobileActions }: {
     <ShellUnreadProvider initial={initialUnread}>
       <header className="sh-header">
         <div className="sh-inner">
-          <Link href={withLocale("/", locale)} className="sh-logo" aria-label={t.nav.home}>
+          {/* FX-15c：可访问名含可见文字「化工社」（zh lockup 有副标文本），
+              纯「首页」label 会触发 axe label-content-name-mismatch */}
+          <Link href={withLocale("/", locale)} className="sh-logo" aria-label={`${t.brand.name} · ${t.nav.home}`}>
             <HgsLogo variant="lockup" locale={locale} />
           </Link>
 
