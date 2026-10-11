@@ -1624,6 +1624,10 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
      顶栏移动端图标钮（icon 钮宽度随 --bh:auto 塌缩）、工作台卡片头
      「全部」与 mineTabs、 hg-tabs 触控档。 */
   .hg-text { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  /* BX-A3/VG：手机端剩余触控点补齐 */
+  .sh-login-sm { min-height: 44px; display: inline-flex; align-items: center; }
+  .home-entry-note a { min-height: 44px; }
+  .admin-nav a { min-height: 44px; display: inline-flex; align-items: center; }
   .entity-note-card a { min-height: 44px; display: inline-flex; align-items: center; }
   .entity-note-links a { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
   .section-heading .hg-text { padding-inline: 4px; }

@@ -81,12 +81,6 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   a.hg-eb::after { content: ""; position: absolute; left: -10px; right: -10px; top: 50%; transform: translateY(-50%); height: var(--touch-min); }
 }
 
-/* BX-A3：手机端图标按钮宽度 ≥44 —— globals 的手机块把 --bh 置 auto，
-   .hg-btn.icon 的 width:var(--bh) 会塌缩成图标宽；规则必须在组件层钉住。 */
-@media (max-width: 640px) {
-  .hg-btn.icon { width: 44px; }
-}
-
 /* ══ Button（§6） ════════════════════════════════════════════ */
 .hg-btn {
   --bh: var(--h-md);
@@ -457,4 +451,11 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 
 @media (prefers-reduced-motion: reduce) {
   .hg-spin, .hg-sk, .hg-toast-host .hg-toast, .hg-modal-back { animation: none; }
+}
+
+/* BX-A3：手机端图标按钮宽度 ≥44 —— globals 的手机块把 --bh 置 auto，
+   .hg-btn.icon 的 width:var(--bh) 会塌缩成图标宽；规则必须在组件层钉住
+   （并置于全部按钮规则之后 —— 同特异性按源序决胜）。 */
+@media (max-width: 640px) {
+  .hg-btn.icon { width: 44px; }
 }

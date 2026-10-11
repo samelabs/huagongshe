@@ -1819,3 +1819,8 @@
 .wb-note-card>footer button:hover{color:var(--wb-blue-deep)}
 .wb-btn-danger:hover{border-color:var(--wb-danger);background:var(--wb-paper)}
 }
+
+/* BX-A3/VG：手机端列表行标题触控 ≥44（行高随之小幅增加） */
+@media (max-width: 680px) {
+  .wb-row-title { min-height: 44px; }
+}
