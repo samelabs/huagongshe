@@ -1628,6 +1628,11 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .sh-login-sm { min-height: 44px; display: inline-flex; align-items: center; }
   .home-entry-note a { min-height: 44px; }
   .admin-nav a { min-height: 44px; display: inline-flex; align-items: center; }
+  .footer-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .hg-copy { width: 44px; height: 44px; }
+  .settings-preview-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .api-guide-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .note-detail-meta a { min-height: 44px; display: inline-flex; align-items: center; }
   .entity-note-card a { min-height: 44px; display: inline-flex; align-items: center; }
   .entity-note-links a { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
   .section-heading .hg-text { padding-inline: 4px; }

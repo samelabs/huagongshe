@@ -1360,7 +1360,8 @@
   .wb-main {
     overflow: visible;
     padding: var(--wb-sp-4);
-    padding-bottom: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom) + var(--wb-sp-4));
+    /* BX-A3：触控行高增大后末项距底栏余量不足 —— sp-4 → sp-6 */
+    padding-bottom: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom) + var(--wb-sp-6));
   }
   /* PWA 独立窗口：让位含安全区（叠加在 .wb-main padding 之上，此处不再重复） */
   @media (display-mode: standalone) {

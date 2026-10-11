@@ -459,3 +459,8 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 @media (max-width: 640px) {
   .hg-btn.icon { width: 44px; }
 }
+@media (max-width: 640px) {
+  /* BX-A3/VG：手机端全部表单控件触控 ≥44 —— hg-input 是 Input/Select/Textarea
+     的共同类；置于此处（基座之后）以源序决胜。 */
+  .hg-input { min-height: 44px; height: auto; }
+}
