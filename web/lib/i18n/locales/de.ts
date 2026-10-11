@@ -70,6 +70,7 @@ const de: Dictionary = {
     mainNav: 'Hauptnavigation',
     login: 'Anmelden / Registrieren',
     logout: 'Abmelden',
+    logoutFailed: 'Abmelden fehlgeschlagen. Bitte erneut versuchen.',
     openMenu: 'Benutzermenü öffnen',
     menu: 'Navigationsmenü',
     workbench: 'Workbench',

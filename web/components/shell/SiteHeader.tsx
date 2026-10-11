@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/Button";
 import { IconSearch, IconBell, IconChevron } from "@/components/ui/icons";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { ShellUnreadProvider, useShellUnread } from "./ShellUnread";
+import { useToast } from "@/components/ui/Toast";
 import { MobileTabBar } from "./MobileTabBar";
 
 type NavItem = { href: string; label: string; match: (routePath: string) => boolean };
@@ -54,7 +55,6 @@ export function SiteHeader({ initialUnread, mobileActions }: {
   const { user } = useAccount();
   const t = useDictionary();
   const locale = useLocale();
-  const unread = useShellUnread();
   const nav = useNavItems();
   const pathname = usePathname();
   const routePath = stripLocalePrefix(pathname ?? "/");
@@ -83,16 +83,9 @@ export function SiteHeader({ initialUnread, mobileActions }: {
           <HeaderSearch />
 
           <div className="sh-right">
-            {user && (
-              <Link
-                href={withLocale("/aichem?tab=activity", locale)}
-                className="hg-btn ghost icon sh-bell"
-                aria-label={unread > 0 ? t.nav.unreadCount(unread) : t.nav.activity}
-              >
-                <IconBell />
-                {unread > 0 && <span className="sh-bell-dot" aria-hidden="true" />}
-              </Link>
-            )}
+            {/* FX-11（SMK-007 / HGS-SHELL-UNREAD-01）：铃铛对未读数的消费移入
+                Provider 内部（HeaderBell），顶栏不再吃 Provider 外的空 Context */}
+            <HeaderBell user={user} />
             <MoreMenu items={nav} routePath={routePath} />
             <div className="sh-lang">
               <LanguageSwitcher />
@@ -127,6 +120,24 @@ export function SiteHeader({ initialUnread, mobileActions }: {
       {/* 底部 tab 与顶栏同一未读上下文（ShellUnreadProvider 内），≤640 显示 */}
       <MobileTabBar />
     </ShellUnreadProvider>
+  );
+}
+
+/* ── 桌面铃铛（ShellUnreadProvider 内消费未读数，FX-11） ─────────── */
+function HeaderBell({ user }: { user: User | null }) {
+  const t = useDictionary();
+  const locale = useLocale();
+  const unread = useShellUnread();
+  if (!user) return null;
+  return (
+    <Link
+      href={withLocale("/aichem?tab=activity", locale)}
+      className="hg-btn ghost icon sh-bell"
+      aria-label={unread > 0 ? t.nav.unreadCount(unread) : t.nav.activity}
+    >
+      <IconBell />
+      {unread > 0 && <span className="sh-bell-dot" aria-hidden="true" />}
+    </Link>
   );
 }
 
@@ -235,6 +246,7 @@ function UserMenu({ user }: { user: User }) {
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
+  const toast = useToast();
   const { clear } = useAccount();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -248,7 +260,15 @@ function UserMenu({ user }: { user: User }) {
 
   async function logout() {
     setOpen(false);
-    await fetch("/api/auth/logout", { method: "POST" });
+    // FX-12（SMK-010 / HGS-LOGOUT-FAIL-01）：登出失败（500/网关错误）不得
+    // 清空本地会话假装成功 —— Toast err、保持登录态、不跳转（IX-12）
+    try {
+      const res = await fetch("/api/auth/logout", { method: "POST" });
+      if (!res.ok) throw new Error(`logout ${res.status}`);
+    } catch {
+      toast.error(t.nav.logoutFailed);
+      return;
+    }
     clear();
     router.push(withLocale("/", locale));
     router.refresh();

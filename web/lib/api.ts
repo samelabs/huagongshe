@@ -38,10 +38,11 @@ export function isApiGone(error: unknown): error is ApiError {
   return error instanceof ApiError && (error.status === 404 || error.status === 422);
 }
 
-/** 实体详情 [id] 段的合法性：仅纯数字（无符号/小数/科学计数）。不满足时
+/** 实体详情 [id] 段的合法性：纯数字且 ≤ int32 上限（后端 Path le=2^31-1；
+ * 超大数后端某些端点直接 500 而非 422，前端一律按非法 ID 处理）。不满足时
  * 调用方直接 notFound()，不把非法 ID 打到后端。 */
 export function isEntityId(id: string): boolean {
-  return /^\d+$/.test(id);
+  return /^\d+$/.test(id) && Number(id) <= 2_147_483_647;
 }
 
 async function safeDetail(response: Response): Promise<unknown> {

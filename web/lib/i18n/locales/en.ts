@@ -66,6 +66,7 @@ const en: Dictionary = {
     mainNav: 'Main navigation',
     login: 'Sign in / Register',
     logout: 'Sign out',
+    logoutFailed: 'Sign out failed. Please try again.',
     openMenu: 'Open user menu',
     menu: 'Navigation menu',
     workbench: 'Workbench',

@@ -73,6 +73,7 @@ const t = {
     mainNav: '主导航',
     login: '登录 / 注册',
     logout: '退出登录',
+    logoutFailed: '登出失败，请重试',
     openMenu: '打开用户菜单',
     menu: '导航菜单',
     workbench: '工作台',

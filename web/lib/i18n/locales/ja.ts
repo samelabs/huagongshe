@@ -67,6 +67,7 @@ const ja: Dictionary = {
     mainNav: 'メインナビゲーション',
     login: 'ログイン / 登録',
     logout: 'ログアウト',
+    logoutFailed: 'ログアウトに失敗しました。もう一度お試しください。',
     openMenu: 'ユーザーメニューを開く',
     menu: 'ナビゲーションメニュー',
     workbench: 'ワークベンチ',
