@@ -169,6 +169,7 @@
   .sh-right { display: none; }
   .sh-nav, .sh-search, .sh-more, .sh-bell, .sh-lang, .sh-login-btn { display: none; }
   .sh-mobile-right { display: flex; align-items: center; gap: var(--sp-1); margin-left: auto; }
+  .sh-lang-m .lang-switcher summary { min-height: 44px; padding: 0 var(--sp-2); }
 }
 
 /* ══ 手机底部 tab（参考 .m-tab） ════════════════════════════ */

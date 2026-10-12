@@ -110,6 +110,13 @@ export function SiteHeader({ initialUnread, mobileActions }: {
             >
               <IconSearch />
             </Link>
+            {/* 手机语言入口：工作台的语言切换在抽屉（WbMobileNav）里，
+                其余页面（未传 mobileActions）在顶栏提供 */}
+            {!mobileActions && (
+              <div className="sh-lang-m">
+                <LanguageSwitcher />
+              </div>
+            )}
             {user ? (
               <UserMenu user={user} />
             ) : (
