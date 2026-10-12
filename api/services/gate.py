@@ -3,7 +3,8 @@
 计数对象=通道(pubchem/cb), 信号源=worker 真实请求结果(error=进, complete=归零)。
 阶梯(定案): 连续 5 错→静默 5 分 → 再 2 错→静默 10 分 → 再 1 错→静默 30 分
 → 再 1 错→停止(半开 30 分钟一发, 可自愈)。
-计时载体: redis 计数器 + error 行 not_before(阶梯档时间)。零新表。
+计时载体: redis 计数器(streak / silent_until / probe)。零新表。
+通道任一 complete → 归零 + gate_unlock_error_rows 整通道 error 行复活。
 redis 缺席=无闸门(保守放行); API 重启计数丢失=从第一档重爬(保守方向)。
 lease 过期回收不进计数(本地问题非通道问题)。
 """

@@ -7,7 +7,8 @@ delete lifecycle 的补偿路径会留下 `.deleted-{skill_id}-{uuid}` tombstone
 
 契约:
   - 只扫 settings.skill_root 下一层 `.deleted-*` 目录(不递归、不碰 canonical);
-  - 默认 grace = 7 天 —— 正在补偿中的 tombstone(新鲜)不动, 只清历史残留;
+  - 默认 grace = 7 天, 按目录 mtime 判断(rename 保留原 mtime, 刚删除的老目录
+    可能立即超窗 —— 不与删除操作同时手动执行);
   - --dry-run: 只报数零删除;
   - 输出: root / candidates / deleted / kept_fresh;
   - FS 错误非零退出。

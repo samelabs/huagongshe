@@ -275,7 +275,7 @@ async def lease_identity_jobs(
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
-    """discovery lease。claim 只认 queued; error 行留痕永不派发(对齐纪律)。
+    """discovery lease。claim 只认 queued; error 行不直接派发; 复活两路: 同请求到达入列口翻 queued, 或该通道任一 complete 后 gate_unlock_error_rows 整通道翻 queued。
     闸门复用 pubchem 命名空间(与 whole_record 同通道连击计数)。"""
     return await jobs.lease_identity_jobs(
         db, worker_id=worker.worker_id, max_lease_jobs=worker.max_lease_jobs,

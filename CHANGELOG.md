@@ -5,7 +5,7 @@ Production site: https://huagongshe.com
 
 ## [1.7.0] — 2026-10-12
 
-Notes 用户笔记、MCP OAuth 身份层、OpenAI Plugin 提交包与 agent-facing 契约收口；HGS 视觉体系（DESIGN_SYSTEM v1.0）全站落地；上线审计问题清零。
+Notes 用户笔记、MCP OAuth 身份层、OpenAI Plugin 提交包与 agent-facing 契约收口；HGS 视觉体系（DESIGN_SYSTEM v1.0）全站落地；数据链与安全收口。
 
 **HGS 视觉体系（DESIGN_SYSTEM v1.0）**
 - 单一 token 源 + `components/ui` 组件库，全站（含工作台、设置、管理端、错误/404 页）统一迁移，旧类名与样式定义删除
@@ -17,7 +17,7 @@ Notes 用户笔记、MCP OAuth 身份层、OpenAI Plugin 提交包与 agent-faci
 - AI Key 明文不再落库、不再回传：创建时只显示一次，列表仅返回元数据；鉴权仍按哈希
 - 管理员停用账号同事务撤销 OAuth 授权请求、code、access、refresh 凭证；refresh 与 code 兑换前复核账号状态
 - 停用账号主页展示停用态，其公开内容保留可见并标注「已停用」
-- CSP（report-only）、笔记写入限流与存量上限、OAuth 注册分维度限流、OAuth 过期凭证定期清理
+- CSP（report-only）、笔记写入限流与存量上限、OAuth 动态注册全站限流（120 次/小时）、OAuth 过期凭证定期清理
 
 **化学数据完整性**
 - PubChem 回补：以已验证的 query binding 回写主表 `pubchem_cid`；同可信 CID 的 IK 差异照写事实并记录溯源，任务状态如实

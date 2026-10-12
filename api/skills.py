@@ -252,7 +252,8 @@ async def validate_skill(
     # REST 与 MCP 对齐(B4): validate_skill 统一要求 skill:write。
     # require_scope 只收紧 agent token, web session 行为不变。
     require_scope(actor, "skill:write")
-    # HGS-A4-01: 纯 CPU 解包校验可被刷 —— 与创建(20/h)同一预算维度。
+    # HGS-A4-01: 网页 REST 校验入口的交互预算(与创建 20/h 同维度)。
+    # MCP validate_skill 不经此桶(MCP 侧走其自身调用路径), 不是全入口 CPU 防刷。
     await enforce_http("skill-validate-hour", str(actor.id),
                        settings.api_skill_write_limit_per_hour, 3600)
     raw = await file.read(settings.skill_zip_max_bytes + 1)

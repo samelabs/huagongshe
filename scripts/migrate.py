@@ -170,9 +170,11 @@ def _run_locked(database_url: str, migrations_dir: str, *,
     applied: dict[str, str] = {}
     if proc.returncode != 0:
         if not apply:
-            # dry-run 且 tracking 尚未初始化(如只读库): 按空集处理,
-            # 全部文件如实列为 pending
-            print("[runner] dry-run: tracking 未初始化, 视为全部 pending")
+            # dry-run 零 DDL: 读不到 tracking 时按空集列出 pending, 但不把
+            # 原因断言为"未初始化"(权限/连接/SQL 错误同样走到这里) —— 如实
+            # 打印 psql stderr, 由执行人判断。
+            print("[runner] dry-run: 无法读取 maintenance.schema_migrations, "
+                  f"按全部 pending 列出; psql: {proc.stderr.strip() or '(no stderr)'}")
         else:
             eprint(f"[runner] 读 tracking 失败: {proc.stderr.strip()}")
             return 2

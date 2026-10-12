@@ -157,10 +157,10 @@ async def delete_worker(
     worker_id 是无 FK 的协议事实文本, 保留不动; pubchem_jobs.lease_owner /
     pubchem_job_events.worker_id 的 FK 为 ON DELETE SET NULL, 不阻塞。
     """
-    # HGS-WORKER-DELETE-RACE-01: COUNT(三队列)与 DELETE 无原子性 —— 检查与
-    # 删除之间新租约落进来即产生"已删 worker 的在途租约"。改为单条 CTE:
-    # 同一语句内先数活跃租约, 零租约才 DELETE(行锁由 worker_clients 主键
-    # 提供, 并发删除/并发租约互斥于同一行)。leases 结构与 409 契约不变。
+    # HGS-WORKER-DELETE-RACE-01: 单条 CTE —— 同一语句内先数活跃租约, 零租约
+    # 才 DELETE, 缩小"检查与删除之间"的窗口。注意: WorkAPI 认证查询与 lease
+    # 不锁 worker_clients 行, 已通过认证的在途请求仍可能在删除后领到租约;
+    # 运维规程是先停该 worker 进程再删除。leases 结构与 409 契约不变。
     result = (await db.execute(text("""
         WITH leases AS (
             SELECT 'cas_jobs' AS t, count(*) AS n FROM maintenance.cas_jobs

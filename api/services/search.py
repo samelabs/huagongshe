@@ -453,7 +453,7 @@ async def run_search_query(
                         if state == "new":
                             # Search System Governance(2026-09-13): CAS miss 保持
                             # 受控入队(rate/dedupe/governance 原样), 但响应不再
-                            # 同步等待外部 CB fetch —— sync_fetch_and_store 的 3s
+                            # 同步等待外部 CB fetch —— 同步抓取的 3s
                             # 预算从 critical path 移除, 由后台 worker 消化队列。
                             # 0907 门禁不变: resolver 裁定穿透, chemical_id 非空
                             # 才占行; None(AMBIGUOUS/CONFLICT)不落任何候选行。

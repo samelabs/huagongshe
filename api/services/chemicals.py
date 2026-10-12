@@ -724,17 +724,26 @@ async def get_chemical_detail(
                     cb_raw_state = "fresh"
                 elif decision in ("enqueue_refresh", "enqueue_first"):
                     # 与旧 /externals stale 路径同语义: 出旧数据 + 入列。
-                    # ZX(恢复 1.6): 网页详情访问同样入队刷新; 任务带所选行
-                    # cb_number(0907 source grain) — lease 寻址同一来源,
-                    # 不回落 imprint 主行。absent(cb_row=None)不进本分支,
-                    # 恒不首次采集。
+                    # ZX(恢复 1.6): 网页详情访问同样入队刷新。absent
+                    # (cb_row=None)不进本分支, 恒不首次采集。
+                    # source_cb(0907 source grain): 所选行是 zh-CN imprint
+                    # 行时不传 — lease 回落主表 cb_number 即同一来源, dedupe
+                    # key 与 search_stale 同为无后缀形态, 同页不双排队;
+                    # 语言行/非 imprint 来源才带 source_cb 寻址。
                     cb_entry = cb_row.get("entry")
                     if decision == "enqueue_refresh":
+                        source_cb = cb_row.get("cb_number")
+                        if selected_locale == "zh-CN" and source_cb is not None:
+                            imprint = (await db.execute(text("""
+                                SELECT cb_number FROM chemistry.chemicals WHERE id=:id
+                            """), {"id": chemical_id})).scalar()
+                            if imprint == source_cb:
+                                source_cb = None
                         await cb_module.enqueue_cas_job(
                             db, chemical_id=chemical_id, cas_number=cas_number,
                             priority=40, locale=selected_locale,
                             request_context={"reason": "stale_refresh"},
-                            source_cb_number=cb_row.get("cb_number"))
+                            source_cb_number=source_cb)
                         await db.commit()
                     cb_raw_state = "queued"
                 else:  # skip: 多语言前置缺 cb_number — zh 主行不可达, 防御

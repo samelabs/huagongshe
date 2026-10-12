@@ -83,8 +83,7 @@ async def lease_pubchem_jobs(
                 last_error_code='lease_expired'
             WHERE status='leased' AND lease_expires_at<=now()
         """))
-        # claim 只认 queued — error 行=留痕占位, 永不派发(0901 裁定);
-        # 复活走同请求到达入列口 UPDATE 翻态。
+        # claim 只认 queued — error 行不直接派发; 复活两路: 同请求到达入列口翻 queued, 或该通道任一 complete 后 gate_unlock_error_rows 整通道翻 queued。
         rows = (await db.execute(text("""
             SELECT j.id,j.chemical_id,j.query_value
             FROM maintenance.pubchem_jobs j
@@ -838,7 +837,7 @@ async def lease_identity_jobs(
     max_jobs: int,
     capabilities: list[str],
 ) -> dict[str, Any]:
-    """discovery lease。claim 只认 queued; error 行留痕永不派发(对齐纪律)。
+    """discovery lease。claim 只认 queued; error 行不直接派发; 复活两路: 同请求到达入列口翻 queued, 或该通道任一 complete 后 gate_unlock_error_rows 整通道翻 queued。
     闸门复用 pubchem 命名空间(与 whole_record 同通道连击计数)。"""
     limit = min(max_jobs, max_lease_jobs)
     if "identity" not in capabilities:

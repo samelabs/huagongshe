@@ -63,10 +63,9 @@ tests/test_caslib.CppParseTests —— 不再用 /tmp 一次性样本页, 2026-0
 | 页面判定/文本工具/供应商表 | `caslib/parse.py`（已收口，旧 entry 解析已删） |
 | 抓取（含 CPP locale 直连） | `caslib/fetch.py::fetch_cas / fetch_cpp_locale` |
 | worker 主链+语言链 | `worker/main.py`（zh-CN 与语言行同一解析路径） |
-| 首访同步抓取 | `api/services/cb.py::sync_fetch_and_store` |
 | 主表补缺/结构三件/CACHE_KEY v4 | `api/services/cb.py`（identity 直取，canonical 键） |
 | 检索镜像摄入 | `api/services/name_index.py`（identity） |
-| MCP 出口 | `api/mcp_server.py::get_chemical_externals` |
+| 详情读路径（REST/MCP full） | `api/services/chemicals.py::get_chemical_detail` → `cb.get_externals_row` / `cb.cb_decide` / `cb.enqueue_cas_job` |
 | 前端渲染 | `web/app/(site)/chemical/[id]/page.tsx`（统一 semantic detail 投影, CB 六分区经 cb_experimental / cb_prose / cb_safety 等键进入; 投影构建在 `api/services/chemical_semantic.py`） |
 
 `caslib/merge.py` 已删除（CAS 页合并是污染路径）。

@@ -73,7 +73,8 @@ nginx vhost + TLS + API upstream 整链；非 200 / body 异常 / 网络错误 f
 
 ## skill tombstone retention（删除残留清扫，P2c）
 
-- 契约：grace **7 天**（补偿中的新鲜 tombstone 不动），只扫 skill_root 下一层
+- 契约：grace **7 天**，按 `.deleted-*` 目录 mtime 判断（注意：rename 保留原目录 mtime，
+  刚删除的老技能目录可能立刻超出 grace；删除补偿窗口极短，运维上避免与删除操作同时手动执行），只扫 skill_root 下一层
   `.deleted-*` 目录，dry-run 支持，FS 错误非零退出。
 - 唯一生产调度：`ops/systemd/huagongshe-skill-tombstone-sweep@<deployment-user>.timer`
   （与 receipt/oauth prune 同口径：daily + `Persistent=true` +

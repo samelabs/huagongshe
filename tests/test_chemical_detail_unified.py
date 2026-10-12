@@ -74,12 +74,14 @@ class _Result:
         return iter(self._rows)
 
 
-def _make_db(rec: _Recorder | None = None, cas="7732-18-5"):
+def _make_db(rec: _Recorder | None = None, cas="7732-18-5", imprint=None):
     db = AsyncMock()
 
     async def execute_side_effect(*a, **k):
         if rec is not None:
             rec.bump("db_execute")
+        if imprint is not None and a and "SELECT cb_number FROM chemistry.chemicals" in str(a[0]):
+            return _Result(scalar=imprint)
         return _Result(rows=[_Row([cas])])
 
     db.execute = AsyncMock(side_effect=execute_side_effect)
@@ -166,7 +168,7 @@ class FullOrchestrationTests(unittest.TestCase):
     def _full(self, pb_details=None, pb_exc=None, cb_row=None, cb_exc=None,
               cas="7732-18-5", cb_decision="serve_fresh", cb_suppliers=None,
               negative=False, locale=None, seen=None,
-              pb_display_limit=None, rec=None):
+              pb_display_limit=None, rec=None, imprint=None):
         from api.services import chemicals as svc
 
         pb_default = {
@@ -221,7 +223,7 @@ class FullOrchestrationTests(unittest.TestCase):
             kwargs = {}
             if pb_display_limit is not None:
                 kwargs["pb_display_limit"] = pb_display_limit
-            db = _make_db(rec, cas=cas) if rec is not None else _make_db(cas=cas)
+            db = _make_db(rec, cas=cas, imprint=imprint)
             with patch.object(svc, "fetch_chemicals", fetch), \
                  patch.object(svc, "fill_detail_context", context), \
                  patch.object(enrichment_module, "enqueue_chemical_if_needed", fake_pb), \
@@ -429,6 +431,27 @@ class CbRefreshSourceGrainTests(unittest.TestCase):
         self.assertEqual(seen.get("enqueue_locale"), "en")
         self.assertEqual(seen.get("enqueue_source_cb"), "CB00000B",
                          "刷新任务必须寻址实际展示的 fallback 来源 B")
+
+
+    def test_stale_zh_imprint_row_no_source_suffix(self):
+        """zh-CN imprint 行: 不带 source_cb — dedupe key 与 search_stale
+        同为无后缀形态, 同页不双排队; lease 回落主表 cb_number 同一来源。"""
+        seen = {}
+        FullOrchestrationTests()._full(
+            cb_row={"entry": {"identity": {"cn": "x"}},
+                    "cb_number": "CB1", "locale": "zh-CN"},
+            cb_decision="enqueue_refresh", seen=seen, imprint="CB1")
+        self.assertEqual(seen.get("enqueue_calls"), 1)
+        self.assertEqual(seen.get("enqueue_locale"), "zh-CN")
+        self.assertIsNone(seen.get("enqueue_source_cb"))
+
+    def test_stale_zh_non_imprint_row_keeps_source(self):
+        seen = {}
+        FullOrchestrationTests()._full(
+            cb_row={"entry": {"identity": {"cn": "x"}},
+                    "cb_number": "CB2", "locale": "zh-CN"},
+            cb_decision="enqueue_refresh", seen=seen, imprint="CB1")
+        self.assertEqual(seen.get("enqueue_source_cb"), "CB2")
 
 
 class DetailCbRefreshSemanticsTests(unittest.TestCase):
