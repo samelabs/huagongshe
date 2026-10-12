@@ -75,7 +75,9 @@ ROUTE_SCOPE: dict[tuple[str, str], str] = {
 def resolve_route_scope(method: str, path: str) -> str | None:
     """精确 method+path → scope; 无精确匹配 → None(调用方 403 fail-closed)。
 
-    显式枚举全部 10 个 WorkAPI 端点, 不做 prefix/family 推导:
+    显式枚举全部 WorkAPI 端点(以 ROUTE_SCOPE 表为唯一事实源, 结构测试
+    锁 router POST 集合与表全等 —— 头注不再手写数量, 防计数漂移),
+    不做 prefix/family 推导:
     /workapi/v1/jobs/admin、/cas/jobs/admin、/identity/jobs/admin、
     /workapi/v1/jobs/<未列出子路径>、/workapi/v2/*、GET 已知 path
     全部 → None。新增端点必须同步登记本表, 否则默认拒绝。

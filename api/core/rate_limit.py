@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 import redis.asyncio as redis
 
-from .cache import pool
+from .cache import current_pool
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ def is_loopback_host(host: str | None) -> bool:
 async def consume(bucket: str, identity: str, limit: int, window_seconds: int) -> tuple[int, int, bool]:
     window = int(time.time()) // window_seconds
     key = f"rate:{bucket}:{identity}:{window}"
-    client = redis.Redis(connection_pool=pool)
+    client = redis.Redis(connection_pool=current_pool())
     async with client.pipeline(transaction=True) as pipeline:
         pipeline.incr(key)
         pipeline.expire(key, window_seconds + 2)

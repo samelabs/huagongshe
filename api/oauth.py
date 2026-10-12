@@ -58,9 +58,24 @@ async def authorization_server_metadata():
 @router.post("/register")
 async def register(
     body: dict = Body(...),
+    request: Request = None,
     db: AsyncSession = Depends(get_db),
 ):
+    # F-05: 注册限流分维度 — 单一全站共享桶改为 全局 + 客户端名 + 来源 IP
+    # 三维度并行(任一打满即 429): 一人耗尽不再影响所有人, 单客户端名/单 IP
+    # 刷注册也吃不光全站额度。IP 维度与 MCP 匿名分桶同口径(XFF 首段)。
+    client_dim = "unknown"
+    if isinstance(body.get("client_name"), str):
+        client_dim = body["client_name"].strip()[:80] or "unknown"
+    ip_dim = "unknown"
+    if request is not None:
+        forwarded = request.headers.get("x-forwarded-for") or ""
+        ip_dim = (forwarded.split(",")[0].strip()
+                  or (request.client.host if request.client else "")
+                  or "unknown")
     await enforce_http("oauth-register", "global", 120, 3600)
+    await enforce_http("oauth-register-client", client_dim, 10, 3600)
+    await enforce_http("oauth-register-ip", ip_dim, 10, 3600)
     try:
         result = await svc.register_client(
             db,

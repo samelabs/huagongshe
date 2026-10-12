@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     skill_total_max_bytes: int = 10 * 1024 * 1024
     skill_max_files: int = 128
     api_skill_write_limit_per_hour: int = 20
+    api_note_write_limit_per_minute: int = 10
+    api_note_max_per_user: int = 5000
     worker_max_body_bytes: int = 10 * 1024 * 1024
     worker_signature_skew_seconds: int = 300
     worker_job_lease_seconds: int = 180

@@ -18,7 +18,7 @@ from sqlalchemy import text
 
 from .core.config import settings
 from .core.database import get_db
-from .rate_limit_http import to_http_exception
+from .rate_limit_http import enforce_http, to_http_exception
 from .core.rate_limit import RateLimitError
 from .core.security import Actor, current_actor, public_or_actor, require_scope
 from .services.skills import (list_skills as list_skills_service,
@@ -252,6 +252,9 @@ async def validate_skill(
     # REST 与 MCP 对齐(B4): validate_skill 统一要求 skill:write。
     # require_scope 只收紧 agent token, web session 行为不变。
     require_scope(actor, "skill:write")
+    # HGS-A4-01: 纯 CPU 解包校验可被刷 —— 与创建(20/h)同一预算维度。
+    await enforce_http("skill-validate-hour", str(actor.id),
+                       settings.api_skill_write_limit_per_hour, 3600)
     raw = await file.read(settings.skill_zip_max_bytes + 1)
     if len(raw) > settings.skill_zip_max_bytes:
         # BX-A2：detail 升级为 {message, kind}（与 notes 400 同一先例）——

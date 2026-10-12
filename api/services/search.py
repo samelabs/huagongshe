@@ -21,6 +21,7 @@ from .chemicals import (
     bounded_substructure_smiles, fetch_chemicals, name_query_width,
     reaction_lookup,
 )
+from ..core.text import like_literal
 from .name_index import normalize_name
 
 
@@ -167,23 +168,28 @@ async def run_name_search(
         return [], False
 
     # ID-only deterministic 前缀: 每来源 ORDER BY id + 动态窗口(≤cap), 不取宽行。
+    # HGS-SEARCH-LIKE-LITERAL-01: 用户输入按字面匹配 —— %/_/反斜杠是数据
+    # 不是通配符, 转义后语义才是"包含这些字符的串"(此前搜含 % 或 _ 的
+    # 查询词会放大成通配符匹配, 命中无关行)。
+    like_q = like_literal(query)
+    like_nq = like_literal(nq)
     tier1 = await _ids(
         "SELECT c.id FROM chemistry.chemicals c"
         " WHERE c.preferred_name ILIKE '%' || :q || '%'"
         " ORDER BY c.id LIMIT :window",
-        {"q": query, "window": window},
+        {"q": like_q, "window": window},
     )
     tier2 = await _ids(
         "SELECT c.id FROM chemistry.chemicals c"
         " WHERE c.iupac_name ILIKE '%' || :q || '%'"
         " ORDER BY c.id LIMIT :window",
-        {"q": query, "window": window},
+        {"q": like_q, "window": window},
     )
     tier3 = await _ids(
         "SELECT DISTINCT chemical_id FROM chemistry.name_index"
         " WHERE normalized LIKE '%' || :nq || '%'"
         " ORDER BY chemical_id LIMIT :window",
-        {"nq": nq, "window": window},
+        {"nq": like_nq, "window": window},
     )
     # 去重 → rank(tier 顺序) → chemical_id 升序 → 统一 pagination
     ranked: list[tuple[int, int]] = []  # (rank, chemical_id)

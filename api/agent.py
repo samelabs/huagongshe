@@ -38,8 +38,11 @@ async def agent_guide(
     agent = actor if actor and actor.auth_kind == "agent" else None
     origin = settings.public_base_url.rstrip("/")
     api_base = f"{origin}/api"
+    # P2c(审计): 文档直链只指向公开技能 —— slug 查询补 visibility 过滤,
+    # 私有/下架时回落公开搜索 URL(不再给 agent 一个必然 403 的直链)。
     publisher_skill_id = await db.execute(text(
-        "SELECT id FROM community.skills WHERE slug='huagongshe-reaction-publisher' LIMIT 1"
+        "SELECT id FROM community.skills"
+        " WHERE slug='huagongshe-reaction-publisher' AND visibility='public' LIMIT 1"
     ))
     publisher_skill_id = publisher_skill_id.scalar()
     skill_url = (

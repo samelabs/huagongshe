@@ -274,12 +274,19 @@ async def reaction_lookup(
         raise InvalidDoiError("DOI 格式不正确")
 
     if doi_value:
+        # DOI 双源去重: 同一反应可同时经 rx.doi 与 ord.reaction_provenance
+        # 命中(且 provenance 同反应可有多条同 DOI 行)。DISTINCT ON (id) 按
+        # 分支优先级收敛 —— 主表 rx.doi(策展值)优先于 provenance 证据行,
+        # 每反应至多一行, 搜索同支不再重复。
         rows = (await db.execute(text("""
+            SELECT DISTINCT ON (id) id,reaction_smiles,ord_id,dataset_name,
+                   doi,patent,match_basis
+            FROM (
             (
             SELECT
               rx.id,rx.reaction_smiles,NULL::text AS ord_id,
               COALESCE(NULLIF(rx.source_citation,''),'user_submitted') AS dataset_name,
-              rx.doi,rx.patent,'doi' AS match_basis
+              rx.doi,rx.patent,'doi' AS match_basis, 0 AS branch
             FROM chemistry.reactions rx
             WHERE lower(rx.doi)=:doi
               AND (
@@ -293,9 +300,9 @@ async def reaction_lookup(
             (
             SELECT
               rx.id,rx.reaction_smiles,o.reaction_id,d.name,
-              rp.doi,COALESCE(rx.patent,rp.patent),'doi' AS match_basis
+              rp.doi,COALESCE(rx.patent,rp.patent),'doi' AS match_basis, 1 AS branch
             FROM (
-              SELECT reaction_id,doi,patent
+              SELECT DISTINCT ON (reaction_id) reaction_id,doi,patent
               FROM ord.reaction_provenance
               WHERE lower(doi)=:doi
               ORDER BY reaction_id,id
@@ -308,7 +315,8 @@ async def reaction_lookup(
             WHERE rx.visibility='public' AND rx.moderation_status='visible'
             ORDER BY rx.id
             )
-            ORDER BY 1
+            ) u
+            ORDER BY id, branch
             LIMIT :limit
         """), {
             "doi": doi_value,
@@ -747,8 +755,12 @@ async def get_chemical_detail(
     )
     pb_norm = normalize_source_state(pb_raw_state)
     cb_norm = normalize_source_state(cb_raw_state)
+    # HGS-A2-02: 详情限幅投影接回唯一真实消费路径 —— PB 证据块进语义详情前
+    # 统一过 display_details(12 entries/6 values 的页面级上限), 限幅不再
+    # 只是零调用方的死函数/docstring 虚称。存储证据树不受影响(投影不改源)。
+    from .enrichment import display_details
     result["details"] = build_semantic_detail(
-        details, cb_entry, cb_suppliers,
+        display_details(details), cb_entry, cb_suppliers,
         {"state": pb_norm, "fetched_at": (details or {}).get("fetched_at"),
          "job_id": job_id},
         {"state": cb_norm, "applicable": cb_applicable},

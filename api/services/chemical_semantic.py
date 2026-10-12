@@ -70,7 +70,8 @@ def _is_price_row(r: Any) -> bool:
 
 
 def _pb_evidence_block(block: Any) -> dict[str, Any] | None:
-    """PB evidence block 原样透传(已由 display_details 限幅); 仅排除空块。"""
+    """PB evidence block 原样透传(调用方 build_semantic_detail 的输入已由
+    enrichment.display_details 做页面级限幅 —— 12 entries/6 values); 仅排除空块。"""
     if not isinstance(block, dict):
         return None
     return block or None

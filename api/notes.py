@@ -13,6 +13,7 @@ from .schemas.notes import NoteBody
 from .services.notes import (
     NoteEntityNotFoundError,
     NoteNotAccessibleError,
+    NoteQuotaExceededError,
     NoteReferenceError,
     create_note as create_note_service,
     delete_note as delete_note_service,
@@ -28,6 +29,10 @@ router = APIRouter(tags=["notes"])
 
 def _note_not_found(exc: Exception) -> HTTPException:
     return HTTPException(404, str(exc))
+
+
+# FX 回执遗留: 超大 ID(>int32)此前穿进 SQL 撞 asyncpg DataError → 500;
+# 与 skills 端点同口径收 le=2^31-1 → 422(前端 isApiGone 同道 404 呈现)。
 
 
 @router.post("/notes", status_code=201)
@@ -51,11 +56,15 @@ async def create_note(
         # 形态由 ApiError 结构分支兼容。
         raise HTTPException(
             400, {"message": str(exc), "kind": exc.kind}) from exc
+    except NoteQuotaExceededError as exc:
+        # F-01: 每用户存量上限 — 409 + 机器码, 前端按 kind 本地化
+        raise HTTPException(
+            409, {"message": str(exc), "kind": exc.kind}) from exc
 
 
 @router.get("/notes/{note_id}")
 async def get_note(
-    note_id: int = Path(..., ge=1),
+    note_id: int = Path(..., ge=1, le=2_147_483_647),
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
@@ -75,7 +84,7 @@ async def get_note(
 @router.put("/notes/{note_id}")
 async def update_note(
     body: NoteBody,
-    note_id: int = Path(..., ge=1),
+    note_id: int = Path(..., ge=1, le=2_147_483_647),
     actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
@@ -101,7 +110,7 @@ async def update_note(
 
 @router.delete("/notes/{note_id}", status_code=204)
 async def delete_note(
-    note_id: int = Path(..., ge=1),
+    note_id: int = Path(..., ge=1, le=2_147_483_647),
     actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
@@ -159,7 +168,7 @@ async def public_user_notes(
 
 @router.get("/chemicals/{chemical_id}/notes")
 async def chemical_notes(
-    chemical_id: int = Path(..., ge=1),
+    chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(20, ge=1, le=50),
     db=Depends(get_db),
@@ -178,7 +187,7 @@ async def chemical_notes(
 
 @router.get("/reactions/{reaction_id}/notes")
 async def reaction_notes(
-    reaction_id: int = Path(..., ge=1),
+    reaction_id: int = Path(..., ge=1, le=2_147_483_647),
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(20, ge=1, le=50),
     db=Depends(get_db),

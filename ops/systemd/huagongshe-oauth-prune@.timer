@@ -1,0 +1,11 @@
+[Unit]
+Description=Huagongshe OAuth credential retention prune — daily timer (%i)
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=30m
+Unit=huagongshe-oauth-prune@%i.service
+
+[Install]
+WantedBy=timers.target
