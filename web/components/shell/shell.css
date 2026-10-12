@@ -9,6 +9,11 @@
 
 /* ══ 桌面顶栏（>1024） ═══════════════════════════════════════ */
 .sh-header {
+  /* backdrop-filter 使顶栏自成层叠上下文: 不显式抬层时其内下拉面板(z 60)
+     只在顶栏内生效, 会被后续正文里的定位元素(如 .wb-row-actions z 1)盖住。
+     30 = 高于正文与吸顶 Tabs(20), 低于对话框遮罩(40)/抽屉与 Toast(50+)。 */
+  position: relative;
+  z-index: 30;
   border-bottom: 1px solid var(--border);
   background: var(--header-glass);
   backdrop-filter: saturate(1.6) blur(10px);
