@@ -39,23 +39,37 @@ def _run(coro):
 
 
 def _ik(tag: str) -> str:
-    """合法 14-10-1 InChIKey, 纯大写字母段(冻结 INCHIKEY_RE ^[A-Z]{14}-
-    [A-Z]{10}-[A-Z]$: seg2 不允许数字), RUN+tag 派生保证跨用例唯一。"""
-    import hashlib
-    letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    n = int(hashlib.sha256(f"{RUN}-{tag}".encode()).hexdigest(), 16)
-    def take(k: int) -> str:
-        nonlocal n
-        s = ""
-        for _ in range(k):
-            s += letters[n % 26]
-            n //= 26
-        return s
-    return f"{take(14)}-{take(10)}-A"
+    """合法 14-10-1 InChIKey, RUN+tag 派生保证跨用例唯一。
+
+    HGS-CB-STRUCT-01 交叉校验后, entry 的 smiles/inchikey 必须化学一致
+    (同一分子), 合成 IK 配真 SMILES 会被整组拒写 — 改用真实结构对池,
+    tag 稳定散列到池槽(crc32 与 RUN 无关, 映射确定; T5-row/T5-incoming
+    两槽已核对不相撞)。"""
+    import zlib
+    pairs = (
+        ("CCO", "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"),              # 乙醇
+        ("CO", "OKKJLVBELUTLKV-UHFFFAOYSA-N"),               # 甲醇
+        ("CC(C)=O", "CSCPPACGZOOCGX-UHFFFAOYSA-N"),          # 丙酮
+        ("CC(=O)O", "QTBSBXVTEAMEQO-UHFFFAOYSA-N"),          # 乙酸
+        ("c1ccccc1", "UHOVQNZJYSORNB-UHFFFAOYSA-N"),         # 苯
+        ("O=C(O)c1ccccc1", "WPYMKLBDIGXBTP-UHFFFAOYSA-N"),   # 苯甲酸
+    )
+    return pairs[zlib.crc32(tag.encode()) % len(pairs)][1]
+
+
+_IK_SMILES = {
+    "LFQSCWFLJHTTHZ-UHFFFAOYSA-N": "CCO",
+    "OKKJLVBELUTLKV-UHFFFAOYSA-N": "CO",
+    "CSCPPACGZOOCGX-UHFFFAOYSA-N": "CC(C)=O",
+    "QTBSBXVTEAMEQO-UHFFFAOYSA-N": "CC(=O)O",
+    "UHOVQNZJYSORNB-UHFFFAOYSA-N": "c1ccccc1",
+    "WPYMKLBDIGXBTP-UHFFFAOYSA-N": "O=C(O)c1ccccc1",
+}
 
 
 def _entry(ik: str | None) -> dict:
-    props = [{"key": "smiles", "text": "CCO"}]
+    smiles = _IK_SMILES.get(ik, "CCO")
+    props = [{"key": "smiles", "text": smiles}]
     if ik is not None:
         props.append({"key": "inchikey", "text": ik})
     return {
@@ -80,23 +94,46 @@ class CbUnboundOkTests(unittest.TestCase):
     def tearDownClass(cls):
         _run(cls.engine.dispose())
 
-    def setUp(self):
+    def _cleanup(self):
         from sqlalchemy import text
 
+        # 跨 RUN 清理: ut4-p1- 前缀与 8 位首段 CAS(真实 CAS 首段 ≤7 位)
+        # 只可能是本文件的行 — 崩溃运行残留不随 RUN 匹配泄漏; 真实 IK 池
+        # (HGS-CB-STRUCT-01 后夹具)使 IK 序位全局检索, 残留即污染。
         async def clean():
             async with self.engine.begin() as db:
                 await db.execute(text("""
-                    DELETE FROM maintenance.cas_jobs WHERE cas_number LIKE :p
-                """), {"p": f"%{RUN}-%"})
+                    DELETE FROM maintenance.cas_jobs
+                    WHERE cas_number ~ '^[0-9]{8,}-'
+                """))
                 await db.execute(text("""
                     DELETE FROM maintenance.cb_negative_observations
-                    WHERE cas_number LIKE :p OR cb_number LIKE :p
-                """), {"p": f"%{RUN}%"})
+                    WHERE cas_number ~ '^[0-9]{8,}-' OR cb_number LIKE '9%CX%'
+                       OR cb_number ~ '^[0-9]{8,}$'
+                """))
+                # 子表先清(FK), 再清主表
                 await db.execute(text("""
-                    DELETE FROM chemistry.chemicals WHERE preferred_name LIKE :p
-                """), {"p": f"ut4-p1-{RUN}-%"})
+                    DELETE FROM chemistry.chemical_cb WHERE chemical_id IN (
+                        SELECT id FROM chemistry.chemicals
+                        WHERE preferred_name LIKE 'ut4-p1-%')
+                """))
+                await db.execute(text("""
+                    DELETE FROM chemistry.name_index WHERE chemical_id IN (
+                        SELECT id FROM chemistry.chemicals
+                        WHERE preferred_name LIKE 'ut4-p1-%')
+                """))
+                await db.execute(text("""
+                    DELETE FROM chemistry.chemicals
+                    WHERE preferred_name LIKE 'ut4-p1-%'
+                """))
 
         _run(clean())
+
+    def setUp(self):
+        self._cleanup()
+
+    def tearDown(self):
+        self._cleanup()
 
     # ---- helpers -------------------------------------------------
 

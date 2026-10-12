@@ -287,11 +287,11 @@ async def upsert_externals(
                     "websites": [suppliers[i].get("website") for i in with_profile],
                     "locales": [norm_locales[i] for i in with_profile],
                 })
-            # 2) 映射表: 化合物粒度全量替换(报价纯度属化合物, 档案不随行)
-            await db.execute(text("""
-                DELETE FROM chemistry.chemical_supplier_listing
-                WHERE chemical_id=:chemical_id
-            """), {"chemical_id": chemical_id})
+            # 2) 映射表: 按 (chemical_id, cbsid) 分行合并(HGS-CB-01)。
+            # cbsid 全局唯一标识一家供应商 — 不同 CB source(CB001/CB002)的
+            # 供应商天然分行共存, 后到的 source 回调不再全删全写覆盖他源;
+            # 同 cbsid 重复回调按最新载荷刷新。全删全写旧语义会把 CB001 的
+            # 供应商整表抹掉换成 CB002 的(展示层张冠李戴的病根)。
             if with_profile:
                 await db.execute(text("""
                     INSERT INTO chemistry.chemical_supplier_listing
@@ -313,13 +313,8 @@ async def upsert_externals(
                     "packs": [suppliers[i].get("pack_price") for i in with_profile],
                     "remarks": [suppliers[i].get("remark") for i in with_profile],
                 })
-        else:
-            await db.execute(text("""
-                DELETE FROM chemistry.chemical_supplier_listing
-                WHERE chemical_id=:chemical_id
-            """), {"chemical_id": chemical_id})
-        # 2026-08-31 收口: 旧表双写拆除(迁移完成, chemical_supplier 已摘除),
-        # zh 成功路径只写 profile/listing 两新表(上方已写)。
+        # else: zh error 载荷 — 只刷 last_status/fetched_at, 不删任何 source
+        # 的供应商行(非权威信号不得抹掉他源数据; not_found 已在上方早退)。
 
 
 _COUNTRY_CODE_MAP = {
@@ -434,6 +429,13 @@ SEARCH_MISS_PRIORITY = 80       # 用户触发 > 后台刷新(30/50)
 # 依据: 详情页"物理化学性质"区 xztr 自带 SMILES/InChI/InChIKey(已入 props),
 # mol 文件是 worker 同趟附带。口径: 页面三件优先, mol 派生兜底; 主表宁缺勿错
 # —— RDKit 校验不过的值整字段丢弃, 绝不把脏值写进 chemicals。
+#
+# HGS-CB-STRUCT-01/02(交叉校验): 三种结构表示互为独立来源, 全部可解析时
+# 必须指向同一分子 — 以标准 InChIKey 为归一判据(page IK / mol 派生 IK /
+# SMILES 派生 IK), 任何两份不一致 → 整组拒写 + 结构化 warning 留痕,
+# 不允许把语义不一致的结构写进同一化合物分喂三条下游。
+# SMILES 独在场时推导 IK(RDKit), 使 CB 入口与反应入口一样能进发现流程。
+
 
 def _props_field(entry: dict[str, Any], canonical_key: str) -> str | None:
     """CB props 取字段(0905 canonical 键: smiles/inchikey)。"""
@@ -455,6 +457,18 @@ def _validate_smiles(smiles: str | None) -> str | None:
             return None
         canonical = Chem.MolToSmiles(mol)
         return canonical or None
+    except Exception:
+        return None
+
+
+def _ik_from_smiles(smiles: str | None) -> str | None:
+    """HGS-CB-STRUCT-02: 合法 SMILES → 标准 InChIKey(RDKit)。"""
+    if not smiles:
+        return None
+    try:
+        from rdkit import Chem
+        mol = Chem.MolFromSmiles(smiles)
+        return Chem.MolToInchiKey(mol) if mol is not None else None
     except Exception:
         return None
 
@@ -483,22 +497,38 @@ def _derive_from_molblock(molblock: str | None) -> tuple[str | None, str | None]
 def resolve_structure(
     entry: dict[str, Any] | None, molblock: str | None
 ) -> dict[str, str | None]:
-    """CB 三源 -> 结构字段。页面三件优先, mol 派生兜底; 全部只补空用。
+    """CB 三源 -> 结构字段(交叉校验版)。页面三件优先, mol 派生兜底;
+    全部只补空用。
 
     返回 {"smiles":..., "inchikey":..., "mol":...(molblock原文)}。
-    校验失败的键值为 None; smiles 校验不过时 mol 仍可写(连接表本身有效)。
+    - 页面 IK 格式非法(非 14-10-1)不作结构表示, 整字段丢弃(不写脏值);
+    - 三源 IK 交叉校验: 两份及以上可解析且不一致 → 整组拒写(None)+留痕;
+    - smiles 校验失败时 mol 仍可独立派生(连接表本身有效);
+    - 只有 SMILES 时推导 IK(HGS-CB-STRUCT-02), 进入发现流程。
     """
-    smiles = inchikey = None
+    from ..pubchem_core import INCHIKEY_RE
+    smiles = None
+    page_ik = None
     if entry:
+        page_ik = _props_field(entry, "inchikey")
+        if page_ik is not None and not INCHIKEY_RE.fullmatch(page_ik):
+            page_ik = None  # malformed IK 不作结构表示(与 bind_unbound_ok 口径一致)
         smiles = _validate_smiles(_props_field(entry, "smiles"))
-        inchikey = _props_field(entry, "inchikey")
-        if not inchikey or not smiles:
-            d_smiles, d_ik = _derive_from_molblock(molblock)
-            if not smiles:
-                smiles = d_smiles
-            if not inchikey:
-                inchikey = d_ik
-    mol = molblock if (molblock and _derive_from_molblock(molblock)[0]) else None
+    mol_smiles, mol_ik = _derive_from_molblock(molblock)
+    smiles_ik = _ik_from_smiles(smiles)
+
+    known_iks = {k for k in (page_ik, mol_ik, smiles_ik) if k}
+    if len(known_iks) > 1:
+        logger.warning(
+            "event=cb_structure_cross_validation_failed "
+            "page_ik=%s mol_ik=%s smiles_ik=%s — representations disagree, "
+            "structure write refused (HGS-CB-STRUCT-01)",
+            page_ik, mol_ik, smiles_ik)
+        return {"smiles": None, "inchikey": None, "mol": None}
+    inchikey = next(iter(known_iks), None)
+    if not smiles:
+        smiles = mol_smiles
+    mol = molblock if (molblock and mol_smiles) else None
     return {"smiles": smiles, "inchikey": inchikey, "mol": mol}
 
 

@@ -52,17 +52,42 @@ def _run(coro):
 
 
 def _ik(tag: str) -> str:
-    return (f"{''.join(random.choices(string.ascii_uppercase, k=6))}{RUN % 1000000:08X}AB"
-            f"CD{tag[:3].upper().ljust(3, 'X')}-{tag.ljust(10, 'X')[:10]}-A")[:27]
+    """合法 14-10-1 InChIKey。
+
+    HGS-CB-STRUCT-01 交叉校验后, entry 的 smiles/inchikey 必须化学一致
+    (同一分子), 合成 IK 配 CCO 会被整组拒写 → structure fill 不再执行,
+    survivor 契约断言全灭。改用真实结构对池, tag 稳定散列(crc32 确定,
+    与 RUN 无关); 本文件每测试单 IK, 无槽位互斥需求。"""
+    import zlib
+    pairs = (
+        ("CCO", "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"),              # 乙醇
+        ("CO", "OKKJLVBELUTLKV-UHFFFAOYSA-N"),               # 甲醇
+        ("CC(C)=O", "CSCPPACGZOOCGX-UHFFFAOYSA-N"),          # 丙酮
+        ("CC(=O)O", "QTBSBXVTEAMEQO-UHFFFAOYSA-N"),          # 乙酸
+        ("c1ccccc1", "UHOVQNZJYSORNB-UHFFFAOYSA-N"),         # 苯
+        ("O=C(O)c1ccccc1", "WPYMKLBDIGXBTP-UHFFFAOYSA-N"),   # 苯甲酸
+    )
+    return pairs[zlib.crc32(tag.encode()) % len(pairs)][1]
+
+
+_IK_SMILES = {
+    "LFQSCWFLJHTTHZ-UHFFFAOYSA-N": "CCO",
+    "OKKJLVBELUTLKV-UHFFFAOYSA-N": "CO",
+    "CSCPPACGZOOCGX-UHFFFAOYSA-N": "CC(C)=O",
+    "QTBSBXVTEAMEQO-UHFFFAOYSA-N": "CC(=O)O",
+    "UHOVQNZJYSORNB-UHFFFAOYSA-N": "c1ccccc1",
+    "WPYMKLBDIGXBTP-UHFFFAOYSA-N": "O=C(O)c1ccccc1",
+}
 
 
 def _entry(ik: str) -> dict:
     """生产 schema: resolve_structure._props_field 只认 entry["props"] 数组
     (canonical 键 smiles/inchikey); 平铺 dict 不是生产形态。identity 块
-    仅为贴近真实 CB entry, relocation 决定性字段是 props。"""
+    仅为贴近真实 CB entry, relocation 决定性字段是 props。
+    smiles 与 ik 必须同一分子(交叉校验)。"""
     return {
         "props": [
-            {"key": "smiles", "text": "CCO"},
+            {"key": "smiles", "text": _IK_SMILES[ik]},
             {"key": "inchikey", "text": ik},
         ],
         "identity": {
@@ -89,18 +114,60 @@ class CbSurvivorContractTests(unittest.TestCase):
     def tearDownClass(cls):
         _run(cls.engine.dispose())
 
-    def setUp(self):
+    def _cleanup(self):
         from sqlalchemy import text
 
+        # 跨 RUN 清理: 夹具前缀 ut4cb- 与 8 位首段 CAS(RUN≥10^7, 真实 CAS
+        # 首段 ≤7 位)只可能是本文件的行 — 崩溃运行残留不随 RUN 匹配泄漏,
+        # 真实 IK 池会放大污染(IK 序位全局检索)。
         async def clean():
             async with self.engine.begin() as db:
-                await db.execute(text(
-                    "DELETE FROM maintenance.cas_jobs WHERE cas_number LIKE :p"),
-                    {"p": f"{RUN}-%"})
-                await db.execute(text(
-                    "DELETE FROM chemistry.chemicals WHERE preferred_name LIKE :p"),
-                    {"p": f"ut4cb-{RUN}-%"})
+                await db.execute(text("""
+                    DELETE FROM maintenance.cas_jobs
+                    WHERE cas_number ~ '^[0-9]{8,}-'
+                """))
+                # 子表先清(FK), 再清主表; redirect/merge_log 审计行随后。
+                await db.execute(text("""
+                    DELETE FROM chemistry.chemical_cb WHERE chemical_id IN (
+                        SELECT id FROM chemistry.chemicals
+                        WHERE preferred_name LIKE 'ut4cb-%')
+                """))
+                await db.execute(text("""
+                    DELETE FROM chemistry.name_index WHERE chemical_id IN (
+                        SELECT id FROM chemistry.chemicals
+                        WHERE preferred_name LIKE 'ut4cb-%')
+                """))
+                await db.execute(text("""
+                    DELETE FROM maintenance.chemical_identity_redirect
+                    WHERE merge_log_id IN (
+                        SELECT merge_id FROM maintenance.identity_merge_log
+                        WHERE source_id IN (
+                            SELECT id FROM chemistry.chemicals
+                            WHERE preferred_name LIKE 'ut4cb-%')
+                           OR target_id IN (
+                            SELECT id FROM chemistry.chemicals
+                            WHERE preferred_name LIKE 'ut4cb-%'))
+                """))
+                await db.execute(text("""
+                    DELETE FROM maintenance.identity_merge_log
+                    WHERE source_id IN (
+                        SELECT id FROM chemistry.chemicals
+                        WHERE preferred_name LIKE 'ut4cb-%')
+                       OR target_id IN (
+                        SELECT id FROM chemistry.chemicals
+                        WHERE preferred_name LIKE 'ut4cb-%')
+                """))
+                await db.execute(text("""
+                    DELETE FROM chemistry.chemicals
+                    WHERE preferred_name LIKE 'ut4cb-%'
+                """))
         _run(clean())
+
+    def setUp(self):
+        self._cleanup()
+
+    def tearDown(self):
+        self._cleanup()
 
     # ---- helpers -------------------------------------------------
 

@@ -63,13 +63,21 @@ CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
         "hazards", "safety_measures", "toxicity", "regulatory",
         "pharmacology", "uses_and_manufacturing", "identifier_evidence",
         "source_references", "pubchem_created_on", "pubchem_modified_on",
-        "external_ids", "ghs_codes", "reactivity")}),
+        "external_ids", "ghs_codes", "reactivity"),
+      # HGS-MERGE-02: JSONB 载荷列默认值 '{}'(upsert_details 的 obj() 空包
+      # 形态)视为"空"—— survivor '{}' 时吸收对方非空证据, 不再被空对象挡住。
+      "jsonb_merge_cols": (
+        "computed_properties", "physical_properties", "ghs_classification",
+        "hazards", "safety_measures", "toxicity", "regulatory",
+        "pharmacology", "uses_and_manufacturing", "identifier_evidence",
+        "source_references", "external_ids", "ghs_codes", "reactivity")}),
     ("chemistry", "chemical_cb",
      {"strategy": "MERGE_ONE_TO_ONE", "key_extra": "locale",
       # 0907 source grain: collision 键收窄 — cb_number 进比对(同 cb+locale 才
       # 合并; 不同 cb 各自保留), 但 payload 补空白名单不含 cb_number(身份列)。
       "key_extra2": "cb_number", "merge_cols": (
-        "cas_number", "entry", "last_status")}),
+        "cas_number", "entry", "last_status"),
+      "jsonb_merge_cols": ("entry",)}),
     ("chemistry", "name_index",
      {"strategy": "DEDUPE_REKEY", "dedupe_key": ("source", "kind", "normalized"),
       "merge_cols": ()}),
@@ -86,8 +94,13 @@ CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
     ("community", "note_chemicals",
      {"strategy": "DEDUPE_REKEY", "dedupe_key": ("note_id",), "merge_cols": ()}),
     ("community", "notifications", {"strategy": "REKEY_MANY"}),
-    ("maintenance", "cas_jobs", {"strategy": "REKEY_MANY"}),
-    ("maintenance", "pubchem_jobs", {"strategy": "REKEY_MANY"}),
+    ("maintenance", "cas_jobs",
+     # HGS-MERGE-03: 活动任务 dedupe_key 前缀带 chemical_id — 改指时同步
+     # rekey, 否则 survivor 侧新入列撞不上旧前缀 → 同任务双活。前缀清单
+     # 与 cb._dedupe_key / enrichment.enqueue_job 的格式约定同源维护。
+     {"strategy": "REKEY_MANY", "rekey_dedupe_prefixes": ("cas",)}),
+    ("maintenance", "pubchem_jobs",
+     {"strategy": "REKEY_MANY", "rekey_dedupe_prefixes": ("cid",)}),
     ("ord", "compound", {"strategy": "REKEY_MANY"}),
     ("ord", "product_compound", {"strategy": "REKEY_MANY"}),
 )
@@ -95,11 +108,53 @@ CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
 # 1:1 子表允许 coalesce 的业务列(显式白名单; PK/chemical_id/created_at/
 # updated_at/fetched_at 等身份审计列绝不合并)。JSONB 只做顶层 survivor-null
 # 才整体采用, 不做深度 merge; 两侧非空不同 → 保留 survivor。
+# HGS-MERGE-02 收口: jsonb_merge_cols 里的列 '{}'(空对象)也视为空 —
+# upsert_details 对缺席段落写 '{}', 老语义下 survivor 的空包会挡住对方的
+# 非空证据, 对方整行删除后证据直接蒸发。
 ONE_TO_ONE_MERGE_COLUMNS: dict[tuple[str, str], tuple[str, ...]] = {
     (sch, tbl): tuple(cfg.get("merge_cols", ()))
     for sch, tbl, cfg in CHEMICAL_REFERENCE_TABLES
     if cfg["strategy"] == "MERGE_ONE_TO_ONE"
 }
+
+# ---------------------------------------------------------------------------
+# HGS-MERGE-CORE-01: absorb 主表核心字段迁移清单。
+# 空值语义按列类型: 标量 NULL 为空; 数组 NULL/空数组为空; synonyms '{}'
+# 为空。双侧非空且不同 → survivor 保留 + merge_log.evidence.core_conflicts
+# 留痕(CORE_TRACE_COLUMNS)。mol/指纹是可再生的结构载体, 只补空不留痕。
+# ---------------------------------------------------------------------------
+_CORE_SCALAR_COLUMNS = (
+    "pubchem_cid", "inchikey", "pubchem_smiles", "smiles", "iupac_name",
+    "molecular_formula", "average_mass", "monoisotopic_mass", "dtxsid",
+)
+_CORE_ARRAY_COLUMNS = (
+    "nikkaji_numbers", "chembl_ids", "ec_numbers", "unii_codes", "chebi_ids",
+)
+_CORE_JSONB_COLUMNS = ("synonyms",)
+_CORE_RAW_COALESCE_COLUMNS = ("mol", "morgan_bfp", "morgan_sfp")
+CORE_TRACE_COLUMNS = _CORE_SCALAR_COLUMNS + _CORE_ARRAY_COLUMNS + _CORE_JSONB_COLUMNS
+
+
+def _core_value_empty(col: str, value: Any) -> bool:
+    if value is None:
+        return True
+    if col in _CORE_ARRAY_COLUMNS:
+        return len(value) == 0
+    if col in _CORE_JSONB_COLUMNS:
+        return not value  # {} / 空列表
+    return False
+
+
+def _core_conflicts(surv_snap: dict, absorbed_snap: dict) -> dict[str, dict]:
+    """双侧核心字段均非空且不同 → {col: {survivor, absorbed}} 留痕材料。"""
+    out: dict[str, dict] = {}
+    for col in CORE_TRACE_COLUMNS:
+        s, a = surv_snap.get(col), absorbed_snap.get(col)
+        if _core_value_empty(col, s) or _core_value_empty(col, a):
+            continue
+        if s != a:
+            out[col] = {"survivor": s, "absorbed": a}
+    return out
 
 
 def reference_tables() -> tuple[tuple[str, str], ...]:
@@ -252,12 +307,14 @@ async def resolve_chemical(
             WHERE inchikey = :ik AND mol IS NOT NULL
         """), {"ik": inchikey})).mappings().all()
         if rows:
-            # 3.3 硬约束: ik 不得凌驾于两个已存在且不同的非空 CID
+            # 3.3 硬约束: ik 不得凌驾于两个已存在且不同的非空 CID。
+            # B1-02 补分支: ≥2 行同 IK 且同挂另一个 CID(≠输入 cid)同样
+            # 是强键互斥 — 旧判法只在 len(rows)==1 时核对输入 cid, 多行
+            # 同挂时会静默 EQUIVALENT, 产生无告警的分叉。
             cids = {r["pubchem_cid"] for r in rows if r["pubchem_cid"] is not None}
             conflict = (
                 len(cids) > 1
-                or (cid is not None and len(rows) == 1
-                    and rows[0]["pubchem_cid"] not in (None, cid))
+                or (cid is not None and any(c != cid for c in cids))
             )
             if conflict:
                 return ResolveResult(
@@ -278,6 +335,28 @@ async def resolve_chemical(
         """), {"cas": cas})).scalars()]
         if rows:
             if len(rows) == 1:
+                # B1-03: 单候选命中必须核对强键互斥 — 输入 cid/ik 与行上
+                # 非空 cid/ik 相斥即 CONFLICT(此前 cas-unique-hit 直接
+                # EQUIVALENT, 强键冲突被弱键吞掉)。强键一致或缺席 → 原行为。
+                r = (await db.execute(text("""
+                    SELECT pubchem_cid, inchikey FROM chemistry.chemicals
+                    WHERE id = :id
+                """), {"id": rows[0]})).mappings().first()
+                if r is not None:
+                    if (cid is not None and r["pubchem_cid"] is not None
+                            and r["pubchem_cid"] != cid):
+                        return ResolveResult(
+                            "CONFLICT", candidates=rows,
+                            evidence={"cas": cas, "input_cid": cid,
+                                      "row_cid": r["pubchem_cid"]},
+                            reason="cas-unique-cid-conflict")
+                    if (inchikey is not None and r["inchikey"] is not None
+                            and r["inchikey"] != inchikey):
+                        return ResolveResult(
+                            "CONFLICT", candidates=rows,
+                            evidence={"cas": cas, "input_ik": inchikey,
+                                      "row_ik": r["inchikey"]},
+                            reason="cas-unique-ik-conflict")
                 return ResolveResult(
                     "EQUIVALENT", chemical_id=rows[0], candidates=rows,
                     evidence={"cas": cas}, reason="cas-unique-hit")
@@ -388,8 +467,12 @@ async def absorb(db: Any, *, source_id: int, target_id: int,
 async def _coalesce_payload(db: Any, *, tbl: str, surv: int, ph: int,
                             key_extra: str | None, key_cols: tuple[str, ...],
                             merge_cols: tuple[str, ...],
-                            key_extra2: str | None = None) -> None:
-    """同键 survivor 行 ← old 行补空(白名单列, 绝不覆盖非空)。内部共用。"""
+                            key_extra2: str | None = None,
+                            jsonb_cols: tuple[str, ...] = ()) -> None:
+    """同键 survivor 行 ← old 行补空(白名单列, 绝不覆盖非空)。内部共用。
+
+    HGS-MERGE-02: jsonb_cols 中的列, '{}'(空对象)与 NULL 同视为空 —
+    否则 upsert_details 写下的空包会挡住对方的非空证据。"""
     if key_extra:
         km = f'AND {tbl}."{key_extra}" = a."{key_extra}"'
         # 0907 source grain: 第二碰撞键(chemical_cb.cb_number) — NULL 安全比对
@@ -402,8 +485,15 @@ async def _coalesce_payload(db: Any, *, tbl: str, surv: int, ph: int,
     else:
         km = ""
     q = lambda c: f'"{c}"'  # noqa: E731  列名统一加引号(含点/大写安全)
-    sets = ", ".join(
-        f"{q(c)} = coalesce({tbl}.{q(c)}, a.{q(c)})" for c in merge_cols)
+
+    def set_expr(c: str) -> str:
+        if c in jsonb_cols:
+            return (f"{q(c)} = CASE WHEN {tbl}.{q(c)} IS NOT NULL"
+                    f" AND {tbl}.{q(c)} <> '{{}}'::jsonb"
+                    f" THEN {tbl}.{q(c)} ELSE a.{q(c)} END")
+        return f"{q(c)} = coalesce({tbl}.{q(c)}, a.{q(c)})"
+
+    sets = ", ".join(set_expr(c) for c in merge_cols)
     set_updated = ", updated_at = now()" if "updated_at" in merge_cols else ""
     await db.execute(text(f"""
         UPDATE {tbl}
@@ -411,6 +501,40 @@ async def _coalesce_payload(db: Any, *, tbl: str, surv: int, ph: int,
         FROM {tbl} a
         WHERE a.chemical_id = :ph AND {tbl}.chemical_id = :surv {km}
     """), {"surv": surv, "ph": ph})  # noqa: S608
+
+
+async def _dedupe_conflicts(db: Any, *, tbl: str, surv: int, ph: int,
+                            key_cols: tuple[str, ...],
+                            merge_cols: tuple[str, ...]) -> list[dict]:
+    """HGS-MERGE-01: 同键双侧 payload 均非空且不同 → 冲突事实留痕材料。
+
+    coalesce 只补空, survivor 非空值原样保留 — 被吸收方 differing 值随行
+    删除前必须记录, 不允许无痕蒸发。返回 [{"keys", "column",
+    "survivor", "absorbed"}](值经 JSON 序列化归一)。"""
+    out: list[dict] = []
+    km = " AND ".join(f"a.{k} = b.{k}" for k in key_cols)
+    for col in merge_cols:
+        rows = (await db.execute(text(f"""
+            SELECT a.{col} AS absorbed, b.{col} AS survivor
+                   {', ' + ', '.join('a.' + k for k in key_cols)
+                    if key_cols else ''}
+            FROM {tbl} a JOIN {tbl} b
+              ON b.chemical_id = :surv AND a.chemical_id = :ph AND {km}
+            WHERE a.{col} IS NOT NULL AND b.{col} IS NOT NULL
+              AND a.{col} IS DISTINCT FROM b.{col}
+        """), {"surv": surv, "ph": ph})).mappings().all()  # noqa: S608
+        for r in rows:
+            out.append({
+                "keys": {k: (json.dumps(r[k], default=str)
+                             if isinstance(r[k], (dict, list)) else r[k])
+                         for k in key_cols},
+                "column": col,
+                "survivor": json.dumps(r["survivor"], default=str)
+                if isinstance(r["survivor"], (dict, list)) else r["survivor"],
+                "absorbed": json.dumps(r["absorbed"], default=str)
+                if isinstance(r["absorbed"], (dict, list)) else r["absorbed"],
+            })
+    return out
 
 
 async def _merge_one_to_one(db: Any, *, schema: str, table: str,
@@ -433,11 +557,12 @@ async def _merge_one_to_one(db: Any, *, schema: str, table: str,
             f"MERGE_ONE_TO_ONE table {tbl} lacks merge_cols"
             " whitelist — refusing to migrate")
     if merge_cols:
-        # C1: 同键两侧都有 → 补 survivor 空值
+        # C1: 同键两侧都有 → 补 survivor 空值(jsonb 空对象同视为空)
         await _coalesce_payload(db, tbl=tbl, surv=survivor_id, ph=absorbed_id,
                                 key_extra=key_extra, key_cols=(),
                                 merge_cols=tuple(merge_cols),
-                                key_extra2=cfg.get("key_extra2"))
+                                key_extra2=cfg.get("key_extra2"),
+                                jsonb_cols=tuple(cfg.get("jsonb_merge_cols", ())))
         # C2: 只删"同键 survivor 行存在"的 old 行(即真正被并掉内容的行)。
         # survivor 无同键行 → 不删, 走下方情况A改指。
         if key_extra:
@@ -484,7 +609,13 @@ async def _dedupe_rekey(db: Any, *, schema: str, table: str,
             f"DEDUPE_REKEY table {tbl} lacks dedupe_key — refusing to migrate")
     merge_cols = tuple(cfg.get("merge_cols", ()))
     km = " AND ".join(f"a.{k} = b.{k}" for k in key_cols)
+    conflicts: list[dict] = []
     if merge_cols:
+        # HGS-MERGE-01: 冲突事实先留痕(补空会保留 survivor 值, differing 值
+        # 随 old 行删除蒸发 — 删前记录进 merge_log evidence)
+        conflicts = await _dedupe_conflicts(
+            db, tbl=tbl, surv=survivor_id, ph=absorbed_id,
+            key_cols=tuple(key_cols), merge_cols=merge_cols)
         # payload 补空: 同键 survivor 行 ← old 行 (白名单列)
         await _coalesce_payload(db, tbl=tbl, surv=survivor_id, ph=absorbed_id,
                                 key_extra=None, key_cols=tuple(key_cols),
@@ -499,6 +630,7 @@ async def _dedupe_rekey(db: Any, *, schema: str, table: str,
     await db.execute(text(f"""
         UPDATE {tbl} SET chemical_id = :surv WHERE chemical_id = :ph
     """), {"surv": survivor_id, "ph": absorbed_id})  # noqa: S608
+    return conflicts
 
 
 async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
@@ -506,9 +638,17 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
                            src_snap: dict, tgt_snap: dict) -> int:
     """破坏性合并本体(仅 absorb 内部调用, 规范3.5/3.6)。
 
-    顺序: merge_log 落表 → 键并集并入 survivor → 引用全量改指(含去重)
-    → redirect 落表 → absorbed 行 DELETE。同事务。
+    顺序: merge_log 落表 → 键并集/核心字段并入 survivor → 引用全量改指
+    (含去重与活动任务 dedupe_key rekey) → redirect 落表 → absorbed 行
+    DELETE。同事务。
     """
+    # HGS-MERGE-CORE-01: 主表核心字段冲突留痕(双侧非空且不同 → survivor
+    # 保留, differing 值记入 evidence, 不随行删除无痕蒸发)
+    core_conflicts = _core_conflicts(tgt_snap, src_snap)
+    evidence: dict[str, Any] = {"gate": reason}
+    if core_conflicts:
+        evidence["core_conflicts"] = core_conflicts
+
     # 1. merge_log (规范3.6.2) — 任何批量 absorb 的上线阻断项
     merge_id = (await db.execute(text("""
         INSERT INTO maintenance.identity_merge_log
@@ -517,13 +657,42 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
         VALUES (:s, :t, :reason, :evidence, :ssnap, :tsnap, :trig)
         RETURNING merge_id
     """), {"s": absorbed_id, "t": survivor_id, "reason": reason,
-           "evidence": json.dumps({"gate": reason}, ensure_ascii=False),
+           "evidence": json.dumps(evidence, default=str, ensure_ascii=False),
            "ssnap": json.dumps(src_snap, default=str, ensure_ascii=False),
            "tsnap": json.dumps(tgt_snap, default=str, ensure_ascii=False),
            "trig": trigger})).scalar()
 
-    # 2. 键并集并入 survivor (只补空语义: cas 并集去重, cb/mw coalesce)
-    await db.execute(text("""
+    # 2. 键并集 + 核心字段并入 survivor。
+    #    cas 并集去重; 其余核心字段补空语义(HGS-MERGE-CORE-01): 标量
+    #    coalesce, 数组 NULL/空才算空, synonyms '{}' 算空; 双侧非空 →
+    #    survivor 保留(冲突已在 evidence.core_conflicts 留痕)。
+    def scalar(c: str) -> str:
+        return f"{c} = coalesce(t.{c}, p.{c})"
+
+    def array(c: str) -> str:
+        return (f"{c} = CASE WHEN cardinality(t.{c}) > 0"
+                f" THEN t.{c} ELSE p.{c} END")
+
+    def jsonb_empty(c: str) -> str:
+        return (f"{c} = CASE WHEN t.{c} IS NOT NULL AND t.{c} <> '{{}}'::jsonb"
+                f" THEN t.{c} ELSE p.{c} END")
+
+    core_sets = [scalar(c) for c in _CORE_SCALAR_COLUMNS if c != "dtxsid"]
+    core_sets += [array(c) for c in _CORE_ARRAY_COLUMNS]
+    core_sets += [jsonb_empty(c) for c in _CORE_JSONB_COLUMNS]
+    core_sets += [scalar(c) for c in _CORE_RAW_COALESCE_COLUMNS]
+    # dtxsid 全局唯一(chemicals_dtxsid_uidx): survivor 为空、被吸收方有值时
+    # 直接 UPDATE 会让两行短暂同值撞索引 — 先把旧行值摘下(快照已有), 旧行
+    # 置 NULL 后经参数迁移。双侧都有值(冲突)时不迁移, 无撞索引问题。
+    migrate_dtxsid = (
+        src_snap.get("dtxsid") is not None
+        and tgt_snap.get("dtxsid") is None)
+    if migrate_dtxsid:
+        await db.execute(text(
+            "UPDATE chemistry.chemicals SET dtxsid = NULL WHERE id = :ph"
+        ), {"ph": absorbed_id})
+    core_sets.append("dtxsid = coalesce(t.dtxsid, :p_dtxsid)")
+    await db.execute(text(f"""
         UPDATE chemistry.chemicals t SET
             cas_numbers = (
                 SELECT array_agg(DISTINCT x ORDER BY x) FROM (
@@ -532,13 +701,16 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
                 WHERE x IS NOT NULL),
             cb_number = coalesce(t.cb_number, p.cb_number),
             preferred_name = coalesce(t.preferred_name, p.preferred_name),
+            {', '.join(core_sets)},
             updated_at = now()
         FROM chemistry.chemicals p
         WHERE t.id = :target AND p.id = :ph
-    """), {"target": survivor_id, "ph": absorbed_id})
+    """), {"target": survivor_id, "ph": absorbed_id,
+           "p_dtxsid": src_snap.get("dtxsid") if migrate_dtxsid else None})
 
     # 3. 引用表按 registry cfg 声明的 strategy 迁移 (规范3.6.1);
     #    碰撞键/补值白名单全部来自 cfg, 本函数不猜表结构。
+    payload_conflicts: dict[str, list[dict]] = {}
     for schema, tbl, cfg in CHEMICAL_REFERENCE_TABLES:
         strategy = cfg["strategy"]
         if strategy == "MERGE_ONE_TO_ONE":
@@ -551,20 +723,41 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
         elif strategy == "DEDUPE_REKEY":
             # 复合键含 chemical_id (0907 cid3883 reaction_chemicals 实证):
             # 同 dedupe_key 双侧有行 → 先按白名单补 survivor 空值(payload
-            # 不静默丢), 再删 old 同键行, 剩余 old 行改指。
-            await _dedupe_rekey(
+            # 不静默丢, 冲突留痕), 再删 old 同键行, 剩余 old 行改指。
+            conflicts = await _dedupe_rekey(
                 db, schema=schema, table=tbl,
                 survivor_id=survivor_id, absorbed_id=absorbed_id,
                 cfg=cfg)
+            if conflicts:
+                payload_conflicts[f"{schema}.{tbl}"] = conflicts
         elif strategy == "REKEY_MANY":
-            await db.execute(text(f"""
-                UPDATE {schema}.{tbl} SET chemical_id = :target
-                WHERE chemical_id = :ph
-            """), {"target": survivor_id, "ph": absorbed_id})  # noqa: S608
+            prefixes = cfg.get("rekey_dedupe_prefixes")
+            if prefixes:
+                await _rekey_many_with_dedupe(
+                    db, schema=schema, table=tbl,
+                    survivor_id=survivor_id, absorbed_id=absorbed_id,
+                    prefixes=tuple(prefixes))
+            else:
+                await db.execute(text(f"""
+                    UPDATE {schema}.{tbl} SET chemical_id = :target
+                    WHERE chemical_id = :ph
+                """), {"target": survivor_id, "ph": absorbed_id})  # noqa: S608
         else:
             raise RuntimeError(
                 f"unknown reference strategy {strategy!r} for "
                 f"{schema}.{tbl} — refusing to migrate")
+
+    # 3b. HGS-MERGE-01: 引用表 payload 冲突留痕(写回 merge_log evidence)
+    if payload_conflicts:
+        await db.execute(text("""
+            UPDATE maintenance.identity_merge_log
+            SET evidence = evidence
+                || CAST(:conflicts AS jsonb)
+            WHERE merge_id = :mid
+        """), {"conflicts": json.dumps(
+                    {"payload_conflicts": payload_conflicts},
+                    default=str, ensure_ascii=False),
+               "mid": merge_id})
 
     # 4. redirect (规范3.6.3) — 身份历史不删, canonicalize_id 可查
     await db.execute(text("""
@@ -579,6 +772,44 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
     ), {"ph": absorbed_id})
     logger.info("absorb: %s -> %s (merge_id=%s)", absorbed_id, survivor_id, merge_id)
     return int(merge_id)
+
+
+async def _rekey_many_with_dedupe(db: Any, *, schema: str, table: str,
+                                  survivor_id: int, absorbed_id: int,
+                                  prefixes: tuple[str, ...]) -> None:
+    """HGS-MERGE-03: 任务表(带 dedupe_key)的 REKEY_MANY。
+
+    dedupe_key 前缀携带 chemical_id(cas:{id}:… / cid:{id}:…) — 只改
+    chemical_id 不改 key 的话, survivor 侧新入列撞不上旧前缀, 同任务双活。
+    三步:
+    1. rekey 后会撞 survivor 既有活跃键的 old 行 → 删除(survivor 活跃行
+       已承载同一任务, 重复行无意义);
+    2. 其余带前缀 old 行 rekey + 改指;
+    3. 无前缀行(如 cas:new:*)只改指。
+    active 活跃窗与 cas_jobs/pubchem_jobs 的 partial unique index 口径
+    一致(status ∈ queued/leased/error; 两表 CHECK 亦只有这三态)。"""
+    tbl = f"{schema}.{table}"
+    pref = "|".join(prefixes)
+    old_p, new_p = f"^({pref}):{absorbed_id}:", f"\\1:{survivor_id}:"
+    await db.execute(text(f"""
+        DELETE FROM {tbl} a
+        WHERE a.chemical_id = :ph
+          AND EXISTS (SELECT 1 FROM {tbl} b
+                      WHERE b.id <> a.id
+                        AND b.status IN ('queued','leased','error')
+                        AND b.dedupe_key = regexp_replace(
+                            a.dedupe_key, :old_p, :new_p))
+    """), {"ph": absorbed_id, "old_p": old_p, "new_p": new_p})  # noqa: S608
+    await db.execute(text(f"""
+        UPDATE {tbl}
+        SET chemical_id = :surv, updated_at = now(),
+            dedupe_key = regexp_replace(dedupe_key, :old_p, :new_p)
+        WHERE chemical_id = :ph AND dedupe_key ~ :old_p
+    """), {"surv": survivor_id, "ph": absorbed_id,
+           "old_p": old_p, "new_p": new_p})  # noqa: S608
+    await db.execute(text(f"""
+        UPDATE {tbl} SET chemical_id = :surv WHERE chemical_id = :ph
+    """), {"surv": survivor_id, "ph": absorbed_id})  # noqa: S608
 
 
 async def canonicalize_id(db: Any, chemical_id: int) -> int:

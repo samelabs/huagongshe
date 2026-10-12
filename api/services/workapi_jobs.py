@@ -27,6 +27,7 @@ from ..core.cache import cache_delete, get_cache
 from ..core.config import settings
 from ..schemas.workapi import LeaseProof
 from .gate import (
+    gate_halfopen_admit,
     gate_record_error,
     gate_record_success,
     gate_silence_remaining,
@@ -69,6 +70,11 @@ async def lease_pubchem_jobs(
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
+        # HGS-GATE-HALFOPEN-01: 停档期满半开, 只放行一个探测任务
+        limit = await gate_halfopen_admit(redis, "pubchem", limit)
+        if limit <= 0:
+            await db.commit()
+            return {"jobs": [], "retry_after_seconds": 5}
         # 过期租约回收: 本地问题非通道问题 — 直接回队, 不进计数。
         await db.execute(text("""
             UPDATE maintenance.pubchem_jobs
@@ -170,8 +176,13 @@ async def complete_pubchem_job(
                 if isinstance(ik_raw, str) and len(ik_raw) == 27:
                     inc_ik = ik_raw
 
+            # HGS-PB-01: 扣留事实的任务终态必须如实 — 回执不得记 ok。
+            # (worker 协议响应仍是 ok: 重试不可能解决身份冲突, 无重试价值;
+            #  如实性由 completion receipt 承载, 它是任务的审计记录。)
+            withheld = None
             if expected_cid is None:
                 # §2.2 规则1: query_value 非法 → 不 adjudicate, 实体事实零写入。
+                withheld = "query_binding_invalid"
                 logger.warning(
                     "pubchem_query_binding_invalid job_id=%s chemical_id=%s "
                     "query_value=%r — payload facts withheld (fail-closed)",
@@ -180,6 +191,7 @@ async def complete_pubchem_job(
                 # §2.2 规则2+4: callback CID 与请求 CID 漂移 → binding conflict。
                 # 任何 IK 匹配/resolver 候选都不得绕过 → 不进 adjudicate,
                 # 零 reconcile/absorb/merge, 实体事实全部扣留。
+                withheld = "callback_binding_conflict"
                 logger.warning(
                     "pubchem_callback_binding_conflict job_id=%s chemical_id=%s "
                     "expected_cid=%s incoming_cid=%s incoming_ik=%s — payload "
@@ -201,6 +213,7 @@ async def complete_pubchem_job(
                     # (details 子表/主表普通字段/身份 grant) 全部零写入 — 禁止把
                     # CID=B 的 PubChem 数据挂到 CID=A 的 HCID 上。conflict 保留
                     # 可观测 warning; job 照常完成出表(最小改动, 终态治理后置)。
+                    withheld = f"identity_{conflict.get('reason', 'conflict')}"
                     logger.warning(
                         "pubchem_identity_conflict chemical_id=%s incoming_cid=%s "
                         "incoming_ik=%s existing_cid=%s existing_ik=%s reason=%s — "
@@ -221,10 +234,13 @@ async def complete_pubchem_job(
                     )
         # 出表: complete 即 DELETE, job 是纯队列不承载历史。
         # P0-2/P1-5: receipt 与 DELETE 同事务(先 receipt 后 delete, 一次 commit)。
+        # 终态: empty=空载荷 / ok=事实落库 / withheld*=事实扣留(如实, 不冒充成功)。
         await record_completion_receipt(
             db, family="pubchem", job_id=job_id, worker_id=worker_id,
             lease_token=lease_token, scope="pubchem",
-            terminal_status=("empty" if not payload else "ok"), chemical_id=chemical_id)
+            terminal_status=("empty" if not payload
+                             else ("withheld_" + withheld if withheld else "ok")),
+            chemical_id=chemical_id)
         await db.execute(text("""
             DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
         """), {"job_id": job_id})
@@ -309,6 +325,11 @@ async def lease_cas_jobs(
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
+        # HGS-GATE-HALFOPEN-01: 停档期满半开, 只放行一个探测任务
+        limit = await gate_halfopen_admit(redis, "cb", limit)
+        if limit <= 0:
+            await db.commit()
+            return {"jobs": [], "retry_after_seconds": 5}
         # 过期租约回收(§4): 本地问题非通道问题 — 直接回队, 不进计数。
         await db.execute(text("""
             UPDATE maintenance.cas_jobs
@@ -398,11 +419,24 @@ async def heartbeat_cas_job(
 ) -> dict[str, Any]:
     try:
         await verified_cas_lease(db, LeaseProof(job_id=job_id, lease_token=lease_token), worker_id, lock=False)
-        await db.execute(text("""
+        # HGS-CAS-HEARTBEAT-LEASE-RACE-01: UPDATE 本身带全部租约条件并核对
+        # 影响行数 —— 无锁校验(lock=False)与 UPDATE 之间存在毫秒窗, 租约
+        # 可能已过期被回收/被他人接管, 旧写法按 id 续租会延长别人的租约。
+        result = await db.execute(text("""
             UPDATE maintenance.cas_jobs
             SET lease_expires_at=now()+make_interval(secs=>:seconds),
-                updated_at=now() WHERE id=:job_id
-        """), {"seconds": settings.worker_job_lease_seconds, "job_id": job_id})
+                updated_at=now()
+            WHERE id=:job_id AND status='leased' AND lease_owner=:worker_id
+              AND lease_token_hash=:lease_hash AND lease_expires_at>now()
+        """), {
+            "seconds": settings.worker_job_lease_seconds,
+            "job_id": job_id, "worker_id": worker_id,
+            "lease_hash": lease_hash(lease_token),
+        })
+        if result.rowcount == 0:
+            await db.rollback()
+            raise LeaseConflictError(
+                "lease is missing, expired, or owned by another worker")
         await db.commit()
         return {"status": "leased", "lease_seconds": settings.worker_job_lease_seconds}
     except LeaseConflictError:
@@ -595,8 +629,12 @@ async def complete_cas_job(
             structure = resolve_structure(entry, payload.mol)
             # 异步执行期间行可能已被合并(旧id已删) — redirect 兜底
             job_chemical_id = await canonicalize_id(db, chemical_id)
+            # HGS-CB-STRUCT-03: 回调侧解析永远 create=False — 占位行机制下
+            # "无主行建行分支已删除", 双 miss(IK miss + CAS miss)时 create=True
+            # 会 INSERT 幽灵行并吸走本任务的落库目标。回调只定位不建行。
             res = await resolve_chemical(
-                db, inchikey=structure.get("inchikey"), cas=cas_number)
+                db, inchikey=structure.get("inchikey"), cas=cas_number,
+                create=False)
             if res.chemical_id is not None and res.chemical_id != job_chemical_id:
                 from .identity import absorb, MergeBlockedError
                 # gate 拒绝(如 job 行与目标行均无强键) → 保留两行不合并,
@@ -795,6 +833,11 @@ async def lease_identity_jobs(
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
+        # HGS-GATE-HALFOPEN-01: 停档期满半开, 只放行一个探测任务
+        limit = await gate_halfopen_admit(redis, "pubchem", limit)
+        if limit <= 0:
+            await db.commit()
+            return {"jobs": [], "retry_after_seconds": 5}
         # 过期租约回收: 本地问题, 回队不计连击(对齐 pubchem_jobs)。
         await db.execute(text("""
             UPDATE maintenance.pubchem_identity_jobs
