@@ -1,0 +1,57 @@
+/* dev-ui.css — 开发预览页布局（/zh-CN/dev-ui，仅非 production）。
+   组件本体样式一律来自 components/ui/ui.css；此处只有页面级的矩阵/网格壳。
+   命名 .du-，避免与组件 .hg- 冲突。 */
+
+.du-wrap {
+  max-width: var(--w-content);
+  margin: 0 auto;
+  padding: var(--sp-8) var(--sp-4) var(--sp-16);
+  display: grid;
+  gap: var(--sp-8);
+}
+.du-wrap section { display: grid; gap: var(--sp-4); }
+.du-wrap h2 { font-size: var(--fs-22); font-weight: 600; letter-spacing: var(--ls-heading); margin: 0; }
+.du-wrap h2 small { font-size: var(--fs-13); color: var(--text-muted); font-weight: 400; }
+.du-wrap h3 { font-size: var(--fs-18); font-weight: 600; margin: var(--sp-4) 0 0; }
+.du-note { font-size: var(--fs-13); color: var(--text-muted); }
+.du-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-6);
+  overflow-x: auto;
+}
+
+/* 徽标矩阵（参考 .eb-grid） */
+.du-eb-grid {
+  display: grid;
+  grid-template-columns: 140px repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4) var(--sp-6);
+  align-items: center;
+  min-width: 560px;
+}
+.du-eb-grid .h { font-size: var(--fs-12); color: var(--text-muted); }
+.du-eb-grid .lbl { font-size: var(--fs-13); color: var(--text-2); }
+.du-eb-grid .note { font-size: var(--fs-12); color: var(--text-muted); }
+
+/* 按钮状态矩阵（参考 .matrix） */
+.du-matrix {
+  display: grid;
+  grid-template-columns: 96px repeat(6, minmax(100px, 1fr));
+  gap: var(--sp-3) var(--sp-4);
+  align-items: center;
+  min-width: 780px;
+}
+.du-matrix .h { font-size: var(--fs-12); color: var(--text-muted); }
+.du-matrix .lbl { font: 500 var(--fs-12) var(--font-mono); color: var(--text-2); }
+
+.du-row { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+.du-g2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.du-g3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); }
+.du-stack { display: grid; gap: var(--sp-3); align-content: start; }
+.du-inline-demo { font-size: var(--fs-16); line-height: 1.8; color: var(--text-2); max-width: 62ch; margin: 0; }
+
+@media (max-width: 680px) {
+  .du-g2, .du-g3 { grid-template-columns: minmax(0, 1fr); }
+  .du-eb-grid { grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1fr); }
+}

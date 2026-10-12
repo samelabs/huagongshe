@@ -33,7 +33,8 @@ class _BaseRow:
             "doi", "patent", "url", "citation",            # 20-23
             "note", 55, 66, True,                          # 24-27
             "creator-user", "Creator Name", "/a.png",      # 28-30
-            3, False,                                      # 31-32
+            True,                                          # 31 creator.active
+            3, False,                                      # 32-33
         ]
 
     def __iter__(self):
@@ -162,7 +163,7 @@ class McpReactionDetailTests(unittest.IsolatedAsyncioTestCase):
         from mcp.server.mcpserver.exceptions import ToolError
         result = await self._call_tool(detail=None, headers={})
         self.assertIsInstance(result, ToolError)
-        self.assertEqual(str(result), "反应不存在")
+        self.assertEqual(str(result), "Reaction not found.")
 
 
     async def test_owner_and_admin_viewer_facts(self):
@@ -222,8 +223,8 @@ class McpReactionDetailTests(unittest.IsolatedAsyncioTestCase):
                          .replace("get_reaction", ""))
         self.assertNotIn("HTTPException", seg)
         self.assertNotIn("request=None", seg)
-        self.assertIn('ToolError("反应不存在")', seg)
-        self.assertIn("_actor_from_headers", seg)
+        self.assertIn('ToolError("Reaction not found.")', seg)
+        self.assertIn("_optional_tool_actor", seg)
 
 
 if __name__ == "__main__":

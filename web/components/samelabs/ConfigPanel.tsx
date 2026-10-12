@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { apiGet, apiPut, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
+import { Button } from "@/components/ui/Button";
+import { Input, Select } from "@/components/ui/Field";
 
 type ConfigEntry = { namespace: string; key: string; value: Record<string, unknown> };
 
@@ -88,14 +90,14 @@ export function SamelabsConfig() {
     const label = spec.label;
     if (spec.type === "boolean") {
       return <label key={spec.field}>{label}
-        <select value={value ? "true" : "false"} onChange={(e) => updateValue(entry.namespace, entry.key, spec.field, e.target.value === "true")}>
+        <Select value={value ? "true" : "false"} onChange={(e) => updateValue(entry.namespace, entry.key, spec.field, e.target.value === "true")}>
           <option value="true">{t.admin.optionEnabled}</option>
           <option value="false">{t.admin.optionDisabled}</option>
-        </select>
+        </Select>
       </label>;
     }
     return <label key={spec.field}>{label}
-      <input
+      <Input
         value={disabled ? "" : String(value || "")}
         placeholder={disabled ? "已隐藏" : ""}
         disabled={disabled}
@@ -113,9 +115,9 @@ export function SamelabsConfig() {
         const specs = RENDERABLE[key] ?? [];
         return <div key={key} className="form-fields">
           {specs.map((spec) => renderField(entry, spec))}
-          <button type="button" className="button primary small" disabled={busyKey === key} onClick={() => save(entry)}>
+          <Button variant="primary" size="sm" disabled={busyKey === key} onClick={() => save(entry)}>
             {busyKey === key ? t.admin.saving : t.admin.save}
-          </button>
+          </Button>
         </div>;
       })}
     </section>;

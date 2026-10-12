@@ -2,9 +2,18 @@ const SERVER_API = process.env.API_BASE || process.env.NEXT_PUBLIC_API_BASE || "
 const CLIENT_API = "/api";
 const BASE = typeof window !== "undefined" ? CLIENT_API : SERVER_API;
 
+/** 服务端取 API 原始字节（og 品牌卡拉 /mol/{id}/png）用的唯一 base —— 不建第二份字面量 */
+export const SERVER_API_BASE = SERVER_API;
+
+/** BX-A2：用户创建且未填来源引用的反应，dataset_name 返回此稳定枚举标记
+ *  （后端不再返回中文「用户发布」）—— 前端按语言渲染（t.reaction.userSubmitted）。 */
+export const USER_SUBMITTED_SOURCE = "user_submitted";
+
 export class ApiError extends Error {
   /** 服务端 error detail(如 FastAPI {"detail": "..."}), 可能为空 */
   detail?: string;
+  /** v1.7.0 L2: 结构化 detail 的稳定机器码(如 Notes 引用校验 kind), 可能为空 */
+  detailKind?: string;
   constructor(public status: number, path: string, detail?: unknown) {
     super(`API ${status}: ${path}`);
     this.name = "ApiError";
@@ -12,12 +21,32 @@ export class ApiError extends Error {
     else if (detail && typeof detail === "object" && "detail" in (detail as Record<string, unknown>)) {
       const inner = (detail as { detail: unknown }).detail;
       if (typeof inner === "string" && inner) this.detail = inner;
+      // v1.7.0 L2: Notes 400 detail = {message, kind} — message 回填 detail,
+      // kind 单独透出供五语言分类; 其他对象形态不受影响。
+      else if (inner && typeof inner === "object") {
+        const { message, kind } = inner as { message?: unknown; kind?: unknown };
+        if (typeof message === "string" && message) this.detail = message;
+        if (typeof kind === "string" && kind) this.detailKind = kind;
+      }
     }
   }
 }
 
 export function isApiNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 404;
+}
+
+/** FX-3（SMK-002）：记录不存在的错误形态 —— 404（无此记录）与 422（ID 非法，
+ *  FastAPI int-Path 校验拒绝）都应落到前端 404 页，而不是 500。 */
+export function isApiGone(error: unknown): error is ApiError {
+  return error instanceof ApiError && (error.status === 404 || error.status === 422);
+}
+
+/** 实体详情 [id] 段的合法性：纯数字且 ≤ int32 上限（后端 Path le=2^31-1；
+ * 超大数后端某些端点直接 500 而非 422，前端一律按非法 ID 处理）。不满足时
+ * 调用方直接 notFound()，不把非法 ID 打到后端。 */
+export function isEntityId(id: string): boolean {
+  return /^\d+$/.test(id) && Number(id) <= 2_147_483_647;
 }
 
 async function safeDetail(response: Response): Promise<unknown> {
@@ -195,6 +224,31 @@ export type EnrichmentState = {
   requested_sections?: string[];
 };
 
+export type NoteVisibility = "all" | "public" | "private";
+
+export type NoteItem = {
+  id: number;
+  owner_user_id: number;
+  visibility: "public" | "private";
+  moderation_status: "visible" | "hidden";
+  content: string;
+  created_at: string;
+  updated_at: string;
+  username: string;
+  display_name: string | null;
+  /* HGS-ACCOUNT-CONTENT-01: 停用作者的公开笔记保留可见, false 时前端渲染「已停用」 */
+  owner_active?: boolean;
+  chemical_ids: number[];
+  reaction_ids: number[];
+};
+
+export type NoteResponse = {
+  items: NoteItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
 export type ReactionSummary = {
   id: number;
   reaction_smiles: string | null;
@@ -260,7 +314,7 @@ export type ReactionDetail = {
   source_citation: string | null;
   workup_details: string | null;
   note: string | null;
-  creator: { username: string; display_name: string; avatar_url: string | null } | null;
+  creator: { username: string; display_name: string; avatar_url: string | null; active?: boolean } | null;
   is_owner: boolean;
   follower_count: number;
   is_following: boolean;

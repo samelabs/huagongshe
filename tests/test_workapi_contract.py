@@ -37,6 +37,19 @@ TOKEN_CAS = "it_contract_" + "b" * 32
 WORKER_ID_CAS = "it-contract-test-worker-cas"
 
 
+def _reset_test_redis_pool():
+    """Give this TestClient a loop-local Redis pool.
+
+    The application cache pool is module-level. The full integration suite uses
+    several event loops, so reusing a connection created by an earlier loop can
+    fail closed as a replay-protection 503. Replacing the pool is test isolation
+    only; production WorkAPI behavior remains unchanged.
+    """
+    from api.core import cache as cache_module
+    cache_module.pool = cache_module.redis.ConnectionPool.from_url(
+        cache_module.settings.redis_url, decode_responses=True)
+
+
 def sign(method: str, path: str, body: bytes, token: str = TOKEN,
          worker_id: str = WORKER_ID, ts: str | None = None,
          nonce: str | None = None):
@@ -87,6 +100,7 @@ class WorkApiContractTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        _reset_test_redis_pool()
         cls._cm = TestClient(app)
         cls.client = cls._cm.__enter__()
 
@@ -132,6 +146,9 @@ class WorkApiContractTests(unittest.TestCase):
         except Exception as exc:  # noqa: BLE001
             print(f"[contract-test] 凭据清理失败(需手工删 {WORKER_ID}): {exc}")
         cls._cm.__exit__(None, None, None)
+        # The TestClient portal loop is closed above; leave an unbound pool for
+        # any later integration module instead of leaking loop-bound connections.
+        _reset_test_redis_pool()
 
     def setUp(self):
         self._ensure_registered()

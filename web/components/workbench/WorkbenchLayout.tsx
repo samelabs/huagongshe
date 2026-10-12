@@ -5,6 +5,7 @@ import { useWorkbenchCounts } from "./WorkbenchCountsContext";
 import { useDictionary } from "@/components/shared/I18nContext";
 import { ActivityPanel } from "./panels/ActivityPanel";
 import { HomePanel } from "./panels/HomePanel";
+import { NotesPanel } from "./panels/NotesPanel";
 import { RelationshipsPanel } from "./panels/RelationshipsPanel";
 import { ReactionsPanel } from "./panels/ReactionsPanel";
 import { SavedPanel } from "./panels/SavedPanel";
@@ -14,6 +15,8 @@ import { StoichPanel } from "./panels/StoichPanel";
 import type {
   ChemicalFollow,
   NoticeResponse,
+  NoteResponse,
+  NoteVisibility,
   PageResponse,
   Reaction,
   ReactionResponse,
@@ -29,28 +32,50 @@ export function WorkbenchLayout({
   activeTab,
   page,
   visibility,
+  noteVisibility,
   savedKind,
   summary,
+  initialNotes,
+  filterChemicalId,
+  filterReactionId,
   initialReactions,
+  initialFavorites,
+  initialNotices,
+  initialFavoredIds,
   initialChemicals,
   initialSavedReactions,
-  initialNotices,
   initialPeople,
   initialSkills,
   searchQuery,
+  createNote,
+  editNoteId,
+  initialChemicalId,
+  initialReactionId,
 }: {
   activeTab: WorkbenchTab;
   page: number;
   visibility: ReactionVisibility;
+  noteVisibility: NoteVisibility;
   savedKind: SavedKind;
   summary: Summary | null;
+  initialNotes: NoteResponse | null;
+  filterChemicalId?: number;
+  filterReactionId?: number;
   initialReactions: ReactionResponse | null;
+  /** 概览（§9.4）：我的内容收藏流 / 动态前 5 / 收藏反应 id 集 */
+  initialFavorites: PageResponse<ChemicalFollow> | null;
+  initialNotices: NoticeResponse | null;
+  initialFavoredIds: number[] | null;
   initialChemicals: PageResponse<ChemicalFollow> | null;
   initialSavedReactions: PageResponse<Reaction> | null;
-  initialNotices: NoticeResponse | null;
   initialPeople: PageResponse<PersonSummary> | null;
   initialSkills: PageResponse<SkillItem> | null;
   searchQuery?: string;
+  createNote?: boolean;
+  /** Step 7 Part C: /aichem?tab=notes&edit=<id> 直接打开该笔记编辑器 */
+  editNoteId?: number;
+  initialChemicalId?: number;
+  initialReactionId?: number;
 }) {
   const { user, ready: authReady } = useAccount();
   const t = useDictionary();
@@ -60,7 +85,27 @@ export function WorkbenchLayout({
 
   return (
     <>
-      {activeTab === "home" && <HomePanel counts={counts} initialReactions={initialReactions} />}
+      {activeTab === "home" && (
+        <HomePanel
+          counts={counts}
+          initialNotes={initialNotes}
+          initialReactions={initialReactions}
+          initialFavorites={initialFavorites}
+          initialNotices={initialNotices}
+          initialFavoredIds={initialFavoredIds}
+        />
+      )}
+      {activeTab === "notes" && <NotesPanel
+        page={page}
+        visibility={noteVisibility}
+        initialData={initialNotes}
+        createOpen={createNote}
+        editNoteId={editNoteId}
+        initialChemicalId={initialChemicalId}
+        initialReactionId={initialReactionId}
+        filterChemicalId={filterChemicalId}
+        filterReactionId={filterReactionId}
+      />}
       {activeTab === "search" && <SearchPanel initialQuery={searchQuery} />}
       {activeTab === "stoich" && <StoichPanel />}
       {activeTab === "mine" && <ReactionsPanel page={page} visibility={visibility} initialData={initialReactions} />}

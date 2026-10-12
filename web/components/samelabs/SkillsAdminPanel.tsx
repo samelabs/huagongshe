@@ -6,6 +6,10 @@ import { apiGet, apiPatch, apiPost, apiDelete, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 import { PAGE_SIZE, parseAdminPage, adminOffset, adminTotalPages } from "@/lib/adminPagination";
 import { AdminPagination } from "@/components/samelabs/AdminPagination";
+import { Button } from "@/components/ui/Button";
+import { TextLink } from "@/components/ui/TextLink";
+import { Input } from "@/components/ui/Field";
+import { Segmented } from "@/components/ui/Segmented";
 
 type SkillRow = {
   id: number; slug: string; title: string; description: string | null;
@@ -28,6 +32,16 @@ function fmtSize(n: number) {
   if (n >= 1048576) return `${(n / 1048576).toFixed(1)}MB`;
   if (n >= 1024) return `${(n / 1024).toFixed(0)}KB`;
   return `${n}B`;
+}
+
+/** BX-A2：分类保存失败按后端机器码（detail.kind）渲染五语言文案，
+ *  不再透传服务端 message 中文原文。 */
+function catErrorLabel(e: unknown, dict: typeof t): string {
+  if (e instanceof ApiError && e.detailKind) {
+    const byKind = dict.admin.catErrors[e.detailKind as keyof typeof dict.admin.catErrors];
+    if (byKind) return byKind;
+  }
+  return dict.admin.errSaveFailed;
 }
 
 export function SamelabsSkills() {
@@ -214,7 +228,7 @@ export function SamelabsSkills() {
       }
       await reloadCats();
     } catch (e) {
-      setCatError(e instanceof ApiError && e.detail ? e.detail : t.admin.errSaveFailed);
+      setCatError(catErrorLabel(e, t));
     } finally { setCatBusy(false); }
   }
 
@@ -235,7 +249,7 @@ export function SamelabsSkills() {
       setEditCatId(null);
       await reloadCats();
     } catch (e) {
-      setCatError(e instanceof ApiError && e.detail ? e.detail : t.admin.errSaveFailed);
+      setCatError(catErrorLabel(e, t));
     } finally { setCatBusy(false); }
   }
 
@@ -254,19 +268,24 @@ export function SamelabsSkills() {
           </div>
           <div className="admin-filters">
             <form className="admin-filters-search" onSubmit={submitSearch}>
-              <input
+              <Input
                 value={q}
                 placeholder={t.admin.skillsSearchPlaceholder}
+                aria-label={t.admin.skillsSearchPlaceholder}
                 onChange={(e) => setQ(e.target.value)}
               />
-              <button type="submit">{t.admin.skillsFilterApply}</button>
+              <Button type="submit" size="sm">{t.admin.skillsFilterApply}</Button>
             </form>
-            {(["all", "public", "private"] as const).map((v) => (
-              <button key={v} className={visibility === v ? "active" : ""}
-                onClick={() => setVisFilter(v)}>
-                {v === "all" ? t.admin.visAll : v === "public" ? t.admin.publicLabel : t.admin.privateLabel}
-              </button>
-            ))}
+            <Segmented
+              ariaLabel={t.admin.skillsAll}
+              options={[
+                { value: "all", label: t.admin.visAll },
+                { value: "public", label: t.admin.publicLabel },
+                { value: "private", label: t.admin.privateLabel },
+              ]}
+              value={visibility}
+              onChange={setVisFilter}
+            />
           </div>
           <div className="admin-table admin-actions-min">
             {skills.map((s) => <article key={s.id}>
@@ -280,14 +299,14 @@ export function SamelabsSkills() {
                 <span className="status">{s.origin}</span>
               </div>
               <div className="admin-user-actions">
-                <button className="text-button" disabled={busyId === s.id}
+                <TextLink disabled={busyId === s.id}
                   onClick={() => { setPendingVis(s); setVisNote(""); }}>
                   {busyId === s.id ? "…" : s.visibility === "public" ? t.admin.skillUnpublish : t.admin.skillPublish}
-                </button>
-                <button className="text-button" disabled={busyId === s.id}
+                </TextLink>
+                <TextLink disabled={busyId === s.id}
                   onClick={() => setPendingDelete(s)}>
                   {t.admin.skillDelete}
-                </button>
+                </TextLink>
               </div>
             </article>)}
             {!loading && skills.length === 0 && (
@@ -307,7 +326,7 @@ export function SamelabsSkills() {
           <div className="admin-table admin-actions-min">
             {cats.map((c) => <article key={c.id}>
               <div>
-                <strong><span style={{ color: c.color }}>{c.abbr}</span> {c.name}</strong>
+                <strong><i aria-hidden="true" className="sml-cat-dot" style={{ backgroundColor: c.color }} /> {c.abbr} · {c.name}</strong>
                 <span>#{c.id} · {t.admin.categorySort(c.sort_order)}</span>
               </div>
               <div className="admin-user-badges">
@@ -317,50 +336,50 @@ export function SamelabsSkills() {
               <div className="admin-user-actions">
                 {editCatId === c.id
                   ? <>
-                    <button className="text-button" disabled={catBusy} onClick={() => saveEditCat(c.id)}>
+                    <TextLink disabled={catBusy} onClick={() => saveEditCat(c.id)}>
                       {catBusy ? "…" : t.admin.categorySave}
-                    </button>
-                    <button className="text-button" disabled={catBusy} onClick={() => setEditCatId(null)}>
+                    </TextLink>
+                    <TextLink disabled={catBusy} onClick={() => setEditCatId(null)}>
                       {t.admin.categoryCancel}
-                    </button>
+                    </TextLink>
                   </>
                   : <>
-                    <button className="text-button" disabled={catBusy} onClick={() => startEditCat(c)}>
+                    <TextLink disabled={catBusy} onClick={() => startEditCat(c)}>
                       {t.admin.categoryEdit}
-                    </button>
-                    <button className="text-button" disabled={catBusy}
+                    </TextLink>
+                    <TextLink disabled={catBusy}
                       onClick={() => saveCat(c)}>
                       {c.active ? t.admin.categoryDeactivate : t.admin.categoryActivate}
-                    </button>
+                    </TextLink>
                   </>}
               </div>
               {editCatId === c.id && (
                 <div className="admin-cat-create" style={{ width: "100%" }}>
-                  <input value={editCat.name} placeholder={t.admin.categoryNamePlaceholder}
+                  <Input value={editCat.name} placeholder={t.admin.categoryNamePlaceholder}
                     onChange={(e) => setEditCat({ ...editCat, name: e.target.value })} />
-                  <input value={editCat.abbr} placeholder={t.admin.categoryAbbrPlaceholder} maxLength={4}
+                  <Input value={editCat.abbr} placeholder={t.admin.categoryAbbrPlaceholder} maxLength={4}
                     onChange={(e) => setEditCat({ ...editCat, abbr: e.target.value.toUpperCase() })} />
                   <input type="color" value={editCat.color}
                     onChange={(e) => setEditCat({ ...editCat, color: e.target.value })} />
-                  <input type="number" value={editCat.sort_order} min={0}
+                  <Input type="number" value={editCat.sort_order} min={0}
                     onChange={(e) => setEditCat({ ...editCat, sort_order: Number(e.target.value) })} />
                 </div>
               )}
             </article>)}
           </div>
           <div className="admin-cat-create">
-            <input value={newCat.name} placeholder={t.admin.categoryNamePlaceholder}
+            <Input value={newCat.name} placeholder={t.admin.categoryNamePlaceholder}
               onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} />
-            <input value={newCat.abbr} placeholder={t.admin.categoryAbbrPlaceholder} maxLength={4}
+            <Input value={newCat.abbr} placeholder={t.admin.categoryAbbrPlaceholder} maxLength={4}
               onChange={(e) => setNewCat({ ...newCat, abbr: e.target.value.toUpperCase() })} />
             <input type="color" value={newCat.color}
               onChange={(e) => setNewCat({ ...newCat, color: e.target.value })} />
-            <input type="number" value={newCat.sort_order} min={0}
+            <Input type="number" value={newCat.sort_order} min={0}
               onChange={(e) => setNewCat({ ...newCat, sort_order: Number(e.target.value) })} />
-            <button className="button primary small" disabled={catBusy || !newCat.name || !newCat.abbr}
+            <Button variant="primary" size="sm" disabled={catBusy || !newCat.name || !newCat.abbr}
               onClick={() => saveCat(null)}>
               {catBusy ? "…" : t.admin.categoryCreate}
-            </button>
+            </Button>
           </div>
         </section>
     {pendingVis && (
@@ -370,16 +389,16 @@ export function SamelabsSkills() {
             ? t.admin.skillUnpublishConfirm(pendingVis.title, pendingVis.slug)
             : t.admin.skillPublishConfirm(pendingVis.title, pendingVis.slug)}</p>
           <label>{t.admin.skillPublishNoteLabel}
-            <input value={visNote} maxLength={200}
+            <Input value={visNote} maxLength={200}
               placeholder={t.admin.skillPublishNotePlaceholder}
               onChange={(e) => setVisNote(e.target.value)} />
           </label>
           <div className="pipe-confirm-actions">
-            <button type="button" className="button small" onClick={() => setPendingVis(null)}>{t.admin.cancel}</button>
-            <button type="button" className="button small" disabled={busyId === pendingVis.id}
+            <Button size="sm" onClick={() => setPendingVis(null)}>{t.admin.cancel}</Button>
+            <Button size="sm" disabled={busyId === pendingVis.id}
               onClick={confirmVisAction}>
               {pendingVis.visibility === "public" ? t.admin.skillUnpublish : t.admin.skillPublish}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -390,11 +409,11 @@ export function SamelabsSkills() {
           <p>{t.admin.skillDeleteConfirm(pendingDelete.title, pendingDelete.slug)}</p>
           <p>{t.admin.skillDeleteIrreversible}</p>
           <div className="pipe-confirm-actions">
-            <button type="button" className="button small" onClick={() => setPendingDelete(null)}>{t.admin.cancel}</button>
-            <button type="button" className="button danger small" disabled={busyId === pendingDelete.id}
+            <Button size="sm" onClick={() => setPendingDelete(null)}>{t.admin.cancel}</Button>
+            <Button variant="danger" size="sm" disabled={busyId === pendingDelete.id}
               onClick={() => { removeSkill(pendingDelete.id).finally(() => setPendingDelete(null)); }}>
               {t.admin.skillDelete}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

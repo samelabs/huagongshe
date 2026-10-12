@@ -75,7 +75,9 @@ ROUTE_SCOPE: dict[tuple[str, str], str] = {
 def resolve_route_scope(method: str, path: str) -> str | None:
     """精确 method+path → scope; 无精确匹配 → None(调用方 403 fail-closed)。
 
-    显式枚举全部 10 个 WorkAPI 端点, 不做 prefix/family 推导:
+    显式枚举全部 WorkAPI 端点(以 ROUTE_SCOPE 表为唯一事实源, 结构测试
+    锁 router POST 集合与表全等 —— 头注不再手写数量, 防计数漂移),
+    不做 prefix/family 推导:
     /workapi/v1/jobs/admin、/cas/jobs/admin、/identity/jobs/admin、
     /workapi/v1/jobs/<未列出子路径>、/workapi/v2/*、GET 已知 path
     全部 → None。新增端点必须同步登记本表, 否则默认拒绝。
@@ -273,7 +275,7 @@ async def lease_identity_jobs(
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
-    """discovery lease。claim 只认 queued; error 行留痕永不派发(对齐纪律)。
+    """discovery lease。claim 只认 queued; error 行不直接派发; 复活两路: 同请求到达入列口翻 queued, 或该通道任一 complete 后 gate_unlock_error_rows 整通道翻 queued。
     闸门复用 pubchem 命名空间(与 whole_record 同通道连击计数)。"""
     return await jobs.lease_identity_jobs(
         db, worker_id=worker.worker_id, max_lease_jobs=worker.max_lease_jobs,

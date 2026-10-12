@@ -2,12 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiGet, reactionSvgUrl, type ReactionSummary } from "@/lib/api";
-import { EntityId } from "@/components/shared/EntityId";
+import { apiGet, reactionSvgUrl, USER_SUBMITTED_SOURCE, type ReactionSummary } from "@/lib/api";
+import { EntityBadge } from "@/components/ui/EntityBadge";
+import { Segmented } from "@/components/ui/Segmented";
+import { Tag } from "@/components/ui/Tag";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
+import { Button } from "@/components/ui/Button";
+import { TextLink } from "@/components/ui/TextLink";
 
 const roles = ["any", "reactant", "product", "reagent", "catalyst", "solvent"] as const;
+type Role = (typeof roles)[number];
+
+/** 手机默认展示的相关反应卡数（Step 8 Part A：其余 hidden，「显示更多」展开） */
+const MOBILE_PREVIEW = 4;
 
 export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId: number; initial: ReactionSummary[]; initialTotal: number }) {
   const t = useDictionary();
@@ -17,11 +25,12 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
     any: t.common.all, reactant: t.chemical.roles.reactant, product: t.chemical.roles.product, reagent: t.chemical.roles.reagent,
     catalyst: t.chemical.roles.catalyst, solvent: t.chemical.roles.solvent,
   };
-  const [role, setRole] = useState<string>("any");
+  const [role, setRole] = useState<Role>("any");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ total: number; reactions: ReactionSummary[] }>({ total: initialTotal, reactions: initial });
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     // Skip initial fetch — SSR already provided the authoritative default view.
@@ -45,35 +54,52 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
 
   return (
     <>
-      <div className="role-filter">{roles.map((value) => (
-        <button type="button" className={`role-filter-btn${role === value ? " active" : ""}`} key={value} onClick={() => { setRole(value); setPage(1); }}>{roleNames[value]}</button>
-      ))}</div>
+      <Segmented<Role>
+        className="reaction-role-seg"
+        ariaLabel={t.chemical.relatedReactions}
+        options={roles.map((value) => ({ value, label: roleNames[value] }))}
+        value={role}
+        onChange={(value) => { setRole(value); setPage(1); setExpanded(false); }}
+      />
       {loadError && !loading ? <p className="quiet-empty">{t.common.errRetry}</p> : null}
       {loading ? <p className="quiet-empty">{t.common.loading}</p> : data.reactions.length > 0 ? (
-        <div className="reaction-results">{data.reactions.map((reaction) => (
-          <article className="reaction-result" key={reaction.id}>
-            <div className="reaction-result-main">
-              <div className="reaction-result-head">
-                <Link href={withLocale(`/reaction/${reaction.id}`, locale)}><EntityId kind="reaction" id={reaction.id} ariaLabel={t.common.hridLabel(reaction.id)} /></Link>
-              </div>
+        <div className={`reaction-mini-grid${expanded ? "" : " collapsed"}`}>
+          {data.reactions.map((reaction) => (
+            <article className="reaction-mini" key={reaction.id}>
               {reaction.reaction_smiles ? (
-                <Link className="reaction-preview" href={withLocale(`/reaction/${reaction.id}`, locale)}>
+                <Link className="reaction-mini-img" href={withLocale(`/reaction/${reaction.id}`, locale)}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={t.reaction.equationAlt(reaction.id)} loading="lazy" />
                 </Link>
-              ) : <div className="reaction-preview unavailable">{t.reaction.equationUnavailable}</div>}
-              <div className="reaction-result-foot">
-                <p>{[reaction.dataset_name, reaction.doi, reaction.patent].filter(Boolean).join(" · ") || t.reaction.noSource}</p>
-                <Link href={withLocale(`/reaction/${reaction.id}`, locale)}>{t.common.view}</Link>
+              ) : <div className="reaction-mini-img unavailable">{t.reaction.equationUnavailable}</div>}
+              <div className="reaction-mini-foot">
+                <EntityBadge
+                  kind="reaction"
+                  id={reaction.id}
+                  size="sm"
+                  href={withLocale(`/reaction/${reaction.id}`, locale)}
+                  ariaLabel={t.common.hridLabel(reaction.id)}
+                />
+                {reaction.matched_roles.length > 0 && (
+                  reaction.matched_roles.map((r) => <Tag key={r}>{roleNames[r.toLowerCase()] ?? r}</Tag>)
+                )}
+                {reaction.dataset_name && <Tag tone="src">{reaction.dataset_name === USER_SUBMITTED_SOURCE ? t.reaction.userSubmitted : reaction.dataset_name}</Tag>}
+                {!reaction.dataset_name && reaction.doi && <Tag tone="src">DOI</Tag>}
+                {!reaction.dataset_name && !reaction.doi && reaction.patent && <Tag tone="src">{t.reaction.sourceFields.patent}</Tag>}
               </div>
-            </div>
-          </article>
-        ))}</div>
+            </article>
+          ))}
+        </div>
       ) : <p className="quiet-empty">{t.chemical.noReactions}</p>}
+      {!loading && data.reactions.length > MOBILE_PREVIEW && !expanded && (
+        <Button variant="secondary" size="sm" className="reaction-mini-more" onClick={() => setExpanded(true)}>
+          {t.chemical.moreReactions(data.reactions.length - MOBILE_PREVIEW)}
+        </Button>
+      )}
       {pageCount > 1 && <nav className="pagination" aria-label={t.common.pageNav}>
-        {page > 1 && <button type="button" className="pagination-link" onClick={() => setPage(page - 1)}>{t.common.prev}</button>}
+        {page > 1 && <TextLink className="pagination-link" onClick={() => setPage(page - 1)}>{t.common.prev}</TextLink>}
         <span>{t.common.pageOf(page, pageCount)}</span>
-        {page < pageCount && <button type="button" className="pagination-link" onClick={() => setPage(page + 1)}>{t.common.next}</button>}
+        {page < pageCount && <TextLink className="pagination-link" onClick={() => setPage(page + 1)}>{t.common.next}</TextLink>}
       </nav>}
     </>
   );

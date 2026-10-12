@@ -29,6 +29,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..core.config import settings
 from ..core.rate_limit import enforce
+from ..core.text import like_literal
 
 logger = logging.getLogger("api.services.skills")
 
@@ -79,7 +80,8 @@ async def list_skills(
         params["owner"] = owner_id
     if q.strip():
         conditions.append("(s.slug ILIKE :q OR s.title ILIKE :q OR s.description ILIKE :q)")
-        params["q"] = f"%{q.strip()}%"
+        # HGS-SEARCH-LIKE-LITERAL-01: 字面匹配, %/_ 不作通配符
+        params["q"] = f"%{like_literal(q.strip())}%"
     if category.strip():
         conditions.append("s.category=:category")
         params["category"] = category.strip()
@@ -91,7 +93,7 @@ async def list_skills(
     rows = (await db.execute(text(f"""
         SELECT s.id,s.slug,s.title,s.description,s.category,s.origin,s.visibility,
                s.has_scripts,s.file_count,s.size_bytes,s.updated_at,
-               u.username,u.display_name
+               u.username,u.display_name,(u.status='active') AS owner_active
         FROM community.skills s JOIN community.users u ON u.id=s.owner_id
         WHERE {where}
         ORDER BY s.updated_at DESC, s.id DESC
@@ -106,7 +108,9 @@ async def list_skills(
                 "origin": row["origin"], "visibility": row["visibility"],
                 "has_scripts": row["has_scripts"], "file_count": row["file_count"],
                 "size_bytes": int(row["size_bytes"]), "updated_at": row["updated_at"],
-                "owner": {"username": row["username"], "display_name": row["display_name"]},
+                "owner": {"username": row["username"],
+                          "display_name": row["display_name"],
+                          "active": bool(row["owner_active"])},
             }
             for row in rows
         ],
@@ -147,7 +151,7 @@ async def load_accessible_skill(
     row = (await db.execute(text("""
         SELECT s.id,s.owner_id,s.slug,s.title,s.description,s.license,s.category,s.origin,
                s.visibility,s.has_scripts,s.file_count,s.size_bytes,s.created_at,s.updated_at,
-               u.username,u.display_name
+               u.username,u.display_name,(u.status='active')
         FROM community.skills s JOIN community.users u ON u.id=s.owner_id
         WHERE s.id=:id
     """), {"id": skill_id})).fetchone()
@@ -160,7 +164,8 @@ async def load_accessible_skill(
         "description": row[4], "license": row[5], "category": row[6], "origin": row[7],
         "visibility": row[8], "has_scripts": row[9], "file_count": row[10],
         "size_bytes": int(row[11]), "created_at": row[12], "updated_at": row[13],
-        "owner": {"username": row[14], "display_name": row[15]},
+        "owner": {"username": row[14], "display_name": row[15],
+                  "active": bool(row[16])},
     }
 
 
@@ -360,6 +365,12 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
         if name.startswith("/") or "\\" in name or ".." in Path(name).parts:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.UNSAFE_PATH, f"非法路径：{name}")
+        # HGS-SKILL-PATH-01: 与 baseline skill_files CHECK 对齐 ——
+        # path !~~ '%..%' 拒绝任意位置连续两点(guide..md 这种文件名也拒),
+        # 此前只查 Path.parts 里的 ".." 段, validate 过了 create 撞 CHECK 500。
+        if ".." in name:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.UNSAFE_PATH, f"非法路径：{name}")
         if not SAFE_PATH_RE.match(name) or len(name) > MAX_PATH_LEN:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.UNSAFE_PATH, f"非法路径：{name}")
@@ -370,7 +381,35 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
         if mode == 0o120000:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.UNSAFE_PATH, f"不允许符号链接：{name}")
-        raw_bytes = archive.read(info)
+        # Validate ZIP metadata before decompression; cap actual reads too.
+        # Previously archive.read() expanded the entire entry before quota checks.
+        if len(entries) >= settings.skill_max_files:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"文件数超过 {settings.skill_max_files} 上限")
+        # Keep the old DECOMPRESSION-before-quota error precedence.
+        if info.compress_size and info.file_size > info.compress_size * MAX_COMPRESSION_RATIO:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.DECOMPRESSION,
+                f"压缩比异常（疑似 zip 炸弹）：{name}")
+        if info.file_size > settings.skill_file_max_bytes:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"单文件超过 {settings.skill_file_max_bytes // (1024 * 1024)}MB 上限：{name}")
+        if sum(len(data) for _, data in entries) + info.file_size > settings.skill_total_max_bytes:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"解包后总量超过 {settings.skill_total_max_bytes // (1024 * 1024)}MB 上限")
+        with archive.open(info) as member:
+            raw_bytes = member.read(settings.skill_file_max_bytes + 1)
+        if len(raw_bytes) > settings.skill_file_max_bytes:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"单文件超过 {settings.skill_file_max_bytes // (1024 * 1024)}MB 上限：{name}")
+        if sum(len(data) for _, data in entries) + len(raw_bytes) > settings.skill_total_max_bytes:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.ARCHIVE_LIMIT,
+                f"解包后总量超过 {settings.skill_total_max_bytes // (1024 * 1024)}MB 上限")
         if info.compress_size and len(raw_bytes) > info.compress_size * MAX_COMPRESSION_RATIO:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.DECOMPRESSION,
@@ -558,7 +597,7 @@ async def create_skill(
     """
     await enforce("skill-write-hour", str(actor_id), settings.api_skill_write_limit_per_hour, 3600)
     category = await validate_category(db, category)
-    if auth_kind == "agent" and not idempotency_key:
+    if auth_kind in ("agent", "oauth") and not idempotency_key:
         raise MissingSkillIdempotencyKeyError()
     if idempotency_key and len(idempotency_key) > 200:
         raise SkillIdempotencyKeyTooLongError()
@@ -778,6 +817,10 @@ async def update_skill_metadata(
     """
     if title is None and description is None:
         raise SkillUpdateValidationError()
+    # P2c(审计): 空/纯空白 title 此前直落 UPDATE, 撞 CHECK
+    # char_length(title)>=1 → IntegrityError 500; 与 None 同道 400。
+    if title is not None and not str(title).strip():
+        raise SkillUpdateValidationError("标题不能为空")
     await db.execute(text("""
         UPDATE community.skills SET
           title=coalesce(:title,title),

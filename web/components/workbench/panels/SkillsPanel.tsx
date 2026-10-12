@@ -1,17 +1,50 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { ApiError, apiDelete, apiGet, apiPost } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { IconSparkle } from "@/components/ui/icons";
+import { Notice } from "@/components/ui/Notice";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import { withLocale } from "@/lib/localePath";
-import { Pagination, PanelError, PanelHeading, PanelLoading, WbEmpty } from "../shared";
+import { Pagination, PanelError, PanelHeading, PanelLoading, SlowNotice } from "../shared";
 import type { LoadState, PageResponse, SkillItem } from "../types";
 
 const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, page_size: 20 });
 
+/**
+ * v1.7.0 L3(+补正): 上传/删除失败提示按真实状态分类 —
+ * 401 会话失效 / 403 权限不足 / 429 限流各自专用文案(不挪用搜索专用
+ * 的"结构检索需要登录"); 400/409 按后端业务校验机器码(BX-A2 起 detail
+ * = {message, kind})映射五语言文案(zip 结构/slug 冲突/大小上限等可行动
+ * 信息); 5xx 与网络错误落本地化通用失败, 不暴露内部 API 路径, 也不再
+ * 透传服务端 message 原文(中文)。
+ */
+function skillsErrorMessage(error: unknown, t: Dictionary, fallback: string): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return t.me.skillLoginRequired;
+    if (error.status === 403) return t.me.skillForbidden;
+    if (error.status === 429) return t.me.skillRateLimited;
+    if ((error.status === 400 || error.status === 409) && error.detailKind) {
+      const byKind = t.me.skillErrors[error.detailKind as keyof typeof t.me.skillErrors];
+      if (byKind) return byKind;
+    }
+    if (error.status >= 500) return t.common.networkError;
+    return fallback;
+  }
+  if (error instanceof Error && !(error instanceof ApiError)) return t.common.networkError;
+  return fallback;
+}
+
 export function SkillsPanel({ page, initialData }: { page: number; initialData?: PageResponse<SkillItem> | null }) {
   const t = useDictionary();
   const locale = useLocale();
+  const confirm = useConfirm();
+  const router = useRouter();
   const [skills, setSkills] = useState<PageResponse<SkillItem>>(initialData ?? emptyPage<SkillItem>());
   const [state, setState] = useState<LoadState>(initialData ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);
@@ -20,6 +53,24 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mounted = useRef(false);
+  const latestLoad = useRef(0);
+
+  /** FX-16：客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
+  async function load() {
+    const requestId = ++latestLoad.current;
+    setState("loading");
+    setError(null);
+    try {
+      const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=${page}&page_size=20`);
+      if (requestId !== latestLoad.current) return;
+      setSkills(value);
+      setState("ready");
+    } catch (err) {
+      if (requestId !== latestLoad.current) return;
+      setError(err);
+      setState("error");
+    }
+  }
 
   useEffect(() => {
     if (!mounted.current && initialData) {
@@ -27,25 +78,8 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
       return;
     }
     mounted.current = true;
-    let active = true;
-    setState("loading");
-    setError(null);
-    apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=${page}&page_size=20`)
-      .then((value) => {
-        if (active) {
-          setSkills(value);
-          setState("ready");
-        }
-      })
-      .catch((err: unknown) => {
-        if (active) {
-          setError(err);
-          setState("error");
-        }
-      });
-    return () => {
-      active = false;
-    };
+    void load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, initialData]);
 
   async function handleUpload() {
@@ -58,13 +92,21 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
     form.append("file", file);
     try {
       const created = await apiPost<SkillItem & { warnings?: string[] }>("/skills", form);
+      // v1.7.0 L3 补正: 写请求成功即视为操作成功 — 成功提示先落定;
+      // 后续列表刷新失败单独提示, 不反向报"上传失败", 也不重试写请求。
       const warn = created.warnings?.length ? t.me.skillUploadWarnings(created.warnings.length) : "";
       setUploadNotice(t.me.skillUploaded(created.slug) + warn);
-      const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=1&page_size=20`);
-      setSkills(value);
-      setState("ready");
+      try {
+        const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=1&page_size=20`);
+        setSkills(value);
+        setState("ready");
+        // FX-9b（SMK-014）：上传成功落到第 1 页时同步 URL，避免「看第 1 页、URL 第 N 页」
+        if (page !== 1) router.replace(withLocale("/aichem?tab=skills", locale));
+      } catch {
+        setUploadNotice(t.me.skillUploaded(created.slug) + warn + " " + t.me.skillRefreshFailed);
+      }
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : t.me.skillUploadFailed);
+      setUploadError(skillsErrorMessage(err, t, t.me.skillUploadFailed));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -72,35 +114,54 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
   }
 
   async function handleDelete(id: number, slug: string) {
+    // FX-5（SMK-004 / HGS-A3-01）：不可逆删除必须二次确认（IX-3），
+    // 全站唯一漏接确认的删除操作补齐
+    const ok = await confirm({
+      title: t.me.skillDeleteTitle,
+      body: t.me.skillDeleteBody(slug),
+      confirmLabel: t.me.skillDeleteLabel,
+      tone: "danger",
+    });
+    if (!ok) return;
     setUploadNotice(null);
     setUploadError(null);
     try {
       await apiDelete(`/skills/${id}`);
+      // v1.7.0 L3 补正: 删除成功即成功 — 刷新失败单独提示, 不报"删除失败",
+      // 不重复提交删除。
       setUploadNotice(t.me.skillDeleted(slug));
-      const value = await apiGet<PageResponse<SkillItem>>(
-        `/skills?scope=mine&page=${Math.min(page, Math.max(1, Math.ceil((skills.total - 1) / 20)))}&page_size=20`
-      );
-      setSkills(value);
+      // FX-9a（SMK-013）：按当前页刷新；当前页被删空则退回上一页并同步 URL
+      const lastPage = Math.max(1, Math.ceil((skills.total - 1) / 20));
+      const target = Math.min(page, lastPage);
+      try {
+        const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=${target}&page_size=20`);
+        setSkills(value);
+        if (target !== page) {
+          router.replace(withLocale(target > 1 ? `/aichem?tab=skills&page=${target}` : "/aichem?tab=skills", locale));
+        }
+      } catch {
+        setUploadNotice(t.me.skillDeleted(slug) + " " + t.me.skillRefreshFailed);
+      }
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : t.me.skillDeleteFailed);
+      setUploadError(skillsErrorMessage(err, t, t.me.skillDeleteFailed));
     }
   }
 
   return (
     <section className="wb-panel">
-      <PanelHeading title={t.me.tabSkills} subtitle={t.me.skillsHint} count={state === "ready" ? skills.total : "—"} unit={t.me.unitSkill} />
+      <PanelHeading title={t.me.navSkills} subtitle={t.me.skillsHint} count={state === "ready" ? skills.total : "—"} unit={t.me.unitSkill} />
       <div className="wb-skills-upload">
         <div className="wb-skills-upload-row">
           <input ref={fileRef} type="file" accept=".zip" aria-label={t.me.skillsPickZip} />
-          <button type="button" className="wb-btn wb-btn-ghost" onClick={handleUpload} disabled={uploading}>
+          <Button variant="secondary" size="sm" loading={uploading} onClick={() => void handleUpload()}>
             {uploading ? t.me.skillsUploading : t.me.skillsUpload}
-          </button>
+          </Button>
         </div>
         <p className="wb-skills-upload-hint">{t.me.skillsUploadHint}</p>
-        {uploadNotice && <p className="wb-skills-notice">{uploadNotice}</p>}
-        {uploadError && <p className="wb-skills-error">{uploadError}</p>}
+        {uploadNotice && <Notice tone="ok">{uploadNotice}</Notice>}
+        {uploadError && <Notice tone="err">{uploadError}</Notice>}
       </div>
-      {state === "loading" && <PanelLoading variant="list" />}
+      {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && (skills.items.length ? (
         <div className="wb-skill-list">
@@ -116,17 +177,23 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
                 </small>
               </span>
               <span className="wb-skill-actions">
-                <a className="wb-btn wb-btn-ghost" href={`/api/skills/${s.id}/archive`} download={`${s.slug}.zip`}>
+                <a className="hg-btn ghost sm" href={`/api/skills/${s.id}/archive`} download={`${s.slug}.zip`}>
                   {t.me.skillDownload}
                 </a>
-                <button type="button" className="wb-btn wb-btn-danger" onClick={() => handleDelete(s.id, s.slug)}>
+                <Button variant="danger-quiet" size="sm" onClick={() => void handleDelete(s.id, s.slug)}>
                   {t.me.skillDelete}
-                </button>
+                </Button>
               </span>
             </div>
           ))}
         </div>
-      ) : <WbEmpty text={t.me.skillsEmpty} />)}
+      ) : (
+        <EmptyState
+          icon={<IconSparkle />}
+          title={t.me.skillsEmpty}
+          action={{ label: t.me.skillsPickZip, onClick: () => fileRef.current?.click() }}
+        />
+      ))}
       {state === "ready" && skills.total > skills.page_size && (
         <Pagination page={skills.page} pageSize={skills.page_size} total={skills.total} href={(value) => withLocale(`/aichem?tab=skills&page=${value}`, locale)} />
       )}

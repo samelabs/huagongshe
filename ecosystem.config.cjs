@@ -47,6 +47,9 @@ module.exports = {
       interpreter: "none",
       env: {
         NODE_ENV: "production",
+        // /.well-known/openai-apps-challenge 的唯一来源(PM2 不继承 daemon 外的
+        // /etc/huagongshe.env; 缺省空串 = route fail closed 404)。
+        HGS_OPENAI_APPS_CHALLENGE: secrets.HGS_OPENAI_APPS_CHALLENGE || "",
       },
     },
     {

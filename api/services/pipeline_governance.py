@@ -181,16 +181,31 @@ async def supplier_listing_orphan(db: AsyncSession) -> dict:
 
 async def pb_canonical_sync_gap(db: AsyncSession) -> dict:
     """chemical_pubchem 有行但 canonical 同步字段空(preferred/formula/IK)。
-    注意 source-record 有值才算"该同步而未同步"。"""
+
+    HGS-GOV-PB-GAP-01: 按字段判断来源是否有值 —— preferred 的证据是
+    record_title; formula/IK 的证据是 computed_properties 证据树里对应
+    描述符条目(旧实现只看 record_title 一项, record_title 有值而证据树
+    里根本没有该描述符时, 会把"来源本来就无此字段"误报成同步缺口)。
+    """
     rows = await _q(db, f"""
-        WITH s AS (SELECT chemical_id, record_title
+        WITH s AS (SELECT chemical_id, record_title, computed_properties
                    FROM chemistry.chemical_pubchem TABLESAMPLE SYSTEM_ROWS({SAMPLE_ROWS}))
-        SELECT s.chemical_id, s.record_title,
-               c.preferred_name, c.molecular_formula, c.inchikey
+        SELECT s.chemical_id,
+               (s.record_title IS NOT NULL AND s.record_title <> ''
+                  AND c.preferred_name IS NULL) AS gap_name,
+               EXISTS (SELECT 1 FROM jsonb_each_text(
+                          coalesce(s.computed_properties->'entries', '{{}}'::jsonb)) AS e(k, v)
+                        WHERE e.k LIKE '%Molecular Formula%'
+                          AND e.v NOT IN ('', '[]', 'null')
+                          AND c.molecular_formula IS NULL) AS gap_formula,
+               EXISTS (SELECT 1 FROM jsonb_each_text(
+                          coalesce(s.computed_properties->'entries', '{{}}'::jsonb)) AS e(k, v)
+                        WHERE e.k LIKE '%InChIKey%'
+                          AND e.v NOT IN ('', '[]', 'null')
+                          AND c.inchikey IS NULL) AS gap_ik
         FROM s JOIN chemistry.chemicals c ON c.id=s.chemical_id
     """)
-    gap = [r for r in rows
-           if r[1] and (r[2] is None or r[3] is None or r[4] is None)]
+    gap = [r for r in rows if r[1] or r[2] or r[3]]
     return _wrap(True, _sample_payload(len(rows), len(gap)), mode="sample")
 
 

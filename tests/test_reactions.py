@@ -152,7 +152,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertNotIn("openapi_url", source)
         self.assertIn('"operations"', source)
         self.assertIn('"payload_hints"', source)
-        self.assertIn("携带唯一 Idempotency-Key", source)
+        self.assertIn("unique Idempotency-Key", source)
         self.assertIn("AI Key", source)
         self.assertNotIn("Agent Token", source)
         # P2.1: 机器可读契约统一 AI Key 术语

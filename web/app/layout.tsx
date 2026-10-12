@@ -2,14 +2,23 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { AccountProvider } from "@/components/shared/AccountContext";
 import { I18nProvider } from "@/components/shared/I18nContext";
+import { ToastProvider } from "@/components/ui/Toast";
+import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import { HydrationMarker } from "@/components/shell/HydrationMarker";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { SITE_ORIGIN } from "@/lib/alternates";
 import { pwaAppName } from "@/lib/pwa";
 import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
+import "./tokens.css";
 import "./globals.css";
 import "./account-menu.css";
+// v1.7 组件库样式：tokens.css 之后引入（组件类名 .hg- 覆盖全局默认）
+import "../components/ui/ui.css";
+// v1.7 全局框架（SiteHeader 顶栏 + MobileTabBar 底栏），公开页与工作台共用
+import "../components/shell/shell.css";
 export const viewport: Viewport = {
+  // metadata 约定只接受字符串字面量，无法引用 CSS 变量；此值与 tokens.css 的 --brand(blue-500) 一致
   themeColor: "#1e90ff",
   width: "device-width",
   initialScale: 1,
@@ -27,7 +36,8 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: t.brand.seoTitle, template: `%s｜${t.brand.name}` },
     description: t.brand.seoDesc,
     keywords: [...t.brand.keywords, "AI Chemistry Workspace", "Chemical Knowledge Base", "Reaction Library"],
-    robots: { index: true, follow: true },
+    // BX-A5：不再全局输出 robots=index,follow —— 缺席即默认可索引；
+    // 404 页由 Next 自动注入唯一一条 noindex（此前会与本条叠加成两条）。
   };
 }
 
@@ -52,6 +62,9 @@ async function getSSRUser(cookieHeader: string | null): Promise<User | null> {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const config = await getSiteConfig();
   const analytics = config.analytics?.scripts;
+  // The admin-configured ID is interpolated into inline JS: validate its grammar first.
+  const analyticsId = analytics?.provider === "51la" && typeof analytics.id === "string" && /^[A-Za-z0-9_-]{1,80}$/.test(analytics.id)
+    ? analytics.id : null;
   const adsense = config.ads?.adsense;
   const h = await headers();
   const cookieHeader = h.get("cookie");
@@ -63,13 +76,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const locale = await getRequestLocale();
 
   return (
-    <html lang={locale}>
+    // data-build：dev-only 的 commit 指纹（next.config env 注入），线上只读
+    // 截图断言用；生产构建下 undefined 不输出该属性。
+    <html lang={locale} data-build={process.env.HGS_BUILD_SHA || undefined}>
       <head>
         <link rel="llms-txt" href="/llms.txt" />
-        {analytics?.enabled && analytics.id && analytics.provider === "51la" && (
+        {analytics?.enabled && analyticsId && (
           <>
             <script charSet="UTF-8" id="LA_COLLECT" src="//sdk.51.la/js-sdk-pro.min.js" />
-            <script dangerouslySetInnerHTML={{ __html: `LA.init({id:"${analytics.id}",ck:"${analytics.id}"})` }} />
+            <script dangerouslySetInnerHTML={{ __html: `LA.init({id:${JSON.stringify(analyticsId)},ck:${JSON.stringify(analyticsId)}})` }} />
           </>
         )}
         {adsense?.enabled && adsense.client && (
@@ -79,7 +94,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body>
         <AccountProvider initialUser={initialUser}>
           <I18nProvider locale={locale}>
-            {children}
+            <ToastProvider>
+              <ConfirmProvider>
+                {children}
+                {/* 水合哨兵：挂载后 <html data-hydrated=1>，截图工具等待它（Step 9 Part A.1） */}
+                <HydrationMarker />
+              </ConfirmProvider>
+            </ToastProvider>
           </I18nProvider>
         </AccountProvider>
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}` }} />

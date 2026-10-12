@@ -245,6 +245,68 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
+        # notes(v1.7.0: independent user context; Web-first, no MCP surface)
+        # ------------------------------------------------------------------
+        Family("note.read", E.READ, scenarios=(
+            S("detail", A.PUBLIC_OR_ACTOR, entrypoints=(
+                I(T.HTTP, "GET /api/notes/{note_id}"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE),
+              note="public visible anonymous; private owner context is exposed only "
+                   "when the resolved actor is an interactive session"),
+            S("mine", A.SESSION, entrypoints=(
+                I(T.HTTP, "GET /api/users/me/notes"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("user_public", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/users/{username}/notes"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE),
+              note="public profile block: public+visible notes of an active "
+                   "user; web-only, anonymous read, no MCP surface"),
+            S("chemical_public", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/chemicals/{chemical_id}/notes"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("reaction_public", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/reactions/{reaction_id}/notes"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+        )),
+        Family("note.write", E.WRITE, scenarios=(
+            S("create", A.SESSION, entrypoints=(
+                I(T.HTTP, "POST /api/notes"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("update", A.SESSION, entrypoints=(
+                I(T.HTTP, "PUT /api/notes/{note_id}"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("delete", A.SESSION, entrypoints=(
+                I(T.HTTP, "DELETE /api/notes/{note_id}"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+        )),
+
+        # ------------------------------------------------------------------
+        # OAuth 2.1 connection protocol (v1.7 mixed-auth MCP)
+        # ------------------------------------------------------------------
+        Family("oauth.discovery", E.READ, scenarios=(
+            S("protected_resource_metadata", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/oauth/protected-resource-metadata"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+            S("authorization_server_metadata", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "GET /api/oauth/authorization-server-metadata"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+        )),
+        Family("oauth.protocol", E.PRIVILEGED, scenarios=(
+            S("authorize_start", A.PUBLIC_OR_ACTOR, entrypoints=(
+                I(T.HTTP, "GET /api/oauth/authorize"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+            S("authorize_decision", A.SESSION, entrypoints=(
+                I(T.HTTP, "POST /api/oauth/authorize"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+            S("token", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "POST /api/oauth/token"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+            S("register", A.ANONYMOUS, entrypoints=(
+                I(T.HTTP, "POST /api/oauth/register"),),
+              contract=Contract(frozenset({C.AGENT_MCP}), X.STABLE_EXTERNAL)),
+        )),
+
+        # ------------------------------------------------------------------
         # account / auth / profile / token / avatar(G1A: 文件粘合, 职责分域登记)
         # ------------------------------------------------------------------
         Family("account.auth", E.WRITE, scenarios=(

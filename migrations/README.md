@@ -29,6 +29,17 @@
 - PostgreSQL host 需预装可用 extensions：**rdkit / pg_trgm / tsm_system_rows**（baseline 内 `CREATE EXTENSION IF NOT EXISTS`）
 - baseline 不含 owner/ACL/业务数据/test_sentinel
 
+## 索引迁移与 CONCURRENTLY（B1-04 裁定）
+
+- **已应用的索引迁移不改写为 CONCURRENTLY**：runner 的 immutable 契约
+  （tracking sha256 变化即 fail-closed 中止）禁止修改任何已执行文件；
+  这些索引在各环境均已存在（审计核实"仅影响索引缺失的库"），重写无收益。
+- **fresh bootstrap 不需要 CONCURRENTLY**：空库建索引无锁竞争，
+  且 runner 以 `--single-transaction` 执行 —— CONCURRENTLY 无法在事务内运行。
+- **今后新增索引迁移的纪律**：目标库已有大表时，用 `CREATE INDEX
+  CONCURRENTLY` 并将文件登记为非事务执行（届时 runner 需先扩展
+  non-transactional 文件类型；在此之前禁止把大表索引进事务迁移）。
+
 ## 命名规则（cutover 后）
 
 ```

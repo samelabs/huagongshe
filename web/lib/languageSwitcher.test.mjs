@@ -19,11 +19,12 @@ const { createRequire } = await import("node:module");
 const req = createRequire(import.meta.url);
 
 let replaceLocalePrefix;
+let rewriteNextParam;
 try {
   // tsx 装载下直接加载 .ts 源(真实 SUT)
-  ({ replaceLocalePrefix } = req("./localePath.ts"));
+  ({ replaceLocalePrefix, rewriteNextParam } = req("./localePath.ts"));
 } catch {
-  ({ replaceLocalePrefix } = await import("./localePath.ts"));
+  ({ replaceLocalePrefix, rewriteNextParam } = await import("./localePath.ts"));
 }
 if (typeof replaceLocalePrefix !== "function") {
   console.error("FATAL: 未加载到真实 helper(web/lib/localePath.ts 编译产物)。按文件头协议用 tsc 编译到临时目录后运行。");
@@ -57,6 +58,31 @@ test("locale 根路径(/ja → /en)", () => {
 
 test("非 locale 首段(samelabs 等)不误替换", () => {
   assert.equal(replaceLocalePrefix("/samelabs/reactions", "en"), "/en/samelabs/reactions");
+});
+
+// ── BX-A6：语言切换时 next 回跳参数的前缀同步 ──────────────────
+test("rewriteNextParam: next 的 locale 前缀换成目标语言", () => {
+  const search = `next=${encodeURIComponent("/zh-CN/me/settings")}`;
+  const out = rewriteNextParam(search, "en");
+  assert.equal(out, `next=${encodeURIComponent("/en/me/settings")}`);
+});
+
+test("rewriteNextParam: 无前缀的 next 补目标前缀", () => {
+  assert.equal(rewriteNextParam("next=%2Fsubmit%3Fchemical%3D4", "de"),
+    `next=${encodeURIComponent("/de/submit?chemical=4")}`);
+});
+
+test("rewriteNextParam: 其余 query 原样保留", () => {
+  const out = rewriteNextParam("tab=notes&next=%2Fzh-CN%2Faichem%3Ftab%3Dsearch", "ja");
+  const params = new URLSearchParams(out);
+  assert.equal(params.get("tab"), "notes");
+  assert.equal(params.get("next"), "/ja/aichem?tab=search");
+});
+
+test("rewriteNextParam: 外部/异常 next 不动，空 search 返回空", () => {
+  assert.equal(rewriteNextParam(`next=${encodeURIComponent("https://evil.example")}`, "en"),
+    `next=${encodeURIComponent("https://evil.example")}`);
+  assert.equal(rewriteNextParam("", "en"), "");
 });
 
 test("多级路径完整保留", () => {

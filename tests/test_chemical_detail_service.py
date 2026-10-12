@@ -347,7 +347,7 @@ class McpAdapterTests(unittest.TestCase):
     def test_uses_shared_orchestration_and_maps_not_found(self):
         src = self._tool_source()
         self.assertIn("_get_chemical_detail", src)
-        self.assertIn("ToolError(str(exc))", src)
+        self.assertIn('ToolError("Chemical not found.")', src)
         self.assertIn("actor_id=None, priority=50", src)
 
     def test_actor_from_headers_not_called(self):

@@ -25,25 +25,39 @@ def _read(rel: str) -> str:
 
 
 class ChemicalDetailStructureLinksTests(unittest.TestCase):
-    """chemical detail: 结构搜索入口必须是 q+mode, 无 chemical_id。"""
+    """chemical detail: 结构搜索入口必须是 q+mode, 无 chemical_id。
+
+    v1.7 Step 6(§9.1): 结构检索按钮移入 components/ChemicalActions.tsx;
+    未登录仍显示, 点击去登录页并带 next=本页回跳(不再隐藏按钮);
+    已登录仍跳 /search?q=<smiles>&mode=<mode>; 无 smiles 不渲染。
+    """
 
     def test_links_are_q_plus_mode_without_chemical_id(self):
-        source = _read(os.path.join("web", "app", "(site)", "chemical", "[id]", "page.tsx"))
+        source = _read(os.path.join("web", "components", "ChemicalActions.tsx"))
         self.assertIn(
-            "`/search?q=${encodeURIComponent(chemical.smiles)}&mode=substructure`", source,
-            "substructure 入口必须是 /search?q=<smiles>&mode=substructure",
+            "`/search?q=${encodeURIComponent(smiles ?? \"\")}&mode=${mode}`", source,
+            "substructure/similarity 入口必须是 /search?q=<smiles>&mode=<mode>",
         )
         self.assertIn(
-            "`/search?q=${encodeURIComponent(chemical.smiles)}&mode=similarity`", source,
-            "similarity 入口必须是 /search?q=<smiles>&mode=similarity",
+            '"substructure" | "similarity"', source,
+            "mode 联合类型只允许 substructure/similarity",
         )
-        self.assertNotIn("chemical_id=", source, "detail 页不得再生成 chemical_id 查询参数")
+        page = _read(os.path.join("web", "app", "(site)", "chemical", "[id]", "page.tsx"))
+        self.assertNotIn("chemical_id=", page, "detail 页不得再生成 chemical_id 查询参数")
 
-    def test_links_gated_on_session_and_smiles(self):
-        source = _read(os.path.join("web", "app", "(site)", "chemical", "[id]", "page.tsx"))
-        # 无 smiles 时不得渲染结构搜索链接: 链接块必须同时受 hasSession 与
-        # chemical.smiles 门控
-        self.assertRegex(source, r"hasSession\s*\?\s*\(chemical\.smiles\s*\?")
+    def test_links_gated_on_smiles_and_login_redirect(self):
+        source = _read(os.path.join("web", "components", "ChemicalActions.tsx"))
+        # 无 smiles 时不得渲染结构搜索按钮
+        self.assertRegex(source, r"smiles\s*&&\s*\(", "结构检索按钮必须受 smiles 门控")
+        # 未登录: 显示但点击去登录页, 带 next=本页回跳(不再登录前隐藏)
+        self.assertIn(
+            "`/login?next=${encodeURIComponent(selfHref)}`", source,
+            "未登录回跳必须是 /login?next=<本 chemical 页>",
+        )
+        self.assertIn(
+            "authed ? searchHref(mode) : loginHref", source,
+            "已登录→q+mode 检索; 未登录→登录页回跳",
+        )
 
 
 class SearchPageNoRetiredEndpointsTests(unittest.TestCase):

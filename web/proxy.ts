@@ -44,11 +44,17 @@ const EXCLUDED_FILES = new Set([
   "/service-worker.js",
 ]);
 
+/** Next 元数据图片路由段(opengraph-image/twitter-image，可带 build 哈希后缀)：
+ * 爬虫直取的资产 URL，不参与 locale 协商(307 会给分享抓取加一跳且翻转卡片语言) */
+const METADATA_IMAGE_SEGMENT = /^(opengraph|twitter)-image/;
+
 function isExcluded(pathname: string): boolean {
   // 前缀排除走统一路径边界语义(NON_LOCALIZED_PREFIXES 是全仓库唯一业务 prefix 表):
   // "/mcp" 只排除 /mcp 与 /mcp/*, 不排除 /mcp-guide
   if (NON_LOCALIZED_PREFIXES.some((p) => isPathAtOrBelow(pathname, p))) return true;
   if (EXCLUDED_FILES.has(pathname)) return true;
+  // 元数据图片路由(实体页 OG 品牌卡): /chemical/4/opengraph-image-<hash>[/<id>]
+  if (pathname.split("/").some((seg) => METADATA_IMAGE_SEGMENT.test(seg))) return true;
   // 带文件扩展名的资源(public 静态文件 / icon 等), 例如 .png .css .js .xml .txt .webmanifest
   const last = pathname.split("/").pop() ?? "";
   return /\.[A-Za-z0-9]+$/.test(last);

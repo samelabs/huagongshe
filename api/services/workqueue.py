@@ -284,37 +284,43 @@ async def reconcile_pubchem_identity(
     - resolver 指向他行 → 正式 absorb() (gate 内置 can_merge), 返回 survivor
     - absorb 被 gate 拒 → 保留两行 + structured warning, 返回原 id
     - CONFLICT → 不覆盖 + structured warning, 返回原 id
+
+    HGS-PB-02: 同 CID 候选循环收敛 — ≥3 行同 CID 时每轮 absorb 掉一行,
+    直到 resolver 候选只剩当前行(旧实现只 absorb 第一个, 其余残留分叉)。
     """
     if new_cid is None:
         return chemical_id
     import logging
     logger = logging.getLogger("huagongshe.workqueue")
     from .identity import resolve_chemical, absorb, MergeBlockedError
-    res = await resolve_chemical(db, cid=new_cid, create=False)
-    if res.status == "CONFLICT":
-        logger.warning(
-            "pubchem_identity_conflict chemical_id=%s new_cid=%s candidates=%s",
-            chemical_id, new_cid, res.candidates)
-        return chemical_id
-    # cid 命中行的全体 candidates 中, 除当前行外还有他行 → 必须 reconcile。
-    # 不用 res.chemical_id(picked): picked 可能恰为当前行而残留他行重复;
-    # reconcile 对象由 resolver candidates 决定, survivor 仍由 absorb 裁定。
-    others = [c for c in (res.candidates or []) if c != chemical_id]
-    if not others:
-        return chemical_id
-    target = others[0]
-    try:
-        survivor = await absorb(
-            db, source_id=chemical_id, target_id=target,
-            reason="pubchem-cid-relocation", trigger="pubchem_fetch_callback",
-            evidence_cid=new_cid)
-        return survivor
-    except MergeBlockedError as exc:
-        # 保留两行不中断回补, 但必须可观测 — 身份冲突不允许静默
-        logger.warning(
-            "merge_gate_blocked chemical_id=%s target=%s reason=%s",
-            chemical_id, target, exc)
-        return chemical_id
+    for _ in range(16):
+        res = await resolve_chemical(db, cid=new_cid, create=False)
+        if res.status == "CONFLICT":
+            logger.warning(
+                "pubchem_identity_conflict chemical_id=%s new_cid=%s candidates=%s",
+                chemical_id, new_cid, res.candidates)
+            return chemical_id
+        # cid 命中行的全体 candidates 中, 除当前行外还有他行 → 必须 reconcile。
+        # 不用 res.chemical_id(picked): picked 可能恰为当前行而残留他行重复;
+        # reconcile 对象由 resolver candidates 决定, survivor 仍由 absorb 裁定。
+        others = [c for c in (res.candidates or []) if c != chemical_id]
+        if not others:
+            return chemical_id
+        target = others[0]
+        try:
+            survivor = await absorb(
+                db, source_id=chemical_id, target_id=target,
+                reason="pubchem-cid-relocation", trigger="pubchem_fetch_callback",
+                evidence_cid=new_cid)
+        except MergeBlockedError as exc:
+            # 保留两行不中断回补, 但必须可观测 — 身份冲突不允许静默
+            logger.warning(
+                "merge_gate_blocked chemical_id=%s target=%s reason=%s",
+                chemical_id, target, exc)
+            return chemical_id
+        chemical_id = survivor
+    logger.error("pubchem_identity_reconcile_chain_too_deep cid=%s", new_cid)
+    return chemical_id
 
 
 async def adjudicate_pubchem_identity(
@@ -329,6 +335,12 @@ async def adjudicate_pubchem_identity(
     顺序: 行上冲突判断 → 补空 grant → same-CID fork 收敛(reconcile/absorb)
     → fork 未收敛时撤回 CID grant(禁止制造 same-CID 分叉)。
     can_merge/absorb 冻结规则不变; 本函数只重排写序, 不新增任何合并权限。
+
+    F-NEW-02 / HGS-PB-01 收口: CID 是唯一身份锚(B1-01 撤销裁决) — 行上
+    CID 与可信入站 CID 一致时, IK 差异是**溯源事实**不是 CONFLICT: 事实
+    照写, 行上 IK 按补空语义保留, 差异记结构化 warning(入站 IK 本身随
+    整包落在 chemical_pubchem.identifier_evidence, 溯源链完整)。此前整包
+    扣留并把任务记成功, 与"普通 enrichment 照走"的既有注释矛盾。
     """
     from ..pubchem_core import INCHIKEY_RE
     if inc_ik is not None and not INCHIKEY_RE.fullmatch(inc_ik):
@@ -342,14 +354,25 @@ async def adjudicate_pubchem_identity(
     ex_cid, ex_ik = row["pubchem_cid"], row["inchikey"]
 
     # --- 行上强身份冲突: fail-closed, 身份零写入(普通 enrichment 照走) ---
+    same_cid_anchor = (
+        inc_cid is not None and ex_cid is not None and inc_cid == ex_cid)
     conflict = None
     if inc_cid is not None and ex_cid is not None and inc_cid != ex_cid:
         # CID 冲突先判 — 不因 incoming IK 恰巧相同而绕过
         conflict = {"existing_cid": ex_cid, "existing_ik": ex_ik,
                     "incoming_cid": inc_cid, "reason": "cid-conflict"}
     elif inc_ik is not None and ex_ik is not None and inc_ik != ex_ik:
-        conflict = {"existing_cid": ex_cid, "existing_ik": ex_ik,
-                    "incoming_ik": inc_ik, "reason": "ik-conflict"}
+        if same_cid_anchor:
+            # CID 为准: 同一可信 CID 的 IK 差异记录溯源, 不扣留事实
+            logger.warning(
+                "pubchem_ik_divergence_same_trusted_cid chemical_id=%s "
+                "cid=%s row_ik=%s incoming_ik=%s — keeping row ik "
+                "(existing-first); incoming ik retained in "
+                "chemical_pubchem.identifier_evidence",
+                chemical_id, ex_cid, ex_ik, inc_ik)
+        else:
+            conflict = {"existing_cid": ex_cid, "existing_ik": ex_ik,
+                        "incoming_ik": inc_ik, "reason": "ik-conflict"}
     if conflict:
         return chemical_id, {}, conflict
 
@@ -363,10 +386,9 @@ async def adjudicate_pubchem_identity(
         return chemical_id, grant, None
 
     # --- §2.1 holder preflight: incoming CID+IK 先过现有 resolver 完整裁定 ---
-    # same-CID reconcile 只传 CID, 会漏 "holder CID=A/Ik=X vs incoming IK=Y"
-    # 的强键冲突; destructive reconciliation 前用 resolve_chemical 的
-    # 3.3 硬约束(cid vs 行上 ik)复核, CONFLICT → fail-closed, 不 absorb。
-    if inc_ik is not None:
+    # same-CID anchor 时唯一"冲突"就是行 IK vs 入站 IK 的差异(已按溯源记录),
+    # preflight 的 CONFLICT 只可能复述该差异 → 跳过, 收敛交给 reconcile/闸。
+    if inc_ik is not None and not same_cid_anchor:
         from .identity import resolve_chemical
         pre = await resolve_chemical(db, cid=inc_cid, inchikey=inc_ik, create=False)
         if pre.status == "CONFLICT":

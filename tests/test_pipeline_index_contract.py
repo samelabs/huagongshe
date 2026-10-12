@@ -51,9 +51,12 @@ PB_INDEX = "idx_chemical_pubchem_fetched_at"
 CB_MIGRATION = "20260918_01_index_chemical_cb_locale_fetched_at.sql"
 PB_MIGRATION = "20260918_02_index_chemical_pubchem_fetched_at.sql"
 
-# migrations/0000_baseline.sql 冻结哈希(2026-09-10 cutover baseline, 不可修改)
-BASELINE_SHA256 = "ef808b8d83bba41270af742c2db005897002b8545ada64b64ed73fe22bbbd74a"
-BASELINE_BYTES = 204742
+# migrations/0000_baseline.sql 冻结哈希(2026-09-10 cutover baseline, 不可修改)。
+# 2026-10-11 v1.7 关门收口例外（用户裁定）：G1 撤销 20260831 决策 —— token_plain
+# 列从 baseline 移除（同步删除 20261011_01 forward migration），哈希随之更新。
+# 除该次裁定外 baseline 仍冻结；再改需走同样显式裁定并同步此处。
+BASELINE_SHA256 = "c92cecf5dbbcb081c05611d34c6fb6cbd4a790b72c1aa21ce2880f78a2c8ba7c"
+BASELINE_BYTES = 204720
 
 INDEX_SQL = """
 SELECT c.relname                                  AS index_name,

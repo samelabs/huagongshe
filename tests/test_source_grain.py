@@ -199,7 +199,7 @@ class SourceGrainTests(unittest.TestCase):
             self._wipe(cas)
 
     def test_externals_state_uses_served_row_grain(self):
-        """serve 路径(get_externals_with_state): imprint 行缺失而 fallback
+        """详情读路径(get_externals_row → cb_decide): imprint 行缺失而 fallback
         serve CB002 时, freshness 判定须用 CB002 的 grain 而非 imprint。"""
         from sqlalchemy import text
         from api.services.cb import upsert_externals
@@ -223,27 +223,21 @@ class SourceGrainTests(unittest.TestCase):
                     SET fetched_at = now()-interval '365 days'
                     WHERE chemical_id=:i AND cb_number='7789CB002'
                 """), {"i": cid})
-            import api.services.cb as cbmod
-            class _FakeRedis:
-                async def get(self, k): return None
-                async def set(self, k, v, ex=None): pass
-            async def _fake_cache():
-                return _FakeRedis()
-            orig = cbmod.get_cache
-            cbmod.get_cache = _fake_cache
-            try:
-                async with self.engine.connect() as db:
-                    payload = await cbmod.ensure_externals(
-                        db, cid, cas_number=cas[0])
-            finally:
-                cbmod.get_cache = orig
-            return payload
+            # 现行详情读路径: get_externals_row 选行 → cb_decide 按所选行
+            # grain 判定(services/chemicals.get_chemical_detail 同序)
+            from api.services.cb import cb_decide, get_externals_row
+            async with self.engine.connect() as db:
+                row = await get_externals_row(db, cid, locale="zh-CN")
+                decision = await cb_decide(
+                    db, cid, locale=row["locale"], cb_number=row.get("cb_number"))
+            return {"row": row, "decision": decision}
 
         payload = self._run(go())
         try:
-            self.assertEqual(payload["state"], "stale",
+            self.assertEqual(payload["row"]["cb_number"], "7789CB002")
+            self.assertEqual(payload["decision"], "enqueue_refresh",
                              "fallback serve CB002 时 freshness 须用 CB002 grain")
-            self.assertIsNotNone(payload["entry"])
+            self.assertIsNotNone(payload["row"]["entry"])
         finally:
             self._wipe(cas)
 

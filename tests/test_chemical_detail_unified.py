@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import asyncio
+import ast
 import inspect
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -73,12 +74,14 @@ class _Result:
         return iter(self._rows)
 
 
-def _make_db(rec: _Recorder | None = None, cas="7732-18-5"):
+def _make_db(rec: _Recorder | None = None, cas="7732-18-5", imprint=None):
     db = AsyncMock()
 
     async def execute_side_effect(*a, **k):
         if rec is not None:
             rec.bump("db_execute")
+        if imprint is not None and a and "SELECT cb_number FROM chemistry.chemicals" in str(a[0]):
+            return _Result(scalar=imprint)
         return _Result(rows=[_Row([cas])])
 
     db.execute = AsyncMock(side_effect=execute_side_effect)
@@ -164,7 +167,8 @@ class FullOrchestrationTests(unittest.TestCase):
 
     def _full(self, pb_details=None, pb_exc=None, cb_row=None, cb_exc=None,
               cas="7732-18-5", cb_decision="serve_fresh", cb_suppliers=None,
-              negative=False, locale=None, seen=None):
+              negative=False, locale=None, seen=None,
+              pb_display_limit=None, rec=None, imprint=None):
         from api.services import chemicals as svc
 
         pb_default = {
@@ -176,8 +180,6 @@ class FullOrchestrationTests(unittest.TestCase):
         pb_payload = pb_details if pb_details is not None else pb_default
 
         async def go():
-            db = _make_db(cas=cas)
-
             async def fake_pb(db_, cid, *, priority, allow_refresh=True, actor=None):
                 if pb_exc is not None:
                     raise pb_exc
@@ -214,8 +216,14 @@ class FullOrchestrationTests(unittest.TestCase):
                                    source_cb_number=None):
                 if seen is not None:
                     seen["enqueue_locale"] = locale
+                    seen["enqueue_source_cb"] = source_cb_number
+                    seen["enqueue_calls"] = seen.get("enqueue_calls", 0) + 1
                 return 99
 
+            kwargs = {}
+            if pb_display_limit is not None:
+                kwargs["pb_display_limit"] = pb_display_limit
+            db = _make_db(rec, cas=cas, imprint=imprint)
             with patch.object(svc, "fetch_chemicals", fetch), \
                  patch.object(svc, "fill_detail_context", context), \
                  patch.object(enrichment_module, "enqueue_chemical_if_needed", fake_pb), \
@@ -225,7 +233,8 @@ class FullOrchestrationTests(unittest.TestCase):
                  patch.object(cb_module, "negative_is_fresh", fake_negative), \
                  patch.object(cb_module, "enqueue_cas_job", fake_enqueue):
                 return await svc.get_chemical_detail(
-                    db, 1, actor_id=None, priority=50, enrich="full", locale=locale)
+                    db, 1, actor_id=None, priority=50, enrich="full",
+                    locale=locale, **kwargs)
 
         return asyncio.run(go())
 
@@ -306,6 +315,35 @@ class FullOrchestrationTests(unittest.TestCase):
                                 "industry", "suppliers", "provenance"),
                           f"一级 key 必须是语义 section, 不允许 provider namespace: {key}")
 
+    def test_full_pb_ghs_classification_survives(self):
+        """HGS-A2-01 回归：REST full 的 safety.pb_sections 必须含 GHS 分类。
+
+        事故：chemical_semantic 白名单键名曾被提交成占位符字面量
+        «redacted:ghs_…»（f1b8788），GHS 分类在 detail 投影里静默丢失。
+        """
+        ghs = {"codes": ["H302"], "pictograms": ["GHS07"], "statements": "吞咽有害"}
+        result = self._full(pb_details={
+            "record_description": "PB desc",
+            "xlogp": -0.5,
+            "ghs_classification": ghs,
+            "fetched_at": "2026-09-01T00:00:00+00:00",
+        }, cb_row=None, cas=None, pb_display_limit=True)
+        sections = result["details"]["safety"]["pb_sections"]
+        # HGS-A2-02: REST 网页展示经 display_details 限幅投影, 证据块统一
+        # 归一为 {entries: …} 渲染形态(与前端 chemicalEvidence 同构)
+        self.assertEqual(sections.get("ghs_classification"), {"entries": ghs},
+                         "REST full 丢失 GHS 分类（白名单键名回归？）")
+        # ZX: 默认路径(MCP full, 完整证据)GHS 原样透传, 同样不丢
+        result_full = self._full(pb_details={
+            "record_description": "PB desc",
+            "xlogp": -0.5,
+            "ghs_classification": ghs,
+            "fetched_at": "2026-09-01T00:00:00+00:00",
+        }, cb_row=None, cas=None)
+        self.assertEqual(
+            result_full["details"]["safety"]["pb_sections"].get("ghs_classification"),
+            ghs, "MCP full 不得丢 GHS 分类")
+
 
 class LocaleLifecycleChainTests(unittest.TestCase):
     """P1-1: 实际命中 locale 在 row selection → lifecycle decision →
@@ -347,6 +385,313 @@ class LocaleLifecycleChainTests(unittest.TestCase):
         FullOrchestrationTests()._full(**kwargs, seen=seen)
 
 
+class EvidenceProjectionTests(unittest.TestCase):
+    """ZX: 共享 semantic detail 路径默认完整证据(MCP full 口径); 网页展示
+    (pb_display_limit=True)保持 display_details 页面级截断(12×6)。"""
+
+    PB_13X7 = {
+        "record_description": "PB desc",
+        "physical_properties": {"entries": {
+            f"key-{i}": [f"v{j}" for j in range(7)] for i in range(13)}},
+        "fetched_at": "2026-09-01T00:00:00+00:00",
+    }
+
+    def _entries(self, result):
+        return result["details"]["properties"]["pb_physical_properties"]["entries"]
+
+    def test_full_default_returns_complete_13x7_evidence(self):
+        result = FullOrchestrationTests()._full(pb_details=self.PB_13X7,
+                                                cb_row=None, cas=None)
+        entries = self._entries(result)
+        self.assertEqual(len(entries), 13, "MCP full 必须返回完整 entries")
+        self.assertEqual(len(entries["key-0"]), 7, "MCP full 必须返回完整 values")
+
+    def test_web_display_limit_keeps_12x6_bounds(self):
+        result = FullOrchestrationTests()._full(pb_details=self.PB_13X7,
+                                                cb_row=None, cas=None,
+                                                pb_display_limit=True)
+        entries = self._entries(result)
+        self.assertEqual(len(entries), 12, "网页展示保持 12 entries 截断")
+        self.assertEqual(len(entries["key-0"]), 6, "网页展示保持 6 values 截断")
+
+
+class CbRefreshSourceGrainTests(unittest.TestCase):
+    """ZX: stale 刷新入队携带当前展示所选行的 cb_number(source grain) —
+    fallback 来源 B 过期时刷新任务领取的就是 B(lease 侧按
+    request_context.source_cb 寻址, 链路契约见 tests/test_lease_cb_key.py),
+    不回落 imprint 主行。"""
+
+    def test_stale_fallback_row_b_refreshes_source_b(self):
+        seen = {}
+        FullOrchestrationTests()._full(
+            cb_row={"entry": {"identity": {"cn": "x"}},
+                    "cb_number": "CB00000B", "locale": "en"},
+            cb_decision="enqueue_refresh", locale="ja", seen=seen)
+        self.assertEqual(seen.get("enqueue_calls"), 1)
+        self.assertEqual(seen.get("enqueue_locale"), "en")
+        self.assertEqual(seen.get("enqueue_source_cb"), "CB00000B",
+                         "刷新任务必须寻址实际展示的 fallback 来源 B")
+
+
+    def test_stale_zh_imprint_row_no_source_suffix(self):
+        """zh-CN imprint 行: 不带 source_cb — dedupe key 与 search_stale
+        同为无后缀形态, 同页不双排队; lease 回落主表 cb_number 同一来源。"""
+        seen = {}
+        FullOrchestrationTests()._full(
+            cb_row={"entry": {"identity": {"cn": "x"}},
+                    "cb_number": "CB1", "locale": "zh-CN"},
+            cb_decision="enqueue_refresh", seen=seen, imprint="CB1")
+        self.assertEqual(seen.get("enqueue_calls"), 1)
+        self.assertEqual(seen.get("enqueue_locale"), "zh-CN")
+        self.assertIsNone(seen.get("enqueue_source_cb"))
+
+    def test_stale_zh_non_imprint_row_keeps_source(self):
+        seen = {}
+        FullOrchestrationTests()._full(
+            cb_row={"entry": {"identity": {"cn": "x"}},
+                    "cb_number": "CB2", "locale": "zh-CN"},
+            cb_decision="enqueue_refresh", seen=seen, imprint="CB1")
+        self.assertEqual(seen.get("enqueue_source_cb"), "CB2")
+
+
+class DetailCbRefreshSemanticsTests(unittest.TestCase):
+    """ZX(恢复 1.6): 网页详情访问的 CB 生命周期 — stale 入队刷新一次,
+    absent 恒不首次采集(aae71ad 的只读收口已回退)。
+    """
+
+    CB_ROW = {"entry": {"identity": {"cn": "水"},
+                        "props": [{"key": "bp", "label": "沸点",
+                                   "text": "100°C"}]},
+              "cb_number": "CB1", "locale": "zh-CN"}
+
+    def test_stale_enqueues_once_and_reports_queued(self):
+        # stale(有行): 出旧数据 + 入队一次 + commit + 状态 queued
+        rec = _Recorder()
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=self.CB_ROW, cb_decision="enqueue_refresh",
+            rec=rec, seen=seen)
+        d = result["details"]
+        self.assertEqual(d["names"]["cb_identity"]["cn"], "水",
+                         "陈旧 CB 数据必须照常展示")
+        self.assertEqual(seen.get("enqueue_calls"), 1, "stale 访问入队一次")
+        self.assertEqual(rec.calls.get("commit", 0), 1)
+        self.assertEqual(d["provenance"]["cb"]["state"], "queued")
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "queued")
+        self.assertEqual(result["enrichment"]["status"], "queued")
+
+    def test_stale_en_fallback_refreshes_en(self):
+        # 语言回退(en)命中陈旧行: 判定与刷新跟随实际 locale
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row={"entry": {"identity": {"cn": "en-stale"}},
+                    "cb_number": "CB1", "locale": "en"},
+            cb_decision="enqueue_refresh", locale="ja", seen=seen)
+        self.assertEqual(seen["decide"], ["en"])
+        self.assertEqual(seen.get("enqueue_calls"), 1)
+        self.assertEqual(seen["enqueue_locale"], "en")
+        self.assertEqual(result["details"]["names"]["cb_identity"]["cn"], "en-stale")
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "queued")
+
+    def test_absent_no_enqueue(self):
+        # 无 CB 行(absent): 不触发首次抓取
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=None, seen=seen)
+        self.assertNotIn("enqueue_calls", seen, "absent 分支不得首次入队")
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "none")
+
+    def test_fresh_no_enqueue(self):
+        # fresh 数据正常展示, 不入队
+        rec = _Recorder()
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=self.CB_ROW, cb_suppliers=[{"ref": "r1", "name": "SupA"}],
+            rec=rec, seen=seen)
+        d = result["details"]
+        self.assertEqual(d["names"]["cb_identity"]["cn"], "水")
+        self.assertEqual(d["suppliers"]["items"][0]["name"], "SupA")
+        self.assertEqual(d["provenance"]["cb"]["state"], "current")
+        self.assertNotIn("enqueue_calls", seen, "fresh 分支不得入队")
+
+    def test_fresh_negative_no_enqueue(self):
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=None, negative=True, seen=seen)
+        self.assertNotIn("enqueue_calls", seen)
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "none")
+
+    def test_defensive_enqueue_first_marks_queued_without_enqueue(self):
+        # 防御分支 enqueue_first(有行但状态未知): 1.6 语义 — 出旧数据标
+        # queued, 本就不入队
+        rec = _Recorder()
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=self.CB_ROW, cb_decision="enqueue_first",
+            rec=rec, seen=seen)
+        self.assertNotIn("enqueue_calls", seen)
+        self.assertEqual(rec.calls.get("commit", 0), 0)
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "queued")
+
+    def test_pb_queued_survives_cb_refresh(self):
+        # CB 入队不影响 PB 补全 — PB queued 照常
+        from api.services import chemicals as svc
+        from api.services import cb as cb_module
+        from api.services import enrichment as enrichment_module
+
+        async def go():
+            db = _make_db()
+            seen = {}
+
+            async def fake_pb(db_, cid, *, priority, allow_refresh=True, actor=None):
+                return {"record_description": "PB"}, 555, True
+
+            async def fake_get_row(d, cid, locale=None):
+                return self.CB_ROW
+
+            async def fake_decide(d, cid, locale="zh-CN", cb_number=None):
+                return "enqueue_refresh"
+
+            async def fake_suppliers(d, cid):
+                return []
+
+            async def fake_negative(d, kind, **k):
+                return False
+
+            async def fake_enqueue_cb(d, **k):
+                seen["enqueue_calls"] = seen.get("enqueue_calls", 0) + 1
+                return 99
+
+            fetch = await _fake_fetch()
+            context = await _fake_context()
+            with patch.object(svc, "fetch_chemicals", fetch), \
+                 patch.object(svc, "fill_detail_context", context), \
+                 patch.object(enrichment_module, "enqueue_chemical_if_needed", fake_pb), \
+                 patch.object(cb_module, "get_externals_row", fake_get_row), \
+                 patch.object(cb_module, "cb_decide", fake_decide), \
+                 patch.object(cb_module, "get_suppliers", fake_suppliers), \
+                 patch.object(cb_module, "negative_is_fresh", fake_negative), \
+                 patch.object(cb_module, "enqueue_cas_job", fake_enqueue_cb):
+                result = await svc.get_chemical_detail(
+                    db, 1, actor_id=None, priority=50, enrich="full")
+                return result, seen
+
+        result, seen = asyncio.run(go())
+        self.assertEqual(result["enrichment"]["job_id"], 555, "PB queued 不受影响")
+        self.assertEqual(result["enrichment"]["sources"]["pubchem"], "queued")
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "queued")
+
+
+class McpCbRefreshPreservedTests(unittest.TestCase):
+    """MCP full 默认 CB 刷新能力不变(与 REST 同语义, ZX 后无差别)。"""
+
+    CB_ROW = {"entry": {"identity": {"cn": "水"}}, "cb_number": "CB1",
+              "locale": "zh-CN"}
+
+    def test_default_stale_enqueues_refresh_and_reports_queued(self):
+        rec = _Recorder()
+        seen = {}
+        result = FullOrchestrationTests()._full(
+            cb_row=self.CB_ROW, cb_decision="enqueue_refresh", rec=rec, seen=seen)
+        self.assertEqual(seen.get("enqueue_calls"), 1, "默认行为必须照旧入队")
+        self.assertEqual(rec.calls.get("commit", 0), 1)
+        self.assertEqual(result["enrichment"]["sources"]["cb"], "queued")
+        self.assertEqual(result["details"]["names"]["cb_identity"]["cn"], "水")
+
+    def test_default_stale_locale_chain_unchanged(self):
+        # P1-1 语义保留: 命中 locale 贯穿 decide/enqueue
+        seen = {}
+        FullOrchestrationTests()._full(
+            cb_row={"entry": {"identity": {"cn": "x"}}, "cb_number": "CB1",
+                    "locale": "ja"},
+            cb_decision="enqueue_refresh", locale="ja", seen=seen)
+        self.assertEqual(seen["decide"], ["ja"])
+        self.assertEqual(seen["enqueue_locale"], "ja")
+
+    def test_service_signature_has_no_readonly_flag(self):
+        # ZX(恢复 1.6): allow_cb_enqueue 只读开关已整体移除 —— 所有调用方
+        # (REST/MCP)同一语义
+        import inspect
+        from api.services import chemicals as svc
+        sig = inspect.signature(svc.get_chemical_detail)
+        self.assertNotIn("allow_cb_enqueue", sig.parameters)
+
+    def test_mcp_tool_does_not_pass_readonly_flag(self):
+        # MCP get_chemical 源码不含 allow_cb_enqueue(不修改 MCP 契约)
+        import inspect
+        import api.mcp_server as mcp
+        src = inspect.getsource(mcp)
+        tree = ast.parse(src)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "get_chemical":
+                seg = ast.get_source_segment(src, node)
+                self.assertIsNotNone(seg)
+                self.assertNotIn("allow_cb_enqueue", seg)
+
+
+class RestAdapterProjectionTests(unittest.TestCase):
+    """REST adapter 契约(ZX): 不传只读开关(1.6 语义恢复); 网页展示显式
+    传 pb_display_limit=True 保持 12×6 证据截断。"""
+
+    def test_routes_no_readonly_flag_keeps_display_limit(self):
+        import inspect
+        import api.routes as routes
+        src = inspect.getsource(routes.chemical_detail)
+        self.assertNotIn("allow_cb_enqueue", src,
+                         "REST adapter 不得再传 CB 只读开关")
+        self.assertIn("pb_display_limit=True", src,
+                      "网页展示必须保持页面级证据截断")
+
+    def test_http_full_passes_display_limit_not_readonly(self):
+        # 端到端(HTTP 入口 → service): REST full 传 pb_display_limit=True,
+        # 不传 allow_cb_enqueue(真实 handler, dependency_overrides 注入
+        # 桩 db/匿名 actor)。
+        import api.routes as routes_mod
+        from api.core.database import get_db
+        from api.core.security import public_or_actor
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        seen = {}
+
+        async def fake_detail(db, cid, *, actor_id, priority, enrich,
+                              locale=None, pb_display_limit=False):
+            # 签名不含 allow_cb_enqueue: adapter 若仍传只读开关这里直接
+            # TypeError(fake_detail 不收该参数)
+            seen["pb_display_limit"] = pb_display_limit
+            seen["enrich"] = enrich
+            seen["locale"] = locale
+            return {"id": cid, "details": None,
+                    "enrichment": {"status": "current"}}
+
+        async def go():
+            app = FastAPI()
+            app.include_router(routes_mod.router)
+
+            async def _stub_db():
+                yield None
+
+            async def _anon_actor():
+                return None
+
+            app.dependency_overrides[get_db] = _stub_db
+            app.dependency_overrides[public_or_actor] = _anon_actor
+            with patch.object(routes_mod, "get_chemical_detail", fake_detail):
+                transport = ASGITransport(app=app)
+                async with AsyncClient(transport=transport,
+                                       base_url="http://test") as client:
+                    r = await client.get("/chemicals/1",
+                                         params={"enrich": "full", "locale": "ja"})
+                return r
+
+        r = asyncio.run(go())
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIs(seen.get("pb_display_limit"), True,
+                      "REST adapter 必须显式传 pb_display_limit=True")
+        self.assertEqual(seen.get("enrich"), "full")
+        self.assertEqual(seen.get("locale"), "ja")
+
+
 class RemovedSurfaceTests(unittest.TestCase):
     """/details、/externals、MCP externals tool 全部消失。"""
 
@@ -380,7 +725,7 @@ class RemovedSurfaceTests(unittest.TestCase):
             content = f.read()
         self.assertNotIn("externals", content)
         self.assertNotIn("get_chemical_externals", content)
-        self.assertIn("13 个", content)
+        self.assertIn("13 total", content)
 
 
 class McpCoreFullDifferenceTests(unittest.TestCase):

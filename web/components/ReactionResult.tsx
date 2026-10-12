@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { EntityId } from "@/components/shared/EntityId";
-import { reactionSvgUrl, type ReactionLookup, type ReactionSummary } from "@/lib/api";
+import { reactionSvgUrl, USER_SUBMITTED_SOURCE, type ReactionLookup, type ReactionSummary } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 
@@ -14,7 +14,8 @@ export async function ReactionResult({ reaction }: { reaction: ReactionSummary |
   };
   const href = withLocale(`/reaction/${reaction.id}`, locale);
   const lookup = "ord_id" in reaction ? reaction : null;
-  const source = [reaction.dataset_name, reaction.doi, reaction.patent].filter(Boolean).join(" · ");
+  const sourceLabel = reaction.dataset_name === USER_SUBMITTED_SOURCE ? t.reaction.userSubmitted : reaction.dataset_name;
+  const source = [sourceLabel, reaction.doi, reaction.patent].filter(Boolean).join(" · ");
   const roles = "matched_roles" in reaction
     ? reaction.matched_roles.map((role) => roleLabels[role] || role).join("、")
     : null;
@@ -38,7 +39,7 @@ export async function ReactionResult({ reaction }: { reaction: ReactionSummary |
         <div>
           <Link href={href}><EntityId kind="reaction" id={reaction.id} ariaLabel={t.common.hridLabel(reaction.id)} /></Link>
           {facts && <p className="reaction-result-summary">{facts}</p>}
-          {reaction.dataset_name && <p className="reaction-source-name">{reaction.dataset_name}</p>}
+          {sourceLabel && <p className="reaction-source-name">{sourceLabel}</p>}
         </div>
         <div className="reaction-badges">
           {roles && <span>{t.reaction.rolePrefix(roles)}</span>}

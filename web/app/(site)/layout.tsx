@@ -1,27 +1,16 @@
-import Link from "next/link";
-import { HeaderAccount } from "@/components/HeaderAccount";
-import { MobileTabBar } from "@/components/shared/MobileTabBar";
-import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
-import { withLocale } from "@/lib/localePath";
+import { SiteHeader } from "@/components/shell/SiteHeader";
+import { getRequestDictionary } from "@/lib/serverI18n";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const t = await getRequestDictionary();
-  const locale = await getRequestLocale();
   return (
     <div className="app-container">
-      <header className="site-header">
-        <div className="header-inner">
-          <Link href={withLocale("/", locale)} className="brand" aria-label={t.nav.home}>
-            <span className="brand-domain">huagongshe.com</span>
-          </Link>
-          <HeaderAccount />
-        </div>
-      </header>
+      {/* SiteHeader 同时挂载顶栏与手机底部 tab（共用未读上下文） */}
+      <SiteHeader />
       <main>{children}</main>
       <footer>
         <span>{t.nav.footer}：<a href="mailto:mail@huagongshe.com" className="footer-link">mail@huagongshe.com</a></span>
       </footer>
-      <MobileTabBar />
     </div>
   );
 }

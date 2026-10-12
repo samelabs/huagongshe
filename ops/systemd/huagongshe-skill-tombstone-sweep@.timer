@@ -1,0 +1,11 @@
+[Unit]
+Description=Huagongshe skill tombstone retention sweep — daily timer (%i)
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=30m
+Unit=huagongshe-skill-tombstone-sweep@%i.service
+
+[Install]
+WantedBy=timers.target

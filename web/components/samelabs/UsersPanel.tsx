@@ -6,6 +6,9 @@ import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 import { PAGE_SIZE, parseAdminPage, adminOffset, adminTotalPages } from "@/lib/adminPagination";
 import { AdminPagination } from "@/components/samelabs/AdminPagination";
+import { Button } from "@/components/ui/Button";
+import { TextLink } from "@/components/ui/TextLink";
+import { Input } from "@/components/ui/Field";
 
 type UserRow = { id: number; username: string; display_name: string; email: string; role: string; status: "active" | "disabled"; created_at: string; last_login_at: string | null };
 type AdminUsersResponse = { total: number; items: UserRow[] };
@@ -170,12 +173,13 @@ export function SamelabsUsers() {
             <span>{appliedQ ? `搜索 "${appliedQ}" · 共 ${total} 条` : `共 ${total} 条`}</span>
           </div>
           <form className="admin-search" onSubmit={submitSearch}>
-            <input
+            <Input
               value={q}
               placeholder={t.admin.userSearchPlaceholder}
               onChange={(e) => setQ(e.target.value)}
+              aria-label={t.admin.userSearchPlaceholder}
             />
-            <button type="submit" className="button small">{t.admin.userSearch}</button>
+            <Button type="submit" size="sm">{t.admin.userSearch}</Button>
           </form>
           <div className="admin-table admin-actions-min">
             {users.map((u) => <article key={u.id}>
@@ -188,13 +192,13 @@ export function SamelabsUsers() {
                 <span className={`status ${u.role === "admin" ? "admin" : ""}`}>{u.role === "admin" ? t.admin.roleAdmin : t.admin.roleMember}</span>
               </div>
               <div className="admin-user-actions">
-                <button className="text-button" disabled={busyId === u.id} onClick={() => setPendingRole(u)}>
+                <TextLink disabled={busyId === u.id} onClick={() => setPendingRole(u)}>
                   {busyId === u.id ? "…" : u.role === "admin" ? t.admin.actionRemoveAdmin : t.admin.actionSetAdmin}
-                </button>
-                <button className="text-button" disabled={busyId === u.id}
+                </TextLink>
+                <TextLink disabled={busyId === u.id}
                   onClick={() => u.status === "active" ? setPendingDisable(u) : enable(u.id)}>
                   {busyId === u.id ? "…" : u.status === "active" ? t.admin.actionDisable : t.admin.actionEnable}
-                </button>
+                </TextLink>
               </div>
             </article>)}
             {!loading && users.length === 0 && (
@@ -210,9 +214,9 @@ export function SamelabsUsers() {
               <p>{t.admin.userDisableConfirm(pendingDisable.username, pendingDisable.email)}</p>
               <p>{t.admin.userDisableEffect}</p>
               <div className="pipe-confirm-actions">
-                <button type="button" className="button small" onClick={() => setPendingDisable(null)}>{t.admin.cancel}</button>
-                <button type="button" className="button danger small" disabled={busyId === pendingDisable.id}
-                  onClick={confirmDisable}>{t.admin.actionDisable}</button>
+                <Button size="sm" onClick={() => setPendingDisable(null)}>{t.admin.cancel}</Button>
+                <Button variant="danger" size="sm" disabled={busyId === pendingDisable.id}
+                  onClick={confirmDisable}>{t.admin.actionDisable}</Button>
               </div>
             </div>
           </div>
@@ -228,11 +232,11 @@ export function SamelabsUsers() {
               )}</p>
               <p>{pendingRole.role === "admin" ? t.admin.userDemoteEffect : t.admin.userPromoteEffect}</p>
               <div className="pipe-confirm-actions">
-                <button type="button" className="button small" onClick={() => setPendingRole(null)}>{t.admin.cancel}</button>
-                <button type="button" className="button danger small" disabled={busyId === pendingRole.id}
+                <Button size="sm" onClick={() => setPendingRole(null)}>{t.admin.cancel}</Button>
+                <Button variant="danger" size="sm" disabled={busyId === pendingRole.id}
                   onClick={() => { const row = pendingRole; setPendingRole(null); toggleRole(row.id, row.role); }}>
                   {pendingRole.role === "admin" ? t.admin.actionRemoveAdmin : t.admin.actionSetAdmin}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

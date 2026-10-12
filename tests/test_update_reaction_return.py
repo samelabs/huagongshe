@@ -150,7 +150,7 @@ class UpdateReactionReturnTests(_Base):
         adapter: 零行锁/零 SQL(不得留半迁移)。
         """
         svc = inspect.getsource(reactions_service.update_reaction)
-        self.assertIn('auth_kind == "agent"', svc)
+        self.assertIn('auth_kind in ("agent", "oauth")', svc)
         self.assertIn("FOR UPDATE", svc)
         self.assertIn("只能维护自己创建的反应", svc)
         self.assertLess(svc.index("FOR UPDATE"),

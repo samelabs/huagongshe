@@ -1,42 +1,32 @@
-"""cas-externals: ChemicalBook 中文条目/供应商 懒加载读写层.
+"""ChemicalBook(CB) 数据层: 读路径选行 / 刷新判定 / 入队 / 回调写入。
 
-机制镜像 enrichment.py(pubchem 链):
-- ensure_externals(): fresh 直出 | miss 同步拉(3s 预算,线程池) | stale 出旧+入队
-- not_found 落行为负缓存
-- 入队 ON CONFLICT 活跃窗口去重
-本模块不挂公开路由(批次3 由 /chemicals/{id}/externals 与 SSR 调用);
-workapi 的 cas complete 载荷写入也复用此处的 upsert。
+现行访问规则(唯一事实, 注释与代码以此为准):
+- 详情(REST/MCP full)读 get_externals_row 选行 → cb_decide 判定:
+  ok 未超刷新窗(system_config cb.ok_refresh_days, 缺省 60 天)出数据;
+  超窗出旧数据并 enqueue_cas_job 刷新; 无 CB 行(absent)恒不首次采集。
+- 新 CAS 只经搜索 miss 占行入队(enqueue_cas_search_fetch)。
+- API 进程零外呼: CB 抓取只由 worker 执行, 结果经 workapi complete
+  复用本模块 upsert_externals 写入。
+- negative observation 只记明确 not_found(重问窗缺省 180 天)。
 """
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
-from ..core.cache import cache_delete, get_cache
-from ..core.rate_limit import enforce
 from .name_index import ingest_from_entry_cn
 
-# 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环拆除。
-# fetched_at 即"何时取到 / 何时确认没有"。ok 与 not_found 同为终态;
-# 回补 = 未来手动脚本, 不进自动机制。
-SYNC_FETCH_BUDGET_S = 3.0
 CACHE_KEY = "v4:cas-ext:{chemical_id}"  # v4: 0905 CB entry schema 规范化(canonical)
-CACHE_TTL_S = 6 * 3600
 MAX_ENTRY_JSON_BYTES = 2_000_000  # 双保险: workapi 载荷上限内的条目尺寸
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 # CB 详情读路径 locale 白名单 — 与 web/lib/i18n/locales.ts SUPPORTED_LOCALES 同源
@@ -161,9 +151,8 @@ async def upsert_externals(
     if entry_json and len(entry_json.encode()) > MAX_ENTRY_JSON_BYTES:
         raise ValueError("cas entry payload exceeds safety limit")
     # 数据链收口(§5): 数据层只有 ok/not_found — error 不落数据层(留在 job 表)。
-    # 时间只记录不驱动(2026-08-29定): 化学数据基本不变, 一切TTL回补环
-    # 拆除 — fetched_at 即"何时取到/何时确认没有"。
-    # ok 与 not_found 同为终态; 回补是未来手动脚本的事, 不进自动机制。
+    # fetched_at = 最近一次取到的时间; 刷新由读路径 cb_decide 按刷新窗
+    # (cb.ok_refresh_days, 缺省 60 天)驱动入队, 见模块头注释。
     # 0902 剥离定案: not_found 零写入 — complete 静默出列(job 层删行),
     # 收录与否由记录表本身表达(无行/主表 cb_number IS NULL)。
     if status == "not_found":
@@ -287,11 +276,11 @@ async def upsert_externals(
                     "websites": [suppliers[i].get("website") for i in with_profile],
                     "locales": [norm_locales[i] for i in with_profile],
                 })
-            # 2) 映射表: 化合物粒度全量替换(报价纯度属化合物, 档案不随行)
-            await db.execute(text("""
-                DELETE FROM chemistry.chemical_supplier_listing
-                WHERE chemical_id=:chemical_id
-            """), {"chemical_id": chemical_id})
+            # 2) 映射表: 按 (chemical_id, cbsid) 分行合并(HGS-CB-01)。
+            # cbsid 全局唯一标识一家供应商 — 不同 CB source(CB001/CB002)的
+            # 供应商天然分行共存, 后到的 source 回调不再全删全写覆盖他源;
+            # 同 cbsid 重复回调按最新载荷刷新。全删全写旧语义会把 CB001 的
+            # 供应商整表抹掉换成 CB002 的(展示层张冠李戴的病根)。
             if with_profile:
                 await db.execute(text("""
                     INSERT INTO chemistry.chemical_supplier_listing
@@ -313,13 +302,8 @@ async def upsert_externals(
                     "packs": [suppliers[i].get("pack_price") for i in with_profile],
                     "remarks": [suppliers[i].get("remark") for i in with_profile],
                 })
-        else:
-            await db.execute(text("""
-                DELETE FROM chemistry.chemical_supplier_listing
-                WHERE chemical_id=:chemical_id
-            """), {"chemical_id": chemical_id})
-        # 2026-08-31 收口: 旧表双写拆除(迁移完成, chemical_supplier 已摘除),
-        # zh 成功路径只写 profile/listing 两新表(上方已写)。
+        # else: zh error 载荷 — 只刷 last_status/fetched_at, 不删任何 source
+        # 的供应商行(非权威信号不得抹掉他源数据; not_found 已在上方早退)。
 
 
 _COUNTRY_CODE_MAP = {
@@ -362,9 +346,10 @@ def _dedupe_key(chemical_id: int, cas_number: str, locale: str = "zh-CN",
     digest = hashlib.sha256(cas_number.strip().encode()).hexdigest()[:16]
     # locale 后缀: 语言行与主行各自独立去重(否则 en 任务会被 zh 活跃窗口吞掉)
     suffix = "" if locale == "zh-CN" else f":{locale}"
-    # source_cb 后缀(0907 source grain): 仅 backfill 显式传入。同 CAS 多
-    # ChemicalBook record(CB001/CB002/...) 各自独立 fetch, 不被主行活跃窗
-    # 吞掉。线上路径不传 → key 与历史逐字节一致, 语义零漂移。
+    # source_cb 后缀(0907 source grain): 同 CAS 多 ChemicalBook record
+    # (CB001/CB002/...) 各自独立 fetch, 不被主行活跃窗吞掉。传入方: 语言
+    # 派发(workapi complete)、详情刷新的非 zh-CN-imprint 行。zh-CN imprint
+    # 刷新与 search_stale 不传 → 无后缀 key, 同页同窗去重。
     if source_cb_number:
         suffix = f"{suffix}:cb{source_cb_number}" if suffix else f":cb{source_cb_number}"
     return f"cas:{chemical_id}:{digest}{suffix}"
@@ -383,10 +368,10 @@ async def enqueue_cas_job(
     """活跃窗口去重入队; 已有活跃任务时返回 None。
 
     locale>zh-CN 为语言行任务: 租约端从 request_context->>'locale' 寻址。
-    source_cb_number (0907 source grain): backfill 专用 source record 寻址键 —
+    source_cb_number (0907 source grain): source record 寻址键 —
     同 CAS 多 cb_number 的 ChemicalBook source records 必须各自独立成 job,
-    不得被 (chemical_id,cas) 活跃窗折叠。为 None(全部线上路径)时行为零变化:
-    dedupe_key/locale/lease 语义均与旧版逐字节一致。该键只影响 source
+    不得被 (chemical_id,cas) 活跃窗折叠。为 None 时 dedupe_key 无后缀, lease
+    回落主表 cb_number(imprint)。该键只影响 source
     retrieval identity(取哪条 CB record), 不是 chemical entity identity —
     归属/合并仍全走 resolve_chemical/absorb, cb_number 不参与 can_merge。
     """
@@ -434,6 +419,13 @@ SEARCH_MISS_PRIORITY = 80       # 用户触发 > 后台刷新(30/50)
 # 依据: 详情页"物理化学性质"区 xztr 自带 SMILES/InChI/InChIKey(已入 props),
 # mol 文件是 worker 同趟附带。口径: 页面三件优先, mol 派生兜底; 主表宁缺勿错
 # —— RDKit 校验不过的值整字段丢弃, 绝不把脏值写进 chemicals。
+#
+# HGS-CB-STRUCT-01/02(交叉校验): 三种结构表示互为独立来源, 全部可解析时
+# 必须指向同一分子 — 以标准 InChIKey 为归一判据(page IK / mol 派生 IK /
+# SMILES 派生 IK), 任何两份不一致 → 整组拒写 + 结构化 warning 留痕,
+# 不允许把语义不一致的结构写进同一化合物分喂三条下游。
+# SMILES 独在场时推导 IK(RDKit), 使 CB 入口与反应入口一样能进发现流程。
+
 
 def _props_field(entry: dict[str, Any], canonical_key: str) -> str | None:
     """CB props 取字段(0905 canonical 键: smiles/inchikey)。"""
@@ -455,6 +447,18 @@ def _validate_smiles(smiles: str | None) -> str | None:
             return None
         canonical = Chem.MolToSmiles(mol)
         return canonical or None
+    except Exception:
+        return None
+
+
+def _ik_from_smiles(smiles: str | None) -> str | None:
+    """HGS-CB-STRUCT-02: 合法 SMILES → 标准 InChIKey(RDKit)。"""
+    if not smiles:
+        return None
+    try:
+        from rdkit import Chem
+        mol = Chem.MolFromSmiles(smiles)
+        return Chem.MolToInchiKey(mol) if mol is not None else None
     except Exception:
         return None
 
@@ -483,22 +487,38 @@ def _derive_from_molblock(molblock: str | None) -> tuple[str | None, str | None]
 def resolve_structure(
     entry: dict[str, Any] | None, molblock: str | None
 ) -> dict[str, str | None]:
-    """CB 三源 -> 结构字段。页面三件优先, mol 派生兜底; 全部只补空用。
+    """CB 三源 -> 结构字段(交叉校验版)。页面三件优先, mol 派生兜底;
+    全部只补空用。
 
     返回 {"smiles":..., "inchikey":..., "mol":...(molblock原文)}。
-    校验失败的键值为 None; smiles 校验不过时 mol 仍可写(连接表本身有效)。
+    - 页面 IK 格式非法(非 14-10-1)不作结构表示, 整字段丢弃(不写脏值);
+    - 三源 IK 交叉校验: 两份及以上可解析且不一致 → 整组拒写(None)+留痕;
+    - smiles 校验失败时 mol 仍可独立派生(连接表本身有效);
+    - 只有 SMILES 时推导 IK(HGS-CB-STRUCT-02), 进入发现流程。
     """
-    smiles = inchikey = None
+    from ..pubchem_core import INCHIKEY_RE
+    smiles = None
+    page_ik = None
     if entry:
+        page_ik = _props_field(entry, "inchikey")
+        if page_ik is not None and not INCHIKEY_RE.fullmatch(page_ik):
+            page_ik = None  # malformed IK 不作结构表示(与 bind_unbound_ok 口径一致)
         smiles = _validate_smiles(_props_field(entry, "smiles"))
-        inchikey = _props_field(entry, "inchikey")
-        if not inchikey or not smiles:
-            d_smiles, d_ik = _derive_from_molblock(molblock)
-            if not smiles:
-                smiles = d_smiles
-            if not inchikey:
-                inchikey = d_ik
-    mol = molblock if (molblock and _derive_from_molblock(molblock)[0]) else None
+    mol_smiles, mol_ik = _derive_from_molblock(molblock)
+    smiles_ik = _ik_from_smiles(smiles)
+
+    known_iks = {k for k in (page_ik, mol_ik, smiles_ik) if k}
+    if len(known_iks) > 1:
+        logger.warning(
+            "event=cb_structure_cross_validation_failed "
+            "page_ik=%s mol_ik=%s smiles_ik=%s — representations disagree, "
+            "structure write refused (HGS-CB-STRUCT-01)",
+            page_ik, mol_ik, smiles_ik)
+        return {"smiles": None, "inchikey": None, "mol": None}
+    inchikey = next(iter(known_iks), None)
+    if not smiles:
+        smiles = mol_smiles
+    mol = molblock if (molblock and mol_smiles) else None
     return {"smiles": smiles, "inchikey": inchikey, "mol": mol}
 
 
@@ -807,178 +827,3 @@ async def enqueue_cas_search_fetch(
             ensure_ascii=False),
     })
     return True, res.status, (int(chemical_id) if chemical_id is not None else None)
-
-
-async def sync_fetch_and_store(
-    db: Any, *, chemical_id: int, cas_number: str
-) -> dict[str, Any] | None:
-    """同步拉取路径(详情页首访)。3s 预算, 线程池执行防阻塞事件循环。
-
-    返回 ensure 状态字典; 网络失败/超时不落 error 行(留给 worker 重试)。
-    """
-    from caslib.fetch import fetch_cas
-    from caslib.parse import parse_cpp_suppliers
-    from caslib.parse_cpp import parse_cpp_page
-
-    async def _fetch() -> tuple[str, dict | None, list, str | None]:
-        # 判定单点在 caslib fetch 层(§5): ok/not_found/error 三态直译。
-        result = await fetch_cas(cas_number, total_budget_s=SYNC_FETCH_BUDGET_S)
-        if result.status == "error":
-            return "error", None, [], None
-        if result.status == "not_found":
-            return "not_found", None, [], None
-        # 0905 规范化: CPP 唯一解析源(canonical schema), CAS 页不解析内容。
-        entry = parse_cpp_page(result.cpp_html) if result.cpp_html else None
-        suppliers = parse_cpp_suppliers(result.cpp_html or "") if result.cpp_html else []
-        if entry is None:
-            return "not_found", None, [], None
-        return "ok", entry, suppliers, result.cb_number
-
-    try:
-        status, entry, suppliers, cb_number = await asyncio.wait_for(
-            _fetch(), timeout=SYNC_FETCH_BUDGET_S + 1.5,
-        )
-    except Exception:
-        return None  # 网络层失败: 不落行, 走入队
-    if status == "error":
-        return None
-    if status == "not_found":
-        # B-minimal: 同步路径明确 not_found → 记录 cas_locator negative
-        # (调用方 routes 据 sync["status"] 分流, 不再误判为失败入列重抓)
-        await record_negative(db, "cas_locator", cas_number=cas_number)
-        await db.commit()
-        await cache_delete(CACHE_KEY.format(chemical_id=chemical_id))
-        return {"status": "not_found"}
-    await upsert_externals(
-        db, chemical_id=chemical_id, cas_number=cas_number.strip(),
-        entry=entry, suppliers=suppliers, status=status,
-        cb_number=cb_number,
-    )
-    await db.commit()
-    await cache_delete(CACHE_KEY.format(chemical_id=chemical_id))
-    return {"status": status}
-
-
-async def ensure_externals(
-    db: Any, chemical_id: int, *, cas_number: str
-) -> dict[str, Any]:
-    """ensure 链入口。返回:
-    {state: fresh|queued|absent, entry, suppliers, job_id}
-    - fresh: ok 行直接出 (negative 由 B-minimal 独立观察表表达,
-      absent 分支调用方 routes 先查 fresh cas_locator negative)
-    - absent: 无 cb 行(首访) — 调用方(sync路径)决定同步拉或入队
-    时间只记录不驱动(2026-08-29定): 无TTL无stale环。
-    """
-    redis = await get_cache()
-    cache_key = CACHE_KEY.format(chemical_id=chemical_id)
-    try:
-        cached = await redis.get(cache_key)
-        if cached:
-            payload = json.loads(cached)
-            if payload.get("state") == "fresh":
-                return payload
-    except Exception:
-        # 降级直查DB是设计; 但Redis故障必须留痕, 防静默打穿连接池无人知
-        logger.warning("externals cache read unavailable, fallback to db", exc_info=True)
-
-    row = await get_externals_row(db, chemical_id, locale="zh-CN")
-    if row is None:
-        return {"state": "absent", "entry": None, "suppliers": [], "job_id": None}
-    # 四态判定驱动(0902 剥离): ok 刷新窗。
-    decision = await cb_decide(db, chemical_id, cb_number=row.get("cb_number"))
-    if decision == "enqueue_refresh":
-        # 需再问: 出当前数据但标记 stale, 调用方决定入列
-        return {"state": "stale", "entry": row["entry"], "suppliers": [], "job_id": None}
-    # ok 行: 终态直出。suppliers 同行取。
-    suppliers = await get_suppliers(db, chemical_id)
-    payload = {"state": "fresh", "entry": row["entry"], "suppliers": suppliers,
-               "job_id": None}
-    try:
-        await redis.set(cache_key, json.dumps(payload, ensure_ascii=False,
-                                              default=str), ex=CACHE_TTL_S)
-    except Exception:
-        # 返回无缓存是设计; 写失败留痕与读路径同口径
-        logger.warning("externals cache write unavailable", exc_info=True)
-    return payload
-
-
-# --- Chemical Externals 共享编排(G2.4C) ----------------------------------
-# HTTP/MCP 唯一 application flow; adapter 只保留 transport 解析/auth/
-# 错误映射。状态机/限流位置/负缓存/入队顺序与基线 routes.chemical_externals
-# 逐分支一致。
-
-
-class ChemicalExternalsNotFoundError(Exception):
-    """chemical_id 无对应行的 neutral 语义错误(detail 固定基线原文)。"""
-
-
-async def get_chemical_externals(db: Any, chemical_id: int, *, actor_id: int | None) -> dict[str, Any]:
-    """CB 扩展读: 读库+ensure 驱动(新 CAS 首访同步拉, 超期 worker 刷)。
-
-    actor_id 仅作 externals-fetch 限流 identity policy(actor=10/min,
-    anonymous-global=30/min); 限流只覆盖即将同步外呼的 absent-not-neg 分支,
-    纯读路径(fresh cache/DB/negative/stale enqueue/no_cas)零消耗。
-    """
-    row = (await db.execute(text("""
-        SELECT id, cas_numbers[1] AS cas FROM chemistry.chemicals WHERE id=:id
-    """), {"id": chemical_id})).fetchone()
-    if not row:
-        raise ChemicalExternalsNotFoundError("化合物不存在")
-    cas_number = row[1]
-    if not cas_number:
-        return {"chemical_id": chemical_id, "state": "no_cas",
-                "entry": None, "suppliers": []}
-    outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
-    if outcome["state"] == "stale":
-        # 六态判定需再问(超窗刷新/超窗重问/error): 出旧数据同时入列
-        job_id = await enqueue_cas_job(
-            db, chemical_id=chemical_id, cas_number=cas_number, priority=40,
-            request_context={"reason": "stale_refresh"},
-        )
-        await db.commit()
-        outcome = {"state": "fresh", "entry": outcome.get("entry"),
-                   "suppliers": outcome.get("suppliers") or [], "job_id": job_id}
-    if outcome["state"] == "absent":
-        # B-minimal: fresh cas_locator negative → 明确 not_found 在重问窗内,
-        # 零同步 fetch 零 enqueue(此前每次页面访问=1次同步外呼+1次入列重抓)。
-        # expired → 允许现有同步验证链继续。
-        if await negative_is_fresh(db, "cas_locator", cas_number=cas_number):
-            return {
-                "chemical_id": chemical_id,
-                "state": "fresh",
-                "entry": None, "suppliers": [], "job_id": None,
-                "negative": True,  # 内部 decision; 不扩前端公开 state 协议
-            }
-        # P1修复(II): 同步外呼限流只覆盖"即将发生同步上游外呼"的分支(照抄
-        # smiles-create 口径) — 同步外呼有 3s 预算且全程持有 DB 连接(pool 仅
-        # 5+5), 爬虫顺序扫 HCID 可打满连接池。额度不变: 10/min 鉴权、
-        # 30/min 匿名全局。不得放入口: fresh cache/fresh DB/
-        # fresh negative/stale enqueue/no_cas/404 这些零外呼路径不消耗配额,
-        # Redis 故障时也不该把正常读取打成 503。
-        if actor_id is not None:
-            await enforce("externals-fetch", str(actor_id), 10, 60)
-        else:
-            await enforce("externals-fetch", "anonymous-global", 30, 60)
-        # 首访: 同步拉取(3s 预算); 失败入队,本响应出空
-        sync = await sync_fetch_and_store(db, chemical_id=chemical_id, cas_number=cas_number)
-        if sync and sync["status"] == "ok":
-            outcome = await ensure_externals(db, chemical_id, cas_number=cas_number)
-        elif sync and sync["status"] == "not_found":
-            # 明确 not_found: negative 已在 sync 内记录 — 不 enqueue
-            # (二连击修复: 一次访问最多一次上游验证, 不再排队重抓)
-            outcome = {"state": "fresh", "entry": None, "suppliers": [],
-                       "job_id": None}
-        else:
-            job_id = await enqueue_cas_job(
-                db, chemical_id=chemical_id, cas_number=cas_number, priority=80,
-                request_context={"reason": "sync_failed"},
-            )
-            await db.commit()
-            outcome = {"state": "queued", "entry": None, "suppliers": [],
-                       "job_id": job_id}
-    return {
-        "chemical_id": chemical_id,
-        "state": outcome["state"],
-        "entry": outcome.get("entry"),
-        "suppliers": outcome.get("suppliers") or [],
-    }

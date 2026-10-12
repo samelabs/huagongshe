@@ -123,6 +123,10 @@ async def chemical_detail(
             priority=80 if actor is not None else 50,
             enrich=normalize_enrich(enrich),
             locale=locale,
+            # ZX: 网页展示保持页面级证据截断(12 entries/6 values; 限幅投影
+            # 在 service 层完成)。CB 刷新入队已恢复 1.6 语义(service
+            # 默认), 与 MCP full 一致 —— 本 adapter 不再传只读开关。
+            pb_display_limit=True,
         )
     except ChemicalNotFoundError as exc:
         raise HTTPException(404, "化合物不存在") from exc

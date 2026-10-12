@@ -23,7 +23,7 @@ export function Molecule({ chemicalId, smiles, label, width = 260, height = 180,
 }) {
   const t = useDictionary();
   if (!chemicalId) return <span className="result-sub">{noStructureText ?? t.reaction.noStructure}</span>;
-  const name = label || `HCID ${chemicalId}`;
+  const name = label || t.common.hcidShort(chemicalId);
   // SVG is rendered by our validated RDKit endpoint; no remote image host is involved.
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={molSvgUrl(chemicalId, width, height)} width={width} height={height} alt={alt ?? t.chemical.structureAlt(name)} loading="lazy" />;

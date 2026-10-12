@@ -5,9 +5,15 @@ import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { applyLocale } from "@/lib/localePath";
-import zhCN from "@/lib/i18n/locales/zh-CN";
+import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/ui/Field";
+import { Notice } from "@/components/ui/Notice";
+import { Segmented } from "@/components/ui/Segmented";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
+/** 登录/注册表单（Step 11 §9.6）：ui 表单控件 + 错误 Notice err（写明原因，
+ *  不暴露错误码，IX-12）；提交 primary lg（触控 ≥44px）。请求路径与
+ *  字段 name 与旧版逐字一致（登录回跳/工具登录流依赖这些锚点）。 */
 export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
   const router = useRouter();
   const t = useDictionary();
@@ -35,10 +41,10 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
       // username currently typed.
       if (requestId !== latestCheck.current) return;
       if (!data.available) {
-        // 服务端 reason 是固定中文契约串(/api/auth/check-username): "用户名已被使用" → taken。
-        // 判定锚定 zh 字典常量(与 API 契约一致, 不随展示 locale 变), 提示文案用当前字典。
-        const taken = data.reason === zhCN.auth.usernameTaken;
-        setUsernameCheck({ status: taken ? "taken" : "invalid", msg: taken ? t.auth.usernameTaken : (data.reason || t.auth.usernameUnavailable) });
+        // BX-A2：服务端返回稳定机器码 reason_code（taken / invalid_format），
+        // 提示文案用当前字典渲染 —— 不再消费/比对中文 reason 契约串。
+        const taken = data.reason_code === "taken";
+        setUsernameCheck({ status: taken ? "taken" : "invalid", msg: taken ? t.auth.usernameTaken : t.auth.usernameRule });
       } else {
         setUsernameCheck({ status: "ok", msg: t.auth.usernameAvailable });
       }
@@ -55,14 +61,23 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
     return () => clearTimeout(timer);
   }, [username, kind, checkUsername]);
 
+  const usernameState = usernameCheck.status;
+  const usernameHelp = usernameState === "idle" ? t.auth.usernameRule : usernameCheck.msg;
+
   return (
     <>
-      <div className="tabs">
-        <button type="button" className={kind === "login" ? "active" : ""} disabled={busy} onClick={() => { setKind("login"); setMessage(""); }}>{t.auth.title}</button>
-        <button type="button" className={kind === "register" ? "active" : ""} disabled={busy} onClick={() => { setKind("register"); setMessage(""); }}>{t.auth.registerTitle}</button>
-      </div>
+      <Segmented
+        ariaLabel={t.auth.title}
+        value={kind}
+        onChange={(next) => { setKind(next); setMessage(""); }}
+        options={[
+          { value: "login", label: t.auth.title },
+          { value: "register", label: t.auth.registerTitle },
+        ]}
+      />
       <form className="form-stack" onSubmit={async (event) => {
         event.preventDefault();
+        if (busy) return;  // loading 不落 disabled：提交重入在 handler 拦截
         setBusy(true); setMessage("");
         const values = new FormData(event.currentTarget);
         if (kind === "register" && values.get("password") !== values.get("confirm_password")) {
@@ -89,7 +104,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
           });
           if (response.ok) { await refresh(); router.push(applyLocale(nextPath, locale)); router.refresh(); return; }
           const error = await response.json().catch(() => null);
-          setMessage(apiError(error?.detail, t));
+          setMessage(apiError(response.status, error?.detail, t));
         } catch {
           setMessage(t.auth.networkFailed);
         } finally {
@@ -98,8 +113,8 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
       }}>
         {kind === "register" ? (
           <>
-            <label>{t.auth.username}
-              <input
+            <Field label={t.auth.username} required help={usernameHelp} error={usernameState === "taken" || usernameState === "invalid" ? usernameCheck.msg : undefined}>
+              <Input
                 name="username"
                 required minLength={4} maxLength={30}
                 pattern="[a-z0-9_]{4,30}"
@@ -107,33 +122,43 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
                 autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className={usernameCheck.status === "taken" || usernameCheck.status === "invalid" ? "input-error" : usernameCheck.status === "ok" ? "input-ok" : ""}
+                invalid={usernameState === "taken" || usernameState === "invalid"}
               />
-            </label>
-            <p className={`field-hint ${usernameCheck.status === "ok" ? "good" : usernameCheck.status === "taken" || usernameCheck.status === "invalid" ? "bad" : ""}`}>
-              {usernameCheck.msg || t.auth.usernameRule}
-            </p>
-            <label>{t.auth.email}<input name="email" type="email" required autoComplete="email" /></label>
+            </Field>
+            <Field label={t.auth.email} required>
+              <Input name="email" type="email" required autoComplete="email" />
+            </Field>
           </>
-        ) : <label>{t.auth.usernameOrEmail}<input name="account" required autoComplete="username" /></label>}
-        <label>{t.auth.password}<input name="password" type="password" required minLength={kind === "register" ? 8 : 1} autoComplete={kind === "login" ? "current-password" : "new-password"} /></label>
-        {kind === "register" && (
-          <>
-            <p className="field-hint">{t.auth.passwordHint}</p>
-            <label>{t.auth.confirmPassword}<input name="confirm_password" type="password" required minLength={8} autoComplete="new-password" /></label>
-          </>
+        ) : (
+          <Field label={t.auth.usernameOrEmail} required>
+            <Input name="account" required autoComplete="username" />
+          </Field>
         )}
-        {message && <p className="form-message bad">{message}</p>}
-        <button type="submit" className="button primary" disabled={busy}>{busy ? t.auth.submitting : t.auth.submit(kind)}</button>
+        <Field label={t.auth.password} required help={kind === "register" ? t.auth.passwordHint : undefined}>
+          <Input name="password" type="password" required minLength={kind === "register" ? 8 : 1} autoComplete={kind === "login" ? "current-password" : "new-password"} />
+        </Field>
+        {kind === "register" && (
+          <Field label={t.auth.confirmPassword} required>
+            <Input name="confirm_password" type="password" required minLength={8} autoComplete="new-password" />
+          </Field>
+        )}
+        <Button type="submit" variant="primary" size="lg" loading={busy}>{busy ? t.auth.submitting : t.auth.submit(kind)}</Button>
       </form>
+      {message && <Notice tone="err">{message}</Notice>}
     </>
   );
 }
 
-function apiError(detail: unknown, labels: Dictionary) {
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) {
-    return detail.map((item) => typeof item?.msg === "string" ? item.msg.replace(/^Value error,\s*/, "") : null).filter(Boolean).join("；") || labels.auth.validationError;
+/** BX-A2：登录/注册失败按状态 + 机器码（detail.kind）渲染五语言文案；
+ *  不再透传服务端 message 原文（旧纯字符串 detail 一律落本地化兜底 ——
+ *  同样的规则注册时已在客户端预校验，422 数组亦落通用校验文案）。 */
+function apiError(status: number, detail: unknown, labels: Dictionary) {
+  if (status === 429) return labels.auth.rateLimited;
+  if (detail && typeof detail === "object" && "kind" in (detail as Record<string, unknown>)) {
+    const kind = (detail as { kind?: unknown }).kind;
+    if (kind === "invalid_credentials") return labels.auth.failed;
+    if (kind === "username_or_email_taken") return labels.auth.accountTaken;
   }
+  if (Array.isArray(detail)) return labels.auth.validationError;
   return labels.auth.failed;
 }

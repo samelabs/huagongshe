@@ -43,7 +43,7 @@ async def load_reaction_detail(
                CASE WHEN rx.created_by_user_id IS NOT NULL
                     THEN rx.source_citation ELSE d.name END,
                rx.note,o.id,o.reaction_id,cond.reflux,
-               u.username,u.display_name,u.avatar_path,
+               u.username,u.display_name,u.avatar_path,(u.status='active'),
                (SELECT count(*) FROM community.reaction_follows WHERE reaction_id=rx.id),
                EXISTS(SELECT 1 FROM community.reaction_follows
                       WHERE reaction_id=rx.id AND user_id=:viewer_id)
@@ -140,10 +140,13 @@ async def load_reaction_detail(
         "atmosphere": base[15],
         "pressure": ({"value": base[16], "unit": base[17]} if base[16] is not None else None),
         "workup_details": base[18], "note": base[24],
-        "creator": ({"username": base[28], "display_name": base[29], "avatar_url": base[30]}
+        # HGS-ACCOUNT-CONTENT-01: 停用作者的公开反应保留可见, active 供
+        # 前端渲染「已停用」标记并隐藏关注按钮(关注端点本就拒绝停用目标)。
+        "creator": ({"username": base[28], "display_name": base[29],
+                     "avatar_url": base[30], "active": bool(base[31])}
                     if base[28] else None),
         "is_owner": base[4] == viewer_id and base[4] is not None,
-        "follower_count": int(base[31]), "is_following": bool(base[32]),
+        "follower_count": int(base[32]), "is_following": bool(base[33]),
         "participants": compounds,
         "workup": [
             {"type": row[0], "details": row[1], "keep_phase": row[2], "target_ph": row[3]}
@@ -512,11 +515,18 @@ async def create_reaction(
     """
     await enforce("reaction-write-minute", str(actor_id), settings.api_reaction_write_limit_per_minute, 60)
     await enforce("reaction-write-day", str(actor_id), settings.api_reaction_write_limit_per_day, 86400)
-    if auth_kind == "agent" and not idempotency_key:
+    if auth_kind in ("agent", "oauth") and not idempotency_key:
         raise MissingIdempotencyKeyError()
     if idempotency_key and len(idempotency_key) > 200:
         raise IdempotencyKeyTooLongError()
     if idempotency_key:
+        # P2c(审计): reactions.idempotency_key 无 UNIQUE 索引(加索引需
+        # migration, 本批不动) —— SELECT-then-INSERT 的毫秒窗内并发同键
+        # 双 INSERT 都过预检。用 (user_id,key) 粒度的 advisory 事务锁把
+        # 同键创建串行化: 第二个事务等锁后重读即可命中既有行。
+        await db.execute(text(
+            "SELECT pg_advisory_xact_lock(hashtextextended(:k,0))"
+        ), {"k": f"rxn-idem:{actor_id}:{idempotency_key}"})
         existing = (await db.execute(text("""
             SELECT id FROM chemistry.reactions
             WHERE created_by_user_id=:user_id AND idempotency_key=:key
@@ -556,7 +566,7 @@ async def create_reaction(
             RETURNING id
         """), {
             **values, "reaction_smiles": reaction_smiles, "reaction_input": reaction_smiles,
-            "user_id": actor_id, "created_via": "agent" if auth_kind == "agent" else "web",
+            "user_id": actor_id, "created_via": "agent" if auth_kind in ("agent", "oauth") else "web",
             "idempotency_key": idempotency_key,
         })).scalar_one())
     except IntegrityError:
@@ -639,7 +649,7 @@ async def update_reaction(
     事务边界(行锁/全部 DB mutation/commit/rollback)由本函数自持, adapter
     零事务片段。不负责 auth/scope/传输层异常或响应映射。
     """
-    if auth_kind == "agent":
+    if auth_kind in ("agent", "oauth"):
         raise AgentReactionMutationForbiddenError(
             AgentReactionMutationForbiddenError.EDIT_DETAIL)
     await enforce("reaction-write-minute", str(actor_id), settings.api_reaction_write_limit_per_minute, 60)
@@ -713,7 +723,7 @@ async def delete_reaction(
     → public+visible statistics -1 → commit。
     delete 无 rate 限制(迁移前后一致, 未新增)。事务边界由本函数自持。
     """
-    if auth_kind == "agent":
+    if auth_kind in ("agent", "oauth"):
         raise AgentReactionMutationForbiddenError(
             AgentReactionMutationForbiddenError.DELETE_DETAIL)
     try:

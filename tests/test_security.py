@@ -20,6 +20,15 @@ class SessionBoundaryTests(unittest.TestCase):
             asyncio.run(current_session(actor))
         self.assertEqual(raised.exception.status_code, 403)
 
+    def test_oauth_token_cannot_be_used_as_a_web_session(self) -> None:
+        actor = Actor(
+            1, "user", "User", "user@example.test", "member", None,
+            "oauth", 9, ("read",),
+        )
+        with self.assertRaises(HTTPException) as raised:
+            asyncio.run(current_session(actor))
+        self.assertEqual(raised.exception.status_code, 403)
+
     def test_account_mutations_require_web_session(self) -> None:
         for endpoint in (
             users.update_profile, users.change_password, users.upload_avatar,

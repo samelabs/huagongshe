@@ -12,7 +12,7 @@
 状态机(§3 修正2):
   queued → leased → candidate | not_found | ambiguous | conflict
                         | superseded | error
-- error 行留痕永不派发, 复活=同请求到达入列口翻态(对齐 cas_jobs);
+- error 行不直接派发; 复活两路: 同请求到达入列口翻 queued, 或该通道任一 complete 后 gate_unlock_error_rows 整通道翻 queued(与 pubchem_jobs/cas_jobs 同构);
 - 终态不自动复活, 新 evidence_hash 才允许新 job(全局 UNIQUE dedupe)。
 """
 

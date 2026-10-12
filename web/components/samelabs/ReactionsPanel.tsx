@@ -8,6 +8,8 @@ import { apiGet, apiPatch, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
 import { PAGE_SIZE, parseAdminPage, adminOffset, adminTotalPages } from "@/lib/adminPagination";
 import { AdminPagination } from "@/components/samelabs/AdminPagination";
+import { Segmented } from "@/components/ui/Segmented";
+import { TextLink } from "@/components/ui/TextLink";
 
 type ReactionRow = { id: number; reaction_smiles: string; visibility: string; moderation_status: "visible" | "hidden"; username: string; display_name: string; created_at: string };
 type AdminReactionsResponse = { total: number; items: ReactionRow[] };
@@ -144,12 +146,12 @@ export function SamelabsReactions() {
             <span>{`共 ${total} 条`}</span>
           </div>
           <div className="admin-filters">
-            {(["all", "visible", "hidden"] as const).map((s) => (
-              <button key={s} className={status === s ? "active" : ""}
-                onClick={() => setStatusFilter(s)}>
-                {STATUS_LABEL[s]}
-              </button>
-            ))}
+            <Segmented
+              ariaLabel={t.admin.reactionsListTitle}
+              options={(["all", "visible", "hidden"] as const).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
+              value={status}
+              onChange={setStatusFilter}
+            />
           </div>
           <div className="admin-table reaction-admin-list">
             {reactions.map((r) => <article key={r.id}>
@@ -158,9 +160,7 @@ export function SamelabsReactions() {
                 <span>{r.display_name} · {r.visibility === "public" ? t.admin.publicLabel : t.admin.privateLabel}</span>
               </div>
               <span className={`status ${r.moderation_status}`}>{r.moderation_status === "visible" ? t.admin.statusVisible : t.admin.statusHidden}</span>
-              <button className="text-button" disabled={busyId === r.id} onClick={() => toggle(r.id, r.moderation_status)}>
-                {busyId === r.id ? "…" : r.moderation_status === "visible" ? t.admin.actionHide : t.admin.actionShow}
-              </button>
+              <TextLink disabled={busyId === r.id} onClick={() => toggle(r.id, r.moderation_status)}>{busyId === r.id ? "…" : r.moderation_status === "visible" ? t.admin.actionHide : t.admin.actionShow}</TextLink>
             </article>)}
             {!loading && reactions.length === 0 && (
               <div className="admin-empty">{status === "all" ? "暂无用户反应" : "当前筛选下没有反应"}</div>

@@ -109,6 +109,8 @@ test("排除路径不 redirect/rewrite(undefined)", () => {
   for (const p of [
     "/api/chemicals",
     "/mcp",
+    "/oauth/authorize",
+    "/oauth/token",
     "/.well-known/acme-challenge/x",
     "/_next/static/chunk.js",
     "/samelabs/dashboard",
@@ -149,10 +151,11 @@ test("/ja/mcp-guide rewrite 到 /mcp-guide(locale=ja)", () => {
 
 /* ─────── locale 前缀 + excluded path: 无效 alias, 不 rewrite 到 stripped path ─────── */
 
-test("/ja/mcp、/ja/api/*、/ja/samelabs/*、/ja/.well-known/* 均不 rewrite(undefined)", () => {
+test("/ja/mcp、/ja/oauth/*、/ja/api/*、/ja/samelabs/*、/ja/.well-known/* 均不 rewrite(undefined)", () => {
   for (const p of [
     "/ja/mcp",
     "/ja/mcp/x",
+    "/ja/oauth/authorize",
     "/ja/api/health",
     "/ja/samelabs/users",
     "/ja/.well-known/example",

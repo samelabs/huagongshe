@@ -64,13 +64,17 @@ class StructureResolveTests(unittest.TestCase):
         self.assertEqual(s["mol"], self.molblock)
 
     def test_resolve_structure_garbage_smiles_dropped(self) -> None:
-        """页面 SMILES 非标(RDKit 解析不过): 整字段丢弃, 从 mol 兜底, 不写脏值。"""
+        """页面 SMILES 非标(RDKit 解析不过): 整字段丢弃, 从 mol 兜底。
+
+        HGS-CB-STRUCT-01 后: malformed 页面 IK(非 14-10-1)不作结构表示
+        (整字段丢弃, 不再原样写进 chemicals.inchikey), 与 mol 兜底交叉
+        校验后取 mol 派生值。"""
         from api.services.cb import resolve_structure
 
         entry = {"props": [{"key": "smiles", "label": "SMILES", "text": "这不是smiles%%"}, {"key": "inchikey", "label": "InChIKey", "text": "BAD-KEY"}]}
         s = resolve_structure(entry, self.molblock)
         self.assertEqual(s["smiles"], "O=C(O)c1ccccc1")  # mol 兜底
-        self.assertEqual(s["inchikey"], "BAD-KEY")  # inchikey 无 mol 外校验, 原样(补空语义)
+        self.assertEqual(s["inchikey"], "WPYMKLBDIGXBTP-UHFFFAOYSA-N")  # malformed 页面 IK 丢弃, mol 派生
 
     def test_resolve_structure_all_absent(self) -> None:
         """三源全无: 全 None, 建行照常(无结构行, 不炸)。"""

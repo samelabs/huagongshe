@@ -7,6 +7,13 @@ on:
 permissions:
   contents: read
 
+# B5-08: push+PR 双触发的同 SHA 去重 —— 按 head SHA 分组(push 与
+# pull_request 事件对同一 commit 共组, 后到的取消先到的), 被取代的旧 run
+# 一并取消
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   core:
     runs-on: ubuntu-24.04
@@ -33,10 +40,24 @@ jobs:
             tests.test_db_gate \
             tests.test_security \
             tests.test_worker \
+            tests.test_whole_record \
             tests.test_locale_payload_cb \
             tests.test_cb_mol \
             tests.test_caslib \
-            tests.test_api_contract_governance
+            tests.test_api_contract_governance \
+            tests.test_oauth_contract \
+            tests.test_mcp_oauth_contract \
+            tests.test_notes_ui_contract \
+            tests.test_openai_plugin_readiness
+
+      # B5-06: worker 启动路径的无条件 import（含函数级 aiohttp_socks）必须在
+      # 干净 venv（只装 requirements-worker.txt）里可解析 —— 否则生产装完依赖
+      # 启动必崩。AST 级检查抓函数体内的 import，纯 import worker.main 抓不到。
+      - name: Worker clean-venv import check (B5-06)
+        run: |
+          python -m venv /tmp/worker-venv
+          /tmp/worker-venv/bin/pip install --quiet --disable-pip-version-check -r requirements-worker.txt
+          /tmp/worker-venv/bin/python scripts/check_worker_imports.py
 
       - uses: actions/setup-node@v4
         with:
@@ -49,6 +70,12 @@ jobs:
       - name: Type-check frontend
         working-directory: web
         run: npx tsc --noEmit
+
+      - name: Web unit tests (node:test, strip-types)
+        # N-01/B5-02: 此前 7 个 *.test.mjs 只有 5 个进 CI(govSeverity 与
+        # 反应 SVG 路由测试无执行入口) —— 全量进 CI。
+        working-directory: web
+        run: npm run test:unit
 
       - name: Locale runtime behavior tests (tsx, real TS SUT)
         # v1.6.0 门禁: locale redirect/rewrite proxy 契约(malformed cookie)、

@@ -18,7 +18,7 @@ from sqlalchemy import text
 
 from .core.config import settings
 from .core.database import get_db
-from .rate_limit_http import to_http_exception
+from .rate_limit_http import enforce_http, to_http_exception
 from .core.rate_limit import RateLimitError
 from .core.security import Actor, current_actor, public_or_actor, require_scope
 from .services.skills import (list_skills as list_skills_service,
@@ -252,14 +252,23 @@ async def validate_skill(
     # REST 与 MCP 对齐(B4): validate_skill 统一要求 skill:write。
     # require_scope 只收紧 agent token, web session 行为不变。
     require_scope(actor, "skill:write")
+    # HGS-A4-01: 网页 REST 校验入口的交互预算(与创建 20/h 同维度)。
+    # MCP validate_skill 不经此桶(MCP 侧走其自身调用路径), 不是全入口 CPU 防刷。
+    await enforce_http("skill-validate-hour", str(actor.id),
+                       settings.api_skill_write_limit_per_hour, 3600)
     raw = await file.read(settings.skill_zip_max_bytes + 1)
     if len(raw) > settings.skill_zip_max_bytes:
-        raise HTTPException(400, f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限")
+        # BX-A2：detail 升级为 {message, kind}（与 notes 400 同一先例）——
+        # message 保留原文供 API 调试，kind 是稳定机器码（前端按语言渲染）。
+        raise HTTPException(400, {
+            "message": f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限",
+            "kind": "archive_too_large",
+        })
     # G3.1D: kernel owner 迁 services.skills; neutral → HTTP 400 原文。
     try:
         manifest = await asyncio.to_thread(extract_skill_zip, raw)
     except SkillArchiveValidationError as exc:
-        raise HTTPException(400, exc.detail) from exc
+        raise HTTPException(400, {"message": exc.detail, "kind": exc.kind}) from exc
     return {
         "ok": True,
         "slug": manifest["slug"],
@@ -302,15 +311,15 @@ async def create_skill(
             category=category, idempotency_key=request_idempotency_key,
             archive_loader=archive_loader)
     except SkillArchiveValidationError as exc:
-        raise HTTPException(400, exc.detail) from exc
+        raise HTTPException(400, {"message": exc.detail, "kind": exc.kind}) from exc
     except SkillCategoryError as exc:
-        raise HTTPException(400, exc.detail) from exc
+        raise HTTPException(400, {"message": exc.detail, "kind": "category_invalid"}) from exc
     except SkillSlugConflictError as exc:
-        raise HTTPException(409, exc.detail) from exc
+        raise HTTPException(409, {"message": exc.detail, "kind": "slug_conflict"}) from exc
     except MissingSkillIdempotencyKeyError as exc:
-        raise HTTPException(400, exc.detail) from exc
+        raise HTTPException(400, {"message": exc.detail, "kind": "idempotency_key_missing"}) from exc
     except SkillIdempotencyKeyTooLongError as exc:
-        raise HTTPException(400, exc.detail) from exc
+        raise HTTPException(400, {"message": exc.detail, "kind": "idempotency_key_too_long"}) from exc
     except RateLimitError as exc:
         raise to_http_exception(exc) from exc
 

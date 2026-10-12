@@ -2,18 +2,26 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { apiGet, molSvgUrl, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
-import { EntityId } from "@/components/shared/EntityId";
+import { apiGet, molSvgUrl, USER_SUBMITTED_SOURCE, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
+import { EntityBadge } from "@/components/ui/EntityBadge";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { IconSearch } from "@/components/ui/icons";
+import { Input } from "@/components/ui/Field";
+import { Notice } from "@/components/ui/Notice";
+import { Segmented } from "@/components/ui/Segmented";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { resolveChemicalName } from "@/lib/chemicalName";
-import { PanelHeading, WbEmpty, PanelLoading, PanelError } from "../shared";
+import { PanelHeading, panelErrorMessage, SlowNotice } from "../shared";
 import type { LoadState } from "../types";
 
 type SearchMode = "exact" | "substructure" | "similarity";
 
 /**
- * 工作台查询面板
+ * 工作台查询面板（Step 9 Part B.6：组件换 ui 库 —— Input/Button/Segmented/
+ * Skeleton/Notice/EmptyState；计算与业务逻辑不变）。
  * 搜索框 + 模式切换（精确/子结构/相似）+ 结果区
  */
 export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
@@ -27,6 +35,9 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
   const [hasMore, setHasMore] = useState(false);
   const [state, setState] = useState<LoadState>(initialQuery ? "loading" : "idle");
   const [submitted, setSubmitted] = useState(!!initialQuery);
+  // HGS-WB-SEARCH-DRAFT-01: 「查看更多」与重试必须绑定已提交的查询 ——
+  // 用输入框的当前值会在用户改草稿后把结果页带到另一个查询。
+  const [submittedQuery, setSubmittedQuery] = useState(initialQuery ?? "");
   const [error, setError] = useState<unknown>(null);
   const latestRequest = useRef(0);
 
@@ -34,6 +45,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
     const trimmed = q.trim();
     if (!trimmed) return;
     setSubmitted(true);
+    setSubmittedQuery(trimmed);
     setState("loading");
     setError(null);
     // Drop stale responses: only the newest request may commit results.
@@ -65,14 +77,10 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
     <section className="wb-panel wb-search">
       <PanelHeading title={t.me.tabSearch} subtitle={t.me.searchHint} />
 
-      {/* 搜索框 — 工作台自有样式，不引用主站 class */}
+      {/* 搜索框 — 工作台自有布局，控件用 ui 库（Step 9） */}
       <form className="wb-search-form" onSubmit={(e) => { e.preventDefault(); doSearch(query, mode); }}>
         <div className="wb-search-field">
-          <svg className="wb-search-field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="7" />
-            <line x1="21" y1="21" x2="16.5" y2="16.5" />
-          </svg>
-          <input
+          <Input
             type="text"
             enterKeyHint="search"
             value={query}
@@ -81,22 +89,39 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
             autoFocus
             autoComplete="off"
             spellCheck={false}
+            aria-label={t.me.searchButton}
           />
-          <button type="submit" className="wb-search-submit">{t.me.searchButton}</button>
+          <Button type="submit" variant="primary">{t.me.searchButton}</Button>
         </div>
-        {/* 模式切换 */}
-        <div className="wb-search-modes">
-          <button type="button" className={mode === "exact" ? "active" : ""} onClick={() => setMode("exact")}>{t.me.searchModeExact}</button>
-          <button type="button" className={mode === "substructure" ? "active" : ""} onClick={() => setMode("substructure")}>{t.me.searchModeSubstructure}</button>
-          <button type="button" className={mode === "similarity" ? "active" : ""} onClick={() => setMode("similarity")}>{t.me.searchModeSimilarity}</button>
-        </div>
+        {/* 模式切换（§6：检索方式用 Segmented） */}
+        <Segmented
+          ariaLabel={t.me.searchHint}
+          options={[
+            { value: "exact" as const, label: t.me.searchModeExact },
+            { value: "substructure" as const, label: t.me.searchModeSubstructure },
+            { value: "similarity" as const, label: t.me.searchModeSimilarity },
+          ]}
+          value={mode}
+          onChange={(value) => setMode(value)}
+        />
       </form>
 
       {/* 结果区 */}
-      {!submitted && <div className="wb-search-idle">{t.me.searchNoQuery}</div>}
-      {submitted && state === "loading" && <PanelLoading variant="grid" rows={3} />}
-      {submitted && state === "error" && <PanelError error={error} />}
-      {submitted && state === "ready" && !hasResults && <WbEmpty text={t.me.searchNoResults} />}
+      {!submitted && <EmptyState icon={<IconSearch />} title={t.me.searchNoQuery} />}
+      {submitted && state === "loading" && (
+        <>
+          <div className="wb-skeleton-list" aria-hidden="true">
+            {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} variant="card" />)}
+          </div>
+          <SlowNotice active onRetry={() => doSearch(submittedQuery, mode)} />
+        </>
+      )}
+      {submitted && state === "error" && (
+        <Notice tone="err">{panelErrorMessage(error, t)}</Notice>
+      )}
+      {submitted && state === "ready" && !hasResults && (
+        <EmptyState icon={<IconSearch />} title={t.me.searchNoResults} />
+      )}
 
       {submitted && state === "ready" && chemicals.length > 0 && (
         <div className="wb-search-section">
@@ -108,7 +133,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
                 <img loading="lazy" src={molSvgUrl(chem.id, 160, 110)} alt="" />
                 <div>
                   <strong>{resolveChemicalName(chem, t.common.hcidLabel, locale).title}</strong>
-                  <EntityId kind="chemical" id={chem.id} compact />
+                  <EntityBadge kind="chemical" id={chem.id} size="xs" ariaLabel={t.common.hcidLabel(chem.id)} />
                   <span>{chem.molecular_formula || chem.inchikey || ""}</span>
                 </div>
               </Link>
@@ -123,17 +148,18 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
           <div className="wb-search-reactions">
             {reactions.map((rxn) => (
               <Link key={rxn.id} className="wb-search-reaction" href={withLocale(`/reaction/${rxn.id}`, locale)}>
-                <EntityId kind="reaction" id={rxn.id} compact />
-                <small>{rxn.doi || rxn.ord_id || rxn.dataset_name || ""}</small>
+                <EntityBadge kind="reaction" id={rxn.id} size="xs" ariaLabel={t.common.hridLabel(rxn.id)} />
+                <small>{rxn.doi || rxn.ord_id || (rxn.dataset_name === USER_SUBMITTED_SOURCE ? t.reaction.userSubmitted : rxn.dataset_name) || ""}</small>
               </Link>
             ))}
           </div>
         </div>
       )}
 
-      {/* 更多结果跳主站搜索页: 只认 API has_more(名称搜索 total 恒 null) */}
+      {/* 更多结果跳主站搜索页: 只认 API has_more(名称搜索 total 恒 null)；
+          链接绑定已提交的查询(HGS-WB-SEARCH-DRAFT-01), 不随输入草稿漂移 */}
       {submitted && state === "ready" && hasMore && (
-        <Link className="wb-home-more-search" href={withLocale(`/search?q=${encodeURIComponent(query)}&mode=${mode}`, locale)}>
+        <Link className="wb-home-more-search" href={withLocale(`/search?q=${encodeURIComponent(submittedQuery)}&mode=${mode}`, locale)}>
           {t.me.homeViewAll}{total != null ? ` (${total})` : ""}
         </Link>
       )}

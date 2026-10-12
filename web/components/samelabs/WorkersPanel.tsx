@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "@/lib/api";
 import t from "@/lib/i18n";
+import { Button } from "@/components/ui/Button";
+import { TextLink } from "@/components/ui/TextLink";
+import { Input } from "@/components/ui/Field";
 
 type WorkerRow = {
   worker_id: string;
@@ -123,7 +126,8 @@ export function SamelabsWorkers() {
       await reload();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        setError(e.detail || t.admin.workerDeleteBlockedFallback);
+        // BX-A2：detail = {message, kind, leases} —— 按机器码渲染，不再透传中文原文
+        setError(e.detailKind === "worker_busy" ? t.admin.workerDeleteBlocked : t.admin.workerDeleteBlockedFallback);
       } else {
         setError(t.admin.errOperation);
       }
@@ -158,7 +162,7 @@ export function SamelabsWorkers() {
       <section className="dashboard-section">
         <div className="section-heading">
           <div><h2>{issued.worker_id} · {t.admin.workerTokenOnce}</h2></div>
-          <button className="text-button" onClick={copyEnv}>{copied ? t.admin.workerCopied : t.admin.workerCopyEnv}</button>
+          <TextLink onClick={copyEnv}>{copied ? t.admin.workerCopied : t.admin.workerCopyEnv}</TextLink>
         </div>
         <pre className="admin-pre"><code>{Object.entries(issued.env).map(([k, v]) => `${k}=${v}`).join("\n")}</code></pre>
       </section>
@@ -167,17 +171,17 @@ export function SamelabsWorkers() {
     <section className="dashboard-section">
       <div className="section-heading">
         <div><h2>{t.admin.workersAll}</h2></div>
-        <button className="text-button" onClick={() => { setShowForm(!showForm); setFormError(""); }}>{t.admin.workerIssue}</button>
+        <TextLink onClick={() => { setShowForm(!showForm); setFormError(""); }}>{t.admin.workerIssue}</TextLink>
       </div>
 
       {showForm && (
         <form className="admin-worker-form" onSubmit={issue}>
           <label>{t.admin.workerId}
-            <input value={workerId} onChange={(e) => setWorkerId(e.target.value)} required
+            <Input value={workerId} onChange={(e) => setWorkerId(e.target.value)} required
               minLength={3} maxLength={64} pattern="[a-z0-9][a-z0-9-]*" placeholder="gpu-box-1" />
           </label>
           <label>{t.admin.workerDisplayName}
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required
               minLength={1} maxLength={80} placeholder="GPU 抓取节点" />
           </label>
           <fieldset>
@@ -190,7 +194,7 @@ export function SamelabsWorkers() {
             ))}
           </fieldset>
           {formError && <div className="notice error">{formError}</div>}
-          <button type="submit" className="button primary">{t.admin.workerIssueConfirm}</button>
+          <Button type="submit" variant="primary">{t.admin.workerIssueConfirm}</Button>
         </form>
       )}
 
@@ -211,14 +215,14 @@ export function SamelabsWorkers() {
             </span>
           </div>
           <div className="admin-user-actions">
-            <button className="text-button" disabled={busyId === w.worker_id}
+            <TextLink disabled={busyId === w.worker_id}
               onClick={() => w.enabled ? setPendingDisableWorker(w) : setEnabled(w, true)}>
               {busyId === w.worker_id ? "…" : w.enabled ? t.admin.actionDisable : t.admin.actionEnable}
-            </button>
-            <button className="text-button" disabled={busyId === w.worker_id}
+            </TextLink>
+            <TextLink disabled={busyId === w.worker_id}
               onClick={() => setPendingDeleteWorker(w)}>
               {t.admin.actionDelete}
-            </button>
+            </TextLink>
           </div>
         </article>)}
       </div>
@@ -230,9 +234,9 @@ export function SamelabsWorkers() {
           <p>{t.admin.workerDisableConfirm(pendingDisableWorker.display_name, pendingDisableWorker.worker_id)}</p>
           <p>{t.admin.workerDisableEffect}</p>
           <div className="pipe-confirm-actions">
-            <button type="button" className="button small" onClick={() => setPendingDisableWorker(null)}>{t.admin.cancel}</button>
-            <button type="button" className="button danger small" disabled={busyId === pendingDisableWorker.worker_id}
-              onClick={confirmDisableWorker}>{t.admin.actionDisable}</button>
+            <Button size="sm" onClick={() => setPendingDisableWorker(null)}>{t.admin.cancel}</Button>
+            <Button variant="danger" size="sm" disabled={busyId === pendingDisableWorker.worker_id}
+              onClick={confirmDisableWorker}>{t.admin.actionDisable}</Button>
           </div>
         </div>
       </div>
@@ -244,9 +248,9 @@ export function SamelabsWorkers() {
           <p>{t.admin.workerDeleteConfirm(pendingDeleteWorker.display_name, pendingDeleteWorker.worker_id)}</p>
           <p>{t.admin.workerDeleteEffect}</p>
           <div className="pipe-confirm-actions">
-            <button type="button" className="button small" onClick={() => setPendingDeleteWorker(null)}>{t.admin.cancel}</button>
-            <button type="button" className="button danger small" disabled={busyId === pendingDeleteWorker.worker_id}
-              onClick={confirmDeleteWorker}>{t.admin.actionDelete}</button>
+            <Button size="sm" onClick={() => setPendingDeleteWorker(null)}>{t.admin.cancel}</Button>
+            <Button variant="danger" size="sm" disabled={busyId === pendingDeleteWorker.worker_id}
+              onClick={confirmDeleteWorker}>{t.admin.actionDelete}</Button>
           </div>
         </div>
       </div>

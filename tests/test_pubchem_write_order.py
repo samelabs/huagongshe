@@ -470,15 +470,22 @@ class PubChemWriteOrderTests(unittest.TestCase):
         self.assertEqual(self._merge_log_count(row_id, other), 0,
                          "IK 可匹配其他行也不得绕过 query binding 产生 merge")
 
-    def test_18_query_a_incoming_cid_missing_no_grant(self):
-        """E: query=A / incoming CID 缺失 → 不产生 CID grant(IK-only 原规范)。"""
+    def test_18_query_binding_grants_cid_when_core_cid_missing(self):
+        """E: query=X / incoming CID 缺失 → query binding 仍授 CID（F-NEW-01 修复）。
+
+        whole_record 解析产物 core 不含 CID —— 已验证的 job.query_value（worker
+        实际被派发请求的 CID）是可信 CID evidence，主表 pubchem_cid 必须回写；
+        IK-only 补空原规范保持。X 取本运行唯一 CID：他行已持有该 CID 时正确
+        语义是 same-CID 收敛（test_pubchem_cid_grant.test_4 覆盖），本用例
+        锁「无人持有 → 原行授 CID」。"""
+        cid18 = RUN * 10 + 6
         row_id = self._mk_chemical({"preferred_name": f"ut3-{RUN}-n18"})
-        job = self._mk_job(row_id, query_cid=CID_A)
-        # incoming 无 CID, 仅 IK → 走 IK-only 原路径, 绝不从 query_value 发明 CID
+        job = self._mk_job(row_id, query_cid=cid18)
         self._complete(job, self._payload(ik=IK_A, name=f"ut3-{RUN}-n18t"))
         row = self._get_row(row_id)
         self.assertIsNotNone(row)
-        self.assertIsNone(row["pubchem_cid"], "incoming 无 CID → 不得借 query_value 获得 CID grant")
+        self.assertEqual(row["pubchem_cid"], cid18,
+                         "incoming 无 CID → query binding 应授 CID（F-NEW-01）")
         self.assertEqual(row["inchikey"], IK_A, "IK-only 补空原规范保持")
 
 

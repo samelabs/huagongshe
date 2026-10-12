@@ -46,7 +46,10 @@ def eprint(*a):
 
 def _env() -> dict:
     env = dict(os.environ)
-    env["PGOPTIONS"] = "-c statement_timeout=0"
+    # B5-03: 迁移是 DDL, statement_timeout=0(长索引构建不中断)但必须带
+    # lock_timeout —— 旧大表上排队等锁时快速失败, 不在锁队列里无限阻塞
+    # (也避免把后续所有访问者挡在本事务后面)。
+    env["PGOPTIONS"] = "-c statement_timeout=0 -c lock_timeout=15000"
     return env
 
 
@@ -145,11 +148,14 @@ def run(database_url: str, migrations_dir: str, *,
 
 def _run_locked(database_url: str, migrations_dir: str, *,
                 apply: bool = True) -> int:
-    # 1. tracking table(幂等, 不算 migration; 持锁中执行)
-    proc = _psql(database_url, TRACKING_DDL)
-    if proc.returncode != 0:
-        eprint(f"[runner] 创建 tracking table 失败: {proc.stderr.strip()}")
-        return 2
+    # 1. tracking table(幂等, 不算 migration; 持锁中执行)。
+    #    HGS-MIG-DRYRUN-01: --dry-run 零 DDL —— 不建表(工具契约"只列 pending
+    #    不执行"; 此前 dry-run 也会真实 CREATE TABLE, 只读库直接报错)。
+    if apply:
+        proc = _psql(database_url, TRACKING_DDL)
+        if proc.returncode != 0:
+            eprint(f"[runner] 创建 tracking table 失败: {proc.stderr.strip()}")
+            return 2
     # 2. 枚举 + 严格 lexicographic 排序
     files = sorted(
         f for f in os.listdir(migrations_dir)
@@ -161,10 +167,17 @@ def _run_locked(database_url: str, migrations_dir: str, *,
         ["psql", _normalize_psql_url(database_url), "--no-psqlrc", "--quiet", "-At",
          "-c", "SELECT filename, sha256 FROM maintenance.schema_migrations;"],
         env=_env(), capture_output=True, text=True)
-    if proc.returncode != 0:
-        eprint(f"[runner] 读 tracking 失败: {proc.stderr.strip()}")
-        return 2
     applied: dict[str, str] = {}
+    if proc.returncode != 0:
+        if not apply:
+            # dry-run 零 DDL: 读不到 tracking 时按空集列出 pending, 但不把
+            # 原因断言为"未初始化"(权限/连接/SQL 错误同样走到这里) —— 如实
+            # 打印 psql stderr, 由执行人判断。
+            print("[runner] dry-run: 无法读取 maintenance.schema_migrations, "
+                  f"按全部 pending 列出; psql: {proc.stderr.strip() or '(no stderr)'}")
+        else:
+            eprint(f"[runner] 读 tracking 失败: {proc.stderr.strip()}")
+            return 2
     for line in proc.stdout.splitlines():
         line = line.strip()
         if "|" in line:

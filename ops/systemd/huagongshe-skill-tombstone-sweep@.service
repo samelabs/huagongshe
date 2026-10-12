@@ -1,0 +1,14 @@
+[Unit]
+Description=Huagongshe skill tombstone retention sweep (%i)
+Documentation=file:/var/www/huagongshe/docs/DEPLOYMENT.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=/var/www/huagongshe
+EnvironmentFile=/etc/huagongshe.env
+ExecStart=/var/www/huagongshe/venv/bin/python /var/www/huagongshe/scripts/sweep_skill_tombstones.py --grace-days 7
+# 非零退出由 systemd 记录(failed state); 不静默
+SuccessExitStatus=0

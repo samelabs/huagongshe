@@ -1,5 +1,7 @@
+import type { ComponentType, SVGProps } from "react";
+
 export type LoadState = "idle" | "loading" | "ready" | "error";
-export type WorkbenchTab = "home" | "search" | "stoich" | "mine" | "saved" | "activity" | "followers" | "following" | "skills" | "profile" | "avatar" | "security" | "api-tokens";
+export type WorkbenchTab = "home" | "notes" | "search" | "stoich" | "mine" | "saved" | "activity" | "followers" | "following" | "skills" | "profile" | "avatar" | "security" | "api-tokens";
 export type ReactionVisibility = "all" | "public" | "private";
 export type SavedKind = "chemicals" | "reactions";
 
@@ -26,6 +28,8 @@ export type Counts = {
   chemicals: number;
   reactions: number;
   unread: number;
+  /** 笔记总数（dashboard 不含，由 layout 用 /users/me/notes?page_size=1 的 total 补齐） */
+  notes: number;
 };
 
 export type Summary = {
@@ -59,6 +63,8 @@ export type ChemicalFollow = {
   name_cn: string | null;
   molecular_formula: string | null;
   smiles: string | null;
+  /** 收藏时间（/users/me/follows/chemicals 返回；概览「最近」合并排序用） */
+  created_at?: string;
 };
 
 export type PageResponse<T> = {
@@ -67,6 +73,9 @@ export type PageResponse<T> = {
   page: number;
   page_size: number;
 };
+
+
+export type { NoteItem, NoteResponse, NoteVisibility } from "@/lib/api";
 
 export type Notice = {
   id: number;
@@ -88,9 +97,14 @@ export type NoticeResponse = {
 
 /* ── Panel 注册接口 ───────────────────────────────────
  * 加新能力 = 新建 panel 组件 + registry.ts 加一行。
- * 不改 WorkbenchNav、不改路由、不改 CSS。
+ * 不改 WorkbenchNav、不改路由、不改 CSS 类名。
+ * Step 8 §9.4：分组收敛为 workspace/tools/network/account 四组，
+ * 每项带 16px 图标（icon）。
  */
-export type PanelSection = "work" | "social" | "account";
+export type PanelSection = "workspace" | "tools" | "network" | "account";
+
+/** 侧栏图标组件（24 视口 stroke 图标，CSS 按 16px 渲染） */
+export type PanelIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
 /** 每个面板自治：自己 fetch 数据，自己管理三态 */
 export interface PanelProps {
@@ -102,5 +116,7 @@ export interface WorkbenchPanelConfig {
   label: string;
   section: PanelSection;
   href: string;
+  /** 侧栏/抽屉 16px 图标 */
+  icon?: PanelIcon;
   badge?: (counts: Counts) => number | null;
 }

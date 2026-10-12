@@ -179,6 +179,8 @@ async def reaction_summaries(
     page: int,
     page_size: int,
 ) -> tuple[int, list[dict[str, Any]]]:
+    """dataset_name 的 'user_submitted' 是稳定枚举标记（BX-A2）：用户创建且
+    未填来源引用的反应 —— 后端不再返回中文「用户发布」，前端按语言渲染。"""
     if not chemical_ids:
         return 0, []
     role_clause = ""
@@ -218,7 +220,7 @@ async def reaction_summaries(
             COALESCE(NULLIF(rx.doi,''),rp.doi),
             COALESCE(NULLIF(rx.patent,''),rp.patent),
             CASE WHEN rx.created_by_user_id IS NOT NULL
-                 THEN COALESCE(NULLIF(rx.source_citation,''),'用户发布') ELSE d.name END,
+                 THEN COALESCE(NULLIF(rx.source_citation,''),'user_submitted') ELSE d.name END,
             (SELECT array_agg(DISTINCT rc.role ORDER BY rc.role)
              FROM chemistry.reaction_chemicals rc
              WHERE rc.reaction_id=rx.id AND rc.chemical_id=ANY(:chemical_ids))
@@ -240,10 +242,25 @@ async def reaction_summaries(
     ]
 
 
-async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any]]:
-    """Resolve stable reaction identities; chemical structures are searched as chemicals."""
+async def reaction_lookup(
+    db: Any,
+    query: str,
+    limit: int,
+    *,
+    actor_id: int | None = None,
+) -> list[dict[str, Any]]:
+    """Resolve stable reaction identities without leaking another user's private rows.
+
+    Anonymous callers see public+visible reactions only. An authenticated caller
+    may additionally resolve reactions they own, including private/hidden rows.
+    This keeps the shared search API usable as the Note reference picker while
+    preserving the existing anonymous visibility boundary.
+    """
     clauses: list[str] = []
-    params: dict[str, Any] = {"limit": min(limit, 100)}
+    params: dict[str, Any] = {
+        "limit": min(limit, 100),
+        "viewer_id": actor_id if actor_id is not None else -1,
+    }
     prefix, sep, raw_value = query.partition(":")
     value = raw_value.strip() if sep else query
     normalized_prefix = prefix.strip().lower() if sep else ""
@@ -257,15 +274,25 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
         raise InvalidDoiError("DOI 格式不正确")
 
     if doi_value:
+        # DOI 双源去重: 同一反应可同时经 rx.doi 与 ord.reaction_provenance
+        # 命中(且 provenance 同反应可有多条同 DOI 行)。DISTINCT ON (id) 按
+        # 分支优先级收敛 —— 主表 rx.doi(策展值)优先于 provenance 证据行,
+        # 每反应至多一行, 搜索同支不再重复。
         rows = (await db.execute(text("""
+            SELECT DISTINCT ON (id) id,reaction_smiles,ord_id,dataset_name,
+                   doi,patent,match_basis
+            FROM (
             (
             SELECT
               rx.id,rx.reaction_smiles,NULL::text AS ord_id,
-              COALESCE(NULLIF(rx.source_citation,''),'用户发布') AS dataset_name,
-              rx.doi,rx.patent,'doi' AS match_basis
+              COALESCE(NULLIF(rx.source_citation,''),'user_submitted') AS dataset_name,
+              rx.doi,rx.patent,'doi' AS match_basis, 0 AS branch
             FROM chemistry.reactions rx
             WHERE lower(rx.doi)=:doi
-              AND rx.visibility='public' AND rx.moderation_status='visible'
+              AND (
+                (rx.visibility='public' AND rx.moderation_status='visible')
+                OR rx.created_by_user_id=:viewer_id
+              )
             ORDER BY rx.id
             LIMIT :limit
             )
@@ -273,9 +300,9 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
             (
             SELECT
               rx.id,rx.reaction_smiles,o.reaction_id,d.name,
-              rp.doi,COALESCE(rx.patent,rp.patent),'doi' AS match_basis
+              rp.doi,COALESCE(rx.patent,rp.patent),'doi' AS match_basis, 1 AS branch
             FROM (
-              SELECT reaction_id,doi,patent
+              SELECT DISTINCT ON (reaction_id) reaction_id,doi,patent
               FROM ord.reaction_provenance
               WHERE lower(doi)=:doi
               ORDER BY reaction_id,id
@@ -288,9 +315,14 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
             WHERE rx.visibility='public' AND rx.moderation_status='visible'
             ORDER BY rx.id
             )
-            ORDER BY 1
+            ) u
+            ORDER BY id, branch
             LIMIT :limit
-        """), {"doi": doi_value, "limit": params["limit"]})).fetchall()
+        """), {
+            "doi": doi_value,
+            "limit": params["limit"],
+            "viewer_id": params["viewer_id"],
+        })).fetchall()
         return [
             {
                 "id": row[0], "reaction_smiles": row[1], "ord_id": row[2],
@@ -319,7 +351,7 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
         SELECT DISTINCT ON (rx.id)
           rx.id,rx.reaction_smiles,o.reaction_id,
           CASE WHEN rx.created_by_user_id IS NOT NULL
-               THEN COALESCE(NULLIF(rx.source_citation,''),'用户发布') ELSE d.name END,
+               THEN COALESCE(NULLIF(rx.source_citation,''),'user_submitted') ELSE d.name END,
           COALESCE(rx.doi,rp.doi),COALESCE(rx.patent,rp.patent),
           CASE
             WHEN rx.id=:reaction_id_hint THEN 'reaction_id'
@@ -332,7 +364,10 @@ async def reaction_lookup(db: Any, query: str, limit: int) -> list[dict[str, Any
         LEFT JOIN ord.dataset d ON d.id=o.dataset_id
         LEFT JOIN ord.reaction_provenance rp ON rp.reaction_id=o.id
         WHERE ({' OR '.join(clauses)})
-          AND rx.visibility='public' AND rx.moderation_status='visible'
+          AND (
+                (rx.visibility='public' AND rx.moderation_status='visible')
+                OR rx.created_by_user_id=:viewer_id
+              )
         ORDER BY rx.id,rp.id
         LIMIT :limit
     """), {
@@ -599,6 +634,7 @@ async def get_chemical_detail(
     priority: int,
     enrich: str = ENRICH_CANONICAL,
     locale: str | None = None,
+    pb_display_limit: bool = False,
 ) -> dict[str, Any]:
     """返回 canonical business detail(E9-B 合流后唯一公开能力)。
 
@@ -615,6 +651,11 @@ async def get_chemical_detail(
     locale(2026-10 CB locale 读取): 只作用于 CB 行选择(services/cb
     get_externals_row); 未指定/非法 → en。PB/suppliers 不受 locale 影响;
     MCP 不传 locale, 因此默认得到 en。
+    pb_display_limit: PB 证据页面级限幅(display_details, 12 entries/
+    6 values)。False(默认)= 完整证据(MCP full 口径); REST 网页展示
+    adapter 传 True 保持页面截断。CB 刷新入队为 1.6 语义: stale(有行)
+    入队刷新且任务携带所选行 source_cb_number(lease 寻址同一来源);
+    absent(无 CB 行)恒不首次入队。
     """
     enrich = normalize_enrich(enrich)
     _frozen_enrich(enrich)
@@ -682,13 +723,27 @@ async def get_chemical_detail(
                     cb_suppliers = await cb_module.get_suppliers(db, chemical_id)
                     cb_raw_state = "fresh"
                 elif decision in ("enqueue_refresh", "enqueue_first"):
-                    # 与旧 /externals stale 路径同语义: 出旧数据 + 入列
+                    # 与旧 /externals stale 路径同语义: 出旧数据 + 入列。
+                    # ZX(恢复 1.6): 网页详情访问同样入队刷新。absent
+                    # (cb_row=None)不进本分支, 恒不首次采集。
+                    # source_cb(0907 source grain): 所选行是 zh-CN imprint
+                    # 行时不传 — lease 回落主表 cb_number 即同一来源, dedupe
+                    # key 与 search_stale 同为无后缀形态, 同页不双排队;
+                    # 语言行/非 imprint 来源才带 source_cb 寻址。
                     cb_entry = cb_row.get("entry")
                     if decision == "enqueue_refresh":
+                        source_cb = cb_row.get("cb_number")
+                        if selected_locale == "zh-CN" and source_cb is not None:
+                            imprint = (await db.execute(text("""
+                                SELECT cb_number FROM chemistry.chemicals WHERE id=:id
+                            """), {"id": chemical_id})).scalar()
+                            if imprint == source_cb:
+                                source_cb = None
                         await cb_module.enqueue_cas_job(
                             db, chemical_id=chemical_id, cas_number=cas_number,
                             priority=40, locale=selected_locale,
-                            request_context={"reason": "stale_refresh"})
+                            request_context={"reason": "stale_refresh"},
+                            source_cb_number=source_cb)
                         await db.commit()
                     cb_raw_state = "queued"
                 else:  # skip: 多语言前置缺 cb_number — zh 主行不可达, 防御
@@ -705,8 +760,14 @@ async def get_chemical_detail(
     )
     pb_norm = normalize_source_state(pb_raw_state)
     cb_norm = normalize_source_state(cb_raw_state)
+    # HGS-A2-02 → ZX: display_details(12 entries/6 values)是网页展示的
+    # 页面级投影, 不再无差别套在共享路径上 —— 默认完整证据(MCP full);
+    # REST 网页展示 adapter 传 pb_display_limit=True 保持原截断口径。
+    # 存储证据树不受影响(投影不改源)。
+    from .enrichment import display_details
+    pb_detail = display_details(details) if pb_display_limit else details
     result["details"] = build_semantic_detail(
-        details, cb_entry, cb_suppliers,
+        pb_detail, cb_entry, cb_suppliers,
         {"state": pb_norm, "fetched_at": (details or {}).get("fetched_at"),
          "job_id": job_id},
         {"state": cb_norm, "applicable": cb_applicable},

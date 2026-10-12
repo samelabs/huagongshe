@@ -24,6 +24,7 @@ from .core.database import async_session, get_db
 from .core.security import Actor, current_session
 from .schemas.admin import UserStatusBody, UserRoleBody, ModerationBody, WorkerCreateBody, WorkerPatchBody, SkillVisibilityBody, CategoryBody, WORKER_SCOPES
 # E4: skill delete lifecycle 唯一 owner(与 user delete 共用)。
+from .core.text import like_literal
 from .services.skills import (SkillFilesystemError, SkillNotFoundError,
     delete_skill_lifecycle)
 
@@ -156,24 +157,49 @@ async def delete_worker(
     worker_id 是无 FK 的协议事实文本, 保留不动; pubchem_jobs.lease_owner /
     pubchem_job_events.worker_id 的 FK 为 ON DELETE SET NULL, 不阻塞。
     """
-    conflicts: list[str] = []
-    counts: dict[str, int] = {}
-    for table in ("cas_jobs", "pubchem_jobs", "pubchem_identity_jobs"):
-        n = (await db.execute(text(f"""
-            SELECT count(*) FROM maintenance.{table}
-            WHERE status='leased' AND lease_owner=:wid
-        """), {"wid": worker_id})).scalar_one()
-        if n:
-            conflicts.append(table)
-            counts[table] = int(n)
-    if conflicts:
-        detail = ", ".join(f"{t} {counts[t]} 条" for t in conflicts)
-        raise HTTPException(409, f"该 worker 有进行中的任务({detail}), 不能删除")
+    # HGS-WORKER-DELETE-RACE-01: 单条 CTE —— 同一语句内先数活跃租约, 零租约
+    # 才 DELETE, 缩小"检查与删除之间"的窗口。注意: WorkAPI 认证查询与 lease
+    # 不锁 worker_clients 行, 已通过认证的在途请求仍可能在删除后领到租约;
+    # 运维规程是先停该 worker 进程再删除。leases 结构与 409 契约不变。
     result = (await db.execute(text("""
-        DELETE FROM maintenance.worker_clients WHERE worker_id=:wid
-    """), {"wid": worker_id})).rowcount
-    if result == 0:
+        WITH leases AS (
+            SELECT 'cas_jobs' AS t, count(*) AS n FROM maintenance.cas_jobs
+              WHERE status='leased' AND lease_owner=:wid
+            UNION ALL
+            SELECT 'pubchem_jobs', count(*) FROM maintenance.pubchem_jobs
+              WHERE status='leased' AND lease_owner=:wid
+            UNION ALL
+            SELECT 'pubchem_identity_jobs', count(*) FROM maintenance.pubchem_identity_jobs
+              WHERE status='leased' AND lease_owner=:wid
+        ), guard AS (
+            SELECT coalesce(sum(n), 0) AS total,
+                   coalesce(jsonb_object_agg(t, n) FILTER (WHERE n > 0), '{}'::jsonb) AS busy
+            FROM leases
+        ), existed AS (
+            SELECT EXISTS(SELECT 1 FROM maintenance.worker_clients
+                          WHERE worker_id=:wid) AS ex
+        ), del AS (
+            DELETE FROM maintenance.worker_clients w
+            USING guard g, existed e
+            WHERE w.worker_id=:wid AND g.total = 0 AND e.ex
+            RETURNING 1
+        )
+        SELECT (SELECT busy FROM guard) AS busy,
+               (SELECT ex FROM existed) AS existed,
+               EXISTS(SELECT 1 FROM del) AS deleted
+    """), {"wid": worker_id})).mappings().first()
+    if not result or not result["existed"]:
         raise HTTPException(404, f"worker 不存在: {worker_id}")
+    if not result["deleted"]:
+        counts = {k: int(v) for k, v in (result["busy"] or {}).items()}
+        detail = ", ".join(f"{t} {counts[t]} 条" for t in counts)
+        # BX-A2：{message, kind, leases}（notes 400 先例 + 结构化 leases 供
+        # 管理端/脚本消费）—— 前端按 kind 五语言渲染，不再透传中文原文。
+        raise HTTPException(409, {
+            "message": f"该 worker 有进行中的任务({detail}), 不能删除",
+            "kind": "worker_busy",
+            "leases": counts,
+        })
     await db.commit()
     return {"worker_id": worker_id, "deleted": True}
 
@@ -185,20 +211,22 @@ async def list_users(
     actor: Actor = Depends(admin), db=Depends(get_db),
 ):
     search = (q or "").strip()
+    # HGS-SEARCH-LIKE-LITERAL-01: 字面匹配, %/_ 不作通配符
+    like_q = like_literal(search)
     if search:
         # total 与 items 必须使用完全相同的 WHERE (username/email ILIKE OR),
         # 禁止另起一套 normalize 或多余条件, 否则 total 与列表口径分叉。
         total = (await db.execute(text("""
             SELECT count(*) FROM community.users u
             WHERE u.username ILIKE '%' || :q || '%' OR u.email ILIKE '%' || :q || '%'
-        """), {"q": search})).scalar_one()
+        """), {"q": like_q})).scalar_one()
         rows = (await db.execute(text("""
             SELECT u.id,u.username,u.display_name,u.email,u.role,u.status,u.avatar_path,
                    u.created_at,u.last_login_at
             FROM community.users u
             WHERE u.username ILIKE '%' || :q || '%' OR u.email ILIKE '%' || :q || '%'
             ORDER BY u.id DESC LIMIT :limit OFFSET :offset
-        """), {"q": search, "limit": limit, "offset": offset})).mappings().all()
+        """), {"q": like_q, "limit": limit, "offset": offset})).mappings().all()
     else:
         total = (await db.execute(text(
             "SELECT count(*) FROM community.users"
@@ -227,6 +255,13 @@ async def set_user_status(
         await db.execute(text("DELETE FROM community.sessions WHERE user_id=:id"), {"id": user_id})
         # revoke = 物理 DELETE(与用户侧 password change 同一语义), 不留 soft-revoke
         await db.execute(text("DELETE FROM community.user_api_tokens WHERE user_id=:id"), {"id": user_id})
+        # F-OAUTH-01: 停用账号必须同事务撤销全部 OAuth 凭证(照 change_password
+        # 的现成口径) —— 否则停用期间 refresh 可继续轮换、未用 code 可兑换，
+        # 重新启用后旧授权直接复活。客户端注册元数据共享, 不删。
+        await db.execute(text("DELETE FROM community.oauth_authorization_requests WHERE user_id=:id"), {"id": user_id})
+        await db.execute(text("DELETE FROM community.oauth_authorization_codes WHERE user_id=:id"), {"id": user_id})
+        await db.execute(text("DELETE FROM community.oauth_access_tokens WHERE user_id=:id"), {"id": user_id})
+        await db.execute(text("DELETE FROM community.oauth_refresh_tokens WHERE user_id=:id"), {"id": user_id})
     await db.commit()
     return {"id": user_id, "status": body.status}
 
@@ -320,7 +355,7 @@ async def list_all_skills(
     params: dict[str, Any] = {"limit": limit, "offset": offset}
     if q.strip():
         conditions.append("(s.slug ILIKE :q OR s.title ILIKE :q OR u.username ILIKE :q)")
-        params["q"] = f"%{q.strip()}%"
+        params["q"] = f"%{like_literal(q.strip())}%"
     if visibility != "all":
         conditions.append("s.visibility=:vis")
         params["vis"] = visibility
@@ -408,17 +443,18 @@ async def create_category(
     name = body.name.strip()
     abbr = body.abbr.strip().upper()
     color = body.color.strip().lower()
+    # BX-A2：校验错误升级为 {message, kind}（notes 400 先例）—— 前端按 kind 渲染
     if not (1 <= len(name) <= 40):
-        raise HTTPException(400, "分类名长度 1-40")
+        raise HTTPException(400, {"message": "分类名长度 1-40", "kind": "category_name_length"})
     if not re.fullmatch(r"[A-Z]{1,4}", abbr):
-        raise HTTPException(400, "缩写为 1-4 个英文字母")
+        raise HTTPException(400, {"message": "缩写为 1-4 个英文字母", "kind": "category_abbr"})
     if not re.fullmatch(r"#[0-9a-f]{6}", color):
-        raise HTTPException(400, "色值格式 #rrggbb")
+        raise HTTPException(400, {"message": "色值格式 #rrggbb", "kind": "category_color"})
     dup = (await db.execute(text(
         "SELECT 1 FROM community.skill_categories WHERE name=:n"
     ), {"n": name})).scalar()
     if dup is not None:
-        raise HTTPException(409, "分类已存在")
+        raise HTTPException(409, {"message": "分类已存在", "kind": "category_exists"})
     row = (await db.execute(text("""
         INSERT INTO community.skill_categories (name,abbr,color,sort_order,active)
         VALUES (:name,:abbr,:color,:sort,:active) RETURNING id
@@ -437,24 +473,27 @@ async def update_category(
     abbr = body.abbr.strip().upper()
     color = body.color.strip().lower()
     if not (1 <= len(name) <= 40):
-        raise HTTPException(400, "分类名长度 1-40")
+        raise HTTPException(400, {"message": "分类名长度 1-40", "kind": "category_name_length"})
     if not re.fullmatch(r"[A-Z]{1,4}", abbr):
-        raise HTTPException(400, "缩写为 1-4 个英文字母")
+        raise HTTPException(400, {"message": "缩写为 1-4 个英文字母", "kind": "category_abbr"})
     if not re.fullmatch(r"#[0-9a-f]{6}", color):
-        raise HTTPException(400, "色值格式 #rrggbb")
+        raise HTTPException(400, {"message": "色值格式 #rrggbb", "kind": "category_color"})
+    # HGS-ADMIN-CATEGORY-RACE-01: 行锁串行化并发改名 —— skills.category 是
+    # 文字引用无 FK, 两个并发改名交错时 UPDATE 引用与改字典的顺序不再确定,
+    # 引用可能指向已消失的旧名。FOR UPDATE 后同一分类的改名在此序列化。
     row = await db.execute(text("""
-        SELECT name FROM community.skill_categories WHERE id=:id
+        SELECT name FROM community.skill_categories WHERE id=:id FOR UPDATE
     """), {"id": category_id})
     old_name = row.scalar_one_or_none()
     if old_name is None:
-        raise HTTPException(404, "分类不存在")
+        raise HTTPException(404, {"message": "分类不存在", "kind": "category_not_found"})
     if old_name != name:
         dup = await db.execute(text("""
             SELECT 1 FROM community.skill_categories
             WHERE name=:name AND id<>:id LIMIT 1
         """), {"id": category_id, "name": name})
         if dup.scalar_one_or_none() is not None:
-            raise HTTPException(409, "分类名已存在")
+            raise HTTPException(409, {"message": "分类名已存在", "kind": "category_name_conflict"})
         # 先同步存量技能引用（读旧名），再改字典，两步顺序不可颠倒
         await db.execute(text("""
             UPDATE community.skills SET category=:name

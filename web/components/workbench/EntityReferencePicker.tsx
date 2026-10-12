@@ -1,0 +1,155 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { EntityId } from "@/components/shared/EntityId";
+import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { apiGet, USER_SUBMITTED_SOURCE, type SearchResponse } from "@/lib/api";
+import { resolveChemicalName } from "@/lib/chemicalName";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Field";
+
+const MAX_REFERENCES = 20;
+
+export function EntityReferencePicker({
+  chemicalIds,
+  reactionIds,
+  onChange,
+  disabled = false,
+}: {
+  chemicalIds: number[];
+  reactionIds: number[];
+  onChange: (value: { chemicalIds: number[]; reactionIds: number[] }) => void;
+  disabled?: boolean;
+}) {
+  const t = useDictionary();
+  const locale = useLocale();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResponse | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState("");
+  const latestRequest = useRef(0);
+  const total = chemicalIds.length + reactionIds.length;
+
+  async function search() {
+    const q = query.trim();
+    if (!q || disabled) return;
+    const requestId = ++latestRequest.current;
+    setSearching(true);
+    setError("");
+    try {
+      const value = await apiGet<SearchResponse>(
+        `/search?q=${encodeURIComponent(q)}&mode=exact&page=1&page_size=8`
+      );
+      if (requestId !== latestRequest.current) return;
+      setResults(value);
+    } catch {
+      if (requestId !== latestRequest.current) return;
+      setError(t.me.notesReferenceSearchFailed);
+      setResults(null);
+    } finally {
+      if (requestId === latestRequest.current) setSearching(false);
+    }
+  }
+
+  function add(kind: "chemical" | "reaction", id: number) {
+    if (disabled || total >= MAX_REFERENCES) return;
+    if (kind === "chemical") {
+      if (!chemicalIds.includes(id)) {
+        onChange({ chemicalIds: [...chemicalIds, id], reactionIds });
+      }
+    } else if (!reactionIds.includes(id)) {
+      onChange({ chemicalIds, reactionIds: [...reactionIds, id] });
+    }
+  }
+
+  function remove(kind: "chemical" | "reaction", id: number) {
+    onChange({
+      chemicalIds: kind === "chemical"
+        ? chemicalIds.filter((value) => value !== id)
+        : chemicalIds,
+      reactionIds: kind === "reaction"
+        ? reactionIds.filter((value) => value !== id)
+        : reactionIds,
+    });
+  }
+
+  const hasResults = Boolean(
+    results && (results.chemicals.length > 0 || (results.reactions?.length ?? 0) > 0)
+  );
+
+  return (
+    <div className="wb-note-references">
+      <div className="wb-note-reference-input">
+        <Input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void search();
+            }
+          }}
+          placeholder={t.me.notesReferenceSearchPlaceholder}
+          disabled={disabled}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <Button type="button" variant="ghost"
+          onClick={() => void search()}
+          disabled={disabled || searching || !query.trim()}>
+          {searching ? t.common.loading : t.me.notesReferenceSearch}
+        </Button>
+      </div>
+
+      {error && <p className="wb-note-error">{error}</p>}
+      {results && !hasResults && <small>{t.me.notesReferenceNoResults}</small>}
+
+      {hasResults && (
+        <div className="wb-note-reference-results">
+          {results!.chemicals.map((chemical) => {
+            const selected = chemicalIds.includes(chemical.id);
+            const name = resolveChemicalName(chemical, t.common.hcidLabel, locale).title;
+            return (
+              <button type="button" key={`c-${chemical.id}`}
+                onClick={() => add("chemical", chemical.id)}
+                disabled={disabled || selected || total >= MAX_REFERENCES}>
+                <span><strong>{name}</strong><small>{chemical.molecular_formula || chemical.inchikey || ""}</small></span>
+                <EntityId kind="chemical" id={chemical.id} compact />
+                <em>{selected ? t.me.notesReferenceAdded : t.me.notesAddReference}</em>
+              </button>
+            );
+          })}
+          {(results!.reactions || []).map((reaction) => {
+            const selected = reactionIds.includes(reaction.id);
+            return (
+              <button type="button" key={`r-${reaction.id}`}
+                onClick={() => add("reaction", reaction.id)}
+                disabled={disabled || selected || total >= MAX_REFERENCES}>
+                <span><strong><EntityId kind="reaction" id={reaction.id} compact /></strong>
+                  <small>{reaction.doi || reaction.ord_id || (reaction.dataset_name === USER_SUBMITTED_SOURCE ? t.reaction.userSubmitted : reaction.dataset_name) || ""}</small></span>
+                <em>{selected ? t.me.notesReferenceAdded : t.me.notesAddReference}</em>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="wb-note-reference-chips">
+        {chemicalIds.map((id) => (
+          <button type="button" key={`selected-c-${id}`} onClick={() => remove("chemical", id)}
+            disabled={disabled} title={t.me.notesRemoveReference}>
+            <EntityId kind="chemical" id={id} compact /><span aria-hidden="true">×</span>
+          </button>
+        ))}
+        {reactionIds.map((id) => (
+          <button type="button" key={`selected-r-${id}`} onClick={() => remove("reaction", id)}
+            disabled={disabled} title={t.me.notesRemoveReference}>
+            <EntityId kind="reaction" id={id} compact /><span aria-hidden="true">×</span>
+          </button>
+        ))}
+      </div>
+      <small>{total >= MAX_REFERENCES ? t.me.notesReferenceLimit : t.me.notesReferenceHint}</small>
+    </div>
+  );
+}

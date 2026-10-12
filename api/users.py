@@ -67,14 +67,16 @@ async def check_username(username: str = Query(min_length=4, max_length=30), db=
     """注册时实时校验用户名是否可用。
     0904 ⑱: 枚举敞口 — 原无限流, 脚本可批量探测已注册用户名。
     匿名共享桶 30/min(BFF 后无真实 IP, 与 cas-search-fetch 同口径);
-    超限 429, 注册表单降级为提交时校验(不阻塞正常使用)。"""
+    超限 429, 注册表单降级为提交时校验(不阻塞正常使用)。
+    BX-A2：reason 改为 reason_code 稳定机器码（taken / invalid_format），
+    不再返回中文文案 —— 前端按语言渲染。"""
     await enforce_http("check-username", "global", 30, 60)
     if not USERNAME_RE.fullmatch(username):
-        return {"available": False, "reason": "用户名仅支持 4–30 位小写字母、数字或下划线"}
+        return {"available": False, "reason_code": "invalid_format"}
     exists = (await db.execute(text(
         "SELECT 1 FROM community.users WHERE lower(username)=lower(:u) LIMIT 1"
     ), {"u": username})).fetchone()
-    return {"available": not exists, "reason": "用户名已被使用" if exists else None}
+    return {"available": not exists, "reason_code": "taken" if exists else None}
 
 
 @auth_router.post("/register", status_code=201)
@@ -99,7 +101,11 @@ async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
         }
     except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(409, "用户名或邮箱已被使用") from exc
+        # BX-A2：{message, kind}（notes 400 先例）—— 前端按 kind 五语言渲染
+        raise HTTPException(409, {
+            "message": "用户名或邮箱已被使用",
+            "kind": "username_or_email_taken",
+        }) from exc
 
 
 @auth_router.post("/login")
@@ -114,7 +120,11 @@ async def login(body: LoginBody, response: Response, db=Depends(get_db)):
         WHERE (lower(email)=:account OR lower(username)=:account) AND status='active'
     """), {"account": account})).fetchone()
     if not row or not await asyncio.to_thread(password_matches, body.password, row[5]):
-        raise HTTPException(401, "账号或密码不正确")
+        # BX-A2：{message, kind}（notes 400 先例）—— 前端按 kind 五语言渲染
+        raise HTTPException(401, {
+            "message": "账号或密码不正确",
+            "kind": "invalid_credentials",
+        })
     await db.execute(text("UPDATE community.users SET last_login_at=now() WHERE id=:id"), {"id": row[0]})
     await create_session(db, response, int(row[0]))
     return {
@@ -231,6 +241,12 @@ async def change_password(
     await db.execute(text("DELETE FROM community.sessions WHERE user_id=:id"), {"id": actor.id})
     # revoke = 物理 DELETE(2026-08-31 终局): 不保留 soft-revoke 两套语义
     await db.execute(text("DELETE FROM community.user_api_tokens WHERE user_id=:id"), {"id": actor.id})
+    # Password rotation invalidates every OAuth grant for this account. OAuth
+    # clients themselves are shared registration metadata and remain registered.
+    await db.execute(text("DELETE FROM community.oauth_authorization_requests WHERE user_id=:id"), {"id": actor.id})
+    await db.execute(text("DELETE FROM community.oauth_authorization_codes WHERE user_id=:id"), {"id": actor.id})
+    await db.execute(text("DELETE FROM community.oauth_access_tokens WHERE user_id=:id"), {"id": actor.id})
+    await db.execute(text("DELETE FROM community.oauth_refresh_tokens WHERE user_id=:id"), {"id": actor.id})
     await db.commit()
     response.delete_cookie(settings.session_cookie, path="/")
 
@@ -305,10 +321,11 @@ async def delete_avatar(actor: Actor = Depends(current_session), db=Depends(get_
 
 @router.get("/me/tokens")
 async def list_tokens(response: Response, actor: Actor = Depends(current_session), db=Depends(get_db)):
-    # 响应含 token_plain(secret): 明确禁缓存, 不依赖 CDN/浏览器默认
+    # 2026-10-11 收口: 明文不再落库 → 列表只有元数据(token_hash 不可逆, 不回传)。
+    # 响应仍属账户私有数据: 明确禁缓存, 不依赖 CDN/浏览器默认。
     response.headers["Cache-Control"] = "private, no-store"
     rows = (await db.execute(text("""
-        SELECT id,name,token_prefix,scopes,created_at,expires_at,last_used_at,token_plain
+        SELECT id,name,token_prefix,scopes,created_at,expires_at,last_used_at
         FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL
         ORDER BY id DESC
@@ -331,18 +348,19 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
     )
     row = (await db.execute(text("""
         INSERT INTO community.user_api_tokens
-          (user_id,name,token_hash,token_prefix,token_plain,expires_at)
-        VALUES (:user_id,:name,:token_hash,:prefix,:plain,:expires_at)
+          (user_id,name,token_hash,token_prefix,expires_at)
+        VALUES (:user_id,:name,:token_hash,:prefix,:expires_at)
         RETURNING id,name,token_prefix,scopes,created_at,expires_at
     """), {
         "user_id": actor.id, "name": body.name.strip(),
         "token_hash": hashlib.sha256(plain.encode()).digest(), "prefix": plain[:12],
-        "plain": plain, "expires_at": expires,
+        "expires_at": expires,
     })).mappings().one()
     await db.commit()
     # P2 边界归一: Token 创建只返回 credential 与 token metadata。
     # api_base_url / agent_guide_url / agent_connection_text 已删除(前端零真实消费者,
     # onboarding 耦合由 /guide 与 /mcp-guide 平级入口承担)。
+    # 2026-10-11 收口: 明文只在 201 响应返回一次, 不落库(20261011_01 migration)。
     return {
         **dict(row),
         "token": plain,
@@ -364,9 +382,12 @@ async def revoke_token(token_id: int, actor: Actor = Depends(current_session), d
 @router.get("/{username}")
 async def public_profile(username: str, actor: Actor | None = Depends(public_or_actor), db=Depends(get_db)):
     viewer_id = actor.id if actor else 0
+    # HGS-ACCOUNT-CONTENT-01（PM 裁定 2026-10-12）: 停用账号主页不再 404 ——
+    # 返回停用态最小档案(is_active=false), 前端渲染停用态卡片(无关注/分享/
+    # 内容列表); 公开内容在各自详情页保留可见并带「已停用」标记。
     row = (await db.execute(text("""
         SELECT u.id,u.username,u.display_name,u.bio,u.avatar_path,u.created_at,
-          u.location,u.institution,u.title,u.website,u.orcid,u.email,
+          u.location,u.institution,u.title,u.website,u.orcid,u.email,u.status,
           (SELECT count(*) FROM community.user_follows WHERE followed_user_id=u.id),
           (SELECT count(*) FROM community.user_follows WHERE follower_user_id=u.id),
           (SELECT count(*) FROM chemistry.reactions
@@ -375,19 +396,27 @@ async def public_profile(username: str, actor: Actor | None = Depends(public_or_
                  WHERE follower_user_id=:viewer AND followed_user_id=u.id),
           EXISTS(SELECT 1 FROM community.user_follows
                  WHERE follower_user_id=u.id AND followed_user_id=:viewer)
-        FROM community.users u WHERE lower(u.username)=lower(:username) AND u.status='active'
+        FROM community.users u WHERE lower(u.username)=lower(:username)
     """), {"username": username, "viewer": viewer_id})).fetchone()
     if not row:
         raise HTTPException(404, "用户不存在")
+    if row[12] != "active":
+        # 停用态: 只暴露状态卡所需的最小字段(不泄露 bio/机构/邮箱等资料)
+        return {
+            "id": row[0], "username": row[1], "display_name": row[2],
+            "avatar_url": row[4], "created_at": row[5],
+            "is_active": False,
+        }
     return {
         "id": row[0], "username": row[1], "display_name": row[2], "bio": row[3],
         "avatar_url": row[4], "created_at": row[5],
         "location": row[6], "institution": row[7], "title": row[8],
         "website": row[9], "orcid": row[10],
-        "followers": row[12], "following": row[13], "public_reactions": row[14],
-        "is_following": row[15],
-        "is_followed_by": bool(row[16]) if viewer_id else False,
-        "is_mutual": bool(row[15] and row[16]) if viewer_id else False,
+        "is_active": True,
+        "followers": row[13], "following": row[14], "public_reactions": row[15],
+        "is_following": row[16],
+        "is_followed_by": bool(row[17]) if viewer_id else False,
+        "is_mutual": bool(row[16] and row[17]) if viewer_id else False,
         "is_me": bool(actor and row[0] == actor.id),
         # Email is private: only the profile owner's own view may read it,
         # so the settings form can prefill without a separate endpoint.

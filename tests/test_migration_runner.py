@@ -212,12 +212,17 @@ class MigrationRunnerTests(unittest.TestCase):
         self.assertEqual(out.stdout.strip(), "2")
 
     def test_asyncpg_form_url_dry_run_works(self):
+        """HGS-MIG-DRYRUN-01 新契约: dry-run 零 DDL —— 连 tracking 表也不建
+        (此前会真实 CREATE TABLE, 只读库直接报错); pending 如实列出。"""
         self._write("20260911_01_runner_a.sql",
                     "CREATE TABLE IF NOT EXISTS chemistry.mig_a (id int PRIMARY KEY);")
         rc = run(self.url, self.tmp, apply=False)
         self.assertEqual(rc, 0)
-        out = self._psql("SELECT count(*) FROM maintenance.schema_migrations")
-        self.assertEqual(out.stdout.strip(), "0", "dry-run 零写入")
+        out = self._psql(
+            "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace"
+            " WHERE n.nspname='maintenance' AND c.relname='schema_migrations'")
+        self.assertEqual(out.stdout.strip(), "0",
+                         "dry-run 必须零 DDL(tracking 表不得创建)")
 
     def test_normalize_never_leaks_password_in_repr_or_messages(self):
         # helper 本身不做任何打印; 泄漏面在 psql 报错信息 —— runner 的

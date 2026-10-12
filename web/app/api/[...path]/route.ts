@@ -78,7 +78,7 @@ async function proxy(request: NextRequest, path: string): Promise<NextResponse> 
   const responseHeaders = new Headers();
   upstream.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
-    if (!HOP_BY_HOP.has(lower) && lower !== "content-encoding" && lower !== "content-length") {
+    if (!HOP_BY_HOP.has(lower) && lower !== "content-encoding" && lower !== "content-length" && lower !== "set-cookie") {
       responseHeaders.set(key, value);
     }
   });
