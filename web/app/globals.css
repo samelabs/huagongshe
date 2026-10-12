@@ -208,7 +208,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .page-title, .guide-hero { max-width: var(--w-reading); margin-bottom: 36px; }
 
 .content-page { width: min(var(--w-wide), calc(100% - 40px)); margin: 0 auto; padding: 42px 0 90px; }
-.breadcrumbs { margin-bottom: 30px; display: flex; gap: 9px; color: var(--text-muted); font-size: var(--fs-13); }
+.breadcrumbs { margin-bottom: 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 9px; color: var(--text-muted); font-size: var(--fs-13); }
 
 /* ── 页面标题统一体系 ──────────────────────────────
  * .page-head 是所有内容页标题的基类。
@@ -387,6 +387,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .chem-head-alt { grid-area: alt; margin: 0; color: var(--text-2); font-size: var(--fs-18); }
 .chem-head-iupac { grid-area: iupac; margin: 2px 0 0; color: var(--text-muted); font-size: var(--fs-14); }
 .chem-head-chips { grid-area: chips; display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-4) 0 var(--sp-6); }
+.chem-cas-chip { display: inline-flex; align-items: center; gap: 2px; }
 .chem-head-actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .chem-favor-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 .chem-head-struct { grid-area: struct; align-self: start; position: relative; display: grid; place-items: center; min-height: 220px; margin: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); }
@@ -470,9 +471,11 @@ details.chem-group[open] > summary::after { content: "▴"; }
   .chem-tabs-nav a { color: var(--text-2); font-size: var(--fs-14); font-weight: 600; white-space: nowrap; flex-shrink: 0; text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; }
   .chem-tabs-nav a:hover { color: var(--action); }
   .chem-tabs-nav a.on { color: var(--action); border-bottom-color: var(--action); }
-  /* ≤900 右侧栏并入正文末尾（单列） */
+  /* ≤900 右侧栏并入正文末尾（单列）；页内导航由顶部 .chem-tabs-nav 承担，
+     rail 导航不再重复渲染 */
   .chemical-layout { grid-template-columns: minmax(0, 1fr); gap: 40px; }
   .chemical-aside { position: static; }
+  .chemical-aside .chem-rail-nav { display: none; }
   .chem-section { scroll-margin-top: 62px; }
 }
 @media (max-width: 640px) {

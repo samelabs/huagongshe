@@ -537,6 +537,151 @@ async def _resolve_skill_slug(candidate: str, actor: Actor | None) -> int:
     return int(rows[0])
 
 
+# ---------------------------------------------------------------------------
+# MCP 对外输出映射
+# ---------------------------------------------------------------------------
+# MCP 的读者是外部 agent: 输出只用按含义命名、外人能直接看懂的字段, 不暴露
+# 内部字段(采集来源 / 流程状态 / 审核状态 / 内部行号 / 网页社交态)。共享服务
+# (网页同用)不变, 映射只在 MCP 出口做。映射关系只存在于此处代码, 不随输出下发。
+
+_CHEMICAL_INTERNAL_KEYS = ("similarity", "follower_count", "is_following", "enrichment")
+
+
+def _evidence_values(values: Any) -> list[str]:
+    out: list[str] = []
+    for item in values if isinstance(values, list) else [values]:
+        if isinstance(item, dict):
+            text = item.get("value")
+            if text is None:
+                continue
+            unit = item.get("unit")
+            out.append(f"{text} {unit}" if unit else str(text))
+        elif item is not None:
+            out.append(str(item))
+    return out
+
+
+def _evidence(block: Any) -> dict[str, list[str]] | None:
+    if not isinstance(block, dict) or not block:
+        return None
+    entries = block.get("entries") if isinstance(block.get("entries"), dict) else block
+    out = {
+        str(path): vals for path, raw in entries.items()
+        if path not in ("references", "normalization")
+        for vals in [_evidence_values(raw)] if vals
+    }
+    return out or None
+
+
+def _notes(items: Any) -> list[dict[str, str]]:
+    return [{"title": i.get("title"), "text": i.get("text")}
+            for i in (items or []) if isinstance(i, dict)]
+
+
+def _public_details(d: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not d:
+        return None
+    names, props = d.get("names") or {}, d.get("properties") or {}
+    safety, industry = d.get("safety") or {}, d.get("industry") or {}
+    identity = names.get("cb_identity") or {}
+    updown = industry.get("cb_updown") or {}
+    pb_safety = safety.get("pb_sections") or {}
+    pb_industry = industry.get("pb_sections") or {}
+    return {
+        "description": (d.get("description") or {}).get("record_description"),
+        "names": {
+            "chinese_name": identity.get("cn"),
+            "english_name": identity.get("en"),
+            "formula": identity.get("formula"),
+            "molecular_weight": identity.get("mw"),
+            "aliases": [a.get("value") for a in names.get("cb_aliases") or []
+                        if isinstance(a, dict) and a.get("value")],
+        },
+        "computed_properties": props.get("pb_computed"),
+        "experimental_properties": _evidence(props.get("pb_physical_properties")),
+        "physical_data": [
+            {"name": p.get("label"), "value": p.get("text"),
+             "numeric_value": p.get("v"), "unit": p.get("unit")}
+            for p in props.get("cb_experimental") or [] if isinstance(p, dict)
+        ],
+        "chemical_properties": _notes(props.get("cb_prose")),
+        "safety": {
+            "ghs_classification": _evidence(pb_safety.get("ghs_classification")),
+            "hazards": _evidence(pb_safety.get("hazards")),
+            "safety_measures": _evidence(pb_safety.get("safety_measures")),
+            "toxicity": _evidence(pb_safety.get("toxicity")),
+            "regulatory": _evidence(pb_safety.get("regulatory")),
+            "safety_data": safety.get("cb_safety"),
+            "toxicity_notes": _notes(safety.get("cb_toxicity")),
+            "storage_and_transport": _notes(safety.get("cb_packaging")),
+        },
+        "applications": {
+            "pharmacology": _evidence(pb_industry.get("pharmacology")),
+            "uses_and_manufacturing": _evidence(pb_industry.get("uses_and_manufacturing")),
+            "uses": _notes(industry.get("cb_uses")),
+            "preparation": _notes(industry.get("cb_preparation")),
+            "handling_notes": _notes(industry.get("cb_notes")),
+        },
+        "related_products": {
+            "upstream_materials": [n.get("name") for n in updown.get("up") or [] if isinstance(n, dict)],
+            "downstream_products": [n.get("name") for n in updown.get("down") or [] if isinstance(n, dict)],
+        },
+        "reagent_prices": [
+            {k: r.get(k) for k in ("code", "name", "package", "price", "updated")}
+            for r in industry.get("cb_price") or [] if isinstance(r, dict)
+        ],
+        "suppliers": [
+            {"name": s.get("name"), "phone": s.get("phone"), "email": s.get("email"),
+             "website": s.get("website"), "purity": s.get("purity"),
+             "package_price": s.get("pack_price"), "remark": s.get("remark")}
+            for s in (d.get("suppliers") or {}).get("items") or [] if isinstance(s, dict)
+        ],
+    }
+
+
+def _public_chemical(result: dict[str, Any]) -> dict[str, Any]:
+    out = {k: v for k, v in result.items() if k not in _CHEMICAL_INTERNAL_KEYS}
+    if "details" in out:
+        out["details"] = _public_details(out["details"])
+    return out
+
+
+def _public_compound(c: dict[str, Any]) -> dict[str, Any]:
+    """反应参与物 / 搜索命中的化合物: 去掉恒空的 similarity 槽位(相似度检索时保留实值)。"""
+    return {k: v for k, v in c.items() if not (k == "similarity" and v is None)}
+
+
+def _public_reaction(r: dict[str, Any]) -> dict[str, Any]:
+    out = {k: v for k, v in r.items()
+           if k not in ("moderation_status", "ord_record_id", "is_following",
+                        "follower_count", "dataset_name")}
+    creator = out.get("creator")
+    if isinstance(creator, dict):
+        out["creator"] = {k: v for k, v in creator.items() if k != "avatar_url"}
+    if "participants" in r:
+        out["participants"] = [_public_compound(p) for p in r.get("participants") or []]
+    return out
+
+
+def _public_search(data: dict[str, Any]) -> dict[str, Any]:
+    out = {k: v for k, v in data.items()
+           if k not in ("cas_fetch_pending", "cas_fetch_chemical_id")}
+    if data.get("cas_fetch_pending"):
+        out["lookup_pending"] = True
+    out["chemicals"] = [_public_compound(c) for c in data.get("chemicals") or []]
+    out["reactions"] = [
+        {**{k: v for k, v in rx.items() if k != "match_basis"},
+         **({"dataset_name": "User submitted"}
+            if rx.get("dataset_name") == "user_submitted" else {})}
+        for rx in data.get("reactions") or []
+    ]
+    return out
+
+
+def _public_skill(s: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in s.items() if k not in ("origin", "owner_id")}
+
+
 def build_mcp_server() -> MCPServer:
     server = MCPServer(
         name="huagongshe-aichem",
@@ -550,8 +695,9 @@ def build_mcp_server() -> MCPServer:
             "structure search, private data, and write actions require authentication. "
             "Before creating a user-owned record, show the intended content to the user "
             "and obtain confirmation. New reactions should default to private. Never "
-            "invent structures, identifiers, sources, conditions, or yields. Preserve "
-            "source-specific values and provenance when evidence differs."
+            "invent structures, identifiers, sources, conditions, or yields. When values "
+            "for the same property differ, present them side by side. HCID is the HGS "
+            "chemical identifier; HRID is the HGS reaction identifier."
         ),
     )
 
@@ -572,6 +718,8 @@ def build_mcp_server() -> MCPServer:
         mode: exact (default), substructure, or similarity.
         threshold: similarity cutoff from 0.4 to 1.0 (default 0.7).
         total=None means a complete total was not computed for this search mode.
+        lookup_pending=true means an unknown CAS number is being looked up; search
+        again later.
         has_more is authoritative for pagination; do not infer it from total.
         capped=true can occur for substructure search when the 250-result product
         cap is reached. In that case the database-wide match count is unknown.
@@ -607,11 +755,11 @@ def build_mcp_server() -> MCPServer:
 
         async with async_session() as _session:
             try:
-                return await _execute_search(
+                return _public_search(await _execute_search(
                     _session, q, mode, threshold=threshold, page=page,
                     page_size=page_size,
                     actor_id=actor.id if actor else None,
-                )
+                ))
             except _SearchError as exc:
                 raise ToolError(_search_error_message(exc)) from exc
             except RateLimitError as exc:
@@ -623,12 +771,12 @@ def build_mcp_server() -> MCPServer:
         enrich: str = "core",
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """Return chemical context for one HCID.
+        """Return one chemical by HCID.
 
-        enrich=core returns the canonical projection without provider access.
-        enrich=full adds unified semantic detail: descriptions, names, properties,
-        safety, industrial context, suppliers, and provenance. Source-specific
-        values remain distinct and retain their source attribution.
+        enrich=core returns identifiers, names, formula, masses and structure.
+        enrich=full also returns the description, names and aliases, computed and
+        experimental properties, safety and regulatory information, applications,
+        related products, reagent prices and suppliers.
         """
         if enrich not in ("core", "full"):
             raise ToolError("enrich must be either core or full.")
@@ -644,11 +792,11 @@ def build_mcp_server() -> MCPServer:
 
         async with async_session() as session:
             try:
-                return await _get_chemical_detail(
+                return _public_chemical(await _get_chemical_detail(
                     session, chemical_id,
                     actor_id=None, priority=50,
                     enrich=_normalize_enrich(enrich),
-                )
+                ))
             except _ChemicalNotFoundError as exc:
                 raise ToolError("Chemical not found.") from exc
 
@@ -677,7 +825,7 @@ def build_mcp_server() -> MCPServer:
             )
             if data is None:
                 raise ToolError("Reaction not found.")
-            return data
+            return _public_reaction(data)
 
     @server.tool(name="render_molecule_svg", title="Render molecule SVG", annotations=ANN_READ_CLOSED, meta=SEC_NOAUTH)
     async def render_molecule_svg(
@@ -803,10 +951,11 @@ def build_mcp_server() -> MCPServer:
         page_size = min(max(page_size, 1), 100)
         # G2.6B: 直调 shared service(skill.query.list kernel)。
         async with async_session() as session:
-            return await _list_service(
+            listed = await _list_service(
                 session, scope=scope, owner_id=actor.id if scope == "mine" else None,
                 q=q, category=category, page=page, page_size=page_size,
             )
+            return {**listed, "items": [_public_skill(i) for i in listed.get("items") or []]}
 
     @server.tool(name="get_skill", title="Get skill", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
     async def get_skill(
@@ -839,9 +988,9 @@ def build_mcp_server() -> MCPServer:
         # missing/private-unreadable → 同一 ToolError 原文。
         async with async_session() as session:
             try:
-                return await _detail_service(
+                return _public_skill(await _detail_service(
                     session, resolved_id,
-                    actor_id=actor.id if actor else None)
+                    actor_id=actor.id if actor else None))
             except SkillNotAccessibleError as exc:
                 raise ToolError(_skill_error_message(exc)) from exc
 
@@ -915,17 +1064,20 @@ def build_mcp_server() -> MCPServer:
         page_size = min(max(page_size, 1), 50)
         # G2.5C: 直调 shared service(clamp 保持, 不改 ToolError/拒绝).
         async with async_session() as session:
-            return await _list_service(
+            listed = await _list_service(
                 session, actor_id=actor.id, visibility=visibility,
                 page=page, page_size=page_size,
             )
+            return {**listed, "items": [
+                {k: v for k, v in dict(i).items() if k != "moderation_status"}
+                for i in listed.get("items") or []]}
 
     @server.tool(name="validate_reaction", title="Validate reaction draft", annotations=ANN_READ_CLOSED, meta=SEC_OAUTH_REACTION_WRITE)
     async def validate_reaction(
         reaction: dict[str, Any],
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """Validate and canonicalize a reaction draft without saving it.
+        """Validate and normalize a reaction draft without saving it.
 
         Requires reaction:write permission.
         """

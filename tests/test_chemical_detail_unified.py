@@ -758,7 +758,14 @@ class McpCoreFullDifferenceTests(unittest.TestCase):
         core_data = _extract(core)
         full_data = _extract(full)
         self.assertIsNone(core_data["details"])
-        self.assertEqual(full_data["details"]["description"]["record_description"], "d")
+        self.assertEqual(full_data["details"]["description"], "d")
+        # MCP 对外输出不暴露内部字段(采集来源 / 流程状态)
+        import json as _json
+        for data in (core_data, full_data):
+            dumped = _json.dumps(data)
+            self.assertNotIn("enrichment", data)
+            for internal in ('"source"', "provenance", "pb_", "cb_", "job_id"):
+                self.assertNotIn(internal, dumped)
 
 
 class FakeCtx:

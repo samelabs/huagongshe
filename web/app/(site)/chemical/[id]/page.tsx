@@ -12,6 +12,7 @@ import { EntityBadge } from "@/components/ui/EntityBadge";
 import { EntityNotes } from "@/components/EntityNotes";
 import { Button } from "@/components/ui/Button";
 import { CodeField } from "@/components/ui/CodeField";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { Tag } from "@/components/ui/Tag";
 import { Molecule } from "@/components/Molecule";
 import { ReactionList } from "@/components/ReactionList";
@@ -173,16 +174,6 @@ export default async function ChemicalPage({ params }: {
     || (industry?.cb_notes?.length ?? 0) > 0;
   const hasIndustry = hasPbIndustry || hasCbIndustry;
 
-  // 记录面板：来源 = 有数据/在途的源；更新 = PubChem 拉取时间；状态 = enrichment
-  const recordSources: ("pubchem" | "cb" | "dsstox")[] = ([
-    ["pubchem", sourceAlive(detail?.provenance.pubchem.state) || chemical.pubchem_cid != null],
-    ["cb", sourceAlive(detail?.provenance.cb.state)],
-    ["dsstox", chemical.dtxsid != null],
-  ] as ["pubchem" | "cb" | "dsstox", boolean][])
-    .filter(([, has]) => has)
-    .map(([key]) => key);
-  const recordUpdated = detail?.provenance.pubchem.fetched_at ?? null;
-
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "MolecularEntity",
@@ -220,9 +211,14 @@ export default async function ChemicalPage({ params }: {
         {secondary && <p className="chem-head-alt">{secondary}</p>}
         {iupacShow && <p className="chem-head-iupac">{iupacShow}</p>}
         <div className="chem-head-chips">
+          {chemical.cas_numbers[0] && (
+            <span className="chem-cas-chip">
+              <Tag>CAS {chemical.cas_numbers[0]}</Tag>
+              <CopyButton mini value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
+            </span>
+          )}
           {chemical.molecular_formula && <Tag>{chemical.molecular_formula}</Tag>}
           {chemical.average_mass != null && <Tag>{formatNumber(chemical.average_mass, locale)} g/mol</Tag>}
-          {chemical.cas_numbers[0] && <Tag>CAS {chemical.cas_numbers[0]}</Tag>}
           {chemical.pubchem_cid != null && <Tag>PubChem CID {chemical.pubchem_cid}</Tag>}
         </div>
         <ChemicalActions
@@ -253,6 +249,11 @@ export default async function ChemicalPage({ params }: {
             <SectionHead title={t.chemical.page.overview} />
             {detail?.description.record_description && <div className="description-panel"><p>{detail.description.record_description}</p></div>}
             <dl className="chem-dl">
+              {chemical.cas_numbers[0] && (
+                <DataRow label="CAS">
+                  <CodeField value={chemical.cas_numbers[0]} copyLabel={`${t.common.copy} CAS`} />
+                </DataRow>
+              )}
               <DataRow label={t.chemical.identity.standardSmiles}>
                 {chemical.smiles && <CodeField value={chemical.smiles} copyLabel={`${t.common.copy} SMILES`} />}
               </DataRow>
@@ -306,12 +307,12 @@ export default async function ChemicalPage({ params }: {
           </section>
           )}
 
-          {/* ── 3. Properties（分区内按来源分组；组头一行 + 组级折叠） ── */}
+          {/* ── 3. Properties（分区内分组；组头一行 + 组级折叠） ── */}
           {hasProperties && (
             <section className="chem-section" id="properties">
               <SectionHead title={t.chemical.page.properties} />
               {hasComputed && pbComputed && (
-                <ChemGroup gid="grp-prop-descriptors" title={t.chemical.knowledge.descriptors} source="PubChem" total={8} dict={t}
+                <ChemGroup gid="grp-prop-descriptors" title={t.chemical.knowledge.descriptors} total={8} dict={t}
                   note={enrichment.status !== "current" && enrichment.status !== "degraded" ? (enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued) : undefined}>
                   <dl className="chem-dl">
                     {([
@@ -330,12 +331,12 @@ export default async function ChemicalPage({ params }: {
                 </ChemGroup>
               )}
               {pbPhysical.length > 0 && (
-                <ChemGroup gid="grp-prop-experimental" title={t.chemical.knowledge.experimental} source="PubChem" total={pbPhysical.length} dict={t}>
-                  <EvidenceList entries={pbPhysical} source="PubChem" dict={t} limit={GROUP_ITEM_LIMIT} />
+                <ChemGroup gid="grp-prop-experimental" title={t.chemical.knowledge.experimental} total={pbPhysical.length} dict={t}>
+                  <EvidenceList entries={pbPhysical} dict={t} limit={GROUP_ITEM_LIMIT} />
                 </ChemGroup>
               )}
               {(props?.cb_experimental?.length ?? 0) > 0 && (
-                <ChemGroup gid="grp-prop-cb" title={t.chemical.casext.props} source="ChemicalBook" total={(props?.cb_experimental ?? []).length} dict={t}>
+                <ChemGroup gid="grp-prop-cb" title={t.chemical.casext.props} total={(props?.cb_experimental ?? []).length} dict={t}>
                   <dl className="chem-dl">
                     {(props?.cb_experimental ?? []).map((p, i) => (
                       <DataRow key={`${p.label}-${p.text?.slice(0, 12)}`} label={p.label ?? ""} value={p.v != null ? `${p.v}${p.unit ? ` ${p.unit}` : ""} · ${p.text}` : p.text} over={i >= GROUP_ITEM_LIMIT} />
@@ -344,7 +345,7 @@ export default async function ChemicalPage({ params }: {
                 </ChemGroup>
               )}
               {(props?.cb_prose?.length ?? 0) > 0 && (
-                <ProseGroup gid="grp-prop-prose" title={t.chemical.casext.chemicalProps} prose={props?.cb_prose ?? []} source="ChemicalBook" dict={t} />
+                <ProseGroup gid="grp-prop-prose" title={t.chemical.casext.chemicalProps} prose={props?.cb_prose ?? []} dict={t} />
               )}
             </section>
           )}
@@ -356,23 +357,23 @@ export default async function ChemicalPage({ params }: {
               {Object.entries(pbSafetySections).map(([key, block]) => {
                 const entries = evidenceEntries(block);
                 return entries.length > 0 ? (
-                  <ChemGroup key={key} gid={`grp-safety-${key}`} title={pbSectionTitle(key, t)} source="PubChem" total={entries.length} dict={t}>
-                    <EvidenceList entries={entries} source="PubChem" dict={t} limit={GROUP_ITEM_LIMIT} />
+                  <ChemGroup key={key} gid={`grp-safety-${key}`} title={pbSectionTitle(key, t)} total={entries.length} dict={t}>
+                    <EvidenceList entries={entries} dict={t} limit={GROUP_ITEM_LIMIT} />
                   </ChemGroup>
                 ) : null;
               })}
               {safety?.cb_safety && Object.keys(safety.cb_safety).length > 0 && (
-                <ChemGroup gid="grp-safety-cb" title={t.chemical.casext.safety} source="ChemicalBook" total={Object.keys(safety.cb_safety).length} dict={t}>
+                <ChemGroup gid="grp-safety-cb" title={t.chemical.casext.safety} total={Object.keys(safety.cb_safety).length} dict={t}>
                   <dl className="chem-dl">
                     {Object.entries(safety.cb_safety).map(([k, v], i) => <DataRow key={k} label={k} value={String(v)} over={i >= GROUP_ITEM_LIMIT} />)}
                   </dl>
                 </ChemGroup>
               )}
               {(safety?.cb_toxicity?.length ?? 0) > 0 && (
-                <ProseGroup gid="grp-toxicity" title={t.chemical.casext.toxicity} prose={safety?.cb_toxicity ?? []} source="ChemicalBook" dict={t} />
+                <ProseGroup gid="grp-toxicity" title={t.chemical.casext.toxicity} prose={safety?.cb_toxicity ?? []} dict={t} />
               )}
               {(safety?.cb_packaging?.length ?? 0) > 0 && (
-                <ProseGroup gid="grp-packaging" title={t.chemical.casext.packaging} prose={safety?.cb_packaging ?? []} source="ChemicalBook" dict={t} />
+                <ProseGroup gid="grp-packaging" title={t.chemical.casext.packaging} prose={safety?.cb_packaging ?? []} dict={t} />
               )}
             </section>
           )}
@@ -384,20 +385,20 @@ export default async function ChemicalPage({ params }: {
               {Object.entries(pbIndustrySections).map(([key, block]) => {
                 const entries = evidenceEntries(block);
                 return entries.length > 0 ? (
-                  <ChemGroup key={key} gid={`grp-industry-${key}`} title={pbSectionTitle(key, t)} source="PubChem" total={entries.length} dict={t}>
-                    <EvidenceList entries={entries} source="PubChem" dict={t} limit={GROUP_ITEM_LIMIT} />
+                  <ChemGroup key={key} gid={`grp-industry-${key}`} title={pbSectionTitle(key, t)} total={entries.length} dict={t}>
+                    <EvidenceList entries={entries} dict={t} limit={GROUP_ITEM_LIMIT} />
                   </ChemGroup>
                 ) : null;
               })}
               {(industry?.cb_uses?.length ?? 0) > 0 && (
-                <ProseGroup gid="grp-uses" title={t.chemical.casext.uses} prose={industry?.cb_uses ?? []} source="ChemicalBook" dict={t} />
+                <ProseGroup gid="grp-uses" title={t.chemical.casext.uses} prose={industry?.cb_uses ?? []} dict={t} />
               )}
               {(industry?.cb_preparation?.length ?? 0) > 0 && (
-                <ProseGroup gid="grp-preparation" title={t.chemical.casext.preparation} prose={industry?.cb_preparation ?? []} source="ChemicalBook" dict={t} />
+                <ProseGroup gid="grp-preparation" title={t.chemical.casext.preparation} prose={industry?.cb_preparation ?? []} dict={t} />
               )}
               {(industry?.cb_updown?.up?.length ?? 0) > 0 || (industry?.cb_updown?.down?.length ?? 0) > 0 ? (
                 <div className="chem-group">
-                  <h3 className="chem-group-head">{t.chemical.casext.updown}<Tag tone="src">ChemicalBook</Tag></h3>
+                  <h3 className="chem-group-head">{t.chemical.casext.updown}</h3>
                   <div className="chem-group-body casext-updown">
                     {(["up", "down"] as const).map((dir) => {
                       const items = dir === "up" ? industry?.cb_updown?.up : industry?.cb_updown?.down;
@@ -408,7 +409,7 @@ export default async function ChemicalPage({ params }: {
                 </div>
               ) : null}
               {(industry?.cb_price?.length ?? 0) > 0 && (
-                <ChemGroup gid="grp-price" title={t.chemical.casext.price} source="ChemicalBook" total={(industry?.cb_price ?? []).length} dict={t}>
+                <ChemGroup gid="grp-price" title={t.chemical.casext.price} total={(industry?.cb_price ?? []).length} dict={t}>
                   <dl className="chem-dl">
                     {(industry?.cb_price ?? []).map((r, i) => <DataRow key={`${r.code}-${r.package}`} label={`${r.code} · ${r.package}`} value={`${r.name} — ${r.price}`} over={i >= GROUP_ITEM_LIMIT} />)}
                   </dl>
@@ -418,7 +419,7 @@ export default async function ChemicalPage({ params }: {
                 <SupplierList gid="grp-suppliers" items={detail?.suppliers.items ?? []} dict={t} locale={locale} />
               )}
               {(industry?.cb_notes?.length ?? 0) > 0 && (
-                <ProseGroup gid="grp-notes" title={t.chemical.casext.safetyNotes} prose={industry?.cb_notes ?? []} source="ChemicalBook" dict={t} />
+                <ProseGroup gid="grp-notes" title={t.chemical.casext.safetyNotes} prose={industry?.cb_notes ?? []} dict={t} />
               )}
             </section>
           )}
@@ -437,22 +438,6 @@ export default async function ChemicalPage({ params }: {
         {/* ── Secondary rail (desktop；≤900 移到正文末尾) ── */}
         <aside className="chemical-aside">
           <ChemPageNav sections={tocSections} variant="rail" />
-          <section className="chem-record">
-            <h2>{t.chemical.page.record}</h2>
-            <dl>
-              {recordSources.length > 0 && (
-                <div><dt>{t.chemical.page.recordSources}</dt><dd>{recordSources.map((key) => recordSourceName(key)).join(" · ")}</dd></div>
-              )}
-              {recordUpdated && (
-                <div><dt>{t.chemical.page.recordUpdated}</dt><dd>{new Date(recordUpdated).toLocaleDateString(locale)}</dd></div>
-              )}
-              <div><dt>{t.chemical.page.recordStatus}</dt><dd>
-                {enrichment.status === "queued" ? <Tag tone="blue" dot>{t.chemical.page.statusQueued}</Tag>
-                  : enrichment.status === "current" ? <Tag tone="ok" dot>{t.chemical.page.statusOk}</Tag>
-                  : <Tag tone="warn" dot>{t.chemical.page.statusStale}</Tag>}
-              </dd></div>
-            </dl>
-          </section>
           {/* 新建相关反应（PM 决策保留；Step 7 紧凑版：标题 + 一句说明 + tonal sm 按钮） */}
           <section className="contribute-panel">
             <h2 className="contribute-title">{t.chemical.newRelated}</h2>
@@ -485,14 +470,13 @@ function overProps(index: number, limit: number) {
 }
 
 /**
- * 来源分组（§9.1 Step 7 组头一行）：h3 组标题在前，Tag src 紧跟同一行。
+ * 分组（§9.1 Step 7 组头一行）：h3 组标题 + 可选注记。页面不展示数据来源。
  * 篇幅收敛：total > limit 时渲染 GroupToggle（「展开全部 N 项」/「收起」），
  * 超限项由内容构建方标 data-overflow + hidden（仍在上面的 gid 容器内）。
  */
-function ChemGroup({ gid, title, source, total, dict, children, note }: {
+function ChemGroup({ gid, title, total, dict, children, note }: {
   gid: string;
   title: string;
-  source: string;
   /** 组内总项数（DataRow/已折叠 details 均算 1 项） */
   total: number;
   dict: Dictionary;
@@ -501,7 +485,7 @@ function ChemGroup({ gid, title, source, total, dict, children, note }: {
 }) {
   return (
     <div className="chem-group">
-      <h3 className="chem-group-head">{title}<Tag tone="src">{source}</Tag>{note && <span className="chem-subhead-note">{note}</span>}</h3>
+      <h3 className="chem-group-head">{title}{note && <span className="chem-subhead-note">{note}</span>}</h3>
       <div className="chem-group-body" id={gid}>{children}</div>
       {total > GROUP_ITEM_LIMIT && (
         <GroupToggle controls={gid} total={total} collapsedLabel={dict.chemical.page.expandAll(total)} expandedLabel={dict.chemical.page.collapse} />
@@ -510,9 +494,9 @@ function ChemGroup({ gid, title, source, total, dict, children, note }: {
   );
 }
 
-/** PB evidence 列表：短数值行直接可见；超过 2 条或单条 >240 字折叠为「条目名 · N 条 · 来源」。
+/** 证据列表：短数值行直接可见；超过 2 条或单条 >240 字折叠为「条目名 · N 条」。
  *  组级折叠：limit 之后的条目（含 details）hidden + data-overflow。 */
-function EvidenceList({ entries, source, dict, limit = Infinity }: { entries: EvidenceEntry[]; source: string; dict: Dictionary; limit?: number }) {
+function EvidenceList({ entries, dict, limit = Infinity }: { entries: EvidenceEntry[]; dict: Dictionary; limit?: number }) {
   return (
     <div className="evidence-list">
       {entries.map((entry, index) => {
@@ -524,7 +508,7 @@ function EvidenceList({ entries, source, dict, limit = Infinity }: { entries: Ev
           </div>
         ) : (
           <details key={`${entry.label}-${index}`} hidden={over || undefined} {...(over ? { "data-overflow": "" } : {})}>
-            <summary>{entry.label}<span className="evidence-meta"> · {dict.chemical.page.itemsCount(entry.values.length)} · {source}</span></summary>
+            <summary>{entry.label}<span className="evidence-meta"> · {dict.chemical.page.itemsCount(entry.values.length)}</span></summary>
             <div>{entry.values.map((value, vi) => <p key={vi}>{value}</p>)}</div>
           </details>
         );
@@ -533,21 +517,21 @@ function EvidenceList({ entries, source, dict, limit = Infinity }: { entries: Ev
   );
 }
 
-/** CB 长文组：组头即折叠 summary（「标题 [来源] · N 条」）；≤2 条且短时平铺 */
-function ProseGroup({ gid, title, prose, source, dict }: { gid: string; title: string; prose: ProseItem[]; source: string; dict: Dictionary }) {
+/** 长文组：组头即折叠 summary（「标题 · N 条」）；≤2 条且短时平铺 */
+function ProseGroup({ gid, title, prose, dict }: { gid: string; title: string; prose: ProseItem[]; dict: Dictionary }) {
   const collapsible = prose.length > COLLAPSE_ITEMS || prose.some((item) => item.text.length > COLLAPSE_CHARS);
   const list = <div className="casext-prose-list">{prose.map((item) => <p key={item.title + item.text.slice(0, 24)}><strong>{item.title}</strong>{item.text}</p>)}</div>;
   if (!collapsible) {
     return (
       <div className="chem-group">
-        <h3 className="chem-group-head">{title}<Tag tone="src">{source}</Tag></h3>
+        <h3 className="chem-group-head">{title}</h3>
         <div className="chem-group-body" id={gid}>{list}</div>
       </div>
     );
   }
   return (
     <details className="chem-group prose-group">
-      <summary className="chem-group-head">{title}<Tag tone="src">{source}</Tag><span className="evidence-meta"> · {dict.chemical.page.itemsCount(prose.length)}</span></summary>
+      <summary className="chem-group-head">{title}<span className="evidence-meta"> · {dict.chemical.page.itemsCount(prose.length)}</span></summary>
       <div className="chem-group-body" id={gid}>{list}</div>
     </details>
   );
@@ -569,7 +553,7 @@ function UpdownTags({ gid, direction, items, dict }: { gid: string; direction: s
 function SupplierList({ gid, items, dict, locale }: { gid: string; items: CasSupplier[]; dict: Dictionary; locale: string }) {
   return (
     <div className="chem-group">
-      <h3 className="chem-group-head">{dict.chemical.casext.suppliers}<Tag tone="src">ChemicalBook</Tag><span className="chem-subhead-note">{new Intl.NumberFormat(locale).format(items.length)} {dict.chemical.casext.supplierUnit}</span></h3>
+      <h3 className="chem-group-head">{dict.chemical.casext.suppliers}<span className="chem-subhead-note">{new Intl.NumberFormat(locale).format(items.length)} {dict.chemical.casext.supplierUnit}</span></h3>
       <div className="chem-group-body supplier-rows" id={gid}>
         {items.map((s, i) => (
           <div key={s.ref} className="supplier-row" {...overProps(i, SUPPLIER_LIMIT)}>
@@ -638,15 +622,6 @@ function pbSectionTitle(key: string, labels: Dictionary): string {
     uses_and_manufacturing: labels.chemical.knowledge.uses,
   };
   return map[key] ?? key;
-}
-
-/** 来源「有数据或在途」才进记录面板（none/unavailable 不展示） */
-function sourceAlive(state: string | null | undefined): boolean {
-  return state === "current" || state === "queued" || state === "stale";
-}
-
-function recordSourceName(key: "pubchem" | "cb" | "dsstox"): string {
-  return key === "pubchem" ? "PubChem" : key === "cb" ? "ChemicalBook" : "DSSTox";
 }
 
 function fmt(value: number | null | undefined, locale: string): string | null {
