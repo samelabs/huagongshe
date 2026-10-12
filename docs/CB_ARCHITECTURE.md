@@ -31,12 +31,13 @@ props: [                          # ChemicalProperties 表，LabelID 配对
   { key, label, text,             # key=canonical英文键, label=页面原文标签, text=原文值
     v?, unit? }                   # 数值化：首数+单位（与 PB exp_props 同口径）
 ]                                 # smiles/inchi/inchikey 不数值化（文本即结构）
-safety: { 原文标签: 原文值 }       # SafetyInformation 表 th/td，键值保原文
+safety: { canonical键: 原文值 }     # SafetyInformation 表 th/td; 键经 _SAFETY_KEY_L10N
+                                 # 归一(语言页本地标签→canonical), 未收录标签保原文; 值保原文
 price: [ { updated, code, name, cas, package, price } ]  # ProductReagentPrice 固定六列
 updown: {                         # 上下游 h3 区
   up, down: [ { name, cb_number? } ]   # cb_number 页面原生给出，必须保留
 }
-prose: [ { title, text } ]        # h3 标题白名单（用途/生产方法/化学性质等 19 个）
+prose: [ { title, text } ]        # h3 标题白名单（五语言 56 个, 由 _PROSE_GROUPED SSOT 派生）
 ```
 
 **不存在的键**（确认死数据/污染源，永不复活）：`basic / aliases / attributes /
@@ -51,7 +52,8 @@ reagent_prices / global_distribution / reagents / 更新日期 / FAQ`。
 - `::_PROSE_TITLES`：prose 标题白名单
 - 数值化 `::_parse_number_from_text`：`'162 °C (lit.)' → (162.0, '°C')`
 
-规则变更 = 改这三张表 + 跑 `/tmp/cpp_real.html` 回归（tests/test_caslib.CppParseTests）。
+规则变更 = 改这三张表 + 跑仓库 fixtures 回归（`tests/fixtures/cpp_*.html`,
+tests/test_caslib.CppParseTests —— 不再用 /tmp 一次性样本页, 2026-09 已入库）。
 
 ## 4. 代码地图（唯一事实源）
 
@@ -65,7 +67,7 @@ reagent_prices / global_distribution / reagents / 更新日期 / FAQ`。
 | 主表补缺/结构三件/CACHE_KEY v4 | `api/services/cb.py`（identity 直取，canonical 键） |
 | 检索镜像摄入 | `api/services/name_index.py`（identity） |
 | MCP 出口 | `api/mcp_server.py::get_chemical_externals` |
-| 前端渲染 | `web/components/CasExternals.tsx`（六分区+形态守卫） |
+| 前端渲染 | `web/app/(site)/chemical/[id]/page.tsx`（统一 semantic detail 投影, CB 六分区经 cb_experimental / cb_prose / cb_safety 等键进入; 投影构建在 `api/services/chemical_semantic.py`） |
 
 `caslib/merge.py` 已删除（CAS 页合并是污染路径）。
 

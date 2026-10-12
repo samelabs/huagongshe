@@ -161,7 +161,11 @@ def start_canonical(runner: Runner, app: str) -> None:
             raise DeployError(f"pm2 start --only {app} 失败: exit={r.returncode}")
         _event("pm2.started", app=app)
     else:
-        r = runner.run([pm2_argv(), "restart", app, "--update-env"])
+        # HGS-PM2-ENV-RELOAD-01: 已存在应用的重启必须带 ecosystem 路径 —
+        # 裸 `restart APP --update-env` 只刷新运行时 env, 不重读 spec,
+        # 改配置/轮换 Token 后新值可能不生效且部署仍报成功。
+        r = runner.run([pm2_argv(), "restart", str(SPEC), "--only", app,
+                        "--update-env"])
         if r.returncode != 0:
             raise DeployError(f"pm2 restart {app} 失败: exit={r.returncode}")
         _event("pm2.restarted", app=app)
@@ -185,10 +189,13 @@ def worker_online(runner: Runner, app: str = "huagongshe-pubchem-worker") -> boo
 
 
 def _worker_identity(jlist_entry: dict) -> tuple | None:
-    """(pid, restart_time 或 restart counter) — 用于稳定性判定。"""
+    """(pm_id, pid) — 用于稳定性判定。
+
+    HGS-WORKER-READY-PID-01: 标准 pm2 jlist 的 pid 在条目顶层, pm2_env 内
+    无此键 —— 旧实现读 pm2_env.pid 恒 None, restart 循环(同 pm_id、顶层
+    pid 每次变)被误判为同一稳定进程。"""
     env = jlist_entry.get("pm2_env", {})
-    pid = env.get("pm_id"), env.get("pid")
-    return pid
+    return env.get("pm_id"), jlist_entry.get("pid")
 
 
 def wait_worker_online(runner: Runner, timeout: float = 60.0,

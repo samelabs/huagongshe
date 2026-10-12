@@ -60,6 +60,25 @@ nginx vhost + TLS + API upstream 整链；非 200 / body 异常 / 网络错误 f
   `RandomizedDelaySec=30m`；非零退出由 systemd 记为 failed。
 - 仓库内不存在第二套 receipt scheduler 定义。
 
+## OAuth credential retention（过期凭证清理，F-06/B5-09）
+
+- 契约：grace **7 天**（过期/撤销后保留短窗供 invalid_grant 归因与故障调查）、
+  batch **10000**、逐批 DELETE + commit、dry-run 支持。
+- 覆盖四表：`oauth_authorization_requests` / `oauth_authorization_codes`
+  按 `expires_at`；`oauth_access_tokens` / `oauth_refresh_tokens` 按
+  `expires_at` 或 `revoked_at`（撤销 ≠ 立即删，同留 grace）。
+- 唯一生产调度：`ops/systemd/huagongshe-oauth-prune@<deployment-user>.timer`
+  （与 receipt prune 同口径：daily + `Persistent=true` +
+  `RandomizedDelaySec=30m`，非零退出记 failed）。
+
+## skill tombstone retention（删除残留清扫，P2c）
+
+- 契约：grace **7 天**（补偿中的新鲜 tombstone 不动），只扫 skill_root 下一层
+  `.deleted-*` 目录，dry-run 支持，FS 错误非零退出。
+- 唯一生产调度：`ops/systemd/huagongshe-skill-tombstone-sweep@<deployment-user>.timer`
+  （与 receipt/oauth prune 同口径：daily + `Persistent=true` +
+  `RandomizedDelaySec=30m`）。
+
 ## nginx（一次性）
 
 从 generation 拓扑迁回固定 upstream（幂等，日常发布不调用）：

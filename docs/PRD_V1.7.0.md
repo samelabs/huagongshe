@@ -87,13 +87,14 @@ Independent files:
 
 `services.notes` is transport-neutral.
 
-v1.7.0 HTTP surface:
+v1.7.0 HTTP surface（8 个端点; HGS-A5-05 勘误: 此前漏记公开用户笔记端点）:
 
 - POST /api/notes
 - GET /api/notes/{note_id}
 - PUT /api/notes/{note_id}
 - DELETE /api/notes/{note_id}
 - GET /api/users/me/notes
+- GET /api/users/{username}/notes （公开主页笔记列表, 仅 active 用户的公开+visible 笔记）
 - GET /api/chemicals/{chemical_id}/notes
 - GET /api/reactions/{reaction_id}/notes
 
