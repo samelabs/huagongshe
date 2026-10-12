@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test:locale": "tsx --test lib/localePath.test.mjs lib/languageSwitcher.test.mjs lib/proxy.test.mjs lib/runtimeI18n.test.mjs lib/alternates.test.mjs lib/hcidTemplate.test.mjs",
-    "test:unit": "node --test --experimental-strip-types lib/govSeverity.test.mjs \"app/api/reactions/[id]/svg/[dims]/route.test.mjs\""
+    "test:unit": "node --test --experimental-strip-types lib/govSeverity.test.mjs lib/profileMerge.test.mjs \"app/api/reactions/[id]/svg/[dims]/route.test.mjs\""
   },
   "dependencies": {
     "next": "16.2.10",

@@ -51,7 +51,8 @@ CID_A6 = 990001555        # A6
 CAS = "99998-77-7"
 IK_ETHANOL = "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"   # RDKit MolToInchiKey('CCO')
 IK_OTHER = "BSYNRYMUTXBXSQ-UHFFFAOYSA-N"     # 阿司匹林 —— 与乙醇必然不同
-IKS = (IK_ETHANOL, IK_OTHER)
+IK_METHANOL = "OKKJLVBELUTLKV-UHFFFAOYSA-N"  # RDKit MolToInchiKey('CO')
+IKS = (IK_ETHANOL, IK_OTHER, IK_METHANOL)
 
 
 def _rxn(cas: str) -> str:
@@ -580,6 +581,87 @@ class A4CbSourceTests(CxCandidatesBase):
             ), {"ik": IK_ETHANOL})).scalar()
         self.assertEqual(int(n), 1,
                          "CAS 回调双 miss 建出幽灵行(HGS-CB-STRUCT-03), 实际行数: %d" % n)
+
+
+# ── ZX: CB 回调结构写入(CONFLICT + IK 相异才拒写) ────────────────────────────
+
+class CbCallbackStructureConflictTests(CxCandidatesBase):
+    """ZX: resolver CONFLICT 且载荷 IK ≠ 行已有 IK → 跳过 apply_structure_fill
+    (只补空也会把 smiles/mol/指纹写成异物); 其余路径(无 CID 但结构一致的
+    正常补全)照旧填 IK。"""
+
+    async def _leased_job(self, chemical_id: int, tag: str) -> tuple[int, str]:
+        from sqlalchemy import text
+        from api.services.workqueue import lease_hash
+
+        token = f"tok-{RUN}-zx-{tag}-" + "x" * 32
+        async with self.Session() as db:
+            jid = (await db.execute(text("""
+                INSERT INTO maintenance.cas_jobs
+                  (chemical_id, cas_number, status, dedupe_key,
+                   lease_owner, lease_token_hash, lease_expires_at)
+                VALUES (:cid, :cas, 'leased', :dk, :wid, :th,
+                        now() + interval '10 minutes')
+                RETURNING id
+            """), {"cid": chemical_id, "cas": CAS,
+                   "dk": f"cx-{RUN}-zx-{tag}",
+                   "wid": WORKER, "th": lease_hash(token)})).scalar()
+            await db.commit()
+        self.made_jobs.append(int(jid))
+        return int(jid), token
+
+    async def _complete(self, job_id: int, token: str, entry: dict) -> None:
+        from api.schemas.workapi import CasResultBody
+        from api.services.workapi_jobs import complete_cas_job
+
+        payload = CasResultBody(status="ok", entry=entry, suppliers=[],
+                                cb_number="99000009", locale="zh-CN")
+        async with self.Session() as db:
+            await complete_cas_job(db, job_id=job_id, worker_id=WORKER,
+                                   lease_token=token, result=payload)
+
+    async def _structure_state(self, chemical_id: int) -> dict:
+        from sqlalchemy import text
+        async with self.Session() as db:
+            r = (await db.execute(text("""
+                SELECT inchikey, smiles, (mol IS NOT NULL) AS has_mol,
+                       (morgan_bfp IS NOT NULL) AS has_bfp, updated_at
+                FROM chemistry.chemicals WHERE id=:id
+            """), {"id": chemical_id})).mappings().first()
+        return dict(r) if r else {}
+
+    async def test_conflict_divergent_ik_zero_structure_change(self):
+        """甲醇 IK 行遇乙醇载荷: resolver CONFLICT(cas-unique-ik-conflict),
+        主表结构零变动(只补空也不写 smiles/mol/指纹)。"""
+        chem = await self._chemical(ik=IK_METHANOL, cas=CAS, mol_smiles="CO",
+                                    fingerprints=True)
+        before = await self._structure_state(chem)
+        jid, token = await self._leased_job(chem, "meoh")
+        ethanol_entry = {"props": [
+            {"key": "smiles", "text": "CCO"},
+            {"key": "inchikey", "text": IK_ETHANOL},
+        ]}
+        await self._complete(jid, token, ethanol_entry)
+        after = await self._structure_state(chem)
+        for key in ("inchikey", "smiles", "has_mol", "has_bfp"):
+            self.assertEqual(after[key], before[key],
+                             f"CONFLICT+异 IK 载荷不得改动主表结构: {key}")
+        self.assertEqual(after["inchikey"], IK_METHANOL)
+        self.assertEqual(after["smiles"], "CO")
+
+    async def test_no_cid_consistent_structure_still_fills_ik(self):
+        """R01 路径: 行无 CID、无 IK, 载荷结构一致(cas-unique-hit EQUIVALENT)
+        — 照常补出 IK。"""
+        chem = await self._chemical(cas=CAS)  # 无 ik、无 cid、无 mol
+        jid, token = await self._leased_job(chem, "r01")
+        entry = {"props": [
+            {"key": "smiles", "text": "CCO"},
+            {"key": "inchikey", "text": IK_ETHANOL},
+        ]}
+        await self._complete(jid, token, entry)
+        after = await self._structure_state(chem)
+        self.assertEqual(after["inchikey"], IK_ETHANOL,
+                         "无 CID 但结构一致的正常补全必须照常回填 IK")
 
 
 # ── A5 B1-02 / B1-03 ────────────────────────────────────────────────────────

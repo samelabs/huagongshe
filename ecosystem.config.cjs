@@ -41,11 +41,9 @@ module.exports = {
       name: "huagongshe",
       cwd: "/var/www/huagongshe/web",
       script: "/usr/bin/npx",
-      // HGS-A5-01: 绑回 127.0.0.1(与 DEPLOYMENT.md 固定端口口径一致, 不暴露
-      // 0.0.0.0)。历史 redirect loop 的根因是 locale proxy 307 的绝对 URL 取
-      // request.url — 绑定地址渗入 Location; proxy.ts 现已显式用
-      // x-forwarded-host/host + x-forwarded-proto 构建跳转目标, 与绑定地址解耦。
-      args: "next start -H 127.0.0.1 -p 3001",
+      // Next 16 locale proxy/rewrite 在 -H 127.0.0.1 绑定下生产复现 redirect loop(五语言首页 500);
+      // 改用 Next 默认 hostname 后生产五语言路由正常。nginx upstream 仍为 127.0.0.1:3001。
+      args: "next start -p 3001",
       interpreter: "none",
       env: {
         NODE_ENV: "production",

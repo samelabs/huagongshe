@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
 import { apiGet, apiPatch, ApiError } from "@/lib/api";
+import { mergeLateProfile, type ProfileFields } from "@/lib/profileMerge";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Button } from "@/components/ui/Button";
@@ -11,16 +12,7 @@ import { Field, Input, Textarea } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { useToast } from "@/components/ui/Toast";
 
-type Profile = {
-  display_name: string;
-  bio: string;
-  email: string;
-  location: string;
-  institution: string;
-  title: string;
-  website: string;
-  orcid: string;
-};
+type Profile = ProfileFields;
 
 const EMPTY: Profile = {
   display_name: "", bio: "", email: "", location: "",
@@ -35,8 +27,9 @@ export function ProfileSettings() {
   const toast = useToast();
   const { user, ready, refresh } = useAccount();
   const [profile, setProfile] = useState<Profile>(EMPTY);
-  /** FX-6b（SMK-016）：用户编辑过任何字段后，迟到的 GET 初值不再回填 */
-  const touchedRef = useRef(false);
+  /** ZX（迟到 GET 按字段合并, 原 FX-6b/SMK-016 整体丢弃）：只记录用户
+   *  改过的字段 —— GET 返回时这些字段保留当前输入, 未改字段回填服务端值 */
+  const touchedRef = useRef<Set<keyof Profile>>(new Set());
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof Profile, string>>>({});
   const [busy, setBusy] = useState(false);
 
@@ -44,17 +37,8 @@ export function ProfileSettings() {
     if (!user) return;
     let active = true;
     apiGet<Record<string, string>>(`/users/${encodeURIComponent(user.username)}`).then((value) => {
-      if (!active || touchedRef.current) return;
-      setProfile({
-        display_name: value.display_name || "",
-        bio: value.bio || "",
-        email: value.email || "",
-        location: value.location || "",
-        institution: value.institution || "",
-        title: value.title || "",
-        website: value.website || "",
-        orcid: value.orcid || "",
-      });
+      if (!active) return;
+      setProfile((prev) => mergeLateProfile(prev, value, touchedRef.current));
     }).catch(() => {});
     return () => { active = false; };
   }, [user]);
@@ -63,7 +47,7 @@ export function ProfileSettings() {
   if (!user) return <LoginRequired text={t.settings.profile.loginHint} />;
 
   function update(field: keyof Profile, value: string) {
-    touchedRef.current = true;
+    touchedRef.current.add(field);
     setProfile((prev) => ({ ...prev, [field]: value }));
     setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
   }

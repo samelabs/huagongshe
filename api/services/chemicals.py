@@ -634,7 +634,7 @@ async def get_chemical_detail(
     priority: int,
     enrich: str = ENRICH_CANONICAL,
     locale: str | None = None,
-    allow_cb_enqueue: bool = True,
+    pb_display_limit: bool = False,
 ) -> dict[str, Any]:
     """返回 canonical business detail(E9-B 合流后唯一公开能力)。
 
@@ -651,11 +651,11 @@ async def get_chemical_detail(
     locale(2026-10 CB locale 读取): 只作用于 CB 行选择(services/cb
     get_externals_row); 未指定/非法 → en。PB/suppliers 不受 locale 影响;
     MCP 不传 locale, 因此默认得到 en。
-    allow_cb_enqueue(v1.7 B1): CB 入队策略开关。True(默认)= 原有行为
-    (MCP full 陈旧刷新照旧); False = REST 网页详情只读收口 — 任何
-    fresh/negative/absent/stale 分支都不得 enqueue_cas_job/同步抓取/
-    CB 任务写入; stale 分支出旧数据但状态报 stale(不虚报 queued)。
-    无 CB 行(absent)恒不首次入队。PB queued 不受此开关影响。
+    pb_display_limit: PB 证据页面级限幅(display_details, 12 entries/
+    6 values)。False(默认)= 完整证据(MCP full 口径); REST 网页展示
+    adapter 传 True 保持页面截断。CB 刷新入队为 1.6 语义: stale(有行)
+    入队刷新且任务携带所选行 source_cb_number(lease 寻址同一来源);
+    absent(无 CB 行)恒不首次入队。
     """
     enrich = normalize_enrich(enrich)
     _frozen_enrich(enrich)
@@ -723,24 +723,20 @@ async def get_chemical_detail(
                     cb_suppliers = await cb_module.get_suppliers(db, chemical_id)
                     cb_raw_state = "fresh"
                 elif decision in ("enqueue_refresh", "enqueue_first"):
-                    # 与旧 /externals stale 路径同语义: 出旧数据 + 入列
+                    # 与旧 /externals stale 路径同语义: 出旧数据 + 入列。
+                    # ZX(恢复 1.6): 网页详情访问同样入队刷新; 任务带所选行
+                    # cb_number(0907 source grain) — lease 寻址同一来源,
+                    # 不回落 imprint 主行。absent(cb_row=None)不进本分支,
+                    # 恒不首次采集。
                     cb_entry = cb_row.get("entry")
-                    if decision == "enqueue_refresh" and allow_cb_enqueue:
+                    if decision == "enqueue_refresh":
                         await cb_module.enqueue_cas_job(
                             db, chemical_id=chemical_id, cas_number=cas_number,
                             priority=40, locale=selected_locale,
-                            request_context={"reason": "stale_refresh"})
+                            request_context={"reason": "stale_refresh"},
+                            source_cb_number=cb_row.get("cb_number"))
                         await db.commit()
-                        cb_raw_state = "queued"
-                    elif allow_cb_enqueue:
-                        # enqueue_first(行 grain 错配/状态未知防御): 原有语义
-                        # 不变 — 出旧数据标 queued, 本就不入队。
-                        cb_raw_state = "queued"
-                    else:
-                        # v1.7 B1: REST 详情(allow_cb_enqueue=False)只读收口
-                        # — 陈旧数据照常展示, 状态如实报 stale, 绝不虚报
-                        # queued, 绝不 enqueue_cas_job/CB 任务写入。
-                        cb_raw_state = "stale"
+                    cb_raw_state = "queued"
                 else:  # skip: 多语言前置缺 cb_number — zh 主行不可达, 防御
                     cb_raw_state, cb_applicable = "no_cas", False
     except Exception:  # noqa: BLE001 — CB 失败不炸 canonical, 标 unavailable
@@ -755,12 +751,14 @@ async def get_chemical_detail(
     )
     pb_norm = normalize_source_state(pb_raw_state)
     cb_norm = normalize_source_state(cb_raw_state)
-    # HGS-A2-02: 详情限幅投影接回唯一真实消费路径 —— PB 证据块进语义详情前
-    # 统一过 display_details(12 entries/6 values 的页面级上限), 限幅不再
-    # 只是零调用方的死函数/docstring 虚称。存储证据树不受影响(投影不改源)。
+    # HGS-A2-02 → ZX: display_details(12 entries/6 values)是网页展示的
+    # 页面级投影, 不再无差别套在共享路径上 —— 默认完整证据(MCP full);
+    # REST 网页展示 adapter 传 pb_display_limit=True 保持原截断口径。
+    # 存储证据树不受影响(投影不改源)。
     from .enrichment import display_details
+    pb_detail = display_details(details) if pb_display_limit else details
     result["details"] = build_semantic_detail(
-        display_details(details), cb_entry, cb_suppliers,
+        pb_detail, cb_entry, cb_suppliers,
         {"state": pb_norm, "fetched_at": (details or {}).get("fetched_at"),
          "job_id": job_id},
         {"state": cb_norm, "applicable": cb_applicable},

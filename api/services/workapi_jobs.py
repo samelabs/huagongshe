@@ -660,7 +660,24 @@ async def complete_cas_job(
             # 结构三件只补空: 无结构行靠 CB mol 回填出图;
             # cid 在的行 PubChem 早填过(coalesce no-op)。
             if chemical_id is not None:
-                await apply_structure_fill(db, chemical_id, structure)
+                # ZX: resolver CONFLICT 且载荷 IK 与该行已有 IK 不同 →
+                # 载荷结构与本行不是同一分子 — 即使只补空, smiles/mol/
+                # 指纹也会被写成异物(主表宁缺勿错), 跳过 fill 并留痕。
+                # 其余路径(merge blocked/AMBIGUOUS/无 CID 但结构一致的
+                # 正常补全)行为不变。
+                payload_ik = structure.get("inchikey")
+                row_ik = (await db.execute(text("""
+                    SELECT inchikey FROM chemistry.chemicals WHERE id=:id
+                """), {"id": chemical_id})).scalar()
+                if (res.status == "CONFLICT" and payload_ik
+                        and row_ik and payload_ik != row_ik):
+                    logger.warning(
+                        "cb_structure_fill_skipped chemical_id=%s "
+                        "payload_ik=%s row_ik=%s — resolver CONFLICT with "
+                        "divergent inchikey, structure write refused",
+                        chemical_id, payload_ik, row_ik)
+                else:
+                    await apply_structure_fill(db, chemical_id, structure)
         try:
             await upsert_externals(
                 db, chemical_id=chemical_id, cas_number=cas_number,

@@ -123,10 +123,10 @@ async def chemical_detail(
             priority=80 if actor is not None else 50,
             enrich=normalize_enrich(enrich),
             locale=locale,
-            # v1.7 B1: 网页详情只读收口 — REST full 绝不触发 CB 刷新/首次
-            # 入队; 陈旧 CB 数据照常展示(状态 stale)。MCP full 不走本
-            # adapter, 保留既有 CB 刷新能力。
-            allow_cb_enqueue=False,
+            # ZX: 网页展示保持页面级证据截断(12 entries/6 values; 限幅投影
+            # 在 service 层完成)。CB 刷新入队已恢复 1.6 语义(service
+            # 默认), 与 MCP full 一致 —— 本 adapter 不再传只读开关。
+            pb_display_limit=True,
         )
     except ChemicalNotFoundError as exc:
         raise HTTPException(404, "化合物不存在") from exc

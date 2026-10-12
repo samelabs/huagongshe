@@ -167,5 +167,41 @@ class OAuthContractTests(unittest.TestCase):
         self.assertIsNone(raised.exception.redirect_uri)
 
 
+class OAuthRegisterRateLimitTests(unittest.TestCase):
+    """注册限流(ZX): 只保留全站共享桶, 无 client_name/IP 维度分桶。
+
+    事故口径: client_name 桶让所有同名客户端(如 ChatGPT)共享 10 次/小时;
+    IP 桶经 Next 代理转发后全站只有一个来源 IP。两桶已删, 仅
+    enforce_http("oauth-register","global",120,3600) 一道。
+    """
+
+    def test_register_consumes_single_global_bucket_only(self):
+        import api.oauth as oauth_adapter
+
+        calls: list[tuple] = []
+
+        async def fake_enforce(*args):
+            calls.append(args)
+
+        async def fake_register_client(db, **kwargs):
+            return {"client_id": "cid", "client_secret": "sec"}
+
+        async def go():
+            with patch.object(oauth_adapter, "enforce_http", fake_enforce), \
+                 patch.object(oauth_adapter.svc, "register_client",
+                              fake_register_client):
+                return await oauth_adapter.register(
+                    {"client_name": "ChatGPT",
+                     "redirect_uris": ["https://chatgpt.com/callback"],
+                     "token_endpoint_auth_method": "none"},
+                    None, None)
+
+        response = asyncio.run(go())
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(
+            calls, [("oauth-register", "global", 120, 3600)],
+            "注册只应走全站共享桶, 不得再按 client_name/IP 分桶")
+
+
 if __name__ == "__main__":
     unittest.main()
