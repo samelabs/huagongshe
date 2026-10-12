@@ -3,9 +3,36 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
-## [1.7.0] — 2026-10-07
+## [1.7.0] — 2026-10-12
 
-Notes 用户笔记、MCP OAuth 身份层、OpenAI Plugin 提交包与 agent-facing 契约收口。
+Notes 用户笔记、MCP OAuth 身份层、OpenAI Plugin 提交包与 agent-facing 契约收口；HGS 视觉体系（DESIGN_SYSTEM v1.0）全站落地；上线审计问题清零。
+
+**HGS 视觉体系（DESIGN_SYSTEM v1.0）**
+- 单一 token 源 + `components/ui` 组件库，全站（含工作台、设置、管理端、错误/404 页）统一迁移，旧类名与样式定义删除
+- 全局顶栏 + 手机底部 4 tab；实体页、搜索、工作台、公开主页、文档/法务/登录/设置页按 §9 重做
+- 交互规范 IX-1~12 落地：ConfirmDialog 二次确认、乐观更新 + Toast 撤销、笔记未保存拦截（含后退/前进与保存中切换）、慢加载提示
+- 契约测试新增组件层禁止项（§11 规则 9–11）；运行时视觉门禁（字号/圆角/触控 ≥44/横向溢出）纳入验收
+
+**安全**
+- AI Key 明文不再落库、不再回传：创建时只显示一次，列表仅返回元数据；鉴权仍按哈希
+- 管理员停用账号同事务撤销 OAuth 授权请求、code、access、refresh 凭证；refresh 与 code 兑换前复核账号状态
+- 停用账号主页展示停用态，其公开内容保留可见并标注「已停用」
+- CSP（report-only）、笔记写入限流与存量上限、OAuth 注册分维度限流、OAuth 过期凭证定期清理
+
+**化学数据完整性**
+- PubChem 回补：以已验证的 query binding 回写主表 `pubchem_cid`；同可信 CID 的 IK 差异照写事实并记录溯源，任务状态如实
+- 同 CID 合并：主表核心字段补空迁移、反应计量与 PB 证据不丢失，冲突写入 merge_log；≥3 行同 CID 循环收敛
+- ChemicalBook：多来源供应商分行合并；SMILES / InChIKey / MOL 交叉校验；仅 SMILES 时推导 InChIKey
+- 恢复 GHS 危险性分类在详情（REST / MCP full）中的输出
+- 名称模糊检索按字面量匹配（转义 `%` / `_`）
+
+**运维**
+- worker 依赖补 `aiohttp-socks`，CI 增加 worker 启动导入检查；部署只允许 `npm ci`
+- migration runner 增加 `lock_timeout`；`--dry-run` 不再建表
+
+**数据库 migration**
+- `20261011_01_drop_user_api_tokens_token_plain`：删除 `community.user_api_tokens.token_plain` 列（不可逆，存量 Key 继续有效）
+- 化合物 / 反应主表无 schema 变更
 
 **Notes（用户自有笔记）**
 - 用户自有笔记，可关联 HCID/HRID 引用（每篇合计 ≤20 条），支持公开/私有可见性
