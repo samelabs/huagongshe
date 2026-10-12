@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read
 
+# B5-08: push+PR 双触发的同 SHA 去重 —— 按 ref 分组取消被取代的旧 run
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   core:
     runs-on: ubuntu-24.04
@@ -33,6 +38,7 @@ jobs:
             tests.test_db_gate \
             tests.test_security \
             tests.test_worker \
+            tests.test_whole_record \
             tests.test_locale_payload_cb \
             tests.test_cb_mol \
             tests.test_caslib \
@@ -62,6 +68,12 @@ jobs:
       - name: Type-check frontend
         working-directory: web
         run: npx tsc --noEmit
+
+      - name: Web unit tests (node:test, strip-types)
+        # N-01/B5-02: 此前 7 个 *.test.mjs 只有 5 个进 CI(govSeverity 与
+        # 反应 SVG 路由测试无执行入口) —— 全量进 CI。
+        working-directory: web
+        run: npm run test:unit
 
       - name: Locale runtime behavior tests (tsx, real TS SUT)
         # v1.6.0 门禁: locale redirect/rewrite proxy 契约(malformed cookie)、

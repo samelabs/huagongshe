@@ -1113,9 +1113,11 @@ class GateCoverageTests(IdentityResolutionTests):
                 n = (await db.execute(text(
                     "SELECT count(*) FROM chemistry.chemicals WHERE pubchem_cid=:c"),
                     {"c": CID_A})).scalar()
-                return out, n
-        out, n = self._run(go())
-        self.assertEqual(out, out)  # id 返回
+                return rid, out, n
+        rid, out, n = self._run(go())
+        # HGS-A5-07: 原断言 assertEqual(out, out) 恒真 — 改为真实契约:
+        # 行 CID 空 + 新 CID 无他行 → 返回原行 id(不 merge 不建行不跳行)
+        self.assertEqual(out, rid)
         self.assertEqual(n, 0)      # reconcile 不写 CID(sync 已写), 不建行
 
     def test_pubchem_reconcile_absorbs_into_existing_cid_row(self):
