@@ -7,9 +7,11 @@ on:
 permissions:
   contents: read
 
-# B5-08: push+PR 双触发的同 SHA 去重 —— 按 ref 分组取消被取代的旧 run
+# B5-08: push+PR 双触发的同 SHA 去重 —— 按 head SHA 分组(push 与
+# pull_request 事件对同一 commit 共组, 后到的取消先到的), 被取代的旧 run
+# 一并取消
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
