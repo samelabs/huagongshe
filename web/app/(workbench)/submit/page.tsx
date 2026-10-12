@@ -12,7 +12,8 @@ import { TextLink } from "@/components/ui/TextLink";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
-  return { title: t.submit.title };
+  // HGS-A3-02: 与 /aichem 一致的边界 — 个人工作流页面不进索引(匿名 307 已缓解, 纯 SEO 卫生)
+  return { title: t.submit.title, robots: { index: false, follow: false } };
 }
 
 async function getUser(cookieHeader: string | null): Promise<User | null> {

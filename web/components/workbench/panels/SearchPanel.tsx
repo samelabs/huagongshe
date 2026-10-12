@@ -35,6 +35,9 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
   const [hasMore, setHasMore] = useState(false);
   const [state, setState] = useState<LoadState>(initialQuery ? "loading" : "idle");
   const [submitted, setSubmitted] = useState(!!initialQuery);
+  // HGS-WB-SEARCH-DRAFT-01: 「查看更多」与重试必须绑定已提交的查询 ——
+  // 用输入框的当前值会在用户改草稿后把结果页带到另一个查询。
+  const [submittedQuery, setSubmittedQuery] = useState(initialQuery ?? "");
   const [error, setError] = useState<unknown>(null);
   const latestRequest = useRef(0);
 
@@ -42,6 +45,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
     const trimmed = q.trim();
     if (!trimmed) return;
     setSubmitted(true);
+    setSubmittedQuery(trimmed);
     setState("loading");
     setError(null);
     // Drop stale responses: only the newest request may commit results.
@@ -109,7 +113,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
           <div className="wb-skeleton-list" aria-hidden="true">
             {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} variant="card" />)}
           </div>
-          <SlowNotice active onRetry={() => doSearch(query, mode)} />
+          <SlowNotice active onRetry={() => doSearch(submittedQuery, mode)} />
         </>
       )}
       {submitted && state === "error" && (
@@ -152,9 +156,10 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
         </div>
       )}
 
-      {/* 更多结果跳主站搜索页: 只认 API has_more(名称搜索 total 恒 null) */}
+      {/* 更多结果跳主站搜索页: 只认 API has_more(名称搜索 total 恒 null)；
+          链接绑定已提交的查询(HGS-WB-SEARCH-DRAFT-01), 不随输入草稿漂移 */}
       {submitted && state === "ready" && hasMore && (
-        <Link className="wb-home-more-search" href={withLocale(`/search?q=${encodeURIComponent(query)}&mode=${mode}`, locale)}>
+        <Link className="wb-home-more-search" href={withLocale(`/search?q=${encodeURIComponent(submittedQuery)}&mode=${mode}`, locale)}>
           {t.me.homeViewAll}{total != null ? ` (${total})` : ""}
         </Link>
       )}

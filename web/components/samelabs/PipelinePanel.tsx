@@ -135,7 +135,9 @@ function LatestTable({ rows, chain }: { rows: LatestRow[]; chain: string }) {
 function ErrorRow({ block, onRevive, reviving, reviveNote }: {
   block: ChainBlock; onRevive: () => void; reviving: boolean; reviveNote: string | null;
 }) {
-  const total = Object.values(block.error_buckets).reduce((a, b) => a + b, 0);
+  /* HGS-PIPE-REVIVE-COUNT-01: 真实行数 = queue.error(status 计数);
+     error_buckets 只是 Top10 诊断分桶, >10 类时求和会低报。 */
+  const total = block.queue.error;
   return (
     <div className="pipe-error-row">
       <span className={total > 0 ? "pipe-err" : "pipe-ok"}>{total > 0 ? `error ${fmt(total)}` : "error 0"}</span>
@@ -371,7 +373,7 @@ export function SamelabsPipeline() {
     {/* 复活确认对话框(轻量, 不引状态库) */}
     {confirmChain && (() => {
       const block = confirmChain === "cb" ? data.cb : data.pb;
-      const n = Object.values(block.error_buckets).reduce((a, b) => a + b, 0);
+      const n = block.queue.error;
       return (
         <div className="pipe-confirm" role="alertdialog" aria-modal>
           <div className="pipe-confirm-box">
