@@ -261,10 +261,10 @@ class LoopLocalRedisMixin:
 
         self._own_pool = redis.ConnectionPool.from_url(
             os.environ["HGS_REDIS_URL"], decode_responses=True)
-        self._pools = (cache_module, rate_limit)
-        self._orig_pools = tuple(module.pool for module in self._pools)
-        for module in self._pools:
-            module.pool = self._own_pool
+        # current_pool() 后消费统一走 cache 模块属性 —— patch 单点化
+        self._cache_module = cache_module
+        self._orig_current_pool = cache_module.current_pool
+        cache_module.current_pool = lambda: self._own_pool
 
     async def _wipe_limits(self, bucket: str) -> None:
         """清掉本用例要用的 lease/rate 键 — 测试共用 Redis DB, 残留的
@@ -278,8 +278,7 @@ class LoopLocalRedisMixin:
         await client.aclose()
 
     async def _release_own_redis_pool(self):
-        for module, original in zip(self._pools, self._orig_pools):
-            module.pool = original
+        self._cache_module.current_pool = self._orig_current_pool
         await self._own_pool.disconnect()
 
 
@@ -686,36 +685,39 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
         from api.core.rate_limit import LimiterUnavailable
 
         broken = self._broken_pool()
-        original = rate_limit.pool
-        rate_limit.pool = broken
+        from api.core import cache as cache_module
+        original = cache_module.current_pool
+        cache_module.current_pool = lambda: broken
         try:
             with self.assertRaises(LimiterUnavailable) as ctx:
                 await rate_limit.acquire_lease(self.BUCKET, "global", 4)
         finally:
-            rate_limit.pool = original
+            cache_module.current_pool = original
             await broken.disconnect()
 
     async def test_structure_enter_fails_closed(self):
         from api.core.rate_limit import LimiterUnavailable
 
         broken = self._broken_pool()
-        original = rate_limit.pool
-        rate_limit.pool = broken
+        from api.core import cache as cache_module
+        original = cache_module.current_pool
+        cache_module.current_pool = lambda: broken
         try:
             with self.assertRaises(LimiterUnavailable) as ctx:
                 await rate_limit.structure_enter(1, bucket=self.BUCKET)
         finally:
-            rate_limit.pool = original
+            cache_module.current_pool = original
             await broken.disconnect()
 
     async def test_release_tolerates_redis_failure(self):
         broken = self._broken_pool()
-        original = rate_limit.pool
-        rate_limit.pool = broken
+        from api.core import cache as cache_module
+        original = cache_module.current_pool
+        cache_module.current_pool = lambda: broken
         try:
             await rate_limit.release_lease(self.BUCKET, "global")   # 不得抛
         finally:
-            rate_limit.pool = original
+            cache_module.current_pool = original
             await broken.disconnect()
 
     async def test_route_returns_503_and_never_calls_service(self):
@@ -737,8 +739,9 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
             id=88, username="fc", display_name="fc", email="fc@example.com",
             role="user", avatar_path=None, auth_kind="test")
         broken = self._broken_pool()
-        original_pool = rate_limit.pool
-        rate_limit.pool = broken
+        from api.core import cache as cache_module
+        original_pool = cache_module.current_pool
+        cache_module.current_pool = lambda: broken
         try:
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=fastapi_app), base_url="http://test"
@@ -747,7 +750,7 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
             self.assertEqual(response.status_code, 503)
             self.assertEqual(calls, [], "Redis 故障时仍进入了结构查询")
         finally:
-            rate_limit.pool = original_pool
+            cache_module.current_pool = original_pool
             await broken.disconnect()
             search_service.run_search_query = original_service
             fastapi_app.dependency_overrides.clear()

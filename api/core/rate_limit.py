@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 import redis.asyncio as redis
 
-from .cache import current_pool
+from . import cache as _cache
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ def is_loopback_host(host: str | None) -> bool:
 async def consume(bucket: str, identity: str, limit: int, window_seconds: int) -> tuple[int, int, bool]:
     window = int(time.time()) // window_seconds
     key = f"rate:{bucket}:{identity}:{window}"
-    client = redis.Redis(connection_pool=current_pool())
+    client = redis.Redis(connection_pool=_cache.current_pool())
     async with client.pipeline(transaction=True) as pipeline:
         pipeline.incr(key)
         pipeline.expire(key, window_seconds + 2)
@@ -122,7 +122,7 @@ async def acquire_lease(bucket: str, identity: str, limit: int,
     busy(已满)仍返回 False, 不抛异常。
     """
     key = f"lease:{bucket}:{identity}"
-    client = redis.Redis(connection_pool=current_pool())
+    client = redis.Redis(connection_pool=_cache.current_pool())
     try:
         ok, _ = await client.eval(_ACQUIRE_LEASE, 1, key, limit, ttl_seconds * 1000)
     except Exception as exc:
@@ -135,7 +135,7 @@ async def acquire_lease(bucket: str, identity: str, limit: int,
 async def release_lease(bucket: str, identity: str) -> None:
     """释放租约(查询结束 finally 必调)。失败只记日志 — TTL 会自愈。"""
     key = f"lease:{bucket}:{identity}"
-    client = redis.Redis(connection_pool=current_pool())
+    client = redis.Redis(connection_pool=_cache.current_pool())
     try:
         await client.eval(_RELEASE_LEASE, 1, key)
     except Exception:
