@@ -45,6 +45,7 @@ def _row(**over):
         "category": "chem", "origin": "user", "visibility": "public",
         "has_scripts": False, "file_count": 3, "size_bytes": 100,
         "updated_at": "2026-01-01", "username": "u1", "display_name": "U1",
+        "owner_active": True,  # HGS-ACCOUNT-CONTENT-01: 停用作者标记
     }
     base.update(over)
     return base
@@ -161,7 +162,7 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
              "updated_at", "owner"])
         self.assertEqual(item["size_bytes"], 512)  # int() 转换保留
         self.assertEqual(item["owner"], {"username": "alice",
-                                         "display_name": "Alice"})
+                                         "display_name": "Alice", "active": True})
 
     async def test_count_and_response_shape(self):
         db = _FakeDB(total=12, rows=[_row()])

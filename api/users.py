@@ -382,9 +382,12 @@ async def revoke_token(token_id: int, actor: Actor = Depends(current_session), d
 @router.get("/{username}")
 async def public_profile(username: str, actor: Actor | None = Depends(public_or_actor), db=Depends(get_db)):
     viewer_id = actor.id if actor else 0
+    # HGS-ACCOUNT-CONTENT-01（PM 裁定 2026-10-12）: 停用账号主页不再 404 ——
+    # 返回停用态最小档案(is_active=false), 前端渲染停用态卡片(无关注/分享/
+    # 内容列表); 公开内容在各自详情页保留可见并带「已停用」标记。
     row = (await db.execute(text("""
         SELECT u.id,u.username,u.display_name,u.bio,u.avatar_path,u.created_at,
-          u.location,u.institution,u.title,u.website,u.orcid,u.email,
+          u.location,u.institution,u.title,u.website,u.orcid,u.email,u.status,
           (SELECT count(*) FROM community.user_follows WHERE followed_user_id=u.id),
           (SELECT count(*) FROM community.user_follows WHERE follower_user_id=u.id),
           (SELECT count(*) FROM chemistry.reactions
@@ -393,19 +396,27 @@ async def public_profile(username: str, actor: Actor | None = Depends(public_or_
                  WHERE follower_user_id=:viewer AND followed_user_id=u.id),
           EXISTS(SELECT 1 FROM community.user_follows
                  WHERE follower_user_id=u.id AND followed_user_id=:viewer)
-        FROM community.users u WHERE lower(u.username)=lower(:username) AND u.status='active'
+        FROM community.users u WHERE lower(u.username)=lower(:username)
     """), {"username": username, "viewer": viewer_id})).fetchone()
     if not row:
         raise HTTPException(404, "用户不存在")
+    if row[12] != "active":
+        # 停用态: 只暴露状态卡所需的最小字段(不泄露 bio/机构/邮箱等资料)
+        return {
+            "id": row[0], "username": row[1], "display_name": row[2],
+            "avatar_url": row[4], "created_at": row[5],
+            "is_active": False,
+        }
     return {
         "id": row[0], "username": row[1], "display_name": row[2], "bio": row[3],
         "avatar_url": row[4], "created_at": row[5],
         "location": row[6], "institution": row[7], "title": row[8],
         "website": row[9], "orcid": row[10],
-        "followers": row[12], "following": row[13], "public_reactions": row[14],
-        "is_following": row[15],
-        "is_followed_by": bool(row[16]) if viewer_id else False,
-        "is_mutual": bool(row[15] and row[16]) if viewer_id else False,
+        "is_active": True,
+        "followers": row[13], "following": row[14], "public_reactions": row[15],
+        "is_following": row[16],
+        "is_followed_by": bool(row[17]) if viewer_id else False,
+        "is_mutual": bool(row[16] and row[17]) if viewer_id else False,
         "is_me": bool(actor and row[0] == actor.id),
         # Email is private: only the profile owner's own view may read it,
         # so the settings form can prefill without a separate endpoint.

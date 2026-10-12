@@ -95,6 +95,8 @@ export default async function NoteDetailPage({ params }: Params) {
           <div className="note-detail-meta">
             <Avatar id={note.owner_user_id} name={authorLine} size={24} />
             <Link href={withLocale(`/user/${encodeURIComponent(note.username)}`, locale)}>{authorLine}</Link>
+            {/* HGS-ACCOUNT-CONTENT-01: 停用作者的公开笔记保留可见，作者名旁带「已停用」 */}
+            {note.owner_active === false && <Tag tone="neutral" dot>{t.user.authorDeactivated}</Tag>}
             <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
             {note.visibility === "public"
               ? <Tag tone="blue">{t.notes.visibilityPublic}</Tag>

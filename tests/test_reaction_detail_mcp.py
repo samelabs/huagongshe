@@ -33,7 +33,8 @@ class _BaseRow:
             "doi", "patent", "url", "citation",            # 20-23
             "note", 55, 66, True,                          # 24-27
             "creator-user", "Creator Name", "/a.png",      # 28-30
-            3, False,                                      # 31-32
+            True,                                          # 31 creator.active
+            3, False,                                      # 32-33
         ]
 
     def __iter__(self):

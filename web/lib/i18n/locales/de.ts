@@ -988,6 +988,11 @@ Wenn du die 化工社-API derzeit nicht aufrufen kannst, gib den Entwurf mit den
     aboutTitle: 'Über',
     institutionLabel: 'Institution',
     joinedLabel: 'Beigetreten',
+    /* HGS-ACCOUNT-CONTENT-01 (PM-Entscheid): deaktivierter Profilzustand (§9.8) + Autorenkennzeichnung */
+    deactivatedTag: 'Konto deaktiviert',
+    deactivatedTitle: 'Dieses Konto ist deaktiviert',
+    deactivatedBody: 'Dieses Konto wurde von der Verwaltung deaktiviert. Öffentliche Reaktionen, Notizen und Skills bleiben über Links erreichbar; hier werden keine Listen angezeigt und das Konto kann nicht gefolgt werden.',
+    authorDeactivated: 'Deaktiviert',
   },
 
   /* ── Admin-Konsole ──────────────────────────────────── */

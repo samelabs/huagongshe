@@ -326,7 +326,9 @@ class FullOrchestrationTests(unittest.TestCase):
             "fetched_at": "2026-09-01T00:00:00+00:00",
         }, cb_row=None, cas=None)
         sections = result["details"]["safety"]["pb_sections"]
-        self.assertEqual(sections.get("ghs_classification"), ghs,
+        # HGS-A2-02: 详情限幅投影(display_details)接回唯一真实消费路径后,
+        # 证据块统一归一为 {entries: …} 渲染形态(与前端 chemicalEvidence 同构)
+        self.assertEqual(sections.get("ghs_classification"), {"entries": ghs},
                          "REST full 丢失 GHS 分类（白名单键名回归？）")
 
 

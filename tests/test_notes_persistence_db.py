@@ -274,11 +274,13 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
             """), {"id": self.owner})
             await db.commit()
 
-            hidden = await svc.list_entity_notes(
+            # HGS-ACCOUNT-CONTENT-01（PM 裁定 2026-10-12）: 停用作者的公开
+            # 笔记保留可见(不再是 0), owner_active=False 供前端渲染「已停用」。
+            kept = await svc.list_entity_notes(
                 db, entity="chemical", entity_id=self.chemical,
                 page=1, page_size=20)
-            self.assertEqual(hidden["total"], 0)
-            self.assertEqual(hidden["items"], [])
+            self.assertEqual(kept["total"], 1)
+            self.assertEqual(kept["items"][0]["owner_active"], False)
 
     async def test_reaction_delete_removes_reference_not_note(self):
         async with self.Session() as db:

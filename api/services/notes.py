@@ -187,6 +187,11 @@ async def _replace_references(
         """), {"note_id": note_id, "reaction_id": reaction_id})
 
 
+class NoteQuotaExceededError(Exception):
+    """每用户笔记存量达到上限(F-01) — neutral error, adapter 映射 409。"""
+    kind = "note_quota_exceeded"
+
+
 async def create_note(
     db,
     *,
@@ -196,6 +201,18 @@ async def create_note(
     chemical_ids: list[int],
     reaction_ids: list[int],
 ) -> dict[str, Any]:
+    # F-01: 笔记是唯一无预算的敏感写入口 —— 与 reactions/skills 同构的
+    # 双层预算: 写入限流(429, 前端已预留文案) + 每用户存量上限(409)。
+    from ..core.config import settings
+    from ..core.rate_limit import enforce
+    await enforce("note-write-minute", str(actor_id),
+                  settings.api_note_write_limit_per_minute, 60)
+    existing = int((await db.execute(text("""
+        SELECT count(*) FROM community.notes WHERE owner_user_id=:owner
+    """), {"owner": actor_id})).scalar() or 0)
+    if existing >= settings.api_note_max_per_user:
+        raise NoteQuotaExceededError(
+            f"笔记数量已达上限（{settings.api_note_max_per_user} 条）")
     await _validate_references(
         db,
         actor_id=actor_id,
@@ -229,12 +246,15 @@ async def create_note(
 async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
     # G2/P-1: hidden notes 404 for everyone (including the owner); private
     # notes only for the owning session; public+visible notes anonymously.
-    # Inactive owners 404 via the users join.
+    # HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用作者的公开笔记保留可见 ——
+    # 不再经 users join 的 status='active' 过滤, 由 owner_active 标记
+    # 让前端渲染「已停用」; 私有笔记仍实际不可达(停用即撤销全部会话)。
     row = (await db.execute(text("""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
-               n.created_at,n.updated_at,u.username,u.display_name
+               n.created_at,n.updated_at,u.username,u.display_name,
+               (u.status='active') AS owner_active
         FROM community.notes n
-        JOIN community.users u ON u.id=n.owner_user_id AND u.status='active'
+        JOIN community.users u ON u.id=n.owner_user_id
         WHERE n.id=:id
           AND n.moderation_status='visible'
           AND (
@@ -261,6 +281,11 @@ async def update_note(
     # same G2 visibility rule as reads: hidden notes and inactive owners are
     # 404 for everyone, so an update can never commit and only then 404 —
     # and a hidden note can never be mutated back into visibility.
+    # F-01: 编辑限流与创建同桶(不占存量上限)
+    from ..core.config import settings
+    from ..core.rate_limit import enforce
+    await enforce("note-write-minute", str(actor_id),
+                  settings.api_note_write_limit_per_minute, 60)
     current = (await db.execute(text("""
         SELECT n.owner_user_id
         FROM community.notes n
@@ -452,18 +477,20 @@ async def list_entity_notes(
         SELECT count(*)
         FROM community.notes n
         {join}
-        JOIN community.users u
-          ON u.id=n.owner_user_id AND u.status='active'
+        JOIN community.users u ON u.id=n.owner_user_id
         WHERE {predicate}
           AND n.visibility='public'
           AND n.moderation_status='visible'
     """), params)).scalar() or 0)
+    # HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用作者的公开笔记保留可见,
+    # owner_active 供前端渲染「已停用」标记。
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
-               n.created_at,n.updated_at,u.username,u.display_name
+               n.created_at,n.updated_at,u.username,u.display_name,
+               (u.status='active') AS owner_active
         FROM community.notes n
         {join}
-        JOIN community.users u ON u.id=n.owner_user_id AND u.status='active'
+        JOIN community.users u ON u.id=n.owner_user_id
         WHERE {predicate}
           AND n.visibility='public'
           AND n.moderation_status='visible'

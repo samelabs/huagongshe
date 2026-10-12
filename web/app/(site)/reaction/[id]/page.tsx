@@ -271,7 +271,11 @@ export default async function ReactionPage({ params }: {
                   <Link href={withLocale(`/user/${reaction.creator.username}`, locale)}>{reaction.creator.display_name}</Link>
                   <small>@{reaction.creator.username}</small>
                 </div>
-                <CreatorFollow username={reaction.creator.username} loggedIn={hasSession} />
+                {/* HGS-ACCOUNT-CONTENT-01: 停用作者的公开反应保留可见，作者名旁
+                    带「已停用」标记；关注端点本就拒绝停用目标 → 关注按钮不出现 */}
+                {reaction.creator.active === false
+                  ? <Tag tone="neutral" dot>{t.user.authorDeactivated}</Tag>
+                  : <CreatorFollow username={reaction.creator.username} loggedIn={hasSession} />}
               </div>
             </section>
           )}

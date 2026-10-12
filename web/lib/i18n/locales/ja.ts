@@ -985,6 +985,11 @@ const ja: Dictionary = {
     aboutTitle: '概要',
     institutionLabel: '所属機関',
     joinedLabel: '登録日',
+    /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停止アカウントのプロフィール状態（§9.8）と作成者表示 */
+    deactivatedTag: 'アカウント停止中',
+    deactivatedTitle: 'このアカウントは停止されています',
+    deactivatedBody: 'このアカウントは管理者により停止されました。公開済みの反応・ノート・スキルはリンクから引き続き閲覧できますが、ここには一覧を表示せず、フォローもできません。',
+    authorDeactivated: '停止中',
   },
 
   /* ── 管理コンソール ─────────────────────────────────── */

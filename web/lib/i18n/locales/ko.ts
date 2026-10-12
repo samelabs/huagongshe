@@ -987,6 +987,11 @@ const ko: Dictionary = {
     aboutTitle: '소개',
     institutionLabel: '소속 기관',
     joinedLabel: '가입일',
+    /* HGS-ACCOUNT-CONTENT-01 (PM 판정): 비활성 계정 프로필 상태(§9.8)와 작성자 표시 */
+    deactivatedTag: '계정 비활성화됨',
+    deactivatedTitle: '비활성화된 계정입니다',
+    deactivatedBody: '이 계정은 관리자에 의해 비활성화되었습니다. 공개된 반응·노트·스킬은 링크로 계속 볼 수 있지만, 이 페이지에는 목록을 표시하지 않으며 팔로우할 수 없습니다.',
+    authorDeactivated: '비활성화됨',
   },
 
   /* ── 관리 콘솔 ──────────────────────────────────────── */

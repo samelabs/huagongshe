@@ -236,6 +236,8 @@ export type NoteItem = {
   updated_at: string;
   username: string;
   display_name: string | null;
+  /* HGS-ACCOUNT-CONTENT-01: 停用作者的公开笔记保留可见, false 时前端渲染「已停用」 */
+  owner_active?: boolean;
   chemical_ids: number[];
   reaction_ids: number[];
 };
@@ -312,7 +314,7 @@ export type ReactionDetail = {
   source_citation: string | null;
   workup_details: string | null;
   note: string | null;
-  creator: { username: string; display_name: string; avatar_url: string | null } | null;
+  creator: { username: string; display_name: string; avatar_url: string | null; active?: boolean } | null;
   is_owner: boolean;
   follower_count: number;
   is_following: boolean;

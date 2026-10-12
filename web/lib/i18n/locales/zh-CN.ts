@@ -994,6 +994,11 @@ const t = {
     aboutTitle: '关于',
     institutionLabel: '机构',
     joinedLabel: '加入时间',
+    /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用账号主页停用态（§9.8）与作者标记 */
+    deactivatedTag: '账号已停用',
+    deactivatedTitle: '该账号已停用',
+    deactivatedBody: '这个账号已被管理员停用。TA 公开发的反应、笔记与技能仍可通过链接访问，但这里不再展示内容列表，也无法关注。',
+    authorDeactivated: '已停用',
   },
 
   /* ── 管理后台 ────────────────────────────────────────── */

@@ -9,6 +9,7 @@ import { FollowButton } from "@/components/shared/FollowButton";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EntityBadge } from "@/components/ui/EntityBadge";
+import { Tag } from "@/components/ui/Tag";
 import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
@@ -22,6 +23,9 @@ type Profile = {
   website: string | null; orcid: string | null;
   followers: number; following: number; public_reactions: number;
   is_following: boolean; is_followed_by: boolean; is_mutual: boolean; is_me: boolean;
+  /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用账号主页不再 404 ——
+     is_active=false 时仅渲染停用态卡片（无关注/分享/内容列表）。 */
+  is_active?: boolean;
 };
 type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
 type NoteCard = { id: number; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
@@ -57,6 +61,25 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   let profile: Profile;
   try { profile = await apiGet<Profile>(`/users/${encodeURIComponent(username)}`, headers); }
   catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
+
+  /* ── 停用态（§9.8 状态页）：头像 + 名字 + Tag「账号已停用」+ 事实说明。
+     不显示关注、分享和内容列表（列表接口对停用用户本就 404）；
+     已公开的反应/笔记/技能在各自详情页保留可见并带「已停用」标记。 ── */
+  if (profile.is_active === false) {
+    const joined = new Date(profile.created_at).toLocaleDateString(locale);
+    return <div className="content-page profile-page">
+      <div className="pf-deactivated">
+        <Avatar id={profile.username} name={profile.display_name || profile.username} src={profile.avatar_url} size={80} />
+        <div className="pf-deactivated-id">
+          <h1>{profile.display_name || profile.username}</h1>
+          <p className="pf-deactivated-handle">@{profile.username}</p>
+          <Tag tone="neutral" dot>{t.user.deactivatedTag}</Tag>
+        </div>
+      </div>
+      <EmptyState title={t.user.deactivatedTitle}>{t.user.deactivatedBody}</EmptyState>
+      <p className="pf-deactivated-joined">{t.user.joinedAt(joined)}</p>
+    </div>;
+  }
 
   /* 正文数据：反应分页（tab=reactions）；笔记第一页 8 条（计数 + tab=notes 列表）。
      两个区块失败互不影响（RetryNotice），粉丝预览失败只影响右栏叠放（退化为人数）。 */

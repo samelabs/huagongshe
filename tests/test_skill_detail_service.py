@@ -22,9 +22,10 @@ from api.services.skills import SkillNotAccessibleError
 
 
 def _skill_row(rid=1, owner_id=7, visibility="public"):
+    # 末列 owner active(HGS-ACCOUNT-CONTENT-01: 停用作者标记)
     return [rid, owner_id, "slug", "T", "D", "MIT", "chem", "user",
             visibility, False, 3, 100, "2026-01-01", "2026-01-02",
-            "u1", "U1"]
+            "u1", "U1", True]
 
 
 def _file_row(**over):
@@ -125,6 +126,8 @@ class AccessKernelTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(details[0], "技能不存在")
 
     async def test_16_field_shape_unchanged(self):
+        """16 基础字段不变; owner 子对象新增 active(停用作者标记,
+        HGS-ACCOUNT-CONTENT-01) — 顶层字段数不变。"""
         d = await self._load(_skill_row(), None)
         self.assertEqual(
             list(d.keys()),
@@ -132,7 +135,8 @@ class AccessKernelTests(unittest.IsolatedAsyncioTestCase):
              "category", "origin", "visibility", "has_scripts",
              "file_count", "size_bytes", "created_at", "updated_at",
              "owner"])
-        self.assertEqual(d["owner"], {"username": "u1", "display_name": "U1"})
+        self.assertEqual(d["owner"], {"username": "u1", "display_name": "U1",
+                                      "active": True})
         self.assertIsInstance(d["size_bytes"], int)
 
 
