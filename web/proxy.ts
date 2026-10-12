@@ -136,10 +136,22 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
     return response;
   }
 
-  // 未带 locale: 协商后 redirect(保留 pathname 与 query string), 同步 cookie
+  // 未带 locale: 协商后 redirect(保留 pathname 与 query string), 同步 cookie。
+  // HGS-A5-01: 绝对 URL 显式用反代头(x-forwarded-host > host, proto 同理)
+  // 构建 —— 不再用 request.url 兜底。next start 绑 -H 127.0.0.1 时若
+  // request.url 落到绑定地址, 307 Location 指向 127.0.0.1:3001 会在
+  // nginx→Next 链路上打转(历史 redirect loop 的根因面); 显式头构建让
+  // redirect 目标与进程绑定地址彻底解耦。
   const locale = detectLocale(request.headers.get("cookie"), request.headers.get("accept-language"));
+  // 兜底序: x-forwarded-host > host 头 > request.nextUrl origin(直连 :3001 场景)
+  const headerHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const origin = request.nextUrl.origin;
+  const forwardedHost = headerHost || origin.replace(/^[a-z]+:/i, "");
+  const rawProto = request.headers.get("x-forwarded-proto") || request.nextUrl.protocol.replace(":", "");
+  const forwardedProto = (rawProto.includes(",") ? rawProto.split(",")[0].trim() : rawProto) || "https";
+  const target = `/${locale}${pathname === "/" ? "/" : pathname}${request.nextUrl.search}`;
   const response = NextResponse.redirect(
-    new URL(`/${locale}${pathname === "/" ? "/" : pathname}${request.nextUrl.search}`, request.url),
+    new URL(`${forwardedProto}://${forwardedHost}${target}`),
     307,
   );
   response.cookies.set(LOCALE_COOKIE, locale, LOCALE_COOKIE_OPTIONS);
