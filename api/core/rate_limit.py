@@ -122,7 +122,7 @@ async def acquire_lease(bucket: str, identity: str, limit: int,
     busy(已满)仍返回 False, 不抛异常。
     """
     key = f"lease:{bucket}:{identity}"
-    client = redis.Redis(connection_pool=pool)
+    client = redis.Redis(connection_pool=current_pool())
     try:
         ok, _ = await client.eval(_ACQUIRE_LEASE, 1, key, limit, ttl_seconds * 1000)
     except Exception as exc:
@@ -135,7 +135,7 @@ async def acquire_lease(bucket: str, identity: str, limit: int,
 async def release_lease(bucket: str, identity: str) -> None:
     """释放租约(查询结束 finally 必调)。失败只记日志 — TTL 会自愈。"""
     key = f"lease:{bucket}:{identity}"
-    client = redis.Redis(connection_pool=pool)
+    client = redis.Redis(connection_pool=current_pool())
     try:
         await client.eval(_RELEASE_LEASE, 1, key)
     except Exception:
