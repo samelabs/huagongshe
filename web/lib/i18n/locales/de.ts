@@ -824,7 +824,6 @@ const de: Dictionary = {
   mcp: {
     hero: 'Mit dem 化工社 MCP Server verbinden',
     heroBody: '化工社 stellt einen entfernten MCP Server bereit. Verbinde dich aus einem MCP-fähigen KI-Client, um direkt auf Verbindungen, Reaktionen, Strukturverarbeitung, Ansatzrechnung und deinen persönlichen Workbench zuzugreifen.',
-    pluginKicker: "Plugin-Paket",
     pluginTitle: "ChatGPT-Plugin-Einbindung",
     pluginStatus: "Das Plugin-Paket ist für Clients mit ChatGPT-Plugin-Protokoll gedacht. Auch ohne Plugin nutzen Sie alle Funktionen direkt über den MCP-Endpunkt unten.",
     /* ── Verbindungsinformationen ── */

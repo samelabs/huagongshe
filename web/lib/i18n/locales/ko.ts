@@ -823,7 +823,6 @@ const ko: Dictionary = {
   mcp: {
     hero: '化工社 MCP Server에 연결',
     heroBody: '化工社는 원격 MCP Server를 제공합니다. MCP를 지원하는 AI 클라이언트에서 연결하면 화합물·반응·구조 처리·스케일 계산·개인 워크벤치 기능을 직접 호출할 수 있습니다.',
-    pluginKicker: "플러그인 패키지",
     pluginTitle: "ChatGPT 플러그인 연결",
     pluginStatus: "플러그인 패키지는 ChatGPT 플러그인 프로토콜을 지원하는 클라이언트용입니다. 플러그인 없이도 아래 MCP 엔드포인트에 직접 연결하면 모든 기능을 사용할 수 있습니다.",
     /* ── 연결 정보 ── */

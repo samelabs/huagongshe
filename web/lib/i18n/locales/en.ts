@@ -820,7 +820,6 @@ const en: Dictionary = {
   mcp: {
     hero: 'Connect to the Huagongshe MCP Server',
     heroBody: 'Huagongshe runs a remote MCP Server. Once an MCP-capable AI client connects, it can call Huagongshe capabilities directly: compounds, reactions, structure processing, scale calculation, and your personal workbench.',
-    pluginKicker: "Plugin package",
     pluginTitle: "ChatGPT plugin access",
     pluginStatus: "The plugin package is for clients that support the ChatGPT plugin protocol. You can also use every capability by connecting directly to the MCP endpoint below — no plugin required.",
     /* ── Connection info ── */

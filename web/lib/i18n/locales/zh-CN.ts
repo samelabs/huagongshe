@@ -829,7 +829,6 @@ const t = {
   mcp: {
     hero: '连接化工社 MCP Server',
     heroBody: '化工社提供远程 MCP Server。支持 MCP 的 AI 客户端连接后，可以直接调用化工社的化合物、反应、结构处理、投料计算和个人工作台能力。',
-    pluginKicker: "插件包",
     pluginTitle: "ChatGPT 插件接入",
     pluginStatus: "插件包供支持 ChatGPT 插件协议的客户端下载接入；不装插件也可以直接连接下面的 MCP 端点使用全部能力。",
     /* ── 连接信息 ── */

@@ -821,7 +821,6 @@ const ja: Dictionary = {
   mcp: {
     hero: '化工社 MCP Server に接続',
     heroBody: '化工社はリモート MCP Server を提供しています。MCP 対応の AI クライアントから接続すると、化合物・反応・構造処理・スケール計算・個人ワークベンチの機能を直接呼び出せます。',
-    pluginKicker: "プラグインパッケージ",
     pluginTitle: "ChatGPT プラグイン接入",
     pluginStatus: "プラグインパッケージは ChatGPT プラグインプロトコルに対応するクライアント向けです。プラグインを入れなくても、下記の MCP エンドポイントに直接接続すれば全機能を利用できます。",
     /* ── 接続情報 ── */
