@@ -105,9 +105,8 @@ const en: Dictionary = {
     entryMcp: 'Connect MCP',
     entryWorkbench: 'Web workbench',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin",
+    entryPlugin: "Agent Plugin",
     entryMcpCopy: 'Copy MCP server address',
-    entryPluginNote: 'ChatGPT / Plugin',
   },
 
   /* ── Search ────────────────────────────────────────── */

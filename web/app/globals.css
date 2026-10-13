@@ -1429,17 +1429,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .home-entry { margin-top: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-5); background: var(--bg-surface); display: grid; gap: var(--sp-3); text-align: left; }
 .home-entry-code .hg-code code { font-size: var(--fs-13); }
 .home-entry-actions { margin-top: 0; }
-.home-entry-note {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-  color: var(--text-muted);
-  font-size: var(--fs-13);
-}
-.home-entry-note a { display: inline-flex; text-decoration: none; }
-.home-entry-note a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-xs); }
 
 /* ── 数据看板 v2 (0911) ── */
 .pipe-grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
@@ -1637,7 +1626,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .hg-text { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
   /* BX-A3/VG：手机端剩余触控点补齐 */
   .sh-login-sm { min-height: 44px; display: inline-flex; align-items: center; }
-  .home-entry-note a { min-height: 44px; }
   .admin-nav a { min-height: 44px; display: inline-flex; align-items: center; }
   .footer-link { min-height: 44px; display: inline-flex; align-items: center; }
   .settings-preview-link { min-height: 44px; display: inline-flex; align-items: center; }

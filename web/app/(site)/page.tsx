@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { SearchHero } from "@/components/SearchHero";
 import { CodeField } from "@/components/ui/CodeField";
@@ -8,6 +7,9 @@ import type { Metadata } from "next";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
 import { withLocale } from "@/lib/localePath";
+
+/** 随代码部署的 Agent Plugin 下载包（scripts/build_plugin_package.py 产物） */
+const PLUGIN_PACKAGE_URL = "/downloads/huagongshe-agent-plugin-1.0.0.zip";
 
 export async function generateMetadata(): Promise<Metadata> {
   // 首页 SEO 文案随 locale; canonical/hreflang/OG/twitter 全部由首页自持
@@ -44,22 +46,20 @@ export default async function Home() {
         <SearchHero authed={authed} />
       </section>
 
-      {/* ── AI 接入入口: 第一屏直接给出地址与三条主入口（一级入口钉死为
-          MCP / Skills / 工作台 —— tests/test_v170_release_governance.py）。
-          ChatGPT / Plugin = 纯文字入口链到 mcp-guide 的 chatgpt-plugin 锚点
-          （FX-14 / PLUGIN-ENTRY-01，PM 裁定：直接暴露包入口，无上架叙事）。 ── */}
+      {/* ── AI 接入入口: 第一屏直接给出地址与主入口 MCP / Skills / 工作台 /
+          Agent Plugin（tests/test_v170_release_governance.py）。Agent Plugin
+          直接下载随代码部署的插件包（web/public/downloads，见
+          scripts/build_plugin_package.py）。 ── */}
       <section className="home-entry" aria-label={t.home.entryLabel}>
         <CodeField value="https://huagongshe.com/mcp" copyLabel={t.home.entryMcpCopy} className="home-entry-code" />
         <nav className="guide-actions home-entry-actions">
           <Button variant="primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Button>
           <Button variant="secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Button>
           <Button variant="secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Button>
+          <Button variant="secondary" asChild>
+            <a href={PLUGIN_PACKAGE_URL} download>{t.home.entryPlugin}</a>
+          </Button>
         </nav>
-        <p className="home-entry-note">
-          <Link href={withLocale("/mcp-guide#chatgpt-plugin", locale)} aria-label={t.home.entryPlugin}>
-            {t.home.entryPluginNote}
-          </Link>
-        </p>
       </section>
     </div>
   );

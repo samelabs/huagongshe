@@ -106,9 +106,8 @@ const ja: Dictionary = {
     entryMcp: 'MCP 接続',
     entryWorkbench: 'ウェブワークベンチ',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin",
+    entryPlugin: "Agent Plugin",
     entryMcpCopy: 'MCP サーバーアドレスをコピー',
-    entryPluginNote: 'ChatGPT / Plugin',
   },
 
   /* ── 検索 ───────────────────────────────────────────── */

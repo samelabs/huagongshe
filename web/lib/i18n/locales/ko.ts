@@ -108,9 +108,8 @@ const ko: Dictionary = {
     entryMcp: 'MCP 연결',
     entryWorkbench: '웹 워크벤치',
     entrySkills: 'Skills',
-    entryPlugin: "ChatGPT / Plugin",
+    entryPlugin: "Agent Plugin",
     entryMcpCopy: 'MCP 서버 주소 복사',
-    entryPluginNote: 'ChatGPT / Plugin',
   },
 
   /* ── 검색 ───────────────────────────────────────────── */

@@ -75,7 +75,9 @@ class HomePageEntryContract(unittest.TestCase):
         self.assertIn('"/skills"', self.source)
         self.assertIn('"/aichem"', self.source)
         self.assertIn("entryPlugin", self.source)
-        self.assertIn("#chatgpt-plugin", self.source)
+        # Agent Plugin 直接下载随代码部署的插件包, 地址与打包产物一致
+        from scripts.build_plugin_package import package_path
+        self.assertIn(f'"/downloads/{package_path().name}"', self.source)
 
     def test_agent_api_not_a_home_entry(self):
         self.assertNotIn('"/api/agent-guide"', self.source)
