@@ -1,280 +1,427 @@
-# HGS 设计系统 v1.0（UI 与交互规范）
+# HGS 设计系统 v2.0
 
-状态：**Stable**，v1.7.0 起生效，取代 `DESIGN_SYSTEM_V2.md`（Draft）。
-适用范围：公开站点、实体页、搜索、文档、工作台、账户设置。后台 `/samelabs` 只做 token 别名化。
+状态：**v2.0**（2026-10-13），取代 v1.0。
 
-本规范有三份互相对应的产物，冲突时按以下顺序为准：
+准线：**以美观为准**。实现符合规范但不好看，说明规范没覆盖或约定有误，修规范，不以“合规”验收。
 
-1. **`web/app/tokens.css`**：所有取值的唯一来源。
-2. **本文档**：规则、组件契约、交互规范、页面结构。
-3. **`docs/design/hgs-ui-reference.html`**：可交互的视觉参考，包括组件状态和真实尺寸的页面模板，直接用浏览器打开。实现时以它为像素参考，CSS 可以直接照搬。
+体系分六层，每层只依赖下层：基础 → 布局与框架 → 组件 → 交互 → 模式 → 页面。页面只由框架和模式组成，模式只由组件组成，组件只用基础层的取值。**不写页面级特例样式。**
 
-非目标：不改数据库、身份裁定、API/MCP 语义；不做暗色模式；不重新设计后台。
+唯一来源：
+
+| 来源 | 内容 |
+|---|---|
+| `web/app/tokens.css` | 全部取值 |
+| 本文档 | 规则、组件契约、交互、模式、页面结构 |
+| `web/components/ui/` + `/dev-ui` | 组件实现与活样张（非生产环境可访问）。样张与本文档冲突时，以本文档为准，修样张 |
+
+非目标：不改数据库、身份裁定、API / MCP 语义；不做暗色模式。
 
 ---
 
-## 1. 设计原则
+## 第一层：基础
 
-1. **数据先于装饰**：层级由化学数据的语义决定，不由数据来源决定。
-2. **用边框分层**：卡片和面板用 1px 边框；阴影只用于浮层。
-3. **一套语言**：公开页和工作台使用同一套 token 和组件。
-4. **操作必有回应**：每次点击都有可见的结果、进度或错误提示。
-5. **来源可见**：多个来源的事实并列显示，UI 不合并互相冲突的数据。
+### 1.1 品牌
 
-## 2. 品牌
+- 图形标：尖顶六边形，里面是字母 H，横画是两条平行线（双键）。字标 HGS 以 SVG 路径交付，不用文字字体排版。
+- 中文副标“化工社”只在 `zh-CN` 横版组合中出现，与字标之间用 1px × 16px 分隔线隔开；其他语言只显示 HGS。
+- 资源在 `web/public/brand/`：`hgs-mark.svg`（浅色底）、`hgs-mark-on-dark.svg`（深色底）、`hgs-mark-line.svg`（品牌色底、App 图标）、`hgs-mark-16.svg`（favicon）、`hgs-wordmark.svg`、`hgs-lockup.svg`（OG 图）、`hgs-app-icon.svg`（PWA）。
+- React：`<HgsLogo variant="lockup" | "mark" | "wordmark" size />`。尺寸：桌面顶栏 28，手机顶栏 24，登录卡和空态 44；组件最小 20，16 只用于 favicon。
+- 四周留白 ≥ 图形标宽度的 1/4。不加渐变（App 图标除外）、阴影、描边；不改比例和颜色。
 
-### 2.1 标志
+### 1.2 颜色
 
-- **图形标**：尖顶六边形（苯环的简化），里面是字母 H，横画是两条平行线（双键）。
-- **字标**：HGS，等粗几何线条，以 SVG 路径交付。**禁止用文字字体排版字标。**
-- **中文副标**：“化工社”只在 `zh-CN` 下出现在横版组合中，与字标之间用 1px × 16px 的分隔线隔开。其他语言只显示 HGS。
+只有一种品牌色：蓝。绿、琥珀、红只表示状态。
 
-资源在 `web/public/brand/`：
-
-| 文件 | 用途 |
+| 语义 token | 用途 |
 |---|---|
-| `hgs-mark.svg` | 图形标，浅色底（blue-500） |
-| `hgs-mark-on-dark.svg` | 图形标，深色底（blue-400） |
-| `hgs-mark-line.svg` | 线框图形标，`currentColor`，用于品牌色底和 App 图标 |
-| `hgs-mark-16.svg` | 16px 简化版（单横画），用于 favicon |
-| `hgs-wordmark.svg` | 字标，`currentColor` |
-| `hgs-lockup.svg` | 横版组合（无中文），用于 OG 图等静态场景 |
-| `hgs-app-icon.svg` | App 图标 / PWA 源文件（圆角 25%，蓝色渐变底） |
+| `--text` / `--text-2` | 标题和数据值 / 次要正文 |
+| `--text-muted` | 标签、元数据；可读文字的最浅一档 |
+| `--text-placeholder` / `--text-disabled` | 只用于占位符和禁用态 |
+| `--action` / `-hover` / `-pressed` | 按钮、链接 |
+| `--action-subtle` / `--action-ink` | 浅蓝底和其上的文字（tonal 按钮、选中项） |
+| `--brand` / `--focus` | 标志、焦点环、选中指示条。不能用作文字颜色 |
+| `--bg-page` / `--bg-surface` / `--bg-subtle` | 页面底 / 卡片 / 次级面和 hover |
+| `--border` / `--border-strong` | 卡片和分割线 / 输入框和次按钮 |
+| `--entity-chem*` / `--entity-rx*` | 只用于 EntityBadge |
+| `--ok*` / `--warn*` / `--err*` | 只表示状态 |
+| `--bg-inverse*` / `--text-inverse*` / `--code-inverse` | 只用于 Toast、后台深色侧栏、深色代码块 |
 
-React 实现：`<HgsLogo variant="lockup" | "mark" | "wordmark" size={28} />`，SVG 内联，字标使用 `currentColor`。header 里中文副标由组件按 locale 渲染。
+数字、统计值不用状态色装饰。
 
-### 2.2 规则
+### 1.3 字体与字号
 
-- 最小尺寸 16px；16px 时使用 `hgs-mark-16`。
-- HgsLogo 组件最小 size 为 20；16px 的简化图形标只用于 favicon，不进入组件。
-- HgsLogo 需要 locale 时由服务端传入；客户端组件使用 lockup 时从 I18nContext 读取。
-- 四周留白 ≥ 图形标宽度的 1/4。
-- 不加渐变（App 图标除外）、阴影或描边；不改比例；不换色。
-- 尺寸：网站顶栏 28，手机顶栏 24，登录页和空状态 44，App 图标 512。
+- 字体：`--font-ui`（系统字）。`--font-mono` 只用于 ID、SMILES、InChIKey、代码和 Key；数字列加 `tabular-nums`。
+- 字号 8 档，取值见 tokens：
 
-## 3. 颜色
+| token | 用途 |
+|---|---|
+| `--fs-40` | 首页标题、实体名（桌面）；手机用 28 |
+| `--fs-28` | 页面标题、统计数字 |
+| `--fs-22` | 分区标题（h2） |
+| `--fs-18` | 弹窗标题、空态标题、组标题（h3） |
+| `--fs-16` | 正文、卡片标题、手机端输入框 |
+| `--fs-14` | 界面默认：按钮、输入、数据值 |
+| `--fs-13` | 元数据、面包屑、侧栏分组名 |
+| `--fs-12` | 说明、Tag、时间戳 |
 
-只有一种品牌色：蓝。绿色、橙色、红色只表示状态。**`--green*`（微信绿）和 `--warm*`（暖橙）删除。**
+- 最小 12px。唯一例外：EntityBadge xs 的前缀 11.5px。
+- 字重 400 / 500 / 600；22 及以上用 650，配对应的负字距（`--ls-*`）。
 
-| 语义 token | 取值 | 用途 |
+### 1.4 间距
+
+`--sp-1` 4 · `--sp-2` 8 · `--sp-3` 12 · `--sp-4` 16 · `--sp-6` 24 · `--sp-8` 32 · `--sp-12` 48 · `--sp-16` 64。
+
+纵向节奏（所有页面相同）：
+
+| 位置 | 桌面 | 手机 |
 |---|---|---|
-| `--text` / `--text-2` | n-900 / n-700 | 标题和数据值 / 次要正文 |
-| `--text-muted` | n-500（4.9:1） | 标签、元数据；可读文字的最浅一档 |
-| `--text-placeholder` / `--text-disabled` | n-400 / n-300 | 只用于占位符和禁用态 |
-| `--action` / `-hover` / `-pressed` | blue-600 / 700 / 800 | 按钮、链接（5.4:1） |
-| `--brand` / `--focus` | blue-500 | 标志、焦点环、选中指示条。**不能用作文字颜色** |
-| `--action-subtle` / `--action-ink` | blue-50 / blue-700 | 浅蓝底和其上的文字（tonal 按钮、选中项） |
-| `--bg-page` / `--bg-surface` / `--bg-subtle` | n-25 / 白 / n-50 | 页面底 / 卡片 / 次级面和 hover |
-| `--bg-inverse-2` / `--text-inverse-2` / `--text-inverse-muted` / `--code-inverse` | n-700 / n-200 / n-400 / blue-100 | inverse 系列只用于后台深色侧栏和深色代码块 |
-| `--border` / `--border-strong` | n-100 / n-200 | 卡片和分割线 / 输入框和次按钮 |
-| `--entity-chem*` / `--entity-rx*` | 蓝 / 灰蓝 | 只用于 EntityBadge |
-| `--ok*` `--warn*` `--err*` | 绿 / 琥珀 / 红 | 只表示状态 |
+| 顶栏到面包屑 / 页头 | 32 | 16 |
+| 页头到正文 | 32 | 24 |
+| 分区之间 | 48 | 32 |
+| 分区标题到内容 | 16 | 12 |
+| 卡片内边距 | 24 | 16 |
+| 页面左右留白 | 居中容器 | 16 |
 
-## 4. 字体、字号、间距、圆角、动效
+### 1.5 圆角、阴影、高度
 
-- 字体：系统字（苹方 / HarmonyOS Sans / 微软雅黑）。等宽字体只用于 ID、SMILES、InChIKey、代码和 Key。
-- **字号 8 档**：12 / 13 / 14 / 16 / 18 / 22 / 28 / 40，最小 12px。唯一例外是 EntityBadge xs 的前缀（11.5px）。
-  - 40：实体名、首页标题（手机上用 28）。28：页面标题、统计数字。22：区块标题。18：弹窗标题。16：正文、卡片标题。14：数据值、界面默认。13：元数据。12：说明文字。
-  - 字重 400 / 500 / 600；22px 及以上的标题用 650，并收紧字距（-1.5% ~ -2.5%）。
-- **间距**：4 / 8 / 12 / 16 / 24 / 32 / 48 / 64。
-- **圆角**：6（标签、徽标）/ 8（按钮、输入框）/ 12（卡片、面板）/ 16（弹窗、抽屉）/ pill（头像、计数）。
-- **控件高度**：32 / 40 / 48；手机上的主要操作用 48，触控目标 ≥ 44。
-- **布局宽度**：reading 720 / content 1040 / wide 1200；侧栏 232；右侧栏 260（详情页）或 320（工作台）。组件不得自己定义页面级 max-width。
-- **阴影**：只有 `--shadow-float` 一档，用于下拉菜单、弹窗、Toast。
-- **动效**：120ms（hover、按压；按钮按下缩到 0.98）/ 200ms（浮层进出）；用户开启“减少动态效果”时全部关闭。
+- 圆角：`--r-xs` 6（Tag、徽标）· `--r-sm` 8（所有按钮、输入框、Segmented）· `--r-md` 12（卡片、面板）· `--r-lg` 16（弹窗、抽屉）· `--r-pill`（头像、计数）。
+- 卡片和面板只用 1px `--border` 分层，不加阴影。`--shadow-float` 只用于下拉菜单、弹窗、Toast。
+- 控件高度：`--h-sm` 32 · `--h-md` 40 · `--h-lg` 48。手机上可点区域 ≥ `--touch-min` 44；视觉更小的控件用透明扩展区补足。
 
-## 5. EntityBadge（HCID / HRID 徽标）
+### 1.6 图标
 
-全站唯一的实体标识组件，替换 `EntityId` 的视觉，props 向后兼容。
+三档，token 化（见第八章）：
+
+| 档位 | 用途 |
+|---|---|
+| 16 | 按钮内、输入框内、行内、复制按钮、侧栏导航 |
+| 20 | 底部 tabbar、Notice、卡片入口 |
+| 24 | 空态、状态页 |
+
+- 同一行图标同一档；图标声明 `flex: none`，不受 `max-width` 压缩。
+- 图标统一取自 `components/ui/icons.tsx`，不另画。
+
+### 1.7 动效
+
+`--dur-fast` 120ms（hover、按压，按下缩到 0.98）· `--dur` 200ms（浮层进出）· `--ease`。用户开启“减少动态效果”时全部关闭。
+
+---
+
+## 第二层：布局与框架
+
+### 2.1 断点
+
+| 档 | 宽度 | 规则 |
+|---|---|---|
+| 手机 | ≤ 640 | 单列；顶栏 52；底部 tabbar；没有侧栏和右栏 |
+| 平板 | 641–1023 | 顶栏 60；侧栏保留；右栏和社交列下沉到正文下方；不出现三列 |
+| 桌面 | ≥ 1024 | 完整布局 |
+
+任何一列的内容宽度不得小于 320。每个页面都要在三档下成立。
+
+### 2.2 容器与列
+
+- 容器：`--w-reading` 720 · `--w-content` 1040 · `--w-wide` 1200。组件不得自定页面级 max-width。
+- 列：侧栏 `--sidebar-w` 232（桌面和平板相同）· 详情右栏 `--rail-w` 260 · 工作台社交列 `--rail-w-wide` 320。
+
+### 2.3 外壳（所有页面共用，只有一份实现）
+
+- **桌面顶栏（60）**：横版标志 · 主导航（查询 · Skills · MCP · 工作台）· 动态铃铛（未读红点）· 语言切换 · 头像菜单（未登录时为“登录 / 注册”）。白色 86% 透明加背景模糊，不吸顶。**顶栏不放搜索框，不设搜索快捷键。**
+- **手机顶栏（52）**：标志 · 语言切换。
+- **底部 tabbar（手机）**：查询 / 工作台 / 动态（未读数）/ 我的。内容区高 56，safe-area 加在下方，不占内容高度。头像菜单的内容（设置、退出）在“我的”里。
+- **页脚**：所有公开页和状态页都有。
+- **工作台侧栏（232）**：四组 —— 工作区（概览 / 笔记 / 我的反应 / 收藏）、工具（查询 / 投料计算 / Skills / MCP 与 AI Key）、社交（动态 / 关注 / 粉丝）、账户（设置）。任一时刻只高亮一项。
+
+### 2.4 页面框架
+
+| 框架 | 容器 | 桌面 | 平板 | 手机 |
+|---|---|---|---|---|
+| A 公开页 | wide 或 content | 单栏居中 | 单栏，左右留白 24 | 单栏 |
+| B 实体详情 | wide | 面包屑 → 页头（左信息 + 右结构图 300）→ 正文 + 右栏 260 | 结构图 240；右栏下沉到正文后 | 结构图在页头顶部；本页导航改为吸顶横向 Tabs；右栏内容下沉 |
+| C 阅读 | reading | 单栏居中，无侧栏 | 同桌面 | 单栏 |
+| D 工作台 | 满宽 | 侧栏 + 主区 | 侧栏 + 主区（主区单列） | 无侧栏，靠 tabbar |
+| E 单卡 | 400 | 卡片居中 | 同桌面 | 全宽卡片 |
+| F 状态页 | content | 外壳完整，EmptyState 居中 | 同桌面 | 同桌面 |
+
+框架 B 的通用规则：页面没有本页导航时不出现右栏，正文占满容器。
+
+---
+
+## 第三层：组件
+
+组件在 `web/components/ui/`，类名前缀 `.hg-`。每个组件实现全部状态（见第四层 IX-1）。每个变体都写明使用场景，同一场景只有一种选择。
+
+### 3.1 Button
+
+| 变体 | 场景 |
+|---|---|
+| primary | 区域内唯一的主操作：保存、提交、新建反应、收藏（详情页头）、查询 |
+| secondary | 与主操作同级的次操作：新建笔记、子结构检索、相似结构、分享、编辑 |
+| tonal | 空态的下一步、卡片内的轻操作（关注） |
+| ghost | 列表行和动态条目上的操作、翻页 |
+| danger | ConfirmDialog 里的最终确认 |
+| danger-quiet | 列表行内的删除、撤销 Key |
+
+- 尺寸：lg 48（首页搜索、手机主操作）· md 40（默认）· sm 32（行内、卡片内、列表行）。圆角都是 8。
+- 图标 16；同一组按钮要么都有图标，要么都没有。icon-only 必须有 aria-label，图标在任何断点都可见。
+- 宽度：按内容自适应。撑满只有两种情况：框架 E 的单卡、手机端的主操作。
+- 每个区域只有一个 primary；loading 时宽度不变、禁止再点。
+
+### 3.2 TextLink
+
+行内文字动作（返回首页、查看全部、启用 / 停用）。不加边框和底色。
+
+### 3.3 Field 与输入控件
+
+- Field：label 在上，必填星号紧跟 label 文字、同一行；help 在下；error 红字在下。label 与控件用 htmlFor 关联。
+- Input / Select / Textarea：高 40，圆角 8，`--border-strong`；焦点为 `--focus` 边框加 4px `--focus-halo`；手机字号 16。
+- FileUpload：Button secondary 触发隐藏的 file input，旁边显示已选文件名，不露出浏览器原生控件。
+
+### 3.4 EntityBadge
+
+全站唯一的 HCID / HRID 展示组件。
 
 ```
-<EntityBadge kind="chemical" | "reaction" id={2244}
-             size="xs" | "sm" | "md" | "lg"       // 20 / 24 / 28 / 32，默认 sm
-             href?                                // 传入后整个徽标是链接
-             copyable?                            // 右侧附带复制按钮
-             compact?                             // 只显示字形 + 编号（表格列）
-             state?="private" | "merged" | "deleted"
-             redirectTo? />                       // merged 时显示 → 新编号
+<EntityBadge kind="chemical" | "reaction" id size="xs" | "sm" | "md" | "lg"
+             href? copyable? compact? state?="private" | "merged" | "deleted" redirectTo? />
 ```
 
-- **结构**：`[字形][前缀] | [编号]`。前缀段使用实体色的浅底，编号段白底；1px 实体色描边；圆角 6。
-- **字形**：化合物用六边形（取自标志），反应用 → 箭头。黑白打印时也能区分两种实体。
-- **编号**：等宽字体、`tabular-nums`，不加千分位，不补零，不截断。前缀 HCID / HRID 在任何语言下都不翻译。
-- **状态**：
-  - private（只有 HRID）：编号后加锁图标。
-  - merged：虚线边框，编号加删除线，后面接 `→` 和新编号的徽标。
-  - deleted：虚线边框，编号加删除线，后面跟“已删除”。
-- **交互**：hover 时边框变为实体色；焦点用统一焦点环；aria-label 为“HCID 2244，化合物”（从字典取）。手机上，徽标是一行里唯一的链接时，点击区域扩展到 44px，外观不变。
-- **禁止**：不经过本组件，自己拼写 HCID / HRID 的展示。
+- 结构：`[字形][前缀] | [编号]`。前缀段实体色浅底，编号段白底，1px 实体色描边，圆角 6。化合物字形为六边形，反应为箭头。
+- 尺寸：lg 32（详情页头）· md 28（卡片标题）· sm 24（列表、搜索结果、参与物）· xs 20（卡片内的关联实体）。
+- 编号等宽、tabular-nums，不加千分位、不补零、不截断。前缀不翻译。
+- `compact`（只有字形和编号）只用于表格列，其他地方一律用完整徽标。
+- 状态：private 编号后加锁；merged 虚线边框、编号删除线、后接 → 新编号徽标；deleted 虚线边框、删除线、后跟“已删除”。
+- hover 边框变实体色；aria-label 取字典（“HCID 2244，化合物”）。
 
-## 6. 组件
+### 3.5 CopyButton 与 CodeField
 
-类名前缀 `.hg-`，组件放在 `web/components/ui/`。每个组件都要实现全部状态。
+- CopyButton 只有一种：外观 28 × 28，图标 16，手机上可点区域 44。行内使用时 `inline-flex`，对齐文字，不独占一行。
+- 复制后图标变为 ✓ 并保持 1.5s，aria-live 播报。
+- CodeField：只用于独立的长串（反应 SMILES、Key、MCP 端点、代码块），右上角内置 CopyButton。同一个代码块一页只出现一次。数据分区里的标识符不用 CodeField，用 DataRow。
 
-| 组件 | 变体 / 尺寸 | 要点 |
-|---|---|---|
-| Button | primary · secondary · tonal · ghost · danger · danger-quiet；sm/md/lg；icon-only | 每个区域只放一个 primary；loading 时宽度不变并禁止点击；icon-only 必须有 aria-label |
-| Input / Textarea / Select | md / lg | label 在上；错误提示在下方；焦点状态为 action 色边框加 4px 光晕；手机上字号 16 |
-| Tag | neutral · blue · ok · warn · err · src | 高 24（src 为 20），圆角 6；状态标签带圆点 |
-| Segmented | — | 用于检索方式、视图切换；取代 chip 组 |
-| Tabs | — | 底部 2px 指示条，带计数；手机上可横向滚动 |
-| CodeField + CopyButton | — | SMILES、InChIKey、Key；复制后图标变为 ✓ 并保持 1.5s，aria-live 播报 |
-| Notice | info · warn · err · ok | 页面级提示，可带操作按钮 |
-| Toast | ok · err | 全局队列，底部居中；成功 3s 后消失，失败需手动关闭；可带“撤销” |
-| ConfirmDialog | danger | 标题是问句，正文写明对象名称；确认按钮写具体动作；默认焦点在“取消”；焦点锁在弹窗内；Esc 关闭 |
-| EmptyState | — | 图标、一句标题、一句说明、一个下一步操作 |
-| Skeleton | 卡片 · 列表行 | 首屏和列表加载时使用 |
-| Avatar | 24 / 32 / 40 / 80 | 无图片时显示首字，颜色由用户 id 决定 |
-| EntityCard | chemical · reaction | 搜索结果、收藏、主页统一使用 |
-| DataRow (dl) | — | 标签列 140（手机 84–96）；值的后面跟来源标签 |
+### 3.6 Tag
 
-## 7. 交互规范
+高 24，圆角 6。neutral · blue · ok · warn · err。状态 Tag 带圆点。没有来源 Tag。
+
+### 3.7 Segmented 与 Tabs
+
+- Segmented：同一份数据的视图或模式切换（检索方式、相关反应的角色筛选、登录 / 注册）。
+- Tabs：不同数据集之间切换，底部 2px 指示条，带计数。
+- 两者放不下时横向滚动，溢出一侧有 24 渐隐提示，不截断文字。
+- 一屏只有一层 Tabs。
+
+### 3.8 Breadcrumb
+
+`首页 / 栏目 / 当前`。首级“首页”可点；栏目为不可点击的文字；末级 = 页面 H1 的文本。字号 13。
+
+### 3.9 Notice 与 Toast
+
+- Notice：页面级提示，info · ok · warn · err，图标 20，可带一个操作。
+- Toast：底部居中；成功 3s 消失，失败手动关闭；可带“撤销”。
+
+### 3.10 ConfirmDialog
+
+标题是问句，正文写明对象名称；确认按钮写具体动作（“删除笔记”）；默认焦点在“取消”；焦点锁在弹窗内；Esc 关闭并回焦触发按钮。
+
+### 3.11 EmptyState 与 Skeleton
+
+- EmptyState：图标 24（放在 48 的浅底方框里）· 标题一句（18）· 说明最多一句（14）· 恰好一个下一步动作（tonal sm 或 TextLink）。
+- Skeleton：与真实内容同尺寸，用于首屏和列表加载。
+
+### 3.12 Avatar
+
+24 / 32 / 40 / 80。无图时显示首字，底色由用户 id 在 `--avatar-1…5` 中确定。
+
+### 3.13 EntityCard
+
+搜索结果、收藏、公开主页统一使用：结构缩略图（或反应式）· EntityBadge sm · 名称 · 一行标识 · 收藏按钮（ghost sm）。
+
+### 3.14 DataRow
+
+- `dl` 两列：标签列 140（手机 96），`--text-muted`；值 `--text`。
+- 标识符（SMILES、InChIKey、CAS）为等宽值 + 行内 CopyButton。
+- 一个分区内的所有内容都是 DataRow，行高和分割线一致；补充说明也作为一行（标签“其他”）。
+
+---
+
+## 第四层：交互
 
 | 编号 | 规则 |
 |---|---|
-| IX-1 | 可点元素都有 default / hover / pressed / focus-visible / disabled；异步操作加 loading，可选元素加 selected。焦点环 2px `--focus`，只在键盘操作时出现。 |
-| IX-2 | 反馈分三层：字段错误显示在输入框下方；操作结果用 Toast；页面级失败用 Notice 并附带重试。禁止使用 `alert()` / `confirm()`。 |
-| IX-3 | 删除反应、删除笔记、撤销 AI Key、注销账号必须经过 ConfirmDialog 确认。 |
-| IX-4 | 异步按钮点击后立即进入 loading 并禁止再次点击；列表用 Skeleton；超过 10s 提示“仍在处理”并提供重试。 |
-| IX-5 | NoteEditor / SubmissionForm 显示保存状态（已保存 / 保存中 / 保存失败）；有未保存的改动时，离开页面要拦截；保存失败不清空输入。 |
-| IX-6 | 关注和收藏立即切换状态（乐观更新），失败时回滚并 Toast；收藏和关注的 Toast 带“撤销”；“已关注”按钮 hover 时显示“取消关注”。 |
-| IX-7 | ID、SMILES、InChIKey、Key 都可以复制，复制反馈见 CopyButton。 |
-| IX-8 | 空状态必须给出下一步操作，禁止只写“暂无数据”。 |
-| IX-9 | 事实值后面都带来源标签；来源之间的数据冲突并列显示；长段证据默认折叠。 |
-| IX-10 | ⌘K 或 `/` 聚焦全局搜索；Esc 关闭浮层；弹窗关闭后焦点回到触发按钮；图标按钮必须有 aria-label。 |
-| IX-11 | 手机端：触控目标 ≥ 44px；底部 4 个 tab（查询 / 工作台 / 动态 / 我的），处理 safe-area；右侧栏移到正文下方；本页导航改为吸顶的横向 tab。 |
-| IX-12 | 所有界面文字都进入五种语言的字典；按钮用动词说清做什么；错误信息说明原因和解决办法，不暴露错误码。 |
+| IX-1 | 可点元素都有 default / hover / pressed / focus-visible / disabled；异步操作有 loading，可选元素有 selected。焦点环 2px `--focus`，只在键盘操作时出现。 |
+| IX-2 | 反馈分三层：字段错误在输入框下方；操作结果用 Toast；页面级失败用 Notice 加重试。不用 `alert()` / `confirm()` / `prompt()`。 |
+| IX-3 | 删除反应、删除笔记、撤销 AI Key、注销账号必须经过 ConfirmDialog。 |
+| IX-4 | 异步按钮点击后立即 loading 并禁止再次点击；列表用 Skeleton；超过 10s 显示“仍在处理”并提供重试。 |
+| IX-5 | NoteEditor / SubmissionForm 显示保存状态（已保存 / 保存中 / 保存失败）；有未保存改动时离开页面要拦截；保存失败不清空输入。 |
+| IX-6 | 关注和收藏乐观更新，失败时回滚并 Toast；成功 Toast 带“撤销”；“已关注”hover 显示“取消关注”。 |
+| IX-7 | ID、SMILES、InChIKey、Key 都可复制，反馈见 CopyButton。 |
+| IX-8 | 空状态必须给出下一步，不写“暂无数据”。 |
+| IX-9 | 页面只展示化学事实，不展示采集来源、流程状态等内部信息；数据冲突并列显示，不自动合并；长段证据默认折叠。 |
+| IX-10 | Esc 关闭浮层；弹窗关闭后焦点回到触发按钮；图标按钮有 aria-label。不设全局搜索快捷键。 |
+| IX-11 | 手机端：可点区域 ≥ 44；操作放不下时收进“更多”菜单，不隐藏、不删减。 |
+| IX-12 | 界面文字全部进入五种语言字典，标点按各语言习惯；按钮用动词说清做什么；错误说明原因和解决办法，不暴露错误码。空态、错误、提示：标题一句，说明最多一句，不重复标题。 |
+| IX-13 | 状态互斥，按优先级只显示一种：后台获取中（Notice + Skeleton）→ 读取失败（Notice err + 重试）→ 真正为空（EmptyState）→ 正常内容。 |
 
-## 8. 全局框架
+### 4.1 状态页
 
-**桌面 header（高 60）**：
-- 内容从左到右：横版标志、主导航（查询 · Skills · MCP · 工作台）、全局搜索框（⌘K）、动态铃铛（未读红点，数据来自现有的 unread 计数）、语言切换、头像菜单。
-- 白色 86% 透明加背景模糊。**不吸顶**，保留 v1.6 修复过的锚点偏移。
-- 删除现有的 `.nav-guide` 绿色入口，指南并入主导航或页脚。
+- **404**：任何 404 都有完整外壳，包括未匹配任何路由的地址（根级 `app/not-found.tsx` 也渲染外壳）。EmptyState 标题取 `error.notFoundTitle`，两个出口：去查询（tonal）+ 返回首页（TextLink）。robots 只有一条 noindex。
+- **错误边界**：外壳完整；EmptyState + “重新加载”；文案说明数据未丢失、可重试，不暴露技术细节。
+- **未登录**：说明一句 + 登录按钮；登录后按 `next` 回跳。
 
-**手机 header（高 52）**：标志、搜索图标、头像。主导航移到底部 tab：查询 / 工作台 / 动态（带未读数）/ 我的。
+### 4.2 详情页篇幅
 
-## 9. 页面结构
+- 每个 h3 组默认显示前 6 项（DataRow 与已折叠的 details 各算 1 项）；其余以 `hidden` + `data-overflow` 留在 DOM，组底“展开全部 N 项 / 收起”（aria-expanded / aria-controls）。
+- 供应商为紧凑行（公司名 + 电话 + 邮箱），默认 5 家，“查看全部 N 家”。上下游 Tag 每向最多 12 个。
+- 没有内容的分区不渲染，本页导航同步省略。
 
-### 9.1 化合物详情 `/chemical/[id]`（wide）
+### 4.3 表单
 
-- **头部**：左边依次是 EntityBadge lg（可复制）、实体名（40）、英文名、IUPAC 名、关键标识标签（分子式 / 分子量 / CAS / CID）、操作区（收藏为 primary，然后是子结构检索、相似结构、分享，最后是收藏人数和头像叠放）；右边是 300 宽的结构图。
-- **正文顺序**：概述 → 名称与标识 → 性质 → 安全与法规 → 化学与工业 → 相关反应 → 笔记 → 来源。
-- **右侧栏（260）**：本页导航，以及记录信息（来源、更新时间、补全状态）。
-- **来源显示**：各语义分区内按来源分组展示，组头一行 = h3 组标题在前、Tag src 紧跟同一行；v1.7 不做跨来源的同名属性合并（来源间缺少可靠的属性名映射，不靠猜测合并）。同义词统一放在“名称与标识”。
-- **篇幅收敛（Step 7）**：每个 h3 组默认只显示前 6 项（DataRow 与已折叠的 details 都算 1 项），超出的项以 `hidden` + `data-overflow` 留在 DOM（SEO 与页内搜索可用），组底「展开全部 N 项 / 收起」客户端翻转（aria-expanded / aria-controls）；供应商为紧凑行（公司名 + 电话 + 邮箱），默认 5 家，「查看全部 N 家」；上下游 Tag 每向最多 12 个。没有内容的分区不渲染，本页导航同步省略。手机分区距 `--sp-8`、组距 `--sp-6`。
+- 所有表单声明 `method="post"`。
+- 每张卡一个保存动作；保存中 Button loading；成功 Toast，失败 Notice err 并保留输入，迟到的返回不覆盖已编辑的字段。
+- 提交错误按状态和机器码渲染本地化文案（429 限流 / 401 凭证不符 / 409 已被占用），不显示服务端原文；出错后焦点到第一个出错字段。
 
-### 9.2 反应详情 `/reaction/[id]`（wide）
+---
 
-- **头部**：EntityBadge lg、中性标题（不用 AI 生成反应名）、根据结构化数据组成的事实摘要、操作。
-- **正文顺序**：反应式（可以占满内容宽度）→ 反应物和产物（各带 HCID 徽标）→ 助剂 → 条件 → 步骤 → 后处理 → 安全和备注 → 来源。
-- **右侧栏**：本页导航、创建者（Avatar 加关注按钮）、HRID 和状态、ORD / DOI / 专利引用。反应 SMILES 用 CodeField 显示。
+## 第五层：模式
 
-### 9.3 搜索 `/search`（content）
+### 5.1 页头
 
-- 顶部：页面标题、大搜索框（48）和检索方式切换（名称/CAS · 精确结构 · 子结构 · 相似结构）。
-- 下方用 Tabs 分为化合物 / 反应（显示计数）。
-- 每条结果是一张 EntityCard：结构缩略图、EntityBadge、名称、标识符，以及收藏按钮。
+- 结构：面包屑（如果该页有）→ 标识（EntityBadge lg，实体页才有）→ H1 → 副标题一行 → 标识标签一行 → 操作组。实体页右侧为结构图或反应式。
+- **化合物标题**：中文名 → 英文名 → IUPAC 名 → 分子式 → CAS。不显示“化合物记录 HCID n”这类系统文案；标题已用分子式时，标识标签里不再重复分子式。
+- **反应标题**：主要反应物 → 主要产物，句式由各语言字典给出；名称都缺失时用字典里的“反应 HRID n”。不用“反应详情”这类栏目名作标题。
+- **结构图**：加载失败或没有结构时显示占位（图标 24 + “暂无结构图”），不显示 alt 文本。
 
-### 9.4 个人工作台 `/aichem`（工具在左，社交在右）
+### 5.2 面包屑
 
-- **侧栏（232）**分四组：
-  - 工作区：概览 / 笔记 / 我的反应 / 收藏
-  - 工具：查询 / 投料计算 / Skills / MCP 与 AI Key
-  - 社交：动态（未读）/ 关注 / 粉丝
-  - 账户：设置
-- **主区**：问候语和一句当前状态，右上角是“新建笔记”（secondary）和“新建反应”（primary），下面分两列：
-  - 左列（工具）：快速检索框加 4 个快捷入口；“我的内容”面板，用 Tabs 分为 最近 / 反应 / 笔记 / 收藏，每行显示类型图标、标题、徽标、可见性和时间，笔记还显示保存状态。
-  - 右列（320，社交）：我的主页卡片（头像、@用户名、公开反应 / 粉丝 / 关注的数字、“查看我的公开主页”、分享）；关注动态（**v1.7 只有 `new_reaction` 一种事件**：头像、“X 发布了公开反应 HRID”、时间、反应式缩略图、收藏和打开按钮）。
-- 参考模板里的“关注了你 / 回关”“发布了笔记”这两类动态需要新增事件类型，**v1.7 不实现**。
+只有下列页面有面包屑，写法固定：
 
-### 9.5 公开主页 `/user/[username]`（wide）
-
-- **头部（社交名片）**：Avatar 80、名字（28）、关系标签（关注了你 / 互相关注）、@用户名、简介、机构和加入时间、数据（公开反应 · 公开笔记 · 粉丝 · 关注）。
-  - 访客看到“关注”（primary）和“分享”；本人看到“编辑资料”和“进入工作台”。
-- **正文（研究档案）**：Tabs 分为 反应 / 笔记。
-  - 反应用两列卡片：反应式、HRID md 徽标、关注人数、溶剂等摘要、日期、收藏按钮。
-  - 笔记卡片：标题、两行摘要、关联的实体徽标。
-- **右侧栏**：粉丝头像叠放和人数（如果没有公开的粉丝列表接口，就只显示人数）。“常用化合物”**留到 v1.8**（需要聚合接口）。
-
-### 9.6 文档页（reading 720）
-
-`/guide`、`/mcp-guide`、`/skills`、privacy / terms / support：正文宽度 720，少用卡片，代码用 CodeField 显示。
-
-### 9.7 手机端
-
-见参考模板第 12 节：化合物详情、工作台（检索、2×2 快捷入口，以及在“我的内容”和“关注动态”之间切换）、公开主页（头像和数字横排，两个主按钮并排）。
-
-### 9.8 状态页（错误 / 404 / 未登录 / 空态 / 长时间加载）（BX-B4）
-
-按「实现后的样子」冻结：
-
-- **空态（EmptyState，components/ui）**：居中图标 + 标题（fs-18）+ 一句说明 + 恰好一个下一步动作（Button tonal sm 或 TextLink）。列表空态给出「去创建/去搜索」的出口，筛选空态说明「该实体还没有你的笔记」这类事实性文案。禁止英文 eyebrow/kicker 与自绘空态。
-- **404**：公开路由经 `(site)/not-found.tsx`（保留站点顶栏页脚），工作台经 `(workbench)/not-found.tsx`；都由根级 `app/not-found.tsx` 同构兜底。EmptyState 标题取 `error.notFoundTitle`，双出口：去搜索（primary 方向）+ 返回首页（TextLink）。页面有自己的 `<title>`（`error.notFoundTitle｜品牌`）；robots 恰好一条 noindex（由 Next 对 404 状态自动注入 —— 全局不再输出 `index, follow`，否则会叠成两条）。
-- **错误边界（error.tsx）**：EmptyState + 「重新加载」Button（client retry）；文案如实（`error.clientTitle/clientBody`：数据未丢失、可重试），不暴露技术细节与内部路径。`(site)` 段错误页保留顶栏页脚。
-- **未登录（auth-required）**：说明行（「登录后可用」）+ 登录 Button；登录后回跳当前路径（`next` 参数，登录页切语言时 next 前缀同步重写）。
-- **长时间加载**：面板/搜索的客户端加载超过 10s 出 SlowNotice（warn + 重试），重试触发重新请求；骨架屏（Skeleton）在首屏占位。加载失败用 PanelError/Notice err，保留可恢复的列表状态（R6：面板不整页报错）。
-- **确认弹窗（ConfirmDialog）**：所有不可逆/丢稿动作先确认 —— 问句标题 + 对象摘录 + 具体动作按钮（「删除笔记」而非「确定」），默认焦点在「取消」，Esc 关闭并回焦触发钮。保存在途切换编辑器用如实文案（「笔记正在保存，确定切换吗？保存会继续完成。」）。
-
-### 9.9 管理端 `/samelabs`（八面板）（BX-B4）
-
-按实现后的样子冻结（视觉全部走 components/ui 原语）：
-
-- **表格（admin-table）**：article 行 = 主信息（strong 标题 + muted 明细行）+ 状态徽标列（status tag：active/disabled、online/lagging/offline）+ 行操作列。窄屏（≤680）自动竖排；`admin-actions-min` 变体给操作列让位。
-- **筛选**：文本检索 = ui Input + Button sm（提交才应用，URL 同步）；枚举筛选 = ui Segmented（全部/公开/私有 等，不自制 chip 按钮）。
-- **分页（AdminPagination）**：上一页/下一页 = ui Button ghost sm + 「第 N / M 页 · 共 X 条」muted 文本；页码进 URL，可分享可回退。
-- **行操作**：轻量动作 = TextLink（启用/停用、设管理员、发布/下架、编辑分类）；不可改动布局内禁止裸 button。
-- **危险确认**：停用账号/删 worker/删技能/下架 先弹 pipe-confirm 问句框：正文写明后果（「停用后该用户的所有会话与凭证失效」），取消 = Button sm，确认 = Button danger sm；API 错误按机器码（detail.kind）渲染本地化文案（如 worker_busy →「该 Worker 有进行中的任务，不能删除」），不透传服务端原文。
-- **发布 Worker 凭证**：一次性凭证只显示一次（admin-pre 代码块 + 复制 TextLink）；scope 用原生 checkbox 行（ui 无 Checkbox 原语，白名单）。
-- 触控目标 ≥44（samelabs-page 内 TextLink 已有手机端最小尺寸规则）。
-
-### 9.10 设置与表单页（BX-B4）
-
-按实现后的样子冻结：
-
-- **表单控件只用 components/ui**：Field（label 在上、help 在下、error 红字）+ Input/Select/Textarea（hg-input 体系：40 高、r-sm、focus 环）。旧 `.button`/`text-button` 类族已删除 —— 主提交 = Button primary，次要 = secondary/ghost sm，行内文字动作 = TextLink。原生 `<button>/<input>/<select>/<textarea>` 只允许出现在契约测试白名单（文件上传、checkbox/radio/color、菜单/组合框内部、搜索壳内层、投料网格）。
-- **设置页（/me/settings）**：左列设置导航 + 右列表单卡（wb-card）。分组用 form-section（小节标题 + 说明行）；每张卡一个保存动作，保存中 Button loading 冻结；成功 Toast，失败 Notice err 保留输入（迟到返回不覆盖已编辑字段 —— touchedRef/dirtyRef）。
-- **账号表单**：登录/注册一张卡居中（≤400）；用户名实时校验（reason_code 机器码 → 本地化提示），密码强度提示在字段 help；提交错误按状态 + kind 渲染（429 限流 / 401 凭证不符 / 409 已被占用），不显示服务端原文。
-- **投料计算器（StoichPanel）**：紧凑网格（wb-stoich-*）是表单规范的唯一豁免面 —— 单元格密度优先，radio 基准选择原生（详见 §11 白名单）。
-- 键盘：label 与控件显式关联（Field htmlFor）；错误聚焦第一个出错字段。
-
-## 10. 旧 token 迁移表
-
-| 旧 | 新 |
+| 页面 | 面包屑 |
 |---|---|
-| `--blue` | 文字和按钮用 `--action`；装饰、焦点、选中指示用 `--brand` |
-| `--blue-deep` / `--blue-strong` / `--blue-pale` / `--blue-tint` / `--blue-border` / `--blue-glow` | `--action-hover` / `--action-ink` / `--action-subtle` / `--bg-subtle` / `--action-border` / `--focus-halo` |
-| `--ink` `--heading` / `--heading-soft` / `--muted` / `--quiet` | `--text` / `--text-2` / `--text-muted` / `--text-placeholder`（如果用来显示可读文字，改为 `--text-muted`） |
-| `--line` / `--line-strong` / `--wash` / `--paper` | `--border` / `--border-strong` / `--bg-page` / `--bg-surface` |
-| `--reaction` / `--reaction-ink` / `--reaction-bg` | `--entity-rx-line` / `--entity-rx` / `--entity-rx-bg` |
-| `--danger*` / `--success*` / `--warning*` | `--err*` / `--ok*` / `--warn*` |
-| `--green*` / `--warm*` | **删除** |
-| `--text-lg` 15 / `--text` 13 / `--text-sm` 11 / `--text-xs` 10 | 14 或 16（按语义）/ 13 / 12 / 12 |
-| `--fs-caption…--fs-title` | `--fs-12` … `--fs-22`；`--fs-title` 从 30 改为 `--fs-28` |
-| `--space-N` | `--sp-N`（取值相同） |
-| `--radius-sm` 6 / `-md` 10 / `-lg` 14 | `--r-xs` 6 / 控件用 `--r-sm` 8，卡片用 `--r-md` 12 / `--r-lg` 16 |
-| `--layout-reading` 760 / `-content` / `-wide` 1180 / `--rail-width` 270 | `--w-reading` 720 / `--w-content` / `--w-wide` 1200 / `--rail-w` 260 |
-| `--wb-*` | 全部改为上述 token 的别名，不再自带取值：`--wb-fs-micro` 7 和 `--wb-fs-xs` 11 → 12；`--wb-fs-lg` 15 → 16；`--wb-fs-stat` 24 → 28；`--wb-r-xs` 3 → 6；`--wb-r-md` 8 → 12；`--wb-sidebar` 200 → 232；`--wb-topbar-h` 56 → 60；`--wb-tabbar-h` 50 → 64；`--wb-btn-h` 38 → 40 |
+| 化合物详情 | 首页 / 化合物 / 标题 |
+| 反应详情 | 首页 / 反应 / 标题 |
+| 笔记详情 | 首页 / 笔记 / 标题 |
+| 公开主页 | 首页 / 用户显示名 |
+| Skills | 首页 / Skills |
+| 文档页 | 首页 / 页面名 |
 
-## 11. 禁止项（由 `tests/test_ui_token_contract.py` 在 CI 中检查）
+首页、搜索、登录、状态页、工作台内的所有页面（含设置）没有面包屑。
 
-1. 在 `tokens.css` 以外的 CSS 或 TSX 中写 hex / rgb / hsl 色值。品牌 SVG 文件除外。
-2. font-size 不在 8 档字号之内，或可见文字小于 12px（EntityBadge xs 前缀除外）。
-3. border-radius 不在 6 / 8 / 12 / 16 / 999 之内，或不是 token。
-4. 给卡片或面板加 box-shadow（只有浮层组件允许使用 `--shadow-float`）。
-5. `--wb-*` 自带取值。
-6. 出现 `--green` 或 `--warm` 这两类 token。
-7. 调用 `alert(` / `confirm(` / `prompt(`。
-8. 在 EntityBadge 之外，用字面量拼写 `HCID` / `HRID` 的展示。i18n 字典和 aria 文案不在此列。
-9. 使用旧类名 `button` / `wb-btn` / `empty-state` / `eyebrow` / `text-link` / `text-button`（class 属性或 CSS 定义）—— 按钮统一 components/ui Button（.hg-btn），行内文字动作统一 TextLink（.hg-text），空态统一 EmptyState，分区标题就是 h2（BX-B1）。
-10. 在 `components/ui` 之外写原生 `<button>` / `<input>` / `<select>` / `<textarea>` —— 一律用 ui 原语；确属原语覆盖不了的（文件上传、checkbox/radio/color、菜单与组合框内部、搜索壳内层 input、投料网格），登记在契约测试的行级白名单并注明理由。
-11. 出现 `eyebrow`（英文大写 kicker）类名 —— 英文 eyebrow 已在全站清除，新增分区一律直接用 h2 标题。
+### 5.3 分区
 
-## 12. 验收清单
+- 分区标题 h2（22）；组标题 h3（18）。分区按化学语义组织，不按来源分组。
+- 分区内容是 DataRow、卡片网格或正文中的一种，不混排。
 
-- [ ] 5 类页面（Discovery / Entity / Workspace / Documentation / Profile）× 375 / 768 / 1440 宽度 × zh-CN / en 的截图，与参考模板一致
-- [ ] 只用键盘完成：登录 → 搜索 → 化合物详情 → 收藏 → 工作台 → 新建并保存笔记 → 删除笔记
-- [ ] Lighthouse（手机）：首页、化合物详情、`/aichem` 三个页面的 Accessibility ≥ 90
-- [ ] 375 宽度下没有任何页面出现横向滚动
-- [ ] `npm run build`、`npm run test:locale`、`pytest` 全部通过，并通过 token 契约测试
-- [ ] favicon、apple-icon、PWA 图标、OG 图都已换成 HGS 标志
+### 5.4 列表与卡片
+
+- 列表行高 56（紧凑 44），行间 1px `--border`。行内操作用 ghost sm，删除用 danger-quiet sm。
+- 卡片网格间距 16；手机单列。
+
+### 5.5 操作组
+
+- 一组里只有一个 primary，其余 secondary；按钮之间 8。
+- 图标规则见 Button。
+- 手机端：最多并排两个按钮（主操作 + 一个次操作），其余进入“更多”菜单。
+
+### 5.6 页面标题区（工作台和设置）
+
+H1（28）+ 一句说明 + 右侧操作组。没有面包屑。
+
+---
+
+## 第六层：页面
+
+每页写明框架和组成顺序。页面上出现的内容只限现有功能。
+
+### 6.1 首页 `/`（框架 A，wide）
+
+标题（40，手机 28）与一句说明 → 主搜索框（lg）+ 检索方式 Segmented → MCP 端点（CodeField）→ 入口按钮（MCP 接入 / Skills / 网页工作台 / Agent Plugin）。入口桌面一行；手机 2 × 2 等宽，数量为奇数时最后一个撑满一行。
+
+### 6.2 搜索 `/search`（框架 A，content）
+
+页面标题 → 主搜索框 + 检索方式 Segmented → Tabs（化合物 / 反应，带计数）→ EntityCard 列表。状态按 IX-13。只命中一类时只显示那一类，不出现空白。
+
+### 6.3 化合物详情 `/chemical/[id]`（框架 B）
+
+- 页头：EntityBadge lg（可复制）· 标题 · 英文名或 IUPAC 名 · 标识标签（分子式 / 分子量 / CAS，CAS 可复制）· 操作组（收藏 primary + 子结构检索 · 相似结构 · 分享 + 收藏人数和头像叠放）· 结构图。手机端并排收藏和子结构检索，相似结构和分享进“更多”。
+- 正文：概述 → 名称与标识 → 性质 → 安全与法规 → 化学与工业 → 相关反应（角色 Segmented + 反应卡片）→ 笔记。
+- 右栏：本页导航 · 新建相关反应。
+
+### 6.4 反应详情 `/reaction/[id]`（框架 B）
+
+- 页头：EntityBadge lg · 标题 · 由结构化数据组成的事实摘要 · 操作组。
+- 正文：反应式（占满正文宽度，下方是反应 SMILES 的 CodeField）→ 反应物和产物（EntityBadge sm）→ 助剂 → 条件（DataRow）→ 步骤 → 后处理 → 安全和备注 → 来源与引用（ORD / DOI / 专利）。
+- 右栏：本页导航 · 创建者（Avatar + 关注）· HRID 状态。来源与引用只在正文出现一次。
+
+### 6.5 笔记详情 `/note/[id]`（框架 C）
+
+面包屑 → 标题（28，取正文首行）→ 作者 Avatar + 名字 · 日期 · 可见性 Tag → 关联实体（EntityBadge xs 列表）→ 正文（16 / 1.65）→ 本人可见：编辑（secondary）、删除（danger-quiet）。正文直接排在页面上，不包在孤立卡片里。
+
+### 6.6 公开主页 `/user/[username]`（框架 B，无本页导航，单栏）
+
+面包屑 → 名片：Avatar 80 · 名字（28）· @用户名 · 关系 Tag · 简介 · 机构和加入时间 · 数字（公开反应 · 公开笔记 · 粉丝 · 关注）· 操作（访客：关注 primary + 分享；本人：编辑资料 + 进入工作台）→ Tabs（反应 / 笔记）→ 反应两列卡片 / 笔记列表。名片里出现过的信息不再重复。
+
+### 6.7 工作台 `/aichem`（框架 D）
+
+- 页面标题区：问候语 + 一句当前状态；操作组：新建笔记（secondary）+ 新建反应（primary），都带图标。
+- 概览（桌面两列，平板和手机单列，社交内容在后）：
+  - 工具列：快速检索 + 4 个快捷入口（2 × 2）；“我的内容”面板（Tabs：最近 / 反应 / 笔记 / 收藏；每行类型图标 · 标题 · 徽标 · 可见性 · 时间，笔记显示保存状态）。
+  - 社交列（320）：我的主页卡片（头像 · @用户名 · 公开反应 / 粉丝 / 关注 · 查看公开主页 · 分享）；关注动态（公开反应和公开笔记；头像 · 事件 · 时间 · 反应式缩略图或笔记摘要 · ghost sm 的收藏和打开）。
+- 其他侧栏项（笔记 / 我的反应 / 收藏 / 动态 / 关注 / 粉丝 / 投料计算 / Skills）：页面标题区 + 单列内容，主区宽度、左边缘和概览一致，切换时版面不跳动。
+- 主区不出现与侧栏重复的导航。
+- 手机：没有“我的内容 / 关注动态”切换，动态在底部 tab；页面内只有一层 Tabs。
+
+### 6.8 设置 `/me/settings/*`（框架 D）
+
+- 侧栏：AI Key 页高亮“MCP 与 AI Key”，其他设置页高亮“设置”。
+- 页面标题区 → Tabs（个人资料 / 头像 / 账号安全 / AI Key）→ 表单卡片（最宽 680）。
+- 头像页：Avatar 80 预览 + FileUpload。
+
+### 6.9 登录 / 注册 `/login`（框架 E）
+
+标志 44 → 标题 → Segmented（登录 / 注册）→ 表单 → 主按钮（撑满卡片）→ 切换链接。登录后按 `next` 回跳。
+
+### 6.10 文档页（框架 C）
+
+`/guide`、`/mcp-guide`、`/skills`、`/privacy`、`/terms`、`/support`。面包屑 → 标题 → 正文。代码用 CodeField，同一段代码只出现一次；行内复制用 CopyButton。`/skills` 的技能列表为空时用 EmptyState。
+
+### 6.11 状态页（框架 F）
+
+见 4.1。
+
+### 6.12 管理端 `/samelabs`
+
+使用同一套基础层和组件，不另做视觉。
+
+- 表格行 = 主信息（标题 + muted 明细）· 状态 Tag · 行操作；≤ 680 竖排。
+- 文本检索 = Input + Button sm（提交后应用，同步 URL）；枚举筛选 = Segmented。
+- 分页 = ghost sm 上一页 / 下一页 + “第 N / M 页 · 共 X 条”，页码进 URL。
+- 行操作用 TextLink；停用账号、删 worker、删技能、下架先确认，正文写明后果；错误按机器码渲染本地化文案。
+- 一次性 Worker 凭证只显示一次（代码块 + 复制）。
+
+---
+
+## 第七章：禁止项（由 `tests/test_ui_token_contract.py` 在 CI 检查）
+
+1. 在 `tokens.css` 以外写 hex / rgb / hsl 色值（品牌 SVG 除外）。
+2. 字号不在 8 档内，或可见文字小于 12px（EntityBadge xs 前缀除外）。
+3. 圆角不在 6 / 8 / 12 / 16 / 999 之内；给卡片或面板加 box-shadow。
+4. `--wb-*` 自带取值；出现 `--green*` / `--warm*`。
+5. 调用 `alert(` / `confirm(` / `prompt(`。
+6. 在 EntityBadge 之外用字面量拼写 HCID / HRID 的展示（字典和 aria 文案除外）；在表格列以外使用 `compact`。
+7. 使用旧类名 `button` / `wb-btn` / `empty-state` / `eyebrow` / `text-link` / `text-button`。
+8. 在 `components/ui` 之外写原生 `<button>` / `<input>` / `<select>` / `<textarea>`。白名单（行级登记并注明理由）：FileUpload 内部的 file input、checkbox / radio / color、菜单与组合框内部、主搜索框内层 input、投料网格单元格。
+9. `<form>` 未声明 `method="post"`。
+10. 顶栏出现搜索输入框；渲染来源标签或按来源分组。
+11. 在媒体查询里隐藏按钮的图标或操作（`display: none` 作用于 `.hg-btn` 或其 svg）。
+
+---
+
+## 第八章：待落地的 token 变更
+
+| 变更 | token | 取值 |
+|---|---|---|
+| 新增 | `--icon-sm` / `--icon-md` / `--icon-lg` | 16 / 20 / 24 |
+| 修改 | `--tabbar-h` | 56（内容区高度；总高 = `--tabbar-h` + safe-area） |
+| 新增 | `--h-xs` | 28（CopyButton） |
+| 新增 | `--w-form` | 400（框架 E 单卡） |
+| 修改 | `--fs-12` 等注释 | 删除“来源标签”等过时用途 |
