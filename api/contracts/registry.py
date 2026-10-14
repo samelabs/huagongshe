@@ -1,16 +1,19 @@
 """Governance registry (G1 final) — G1A 冻结结论的机械落实。
 
+v1.7.1 PM 裁定(2026-10-14): REST 只供网站内部使用, 对外接入唯一入口是
+MCP。AGENT_HTTP 投影面整体退役(端点 /api/agent-guide 已删除; REST 路由
+不再接受 AI Key 凭据)。HTTP entrypoints 在 registry 中保留登记, 但其
+consumer 投影只有 WEB。
+
 事实源(证据优先级: runtime 代码 > 测试 > 消费者 > 公开契约 > 注释):
-- WEB: web/lib/api.ts + components 全量调用面
-- AGENT_HTTP: api/agent.py(agent-guide 15 operations)
+- WEB: web/lib/api.ts + components 全量调用面(网站内部 REST)
 - AGENT_MCP: api/mcp_server.py @server.tool(14; list_skills/get_skill 的
   public/slug 分支匿名可用 —— 逐行核实, 不是"全 tool 需登录")
 - DISCOVERY: web/public/llms.txt + sitemap 语义
 - WorkAPI scope: api/workapi.py ROUTE_SCOPE(pubchem/cas; identity 沿用 pubchem)
 
 Compatibility 登记依据(逐 scenario, 与 Consumer 无推导关系):
-- agent-guide 15 operations + guide 自身 → STABLE_EXTERNAL
-- 14 MCP tools → STABLE_EXTERNAL
+- 14 MCP tools → STABLE_EXTERNAL(对外兼容义务由 MCP 面承担)
 - WorkAPI(Web/Admin/OPS/内部面) → NONE(trusted internal protocol,
   不冒充 public compatibility)
 - DISCOVERY 场景不因 consumer 自动稳定: PNG/datasets/sitemap 无稳定兼容
@@ -43,21 +46,21 @@ def _fams() -> list[Family]:
                 I(T.HTTP, "GET /api/search", "mode=exact"),
                 I(T.MCP, "search_chemistry_data", "mode=exact"),
             ), contract=Contract(
-                frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+                frozenset({C.WEB, C.AGENT_MCP}),
                 X.STABLE_EXTERNAL, "search_chemistry_data"),
             ),
             S("substructure", A.ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/search", "mode=substructure"),
                 I(T.MCP, "search_chemistry_data", "mode=substructure"),
             ), contract=Contract(
-                frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+                frozenset({C.WEB, C.AGENT_MCP}),
                 X.STABLE_EXTERNAL, "search_chemistry_data"),
             ),
             S("similarity", A.ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/search", "mode=similarity"),
                 I(T.MCP, "search_chemistry_data", "mode=similarity"),
             ), contract=Contract(
-                frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+                frozenset({C.WEB, C.AGENT_MCP}),
                 X.STABLE_EXTERNAL, "search_chemistry_data"),
             ),
         ), kernels=(
@@ -72,7 +75,7 @@ def _fams() -> list[Family]:
             S("detail", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/chemicals/{chemical_id}"),
                 I(T.MCP, "get_chemical")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "get_chemical"),
               note="enrich=core(零 provider)/full(semantic detail: 内部调 "
                    "services/enrichment(PB)+services/cb(CB), 状态归一 "
@@ -92,7 +95,7 @@ def _fams() -> list[Family]:
             S("svg", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/mol/{chemical_id}/svg"),
                 I(T.MCP, "render_molecule_svg")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP, C.DISCOVERY}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP, C.DISCOVERY}),
                                 X.STABLE_EXTERNAL, "render_molecule_svg")),
             S("png", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/mol/{chemical_id}/png"),),
@@ -110,7 +113,7 @@ def _fams() -> list[Family]:
             S("svg", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/reactions/{reaction_id}/svg"),
                 I(T.MCP, "render_reaction_svg")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP, C.DISCOVERY}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP, C.DISCOVERY}),
                                 X.STABLE_EXTERNAL, "render_reaction_svg"),
               note="visibility-aware 缓存(300s/private); MCP 侧查 SQL 为内联复制(D008)"),
         ), kernels=(
@@ -124,26 +127,26 @@ def _fams() -> list[Family]:
             S("detail", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/reactions/{reaction_id}"),
                 I(T.MCP, "get_reaction")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "get_reaction")),
             # E7: list_own 原挂 reaction.write(E.WRITE) —— family effect 描述性失真;
             # 它是 ACTOR 自读(GET /users/me/reactions), 归入 E.READ family。
             S("list_own", A.ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/users/me/reactions"),
                 I(T.MCP, "list_my_reactions")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "list_my_reactions")),
         )),
         Family("reaction.write", E.WRITE, scenarios=(
             S("validate", A.ACTOR, required_scope=("reaction:write",), entrypoints=(
                 I(T.HTTP, "POST /api/reactions/validate"),
                 I(T.MCP, "validate_reaction")),
-              contract=Contract(frozenset({C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "validate_reaction")),
             S("create", A.ACTOR, required_scope=("reaction:write",), entrypoints=(
                 I(T.HTTP, "POST /api/reactions"),
                 I(T.MCP, "create_reaction")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "create_reaction"),
               note="同事务: Web session 与 AI Key 同一 create-reaction 事务服务"
                    "(services.reactions.create_reaction); MCP 经同一 application "
@@ -173,24 +176,24 @@ def _fams() -> list[Family]:
             S("list_public", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/skills", "scope=public"),
                 I(T.MCP, "list_skills", "scope=public")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "list_skills")),
             S("list_mine", A.ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/skills", "scope=mine"),
                 I(T.MCP, "list_skills", "scope=mine")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "list_skills"),
               note="mine 分支需已解析 actor; HTTP/MCP 同语义(_require_login 无 scope 检查)"),
             S("get", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/skills/{skill_id}"),
                 I(T.MCP, "get_skill")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "get_skill"),
               note="private 仅 owner 可读(endpoint 内分支); MCP slug 解析为"
                    " adapter 逻辑(fail-closed 契约测试锁定)"),
             S("archive", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/skills/{skill_id}/archive"),),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "download_skill_archive"),
               note="E4: skill_files 查询 + 目录/文件缺失判定 + zip 组装在 application "
                    "service(build_skill_archive); adapter 只余 access 404 桥 + "
@@ -210,12 +213,12 @@ def _fams() -> list[Family]:
             S("validate", A.ACTOR, required_scope=("skill:write",), entrypoints=(
                 I(T.HTTP, "POST /api/skills/validate"),
                 I(T.MCP, "validate_skill")),
-              contract=Contract(frozenset({C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "validate_skill")),
             S("create", A.ACTOR, required_scope=("skill:write",), entrypoints=(
                 I(T.HTTP, "POST /api/skills"),
                 I(T.MCP, "create_skill")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "create_skill"),
               note="同事务; Web session(SkillsPanel apiPost)与 AI Key 同一 create-skill 服务"),
             S("update", A.ACTOR, entrypoints=(
@@ -240,7 +243,7 @@ def _fams() -> list[Family]:
             S("calculate", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "POST /api/stoichiometry/scale"),
                 I(T.MCP, "calculate_stoichiometry")),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP, C.AGENT_MCP}),
+              contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "calculate_stoichiometry")),
         )),
 
@@ -359,6 +362,16 @@ def _fams() -> list[Family]:
                 I(T.HTTP, "DELETE /api/users/me/tokens/{token_id}"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
         )),
+        Family("account.oauth_connection", E.PRIVILEGED, scenarios=(
+            # I-016: 设置→账号安全的 MCP 客户端授权管理(Web-only, 凭据生命周期;
+            # 第 2 轮收紧: list 与 /users/me/tokens 同口径只认网页会话)
+            S("list", A.SESSION, entrypoints=(
+                I(T.HTTP, "GET /api/users/me/oauth-connections"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("revoke", A.SESSION, entrypoints=(
+                I(T.HTTP, "DELETE /api/users/me/oauth-connections/{client_id}"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE)),
+        )),
 
         # ------------------------------------------------------------------
         # social / public profile(G1A: follow Web-only 合理, MCP 不新增)
@@ -428,12 +441,6 @@ def _fams() -> list[Family]:
                 I(T.HTTP, "GET /api/sitemap/reactions"),),
               contract=Contract(frozenset({C.DISCOVERY}), X.NONE),
               note="sitemap 生成语义的公开 keyset 端点, 非产品功能面"),
-        )),
-        Family("guide", E.READ, scenarios=(
-            S("agent", A.PUBLIC_OR_ACTOR, entrypoints=(
-                I(T.HTTP, "GET /api/agent-guide"),),
-              contract=Contract(frozenset({C.WEB, C.AGENT_HTTP}),
-                                X.STABLE_EXTERNAL, "get_agent_connection_guide")),
         )),
         Family("ops.health", E.READ, scenarios=(
             S("health", A.PUBLIC_OR_ACTOR, entrypoints=(

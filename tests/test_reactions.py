@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
-from api import agent, reactions, social, users
+from api import reactions, social, users
 from api.services import reactions as reactions_service
 from api.core.config import settings
 from api.services.reactions import (ReactionValidationError,
@@ -97,14 +97,21 @@ class ReactionContractTests(unittest.TestCase):
         self.assertLess(create_source.index("await db.commit()"), create_source.index("notify_new_reaction_safely"))
 
     def test_activity_feed_only_returns_current_visible_followed_reactions(self) -> None:
+        # I-007: feed 过滤条件提取为 social 模块级共享常量(notifications 端点
+        # 与 unread_activity_count 同一过滤), 静态断言随之看模块源; dashboard
+        # 未读数委托 unread_activity_count(不再自带 SQL)。
+        social_source = inspect.getsource(social)
+        self.assertIn("JOIN community.user_follows", social_source)
+        self.assertIn("n.created_at>=", social_source)
+        self.assertIn("r.visibility='public'", social_source)
+        self.assertIn("r.moderation_status='visible'", social_source)
+        # 笔记事件与反应事件同构过滤
+        self.assertIn("nt.visibility='public'", social_source)
+        self.assertIn("nt.moderation_status='visible'", social_source)
         feed_source = inspect.getsource(social.notifications)
-        summary_source = inspect.getsource(users.dashboard_summary)
-        for source in (feed_source, summary_source):
-            self.assertIn("JOIN community.user_follows", source)
-            self.assertIn("n.created_at>=", source)
-            self.assertIn("r.visibility='public'", source)
-            self.assertIn("r.moderation_status='visible'", source)
         self.assertIn("ORDER BY n.created_at DESC,n.id DESC", feed_source)
+        summary_source = inspect.getsource(users.dashboard_summary)
+        self.assertIn("unread_activity_count", summary_source)
 
     def test_activity_feed_has_a_bounded_order_index(self) -> None:
         migration = Path("migrations/history/20260722_optimize_activity_feed.sql").read_text()
@@ -142,80 +149,11 @@ class ReactionContractTests(unittest.TestCase):
             __import__("api.services.search", fromlist=["execute_search"]))
         self.assertIn('f"v2:unified-search', search_source)
 
-    def test_agent_guide_is_a_bounded_connection_and_operation_surface(self) -> None:
-        source = inspect.getsource(agent.agent_guide)
-        self.assertIn("optional_skill_url", source)
-        # P2 边界归一: HTTP API guide 不再携带 MCP discovery
-        self.assertNotIn("mcp_url", source)
-        self.assertNotIn("mcp_transport", source)
-        self.assertNotIn("mcp-guide", source)
-        self.assertNotIn("openapi_url", source)
-        self.assertIn('"operations"', source)
-        self.assertIn('"payload_hints"', source)
-        self.assertIn("unique Idempotency-Key", source)
-        self.assertIn("AI Key", source)
-        self.assertNotIn("Agent Token", source)
-        # P2.1: 机器可读契约统一 AI Key 术语
-        self.assertNotIn("authorization_required", source)
-        self.assertNotIn("AI 授权", source)
-
-        actor = Actor(
-            7, "chemist", "Chemist", "chemist@example.test", "member", None,
-            "agent", scopes=("read", "reaction:write"),
-        )
-        db_mock = AsyncMock()
-        db_mock.execute.return_value.scalar.return_value = None
-        guide = asyncio.run(agent.agent_guide("Bearer hgs_test_token", actor, db=db_mock))
-        self.assertEqual(guide["connection"]["status"], "authenticated")
-        self.assertEqual(guide["connection"]["account"]["username"], "chemist")
-        self.assertEqual(
-            {item["id"] for item in guide["operations"]},
-            {
-                "search_chemistry_data", "get_chemical",
-                "get_reaction", "render_molecule_svg", "render_reaction_svg",
-                "list_my_reactions", "list_skills", "get_skill",
-                "download_skill_archive", "calculate_stoichiometry",
-                "validate_reaction", "validate_skill", "create_skill",
-                "create_reaction",
-            },
-        )
-
-
 class ApiTokenBoundaryTests(unittest.TestCase):
     """P2 边界归一: Token = credential, 与 API/MCP onboarding 解耦。"""
 
-    def test_agent_guide_anonymous_is_public_ready(self) -> None:
-        # P2.1: 匿名状态 = public_ready (公开操作无需 Key), account=null
-        db_mock = AsyncMock()
-        db_mock.execute.return_value.scalar.return_value = None
-        guide = asyncio.run(agent.agent_guide(None, None, db=db_mock))
-        self.assertEqual(guide["connection"]["status"], "public_ready")
-        self.assertIsNone(guide["connection"]["account"])
-        self.assertIn("AI Key", guide["connection"]["instruction"])
-        self.assertIn("operations", guide)
-        # A-fix: 机器契约无星号伪 placeholder
-        self.assertEqual(
-            guide["authentication"]["header"], "Authorization: Bearer <AI Key>")
-        ops = {item["id"]: item for item in guide["operations"]}
-        # MCP-15 B: validate_skill 要求 skill:write scope(REST/MCP 一致); 其他操作仍为 bearer
-        self.assertEqual(ops["validate_skill"]["auth"], "bearer:skill:write")
-        self.assertEqual(ops["create_skill"]["auth"], "bearer:skill:write")
-        self.assertEqual(ops["validate_reaction"]["auth"], "bearer:reaction:write")
-        # 已认证状态
-        actor = Actor(
-            7, "chemist", "Chemist", "chemist@example.test", "member", None,
-            "agent", scopes=("read", "reaction:write"),
-        )
-        guide2 = asyncio.run(agent.agent_guide("Bearer hgs_t", actor, db=db_mock))
-        self.assertEqual(guide2["connection"]["status"], "authenticated")
-        self.assertEqual(
-            guide2["authentication"]["header"], "Authorization: Bearer <AI Key>")
-
     def test_machine_contract_uses_ai_key_wording(self) -> None:
-        source = inspect.getsource(agent)
-        self.assertNotIn("authorization_required", source)
-        self.assertNotIn("AI 授权", source)
-        self.assertNotIn("API Token", source)
+        # v1.7.1: /api/agent-guide 已删, 机器契约术语只剩 MCP 面
         mcp_source = Path(inspect.getsourcefile(__import__("api.mcp_server", fromlist=["x"]))).read_text()
         self.assertNotIn("API Token", mcp_source)
         self.assertIn("AI Key", mcp_source)
@@ -228,9 +166,9 @@ class ApiTokenBoundaryTests(unittest.TestCase):
         self.assertIn('"token": plain', return_source)
         for coupling in ("agent_connection_text", "agent_guide_url", "api_base_url"):
             self.assertNotIn(f'"{coupling}"', return_source)
-        # agent_connection_text 函数已删除, 无残留消费者
-        import api.agent as agent_mod
-        self.assertFalse(hasattr(agent_mod, "agent_connection_text"))
+        # v1.7.1: api.agent 模块整体退役(REST 不再对外, guide 端点删除)
+        import importlib.util
+        self.assertIsNone(importlib.util.find_spec("api.agent"))
 
 
 if __name__ == "__main__":

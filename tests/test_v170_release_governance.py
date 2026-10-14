@@ -46,23 +46,6 @@ class ProductVersionContract(unittest.TestCase):
 
         self.assertEqual(settings.api_version, "1.0.0")
 
-    def test_agent_guide_payload_still_reports_api_version(self):
-        from api.agent import agent_guide
-
-        class _StubDb:
-            async def execute(self, *_a, **_k):
-                class _R:
-                    def scalar(self):
-                        return None
-
-                return _R()
-
-        import asyncio
-
-        payload = asyncio.run(agent_guide(authorization=None, actor=None, db=_StubDb()))
-        self.assertEqual(payload["api_version"], "1.0.0")
-
-
 class HomePageEntryContract(unittest.TestCase):
     """首页源码结构契约: MCP / Skills / Workbench / Plugin，AI Key 不单列。"""
 
@@ -89,10 +72,9 @@ class HomePageEntryContract(unittest.TestCase):
 
 
 class CompatibilitySurfaceKept(unittest.TestCase):
-    def test_agent_guide_route_still_registered(self):
-        # api/main.py: app.include_router(agent_router, prefix="/api")。
-        # 新版 FastAPI 把 include 后的 router 包成 _IncludedRouter,
-        # 子路由 path 是 router 内路径, prefix 在 include_context 上。
+    def test_agent_guide_route_removed(self):
+        # v1.7.1 PM 裁定: REST 不再对外, /api/agent-guide 端点删除,
+        # 对外接入唯一入口是 MCP。
         from api.main import app
 
         def registered_paths():
@@ -104,7 +86,7 @@ class CompatibilitySurfaceKept(unittest.TestCase):
                 else:
                     yield getattr(r, "path", "")
 
-        self.assertIn("/api/agent-guide", list(registered_paths()))
+        self.assertNotIn("/api/agent-guide", list(registered_paths()))
 
     def test_ai_key_settings_route_still_exists(self):
         page = WEB / "app" / "(workbench)" / "me" / "settings" / "api-tokens" / "page.tsx"

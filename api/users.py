@@ -24,6 +24,7 @@ from .core.security import (
     password_hash, password_matches,
 )
 from .schemas.users import RegisterBody, LoginBody, ProfileBody, TokenBody, PasswordBody
+from .services import oauth as oauth_svc
 
 auth_router = APIRouter(prefix="/auth", tags=["users"])
 router = APIRouter(prefix="/users", tags=["users"])
@@ -34,11 +35,11 @@ def avatar_variants(raw: bytes) -> dict[int, bytes]:
     try:
         source = Image.open(io.BytesIO(raw))
         if source.width * source.height > 20_000_000:
-            raise HTTPException(413, "头像像素尺寸过大")
+            raise HTTPException(413, {"message": "头像像素尺寸过大", "kind": "avatar_pixels_too_large"})
         source.seek(0)
         source = ImageOps.exif_transpose(source).convert("RGB")
     except (UnidentifiedImageError, OSError) as exc:
-        raise HTTPException(400, "无法识别头像图片") from exc
+        raise HTTPException(400, {"message": "无法识别头像图片", "kind": "avatar_unrecognized"}) from exc
     result: dict[int, bytes] = {}
     for size in (512, 128):
         rendered = ImageOps.fit(source, (size, size), method=Image.Resampling.LANCZOS)
@@ -168,27 +169,20 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
           (SELECT count(*) FROM community.chemical_follows f WHERE f.user_id=u.id),
           (SELECT count(*) FROM community.reaction_follows f
            JOIN chemistry.reactions r ON r.id=f.reaction_id
-           WHERE f.user_id=u.id AND r.visibility='public' AND r.moderation_status='visible'),
-          (SELECT count(*)
-           FROM community.notifications n
-           JOIN chemistry.reactions r ON r.id=n.reaction_id
-           JOIN community.users source_user
-             ON source_user.id=n.actor_user_id AND source_user.status='active'
-           JOIN community.user_follows current_follow
-             ON current_follow.follower_user_id=n.user_id
-            AND current_follow.followed_user_id=n.actor_user_id
-            AND n.created_at>=current_follow.created_at
-           WHERE n.user_id=u.id AND n.event_type='new_reaction' AND n.read_at IS NULL
-             AND r.visibility='public' AND r.moderation_status='visible')
+           WHERE f.user_id=u.id AND r.visibility='public' AND r.moderation_status='visible')
         FROM community.users u WHERE u.id=:id AND u.status='active'
     """), {"id": actor.id})).one()
+    # I-007: 未读数与 /users/me/notifications 同一过滤条件(含 new_note),
+    # 未读数恒等于列表里未读的条数。
+    from .social import unread_activity_count
+    unread = await unread_activity_count(db, actor.id)
     return {
         "username": row[0], "display_name": row[1], "bio": row[2], "avatar_url": row[3],
         "created_at": row[4],
         "counts": {
             "public_reactions": row[5], "private_reactions": row[6],
             "following": row[7], "followers": row[8],
-            "chemicals": row[9], "reactions": row[10], "unread": row[11],
+            "chemicals": row[9], "reactions": row[10], "unread": unread,
         },
     }
 
@@ -217,7 +211,7 @@ async def update_profile(body: ProfileBody, actor: Actor = Depends(current_sessi
         # pydantic Field 等值挡住, 理论不可达)原样抛, 不吞成误导性 409。
         await db.rollback()
         if "community_users_email_uidx" in str(getattr(exc, "orig", "")) or "community_users_email_uidx" in str(exc):
-            raise HTTPException(409, "邮箱已被其他账号占用") from exc
+            raise HTTPException(409, {"message": "邮箱已被其他账号占用", "kind": "email_taken"}) from exc
         raise
     return body.model_dump()
 
@@ -233,7 +227,7 @@ async def change_password(
         "SELECT password_hash FROM community.users WHERE id=:id"
     ), {"id": actor.id})).scalar_one()
     if not await asyncio.to_thread(password_matches, body.current_password, encoded):
-        raise HTTPException(400, "当前密码不正确")
+        raise HTTPException(400, {"message": "当前密码不正确", "kind": "current_password_incorrect"})
     new_password_hash = await asyncio.to_thread(password_hash, body.new_password)
     await db.execute(text("""
         UPDATE community.users SET password_hash=:password_hash,updated_at=now() WHERE id=:id
@@ -258,7 +252,7 @@ async def upload_avatar(
     await enforce_http("avatar", str(actor.id), settings.api_avatar_limit_per_hour, 3600)
     raw = await image.read(settings.avatar_max_bytes + 1)
     if len(raw) > settings.avatar_max_bytes:
-        raise HTTPException(413, "头像文件不能超过 5 MB")
+        raise HTTPException(413, {"message": "头像文件不能超过 5 MB", "kind": "avatar_too_large"})
     variants = await asyncio.to_thread(avatar_variants, raw)
 
     version = secrets.token_hex(10)
@@ -321,11 +315,17 @@ async def delete_avatar(actor: Actor = Depends(current_session), db=Depends(get_
 
 @router.get("/me/tokens")
 async def list_tokens(response: Response, actor: Actor = Depends(current_session), db=Depends(get_db)):
-    # 2026-10-11 收口: 明文不再落库 → 列表只有元数据(token_hash 不可逆, 不回传)。
-    # 响应仍属账户私有数据: 明确禁缓存, 不依赖 CDN/浏览器默认。
+    # 2026-10-14 项目负责人裁定（有意为之，锁死，勿以安全为由改回）:
+    # AI Key 明文落库(token_plain)并在列表回传 token 字段, 供账号本人在
+    # 设置页再次查看、复制 —— 每账号最多 5 个有效 Key, 可再次查看能降低
+    # 使用摩擦。2026-10-11「明文不落库、只显示一次」的收口是对通用安全
+    # 规则的误套, 已撤销; 变更本行为须经项目负责人确认。
+    # 边界: 本端点只认网页会话(current_session), AI Key/匿名一律 401/403;
+    # 无明文的旧 Key 返回 null; MCP/日志/错误信息不得出现明文。
+    # 响应属账户私有数据: 明确禁缓存, 不依赖 CDN/浏览器默认。
     response.headers["Cache-Control"] = "private, no-store"
     rows = (await db.execute(text("""
-        SELECT id,name,token_prefix,scopes,created_at,expires_at,last_used_at
+        SELECT id,name,token_prefix,token_plain AS token,scopes,created_at,expires_at,last_used_at
         FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL
         ORDER BY id DESC
@@ -340,7 +340,7 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
         WHERE user_id=:id AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now())
     """), {"id": actor.id})).scalar() or 0)
     if active >= 5:
-        raise HTTPException(409, "每个账号最多保留 5 个有效 API Token")
+        raise HTTPException(409, {"message": "每个账号最多保留 5 个有效 API Token", "kind": "api_token_limit"})
     plain = f"hgs_{secrets.token_urlsafe(36)}"
     expires = (
         datetime.now(timezone.utc) + timedelta(days=body.expires_in_days)
@@ -348,19 +348,23 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
     )
     row = (await db.execute(text("""
         INSERT INTO community.user_api_tokens
-          (user_id,name,token_hash,token_prefix,expires_at)
-        VALUES (:user_id,:name,:token_hash,:prefix,:expires_at)
+          (user_id,name,token_hash,token_prefix,token_plain,expires_at)
+        VALUES (:user_id,:name,:token_hash,:prefix,:plain,:expires_at)
         RETURNING id,name,token_prefix,scopes,created_at,expires_at
     """), {
         "user_id": actor.id, "name": body.name.strip(),
         "token_hash": hashlib.sha256(plain.encode()).digest(), "prefix": plain[:12],
+        "plain": plain,
         "expires_at": expires,
     })).mappings().one()
     await db.commit()
     # P2 边界归一: Token 创建只返回 credential 与 token metadata。
     # api_base_url / agent_guide_url / agent_connection_text 已删除(前端零真实消费者,
     # onboarding 耦合由 /guide 与 /mcp-guide 平级入口承担)。
-    # 2026-10-11 收口: 明文只在 201 响应返回一次, 不落库(20261011_01 migration)。
+    # 2026-10-14 项目负责人裁定（有意为之，锁死，勿以安全为由改回）: 创建时
+    # 同步把明文写入 token_plain, 供本人设置页再次查看、复制(每账号最多 5 个
+    # 有效 Key, 降低使用摩擦); 鉴权仍走 token_hash。撤销 2026-10-11
+    # 「只在 201 响应返回一次、不落库」的收口; 变更须经项目负责人确认。
     return {
         **dict(row),
         "token": plain,
@@ -375,8 +379,26 @@ async def revoke_token(token_id: int, actor: Actor = Depends(current_session), d
         WHERE id=:token_id AND user_id=:user_id
     """), {"token_id": token_id, "user_id": actor.id})
     if result.rowcount == 0:
-        raise HTTPException(404, "API Token 不存在")
+        raise HTTPException(404, {"message": "API Token 不存在", "kind": "api_token_not_found"})
     await db.commit()
+
+
+@router.get("/me/oauth-connections")
+async def list_oauth_connections(
+    response: Response, actor: Actor = Depends(current_session), db=Depends(get_db)
+):
+    # I-016 第 2 轮收紧: 凭据管理与 /users/me/tokens 一致, 只认网页会话
+    # (AI Key agent 调用 403)。账户私有数据, 明确禁缓存。
+    response.headers["Cache-Control"] = "private, no-store"
+    return {"items": await oauth_svc.list_connections(db, user_id=actor.id)}
+
+
+@router.delete("/me/oauth-connections/{client_id}", status_code=204)
+async def revoke_oauth_connection(
+    client_id: str, actor: Actor = Depends(current_session), db=Depends(get_db)
+):
+    # 幂等且不 404: 重复撤销与未知 client_id 都 204, 不泄露他人是否授权过。
+    await oauth_svc.revoke_connection(db, user_id=actor.id, client_id=client_id)
 
 
 @router.get("/{username}")
@@ -399,7 +421,7 @@ async def public_profile(username: str, actor: Actor | None = Depends(public_or_
         FROM community.users u WHERE lower(u.username)=lower(:username)
     """), {"username": username, "viewer": viewer_id})).fetchone()
     if not row:
-        raise HTTPException(404, "用户不存在")
+        raise HTTPException(404, {"message": "用户不存在", "kind": "user_not_found"})
     if row[12] != "active":
         # 停用态: 只暴露状态卡所需的最小字段(不泄露 bio/机构/邮箱等资料)
         return {
@@ -437,7 +459,7 @@ async def relationship_page(
         WHERE lower(username)=lower(:username) AND status='active'
     """), {"username": username})).scalar()
     if target_id is None:
-        raise HTTPException(404, "用户不存在")
+        raise HTTPException(404, {"message": "用户不存在", "kind": "user_not_found"})
 
     if relation == "followers":
         target_column = "f.followed_user_id"

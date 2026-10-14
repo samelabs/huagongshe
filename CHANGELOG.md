@@ -7,6 +7,11 @@ Production site: https://huagongshe.com
 
 补丁版：MCP 对外输出契约收紧、供应商编号不外泄、README 如实化与测试库保护。
 
+**REST 收为网站内部面（PM 裁定 2026-10-14）**
+- 删除 `GET /api/agent-guide`；对外接入唯一入口是 MCP（`/mcp` 自描述 + OAuth 2.1）。`web/public/llms.txt` 中残留的 agent-guide 提法待前端轮次同步更新
+- REST 不再接受 AI Key：所有网页接口对 Bearer AI Key 一律 401（`kind=rest_agent_forbidden`），网页登录会话与匿名公开读取行为不变；AI Key 只能用于 MCP，MCP 行为不变
+- 后端用户可见业务错误统一错误码化：HTTP 错误响应 `detail` 由纯中文文案改为 `{"message": <中文原文>, "kind": <snake_case 错误码>}`（搜索类沿用 `invalid_doi`/`invalid_cas` 等既有 kind）；MCP 对外输出保持英文映射不变
+
 **MCP 对外输出变化（只改出口，共享服务/网页 REST/数据链不变）**
 - get_chemical 去掉字段：`similarity`（空槽位，相似度检索时保留实值）、`follower_count`、`is_following`、`enrichment`，以及 `details` 内的 `provenance`、`suppliers[].ref` 和各证据块的 `references`/`normalization`
 - get_chemical `details` 改键名：`description.record_description` → `description`；`names.cb_identity.{cn,en,formula,mw}` → `names.{chinese_name,english_name,formula,molecular_weight}`；`names.cb_aliases[].value` → `names.aliases`；`properties.pb_computed` → `computed_properties`；`properties.pb_physical_properties` → `experimental_properties`（证据拉平为值列表）；`properties.cb_experimental` → `physical_data`（`label`→`name`、`text`→`value`）；`properties.cb_prose` → `chemical_properties`；`safety.pb_sections.*` → `safety.{ghs_classification,hazards,safety_measures,toxicity,regulatory}`；`safety.cb_safety` → `safety.safety_data`；`safety.cb_toxicity` → `safety.toxicity_notes`；`safety.cb_packaging` → `safety.storage_and_transport`；`industry.pb_sections.{pharmacology,uses_and_manufacturing}` → `applications.*`；`industry.cb_uses/cb_preparation/cb_notes` → `applications.uses/preparation/handling_notes`；`industry.cb_updown` → `related_products.{upstream_materials,downstream_materials}`；`industry.cb_price` → `reagent_prices`
@@ -30,8 +35,14 @@ Production site: https://huagongshe.com
 - 化合物详情页不展示采集来源（PubChem/ChemicalBook 标签、底部记录区）
 
 **文档与测试**
-- README 如实化：合并后旧 HCID 不再可访问（反应参与关系改指保留行），AI Key 只在创建时显示一次
+- README 如实化：合并后旧 HCID 不再可访问（反应参与关系改指保留行）；AI Key 说明改为可在设置页再次查看和复制（随下方明文恢复裁定，撤销 I-060 的「只显示一次」改动）
 - tests/test_migration_runner.py 与 tests/test_admin_pipeline_a1.py 改经 db_gate 双闸（库名模式 + sentinel）取测试库，不再直读 `TEST_DATABASE_URL`
+
+**AI Key 恢复明文保存与再次查看（2026-10-14 项目负责人裁定）**
+- 撤销 1.7.0「AI Key 明文不再落库、不再回传」收口：新建 Key 重新写入 `token_plain`，本人网页会话的 `GET /users/me/tokens` 重新返回明文（`token` 字段；无明文的旧 Key 返回 null）；鉴权仍按哈希，改密码删除全部 Key、MCP/日志/错误信息不含明文、列表 `no-store` 与只认网页会话均不变
+- 原因：每个账号最多 5 个有效 Key，能在设置页再次查看、复制可降低使用摩擦；此前「只显示一次、明文不落库」是对通用安全规则的误套。此为有意的产品取舍，列注释与代码注释已写明，再变更须经项目负责人确认
+- migration：删除从未在生产执行的 `20261011_01_drop_user_api_tokens_token_plain`；新增 `20261014_02_user_api_tokens_token_plain`（`ADD COLUMN IF NOT EXISTS`，生产为 no-op，恢复已删列的环境），列注释记录裁定
+- tests/test_token_plaintext_contract.py 由反向锁（列必须不存在）重写为正向锁（列存在且有裁定注释、新建落明文、本人会话可取回、AI Key/匿名拿不到、旧 Key 返回 null）
 
 ## [1.7.0] — 2026-10-12
 
@@ -44,7 +55,7 @@ Notes 用户笔记、MCP OAuth 身份层、OpenAI Plugin 提交包与 agent-faci
 - 契约测试新增组件层禁止项（§11 规则 9–11）；运行时视觉门禁（字号/圆角/触控 ≥44/横向溢出）纳入验收
 
 **安全**
-- AI Key 明文不再落库、不再回传：创建时只显示一次，列表仅返回元数据；鉴权仍按哈希
+- AI Key 明文不再落库、不再回传：创建时只显示一次，列表仅返回元数据；鉴权仍按哈希（1.7.1 已按项目负责人裁定撤销：恢复明文保存与再次查看，见 1.7.1「AI Key 恢复明文保存与再次查看」）
 - 管理员停用账号同事务撤销 OAuth 授权请求、code、access、refresh 凭证；refresh 与 code 兑换前复核账号状态
 - 停用账号主页展示停用态，其公开内容保留可见并标注「已停用」
 - CSP（report-only）、笔记写入限流与存量上限、OAuth 动态注册全站限流（120 次/小时）、OAuth 过期凭证定期清理
@@ -61,7 +72,7 @@ Notes 用户笔记、MCP OAuth 身份层、OpenAI Plugin 提交包与 agent-faci
 - migration runner 增加 `lock_timeout`；`--dry-run` 不再建表
 
 **数据库 migration**
-- `20261011_01_drop_user_api_tokens_token_plain`：删除 `community.user_api_tokens.token_plain` 列（不可逆，存量 Key 继续有效）
+- `20261011_01_drop_user_api_tokens_token_plain`：删除 `community.user_api_tokens.token_plain` 列（不可逆，存量 Key 继续有效）（1.7.1 撤销：从未在生产执行，文件已删除，由 `20261014_02` 恢复该列）
 - 化合物 / 反应主表无 schema 变更
 
 **Notes（用户自有笔记）**

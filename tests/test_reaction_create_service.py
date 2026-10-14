@@ -345,20 +345,14 @@ class HttpAdapterTests(unittest.TestCase):
         sig = str(inspect.signature(reactions_module.create_reaction))
         self.assertNotIn("request", sig)
 
-    def test_missing_key_maps_400(self):
-        import asyncio
-        async def boom(*a, **k):
-            raise MissingIdempotencyKeyError()
-        with patch.object(reactions_module, "create_reaction_service", boom):
-            try:
-                asyncio.run(reactions_module.create_reaction(
-                    body=_body(), idempotency_key=None, actor=_Actor(7)))
-                self.fail("expected")
-            except HTTPException as exc:
-                self.assertEqual((exc.status_code, exc.detail),
-                                 (400, "使用 API Token 提交必须提供 Idempotency-Key"))
+    def test_missing_key_mapping_retired_from_rest(self):
+        """v1.7.1: REST 已不接受 AI Key, agent-only 的幂等 key 必填映射
+        随之退役; service 检查与 MCP 侧映射保留(McpTests 覆盖)。"""
+        src = inspect.getsource(reactions_module)
+        self.assertNotIn("MissingIdempotencyKeyError", src)
 
     def test_validation_error_maps_original(self):
+        # v1.7.1 错误码化: detail 升级为 {message, kind}(message 原文不变)
         import asyncio
         async def boom(*a, **k):
             raise ReactionValidationError(
@@ -370,7 +364,8 @@ class HttpAdapterTests(unittest.TestCase):
                 self.fail("expected")
             except HTTPException as exc:
                 self.assertEqual((exc.status_code, exc.detail),
-                                 (409, "dup-detail"))
+                                 (409, {"message": "dup-detail",
+                                        "kind": "duplicate_participant"}))
 
 
 class McpTests(unittest.IsolatedAsyncioTestCase):

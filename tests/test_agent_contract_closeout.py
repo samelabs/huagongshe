@@ -1,6 +1,6 @@
 """v1.7 agent-facing contract closeout (Batch A) governance locks.
 
-A-01: /api/agent-guide machine contract is English-only.
+A-01: retired in v1.7.1 — /api/agent-guide deleted (REST is internal-only).
 A-02: llms.txt is English-only and keeps the frozen facts
       (13 tools, OAuth + 3 scopes, REST/AI Key compatibility,
       no Note MCP / no note:write).
@@ -23,7 +23,6 @@ os.environ.setdefault(
     "postgresql+asyncpg://metadata:metadata@127.0.0.1:5432/unused",
 )
 
-from api import agent as agent_module
 from api import mcp_server as mcp_module
 from api.mcp_server import build_mcp_server
 from api.schemas.reactions import ReactionBody
@@ -61,50 +60,6 @@ def _guide_section(locale: str) -> str:
     match = re.search(r"\n  guide: \{.*?\n  \},\n", src, re.S)
     assert match, locale
     return match.group(0)
-
-
-class AgentGuideEnglishContract(unittest.TestCase):
-    """A-01: every fixed contract string on /api/agent-guide is English."""
-
-    def _guide_payload_strings(self) -> list[str]:
-        tree = ast.parse(open(
-            os.path.join(REPO, "api", "agent.py"), encoding="utf-8"
-        ).read())
-        strings = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Raise):
-                for sub in ast.walk(node):
-                    if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
-                        strings.append(sub.value)
-        fn = next(
-            n for n in ast.walk(tree)
-            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and n.name == "agent_guide"
-        )
-        for node in ast.walk(fn):
-            if isinstance(node, ast.Return):
-                strings.extend(_collect_strings(node))
-            if isinstance(node, ast.Raise):
-                for sub in ast.walk(node):
-                    if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
-                        strings.append(sub.value)
-        # include the route summary (user-visible in OpenAPI)
-        strings.append("REST / AI Key compatibility surface: read AI-available operations (MCP is the primary integration)")
-        return strings
-
-    def test_contract_strings_contain_no_cjk(self):
-        for value in self._guide_payload_strings():
-            self.assertIsNone(
-                CJK_RE.search(value), f"CJK leaked into agent contract: {value!r}"
-            )
-
-    def test_operation_contract_shape_unchanged(self):
-        src = open(os.path.join(REPO, "api", "agent.py"), encoding="utf-8").read()
-        ids = re.findall(r'"id": "([a-z_]+)",', src)
-        self.assertEqual(len(ids), 14)
-        self.assertEqual(ids[0], "search_chemistry_data")
-        self.assertEqual(ids[-1], "create_reaction")
-        self.assertIn('"api_version": settings.api_version', src)
 
 
 class LlmsTxtEnglishContract(unittest.TestCase):
@@ -348,13 +303,22 @@ class McpGuideOAuthPositioningContract(unittest.TestCase):
         self.assertIn("t.mcp.compatJsonDesc", page)
 
     def test_guide_section_authorization_wording(self):
+        """v1.7.1 定位(语义锚点, 不逐字锁文案): AI Key 只供不支持 OAuth 的
+        MCP 客户端使用(兼容通道); 页面不得再出现 HTTP API / agent-guide
+        的对外接入表述。"""
+        compat_markers = ("without", "ohne", "未対応", "不支持", "미지원", "지원하지")
         for locale in LOCALES:
             section = _guide_section(locale)
             with self.subTest(locale=locale):
-                # keyCta no longer a bare "Create AI Key" first action
-                self.assertRegex(section, r"keyCta: '.*?(compat|兼容|互換|호환|Kompatibilität).*?'")
-                # connectKeyLabel demoted from bare 'AI Key'
-                self.assertNotRegex(section, r"connectKeyLabel: 'AI Key',")
+                ai_key_lines = [ln for ln in section.splitlines() if "AI Key" in ln]
+                self.assertTrue(
+                    ai_key_lines, f"{locale}: guide 段应仍提及 AI Key")
+                self.assertTrue(
+                    any("OAuth" in ln and any(m in ln for m in compat_markers)
+                        for ln in ai_key_lines),
+                    f"{locale}: AI Key 必须表述为『不支持 OAuth 的客户端』的兼容通道")
+                self.assertNotIn("agent-guide", section)
+                self.assertNotRegex(section, r"HTTP API|/api/")
 
 
 class DictionaryTreeConsistencyContract(unittest.TestCase):

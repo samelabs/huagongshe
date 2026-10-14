@@ -30,7 +30,7 @@ router = APIRouter(tags=["notes"])
 
 
 def _note_not_found(exc: Exception) -> HTTPException:
-    return HTTPException(404, str(exc))
+    return HTTPException(404, {"message": str(exc), "kind": "note_not_found"})
 
 
 # FX 回执遗留: 超大 ID(>int32)此前穿进 SQL 撞 asyncpg DataError → 500;
@@ -163,13 +163,13 @@ async def public_user_notes(
     Inactive or missing users 404; private/hidden notes never appear.
     """
     if username == "me":  # pragma: no cover - guarded by route order
-        raise HTTPException(404, "用户不存在")
+        raise HTTPException(404, {"message": "用户不存在", "kind": "user_not_found"})
     user_row = (await db.execute(text("""
         SELECT id FROM community.users
         WHERE lower(username)=lower(:username) AND status='active'
     """), {"username": username})).scalar()
     if user_row is None:
-        raise HTTPException(404, "用户不存在")
+        raise HTTPException(404, {"message": "用户不存在", "kind": "user_not_found"})
     return await list_public_user_notes(
         db, user_id=int(user_row), page=page, page_size=page_size,
     )

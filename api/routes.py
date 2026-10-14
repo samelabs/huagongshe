@@ -12,7 +12,7 @@ from .core.database import get_db
 from .core.security import Actor, public_or_actor
 from .services.reactions import load_reaction_detail
 from .services.search import (
-    INVALID_DOI, INVALID_STRUCTURE, SUBSTRUCTURE_TOO_SMALL,
+    INVALID_CAS, INVALID_DOI, INVALID_STRUCTURE, SUBSTRUCTURE_TOO_SMALL,
     QUERY_TOO_SHORT, BACKEND_UNAVAILABLE,
     SearchError, execute_search,
 )
@@ -24,6 +24,7 @@ _STATUS_BY_KIND = {
     INVALID_STRUCTURE: 400,
     SUBSTRUCTURE_TOO_SMALL: 422,
     INVALID_DOI: 400,
+    INVALID_CAS: 400,
     QUERY_TOO_SHORT: 422,
     BACKEND_UNAVAILABLE: 503,
 }
@@ -73,24 +74,27 @@ async def search(
     # 结构检索登录墙(2026-08-26): GIST 单路 ~400ms 但并发无上限, 爬虫 12 路并发
     # 曾把机器打进 swap 全站僵死. exact 保持匿名(SSR); 结构模式需已鉴权 actor.
     if mode != "exact" and actor is None:
-        raise HTTPException(401, "结构检索（子结构/相似度）需要登录或提供 API Token")
+        raise HTTPException(401, {"message": "结构检索（子结构/相似度）需要登录", "kind": "login_required"})
     # 0914 #6: threshold 超 3 位小数时 round 进缓存键会同键不同结果(TTL 300s
     # 内串页), 显式 422 — 契约即 3 位(0.400–1.000), 而非静默吸附。
     if mode == "similarity" and round(threshold, 3) != threshold:
-        raise HTTPException(422, "threshold 仅支持 3 位小数 (0.400–1.000)")
+        raise HTTPException(422, {"message": "threshold 仅支持 3 位小数 (0.400–1.000)", "kind": "threshold_decimals"})
     try:
         return await execute_search(
             db, query, mode, threshold=threshold, page=page,
             page_size=page_size,
             actor_id=actor.id if actor else None,
         )
-    except SearchError as exc:  # service 领域错误 → 原基线 status/detail
-        raise HTTPException(_STATUS_BY_KIND[exc.kind], exc.detail) from exc
+    except SearchError as exc:  # service 领域错误 → 原基线 status + {message,kind}
+        raise HTTPException(
+            _STATUS_BY_KIND[exc.kind],
+            {"message": exc.detail, "kind": exc.kind},
+        ) from exc
     except RateLimitError as exc:  # G2.R neutral 闸门异常 → HTTP bridge
         raise to_http_exception(exc) from exc
     except Exception as exc:
         await db.rollback()
-        raise HTTPException(503, "查询超时，请使用更精确的名称、标识符或结构") from exc
+        raise HTTPException(503, {"message": "查询超时，请使用更精确的名称、标识符或结构", "kind": "search_timeout"}) from exc
 
 
 
@@ -129,7 +133,7 @@ async def chemical_detail(
             pb_display_limit=True,
         )
     except ChemicalNotFoundError as exc:
-        raise HTTPException(404, "化合物不存在") from exc
+        raise HTTPException(404, {"message": "化合物不存在", "kind": "chemical_not_found"}) from exc
     return result
 
 
@@ -144,7 +148,7 @@ async def chemical_synonyms(
     offset = (page - 1) * page_size
     total, values = await load_synonyms_page(db, chemical_id, offset, page_size)
     if total is None:
-        raise HTTPException(404, "化合物不存在")
+        raise HTTPException(404, {"message": "化合物不存在", "kind": "chemical_not_found"})
     return {
         "chemical_id": chemical_id,
         "total": total,
@@ -181,7 +185,7 @@ async def reaction_detail(
     viewer_is_admin = bool(actor and actor.role == "admin")
     data = await load_reaction_detail(db, reaction_id, viewer_id, viewer_is_admin)
     if data is None:
-        raise HTTPException(404, "反应不存在")
+        raise HTTPException(404, {"message": "反应不存在", "kind": "reaction_not_found"})
     return data
 
 

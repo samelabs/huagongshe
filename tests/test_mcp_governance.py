@@ -317,9 +317,6 @@ class ToolSurfaceAndVersion(unittest.TestCase):
         src = (REPO / "api" / "mcp_server.py").read_text(encoding="utf-8")
         self.assertIn("has_more is authoritative for pagination", src)
         self.assertIn("total=None", src)
-        agent_src = (REPO / "api" / "agent.py").read_text(encoding="utf-8")
-        self.assertIn("has_more", agent_src)
-        self.assertIn("total=None", agent_src)
 
 
 # ---------------------------------------------------------------------------
@@ -327,39 +324,17 @@ class ToolSurfaceAndVersion(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class ValidateSkillScope(unittest.TestCase):
-    def test_rest_validate_skill_rejects_agent_token_without_scope(self):
-        from fastapi import HTTPException
-        with self.assertRaises(HTTPException) as ctx:
-            asyncio.run(skills.validate_skill(file=object(), actor=actor(scopes=("read",))))
-        self.assertEqual(ctx.exception.status_code, 403)
-        self.assertIn("skill:write", str(ctx.exception.detail))
+    """B4(2026-10 收口): REST 已不接受 AI Key, agent-only 的 require_scope
+    分支随之退役 —— scope 闸门只存在于 MCP 侧(_require_tool_actor)。"""
 
-    def test_rest_validate_skill_allows_agent_token_with_scope(self):
-        # require_scope 通过后才会读到 file, 这里只验证权限闸门本身不拦。
-        rate_limit_ok = True
-        try:
-            skills.require_scope(actor(scopes=("read", "skill:write")), "skill:write")
-        except Exception:  # noqa: BLE001
-            rate_limit_ok = False
-        self.assertTrue(rate_limit_ok)
+    def test_rest_adapters_no_longer_call_require_scope(self):
+        for name in ("api/skills.py", "api/reactions.py"):
+            src = (REPO / name).read_text(encoding="utf-8")
+            self.assertNotIn("require_scope(", src, name)
 
-    def test_rest_validate_skill_calls_require_scope(self):
-        src = (REPO / "api" / "skills.py").read_text(encoding="utf-8")
-        head = src.split("async def validate_skill", 1)[1]
-        body = head.split("async def ", 1)[0]
-        self.assertIn('require_scope(actor, "skill:write")', body)
-
-    def test_agent_guide_advertises_skill_write_for_skill_tools(self):
-        """断言限定到 skill operations: 不得因 list_my_reactions 的合法 bearer 失败。"""
-        src = (REPO / "api" / "agent.py").read_text(encoding="utf-8")
-        for op_id in ('"id": "validate_skill"', '"id": "create_skill"'):
-            self.assertIn(op_id, src)
-            segment = src.split(op_id, 1)[1][:600]
-            self.assertIn('"auth": "bearer:skill:write"', segment, op_id)
-        # 裸 bearer 只允许出现在 list_my_reactions(仅需登录的读操作)。
-        self.assertEqual(src.count('"auth": "bearer"'), 1)
-        self.assertIn('"auth": "bearer",',
-                      src.split('"id": "list_my_reactions"', 1)[1][:600])
+    def test_require_scope_helper_removed_from_security(self):
+        from api.core import security
+        self.assertFalse(hasattr(security, "require_scope"))
 
 
 # ---------------------------------------------------------------------------
@@ -536,7 +511,7 @@ class RepoWidePlaceholderHygiene(unittest.TestCase):
     """输出遮蔽误写入的占位符不得存在于仓库文本中。"""
 
     SUFFIXES = (".py", ".ts", ".tsx", ".md", ".txt", ".json", ".yaml", ".yml", ".css")
-    SKIP = ("node_modules", ".next", "venv", ".git")
+    SKIP = ("node_modules", ".next", "venv", ".venv", ".git")
 
     def test_no_masked_placeholder_leaked_into_sources(self):
         # 检测串用 chr() 拼出, 使本测试文件自身也不含该字面量 —— 因此无需排除任何文件,

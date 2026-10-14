@@ -12,7 +12,7 @@ from typing import Any
 
 from sqlalchemy import text
 
-from ..chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE
+from ..chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE, cas_checkdigit_valid
 from ..core.rate_limit import enforce  # smiles-create 副作用闸门(0914 #5)
 from .chemicals import (
     CHEMICAL_SELECT, IDENTIFIER_ARRAYS, MIN_FUZZY_NAME_LENGTH,
@@ -29,6 +29,7 @@ from .name_index import normalize_name
 # HTTP adapter 维护唯一映射 kind→HTTP status; MCP 只用 detail。
 SUBSTRUCTURE_TOO_SMALL = "substructure_too_small"  # G2.3D: 合法结构但重原子过小(422 语义)
 INVALID_DOI = "invalid_doi"  # G2.3D: DOI 前缀输入格式不合法(400 语义)
+INVALID_CAS = "invalid_cas"  # I-061: CAS 格式合法但校验位错误(400 语义, 不建行不入队)
 INVALID_STRUCTURE = "invalid_structure"    # 无法识别该 SMILES 结构
 QUERY_TOO_SHORT = "query_too_short"        # 名称查询长度不足
 BACKEND_UNAVAILABLE = "backend_unavailable"  # 查询超时/后端不可用
@@ -392,6 +393,10 @@ async def run_search_query(
                     clauses.extend(["c.id = :number", "c.pubchem_cid = :number"])
                     params["number"] = int(query)
                 if CAS_RE.fullmatch(query):
+                    # I-061: 格式匹配但校验位错误 → 400, 不当名称查询回退、
+                    # 不触发 CAS-miss 占位行/入队(与 invalid_doi 同处理方式)。
+                    if not cas_checkdigit_valid(query):
+                        raise SearchError(INVALID_CAS, "CAS 号校验位不正确")
                     clauses.append("c.cas_numbers @> ARRAY[:q]")
                 elif INCHIKEY_RE.fullmatch(query.upper()):
                     clauses.append("c.inchikey = :uq")

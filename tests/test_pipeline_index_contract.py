@@ -52,9 +52,12 @@ CB_MIGRATION = "20260918_01_index_chemical_cb_locale_fetched_at.sql"
 PB_MIGRATION = "20260918_02_index_chemical_pubchem_fetched_at.sql"
 
 # migrations/0000_baseline.sql 冻结哈希(2026-09-10 cutover baseline, 不可修改)。
-# 2026-10-11 v1.7 关门收口例外（用户裁定）：G1 撤销 20260831 决策 —— token_plain
-# 列从 baseline 移除（同步删除 20261011_01 forward migration），哈希随之更新。
-# 除该次裁定外 baseline 仍冻结；再改需走同样显式裁定并同步此处。
+# 2026-10-11 v1.7 收口曾按当时裁定把 token_plain 列从 baseline 移除并配套
+# 20261011_01 drop migration, 哈希随之更新。2026-10-14 项目负责人裁定撤销
+# 该决策(AI Key 明文有意落库、可在设置页再次查看): baseline 维持 2026-10-11
+# 版内容与哈希不变, token_plain 列改由 forward migration 20261014_02
+# (ADD COLUMN IF NOT EXISTS, 对生产 no-op)对所有环境恢复。
+# baseline 仍冻结; 再改需走同样显式裁定并同步此处。
 BASELINE_SHA256 = "c92cecf5dbbcb081c05611d34c6fb6cbd4a790b72c1aa21ce2880f78a2c8ba7c"
 BASELINE_BYTES = 204720
 

@@ -186,6 +186,8 @@ def _search_error_message(exc: Exception) -> str:
         return "The substructure query is too small; provide a more specific structure."
     if kind == "invalid_doi":
         return "The DOI is invalid."
+    if kind == "invalid_cas":
+        return "The CAS number check digit is incorrect."
     if kind == "backend_unavailable":
         return "Search timed out. Use a more specific name, identifier, or structure."
     return "The chemistry search could not be completed."

@@ -80,6 +80,9 @@ def _make_db(rec: _Recorder | None = None, cas="7732-18-5", imprint=None):
     async def execute_side_effect(*a, **k):
         if rec is not None:
             rec.bump("db_execute")
+        if a and "FROM maintenance.cas_jobs" in str(a[0]):
+            # I-026: 在途 cas_job 探测默认无在途(专项用例才注入)
+            return _Result(rows=[])
         if imprint is not None and a and "SELECT cb_number FROM chemistry.chemicals" in str(a[0]):
             return _Result(scalar=imprint)
         return _Result(rows=[_Row([cas])])
@@ -714,10 +717,7 @@ class RemovedSurfaceTests(unittest.TestCase):
         self.assertNotIn("get_chemical_externals", names)
         self.assertEqual(len(names), 13, f"MCP 工具数应为 13, 实际 {len(names)}")
 
-    def test_agent_guide_no_externals_operation(self):
-        import api.agent as agent_module
-        src = inspect.getsource(agent_module)
-        self.assertNotIn('"get_chemical_externals"', src)
+
 
     def test_llms_txt_no_externals_13_tools(self):
         root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

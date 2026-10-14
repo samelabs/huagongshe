@@ -14,6 +14,22 @@ DTXSID_RE = re.compile(r"^DTXSID\d{7,12}$", re.I)
 DOI_RE = re.compile(r"^10\.\d{4,9}/\S+$", re.I)
 
 
+def cas_checkdigit_valid(value: str) -> bool:
+    """CAS 校验位: 检查位左侧逐位 ×1,2,3…(从右往左)求和 mod 10 == 末位。
+
+    输入须已通过 CAS_RE 格式校验; 不匹配格式时行为未定义(调用方先判格式)。
+    """
+    digits = value.replace("-", "")
+    total = sum(int(d) * (i + 1) for i, d in enumerate(reversed(digits[:-1])))
+    return total % 10 == int(digits[-1])
+
+
+def valid_cas(value: str | None) -> bool:
+    """格式 + 校验位都合法的 CAS 才入库/入检索(I-061: 入口只挡格式不够)。"""
+    normalized = (value or "").strip()
+    return bool(CAS_RE.fullmatch(normalized)) and cas_checkdigit_valid(normalized)
+
+
 def normalize_doi(value: str | None) -> str | None:
     """Return the DOI name used for indexed storage and lookup."""
     normalized = (value or "").strip()

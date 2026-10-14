@@ -4,7 +4,7 @@
 - HTTP: 真实 FastAPI app route inventory ↔ scenario entrypoints(物理覆盖)
 - MCP: build_mcp_server().list_tools() ↔ registry(13)
 - WorkAPI: 真实 routes + ROUTE_SCOPE ↔ registry(10; 未知 scope fail-closed)
-- agent-guide: 真实 payload 15 operations ↔ AGENT_HTTP 契约(语义匹配, 无序数模型)
+- v1.7.1: REST 收为网站内部面 — AGENT_HTTP 投影与 /api/agent-guide 已退役
 
 guide auth 对账原则: guide auth 字符串 ↔ (scenario.auth, required_scope)
 用显式语义映射, 每个合法组合逐条声明; 收紧仅当显式 selector scenario
@@ -28,7 +28,6 @@ os.environ.setdefault(
     "postgresql+asyncpg://governance:governance@127.0.0.1:5432/unused",
 )
 
-from api.agent import agent_guide  # noqa: E402
 from api.contracts import (  # noqa: E402
     AuthPolicy,
     Compatibility,
@@ -215,120 +214,32 @@ class WorkApiCoverage(unittest.TestCase):
                              f"{key}: ROUTE_SCOPE={scope} 与 registry={reg[key]} 不一致")
 
 
-class AgentGuideProjection(unittest.TestCase):
-    """agent-guide = curated HTTP agent projection: 15 operations 与
-    AGENT_HTTP 契约双向对账。授权用显式语义匹配(无序数模型):
+class AgentHttpSurfaceRetired(unittest.TestCase):
+    """v1.7.1 PM 裁定(2026-10-14): REST 只供网站内部使用, 对外接入唯一
+    入口是 MCP。锁死退役事实: registry 零 AGENT_HTTP 投影、路由表无
+    /api/agent-guide、api.agent 模块不存在。"""
 
-    每条 guide auth 字符串声明其合法的 (auth policy, required_scope) 组合;
-    selector 收紧场景(search 结构模式 / skills mine)是 guide input 文本
-    载明的参数条件, 由带 selector 的 scenario 显式表达, 不走
-    "更强 auth 也可以"的通配。
-    """
+    def test_registry_has_no_agent_http_projection(self):
+        offenders = [
+            f"{fam.id}/{sc.id}"
+            for fam, sc in all_scenarios()
+            if sc.contract and Consumer.AGENT_HTTP in sc.contract.consumers
+        ]
+        self.assertEqual(offenders, [],
+                         f"AGENT_HTTP 投影面已退役, 不得重新登记: {offenders}")
 
-    # guide auth 字符串 → 允许的 (AuthPolicy, required_scope) 精确组合
-    SEMANTIC_MATCH = {
-        "public": [
-            (AuthPolicy.PUBLIC_OR_ACTOR, ()),
-            (AuthPolicy.ANONYMOUS, ()),
-        ],
-        "public_or_bearer": [
-            (AuthPolicy.PUBLIC_OR_ACTOR, ()),
-        ],
-        "bearer": [
-            (AuthPolicy.ACTOR, ()),
-        ],
-        # 带 scope 的 guide auth: scope 必须逐字精确匹配
-        "bearer:reaction:write": [
-            (AuthPolicy.ACTOR, ("reaction:write",)),
-        ],
-        "bearer:skill:write": [
-            (AuthPolicy.ACTOR, ("skill:write",)),
-        ],
-    }
-    # guide input 文本载明的参数条件收紧(selector scenario 专属):
-    #   search: mode!=exact 需登录(guide input: "结构检索需 AI Key", 等级收紧)
-    #   skills: scope=mine 需登录(guide input: "mine 需 AI Key") —— 注意 guide
-    #           把 mine 写在 operation 级 auth=public_or_bearer 下, mine 的
-    #           ACTOR 语义是 input 文本内的参数条件, 同样属显式 selector 收紧。
-    # 这两类收紧是显式登记的, 不是 generic "higher auth is okay"。
-    SELECTOR_TIGHTENING_OK = {
-        "search_chemistry_data": {"search/substructure", "search/similarity"},
-        "list_skills": {"skill.read/list_mine"},
-    }
+    def test_agent_guide_route_absent(self):
+        from api.main import app
+        paths = {p for _, p in _iter_routes(app)}
+        self.assertNotIn("/api/agent-guide", paths)
 
-    @classmethod
-    def setUpClass(cls):
-        cls.guide = asyncio.run(agent_guide(
-            authorization=None, actor=None, db=_StubDb()))
-
-    def _agent_http_contracts(self):
-        """operation_id → 所有声明 AGENT_HTTP 的 scenario(selector 场景共享
-        同一 guide operation, 必须全部返回)。"""
-        out: dict[str, list] = {}
-        for fam, sc in all_scenarios():
-            if sc.contract and Consumer.AGENT_HTTP in sc.contract.consumers:
-                oid = sc.contract.operation_id
-                if oid:
-                    out.setdefault(oid, []).append((fam, sc))
-        return out
-
-    def test_guide_has_14_operations(self):
-        self.assertEqual(len(self.guide["operations"]), 14)
-
-    def test_every_guide_op_has_matching_contract(self):
-        reg = self._agent_http_contracts()
-        for op in self.guide["operations"]:
-            self.assertIn(op["id"], reg,
-                          f"guide operation {op['id']} 无 AGENT_HTTP 契约")
-            allowed = self.SEMANTIC_MATCH[op["auth"]]
-            base_covered = False
-            for fam, sc in reg[op["id"]]:
-                https = [e for e in sc.entrypoints if e.transport is Transport.HTTP]
-                self.assertTrue(https, f"{fam.id}/{sc.id}: 无 HTTP entrypoint")
-                matched = any(
-                    e.name == f"{op['method']} {op['path'].split('?')[0]}"
-                    for e in https)
-                self.assertTrue(
-                    matched,
-                    f"{op['id']}: guide {op['method']} {op['path']} "
-                    f"与 {fam.id}/{sc.id} 入口不匹配")
-                combo = (sc.auth, sc.required_scope)
-                full_id = f"{fam.id}/{sc.id}"
-                if combo in allowed:
-                    base_covered = True  # 达到 guide 声明语义的基础场景
-                else:
-                    # 收紧场景: 只允许显式 selector scenario(参数条件)
-                    self.assertIn(
-                        full_id,
-                        self.SELECTOR_TIGHTENING_OK.get(op["id"], set()),
-                        f"{op['id']}/{full_id}: (auth={sc.auth.value}, "
-                        f"scope={sc.required_scope}) 既不匹配 guide "
-                        f"{op['auth']}, 也不是显式 selector 收紧场景")
-            self.assertTrue(
-                base_covered,
-                f"{op['id']}: guide auth={op['auth']} 未被任何基础 scenario 满足")
-
-    def test_no_phantom_agent_http_projection(self):
-        guide_ids = {op["id"] for op in self.guide["operations"]}
-        guide_ids.add("get_agent_connection_guide")  # guide 自身(自描述入口)
-        phantom = set(self._agent_http_contracts()) - guide_ids
-        self.assertEqual(phantom, set(),
-                         f"registry 声明 AGENT_HTTP 但 guide 未公布: {sorted(phantom)}")
+    def test_agent_module_removed(self):
+        import importlib.util
+        self.assertIsNone(importlib.util.find_spec("api.agent"))
 
 
 class CompatibilityLedger(unittest.TestCase):
     """兼容义务登记与已确认契约事实对账(与 Consumer 无推导关系)。"""
-
-    def test_agent_guide_ops_are_stable(self):
-        """guide 15 operations + guide 自身 → STABLE_EXTERNAL。"""
-        guide_ids = {op["id"] for op in _guide_payload()["operations"]}
-        guide_ids.add("get_agent_connection_guide")
-        for fam, sc in all_scenarios():
-            oid = sc.contract.operation_id if sc.contract else None
-            if oid in guide_ids and Consumer.AGENT_HTTP in sc.contract.consumers:
-                self.assertIs(
-                    sc.contract.compatibility, Compatibility.STABLE_EXTERNAL,
-                    f"{fam.id}/{sc.id}: guide operation {oid} 必须 STABLE_EXTERNAL")
 
     def test_all_mcp_tools_are_stable(self):
         """13 MCP tools → STABLE_EXTERNAL。"""
@@ -372,10 +283,6 @@ def _find(fam_id, sc_id):
     return next(f for f in FAMILIES if f.id == fam_id).scenario(sc_id)
 
 
-def _guide_payload():
-    return asyncio.run(agent_guide(authorization=None, actor=None, db=_StubDb()))
-
-
 def _mcp_tool_names():
     from api.mcp_server import build_mcp_server
     return {t.name for t in asyncio.run(build_mcp_server().list_tools())}
@@ -414,8 +321,8 @@ class FrozenScenarioShapes(unittest.TestCase):
         fam = next(f for f in FAMILIES if f.id == "molecule.rendering")
         svg = fam.scenario("svg")
         png = fam.scenario("png")
-        # 契约各自持有(PNG 不因 svg 进 guide 而获得 AGENT_HTTP/稳定义务)
-        self.assertIn(Consumer.AGENT_HTTP, svg.contract.consumers)
+        # v1.7.1: AGENT_HTTP 投影面已整体退役(svg/PNG 均只投 WEB/MCP)
+        self.assertNotIn(Consumer.AGENT_HTTP, svg.contract.consumers)
         self.assertNotIn(Consumer.AGENT_HTTP, png.contract.consumers)
         self.assertIn(Consumer.DISCOVERY, png.contract.consumers)
         self.assertIs(svg.contract.compatibility, Compatibility.STABLE_EXTERNAL)
@@ -488,7 +395,7 @@ class FrozenScenarioShapes(unittest.TestCase):
         mol_png = next(f for f in FAMILIES if f.id == "molecule.rendering").scenario("png")
         mol_svg = next(f for f in FAMILIES if f.id == "molecule.rendering").scenario("svg")
         self.assertNotIn(Consumer.AGENT_HTTP, mol_png.contract.consumers)
-        self.assertIn(Consumer.AGENT_HTTP, mol_svg.contract.consumers)
+        self.assertNotIn(Consumer.AGENT_HTTP, mol_svg.contract.consumers)
         self.assertIn(Consumer.AGENT_MCP, rxn_svg.contract.consumers)
 
     def test_identity_workapi_uses_pubchem_scope(self):
@@ -524,13 +431,6 @@ class NoRuntimeEnforcement(unittest.TestCase):
                     for a in node.names:
                         self.assertNotIn(a.name or a.asname, banned_names)
 
-
-class _StubDb:
-    async def execute(self, *_a, **_k):
-        class _R:
-            def scalar(self):
-                return None
-        return _R()
 
 
 if __name__ == "__main__":
