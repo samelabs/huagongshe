@@ -143,6 +143,53 @@ class ReadinessAndSmokeTests(unittest.TestCase):
         r.jlist_fail = True
         self.assertFalse(self._run_deploy(r))
 
+    def test_worker_restarts_only_after_fronting_apps_ready(self):
+        """2026-10-14 21:32 事故回归锁: worker 重启必须发生在 API/Web health
+        就绪之后 —— worker 启动 preflight 鉴权(/workapi/v1/jobs/lease)依赖
+        API, 提前重启只会 exit 1 crash-loop(当时连续 5 次)。"""
+        r = _ok_world()
+        timeline: list[str] = []
+
+        class _RecordingRunner:
+            def run(self, argv):
+                if argv[:2] in (["pm2", "start"], ["pm2", "restart"]):
+                    target = (argv[argv.index("--only") + 1]
+                              if "--only" in argv else argv[2])
+                    timeline.append(f"pm2:{target}")
+                return r.run(argv)
+
+        def _record_wait(url, **k):
+            which = ("api" if url == D.API_HEALTH
+                     else "web" if url == D.WEB_HEALTH else url)
+            timeline.append(f"ready:{which}")
+            return url in r.http_ok_urls
+
+        with mock.patch.object(D, "wait_http_ok", side_effect=_record_wait), \
+             mock.patch.object(D, "wait_worker_online",
+                               side_effect=lambda *a, **k: D.worker_online(r)), \
+             mock.patch.object(D.os, "geteuid", return_value=1000), \
+             mock.patch.object(D, "public_smoke", return_value=True):
+            self.assertTrue(D.deploy(runner=_RecordingRunner(), skip_build=True))
+
+        self.assertEqual(
+            timeline,
+            ["pm2:huagongshe-api", "pm2:huagongshe",
+             "ready:api", "ready:web",
+             "pm2:huagongshe-pubchem-worker"],
+            "部署顺序: 先重启 API/Web → 就绪 → 才重启 worker")
+
+    def test_worker_not_restarted_when_api_never_ready(self):
+        """API 迟迟不就绪时, worker 不得被重启(crash-loop 根因)。"""
+        r = _ok_world()
+        r.http_ok_urls = set()  # API 永不 ready
+        self.assertFalse(self._run_deploy(r))
+        targets = []
+        for c in r.argv_log:
+            if c[:2] in (["pm2", "start"], ["pm2", "restart"]) and "--only" in c:
+                targets.append(c[c.index("--only") + 1])
+        self.assertNotIn("huagongshe-pubchem-worker", targets,
+                         "API 未就绪就重启 worker = 复发 2026-10-14 事故")
+
     def test_success_path_starts_three_apps_and_saves(self):
         r = _ok_world()
         self.assertTrue(self._run_deploy(r))

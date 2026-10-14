@@ -1,6 +1,27 @@
 """Runtime configuration loaded from environment variables."""
 
+from pathlib import Path
+
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _version_from_repo() -> str:
+    """产品版本唯一来源 = 仓库根 VERSION 文件(与 MCP serverInfo 同源)。
+
+    v1.7.2 裁定: 版本号只有一个来源。此前这里硬编码 "1.0.0"(所谓
+    "HTTP API contract version"), 导致 /api/health 与 app.version 和
+    MCP serverInfo(VERSION)漂移, 已删。读取方式与 api/mcp_server.py
+    的 _release_version 一致。
+    """
+    version_file = Path(__file__).resolve().parents[2] / "VERSION"
+    try:
+        value = version_file.read_text(encoding="utf-8").strip()
+    except OSError as exc:  # pragma: no cover - 文件缺失即发布产物不完整
+        raise RuntimeError("仓库根 VERSION 文件缺失: api_version 无权威来源") from exc
+    if not value:
+        raise RuntimeError("仓库根 VERSION 文件为空: api_version 无权威来源")
+    return value
 
 
 class Settings(BaseSettings):
@@ -9,7 +30,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://127.0.0.1:6379/1"
     cache_ttl: int = 600
     api_title: str = "化工社AIchem API"
-    api_version: str = "1.0.0"
+    api_version: str = Field(default_factory=_version_from_repo)
     cors_origins: list[str] = ["https://huagongshe.com", "https://www.huagongshe.com"]
     session_cookie: str = "hgs_session"
     session_days: int = 30

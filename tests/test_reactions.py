@@ -139,8 +139,13 @@ class ReactionContractTests(unittest.TestCase):
         self.assertNotIn("OFFSET", adapter_source)
         self.assertIn("list_my_reactions(", adapter_source)
 
-    def test_public_api_starts_at_version_one(self) -> None:
-        self.assertEqual(settings.api_version, "1.0.0")
+    def test_api_version_matches_version_file(self) -> None:
+        # v1.7.2: 版本号单一来源(仓库根 VERSION); 旧的 "1.0.0 公共 API 版本"
+        # 约定已撤销
+        from pathlib import Path as _Path
+        version_file = (_Path(__file__).resolve().parents[1] / "VERSION")
+        self.assertEqual(settings.api_version,
+                         version_file.read_text(encoding="utf-8").strip())
 
         routes_source = inspect.getsource(__import__("api.routes", fromlist=["unified_search"]))
         self.assertNotIn('"v1:stats:exact"', routes_source)  # /api/stats 已剥离

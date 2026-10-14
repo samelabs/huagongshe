@@ -3,7 +3,8 @@
 锁定本轮治理结论(全部走真实代码路径/文件结构, 非字符串堆砌):
 
 - HGS 产品版本(仓库根 VERSION)= 1.7.1, 且 MCP serverInfo 读取同一来源
-- HTTP API contract version(settings.api_version)不随产品版本走(1.0.0)
+- v1.7.2: 版本号单一来源 —— settings.api_version 同样读 VERSION(旧
+  "HTTP API contract version 1.0.0" 双版本轴约定已撤销)
 - 首页一级入口不再暴露 Agent API 与 AI Key; /api/agent-guide 与
   /me/settings/api-tokens 路由本身保留
 - MCP Guide 页仍提供 AI Key 入口
@@ -41,10 +42,15 @@ class ProductVersionContract(unittest.TestCase):
 
         self.assertEqual(mcp_server._release_version(), "1.7.1")
 
-    def test_http_api_contract_version_unchanged(self):
+    def test_api_version_single_source(self):
+        """v1.7.2: 版本号只有一个来源 —— api_version 与 VERSION 文件同源
+        (此前硬编码 "1.0.0" 的双版本轴约定已撤销)。"""
         from api.core.config import settings
 
-        self.assertEqual(settings.api_version, "1.0.0")
+        self.assertEqual(settings.api_version, "1.7.1")
+        self.assertEqual(
+            settings.api_version,
+            (REPO / "VERSION").read_text(encoding="utf-8").strip())
 
 class HomePageEntryContract(unittest.TestCase):
     """首页源码结构契约: MCP / Skills / Workbench / Plugin，AI Key 不单列。"""
