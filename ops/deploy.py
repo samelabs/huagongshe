@@ -4,9 +4,11 @@
   1. fail-closed 检查执行用户不是 root(mutating deploy 禁 root)
   2. build Web(单一 canonical `.next`)
   3. 使用仓库根 `ecosystem.config.cjs`(canonical, 不生成任何 spec)
-  4. restart/start canonical API/Web/Worker(单一 PM2 daemon = 当前用户)
-  5. readiness: API 8000 health / Web 3001 health / worker online
-  6. public smoke + `pm2 save`
+  4. restart/start API 与 Web → 等 API/Web health 就绪 → **就绪后**才
+     restart/start worker(worker 启动 preflight 鉴权
+     /workapi/v1/jobs/lease 依赖 API; API 未就绪时 worker 会 exit 1
+     crash-loop, 2026-10-14 21:32 部署事故即此因)
+  5. readiness: worker online 稳定窗 + public smoke + `pm2 save`
 
 不承诺 zero-downtime: restart 存在短暂维护窗口(已接受)。
 nginx 拓扑不在本 owner 职责内(生产为固定 upstream 8000/3001, 不随发布重写);
@@ -33,6 +35,11 @@ CANONICAL_APPS = (
     "huagongshe",           # Web  127.0.0.1:3001
     "huagongshe-pubchem-worker",  # worker, HGS_WORKER_ID=server-local-1
 )
+# 部署顺序(2026-10-14 21:32 事故修复): 先重启前置的 API/Web, 等 API health
+# 就绪后才重启 worker —— worker 启动 preflight 鉴权(/workapi/v1/jobs/lease)
+# 连不上 API 就 exit 1, 曾连续 crash-loop 5 次直到 API 就绪。
+FRONTING_APPS = CANONICAL_APPS[:2]
+WORKER_APP = CANONICAL_APPS[2]
 API_PORT = 8000
 WEB_PORT = 3001
 API_HEALTH = f"http://127.0.0.1:{API_PORT}/api/health"
@@ -304,7 +311,7 @@ def deploy(runner: Runner | None = None,
             return False
         _event("build.ok")
 
-    for app in CANONICAL_APPS:
+    for app in FRONTING_APPS:
         try:
             start_canonical(runner, app)
         except DeployError as e:
@@ -319,6 +326,14 @@ def deploy(runner: Runner | None = None,
         _event("ready.failed", target="web", url=WEB_HEALTH)
         return False
     _event("ready.ok", target="web")
+
+    # API 就绪后才重启 worker: 其启动 preflight 鉴权(/workapi/v1/jobs/lease)
+    # 依赖 API, 提前重启只会 crash-loop(2026-10-14 21:32 事故根因)。
+    try:
+        start_canonical(runner, WORKER_APP)
+    except DeployError as e:
+        _event("pm2.failed", app=WORKER_APP, error=str(e))
+        return False
     if not wait_worker_online(runner):
         _event("ready.failed", target="worker")
         return False
