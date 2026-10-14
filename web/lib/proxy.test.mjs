@@ -14,10 +14,11 @@ const proxy = proxyModule.default ?? proxyModule;
 
 const ORIGIN = "https://huagongshe.com";
 
-function nextReq(path, { cookie, al } = {}) {
+function nextReq(path, { cookie, al, headers: extraHeaders } = {}) {
   const headers = {};
   if (cookie) headers.cookie = cookie;
   if (al) headers["accept-language"] = al;
+  if (extraHeaders) Object.assign(headers, extraHeaders);
   return new NextRequest(ORIGIN + path, { headers });
 }
 
@@ -72,11 +73,11 @@ test("pathname 与 query 完整保留: /search?q=aspirin", () => {
 
 /* ─────── 已带 locale: Next 原生 rewrite ─────── */
 
-test("/ja → rewrite 到 /, x-site-locale=ja, 同步 cookie", () => {
+test("/ja → rewrite 到 /, x-site-locale=ja, 匿名访问可缓存不写 cookie", () => {
   const r = proxy(nextReq("/ja"));
   assert.ok(isRewrite(r), "应为 Next rewrite 响应");
   assert.equal(getRewrittenUrl(r), ORIGIN + "/");
-  assert.match(r.headers.getSetCookie().join("; "), /site_locale=ja/);
+  assert.equal(r.headers.getSetCookie().length, 0);
 });
 
 test("/ja/chemical/123 → rewrite 到 /chemical/123, x-site-locale=ja 传给内部 route", () => {
@@ -87,14 +88,15 @@ test("/ja/chemical/123 → rewrite 到 /chemical/123, x-site-locale=ja 传给内
   const override = r.headers.get("x-middleware-override-headers") ?? "";
   assert.ok(override.includes("x-site-locale"), "x-site-locale 应在 override 列表");
   assert.equal(r.headers.get("x-middleware-request-x-site-locale"), "ja");
+  assert.equal(r.headers.getSetCookie().length, 0);
 });
 
-test("/de/search?q=x → rewrite 到 /search?q=x (query 保留)", () => {
+test("/de/search?q=x → rewrite 到 /search?q=x (query 保留, 匿名不写 cookie)", () => {
   const r = proxy(nextReq("/de/search?q=x"));
   assert.ok(isRewrite(r));
   assert.equal(getRewrittenUrl(r), ORIGIN + "/search?q=x");
   assert.equal(r.headers.get("x-middleware-request-x-site-locale"), "de");
-  assert.match(r.headers.getSetCookie().join("; "), /site_locale=de/);
+  assert.equal(r.headers.getSetCookie().length, 0);
 });
 
 test("rewrite 响应状态为 200(非 30x)", () => {
@@ -243,3 +245,78 @@ test("未带 locale 的 307 redirect 响应: 保持 private, no-store", () => {
   assert.equal(r.status, 307);
   assert.equal(r.headers.get("cache-control"), "private, no-store");
 });
+
+/* ─────── Round 14: 边缘缓存修复（可缓存响应禁 Set-Cookie、RSC/预取不进共享缓存） ─────── */
+
+test("可缓存的匿名公开响应一定没有 Set-Cookie", () => {
+  for (const p of [
+    "/zh-CN",
+    "/en/",
+    "/ja/search",
+    "/zh-CN/chemical/4",
+    "/en/reaction/1",
+    "/zh-CN/note/2001",
+    "/en/user/demo",
+    "/zh-CN/skills",
+    "/en/guide",
+    "/ja/mcp-guide",
+    "/en/privacy",
+    "/en/terms",
+    "/en/support",
+  ]) {
+    const r = proxy(nextReq(p));
+    assert.equal(
+      r.headers.getSetCookie().length,
+      0,
+      `可缓存路径 ${p} 不得包含任何 Set-Cookie 头`,
+    );
+  }
+});
+
+test("不可缓存响应(带登录会话、非公开页)以及 307 跳转正常写 site_locale", () => {
+  // 1. 带登录会话
+  const r1 = proxy(nextReq("/ja/chemical/4", { cookie: "hgs_session=xyz" }));
+  assert.match(r1.headers.getSetCookie().join("; "), /site_locale=ja/);
+
+  // 2. 非公开页面
+  const r2 = proxy(nextReq("/zh-CN/submit"));
+  assert.match(r2.headers.getSetCookie().join("; "), /site_locale=zh-CN/);
+
+  const r3 = proxy(nextReq("/en/login"));
+  assert.match(r3.headers.getSetCookie().join("; "), /site_locale=en/);
+
+  const r4 = proxy(nextReq("/de/aichem"));
+  assert.match(r4.headers.getSetCookie().join("; "), /site_locale=de/);
+
+  // 3. 未带 locale 的 307 跳转
+  const r5 = proxy(nextReq("/"));
+  assert.match(r5.headers.getSetCookie().join("; "), /site_locale=en/);
+});
+
+test("RSC 与预取请求不进共享缓存 (private, no-store 且无 Set-Cookie)", () => {
+  // 1. 带 rsc 请求头
+  const r1 = proxy(nextReq("/zh-CN", { headers: { rsc: "1" } }));
+  assert.equal(r1.headers.get("cache-control"), "private, no-store");
+  assert.equal(r1.headers.getSetCookie().length, 0);
+
+  // 2. 带 next-router-prefetch 请求头
+  const r2 = proxy(nextReq("/en/chemical/4", { headers: { "next-router-prefetch": "1" } }));
+  assert.equal(r2.headers.get("cache-control"), "private, no-store");
+  assert.equal(r2.headers.getSetCookie().length, 0);
+
+  // 3. 带 next-router-segment-prefetch 请求头
+  const r3 = proxy(nextReq("/ja/search", { headers: { "next-router-segment-prefetch": "/search" } }));
+  assert.equal(r3.headers.get("cache-control"), "private, no-store");
+  assert.equal(r3.headers.getSetCookie().length, 0);
+
+  // 4. 带 _rsc 查询参数
+  const r4 = proxy(nextReq("/zh-CN/skills?_rsc=19tnmxm6gp9xm"));
+  assert.equal(r4.headers.get("cache-control"), "private, no-store");
+  assert.equal(r4.headers.getSetCookie().length, 0);
+
+  // 5. Accept: text/x-component
+  const r5 = proxy(nextReq("/en/guide", { headers: { accept: "text/x-component" } }));
+  assert.equal(r5.headers.get("cache-control"), "private, no-store");
+  assert.equal(r5.headers.getSetCookie().length, 0);
+});
+
