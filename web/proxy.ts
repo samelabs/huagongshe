@@ -113,6 +113,41 @@ function detectLocale(cookieHeader: string | null, acceptLanguage: string | null
   return negotiateAcceptLanguage(acceptLanguage) ?? FALLBACK_LOCALE;
 }
 
+/**
+ * 判断已剥离 locale 前缀的路径是否属于支持匿名边缘缓存的公开页面（Round 13 Cloudflare 方案 1）：
+ * 首页、搜索、化合物、反应、笔记、公开主页、Skills、guide、mcp-guide、privacy、terms、support。
+ * 不缓存：工作台(/aichem)、设置(/me)、登录(/login)、提交(/submit)、管理端(/samelabs)等。
+ */
+function isPublicEdgeCacheablePage(rest: string): boolean {
+  if (rest === "/") return true;
+  if (rest === "/search") return true;
+  if (rest === "/skills") return true;
+  if (rest === "/guide") return true;
+  if (rest === "/mcp-guide") return true;
+  if (rest === "/privacy" || rest === "/terms" || rest === "/support") return true;
+  if (isPathAtOrBelow(rest, "/chemical")) return true;
+  if (isPathAtOrBelow(rest, "/reaction")) return true;
+  if (isPathAtOrBelow(rest, "/note")) return true;
+  if (isPathAtOrBelow(rest, "/user")) return true;
+  return false;
+}
+
+/**
+ * 判断请求是否为 RSC 数据请求或 Next Router 预取请求（Round 14）：
+ * Next 的客户端跳转和预取用同一 URL 取 RSC 数据（带 rsc / next-router-prefetch /
+ * next-router-segment-prefetch 请求头、_rsc 查询参数或 text/x-component accept），
+ * Cloudflare 不识别 Vary: rsc。
+ * 这类请求一律返回 private, no-store，绝不进共享边缘缓存；只有普通 HTML 文档请求才标记为 public 可缓存。
+ */
+function isRscOrPrefetchRequest(request: NextRequest): boolean {
+  if (request.headers.has("rsc")) return true;
+  if (request.headers.has("next-router-prefetch")) return true;
+  if (request.headers.has("next-router-segment-prefetch")) return true;
+  if (request.headers.get("accept")?.includes("text/x-component")) return true;
+  if (request.nextUrl.searchParams.has("_rsc")) return true;
+  return false;
+}
+
 export default function proxy(request: NextRequest): NextResponse | undefined {
   const pathname = request.nextUrl.pathname;
 
@@ -125,14 +160,36 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
     // 交给后续路由按原路径 404。
     if (isExcluded(prefixed.rest)) return undefined;
 
-    // 已带 locale: Next 原生 rewrite 到现有路由, 地址栏不变, 附带 locale header, 同步 cookie
+    // 已带 locale: Next 原生 rewrite 到现有路由, 地址栏不变, 附带 locale header
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = prefixed.rest;
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set(LOCALE_HEADER, prefixed.locale);
     requestHeaders.set(LOCALE_PATH_HEADER, pathname + request.nextUrl.search);
     const response = NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } });
-    response.cookies.set(LOCALE_COOKIE, prefixed.locale, LOCALE_COOKIE_OPTIONS);
+
+    // Round 13/14 边缘缓存与 Set-Cookie 规则：
+    const hasSession = request.cookies.has("hgs_session") ||
+      Boolean(request.headers.get("cookie")?.split(";").some((c) => c.trim().startsWith("hgs_session=")));
+    const isPublic = isPublicEdgeCacheablePage(prefixed.rest);
+
+    // 当响应为 public 可缓存时，绝对不写 Set-Cookie（避免边缘缓存存下语言 cookie 造成全员污染）；
+    // 只在不可缓存的响应（带登录会话、非公开页）上按现有逻辑写 site_locale。
+    // 匿名用户的语言偏好改由语言切换器在客户端主动切换时写入。
+    const isUncacheablePageOrSession = hasSession || !isPublic;
+    if (isUncacheablePageOrSession) {
+      response.cookies.set(LOCALE_COOKIE, prefixed.locale, LOCALE_COOKIE_OPTIONS);
+      response.headers.set("Cache-Control", "private, no-store");
+    } else {
+      // 匿名公开页面：
+      // RSC / 预取请求用同一 URL 取 RSC 数据，Cloudflare 不识别 Vary: rsc，一律 private, no-store。
+      // 只有普通的 HTML 文档请求才标记为 public 可缓存。
+      if (isRscOrPrefetchRequest(request)) {
+        response.headers.set("Cache-Control", "private, no-store");
+      } else {
+        response.headers.set("Cache-Control", "public, max-age=0, s-maxage=300, stale-while-revalidate=86400");
+      }
+    }
     return response;
   }
 
@@ -143,6 +200,7 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
     307,
   );
   response.cookies.set(LOCALE_COOKIE, locale, LOCALE_COOKIE_OPTIONS);
+  response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 

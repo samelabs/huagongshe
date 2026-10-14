@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ALLOWED_MOL_SVG_DIMS } from "@/lib/molSizes";
 
 /**
- * 分子结构图资产路由（B2 通道规范）：
+ * 分子结构图资产路由（B2 通道规范；Round 13 白名单与公开长缓存收口）：
  * 浏览器经 Next 同源取图；本 handler loopback 直连 FastAPI（无 XFF = T0）。
- * 请求 cookie 原样透传（与通用 BFF 通道 FORWARDED_HEADERS 做法一致）——
- * 化合物当前无私有态，透传只是通道语义统一。
- * 缓存策略：匿名（无 cookie）→ SVG 是确定性派生物（RDKit 渲染存储的
- * SMILES，同参数恒同图），immutable 缓存语义精确；带 cookie → 恒
- * private, no-store，带身份的响应不进任何共享缓存。
+ * - 尺寸白名单：仅接受 ALLOWED_MOL_SVG_DIMS 定义的固定档位，其余 404。
+ * - 缓存策略：化合物当前无私有态，不再转发 cookie，统一为公开不可变长缓存
+ *   public, max-age=31536000, immutable。
  */
 
 const API_ORIGIN = process.env.API_ORIGIN_INTERNAL || "http://127.0.0.1:8000";
@@ -16,12 +15,11 @@ type RouteContext = { params: Promise<{ id: string; dims: string }> };
 
 export async function GET(request: NextRequest, context: RouteContext) {
   const { id, dims } = await context.params;
-  // 参数形状校验：与 nginx 旧伪静态规则一致 \d+x\d+
-  if (!/^\d+$/.test(id) || !/^\d+x\d+\.svg$/.test(dims)) {
+  const match = dims.match(/^(\d+x\d+)\.svg$/);
+  if (!/^\d+$/.test(id) || !match || !ALLOWED_MOL_SVG_DIMS.has(match[1])) {
     return NextResponse.json({ detail: "Not Found" }, { status: 404 });
   }
-  const [w, h] = dims.replace(/\.svg$/, "").split("x");
-  const cookie = request.headers.get("cookie");
+  const [w, h] = match[1].split("x");
 
   let upstream: Response;
   try {
@@ -31,7 +29,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
         cache: "no-store",
         headers: {
           "accept": "image/svg+xml",
-          ...(cookie ? { cookie } : {}),
         },
       },
     );
@@ -45,9 +42,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     status: 200,
     headers: {
       "content-type": "image/svg+xml",
-      "cache-control": cookie
-        ? "private, no-store"
-        : "public, max-age=31536000, immutable",
+      "cache-control": "public, max-age=31536000, immutable",
     },
   });
 }

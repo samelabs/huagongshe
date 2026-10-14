@@ -240,7 +240,6 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .error-page-home .hg-text { font-size: var(--fs-14); }
 .context-loading { padding: 35px 0; color: var(--text-muted); }
 
-.search-page { max-width: var(--w-content); }
 .search-head { max-width: var(--w-reading); margin-bottom: 36px; }
 .search-head .page-kicker { margin-bottom: 6px; }
 .search-head h1 { margin: 0; font-size: var(--fs-28); font-weight: 650; letter-spacing: var(--ls-title); line-height: var(--lh-tight); }

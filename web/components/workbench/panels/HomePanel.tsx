@@ -314,7 +314,7 @@ function SavedRow({ chemical, t, locale }: { chemical: ChemicalFollow; t: Return
       href={`/chemical/${chemical.id}`}
       thumb={
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={molSvgUrl(chemical.id, 72, 56)} width={36} height={36} alt="" loading="lazy" />
+        <img src={molSvgUrl(chemical.id, "xs")} width={36} height={36} alt="" loading="lazy" />
       }
       title={title}
       meta={

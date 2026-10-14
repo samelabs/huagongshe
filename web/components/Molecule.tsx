@@ -8,14 +8,25 @@
  * 不露 alt 文本。
  */
 import { useState } from "react";
-import { molSvgUrl } from "@/lib/api";
+import { molSvgUrl, MOL_SVG_SIZES, type MolSvgSizeKey } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
 import { GlyphChem } from "@/components/ui/icons";
 
-export function Molecule({ chemicalId, smiles, label, width = 260, height = 180, alt, noStructureText }: {
+export function Molecule({
+  chemicalId,
+  smiles,
+  label,
+  size = "lg",
+  width,
+  height,
+  alt,
+  noStructureText,
+}: {
   chemicalId: number;
   smiles?: string | null;
   label?: string | null;
+  /** 标准尺寸档位（lg 280×210, md 160×120, sm 112×84, xs 64×48） */
+  size?: MolSvgSizeKey;
   width?: number;
   height?: number;
   /** 覆盖默认 alt；未传用当前字典 structureAlt */
@@ -40,11 +51,14 @@ export function Molecule({ chemicalId, smiles, label, width = 260, height = 180,
   // alt="" prevents the browser from displaying broken alt text if the image fails;
   // aria-label preserves accessibility.
   // eslint-disable-next-line @next/next/no-img-element
+  const dim = MOL_SVG_SIZES[size];
+  const w = width ?? dim.width;
+  const h = height ?? dim.height;
   return (
     <img
-      src={molSvgUrl(chemicalId, width, height)}
-      width={width}
-      height={height}
+      src={molSvgUrl(chemicalId, w, h)}
+      width={w}
+      height={h}
       alt=""
       role="img"
       aria-label={alt ?? t.chemical.structureAlt(name)}

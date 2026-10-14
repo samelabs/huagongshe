@@ -28,7 +28,7 @@ export async function EntityCard({ chemical, favored = false }: { chemical: Chem
   return (
     <article className="entity-card">
       <Link className="entity-card-thumb" href={href} aria-label={`${t.common.view} ${title}`}>
-        <Molecule chemicalId={chemical.id} smiles={chemical.smiles} width={112} height={84} label={title} alt={t.chemical.structureAlt(title)} noStructureText={t.chemical.noStructure} />
+        <Molecule chemicalId={chemical.id} smiles={chemical.smiles} size="sm" label={title} alt={t.chemical.structureAlt(title)} noStructureText={t.chemical.noStructure} />
       </Link>
       <div className="entity-card-copy">
         <EntityBadge kind="chemical" id={chemical.id} ariaLabel={t.common.hcidLabel(chemical.id)} />

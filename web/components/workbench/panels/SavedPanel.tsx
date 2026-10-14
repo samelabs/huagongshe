@@ -193,7 +193,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
                   href={`/chemical/${item.id}`}
                   thumb={
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={molSvgUrl(item.id, 96, 72)} height={44} alt="" loading="lazy" />
+                    <img src={molSvgUrl(item.id, "sm")} height={44} alt="" loading="lazy" />
                   }
                   title={title}
                   meta={
