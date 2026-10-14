@@ -70,12 +70,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     locale,
     siteName: t.brand.name,
     ogImage: {
-      url: `/api/mol/${id}/png?w=800&h=800`,
+      url: `/api/mol/${id}/png/800x800.png`,
       width: 800,
       height: 800,
       alt: t.chemical.structureAlt(displayName),
     },
-    itempropImage: `/api/mol/${id}/png?w=800&h=800`,
+    itempropImage: `/api/mol/${id}/png/800x800.png`,
     twitterCard: "summary",
   });
   return {
@@ -218,7 +218,7 @@ export default async function ChemicalPage({ params }: {
       <WeChatMeta
         name={`${title} (${t.common.hcidShort(chemical.id)})｜${t.brand.name}`}
         description={t.chemical.descFor(title)}
-        image={`/api/mol/${chemical.id}/png?w=800&h=800`}
+        image={`/api/mol/${chemical.id}/png/800x800.png`}
       />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       <Breadcrumb
@@ -259,7 +259,7 @@ export default async function ChemicalPage({ params }: {
           title={title}
         />
         <figure className="chem-head-struct">
-          <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} width={276} height={206} alt={t.chemical.structureAlt(title)} />
+          <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} />
         </figure>
       </header>
 

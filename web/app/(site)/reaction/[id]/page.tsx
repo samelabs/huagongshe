@@ -63,12 +63,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     locale,
     siteName: t.brand.name,
     ogImage: {
-      url: `/api/reactions/${id}/png`,
+      url: `/api/reactions/${id}/png/1200x630.png`,
       width: 1200,
       height: 630,
       alt: t.reaction.equationAlt(Number(id)),
     },
-    itempropImage: `/api/reactions/${id}/png?square=1`,
+    itempropImage: `/api/reactions/${id}/png/800x800.png`,
     twitterCard: "summary_large_image",
   });
   return {
@@ -177,7 +177,7 @@ export default async function ReactionPage({ params }: {
       <WeChatMeta
         name={`${t.common.hridShort(reaction.id)}｜${t.brand.name}`}
         description={t.reaction.desc}
-        image={`/api/reactions/${reaction.id}/png?square=1`}
+        image={`/api/reactions/${reaction.id}/png/800x800.png`}
       />
       {/* 0904 P0收口: JSON.stringify 不转义 '<', </script> 可闭合标签注入脚本
           (存储型XSS)。规范做法: < 与 U+2028/2029 转义为 JSON 等价形式。 */}
@@ -399,7 +399,7 @@ function ParticipantRoleGroup({ title, items, showRole = false, t, locale }: {
         ].filter(Boolean).join(" · ");
         return (
           <Link className="participant-row" href={withLocale(`/chemical/${chemical.id}`, locale)} key={`${chemical.role}-${chemical.id}`}>
-            <span className="participant-thumb"><Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={name} width={64} height={48} alt={t.chemical.structureAlt(name)} /></span>
+            <span className="participant-thumb"><Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={name} size="xs" alt={t.chemical.structureAlt(name)} /></span>
             <span className="participant-id"><EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} /></span>
             <span className="participant-name">{name}</span>
             {showRole && <Tag>{roleLabels[chemical.role || ""] || chemical.role}</Tag>}

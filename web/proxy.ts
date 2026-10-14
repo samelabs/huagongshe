@@ -113,6 +113,25 @@ function detectLocale(cookieHeader: string | null, acceptLanguage: string | null
   return negotiateAcceptLanguage(acceptLanguage) ?? FALLBACK_LOCALE;
 }
 
+/**
+ * 判断已剥离 locale 前缀的路径是否属于支持匿名边缘缓存的公开页面（Round 13 Cloudflare 方案 1）：
+ * 首页、搜索、化合物、反应、笔记、公开主页、Skills、guide、mcp-guide、privacy、terms、support。
+ * 不缓存：工作台(/aichem)、设置(/me)、登录(/login)、提交(/submit)、管理端(/samelabs)等。
+ */
+function isPublicEdgeCacheablePage(rest: string): boolean {
+  if (rest === "/") return true;
+  if (rest === "/search") return true;
+  if (rest === "/skills") return true;
+  if (rest === "/guide") return true;
+  if (rest === "/mcp-guide") return true;
+  if (rest === "/privacy" || rest === "/terms" || rest === "/support") return true;
+  if (isPathAtOrBelow(rest, "/chemical")) return true;
+  if (isPathAtOrBelow(rest, "/reaction")) return true;
+  if (isPathAtOrBelow(rest, "/note")) return true;
+  if (isPathAtOrBelow(rest, "/user")) return true;
+  return false;
+}
+
 export default function proxy(request: NextRequest): NextResponse | undefined {
   const pathname = request.nextUrl.pathname;
 
@@ -133,6 +152,15 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
     requestHeaders.set(LOCALE_PATH_HEADER, pathname + request.nextUrl.search);
     const response = NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } });
     response.cookies.set(LOCALE_COOKIE, prefixed.locale, LOCALE_COOKIE_OPTIONS);
+
+    // Round 13 边缘缓存：匿名访问公开页 public 300s；带登录会话或私有/管理页 private, no-store
+    const hasSession = request.cookies.has("hgs_session") ||
+      Boolean(request.headers.get("cookie")?.split(";").some((c) => c.trim().startsWith("hgs_session=")));
+    if (isPublicEdgeCacheablePage(prefixed.rest) && !hasSession) {
+      response.headers.set("Cache-Control", "public, max-age=0, s-maxage=300, stale-while-revalidate=86400");
+    } else {
+      response.headers.set("Cache-Control", "private, no-store");
+    }
     return response;
   }
 
@@ -143,6 +171,7 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
     307,
   );
   response.cookies.set(LOCALE_COOKIE, locale, LOCALE_COOKIE_OPTIONS);
+  response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 

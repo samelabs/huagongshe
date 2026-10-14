@@ -177,3 +177,69 @@ test("malformed cookie + 无支持语言 → 307 /en/", () => {
   assert.equal(r.status, 307);
   assert.equal(getRedirectUrl(r), ORIGIN + "/en/chemical/123");
 });
+
+/* ─────── Round 13: 匿名访问公开页面边缘缓存契约 ─────── */
+
+test("匿名访问公开页面: public 300s 边缘缓存", () => {
+  for (const p of [
+    "/zh-CN",
+    "/en/",
+    "/ja/search",
+    "/zh-CN/chemical/4",
+    "/en/reaction/1",
+    "/zh-CN/note/2001",
+    "/en/user/demo",
+    "/zh-CN/skills",
+    "/en/guide",
+    "/ja/mcp-guide",
+    "/en/privacy",
+    "/en/terms",
+    "/en/support",
+  ]) {
+    const r = proxy(nextReq(p));
+    assert.equal(
+      r.headers.get("cache-control"),
+      "public, max-age=0, s-maxage=300, stale-while-revalidate=86400",
+      `路径 ${p} 应获得匿名公开缓存头`,
+    );
+  }
+});
+
+test("带 hgs_session 登录会话访问公开页: 保持 private, no-store", () => {
+  for (const p of [
+    "/zh-CN",
+    "/zh-CN/chemical/4",
+    "/en/reaction/1",
+    "/ja/search",
+  ]) {
+    const r = proxy(nextReq(p, { cookie: "hgs_session=fake_session_token; site_locale=zh-CN" }));
+    assert.equal(
+      r.headers.get("cache-control"),
+      "private, no-store",
+      `带会话访问 ${p} 应为 private, no-store`,
+    );
+  }
+});
+
+test("访问非公开页面(工作台/设置/登录/提交): 保持 private, no-store", () => {
+  for (const p of [
+    "/zh-CN/aichem",
+    "/en/aichem/notes",
+    "/zh-CN/me/settings/profile",
+    "/en/login",
+    "/zh-CN/submit",
+  ]) {
+    const r = proxy(nextReq(p));
+    assert.equal(
+      r.headers.get("cache-control"),
+      "private, no-store",
+      `非公开页 ${p} 应为 private, no-store`,
+    );
+  }
+});
+
+test("未带 locale 的 307 redirect 响应: 保持 private, no-store", () => {
+  const r = proxy(nextReq("/"));
+  assert.equal(r.status, 307);
+  assert.equal(r.headers.get("cache-control"), "private, no-store");
+});

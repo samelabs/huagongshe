@@ -1,23 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ImageResponse } from "next/og";
+import { ALLOWED_REACTION_SHARE_PNG_DIMS } from "@/lib/molSizes";
 
 const API_ORIGIN = process.env.API_ORIGIN_INTERNAL || "http://127.0.0.1:8000";
 
-type RouteContext = { params: Promise<{ id: string }> };
+type RouteContext = { params: Promise<{ id: string; dims: string }> };
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const { id } = await context.params;
-  if (!/^\d+$/.test(id)) {
+  const { id, dims } = await context.params;
+  const match = dims.match(/^(\d+x\d+)\.png$/);
+  if (!/^\d+$/.test(id) || !match || !ALLOWED_REACTION_SHARE_PNG_DIMS.has(match[1])) {
     return NextResponse.json({ detail: "Not Found" }, { status: 404 });
   }
 
-  const { searchParams } = new URL(request.url);
-  const isSquare = searchParams.get("square") === "1" || searchParams.get("s") === "1";
-  const reqW = Number(searchParams.get("w")) || 0;
-  const reqH = Number(searchParams.get("h")) || 0;
-
-  const width = isSquare || (reqW > 0 && reqW === reqH) ? (reqW || 800) : (reqW || 1200);
-  const height = isSquare || (reqW > 0 && reqW === reqH) ? (reqH || 800) : (reqH || 630);
+  const [wStr, hStr] = match[1].split("x");
+  const width = Number(wStr);
+  const height = Number(hStr);
 
   const cookie = request.headers.get("cookie");
 
