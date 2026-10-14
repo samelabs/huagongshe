@@ -159,13 +159,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--wb-sp-4);
-  max-width: var(--wb-content-max);
+  max-width: 1120px;
   margin-inline: auto;
 }
 
 .wb-panel-head {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: var(--wb-sp-3);
   flex-wrap: wrap;
@@ -179,8 +179,9 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--wb-sp-2);
-  font-size: var(--fs-22);
+  font-size: var(--fs-28);
   font-weight: 650;
+  letter-spacing: -.01em;
   color: var(--wb-heading);
 }
 /* 计数紧随标题（5.6 / 6.7：不单独占位） */
@@ -483,30 +484,38 @@
   color: var(--wb-muted);
 }
 .wb-home2-actions { display: flex; gap: var(--wb-sp-2); flex: none; }
-
-/* 手机 Segmented（我的内容 ↔ 关注动态）：桌面隐藏；
-   手机在 grid 内 quick 与 mine 之间（Step 9 A.3 区块顺序） */
-.wb-home2-switch { display: none; }
+@media (max-width: 900px) {
+  .wb-home2-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--wb-sp-3);
+  }
+}
 
 .wb-home2-grid {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--sp-6);
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "quick" "switch" "mine" "feed" "profile";
 }
-.wb-home2-grid > [data-area="quick"] { grid-area: quick; }
-.wb-home2-grid > [data-area="switch"] { grid-area: switch; }
-.wb-home2-grid > [data-area="mine"] { grid-area: mine; }
-.wb-home2-grid > [data-area="profile"] { grid-area: profile; }
-.wb-home2-grid > [data-area="feed"] { grid-area: feed; }
-/* 桌面两列（DESIGN_SYSTEM 2.1 / 6.7）；平板与手机单列，社交列下沉 */
+.wb-home2-col-main,
+.wb-home2-col-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  min-width: 0;
+}
+/* 桌面两列独立纵向排布（DESIGN_SYSTEM 2.1 / 6.7）：快速检索与我的内容无缝顺排，无空洞 */
 @media (min-width: 1024px) {
   .wb-home2-grid {
-    grid-template-columns: minmax(0, 1fr) var(--rail-w-wide);
-    grid-template-areas:
-      "quick profile"
-      "mine feed";
-    align-items: start;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .wb-home2-col-main {
+    flex: 1 1 0;
+  }
+  .wb-home2-col-side {
+    width: var(--rail-w-wide);
+    flex: none;
   }
 }
 
@@ -721,6 +730,18 @@
   color: var(--wb-ink);
 }
 .wb-feed-body > time { font-size: var(--wb-fs-sm); color: var(--wb-quiet); }
+.wb-feed-excerpt {
+  margin: 2px 0 0;
+  font-size: var(--wb-fs-sm);
+  color: var(--wb-muted);
+  line-height: var(--lh-snug);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
 .wb-feed-eq {
   display: block;
   width: 100%;
@@ -738,11 +759,10 @@
    快速检索脱离卡片框（48 高、图标入框左侧）＋ 2×2 快捷入口、
    Segmented 切换 我的内容/关注动态、主页卡最后（Step 9 A.3 顺序） */
 @media (max-width: 640px) {
+  .wb-panel-head h2 { font-size: var(--fs-22); }
   .wb-home2-head h2 { font-size: var(--fs-22); }
   .wb-home2-actions { display: none; }
-  .wb-home2-switch { display: block; }
-  .wb-home2[data-view="mine"] > .wb-home2-grid > [data-area="feed"] { display: none; }
-  .wb-home2[data-view="feed"] > .wb-home2-grid > [data-area="mine"] { display: none; }
+  .wb-home2 .wb-feed-card { display: none; }
   /* 快速检索不用卡片外框：直接是输入框（48 高 / r-md / 图标框内左侧）+ 查询按钮。
      选择器带 .wb-home2 前缀抬特异性，压过卡片基座 .wb-home2 .wb-card。 */
   .wb-home2 .wb-home2-quick {
@@ -960,6 +980,7 @@
    L7 — Settings（form-section 在 wb-panel 内的覆盖）
    ═══════════════════════════════════════════════════════════════ */
 .wb-panel .form-section {
+  max-width: 680px;
   border: 1px solid var(--wb-line);
   border-radius: var(--wb-r-md);
   padding: var(--wb-sp-5);
@@ -994,7 +1015,7 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--wb-sp-4);
 }
-.wb-panel label {
+.wb-panel label:not(.hg-label) {
   display: flex;
   flex-direction: column;
   gap: var(--wb-sp-2);
@@ -1065,12 +1086,30 @@
   cursor: pointer;
 }
 
+/* 设置页表单按钮（I-050）：桌面自适应宽度不撑满卡片；≤640 手机端主操作撑满 */
+.wb-panel .form-fields > .hg-btn,
+.wb-panel .form-fields button[type="submit"],
+.wb-panel .avatar-upload > .hg-btn,
+.wb-panel .avatar-remove > .hg-btn {
+  align-self: flex-start;
+  width: auto;
+}
+@media (max-width: 640px) {
+  .wb-panel .form-fields > .hg-btn,
+  .wb-panel .form-fields button[type="submit"],
+  .wb-panel .avatar-upload > .hg-btn,
+  .wb-panel .avatar-remove > .hg-btn {
+    align-self: stretch;
+    width: 100%;
+  }
+}
+
 /* token 管理 */
 .wb-panel .token-create {
   display: grid;
   grid-template-columns: 1fr 160px auto;
   gap: var(--wb-sp-2);
-  align-items: center;
+  align-items: end;
 }
 .wb-panel .token-list {
   margin-top: var(--wb-sp-4);
@@ -1105,6 +1144,42 @@
 .wb-panel .token-list small {
   color: var(--wb-quiet);
   font-size: var(--wb-fs-xs);
+}
+.wb-panel .token-row-secret {
+  display: flex;
+  align-items: center;
+  gap: var(--wb-sp-2);
+  flex-wrap: wrap;
+}
+.wb-panel .token-code {
+  font-family: var(--font-mono);
+  font-size: var(--wb-fs-xs);
+  color: var(--wb-heading);
+  background: var(--bg-subtle);
+  padding: 2px 6px;
+  border-radius: var(--wb-r-xs);
+  word-break: break-all;
+}
+.wb-panel .token-row-null {
+  display: flex;
+  align-items: center;
+  gap: var(--wb-sp-1);
+  flex-wrap: wrap;
+}
+.wb-panel .token-null-desc {
+  color: var(--wb-quiet);
+  font-size: var(--wb-fs-xs);
+}
+.wb-panel .token-meta-status {
+  color: var(--wb-quiet);
+  font-size: var(--wb-fs-xs);
+}
+@media (max-width: 640px) {
+  .wb-panel .token-list article {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--wb-sp-3);
+  }
 }
 /* BX-B1：旧 token-actions text-button 危险色规则删除（已迁 ui Button danger-quiet）。 */
 .wb-panel .api-guide-link {
@@ -1191,6 +1266,62 @@
   font-family: var(--wb-font-mono);
   font-size: var(--wb-fs-sm);
   line-height: var(--wb-lh-relaxed);
+}
+
+/* ── 已连接的应用（OAuth Connections） ── */
+.wb-panel .oauth-conn-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-sp-3);
+}
+.wb-panel .oauth-conn-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--wb-sp-3);
+  padding: var(--wb-sp-3) var(--wb-sp-4);
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-r-sm);
+  background: var(--wb-surface);
+}
+.wb-panel .oauth-conn-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-sp-1);
+  min-width: 0;
+  flex: 1;
+}
+.wb-panel .oauth-conn-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--wb-sp-2);
+}
+.wb-panel .oauth-conn-name {
+  font-size: var(--wb-fs);
+  font-weight: var(--wb-w-semibold);
+  color: var(--wb-heading);
+}
+.wb-panel .oauth-conn-scopes {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--wb-sp-1);
+}
+.wb-panel .oauth-conn-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--wb-sp-2);
+  font-size: var(--wb-fs-sm);
+  color: var(--wb-quiet);
+}
+.wb-panel .oauth-conn-meta span[aria-hidden="true"] {
+  color: var(--wb-line-strong);
+}
+.wb-panel .oauth-conn-actions {
+  flex-shrink: 0;
+  padding-top: 2px;
 }
 
 /* ═══════════════════════════════════════════════════════════════

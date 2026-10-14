@@ -7,6 +7,8 @@ import { withLocale } from "@/lib/localePath";
 import { Avatar } from "@/components/ui/Avatar";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { FollowButton } from "@/components/shared/FollowButton";
+import { Button } from "@/components/ui/Button";
+import { GlyphRx, IconNote } from "@/components/ui/icons";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tag } from "@/components/ui/Tag";
 import { ApiError, reactionSvgUrl } from "@/lib/api";
@@ -149,7 +151,7 @@ export function VisibilityTag({ visibility, t }: { visibility: "public" | "priva
 }
 
 /* ── 动态卡片（DESIGN_SYSTEM 6.7）：概览「关注动态」与动态面板（?tab=activity）同一个
-   组件（Step 9 Part B.4）。v1.7 只有 new_reaction 事件。 ── */
+   组件（Step 9 Part B.4）。支持 new_reaction 与 new_note（I-007）。 ── */
 export function ActivityFeedCard({ item, favored, t, locale }: {
   item: Notice;
   /** 收藏初始态（调用方从 /users/me/follows/reactions 的 id 集给出） */
@@ -157,29 +159,65 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
   t: Dictionary;
   locale: Locale;
 }) {
+  const isNote = item.event_type === "new_note";
+  const actorName = item.actor_display_name || item.actor_username;
+
+  if (isNote) {
+    return (
+      <article className="wb-feed-item">
+        <Avatar id={item.actor_username} name={actorName} size={32} />
+        <div className="wb-feed-body">
+          <p className="wb-feed-line">
+            {t.me.feedActorNote(actorName)}
+          </p>
+          <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
+          {item.note_excerpt && (
+            <p className="wb-feed-excerpt">{item.note_excerpt}</p>
+          )}
+          <div className="wb-feed-actions">
+            <Button variant="ghost" size="sm" href={withLocale(`/note/${item.note_id}`, locale)}>
+              <IconNote />{t.me.feedOpen}
+            </Button>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article className="wb-feed-item">
-      <Avatar id={item.actor_username} name={item.actor_display_name || item.actor_username} size={32} />
+      <Avatar id={item.actor_username} name={actorName} size={32} />
       <div className="wb-feed-body">
         <p className="wb-feed-line">
-          {t.me.feedActor(item.actor_display_name || item.actor_username)}
-          <EntityBadge kind="reaction" id={item.reaction_id} size="xs" href={withLocale(`/reaction/${item.reaction_id}`, locale)} ariaLabel={t.common.hridLabel(item.reaction_id)} />
+          {t.me.feedActor(actorName)}
+          {item.reaction_id != null && (
+            <EntityBadge kind="reaction" id={item.reaction_id} size="xs" href={withLocale(`/reaction/${item.reaction_id}`, locale)} ariaLabel={t.common.hridLabel(item.reaction_id)} />
+          )}
         </p>
         <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
-        <Link className="wb-feed-eq" href={withLocale(`/reaction/${item.reaction_id}`, locale)}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={reactionSvgUrl(item.reaction_id, 720, 160)} height={64} alt={t.reaction.equationAlt(item.reaction_id)} loading="lazy" />
-        </Link>
+        {item.reaction_id != null && (
+          <Link className="wb-feed-eq" href={withLocale(`/reaction/${item.reaction_id}`, locale)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={reactionSvgUrl(item.reaction_id, 720, 160)} height={64} alt={t.reaction.equationAlt(item.reaction_id)} loading="lazy" />
+          </Link>
+        )}
         <div className="wb-feed-actions">
-          <FollowButton
-            endpoint={`/reactions/${item.reaction_id}/follow`}
-            initial={favored}
-            showCount={false}
-            label="favor"
-            variant="ghost"
-            size="sm"
-          />
-          <Link className="hg-btn ghost sm" href={withLocale(`/reaction/${item.reaction_id}`, locale)}>{t.me.feedOpen}</Link>
+          {item.reaction_id != null && (
+            <FollowButton
+              endpoint={`/reactions/${item.reaction_id}/follow`}
+              initial={favored}
+              showCount={false}
+              label="favor"
+              variant="ghost"
+              size="sm"
+              withIcon
+            />
+          )}
+          {item.reaction_id != null && (
+            <Button variant="ghost" size="sm" href={withLocale(`/reaction/${item.reaction_id}`, locale)}>
+              <GlyphRx />{t.me.feedOpen}
+            </Button>
+          )}
         </div>
       </div>
     </article>
@@ -231,8 +269,11 @@ export function ReactionRow({ item, t, locale, actions }: {
  * 按 ApiError.status 映射到精确错误文案。
  * 复用主站 search.err* 和 common.networkError，与主站同一套文案源。
  */
-export function panelErrorMessage(error: unknown, t: { search: { errLoginRequired: string; errRateLimit: string; errTimeout: string; errIncomplete: string; errUnrecognized: string; errNotFound: string; errGeneric: string }; common: { networkError: string } }): string {
+export function panelErrorMessage(error: unknown, t: { errors?: Record<string, string>; search: { errLoginRequired: string; errRateLimit: string; errTimeout: string; errIncomplete: string; errUnrecognized: string; errNotFound: string; errGeneric: string }; common: { networkError: string } }): string {
   if (error instanceof ApiError) {
+    if (error.detailKind && t.errors && t.errors[error.detailKind]) {
+      return t.errors[error.detailKind];
+    }
     switch (error.status) {
       // 0904 P1收口: 401 此前落 errGeneric"稍后重试"误导 — 会话过期重试永远
       // 失败, 应提示登录(主站 search/page.tsx 已有同款映射)。

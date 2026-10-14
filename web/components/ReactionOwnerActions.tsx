@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { apiDelete } from "@/lib/api";
+import { apiDelete, apiErrorMessage } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -38,9 +38,9 @@ export function ReactionOwnerActions({ reactionId }: { reactionId: number }) {
       await apiDelete(`/reactions/${reactionId}`);
       toast.success(t.reaction.deleted);
       router.push(withLocale("/aichem", locale)); router.refresh(); return;
-    } catch {
+    } catch (err) {
       setBusy(false);
-      toast.error(t.common.deleteFailed);
+      toast.error(apiErrorMessage(err, t, t.common.deleteFailed));
     }
   }
   const editHref = withLocale(`/submit?reaction=${reactionId}`, locale);

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AiSubmissionPrompt } from "@/components/AiSubmissionPrompt";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ShareButton } from "@/components/ShareButton";
 import { CodeField } from "@/components/ui/CodeField";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
@@ -23,6 +24,13 @@ export default async function GuidePage() {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   return <div className="content-page guide-page">
+    <Breadcrumb
+      items={[
+        { label: t.chemical.home, href: withLocale("/", locale) },
+        { label: t.guide.title },
+      ]}
+      ariaLabel={t.common.breadcrumb}
+    />
     <header className="page-head guide-hero">
       <div className="guide-hero-top">
         <ShareButton />

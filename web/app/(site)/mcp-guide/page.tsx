@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
+import { Button } from "@/components/ui/Button";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { CodeField } from "@/components/ui/CodeField";
+
+const PLUGIN_PACKAGE_URL = "/downloads/huagongshe-agent-plugin-1.0.0.zip";
 
 /** 文档页（6.10）：阅读版式 --w-reading 720；配置片段走 CodeField
  *  multiline（IX-7：复制 aria-live 播报 + ✓ 1.5s，内部滚动不撑破布局）。 */
@@ -21,21 +25,28 @@ export default function McpPage() {
   const t = useDictionary();
   const locale = useLocale();
   return <div className="content-page guide-page mcp-page">
+    <Breadcrumb
+      items={[
+        { label: t.chemical.home, href: withLocale("/", locale) },
+        { label: t.mcp.hero },
+      ]}
+      ariaLabel={t.common.breadcrumb}
+    />
     <header className="page-head guide-hero">
       <h1>{t.mcp.hero}</h1>
       <p>{t.mcp.heroBody}</p>
     </header>
 
-    {/* FX-14 / PLUGIN-ENTRY-01（PM 裁定）：直接给出 MCP 端点与插件包入口，
-        不再有「已准备提交 / 尚未上架 / 不能直接安装」的上架叙事 */}
-    <section className="guide-section" id="chatgpt-plugin">
+    {/* Agent Plugin：agent-plugins.org 规范插件包下载入口，MCP 端点只在下方出现一次（I-005） */}
+    <section className="guide-section" id="agent-plugin">
       <div className="section-heading"><div><h2>{t.mcp.pluginTitle}</h2></div></div>
       <p className="guide-section-intro">{t.mcp.pluginStatus}</p>
-      <div className="mcp-connect">
-        <div className="mcp-connect-row">
-          <span className="mcp-connect-label">{t.mcp.connectUrlLabel}</span>
-          <CodeField value="https://huagongshe.com/mcp" />
-        </div>
+      <div className="guide-actions">
+        <Button variant="secondary" asChild>
+          <a href={PLUGIN_PACKAGE_URL} download>
+            {t.mcp.pluginDownload}
+          </a>
+        </Button>
       </div>
     </section>
 

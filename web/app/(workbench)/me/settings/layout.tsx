@@ -5,6 +5,8 @@ import { apiGet } from "@/lib/api";
 import type { User } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale, splitLocalePrefix } from "@/lib/localePath";
+import { PanelHeading } from "@/components/workbench/shared";
+import { SettingsTabs } from "@/components/settings/SettingsTabs";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
@@ -21,6 +23,7 @@ async function getUser(cookieHeader: string | null): Promise<User | null> {
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   const h = await headers();
   const locale = await getRequestLocale();
+  const t = await getRequestDictionary();
   const cookieHeader = h.get("cookie");
   const user = await getUser(cookieHeader);
   if (!user) {
@@ -32,5 +35,11 @@ export default async function SettingsLayout({ children }: { children: React.Rea
     redirect("/login?next=/me/settings");
   }
 
-  return <div className="wb-panel">{children}</div>;
+  return (
+    <div className="wb-panel">
+      <PanelHeading title={t.settings.title} />
+      <SettingsTabs />
+      {children}
+    </div>
+  );
 }

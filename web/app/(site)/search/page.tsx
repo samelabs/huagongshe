@@ -9,7 +9,7 @@ import { Notice } from "@/components/ui/Notice";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { GlyphChem } from "@/components/ui/icons";
-import { apiGet, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
+import { apiGet, apiErrorMessage, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import { localeAlternates } from "@/lib/alternates";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
@@ -113,19 +113,19 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   } catch (err) {
     if (err instanceof ApiError) {
       if (err.status === 429) {
-        error = t.search.errRateLimit;
+        error = apiErrorMessage(err, t, t.search.errRateLimit);
       } else if (err.status === 401) {
-        error = t.search.errLoginRequired;
+        error = apiErrorMessage(err, t, t.search.errLoginRequired);
       } else if (err.status === 503) {
-        error = t.search.errTimeout;
+        error = apiErrorMessage(err, t, t.search.errTimeout);
       } else if (err.status === 422) {
-        error = t.search.errIncomplete;
+        error = apiErrorMessage(err, t, t.search.errIncomplete);
       } else if (err.status === 400) {
-        error = err.detail || t.search.errUnrecognized;
+        error = apiErrorMessage(err, t, t.search.errUnrecognized);
       } else if (err.status === 404) {
-        error = t.search.errNotFound;
+        error = apiErrorMessage(err, t, t.search.errNotFound);
       } else {
-        error = t.search.errGeneric;
+        error = apiErrorMessage(err, t, t.search.errGeneric);
       }
     } else {
       error = t.common.networkError;

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { EntityId } from "@/components/shared/EntityId";
-import { apiGet, apiPost, apiPut, ApiError, type ReactionDetail } from "@/lib/api";
+import { apiGet, apiPost, apiPut, ApiError, apiErrorMessage, type ReactionDetail } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Button } from "@/components/ui/Button";
@@ -190,7 +190,7 @@ export function SubmissionForm() {
       router.refresh();
     } catch (err) {
       // IX-5：失败保留全部输入内容（defaultValue / state 均不动），页面级 Notice。
-      setMessage(err instanceof ApiError ? t.submit.errSave : t.submit.errNetwork);
+      setMessage(apiErrorMessage(err, t, t.submit.errSave));
     } finally {
       submitting.current = false;
       setBusy(false);

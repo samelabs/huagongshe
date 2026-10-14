@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
-import { apiPost, apiDelete } from "@/lib/api";
+import { apiPost, apiDelete, apiErrorMessage } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -23,7 +23,7 @@ export function AvatarSettings() {
   if (!user) return <LoginRequired text={t.settings.avatar.title} />;
 
   return <section className="form-section">
-    <div className="form-section-head"><div><h2>{t.settings.avatar.title}</h2><p>{t.settings.avatar.desc}</p></div></div>
+    <div className="form-section-head"><div><p>{t.settings.avatar.desc}</p></div></div>
     <div className="avatar-settings-preview">
       <Avatar id={user.id} name={user.display_name || user.username} src={user.avatar_url} size={80} />
       <div><strong>{t.settings.avatar.current}</strong><small>{t.settings.avatar.hint}</small></div>
@@ -41,8 +41,8 @@ export function AvatarSettings() {
         await refresh();
         form.reset();
         toast.success(t.settings.avatar.updated);
-      } catch {
-        toast.error(t.settings.avatar.uploadFailed);
+      } catch (err) {
+        toast.error(apiErrorMessage(err, t, t.settings.avatar.uploadFailed));
       } finally { setUploading(false); }
     }}>
       <Field label={t.settings.avatar.uploadLabel}>
@@ -69,8 +69,8 @@ export function AvatarSettings() {
               await apiDelete(`/users/me/avatar`);
               await refresh();
               toast.success(t.settings.avatar.removed);
-            } catch {
-              toast.error(t.settings.avatar.removeFailed);
+            } catch (err) {
+              toast.error(apiErrorMessage(err, t, t.settings.avatar.removeFailed));
             } finally { setRemoving(false); }
           }}
         >

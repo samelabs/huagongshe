@@ -4,40 +4,32 @@
 
 ## AI integration (read this first)
 
-- **MCP server (recommended)**: `https://huagongshe.com/mcp` — Streamable HTTP transport; mixed anonymous / OAuth access depending on each tool's declaration
-- **MCP OAuth**: standard Authorization Code flow with PKCE S256; scopes are `read`, `reaction:write`, `skill:write`
+- **External AI access**: MCP server only (`https://huagongshe.com/mcp`) — Streamable HTTP transport; mixed anonymous / authenticated access depending on each tool's declaration.
+- **Authentication**: MCP OAuth (recommended) using standard Authorization Code flow with PKCE S256 (scopes: `read`, `reaction:write`, `skill:write`). MCP clients that do not support OAuth can use an AI Key via `Authorization: Bearer <AI Key>`.
 - **MCP connection guide**: https://huagongshe.com/mcp-guide
-- **REST / AI Key compatibility surface**: `https://huagongshe.com/api/agent-guide` — for clients that cannot use MCP and for existing hgs_* AI Key automation; the primary agent integration layer is the MCP server above
-- **AI Key (manual compatibility)**: create one after logging in at https://huagongshe.com/me/settings/api-tokens; send it as `Authorization: Bearer <AI Key>`. The HTTP API keeps using AI Keys; an OAuth access token is never accepted as a REST bearer credential and only enters the MCP adapter.
+- **AI Key**: create one after logging in under Account Settings → AI Key (https://huagongshe.com/me/settings/api-tokens) for clients without OAuth support.
 
 **Anonymous**: unified search (exact mode), compound detail, public reaction detail, molecule/reaction SVG, public skills, stoichiometry calculation
-**After MCP OAuth authorization**: structure search (substructure/similarity), reading your own private reactions/skills, listing your reactions, validating/creating reactions, validating/saving skills
-**Not provided in v1.7.0**: Note MCP tools and the `note:write` scope
+**After authentication (OAuth / AI Key)**: structure search (substructure/similarity), reading your own private reactions/skills, listing your reactions, validating/creating reactions, validating/saving skills
+**Not provided in v1.7.1**: Note MCP tools and the `note:write` scope
 
 ## What you can call
 
 ### MCP tools (13 total)
 
-Unified search, compound detail (core/full), reaction detail, molecule/reaction SVG rendering, skill registry browsing, stoichiometry calculation, my reactions, reaction validate/save, skill validate/save. Permission requirements as above.
-
-### HTTP API
-
-| Capability | Endpoint | Notes |
-|------|------|------|
-| Unified search | `GET /api/search` | Names, CAS, InChIKey, SMILES, structure search (exact is anonymous; substructure/similarity require an AI Key) |
-| Compound detail | `GET /api/chemicals/{id}?enrich=core\|full` | core = structure/identifiers/related reactions; full = unified semantic detail (descriptions/names/properties/safety/industrial uses/suppliers/provenance) |
-| Reaction detail | `GET /api/reactions/{id}` | Participants, conditions, yields, source, procedure |
-| Molecule rendering | `GET /api/mol/{hcid}/svg?w=&h=` | HCID → SVG structure image |
-| Stoichiometry | `POST /api/stoichiometry/scale` | Role-tagged components + a basis charge → full charge table / theoretical yield / solvent volume (RDKit) |
-| Dataset list | `GET /api/datasets` | Reaction source datasets |
-
-### Operations that require an AI Key
-
-| Capability | Endpoint | Notes |
-|------|------|------|
-| My reactions | `GET /api/users/me/reactions` | Read the AI Key owner's reaction library |
-| Validate draft | `POST /api/reactions/validate` | RDKit canonicalization check, nothing saved |
-| Create reaction | `POST /api/reactions` | Saves into the user's reaction library (requires an Idempotency-Key) |
+1. `search_chemistry_data`: Unified chemical and reaction search (exact mode is anonymous; substructure and similarity search require authentication).
+2. `get_chemical`: Compound detail by HCID with optional semantic enrichment (`enrich=core|full`).
+3. `get_reaction`: Reaction detail by HRID (participants, conditions, yields, procedure).
+4. `render_molecule_svg`: Render 2D SVG structure image for a compound.
+5. `render_reaction_svg`: Render 2D SVG equation image for a reaction.
+6. `calculate_stoichiometry`: Calculate reaction charge table, theoretical yield, and solvent volumes based on a basis component.
+7. `list_skills`: Browse public and accessible scientific agent skills.
+8. `get_skill`: Read skill definition, files, and metadata by slug.
+9. `list_my_reactions`: List reactions created by the authenticated user.
+10. `validate_reaction`: Validate and canonicalize reaction draft (RDKit check without saving).
+11. `create_reaction`: Save a user-confirmed reaction into personal workbench (requires Idempotency-Key).
+12. `validate_skill`: Validate skill bundle structure and metadata.
+13. `create_skill`: Save a personal skill package (zip archive with SKILL.md in root).
 
 ## Safety rules
 
@@ -46,7 +38,7 @@ Unified search, compound detail (core/full), reaction detail, molecule/reaction 
 
 ## Rate limits
 
-Counted per identity; over the limit the API returns `429` with a `Retry-After` header.
+Counted per identity; over the limit the server returns `429` with a `Retry-After` header.
 
 | Type | Limit |
 |------|------|
@@ -67,8 +59,7 @@ Counted per identity; over the limit the API returns `429` with a `Retry-After` 
 - [Website](https://huagongshe.com)
 - [MCP connection guide](https://huagongshe.com/mcp-guide)
 - [MCP server](https://huagongshe.com/mcp)
-- [API Connection Guide](https://huagongshe.com/api/agent-guide)
-- [Skills Registry](https://huagongshe.com/api/skills?scope=public)
-- [Privacy Policy](https://huagongshe.com/en/privacy)
-- [Terms of Service](https://huagongshe.com/en/terms)
-- [Support](https://huagongshe.com/en/support)
+- [Skills Registry](https://huagongshe.com/skills)
+- [Privacy Policy](https://huagongshe.com/privacy)
+- [Terms of Service](https://huagongshe.com/terms)
+- [Support](https://huagongshe.com/support)

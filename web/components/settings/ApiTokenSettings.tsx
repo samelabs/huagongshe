@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
-import { apiGet, apiPost, apiDelete, ApiError } from "@/lib/api";
+import { apiGet, apiPost, apiDelete, ApiError, apiErrorMessage } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Button } from "@/components/ui/Button";
 import { CodeField } from "@/components/ui/CodeField";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
@@ -17,16 +18,14 @@ import { useToast } from "@/components/ui/Toast";
 import { IconPlug } from "@/components/ui/icons";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
-type Token = { id: number; name: string; token_prefix: string; created_at: string; expires_at: string | null; last_used_at: string | null };
+type Token = { id: number; name: string; token_prefix: string; token: string | null; created_at: string; expires_at: string | null; last_used_at: string | null };
 type CreatedToken = { token: string };
 
-/** AI Key 管理（Step 11 Part D；2026-10-11 收口改明文一次性）：
- *  - 撤销走 ConfirmDialog（IX-3：问句标题 + 写明 Key 名称/前缀 + 「撤销 Key」
- *    danger 确认 + 默认焦点「取消」+ Esc 回焦触发按钮）
- *  - 明文 Key 只在创建后展示一次（CodeField，IX-7 播报 + ✓ 1.5s）；
- *    列表只显示名称/前缀/时间等元数据，不再提供复制
- *  - 「只显示一次」用 Notice warn；空列表 EmptyState + 下一步（IX-8）
- *  - 撤销失败 Toast err、行保持原状 */
+/** AI Key 管理（2026-10-14 项目负责人裁定恢复明文）：
+ *  - AI Key 明文保存，本人可随时在设置页查看、复制（每账号最多 5 个）。
+ *  - 列表行内默认遮罩（前缀 + ••••），提供「显示/隐藏」和 CopyButton。
+ *  - 历史无明文 Key（null）不显示复制，行内提示无法再次查看。
+ *  - 撤销走 ConfirmDialog（IX-3：危险操作确认 + Esc 回焦触发按钮）。 */
 export function ApiTokenSettings() {
   const t = useDictionary();
   const locale = useLocale();
@@ -34,12 +33,22 @@ export function ApiTokenSettings() {
   const confirm = useConfirm();
   const { user, ready } = useAccount();
   const [tokens, setTokens] = useState<Token[]>([]);
+  const [revealedIds, setRevealedIds] = useState<Set<number>>(new Set());
   const [loaded, setLoaded] = useState(false);
   const [createdToken, setCreatedToken] = useState<CreatedToken | null>(null);
   const [message, setMessage] = useState("");
   const [creating, setCreating] = useState(false);
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+
+  function toggleReveal(id: number) {
+    setRevealedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -59,15 +68,15 @@ export function ApiTokenSettings() {
       await apiDelete(`/users/me/tokens/${token.id}`);
       setTokens((prev) => prev.filter((row) => row.id !== token.id));
       toast.success(t.settings.ai.revokedToast(token.name));
-    } catch {
-      toast.error(t.settings.ai.revokeFailed);  // 行保持原状
+    } catch (err) {
+      toast.error(apiErrorMessage(err, t, t.settings.ai.revokeFailed));  // 行保持原状
     } finally {
       setRevokingId(null);
     }
   }
 
   return <section className="form-section">
-    <div className="form-section-head"><div><h2>{t.settings.ai.title}</h2><p>{t.settings.ai.desc}</p></div></div>
+    <div className="form-section-head"><div><p>{t.settings.ai.desc}</p></div></div>
     <form method="post" className="token-create" onSubmit={async (event) => {
       event.preventDefault();
       if (creating) return;
@@ -89,10 +98,10 @@ export function ApiTokenSettings() {
         form.reset();
         await loadTokens(setTokens, setMessage, t);
       } catch (error) {
-        if (error instanceof ApiError && error.status === 409) setMessage(t.settings.ai.limitReached);
-        else if (error instanceof ApiError && error.status === 401) setMessage(t.settings.ai.relogin);
+        if (error instanceof ApiError && error.status === 409) setMessage(apiErrorMessage(error, t, t.settings.ai.limitReached));
+        else if (error instanceof ApiError && error.status === 401) setMessage(apiErrorMessage(error, t, t.settings.ai.relogin));
         else if (error instanceof ApiError && error.status === 502) setMessage(t.settings.ai.upstreamDown);
-        else if (error instanceof ApiError && (error.status === 400 || error.status === 422)) setMessage(t.settings.ai.createFailed);
+        else if (error instanceof ApiError && (error.status === 400 || error.status === 422)) setMessage(apiErrorMessage(error, t, t.settings.ai.createFailed));
         else setMessage(t.common.networkError);
       } finally { setCreating(false); }
     }}>
@@ -113,7 +122,6 @@ export function ApiTokenSettings() {
       <div className="token-secret">
         <strong>{t.settings.ai.created}</strong>
         <CodeField value={createdToken.token} copyLabel={t.settings.ai.copyToken} multiline />
-        <Notice tone="warn">{t.settings.ai.onceNotice}</Notice>
         <p className="token-secret-hint">{t.settings.ai.copyHint}</p>
       </div>
     )}
@@ -131,10 +139,32 @@ export function ApiTokenSettings() {
         const expired = Boolean(token.expires_at && new Date(token.expires_at).getTime() <= Date.now());
         const status = expired ? t.settings.ai.statusExpired : t.settings.ai.statusValid;
         const expires = token.expires_at ? t.settings.ai.expiresAt(new Date(token.expires_at).toLocaleDateString(locale)) : t.settings.ai.longTerm;
+        const hasToken = typeof token.token === "string" && token.token.length > 0;
+        const isRevealed = revealedIds.has(token.id);
+        const displayValue = isRevealed ? token.token : `${token.token_prefix}••••`;
+
         return <article key={token.id}>
           <div>
             <strong>{token.name}</strong>
-            <span>{token.token_prefix}… · {status}</span>
+            {hasToken ? (
+              <div className="token-row-secret">
+                <code className="token-code">{displayValue}</code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleReveal(token.id)}
+                >
+                  {isRevealed ? t.settings.ai.hide : t.settings.ai.show}
+                </Button>
+                <CopyButton value={token.token!} ariaLabel={t.settings.ai.copyToken} />
+                <span className="token-meta-status">· {status}</span>
+              </div>
+            ) : (
+              <div className="token-row-null">
+                <span>{token.token_prefix}… · {status}</span>
+                <span className="token-null-desc">· {t.settings.ai.cannotViewAgain}</span>
+              </div>
+            )}
             <small>{token.last_used_at ? t.settings.ai.lastUsed(new Date(token.last_used_at).toLocaleString(locale)) : t.settings.ai.neverUsed} · {expires}</small>
           </div>
           <div className="token-actions">
@@ -161,7 +191,6 @@ export function ApiTokenSettings() {
       })}</div>
     )}
     <div className="token-help-links">
-      <Link className="api-guide-link" href={withLocale("/guide", locale)}>{t.settings.ai.guideLink}</Link>
       <Link className="api-guide-link" href={withLocale("/mcp-guide", locale)}>{t.settings.ai.mcpGuideLink}</Link>
     </div>
   </section>;
