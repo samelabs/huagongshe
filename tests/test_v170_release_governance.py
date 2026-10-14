@@ -33,24 +33,26 @@ def _load_json(path: Path):
 
 
 class ProductVersionContract(unittest.TestCase):
-    def test_version_is_1_7_1(self):
-        value = (REPO / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(value, "1.7.1")
+    """版本号只有一个来源: 仓库根 VERSION。测试不写版本号字面量,
+    否则每次发版都要改测试, 等于制造第二个版本来源。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
+
+    def test_version_is_semver(self):
+        self.assertRegex(self.version, r"^\d+\.\d+\.\d+$")
 
     def test_mcp_server_version_reads_the_same_source(self):
         from api import mcp_server
 
-        self.assertEqual(mcp_server._release_version(), "1.7.1")
+        self.assertEqual(mcp_server._release_version(), self.version)
 
     def test_api_version_single_source(self):
-        """v1.7.2: 版本号只有一个来源 —— api_version 与 VERSION 文件同源
-        (此前硬编码 "1.0.0" 的双版本轴约定已撤销)。"""
+        """api_version 与 VERSION 文件同源(此前硬编码 "1.0.0" 的双版本轴约定已撤销)。"""
         from api.core.config import settings
 
-        self.assertEqual(settings.api_version, "1.7.1")
-        self.assertEqual(
-            settings.api_version,
-            (REPO / "VERSION").read_text(encoding="utf-8").strip())
+        self.assertEqual(settings.api_version, self.version)
 
 class HomePageEntryContract(unittest.TestCase):
     """首页源码结构契约: MCP / Skills / Workbench / Plugin，AI Key 不单列。"""
