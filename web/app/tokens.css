@@ -135,8 +135,9 @@
   --ls-title:   -.02em;   /* 28 */
   --ls-heading: -.015em;  /* 22 */
 
-  /* 图标三档（DESIGN_SYSTEM 1.6 / 第八章） */
-  --icon-sm: 16px;
+  /* 图标档位（DESIGN_SYSTEM 1.6 / 第八章） */
+  --icon-xs: 16px;
+  --icon-sm: 18px;
   --icon-md: 20px;
   --icon-lg: 24px;
 

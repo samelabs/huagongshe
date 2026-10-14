@@ -15,6 +15,9 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import type { Metadata } from "next";
 
+import { buildShareMetadata } from "@/lib/shareMeta";
+import { WeChatMeta } from "@/components/shared/WeChatMeta";
+
 type SearchParams = { q?: string; mode?: string; page?: string; focus?: string; type?: string };
 
 /**
@@ -38,10 +41,26 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   }
   const t = await getRequestDictionary();
   const locale = await getRequestLocale();
+  const shareMeta = buildShareMetadata({
+    title: `${t.search.title}｜${t.brand.name}`,
+    description: t.search.seoDesc,
+    path: "/search",
+    locale,
+    siteName: t.brand.name,
+    ogImage: {
+      url: "/og.png",
+      width: 1200,
+      height: 630,
+      alt: t.brand.ogAlt,
+    },
+    itempropImage: "/icon-512.png",
+    twitterCard: "summary_large_image",
+  });
   return {
     title: t.search.title,
     description: t.search.seoDesc,
     alternates: localeAlternates("/search", locale),
+    ...shareMeta,
   };
 }
 

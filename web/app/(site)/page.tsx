@@ -11,26 +11,32 @@ import { withLocale } from "@/lib/localePath";
 /** 随代码部署的 Agent Plugin 下载包（scripts/build_plugin_package.py 产物） */
 const PLUGIN_PACKAGE_URL = "/downloads/huagongshe-agent-plugin-1.0.0.zip";
 
+import { buildShareMetadata } from "@/lib/shareMeta";
+import { WeChatMeta } from "@/components/shared/WeChatMeta";
+
 export async function generateMetadata(): Promise<Metadata> {
-  // 首页 SEO 文案随 locale; canonical/hreflang/OG/twitter 全部由首页自持
-  // (root layout 只保留全站级 metadata, 不再代管首页的 alternates/openGraph/twitter)
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
+  const shareMeta = buildShareMetadata({
+    title: t.brand.seoTitle,
+    description: t.brand.seoDesc,
+    path: "/",
+    locale,
+    siteName: t.brand.name,
+    ogImage: {
+      url: "/og.png",
+      width: 1200,
+      height: 630,
+      alt: t.brand.ogAlt,
+    },
+    itempropImage: "/icon-512.png",
+    twitterCard: "summary_large_image",
+  });
   return {
-    // seoTitle 自带品牌名(如 "化工社｜你的AI化学工作台"), 用 absolute 避免再叠 root template 的 ｜品牌 后缀
     title: { absolute: t.brand.seoTitle },
     description: t.brand.seoDesc,
     alternates: localeAlternates("/", locale),
-    openGraph: {
-      title: t.brand.seoTitle,
-      description: t.brand.seoDesc,
-      url: withLocale("/", locale),
-      siteName: t.brand.name,
-      locale: ogLocaleTag(locale),
-      type: "website",
-      images: [{ url: "/og.png", width: 1200, height: 630, alt: t.brand.ogAlt }],
-    },
-    twitter: { card: "summary_large_image", title: t.brand.seoTitle, description: t.brand.seoDescShort, images: ["/og.png"] },
+    ...shareMeta,
   };
 }
 
@@ -40,6 +46,7 @@ export default async function Home() {
   const authed = (await cookies()).has("hgs_session");
   return (
     <div className="home">
+      <WeChatMeta name={t.brand.seoTitle} description={t.brand.seoDesc} image="/icon-512.png" />
       <section className="hero">
         <h1>{t.home.hero}</h1>
         <p className="hero-subtitle">{t.home.subtitle}</p>

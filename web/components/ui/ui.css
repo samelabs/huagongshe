@@ -60,7 +60,7 @@
 .hg-eb .k svg { width: var(--eb-ic); height: var(--eb-ic); }
 .hg-eb .v { padding: 0 7px; font-variant-numeric: tabular-nums; }
 .hg-eb .x { display: inline-flex; align-items: center; padding-right: 6px; color: var(--text-muted); }
-.hg-eb .x svg { width: 12px; height: 12px; }
+.hg-eb .x svg { width: var(--icon-xs); height: var(--icon-xs); }
 .hg-eb.chem { --eb-fg: var(--entity-chem); --eb-bg: var(--entity-chem-bg); --eb-line: var(--entity-chem-line); }
 .hg-eb.rx   { --eb-fg: var(--entity-rx);   --eb-bg: var(--entity-rx-bg);   --eb-line: var(--entity-rx-line); }
 a.hg-eb:hover { text-decoration: none; border-color: var(--eb-fg); }
@@ -104,7 +104,8 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 .hg-btn:active { transform: scale(.98); }
-.hg-btn svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
+.hg-btn svg { width: var(--icon-md); height: var(--icon-md); flex: none; }
+.hg-btn.sm svg { width: var(--icon-sm); height: var(--icon-sm); }
 .hg-btn.sm { --bh: var(--h-sm); padding: 0 12px; font-size: var(--fs-13); }
 .hg-btn.lg { --bh: var(--h-lg); padding: 0 var(--sp-6); font-size: var(--fs-16); }
 .hg-btn.primary { background: var(--action); color: var(--text-inverse); }
@@ -212,7 +213,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-tag.ok { background: var(--ok-bg); color: var(--ok); }
 .hg-tag.warn { background: var(--warn-bg); color: var(--warn); }
 .hg-tag.err { background: var(--err-bg); color: var(--err); }
-.hg-tag svg { width: 12px; height: 12px; }
+.hg-tag svg { width: var(--icon-xs); height: var(--icon-xs); }
 .hg-tag .hg-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; }
 
 /* ══ TextLink（DESIGN_SYSTEM 3.2） ════════════════════════════ */
@@ -356,7 +357,8 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .hg-copy:hover { background: var(--bg-hover); color: var(--text); }
-.hg-copy svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
+.hg-copy svg { width: var(--icon-md); height: var(--icon-md); flex: none; }
+.hg-copy.mini svg { width: var(--icon-sm); height: var(--icon-sm); }
 .hg-copy .ck { display: none; color: var(--ok); }
 .hg-copy.done .cp { display: none; }
 .hg-copy.done .ck { display: block; }
@@ -393,7 +395,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   box-shadow: var(--shadow-float);
   font-size: var(--fs-14);
 }
-.hg-toast svg { width: 18px; height: 18px; flex: none; }
+.hg-toast svg { width: var(--icon-sm); height: var(--icon-sm); flex: none; }
 .hg-toast .ok { color: var(--toast-ok); }
 .hg-toast .err { color: var(--toast-err); }
 .hg-toast button {
@@ -407,7 +409,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 }
 .hg-toast .hg-toast-x { display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-xs); }
 .hg-toast .hg-toast-x:hover { background: var(--bg-inverse-2); color: var(--text-inverse); }
-.hg-toast .hg-toast-x svg { width: 14px; height: 14px; }
+.hg-toast .hg-toast-x svg { width: var(--icon-xs); height: var(--icon-xs); }
 .hg-toast-host {
   position: fixed;
   left: 50%;

@@ -4,6 +4,9 @@ import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 
+import { buildShareMetadata } from "@/lib/shareMeta";
+import { WeChatMeta } from "@/components/shared/WeChatMeta";
+
 /**
  * S3 (G1.5-A): 法律/支持页正文只有英文权威版。
  * - 英文路径 (/en/privacy): canonical + 可索引。
@@ -13,11 +16,27 @@ import { withLocale } from "@/lib/localePath";
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const canonical = "/en/privacy";
+  const shareMeta = buildShareMetadata({
+    title: "Privacy Policy｜Huagongshe",
+    description: "Privacy policy for Huagongshe web, API, MCP, OAuth, and plugin integrations.",
+    path: "/privacy",
+    locale,
+    siteName: "Huagongshe",
+    ogImage: {
+      url: "/og.png",
+      width: 1200,
+      height: 630,
+      alt: "Huagongshe",
+    },
+    itempropImage: "/icon-512.png",
+    twitterCard: "summary_large_image",
+  });
   if (locale === "en") {
     return {
       title: "Privacy Policy",
       description: "Privacy policy for Huagongshe web, API, MCP, OAuth, and plugin integrations.",
       alternates: { canonical },
+      ...shareMeta,
     };
   }
   return {
@@ -25,6 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: "Privacy policy for Huagongshe web, API, MCP, OAuth, and plugin integrations.",
     alternates: { canonical },
     robots: { index: false, follow: true },
+    ...shareMeta,
   };
 }
 
@@ -32,6 +52,7 @@ export default async function PrivacyPage() {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   return <article lang="en" className="content-page guide-page legal-page">
+    <WeChatMeta name="Privacy Policy｜Huagongshe" description="Privacy policy for Huagongshe web, API, MCP, OAuth, and plugin integrations." image="/icon-512.png" />
     <Breadcrumb
       items={[
         { label: t.chemical.home, href: withLocale("/", locale) },

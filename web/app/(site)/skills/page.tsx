@@ -23,24 +23,35 @@ async function skillsCount(): Promise<number | null> {
   }
 }
 
+import { buildShareMetadata } from "@/lib/shareMeta";
+import { WeChatMeta } from "@/components/shared/WeChatMeta";
+
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   const n = await skillsCount();
   const count = t.skills.countUnit(n);
-  return {
-  title: t.skills.openLibrary,
-  description: t.skills.metaDesc(count),
-  alternates: localeAlternates("/skills", locale),
-  robots: { index: true, follow: true },
-  openGraph: {
+  const shareMeta = buildShareMetadata({
     title: t.skills.metaOgTitle(t.brand.name),
     description: t.skills.metaOgDesc(count),
-    url: withLocale("/skills", locale),
+    path: "/skills",
+    locale,
     siteName: t.brand.name,
-    locale: ogLocaleTag(locale),
-    type: "website",
-  },
+    ogImage: {
+      url: "/og.png",
+      width: 1200,
+      height: 630,
+      alt: t.brand.ogAlt,
+    },
+    itempropImage: "/icon-512.png",
+    twitterCard: "summary_large_image",
+  });
+  return {
+    title: t.skills.openLibrary,
+    description: t.skills.metaDesc(count),
+    alternates: localeAlternates("/skills", locale),
+    robots: { index: true, follow: true },
+    ...shareMeta,
   };
 }
 
@@ -65,6 +76,14 @@ async function loadSkills(): Promise<{ skills: Skill[]; cats: Category[]; error:
 }
 
 export default async function SkillsPage() {
+  const t = await getRequestDictionary();
   const { skills, cats, error } = await loadSkills();
-  return <KdenseSkillsClient skills={skills} cats={cats} loadError={error} />;
+  const n = skills.length;
+  const count = t.skills.countUnit(n);
+  return (
+    <>
+      <WeChatMeta name={t.skills.metaOgTitle(t.brand.name)} description={t.skills.metaOgDesc(count)} image="/icon-512.png" />
+      <KdenseSkillsClient skills={skills} cats={cats} loadError={error} />
+    </>
+  );
 }

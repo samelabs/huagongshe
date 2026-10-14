@@ -21,6 +21,8 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
+import { buildShareMetadata } from "@/lib/shareMeta";
+import { WeChatMeta } from "@/components/shared/WeChatMeta";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import type { Locale } from "@/lib/i18n/locales";
 
@@ -52,13 +54,28 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const canonical = `/reaction/${id}`;
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
+  const pageTitle = t.common.hridShort(id);
+  const description = t.reaction.desc;
+  const shareMeta = buildShareMetadata({
+    title: `${pageTitle}｜${t.brand.name}`,
+    description,
+    path: canonical,
+    locale,
+    siteName: t.brand.name,
+    ogImage: {
+      url: `/api/reactions/${id}/png`,
+      width: 1200,
+      height: 630,
+      alt: t.reaction.equationAlt(Number(id)),
+    },
+    itempropImage: `/api/reactions/${id}/png?square=1`,
+    twitterCard: "summary_large_image",
+  });
   return {
-    title: t.common.hridShort(id),
-    description: t.reaction.desc,
+    title: pageTitle,
+    description,
     alternates: localeAlternates(canonical, locale),
-    // og:image / twitter:image = 同目录 opengraph-image.tsx（1200×630 品牌卡，G4）
-    openGraph: { url: withLocale(canonical, locale), title: `${t.common.hridShort(id)}｜${t.brand.name}`, description: t.reaction.desc, locale: ogLocaleTag(locale) },
-    twitter: { card: "summary_large_image", title: `${t.common.hridShort(id)}｜${t.brand.name}`, description: t.reaction.desc },
+    ...shareMeta,
   };
 }
 
@@ -157,6 +174,11 @@ export default async function ReactionPage({ params }: {
 
   return (
     <div className="content-page reaction-page">
+      <WeChatMeta
+        name={`${t.common.hridShort(reaction.id)}｜${t.brand.name}`}
+        description={t.reaction.desc}
+        image={`/api/reactions/${reaction.id}/png?square=1`}
+      />
       {/* 0904 P0收口: JSON.stringify 不转义 '<', </script> 可闭合标签注入脚本
           (存储型XSS)。规范做法: < 与 U+2028/2029 转义为 JSON 等价形式。 */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
@@ -171,23 +193,24 @@ export default async function ReactionPage({ params }: {
 
       {/* ── Reaction Entity Header（5.1 / 6.4：徽标 lg + 标题 + 事实摘要 + 操作行） ── */}
       <header className="rx-head">
-        <EntityBadge
-          kind="reaction"
-          id={reaction.id}
-          size="lg"
-          copyable
-          state={reaction.visibility === "private" ? "private" : undefined}
-          ariaLabel={t.common.hridLabel(reaction.id)}
-        />
+        <div className="rx-badge-row">
+          <EntityBadge
+            kind="reaction"
+            id={reaction.id}
+            size="lg"
+            state={reaction.visibility === "private" ? "private" : undefined}
+            ariaLabel={t.common.hridLabel(reaction.id)}
+          />
+          <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
+        </div>
         <h1 className="rx-head-title">{reactionTitleText}</h1>
         {factualSummary && <p className="rx-head-summary">{factualSummary}</p>}
         <div className="rx-head-actions">
           {reaction.is_owner ? (
             <ReactionOwnerActions reactionId={reaction.id} />
-          ) : (<>
+          ) : (
             <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" />
-            <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly />
-          </>)}
+          )}
         </div>
       </header>
 
