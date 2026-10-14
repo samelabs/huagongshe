@@ -2,7 +2,7 @@
 
 锁定本轮治理结论(全部走真实代码路径/文件结构, 非字符串堆砌):
 
-- HGS 产品版本(仓库根 VERSION)= 1.7.0, 且 MCP serverInfo 读取同一来源
+- HGS 产品版本(仓库根 VERSION)= 1.7.1, 且 MCP serverInfo 读取同一来源
 - HTTP API contract version(settings.api_version)不随产品版本走(1.0.0)
 - 首页一级入口不再暴露 Agent API 与 AI Key; /api/agent-guide 与
   /me/settings/api-tokens 路由本身保留
@@ -32,14 +32,14 @@ def _load_json(path: Path):
 
 
 class ProductVersionContract(unittest.TestCase):
-    def test_version_is_1_7_0(self):
+    def test_version_is_1_7_1(self):
         value = (REPO / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(value, "1.7.0")
+        self.assertEqual(value, "1.7.1")
 
     def test_mcp_server_version_reads_the_same_source(self):
         from api import mcp_server
 
-        self.assertEqual(mcp_server._release_version(), "1.7.0")
+        self.assertEqual(mcp_server._release_version(), "1.7.1")
 
     def test_http_api_contract_version_unchanged(self):
         from api.core.config import settings

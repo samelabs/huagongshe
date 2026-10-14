@@ -3,6 +3,36 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [1.7.1] — 2026-10-14
+
+补丁版：MCP 对外输出契约收紧、供应商编号不外泄、README 如实化与测试库保护。
+
+**MCP 对外输出变化（只改出口，共享服务/网页 REST/数据链不变）**
+- get_chemical 去掉字段：`similarity`（空槽位，相似度检索时保留实值）、`follower_count`、`is_following`、`enrichment`，以及 `details` 内的 `provenance`、`suppliers[].ref` 和各证据块的 `references`/`normalization`
+- get_chemical `details` 改键名：`description.record_description` → `description`；`names.cb_identity.{cn,en,formula,mw}` → `names.{chinese_name,english_name,formula,molecular_weight}`；`names.cb_aliases[].value` → `names.aliases`；`properties.pb_computed` → `computed_properties`；`properties.pb_physical_properties` → `experimental_properties`（证据拉平为值列表）；`properties.cb_experimental` → `physical_data`（`label`→`name`、`text`→`value`）；`properties.cb_prose` → `chemical_properties`；`safety.pb_sections.*` → `safety.{ghs_classification,hazards,safety_measures,toxicity,regulatory}`；`safety.cb_safety` → `safety.safety_data`；`safety.cb_toxicity` → `safety.toxicity_notes`；`safety.cb_packaging` → `safety.storage_and_transport`；`industry.pb_sections.{pharmacology,uses_and_manufacturing}` → `applications.*`；`industry.cb_uses/cb_preparation/cb_notes` → `applications.uses/preparation/handling_notes`；`industry.cb_updown` → `related_products.{upstream_materials,downstream_materials}`；`industry.cb_price` → `reagent_prices`
+- get_reaction / list_my_reactions 去掉字段：`moderation_status`、`ord_record_id`、`is_following`、`follower_count`、`creator.avatar_url`；`dataset_name` 的 `user_submitted` 显示为 `User submitted`
+- search_chemistry_data 去掉字段：`cas_fetch_pending`/`cas_fetch_chemical_id`（改以 `lookup_pending` 布尔表达）、命中反应的 `match_basis`
+- list_skills / get_skill 去掉字段：`origin`、`owner_id`
+- 标识（PubChem CID/CAS/HCID/HRID）与业务数据不丢；REST `/api/chemicals/{id}` 契约不变（full 仍含 provenance/供应商明细）
+
+**供应商编号不外泄（I-056）**
+- 公开详情供应商明细的 `ref` 由库内原站标识形态（`cb-supplier:{cbsid}`）改为出口计算的不透明哈希（`caslib/redact.supplier_ref`）；库内存储键与数据不变
+
+**插件包**
+- plugin.json 去掉 `repository` 字段（仓库非公开，不对外展示），`homepage` 仍指向官网；下载 zip 重新打包
+- 首页新增 Agent Plugin 下载入口；MCP 指南页去掉仓库链接
+
+**HTTP 语义修复（I-057）**
+- Notes 创建/编辑触发写入限流时按统一口径映射：`RateLimited` → 429（带 Retry-After / X-RateLimit-Remaining），`LimiterUnavailable` → 503；此前未捕获会以 500 冒出
+
+**前端（延续本分支既有修复）**
+- 顶栏下拉菜单被工作台正文遮挡；手机端公开页面补语言切换入口
+- 化合物详情页不展示采集来源（PubChem/ChemicalBook 标签、底部记录区）
+
+**文档与测试**
+- README 如实化：合并后旧 HCID 不再可访问（反应参与关系改指保留行），AI Key 只在创建时显示一次
+- tests/test_migration_runner.py 与 tests/test_admin_pipeline_a1.py 改经 db_gate 双闸（库名模式 + sentinel）取测试库，不再直读 `TEST_DATABASE_URL`
+
 ## [1.7.0] — 2026-10-12
 
 Notes 用户笔记、MCP OAuth 身份层、OpenAI Plugin 提交包与 agent-facing 契约收口；HGS 视觉体系（DESIGN_SYSTEM v1.0）全站落地；数据链与安全收口。

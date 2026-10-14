@@ -100,15 +100,25 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
 async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
     # 2026-08-31 收口: 老表迁移完成(profile 6,417/listing 449k), 双读回退桥拆除,
     # 只读两新表。旧表 chemical_supplier 已摘除。
+    # I-056(v1.7.1): 对外 ref 一律为 caslib/redact.supplier_ref 不透明哈希。
+    # 库内 ref 列保存原站标识形态(cb-supplier:{cbsid}), 属 DB 身份字段不出
+    # 公开详情/MCP; 库内键与数据不变, 哈希在此出口计算。输出不含 cbsid 键。
+    from caslib.redact import supplier_ref
+
     rows = (await db.execute(text("""
-        SELECT p.ref, p.name, p.phone, p.email, p.website,
+        SELECT p.cbsid, p.name, p.phone, p.email, p.website,
                l.purity, l.pack_price, l.remark
         FROM chemistry.chemical_supplier_listing l
         JOIN chemistry.chemical_supplier_profile p ON p.cbsid=l.cbsid
         WHERE l.chemical_id=:chemical_id
-        ORDER BY p.ref
+        ORDER BY p.cbsid
     """), {"chemical_id": chemical_id})).fetchall()
-    return [dict(r._mapping) for r in rows]
+    return [
+        {"ref": supplier_ref(row.cbsid), "name": row.name, "phone": row.phone,
+         "email": row.email, "website": row.website, "purity": row.purity,
+         "pack_price": row.pack_price, "remark": row.remark}
+        for row in rows
+    ]
 
 
 def _strip_nul(value):

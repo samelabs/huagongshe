@@ -9,7 +9,7 @@ from api.mcp_server import (
 INTERNAL = ('"source"', "provenance", "pb_", "cb_", "job_id", "enrichment",
             "moderation_status", "ord_record_id", "is_following", "follower_count",
             "avatar_url", "match_basis", "cas_fetch", "references", "kdense",
-            '"origin"', "owner_id")
+            '"origin"', "owner_id", "cbsid", "cb-supplier")
 
 
 def _assert_clean(tc, data):
@@ -79,6 +79,16 @@ class PublicChemicalTests(unittest.TestCase):
         out = _public_chemical({"id": 1, "details": None, "enrichment": {"status": "current"}})
         _assert_clean(self, out)
         self.assertIsNone(out["details"])
+
+    def test_supplier_ref_with_raw_cbsid_is_not_exposed(self):
+        # I-056: 即使上游语义详情还带着原站标识形态的 ref(cb-supplier:{cbsid}),
+        # MCP 出口也不得出现供应商编号。
+        semantic = json.loads(json.dumps(SEMANTIC))
+        semantic["suppliers"]["items"][0]["ref"] = "cb-supplier:1436986"
+        out = _public_chemical({"id": 1, "details": semantic})
+        _assert_clean(self, out)
+        dumped = json.dumps(out, ensure_ascii=False)
+        self.assertNotIn("1436986", dumped)
 
 
 class PublicReactionTests(unittest.TestCase):

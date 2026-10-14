@@ -21,12 +21,18 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from scripts.migrate import run, FORWARD_RE, _normalize_psql_url  # noqa: E402
+from tests.db_gate import ProductionDbBlocked, require_test_db  # noqa: E402
 
 
 def _db_url() -> str:
-    """传给 runner 的 URL: asyncpg scheme 原样保留(由 runner 统一 normalize);
-    只剥 ?test_sentinel(本地 gate 标记, 非 libpq 连接参数, 生产 URL 无参数)。"""
-    return os.environ.get("TEST_DATABASE_URL", "").split("?")[0]
+    """传给 runner 的 URL: 经 db_gate 双闸(库名模式 + sentinel)取
+    TEST_DATABASE_URL, 不直读环境变量; 只剥 ?test_sentinel(本地 gate
+    标记, 非 libpq 连接参数, 生产 URL 无参数)。"""
+    try:
+        gated = require_test_db()
+    except ProductionDbBlocked:
+        return ""
+    return gated.split("?")[0]
 
 
 def _psql_native(url: str) -> str:
