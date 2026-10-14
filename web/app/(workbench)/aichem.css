@@ -57,12 +57,12 @@
 /* ── 快捷操作（Part D 临时安置：Step 8 起桌面入口移概览标题行，
       只保留抽屉顶部（手机）一份） ── */
 .wb-quick-actions {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--wb-sp-2);
   padding: 0 var(--wb-sp-4) var(--wb-sp-4);
 }
 .wb-drawer-body .wb-quick-actions { padding: var(--wb-sp-3) var(--wb-sp-2) var(--wb-sp-2); }
-.wb-quick-actions .hg-btn { width: 100%; }
 
 /* ── 主体区 — flex row ── */
 .wb-body {
@@ -557,7 +557,7 @@
   background: var(--wb-paper);
   color: var(--action);
 }
-.wb-quick-link-icon svg { width: 16px; height: 16px; }
+.wb-quick-link-icon svg { width: var(--icon-xs); height: var(--icon-xs); }
 
 /* 我的内容行 / 面板列表行（5.4 / 6.7 WbListRow 共用）：
    36px 类型图标块或缩略图 | 标题(整行点击目标)+元信息 | 右侧展示+操作 */
@@ -584,7 +584,7 @@
   color: var(--wb-muted);
   overflow: hidden;
 }
-.wb-row-icon svg { width: 18px; height: 18px; }
+.wb-row-icon svg { width: var(--icon-sm); height: var(--icon-sm); }
 .wb-row-icon.reaction { color: var(--wb-reaction-ink); background: var(--wb-reaction-bg); }
 .wb-row-icon img { width: 100%; height: 100%; object-fit: contain; }
 /* 缩略图（方程式/结构式）：高 48（6.7 我的反应行） */
@@ -1086,22 +1086,13 @@
   cursor: pointer;
 }
 
-/* 设置页表单按钮（I-050）：桌面自适应宽度不撑满卡片；≤640 手机端主操作撑满 */
+/* 设置页表单按钮（I-050）：按钮宽度一律按内容自适应，任何场景都不撑满 */
 .wb-panel .form-fields > .hg-btn,
 .wb-panel .form-fields button[type="submit"],
 .wb-panel .avatar-upload > .hg-btn,
 .wb-panel .avatar-remove > .hg-btn {
   align-self: flex-start;
   width: auto;
-}
-@media (max-width: 640px) {
-  .wb-panel .form-fields > .hg-btn,
-  .wb-panel .form-fields button[type="submit"],
-  .wb-panel .avatar-upload > .hg-btn,
-  .wb-panel .avatar-remove > .hg-btn {
-    align-self: stretch;
-    width: 100%;
-  }
 }
 
 /* token 管理 */

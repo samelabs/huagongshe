@@ -33,11 +33,11 @@ import { MobileTabBar } from "./MobileTabBar";
 
 type NavItem = { href: string; label: string; match: (routePath: string) => boolean };
 
-/** 主导航四项（查询 / Skills / MCP / 工作台），「更多」菜单与桌面导航共用 */
+/** 主导航四项（首页 / Skills / MCP / 工作台），「更多」菜单与桌面导航共用 */
 function useNavItems(): NavItem[] {
   const t = useDictionary();
   return [
-    { href: "/search", label: t.nav.tabQuery, match: (p) => p === "/search" || p.startsWith("/search/") },
+    { href: "/", label: t.nav.tabHome, match: (p) => p === "/" || p === "" },
     { href: "/skills", label: t.nav.skills, match: (p) => p.startsWith("/skills") },
     { href: "/mcp-guide", label: t.nav.mcp, match: (p) => p.startsWith("/mcp-guide") },
     { href: "/aichem", label: t.nav.tabWorkbench, match: (p) => p === "/aichem" || p.startsWith("/aichem/") || p.startsWith("/submit") || p.startsWith("/me") },

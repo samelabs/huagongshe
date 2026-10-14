@@ -18,7 +18,7 @@ import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
-import { IconStar, IconSearch, IconShare, IconMore } from "@/components/ui/icons";
+import { IconStar, IconSearch, IconMore } from "@/components/ui/icons";
 
 export function ChemicalActions({ chemicalId, smiles, initialFollowing, initialCount, authed, title }: {
   chemicalId: number;
@@ -95,21 +95,6 @@ export function ChemicalActions({ chemicalId, smiles, initialFollowing, initialC
     }
   }
 
-  async function share() {
-    setMenuOpen(false);
-    const url = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title, url });
-        return;
-      } catch { /* user cancelled, fall through to copy */ }
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success(t.guide.shareCopied);
-    } catch { /* clipboard blocked */ }
-  }
-
   return (
     <div className="chem-head-actions">
       <Button
@@ -138,13 +123,10 @@ export function ChemicalActions({ chemicalId, smiles, initialFollowing, initialC
             {t.chemical.similarity}
           </Button>
         )}
-        <Button variant="ghost" iconOnly aria-label={t.guide.share} onClick={() => void share()} className="chem-share-btn">
-          <IconShare />
-        </Button>
       </div>
 
       {/* 手机端（≤640px）：更多菜单（DESIGN_SYSTEM 5.5 / IX-11） */}
-      {smiles ? (
+      {smiles && (
         <div className="chem-actions-more hg-menu-wrap" ref={menuRef} onKeyDown={onKeyDown}>
           <Button
             variant="secondary"
@@ -168,22 +150,8 @@ export function ChemicalActions({ chemicalId, smiles, initialFollowing, initialC
                 <IconSearch />
                 {t.chemical.similarity}
               </Button>
-              <Button
-                variant="ghost"
-                onClick={() => void share()}
-                role="menuitem"
-              >
-                <IconShare />
-                {t.guide.share}
-              </Button>
             </div>
           )}
-        </div>
-      ) : (
-        <div className="chem-actions-more">
-          <Button variant="secondary" iconOnly aria-label={t.guide.share} onClick={() => void share()} className="chem-share-btn">
-            <IconShare />
-          </Button>
         </div>
       )}
     </div>

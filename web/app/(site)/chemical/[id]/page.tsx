@@ -24,6 +24,9 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
+import { buildShareMetadata } from "@/lib/shareMeta";
+import { WeChatMeta } from "@/components/shared/WeChatMeta";
+import { ShareButton } from "@/components/ShareButton";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /**
@@ -60,23 +63,26 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { title: displayName } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel, locale);
   const pageTitle = `${displayName} (${t.common.hcidShort(id)})`;
   const description = t.chemical.descFor(displayName);
+  const shareMeta = buildShareMetadata({
+    title: `${pageTitle}｜${t.brand.name}`,
+    description,
+    path: canonical,
+    locale,
+    siteName: t.brand.name,
+    ogImage: {
+      url: `/api/mol/${id}/png?w=800&h=800`,
+      width: 800,
+      height: 800,
+      alt: t.chemical.structureAlt(displayName),
+    },
+    itempropImage: `/api/mol/${id}/png?w=800&h=800`,
+    twitterCard: "summary",
+  });
   return {
     title: pageTitle,
     description,
     alternates: localeAlternates(canonical, locale),
-    // og:image / twitter:image = 同目录 opengraph-image.tsx（1200×630 品牌卡，
-    // G4 收口）—— 文件路由自动产出，openGraph/twitter 不再手写 images。
-    openGraph: {
-      url: withLocale(canonical, locale),
-      title: `${pageTitle}｜${t.brand.name}`,
-      description,
-      locale: ogLocaleTag(locale),
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: `${pageTitle}｜${t.brand.name}`,
-      description,
-    },
+    ...shareMeta,
   };
 }
 
@@ -209,6 +215,11 @@ export default async function ChemicalPage({ params }: {
 
   return (
     <div className="content-page chemical-page">
+      <WeChatMeta
+        name={`${title} (${t.common.hcidShort(chemical.id)})｜${t.brand.name}`}
+        description={t.chemical.descFor(title)}
+        image={`/api/mol/${chemical.id}/png?w=800&h=800`}
+      />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       <Breadcrumb
         items={[
@@ -221,7 +232,10 @@ export default async function ChemicalPage({ params }: {
 
       {/* ── Entity Header（5.1 / 6.3：左内容 + 右 300 结构图卡片） ── */}
       <header className="chem-head">
-        <EntityBadge kind="chemical" id={chemical.id} size="lg" copyable ariaLabel={t.common.hcidLabel(chemical.id)} />
+        <div className="chem-badge-row">
+          <EntityBadge kind="chemical" id={chemical.id} size="lg" ariaLabel={t.common.hcidLabel(chemical.id)} />
+          <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
+        </div>
         <h1 className="chem-head-name">{title}</h1>
         {secondary && <p className="chem-head-alt">{secondary}</p>}
         {iupacShow && <p className="chem-head-iupac">{iupacShow}</p>}

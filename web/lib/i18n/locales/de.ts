@@ -120,7 +120,7 @@ const de: Dictionary = {
     tabQuery: 'Suche',
     more: 'Mehr',
     unreadCount: (n: number) => `Aktivität, ${n} ungelesen`,
-    tabHome: 'Start',
+    tabHome: 'Startseite',
     tabNotes: 'Notizen',
     tabWorkbench: 'Workbench',
     tabMe: 'Mein Bereich',

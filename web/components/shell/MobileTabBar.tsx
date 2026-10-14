@@ -3,7 +3,7 @@
 /**
  * MobileTabBar — 手机底部 4 tab（DESIGN_SYSTEM 2.3）。
  *
- * 查询 /search · 工作台 /aichem · 动态 /aichem?tab=activity（未读徽标，
+ * 首页 / · 工作台 /aichem · 动态 /aichem?tab=activity（未读徽标，
  * 未登录跳登录）· 我的（已登录弹菜单：我的主页/工作台/设置/退出；未登录跳 /login）。
  * 高度 var(--tabbar-h) + safe-area 底部内边距；当前 tab 用 var(--action)。
  * 内容区 56，safe-area 作为下方 padding，图标 20，文字和图标垂直居中。
@@ -18,7 +18,7 @@ import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale, stripLocalePrefix } from "@/lib/localePath";
 import { useShellUnread } from "./ShellUnread";
 import { useToast } from "@/components/ui/Toast";
-import { IconSearch, IconHome, IconBell, IconUser } from "@/components/ui/icons";
+import { IconHome, IconWorkbench, IconBell, IconUser } from "@/components/ui/icons";
 
 export function MobileTabBar() {
   const { user, clear } = useAccount();
@@ -84,19 +84,19 @@ export function MobileTabBar() {
   return (
     <nav className="sh-tabbar" aria-label={t.nav.bottomNav}>
       <Link
-        href={withLocale("/search", locale)}
-        className={`sh-tab${routePath === "/search" || routePath.startsWith("/search/") ? " on" : ""}`}
-        aria-current={routePath === "/search" || routePath.startsWith("/search/") ? "page" : undefined}
+        href={withLocale("/", locale)}
+        className={`sh-tab${routePath === "/" || routePath === "" ? " on" : ""}`}
+        aria-current={routePath === "/" || routePath === "" ? "page" : undefined}
       >
-        <IconSearch />
-        {t.nav.tabQuery}
+        <IconHome />
+        {t.nav.tabHome}
       </Link>
       <Link
         href={withLocale("/aichem", locale)}
         className={`sh-tab${isWorkbench ? " on" : ""}`}
         aria-current={isWorkbench ? "page" : undefined}
       >
-        <IconHome />
+        <IconWorkbench />
         {t.nav.tabWorkbench}
       </Link>
       <Link

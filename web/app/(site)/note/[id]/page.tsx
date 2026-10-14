@@ -13,6 +13,9 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
 
+import { buildShareMetadata } from "@/lib/shareMeta";
+import { WeChatMeta } from "@/components/shared/WeChatMeta";
+
 type Params = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
@@ -22,16 +25,28 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const canonical = `/note/${id}`;
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
+  const pageTitle = `${t.notes.detailTitle} ${id}`;
+  const description = t.notes.detailTitle;
+  const shareMeta = buildShareMetadata({
+    title: `${pageTitle}｜${t.brand.name}`,
+    description,
+    path: canonical,
+    locale,
+    siteName: t.brand.name,
+    ogImage: {
+      url: "/og.png",
+      width: 1200,
+      height: 630,
+      alt: t.brand.ogAlt,
+    },
+    itempropImage: "/icon-512.png",
+    twitterCard: "summary_large_image",
+  });
   return {
-    title: `${t.notes.detailTitle} ${id}`,
-    description: t.notes.detailTitle,
-    // Private note content must never enter shared/public page metadata:
-    // the description stays generic by design.
+    title: pageTitle,
+    description,
     alternates: localeAlternates(canonical, locale),
-    // og:image / twitter:image = 同目录 opengraph-image.tsx（1200×630 兜底品牌卡，G4；
-    // 卡片同样不含笔记内容）
-    openGraph: { url: withLocale(canonical, locale), title: `${t.notes.detailTitle} ${id}｜${t.brand.name}`, description: t.notes.detailTitle, locale: ogLocaleTag(locale) },
-    twitter: { card: "summary_large_image", title: `${t.notes.detailTitle} ${id}｜${t.brand.name}`, description: t.notes.detailTitle },
+    ...shareMeta,
   };
 }
 
@@ -86,6 +101,7 @@ export default async function NoteDetailPage({ params }: Params) {
 
   return (
     <div className="content-page note-detail-page">
+      <WeChatMeta name={`${title}｜${t.brand.name}`} description={t.notes.detailTitle} image="/icon-512.png" />
       <Breadcrumb
         items={[
           { label: t.chemical.home, href: withLocale("/", locale) },
