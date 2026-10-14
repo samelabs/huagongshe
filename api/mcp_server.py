@@ -348,8 +348,9 @@ async def _render_exit(held: list[str]) -> None:
 def _release_version() -> str:
     """MCP serverInfo.version = 仓库根 VERSION(产品发布版本)。
 
-    与 settings.api_version 不是同一版本轴: 后者是 HTTP API contract version
-    (1.0.0), 保持不变。这里只读文件, 不硬编码第二份版本号。
+    v1.7.2: 版本号只有一个来源 —— settings.api_version 同样读该文件
+    (api/core/config.py 的 _version_from_repo), 两处不再分版本轴。
+    这里只读文件, 不硬编码第二份版本号。
     """
     version_file = Path(__file__).resolve().parents[1] / "VERSION"
     try:
@@ -688,8 +689,8 @@ def build_mcp_server() -> MCPServer:
     server = MCPServer(
         name="huagongshe-aichem",
         title="HGS AIchem MCP",
-        # serverInfo.version = 产品发布版本(仓库根 VERSION), 不是 HTTP API
-        # contract version(settings.api_version)。
+        # serverInfo.version = 产品发布版本(仓库根 VERSION); v1.7.2 起
+        # settings.api_version 读同一文件, 版本号单一来源。
         version=_release_version(),
         instructions=(
             "HGS provides chemical and reaction context, stoichiometry, reusable skills, "

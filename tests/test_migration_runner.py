@@ -269,12 +269,13 @@ class MigrationRunnerTests(unittest.TestCase):
             "SELECT filename FROM maintenance.schema_migrations;"
         ).stdout.split()
         self.assertIn(RECONCILE, tracked)
-        # reconciliation 幂等: 表与三个冻结索引存在
+        # reconciliation 幂等: 表与索引集存在(20261015_01 又补 lease_expiry
+        # 并把 claim 改为 (priority DESC, id) WHERE queued, 与 cas_jobs 同形)
         idx = self._psql("""
             SELECT count(*) FROM pg_indexes WHERE schemaname='maintenance'
             AND tablename='pubchem_identity_jobs';
         """).stdout.strip()
-        self.assertEqual(idx, "4")  # pkey + dedupe + claim + chem
+        self.assertEqual(idx, "5")  # pkey + dedupe + claim + chem + lease_expiry
 
 
 if __name__ == "__main__":
