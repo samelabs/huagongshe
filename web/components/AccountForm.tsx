@@ -108,6 +108,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
           const response = await fetch(`/api/auth/${kind}`, {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
           });
+          if (response.ok) { await refresh(); router.push(applyLocale(nextPath, locale)); router.refresh(); return; }
           const errorPayload = await response.json().catch(() => null);
           setMessage(apiError(response.status, errorPayload, t));
         } catch {

@@ -42,10 +42,8 @@ export default function McpPage() {
       <div className="section-heading"><div><h2>{t.mcp.pluginTitle}</h2></div></div>
       <p className="guide-section-intro">{t.mcp.pluginStatus}</p>
       <div className="guide-actions">
-        <Button variant="secondary" asChild>
-          <a href={PLUGIN_PACKAGE_URL} download>
-            {t.mcp.pluginDownload}
-          </a>
+        <Button variant="secondary" href={PLUGIN_PACKAGE_URL} download>
+          {t.mcp.pluginDownload}
         </Button>
       </div>
     </section>

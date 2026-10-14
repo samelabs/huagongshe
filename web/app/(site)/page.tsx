@@ -56,8 +56,8 @@ export default async function Home() {
           <Button variant="primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Button>
           <Button variant="secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Button>
           <Button variant="secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Button>
-          <Button variant="secondary" asChild>
-            <a href={PLUGIN_PACKAGE_URL} download>{t.home.entryPlugin}</a>
+          <Button variant="secondary" href={PLUGIN_PACKAGE_URL} download>
+            {t.home.entryPlugin}
           </Button>
         </nav>
       </section>
