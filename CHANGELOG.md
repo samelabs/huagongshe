@@ -3,6 +3,32 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [1.7.2] — 2026-10-15
+
+补丁版：手机端与按钮视觉、分享与 SEO、公开资源有界化与边缘缓存、部署与任务表稳定性。
+
+**界面**
+- 手机顶栏让出顶部安全区（viewportFit cover 下 logo 与导航不再进状态栏）
+- 按钮一律按内容自适应宽度，取消所有满宽按钮（含登录、搜索、提交、首页入口）
+- 顶栏与手机底栏第一项改为「首页」；底栏「工作台」使用独立图标
+- 公开页外层容器统一为顶栏宽度，正文左边缘与 logo 对齐；长文在容器内限制行长并左对齐
+- 化合物 / 反应详情：HCID / HRID 徽标后的复制按钮改为分享按钮，桌面与手机常驻
+- 图标尺寸档位调整为 16 / 18 / 20 / 24，按钮内默认 20，底栏 24，取消写死的像素值
+
+**分享与 SEO**
+- 所有公开页输出完整 og / twitter 标签与微信识别的 itemprop
+- 化合物分享图改为结构图本身（800×800 白底方形）；反应分享图为 1200×630 与 800×800 两个固定尺寸
+
+**公开资源与缓存**
+- 结构图尺寸收敛为 4 档白名单，其余尺寸 404；结构图一律 public, immutable
+- 查询参数形式的渲染接口（/api/mol/{id}/svg|png?w=&h=、/api/reactions/{id}/svg|png）不再对外
+- 已带 locale 前缀的匿名公开页返回 public, s-maxage=300, stale-while-revalidate=86400；带登录会话、RSC / 预取请求与非公开页保持 private, no-store；可缓存响应不写 Set-Cookie
+
+**运维与数据库**
+- 部署顺序：API 与 Web 就绪后才重启 worker（修复部署时 worker 连续重启）
+- 版本号单一来源：/api/health、FastAPI app.version 与 MCP serverInfo 都读 VERSION
+- 迁移 20261015_01：maintenance.pubchem_identity_jobs 新增过期租约回收索引、领任务索引改为 (priority DESC, id)，消除每次领任务的全表扫描
+
 ## [1.7.1] — 2026-10-14
 
 补丁版：MCP 对外输出契约收紧、供应商编号不外泄、README 如实化与测试库保护。
