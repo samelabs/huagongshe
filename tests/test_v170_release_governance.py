@@ -2,7 +2,7 @@
 
 锁定本轮治理结论(全部走真实代码路径/文件结构, 非字符串堆砌):
 
-- HGS 产品版本(仓库根 VERSION)= 1.7.0, 且 MCP serverInfo 读取同一来源
+- HGS 产品版本(仓库根 VERSION)= 1.7.1, 且 MCP serverInfo 读取同一来源
 - HTTP API contract version(settings.api_version)不随产品版本走(1.0.0)
 - 首页一级入口不再暴露 Agent API 与 AI Key; /api/agent-guide 与
   /me/settings/api-tokens 路由本身保留
@@ -32,36 +32,19 @@ def _load_json(path: Path):
 
 
 class ProductVersionContract(unittest.TestCase):
-    def test_version_is_1_7_0(self):
+    def test_version_is_1_7_1(self):
         value = (REPO / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(value, "1.7.0")
+        self.assertEqual(value, "1.7.1")
 
     def test_mcp_server_version_reads_the_same_source(self):
         from api import mcp_server
 
-        self.assertEqual(mcp_server._release_version(), "1.7.0")
+        self.assertEqual(mcp_server._release_version(), "1.7.1")
 
     def test_http_api_contract_version_unchanged(self):
         from api.core.config import settings
 
         self.assertEqual(settings.api_version, "1.0.0")
-
-    def test_agent_guide_payload_still_reports_api_version(self):
-        from api.agent import agent_guide
-
-        class _StubDb:
-            async def execute(self, *_a, **_k):
-                class _R:
-                    def scalar(self):
-                        return None
-
-                return _R()
-
-        import asyncio
-
-        payload = asyncio.run(agent_guide(authorization=None, actor=None, db=_StubDb()))
-        self.assertEqual(payload["api_version"], "1.0.0")
-
 
 class HomePageEntryContract(unittest.TestCase):
     """首页源码结构契约: MCP / Skills / Workbench / Plugin，AI Key 不单列。"""
@@ -75,7 +58,9 @@ class HomePageEntryContract(unittest.TestCase):
         self.assertIn('"/skills"', self.source)
         self.assertIn('"/aichem"', self.source)
         self.assertIn("entryPlugin", self.source)
-        self.assertIn("#chatgpt-plugin", self.source)
+        # Agent Plugin 直接下载随代码部署的插件包, 地址与打包产物一致
+        from scripts.build_plugin_package import package_path
+        self.assertIn(f'"/downloads/{package_path().name}"', self.source)
 
     def test_agent_api_not_a_home_entry(self):
         self.assertNotIn('"/api/agent-guide"', self.source)
@@ -87,10 +72,9 @@ class HomePageEntryContract(unittest.TestCase):
 
 
 class CompatibilitySurfaceKept(unittest.TestCase):
-    def test_agent_guide_route_still_registered(self):
-        # api/main.py: app.include_router(agent_router, prefix="/api")。
-        # 新版 FastAPI 把 include 后的 router 包成 _IncludedRouter,
-        # 子路由 path 是 router 内路径, prefix 在 include_context 上。
+    def test_agent_guide_route_removed(self):
+        # v1.7.1 PM 裁定: REST 不再对外, /api/agent-guide 端点删除,
+        # 对外接入唯一入口是 MCP。
         from api.main import app
 
         def registered_paths():
@@ -102,7 +86,7 @@ class CompatibilitySurfaceKept(unittest.TestCase):
                 else:
                     yield getattr(r, "path", "")
 
-        self.assertIn("/api/agent-guide", list(registered_paths()))
+        self.assertNotIn("/api/agent-guide", list(registered_paths()))
 
     def test_ai_key_settings_route_still_exists(self):
         page = WEB / "app" / "(workbench)" / "me" / "settings" / "api-tokens" / "page.tsx"

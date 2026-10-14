@@ -12,8 +12,8 @@ import type { LoadState, NoticeResponse, PageResponse, PanelProps, Reaction } fr
 
 const empty = (): NoticeResponse => ({ items: [], total: 0, page: 1, page_size: 50 });
 
-/** 动态面板（?tab=activity）：与概览「关注动态」同一个卡片组件（§9.4 /
- * Step 9 Part B.4）。进入面板后按现有逻辑标记已读，侧栏与底部 tab 的
+/** 动态面板（?tab=activity）：与概览「关注动态」同一个卡片组件（DESIGN_SYSTEM 6.7）。
+ * 进入面板后按现有逻辑标记已读，侧栏与底部 tab 的
  * 未读数同步清零（WorkbenchCounts.refresh → router.refresh → SSR 重取）。 */
 export function ActivityPanel({ page, initialData }: PanelProps & { initialData?: NoticeResponse | null }) {
   const t = useDictionary();
@@ -77,16 +77,16 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
 
   return (
     <section className="wb-panel">
-      <PanelHeading title={t.me.tabActivity} subtitle={t.me.activityHint} count={state === "ready" ? notices.total : "—"} />
+      <PanelHeading title={t.me.tabActivity} count={state === "ready" ? notices.total : "—"} />
       {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && (notices.items.length
         ? <div className="wb-feed-list">
             {notices.items.map((item) => (
-              <ActivityFeedCard key={item.id} item={item} favored={favoredIds.has(item.reaction_id)} t={t} locale={locale} />
+              <ActivityFeedCard key={item.id} item={item} favored={item.reaction_id != null ? favoredIds.has(item.reaction_id) : false} t={t} locale={locale} />
             ))}
           </div>
-        : <EmptyState icon={<GlyphRx />} title={t.me.emptyActivity} action={{ label: t.me.tabFollowing, href: withLocale("/aichem?tab=following", locale) }} />)}
+        : <EmptyState icon={<GlyphRx />} title={t.me.feedEmptyTitle} action={{ label: t.me.tabFollowing, href: withLocale("/aichem?tab=following", locale) }}>{t.me.feedEmptyDesc}</EmptyState>)}
       {state === "ready" && notices.total > notices.page_size && (
         <Pagination page={page} pageSize={notices.page_size} total={notices.total} href={(value) => withLocale(`/aichem?tab=activity${value > 1 ? `&page=${value}` : ""}`, locale)} />
       )}

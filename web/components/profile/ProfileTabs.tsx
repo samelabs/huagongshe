@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ProfileTabs — 公开主页 反应/笔记 Tabs（Step 10 §9.5）。
+ * ProfileTabs — 公开主页 反应/笔记 Tabs（DESIGN_SYSTEM 6.6）。
  * 状态存 URL ?tab=（reactions|notes），方便分享与刷新保持；服务端按 tab
  * 渲染对应列表。键盘交互由 ui/Tabs 提供。
  */

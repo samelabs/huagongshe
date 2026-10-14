@@ -124,8 +124,9 @@ class HttpContractTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as ctx:
             self._search(None, "substructure")
         self.assertEqual(ctx.exception.status_code, 401)
-        self.assertEqual(ctx.exception.detail,
-                         "结构检索（子结构/相似度）需要登录或提供 API Token")
+        self.assertEqual(ctx.exception.detail, {
+            "message": "结构检索（子结构/相似度）需要登录",
+            "kind": "login_required"})
 
     def test_search_error_maps_to_http_exception(self):
         from fastapi import HTTPException
@@ -135,7 +136,8 @@ class HttpContractTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as ctx:
                 self._search(None, "exact")
         self.assertEqual(ctx.exception.status_code, 400)
-        self.assertEqual(ctx.exception.detail, "无法识别该 SMILES 结构")
+        self.assertEqual(ctx.exception.detail, {
+            "message": "无法识别该 SMILES 结构", "kind": "invalid_structure"})
 
 
 class McpSearchContractTests(unittest.TestCase):

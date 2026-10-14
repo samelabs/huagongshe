@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Button — v1.7 组件库按钮（docs/design/hgs-ui-reference.html §6）。
+ * Button — v1.7 组件库按钮（docs/DESIGN_SYSTEM.md 3.1）。
  *
  * variant: primary（每区域一个）/ secondary / tonal / ghost / danger / danger-quiet
  * size: sm 32 / md 40（默认）/ lg 48；iconOnly 时按方块渲染（必须给 aria-label）。
@@ -26,11 +26,17 @@ export type ButtonProps = {
   className?: string;
   children?: React.ReactNode;
   onClick?: (e: React.MouseEvent) => void;
-  /** 传了渲染成 next/link（disabled/loading 时退回 button 外观） */
+  /** 传了渲染成 next/link 或原生 a（有 download 时走原生 a） */
   href?: string;
+  /** 下载文件名或布尔值（配合 href 渲染原生 <a>） */
+  download?: boolean | string;
   /** 克隆 children（单个元素）注入按钮类与状态属性 */
   asChild?: boolean;
   "aria-label"?: string;
+  "aria-haspopup"?: boolean | "false" | "true" | "menu" | "listbox" | "tree" | "grid" | "dialog";
+  "aria-expanded"?: boolean;
+  "aria-pressed"?: boolean;
+  role?: string;
 };
 
 function classes(p: ButtonProps): string {
@@ -59,7 +65,7 @@ function useFixedWidthWhileLoading<T extends HTMLElement>(loading: boolean) {
 }
 
 export function Button(props: ButtonProps) {
-  const { variant, size, iconOnly, loading = false, disabled, className, children, onClick, asChild, href, type, ...rest } = props;
+  const { variant, size, iconOnly, loading = false, disabled, className, children, onClick, asChild, href, download, type, ...rest } = props;
 
   if (process.env.NODE_ENV !== "production" && iconOnly && !rest["aria-label"]) {
     console.error("<Button iconOnly> requires an aria-label");
@@ -83,6 +89,22 @@ export function Button(props: ButtonProps) {
   }
 
   if (href && !disabled && !loading) {
+    if (download) {
+      return (
+        <a
+          href={href}
+          download={download}
+          className={classes(props)}
+          onClick={onClick}
+          ref={ref}
+          {...stateProps}
+          {...rest}
+        >
+          {loading && <i className="hg-spin" aria-hidden="true" />}
+          {children}
+        </a>
+      );
+    }
     return (
       <Link href={href} className={classes(props)} onClick={onClick} ref={ref} {...stateProps} {...rest}>
         {loading && <i className="hg-spin" aria-hidden="true" />}

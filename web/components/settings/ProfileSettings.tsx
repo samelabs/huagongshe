@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
-import { apiGet, apiPatch, ApiError } from "@/lib/api";
+import { apiGet, apiPatch, ApiError, apiErrorMessage } from "@/lib/api";
 import { mergeLateProfile, type ProfileFields } from "@/lib/profileMerge";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
@@ -53,9 +53,9 @@ export function ProfileSettings() {
   }
 
   return <section className="form-section">
-    <div className="form-section-head"><div><h2>{t.settings.profile.title}</h2><p>{t.settings.profile.desc}</p></div></div>
+    <div className="form-section-head"><p>{t.settings.profile.desc}</p></div>
 
-    <form className="form-fields" onSubmit={async (event) => {
+    <form method="post" className="form-fields" onSubmit={async (event) => {
       event.preventDefault();
       if (busy) return;
       const errors: Partial<Record<keyof Profile, string>> = {};
@@ -72,7 +72,7 @@ export function ProfileSettings() {
         await refresh();
         toast.success(t.settings.profile.saved);
       } catch (err) {
-        toast.error(err instanceof ApiError && err.status === 400 ? t.settings.profile.saveFailed : t.common.networkError);
+        toast.error(apiErrorMessage(err, t, t.settings.profile.saveFailed));
       } finally { setBusy(false); }
     }}>
       <Field label={t.settings.profile.username} help={`@${user.username}（${t.settings.profile.usernameHint}）`} />

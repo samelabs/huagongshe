@@ -7,6 +7,7 @@ import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { RetryNotice } from "@/components/profile/RetryNotice";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { Avatar } from "@/components/ui/Avatar";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Tag } from "@/components/ui/Tag";
@@ -30,8 +31,6 @@ type Profile = {
 type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
 type NoteCard = { id: number; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
 type NotesBlock = { items: NoteCard[]; total: number };
-type FollowerCard = { username: string; display_name: string; avatar_url: string | null };
-type FollowersBlock = { items: FollowerCard[]; total: number };
 
 const REACTIONS_PAGE_SIZE = 20;
 
@@ -62,7 +61,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   try { profile = await apiGet<Profile>(`/users/${encodeURIComponent(username)}`, headers); }
   catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
 
-  /* ── 停用态（§9.8 状态页）：头像 + 名字 + Tag「账号已停用」+ 事实说明。
+  /* ── 停用态（4.1 / 6.11 状态页）：头像 + 名字 + Tag「账号已停用」+ 事实说明。
      不显示关注、分享和内容列表（列表接口对停用用户本就 404）；
      已公开的反应/笔记/技能在各自详情页保留可见并带「已停用」标记。 ── */
   if (profile.is_active === false) {
@@ -93,10 +92,6 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   try { notesBlock = await apiGet<NotesBlock>(`/users/${encodeURIComponent(username)}/notes?page=1&page_size=8`); }
   catch { notesUnavailable = true; }
 
-  let followersBlock: FollowersBlock | null = null;
-  try { followersBlock = await apiGet<FollowersBlock>(`/users/${encodeURIComponent(username)}/followers?page=1&page_size=5`); }
-  catch { /* 右栏退化为只显示人数 */ }
-
   /* 反应卡收藏初始态：登录时取已收藏反应 id 集（失败按空集处理，乐观更新兜底） */
   let favoredReactionIds = new Set<number>();
   if (hasSession) {
@@ -113,6 +108,13 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const joined = new Date(profile.created_at).toLocaleDateString(locale);
 
   return <div className="content-page profile-page">
+    <Breadcrumb
+      items={[
+        { label: t.chemical.home, href: withLocale("/", locale) },
+        { label: profile.display_name || profile.username },
+      ]}
+      ariaLabel={t.common.breadcrumb}
+    />
     <ProfileHeader profile={{
       id: profile.id, username: profile.username, display_name: profile.display_name,
       bio: profile.bio, avatar_url: profile.avatar_url, created_at: profile.created_at,
@@ -205,38 +207,6 @@ export default async function UserPage({ params, searchParams }: { params: Promi
           />
         )}
       </div>
-
-      {/* ── 右侧栏（桌面 var(--rail-w)；手机按 IX-11 移到正文下方）── */}
-      <aside className="pf-rail">
-        <section className="pf-rail-card">
-          <h2>{t.user.followers}</h2>
-          {followersBlock && followersBlock.items.length > 0 ? (
-            <>
-              <div className="pf-follower-stack">
-                {followersBlock.items.map((person) => (
-                  <Avatar key={person.username} id={person.username} name={person.display_name || person.username} src={person.avatar_url} size={32} />
-                ))}
-                {followersBlock.total > followersBlock.items.length && (
-                  <span className="pf-follower-more">+{followersBlock.total - followersBlock.items.length}</span>
-                )}
-              </div>
-              <p className="pf-rail-note">
-                {followersBlock.items.slice(0, 2).map((person) => person.display_name || person.username).join("、")}
-                {followersBlock.total > 2 ? t.user.followersMore(followersBlock.total - 2) : ""}
-              </p>
-            </>
-          ) : (
-            <p className="pf-rail-count">{profile.followers}</p>
-          )}
-        </section>
-        <section className="pf-rail-card">
-          <h2>{t.user.aboutTitle}</h2>
-          <dl className="pf-about">
-            {profile.institution && <><dt>{t.user.institutionLabel}</dt><dd>{profile.institution}</dd></>}
-            <dt>{t.user.joinedLabel}</dt><dd>{joined}</dd>
-          </dl>
-        </section>
-      </aside>
     </div>
   </div>;
 }

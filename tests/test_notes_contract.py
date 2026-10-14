@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 import ast
+import asyncio
+import os
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from pydantic import ValidationError
+
+# 限流映射测试会构造 api.core.config.settings — 用占位 URL, 不触库。
+os.environ.setdefault(
+    "HGS_DATABASE_URL",
+    "postgresql+asyncpg://notes:notes@127.0.0.1:5432/unused",
+)
 
 from api.schemas.notes import MAX_NOTE_REFERENCES, NoteBody
 from api.services.identity import CHEMICAL_REFERENCE_TABLES
@@ -72,6 +81,63 @@ class NoteArchitectureTests(unittest.TestCase):
         src = (REPO / "api/services/notes.py").read_text(encoding="utf-8")
         self.assertNotIn("chemistry.reactions SET note", src)
         self.assertNotIn("UPDATE chemistry.reactions", src)
+
+
+class NoteRateLimitHttpMappingTests(unittest.TestCase):
+    """I-057: 服务层 neutral 限流异常 → HTTP 429/503(reactions 同口径)。"""
+
+    def _actor(self):
+        from api.core.security import Actor
+
+        return Actor(id=1, username="u", display_name="u", email="e@x.local",
+                     role="user", avatar_path=None, auth_kind="session")
+
+    def _call(self, handler, exc):
+        # services/notes.create|update 在函数体内 `from ..core.rate_limit
+        # import enforce` — patch 模块属性即拦得住, db 不会被触碰。
+        import api.core.rate_limit as rl
+
+        async def boom(bucket, identity, limit, window_seconds):
+            raise exc
+
+        with patch.object(rl, "enforce", boom):
+            return asyncio.run(handler(
+                body=NoteBody(content="限流映射"),
+                actor=self._actor(),
+                db=None,
+            ))
+
+    def test_create_rate_limited_maps_429_with_headers(self):
+        from api.core.rate_limit import RateLimited
+        from api.notes import create_note
+        from fastapi import HTTPException
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._call(create_note, RateLimited("请求过于频繁，请稍后重试", retry_after=30))
+        self.assertEqual(ctx.exception.status_code, 429)
+        self.assertEqual(ctx.exception.headers["Retry-After"], "30")
+        self.assertEqual(ctx.exception.headers["X-RateLimit-Remaining"], "0")
+
+    def test_create_limiter_unavailable_maps_503(self):
+        from api.core.rate_limit import LimiterUnavailable
+        from api.notes import create_note
+        from fastapi import HTTPException
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._call(create_note, LimiterUnavailable("限速服务暂时不可用，请稍后重试"))
+        self.assertEqual(ctx.exception.status_code, 503)
+
+    def test_update_rate_limited_maps_429(self):
+        from api.core.rate_limit import RateLimited
+        from api.notes import update_note
+        from fastapi import HTTPException
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._call(
+                lambda **kw: update_note(note_id=1, **kw),
+                RateLimited("请求过于频繁，请稍后重试", retry_after=5))
+        self.assertEqual(ctx.exception.status_code, 429)
+        self.assertEqual(ctx.exception.headers["Retry-After"], "5")
 
 
 if __name__ == "__main__":

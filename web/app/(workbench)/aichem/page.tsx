@@ -103,7 +103,7 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
   const summary = await ssrGet<Summary>(cookieHeader, "/users/me/dashboard");
 
   // 2. 当前 tab 数据并行预取（只发一个请求，不浪费）
-  // home（§9.4 概览）：我的内容三流 + 动态前 5 + 收藏反应 id 集（动态卡收藏初始态）
+  // home（6.7 概览）：我的内容三流 + 动态前 5 + 收藏反应 id 集（动态卡收藏初始态）
   const initialNotes = (activeTab === "notes" || activeTab === "home")
     ? ssrGet<NoteResponse>(
         cookieHeader,

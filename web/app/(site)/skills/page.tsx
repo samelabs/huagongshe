@@ -46,7 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const dynamic = "force-dynamic";
 
-async function loadSkills(): Promise<{ skills: Skill[]; cats: Category[] }> {
+async function loadSkills(): Promise<{ skills: Skill[]; cats: Category[]; error: boolean }> {
   // SSR(loopback=内部通道)拉全量公开池; 失败降级为空集+错误标记
   try {
     const cats = await apiGet<Category[]>("/skills/categories");
@@ -58,13 +58,13 @@ async function loadSkills(): Promise<{ skills: Skill[]; cats: Category[] }> {
       all.push(...data.items);
       if (all.length >= data.total || data.items.length === 0) break;
     }
-    return { skills: all, cats };
+    return { skills: all, cats, error: false };
   } catch {
-    return { skills: [], cats: [] };
+    return { skills: [], cats: [], error: true };
   }
 }
 
 export default async function SkillsPage() {
-  const { skills, cats } = await loadSkills();
-  return <KdenseSkillsClient skills={skills} cats={cats} loadError={skills.length === 0} />;
+  const { skills, cats, error } = await loadSkills();
+  return <KdenseSkillsClient skills={skills} cats={cats} loadError={error} />;
 }

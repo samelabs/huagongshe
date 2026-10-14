@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * SearchHero — 大搜索框 + 检索方式 Segmented（v1.7 Step 10，§9.3 / Discovery）。
+ * SearchHero — 大搜索框 + 检索方式 Segmented（DESIGN_SYSTEM 6.1 / 6.2）。
  * 首页与 /search 共用：高 48 输入框（圆角 r-md、左图标）+「查询」primary lg；
  * 下方 Segmented：名称/CAS · 精确结构 · 子结构 · 相似结构。
  *
@@ -66,7 +66,7 @@ export function SearchHero({ initial = "", initialMode = "exact", authed, autoFo
 
   return (
     <div className="srch-hero">
-      <form className="srch-box" onSubmit={submit}>
+      <form method="post" className="srch-box" onSubmit={submit}>
         <div className="srch-box-wrap">
           <IconSearch />
           <input

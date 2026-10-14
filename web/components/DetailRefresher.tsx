@@ -7,8 +7,8 @@
  * 每 4s router.refresh() 重走 SSR 拿新数据; 数据到/90s 超时停。
  * 只在服务端判定"在途"时渲染, 静态页零开销。
  *
- * v1.7 Step 6: 在途时同时渲染 Notice info「正在从 PubChem 补全数据…」
- * （§9.1 头部下方），刷新轮询逻辑不变。
+ * 在途时同时渲染 Notice info「正在从 PubChem 补全数据…」
+ * （DESIGN_SYSTEM 6.3 头部下方），刷新轮询逻辑不变。
  */
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";

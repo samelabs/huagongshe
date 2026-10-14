@@ -1,5 +1,5 @@
 /**
- * HgsLogo — HGS 标志(DESIGN_SYSTEM §2)的唯一 React 实现。
+ * HgsLogo — HGS 标志(DESIGN_SYSTEM 2.2)的唯一 React 实现。
  *
  *   <HgsLogo variant="lockup" | "mark" | "wordmark" size={28} locale={locale} />
  *

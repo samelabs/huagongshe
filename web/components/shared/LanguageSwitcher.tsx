@@ -10,7 +10,7 @@
  * 规则:
  *  - 语言名称恒用各语言自称(zh-CN 简体中文 / en English / ja 日本語 /
  *    ko 한국어 / de Deutsch), 不随界面语言翻译; 无国旗/无地球图标
- *  - 触发器视觉 = ghost sm 文字按钮（v1.7 顶栏右侧，DESIGN_SYSTEM §8）
+ *  - 触发器视觉 = ghost sm 文字按钮（顶栏右侧，DESIGN_SYSTEM 2.3）
  *  - /samelabs/* 下不渲染(路径检测, 该区域不在 locale 治理范围)
  *  - locale 列表复用 SUPPORTED_LOCALES, 不建第二份
  *  - query 直接取当前路由状态(useSearchParams), 无挂载后快照 ——

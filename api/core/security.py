@@ -101,12 +101,24 @@ async def optional_actor(
     session_token: str | None = Cookie(default=None, alias=settings.session_cookie),
     db=Depends(get_db),
 ) -> Actor | None:
-    return await resolve_actor(db, authorization, session_token)
+    actor = await resolve_actor(db, authorization, session_token)
+    # v1.7.1 PM 裁定: REST 只供网站内部使用, AI Key(agent)只能用于 MCP。
+    # 在 HTTP 依赖层统一拒绝(本函数是 current_actor/public_or_actor 的共同
+    # 上游, 覆盖全部 REST 路由); MCP 的 _actor_from_headers 直调
+    # resolve_actor, 不经过这里, AI Key 接入 MCP 不受影响。
+    # 选 401 而非 403: AI Key 对 REST 是"不被接受的凭据类型"(认证层语义,
+    # 同未登录桶), 前端可复用既有 401 处理, 不与"凭据有效但缺权限"混淆。
+    if actor is not None and actor.auth_kind == "agent":
+        raise HTTPException(401, {
+            "message": "API Token 仅支持 MCP 接入，网页接口请使用登录会话",
+            "kind": "rest_agent_forbidden",
+        })
+    return actor
 
 
 async def current_actor(actor: Actor | None = Depends(optional_actor)) -> Actor:
     if actor is None:
-        raise HTTPException(401, "请先登录或提供有效的 API Token")
+        raise HTTPException(401, {"message": "请先登录", "kind": "login_required"})
     return actor
 
 
@@ -126,10 +138,5 @@ async def public_or_actor(
 async def current_session(actor: Actor = Depends(current_actor)) -> Actor:
     """Require an interactive web session for account and community mutations."""
     if actor.auth_kind != "session":
-        raise HTTPException(403, "该操作必须使用网页登录会话")
+        raise HTTPException(403, {"message": "该操作必须使用网页登录会话", "kind": "session_required"})
     return actor
-
-
-def require_scope(actor: Actor, scope: str) -> None:
-    if actor.auth_kind == "agent" and scope not in actor.scopes:
-        raise HTTPException(403, f"API Token 缺少 {scope} 权限")

@@ -193,7 +193,8 @@ class HttpBridgeTests(unittest.TestCase):
         from api.rate_limit_http import to_http_exception
         exc = to_http_exception(RateLimited("请求过于频繁，请稍后重试", retry_after=30))
         self.assertEqual(exc.status_code, 429)
-        self.assertEqual(exc.detail, "请求过于频繁，请稍后重试")
+        self.assertEqual(exc.detail, {
+            "message": "请求过于频繁，请稍后重试", "kind": "rate_limited"})
         self.assertEqual(exc.headers["Retry-After"], "30")
         self.assertEqual(exc.headers["X-RateLimit-Remaining"], "0")
 

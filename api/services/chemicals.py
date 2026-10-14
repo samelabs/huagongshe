@@ -710,7 +710,18 @@ async def get_chemical_detail(
             if cb_row is None:
                 fresh_negative = await cb_module.negative_is_fresh(
                     db, "cas_locator", cas_number=cas_number)
-                cb_raw_state = "negative" if fresh_negative else "absent"
+                if fresh_negative:
+                    cb_raw_state = "negative"
+                else:
+                    # I-026: 判 absent 前先看在途 cas_job(状态取值 queued/leased;
+                    # error 是失败终态不算在途)。搜索 CAS-miss 等路径已入队时,
+                    # 详情页应提示"获取中"而非"无 CB 数据"。
+                    pending = (await db.execute(text("""
+                        SELECT 1 FROM maintenance.cas_jobs
+                        WHERE chemical_id=:id AND status IN ('queued','leased')
+                        LIMIT 1
+                    """), {"id": chemical_id})).first()
+                    cb_raw_state = "queued" if pending else "absent"
             else:
                 # P1-1: 生命周期必须跟随实际命中的行(fallback en 行按 en 判定/刷新),
                 # 不能跟随 requested locale。

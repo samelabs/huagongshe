@@ -6,7 +6,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .admin import router as admin_router
-from .agent import router as agent_router
 from .core.config import settings
 from .core.database import engine
 from .mcp_server import mcp_session_lifespan, mount_mcp
@@ -33,7 +32,8 @@ app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
     lifespan=lifespan,
-    # MCP 发现机制是 /api/agent-guide 自描述文档; OpenAPI/文档不对公网暴露(B2 通道规范)
+    # v1.7.1 PM 裁定: REST 只供网站内部使用, 对外接入唯一入口是 MCP(/mcp
+    # 自描述 + protected-resource metadata); OpenAPI/文档不对公网暴露
     docs_url=None,
     openapi_url=None,
 )
@@ -45,7 +45,6 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "Idempotency-Key"],
 )
 app.include_router(chemistry_router, prefix="/api")
-app.include_router(agent_router, prefix="/api")
 app.include_router(molecule_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(users_router, prefix="/api")

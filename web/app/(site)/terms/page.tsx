@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
-import { getRequestLocale } from "@/lib/serverI18n";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { withLocale } from "@/lib/localePath";
 
 /**
  * S3 (G1.5-A): 法律/支持页正文只有英文权威版。
@@ -26,8 +28,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const locale = await getRequestLocale();
+  const t = await getRequestDictionary();
   return <article lang="en" className="content-page guide-page legal-page">
+    <Breadcrumb
+      items={[
+        { label: t.chemical.home, href: withLocale("/", locale) },
+        { label: "Terms of Service" },
+      ]}
+      ariaLabel={t.common.breadcrumb}
+    />
     <header className="page-head guide-hero">
       <h1>Terms of Service</h1>
       <p className="legal-meta">Effective October 6, 2026</p>

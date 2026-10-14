@@ -8,7 +8,7 @@ import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale, stripLocalePrefix } from "@/lib/localePath";
 
 /**
- * 工作台侧栏/抽屉导航（§9.4 Step 8：四组 + 16px 图标；当前项
+ * 工作台侧栏/抽屉导航（DESIGN_SYSTEM 6.7：四组 + 16px 图标；当前项
  * action-subtle 底/action-ink 字重 500/图标 action 色）。
  * 徽标：计数项 plain 数字；「动态」未读用红色 pill，0 时不渲染。
  */
@@ -28,9 +28,21 @@ export function WorkbenchNav({ counts, activeTab, variant = "sidebar" }: {
   const wrapperClass = variant === "drawer" ? "wb-nav wb-drawer-nav" : "wb-nav";
 
   function isItemActive(id: string, href: string): boolean {
-    if (href.startsWith("/me")) return routePath === href;
-    if (id === "home") return currentTab === "home";
-    return currentTab === id;
+    // DESIGN_SYSTEM 6.8：AI Key 页高亮「MCP 与 AI Key」，其他设置页高亮「设置」
+    if (routePath.startsWith("/me/settings/api-tokens")) {
+      return id === "api-tokens";
+    }
+    if (routePath.startsWith("/me")) {
+      return id === "profile";
+    }
+    if (routePath.startsWith("/submit")) {
+      return id === "mine";
+    }
+    if (routePath === "/aichem" || routePath.startsWith("/aichem/")) {
+      if (id === "home") return currentTab === "home" || !currentTab;
+      return currentTab === id;
+    }
+    return false;
   }
 
   return (

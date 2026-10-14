@@ -36,7 +36,7 @@ async def render_molecule(
 
     smiles = await render_service.lookup_molecule_smiles(db, chemical_id)
     if smiles is None:
-        raise HTTPException(status_code=404, detail="化合物没有可渲染的结构表达")
+        raise HTTPException(status_code=404, detail={"message": "化合物没有可渲染的结构表达", "kind": "chemical_not_renderable"})
 
     headers = {"Cache-Control": "public, max-age=31536000, immutable"}
     svg = await asyncio.to_thread(render_service.smiles_to_svg, smiles, w, h)
@@ -64,7 +64,7 @@ async def render_molecule_png(
 
     smiles = await render_service.lookup_molecule_smiles(db, chemical_id)
     if smiles is None:
-        raise HTTPException(status_code=404, detail="化合物没有可渲染的结构表达")
+        raise HTTPException(status_code=404, detail={"message": "化合物没有可渲染的结构表达", "kind": "chemical_not_renderable"})
 
     headers = {"Cache-Control": "public, max-age=31536000, immutable"}
     png = await asyncio.to_thread(render_service.smiles_to_png, smiles, w, h)
@@ -100,12 +100,12 @@ async def render_reaction(
         viewer_id=actor.id if actor else 0,
         is_admin=bool(actor and actor.role == "admin"))
     if source is None:
-        raise HTTPException(status_code=404, detail="反应没有可渲染的结构表达")
+        raise HTTPException(status_code=404, detail={"message": "反应没有可渲染的结构表达", "kind": "reaction_not_renderable"})
 
     svg = await asyncio.to_thread(render_service.reaction_to_svg,
                                   source.reaction_smiles, w, h)
     if svg is None:
-        raise HTTPException(status_code=422, detail="反应结构无法渲染")
+        raise HTTPException(status_code=422, detail={"message": "反应结构无法渲染", "kind": "reaction_render_failed"})
     return Response(
         content=svg,
         media_type="image/svg+xml",

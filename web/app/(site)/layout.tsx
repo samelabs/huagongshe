@@ -1,16 +1,13 @@
 import { SiteHeader } from "@/components/shell/SiteHeader";
-import { getRequestDictionary } from "@/lib/serverI18n";
+import { SiteFooter } from "@/components/shell/SiteFooter";
 
-export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  const t = await getRequestDictionary();
+export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="app-container">
       {/* SiteHeader 同时挂载顶栏与手机底部 tab（共用未读上下文） */}
       <SiteHeader />
       <main>{children}</main>
-      <footer>
-        <span>{t.nav.footer}：<a href="mailto:mail@huagongshe.com" className="footer-link">mail@huagongshe.com</a></span>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -7,8 +7,9 @@ import { SearchHero } from "@/components/SearchHero";
 import { UrlTabs } from "@/components/UrlTabs";
 import { Notice } from "@/components/ui/Notice";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { GlyphChem } from "@/components/ui/icons";
-import { apiGet, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
+import { apiGet, apiErrorMessage, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import { localeAlternates } from "@/lib/alternates";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
@@ -112,19 +113,19 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   } catch (err) {
     if (err instanceof ApiError) {
       if (err.status === 429) {
-        error = t.search.errRateLimit;
+        error = apiErrorMessage(err, t, t.search.errRateLimit);
       } else if (err.status === 401) {
-        error = t.search.errLoginRequired;
+        error = apiErrorMessage(err, t, t.search.errLoginRequired);
       } else if (err.status === 503) {
-        error = t.search.errTimeout;
+        error = apiErrorMessage(err, t, t.search.errTimeout);
       } else if (err.status === 422) {
-        error = t.search.errIncomplete;
+        error = apiErrorMessage(err, t, t.search.errIncomplete);
       } else if (err.status === 400) {
-        error = t.search.errUnrecognized;
+        error = apiErrorMessage(err, t, t.search.errUnrecognized);
       } else if (err.status === 404) {
-        error = t.search.errNotFound;
+        error = apiErrorMessage(err, t, t.search.errNotFound);
       } else {
-        error = t.search.errGeneric;
+        error = apiErrorMessage(err, t, t.search.errGeneric);
       }
     } else {
       error = t.common.networkError;
@@ -148,10 +149,14 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   // 结果分类链接（Tabs 切换）：保留 URL 模式（含 structure 回显）
   const typeHref = (nextType?: string) =>
     withLocale(`/search?q=${encodeURIComponent(q)}${urlMode !== "exact" ? `&mode=${urlMode}` : ""}${nextType === "reactions" ? "&type=reactions" : ""}${page > 1 ? `&page=${page}` : ""}`, locale);
-  // 结果分类（Step 10 §9.3）：只显示当前搜索接口实际返回的类型 ——
+  // 结果分类（6.2）：只显示当前搜索接口实际返回的类型 ——
   // reactions 仅在 exact 首页由接口返回；只有化合物时不显示 Tabs，计数直接放标题行。
+  const hasChemicals = chemicals.length > 0;
   const hasReactions = reactions.length > 0;
-  const activeType = params.type === "reactions" && hasReactions ? "reactions" : "chemicals";
+  const hasBoth = hasChemicals && hasReactions;
+  const activeType = hasBoth
+    ? (params.type === "reactions" ? "reactions" : "chemicals")
+    : (hasReactions ? "reactions" : "chemicals");
 
   if (redirectTarget) redirect(redirectTarget);  // try 外: NEXT_REDIRECT 异常直穿
   return (
@@ -165,32 +170,33 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           </p>
         )}
       </header>
-      {error && <div className="notice error" role="alert">{error}</div>}
-      {chemicals.length > 0 && (
+      {error && <Notice tone="err">{error}</Notice>}
+      {(hasChemicals || hasReactions) && (
         <section className="results-section">
-          {hasReactions ? (
+          {hasBoth ? (
             <UrlTabs
               ariaLabel={t.search.resultTabsLabel}
               value={activeType}
               tabs={[
-                { id: "chemicals", label: t.search.chemicalResults, count: total != null ? total : chemicals.length },
-                { id: "reactions", label: t.search.reactionResults, count: reactions.length },
+                { id: "chemicals", label: t.search.chemicalResults, count: total != null ? total : chemicals.length, href: typeHref() },
+                { id: "reactions", label: t.search.reactionResults, count: reactions.length, href: typeHref("reactions") },
               ]}
-              hrefFor={(id) => typeHref(id === "reactions" ? "reactions" : undefined)}
             />
           ) : (
             <div className="section-heading">
-              <div><h2>{relationLabel ?? t.search.chemicalResults}</h2></div>
+              <div><h2>{hasReactions ? t.search.reactionResults : (relationLabel ?? t.search.chemicalResults)}</h2></div>
               <span>
-                {capped
-                  ? t.search.showingCappedRange(start, shown)
-                  : total !== null
-                    ? t.search.showingRange(start, shown, total)
-                    : t.search.showingResults(chemicals.length)}
+                {hasReactions
+                  ? t.search.showingResults(reactions.length)
+                  : (capped
+                      ? t.search.showingCappedRange(start, shown)
+                      : total !== null
+                        ? t.search.showingRange(start, shown, total)
+                        : t.search.showingResults(chemicals.length))}
               </span>
             </div>
           )}
-          {activeType === "chemicals" && (
+          {activeType === "chemicals" && hasChemicals && (
             <>
               <div className="entity-card-grid">{chemicals.map((chemical) => <EntityCard chemical={chemical} key={chemical.id} favored={favoredSet.has(chemical.id)} />)}</div>
               {hasMore && (
@@ -202,19 +208,28 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               )}
             </>
           )}
-          {activeType === "reactions" && (
+          {activeType === "reactions" && hasReactions && (
             <div className="reaction-results">{reactions.map((reaction) => <ReactionResult reaction={reaction} key={reaction.id} />)}</div>
           )}
         </section>
       )}
-      {!error && q && chemicals.length === 0 && reactions.length === 0 && (
-        <div className="search-empty">
-          {fetchPending && <Notice tone="info">{t.search.fetchPendingHint.replace("{cas}", q)}</Notice>}
-          <EmptyState icon={<GlyphChem />} title={t.search.noResultsFor(q)}>
-            {t.search.noResultsTryHint}
-          </EmptyState>
-          <Link className="hg-btn secondary" href={withLocale("/search", locale)}>{t.search.clearQuery}</Link>
-        </div>
+      {!error && q && !hasChemicals && !hasReactions && (
+        fetchPending ? (
+          <div className="search-pending">
+            <Notice tone="info">{t.search.fetchPendingHint.replace("{cas}", q)}</Notice>
+            <div className="entity-card-grid">
+              <Skeleton variant="card" />
+              <Skeleton variant="card" />
+            </div>
+          </div>
+        ) : (
+          <div className="search-empty">
+            <EmptyState icon={<GlyphChem />} title={t.search.noResultsFor(q)}>
+              {t.search.noResultsTryHint}
+            </EmptyState>
+            <Link className="hg-btn secondary" href={withLocale("/search", locale)}>{t.search.clearQuery}</Link>
+          </div>
+        )
       )}
     </div>
   );

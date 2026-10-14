@@ -232,8 +232,15 @@ class WorkerRuntimeTests(unittest.TestCase):
 
 # ── 2/3/4: 端点级: 分区容错 / last-known-good / 单飞 ────────
 def _has_db():
-    import os
-    return bool(os.environ.get("TEST_DATABASE_URL"))
+    # I-058: 与 _engine() 同口径 — TEST_DATABASE_URL 必须过 db_gate
+    # 双闸(库名模式 + sentinel), 不直读环境变量。
+    from tests.db_gate import ProductionDbBlocked, require_test_db
+
+    try:
+        require_test_db()
+    except ProductionDbBlocked:
+        return False
+    return True
 
 
 @unittest.skipUnless(_has_db(), "需要测试库")

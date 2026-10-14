@@ -30,7 +30,7 @@
       此处只负责显隐） ── */
 .wb-burger { flex-shrink: 0; }
 
-/* ── 手机顶栏「+」创建菜单（§12 第二屏；随 .sh-mobile-right 仅 ≤640 出现；
+/* ── 手机顶栏「+」创建菜单（2.3 / 6.7 随 .sh-mobile-right 仅 ≤640 出现；
       面板视觉对齐 shell.css .sh-menu-panel） ── */
 .wb-create { position: relative; flex-shrink: 0; }
 .wb-create-panel {
@@ -118,7 +118,7 @@
 }
 .wb-nav-link > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 16px 图标槽（§9.4 Step 8） */
+/* 16px 图标槽（1.6 / 6.7） */
 .wb-nav-icon {
   flex: none;
   width: 16px;
@@ -126,7 +126,7 @@
   color: var(--wb-muted);
 }
 
-/* 当前项（§9.4）：action-subtle 底 / action-ink 文字 / 500 / 图标 action */
+/* 当前项（2.3 / 6.7）：action-subtle 底 / action-ink 文字 / 500 / 图标 action */
 .wb-nav-link.active {
   background: var(--action-subtle);
   color: var(--action-ink);
@@ -159,13 +159,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--wb-sp-4);
-  max-width: var(--wb-content-max);
+  max-width: 1120px;
   margin-inline: auto;
 }
 
 .wb-panel-head {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: var(--wb-sp-3);
   flex-wrap: wrap;
@@ -179,11 +179,12 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--wb-sp-2);
-  font-size: var(--fs-22);
+  font-size: var(--fs-28);
   font-weight: 650;
+  letter-spacing: -.01em;
   color: var(--wb-heading);
 }
-/* 计数紧随标题（§6 Step 9：不单独占位） */
+/* 计数紧随标题（5.6 / 6.7：不单独占位） */
 .wb-panel-head .wb-panel-count {
   font-size: var(--wb-fs-sm);
   font-weight: var(--wb-w-regular);
@@ -401,7 +402,7 @@
 }
 .wb-state-error { color: var(--wb-danger); }
 
-/* ── 空状态（§6：统一用 ui/EmptyState，见 ui.css .hg-empty） ── */
+/* ── 空状态（3.11：统一用 ui/EmptyState，见 ui.css .hg-empty） ── */
 .wb-empty {
   padding: var(--wb-sp-7) 0;
   text-align: center;
@@ -412,7 +413,7 @@
   font-size: var(--wb-fs);
 }
 
-/* ── 分页（§6 Step 9）：上一页 / 页码 / 下一页，按钮 ghost sm ── */
+/* ── 分页（3.1 / 6.12）：上一页 / 页码 / 下一页，按钮 ghost sm ── */
 .wb-pagination {
   display: flex;
   align-items: center;
@@ -456,7 +457,7 @@
    L6 — Panel-specific
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── 概览（§9.4 Step 8：工具在左，社交在右；整体最大宽 1120） ── */
+/* ── 概览（6.7：工具在左，社交在右；整体最大宽 1120） ── */
 .wb-home2 {
   max-width: 1120px;
   margin-inline: auto;
@@ -483,29 +484,38 @@
   color: var(--wb-muted);
 }
 .wb-home2-actions { display: flex; gap: var(--wb-sp-2); flex: none; }
-
-/* 手机 Segmented（我的内容 ↔ 关注动态）：桌面隐藏；
-   手机在 grid 内 quick 与 mine 之间（Step 9 A.3 区块顺序） */
-.wb-home2-switch { display: none; }
+@media (max-width: 900px) {
+  .wb-home2-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--wb-sp-3);
+  }
+}
 
 .wb-home2-grid {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--sp-6);
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "quick" "switch" "mine" "feed" "profile";
 }
-.wb-home2-grid > [data-area="quick"] { grid-area: quick; }
-.wb-home2-grid > [data-area="switch"] { grid-area: switch; }
-.wb-home2-grid > [data-area="mine"] { grid-area: mine; }
-.wb-home2-grid > [data-area="profile"] { grid-area: profile; }
-.wb-home2-grid > [data-area="feed"] { grid-area: feed; }
-@media (min-width: 641px) {
+.wb-home2-col-main,
+.wb-home2-col-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  min-width: 0;
+}
+/* 桌面两列独立纵向排布（DESIGN_SYSTEM 2.1 / 6.7）：快速检索与我的内容无缝顺排，无空洞 */
+@media (min-width: 1024px) {
   .wb-home2-grid {
-    grid-template-columns: minmax(0, 1fr) var(--rail-w-wide);
-    grid-template-areas:
-      "quick profile"
-      "mine feed";
-    align-items: start;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .wb-home2-col-main {
+    flex: 1 1 0;
+  }
+  .wb-home2-col-side {
+    width: var(--rail-w-wide);
+    flex: none;
   }
 }
 
@@ -549,7 +559,7 @@
 }
 .wb-quick-link-icon svg { width: 16px; height: 16px; }
 
-/* 我的内容行 / 面板列表行（§6 Step 9 WbListRow 共用）：
+/* 我的内容行 / 面板列表行（5.4 / 6.7 WbListRow 共用）：
    36px 类型图标块或缩略图 | 标题(整行点击目标)+元信息 | 右侧展示+操作 */
 .wb-row-list { display: flex; flex-direction: column; }
 .wb-row {
@@ -577,7 +587,7 @@
 .wb-row-icon svg { width: 18px; height: 18px; }
 .wb-row-icon.reaction { color: var(--wb-reaction-ink); background: var(--wb-reaction-bg); }
 .wb-row-icon img { width: 100%; height: 100%; object-fit: contain; }
-/* 缩略图（方程式/结构式）：高 48（§9.4 我的反应行） */
+/* 缩略图（方程式/结构式）：高 48（6.7 我的反应行） */
 .wb-row-thumb {
   flex: none;
   display: flex;
@@ -720,6 +730,18 @@
   color: var(--wb-ink);
 }
 .wb-feed-body > time { font-size: var(--wb-fs-sm); color: var(--wb-quiet); }
+.wb-feed-excerpt {
+  margin: 2px 0 0;
+  font-size: var(--wb-fs-sm);
+  color: var(--wb-muted);
+  line-height: var(--lh-snug);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
 .wb-feed-eq {
   display: block;
   width: 100%;
@@ -737,11 +759,10 @@
    快速检索脱离卡片框（48 高、图标入框左侧）＋ 2×2 快捷入口、
    Segmented 切换 我的内容/关注动态、主页卡最后（Step 9 A.3 顺序） */
 @media (max-width: 640px) {
+  .wb-panel-head h2 { font-size: var(--fs-22); }
   .wb-home2-head h2 { font-size: var(--fs-22); }
   .wb-home2-actions { display: none; }
-  .wb-home2-switch { display: block; }
-  .wb-home2[data-view="mine"] > .wb-home2-grid > [data-area="feed"] { display: none; }
-  .wb-home2[data-view="feed"] > .wb-home2-grid > [data-area="mine"] { display: none; }
+  .wb-home2 .wb-feed-card { display: none; }
   /* 快速检索不用卡片外框：直接是输入框（48 高 / r-md / 图标框内左侧）+ 查询按钮。
      选择器带 .wb-home2 前缀抬特异性，压过卡片基座 .wb-home2 .wb-card。 */
   .wb-home2 .wb-home2-quick {
@@ -959,6 +980,7 @@
    L7 — Settings（form-section 在 wb-panel 内的覆盖）
    ═══════════════════════════════════════════════════════════════ */
 .wb-panel .form-section {
+  max-width: 680px;
   border: 1px solid var(--wb-line);
   border-radius: var(--wb-r-md);
   padding: var(--wb-sp-5);
@@ -993,7 +1015,7 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--wb-sp-4);
 }
-.wb-panel label {
+.wb-panel label:not(.hg-label) {
   display: flex;
   flex-direction: column;
   gap: var(--wb-sp-2);
@@ -1064,12 +1086,30 @@
   cursor: pointer;
 }
 
+/* 设置页表单按钮（I-050）：桌面自适应宽度不撑满卡片；≤640 手机端主操作撑满 */
+.wb-panel .form-fields > .hg-btn,
+.wb-panel .form-fields button[type="submit"],
+.wb-panel .avatar-upload > .hg-btn,
+.wb-panel .avatar-remove > .hg-btn {
+  align-self: flex-start;
+  width: auto;
+}
+@media (max-width: 640px) {
+  .wb-panel .form-fields > .hg-btn,
+  .wb-panel .form-fields button[type="submit"],
+  .wb-panel .avatar-upload > .hg-btn,
+  .wb-panel .avatar-remove > .hg-btn {
+    align-self: stretch;
+    width: 100%;
+  }
+}
+
 /* token 管理 */
 .wb-panel .token-create {
   display: grid;
   grid-template-columns: 1fr 160px auto;
   gap: var(--wb-sp-2);
-  align-items: center;
+  align-items: end;
 }
 .wb-panel .token-list {
   margin-top: var(--wb-sp-4);
@@ -1104,6 +1144,42 @@
 .wb-panel .token-list small {
   color: var(--wb-quiet);
   font-size: var(--wb-fs-xs);
+}
+.wb-panel .token-row-secret {
+  display: flex;
+  align-items: center;
+  gap: var(--wb-sp-2);
+  flex-wrap: wrap;
+}
+.wb-panel .token-code {
+  font-family: var(--font-mono);
+  font-size: var(--wb-fs-xs);
+  color: var(--wb-heading);
+  background: var(--bg-subtle);
+  padding: 2px 6px;
+  border-radius: var(--wb-r-xs);
+  word-break: break-all;
+}
+.wb-panel .token-row-null {
+  display: flex;
+  align-items: center;
+  gap: var(--wb-sp-1);
+  flex-wrap: wrap;
+}
+.wb-panel .token-null-desc {
+  color: var(--wb-quiet);
+  font-size: var(--wb-fs-xs);
+}
+.wb-panel .token-meta-status {
+  color: var(--wb-quiet);
+  font-size: var(--wb-fs-xs);
+}
+@media (max-width: 640px) {
+  .wb-panel .token-list article {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--wb-sp-3);
+  }
 }
 /* BX-B1：旧 token-actions text-button 危险色规则删除（已迁 ui Button danger-quiet）。 */
 .wb-panel .api-guide-link {
@@ -1192,6 +1268,62 @@
   line-height: var(--wb-lh-relaxed);
 }
 
+/* ── 已连接的应用（OAuth Connections） ── */
+.wb-panel .oauth-conn-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-sp-3);
+}
+.wb-panel .oauth-conn-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--wb-sp-3);
+  padding: var(--wb-sp-3) var(--wb-sp-4);
+  border: 1px solid var(--wb-line);
+  border-radius: var(--wb-r-sm);
+  background: var(--wb-surface);
+}
+.wb-panel .oauth-conn-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-sp-1);
+  min-width: 0;
+  flex: 1;
+}
+.wb-panel .oauth-conn-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--wb-sp-2);
+}
+.wb-panel .oauth-conn-name {
+  font-size: var(--wb-fs);
+  font-weight: var(--wb-w-semibold);
+  color: var(--wb-heading);
+}
+.wb-panel .oauth-conn-scopes {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--wb-sp-1);
+}
+.wb-panel .oauth-conn-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--wb-sp-2);
+  font-size: var(--wb-fs-sm);
+  color: var(--wb-quiet);
+}
+.wb-panel .oauth-conn-meta span[aria-hidden="true"] {
+  color: var(--wb-line-strong);
+}
+.wb-panel .oauth-conn-actions {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    L8 — 公共组件上下文覆盖
    ═══════════════════════════════════════════════════════════════ */
@@ -1245,7 +1377,7 @@
    L9 — Mobile
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── 手机抽屉 ── 常驻 DOM，transform 切换；v1.7 视觉换新 token（§4 浮层） */
+/* ── 手机抽屉 ── 常驻 DOM，transform 切换；v1.7 视觉换新 token（1.5 / 2.1 浮层） */
 .wb-drawer-overlay {
   position: fixed; inset: 0;
   background: var(--wb-overlay);
@@ -1522,7 +1654,7 @@
   min-width: 720px;
 }
 .wb-stoich-rhead {
-  /* §6 Step 9：表头 12px / 500 / muted */
+  /* 1.3 / 6.12：表头 12px / 500 / muted */
   font-size: var(--fs-12);
   font-weight: 500;
   color: var(--wb-muted);
@@ -1532,13 +1664,13 @@
   border-top: 1px solid var(--wb-line);
 }
 .wb-stoich-rrow {
-  /* §6 Step 9：行高 40 */
+  /* 1.5 / 6.12：行高 40 */
   min-height: 40px;
   align-items: center;
 }
 .wb-stoich-rhead span:nth-child(n+3),
 .wb-stoich-rrow span:nth-child(n+3) {
-  /* §6 Step 9：数字列 tabular-nums 右对齐 */
+  /* 1.3 / 6.12：数字列 tabular-nums 右对齐 */
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

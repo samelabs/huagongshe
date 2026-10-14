@@ -8,7 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy import text
 
 from .core.database import get_db
+from .core.rate_limit import RateLimitError
 from .core.security import Actor, current_session, public_or_actor
+from .rate_limit_http import to_http_exception
 from .schemas.notes import NoteBody
 from .services.notes import (
     NoteEntityNotFoundError,
@@ -28,7 +30,7 @@ router = APIRouter(tags=["notes"])
 
 
 def _note_not_found(exc: Exception) -> HTTPException:
-    return HTTPException(404, str(exc))
+    return HTTPException(404, {"message": str(exc), "kind": "note_not_found"})
 
 
 # FX 回执遗留: 超大 ID(>int32)此前穿进 SQL 撞 asyncpg DataError → 500;
@@ -50,6 +52,10 @@ async def create_note(
             chemical_ids=body.chemical_ids,
             reaction_ids=body.reaction_ids,
         )
+    except RateLimitError as exc:
+        # I-057: 服务层 neutral 限流异常在 HTTP 边界统一映射
+        # (RateLimited→429, LimiterUnavailable→503), 与 reactions 等同口径。
+        raise to_http_exception(exc) from exc
     except NoteReferenceError as exc:
         # v1.7.0 L2: detail 升级为 {message, kind} 结构 — message 保持中文
         # 原文, kind 是稳定机器码(前端五语言分类); 纯字符串消费者的旧
@@ -98,6 +104,9 @@ async def update_note(
             chemical_ids=body.chemical_ids,
             reaction_ids=body.reaction_ids,
         )
+    except RateLimitError as exc:
+        # I-057: 同 create_note — 编辑限流同桶, HTTP 映射同口径。
+        raise to_http_exception(exc) from exc
     except NoteNotAccessibleError as exc:
         raise _note_not_found(exc) from exc
     except NoteReferenceError as exc:
@@ -154,13 +163,13 @@ async def public_user_notes(
     Inactive or missing users 404; private/hidden notes never appear.
     """
     if username == "me":  # pragma: no cover - guarded by route order
-        raise HTTPException(404, "用户不存在")
+        raise HTTPException(404, {"message": "用户不存在", "kind": "user_not_found"})
     user_row = (await db.execute(text("""
         SELECT id FROM community.users
         WHERE lower(username)=lower(:username) AND status='active'
     """), {"username": username})).scalar()
     if user_row is None:
-        raise HTTPException(404, "用户不存在")
+        raise HTTPException(404, {"message": "用户不存在", "kind": "user_not_found"})
     return await list_public_user_notes(
         db, user_id=int(user_row), page=page, page_size=page_size,
     )

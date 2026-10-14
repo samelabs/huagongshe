@@ -163,7 +163,7 @@ export function NoteEditor({
   }
 
   return (
-    <form className="wb-note-editor" onSubmit={save}>
+    <form method="post" className="wb-note-editor" onSubmit={save}>
       <div className="wb-note-editor-head">
         <strong>{note ? t.me.notesEdit : t.me.notesNew}</strong>
         <div className="wb-note-editor-head-side">

@@ -52,7 +52,7 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
   const subtitle: Record<ReactionVisibility, string> = { all: t.me.visAll, private: t.me.visPrivate, public: t.me.visPublic };
   const total = data.counts[visibility];
 
-  /** §6 Step 9：筛选用 Segmented，仍走 URL 参数（SSR 预取一致） */
+  /** DESIGN_SYSTEM 3.7 / 6.7：筛选用 Segmented，仍走 URL 参数（SSR 预取一致） */
   function switchVisibility(value: ReactionVisibility) {
     if (value === visibility) return;
     router.push(withLocale(`/aichem?tab=mine&visibility=${value}`, locale));

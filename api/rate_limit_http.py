@@ -29,14 +29,14 @@ def to_http_exception(exc: RateLimitError) -> HTTPException:
     if isinstance(exc, RateLimited):
         return HTTPException(
             429,
-            exc.detail,
+            {"message": exc.detail, "kind": "rate_limited"},
             headers={"Retry-After": str(exc.retry_after or 1),
                      "X-RateLimit-Remaining": "0"},
         )
     if isinstance(exc, ResourceBusy):
         return HTTPException(
             429,
-            exc.detail,
+            {"message": exc.detail, "kind": "rate_limited"},
             headers={"Retry-After": str(exc.retry_after if exc.retry_after is not None else 5)},
         )
     if isinstance(exc, LimiterUnavailable):

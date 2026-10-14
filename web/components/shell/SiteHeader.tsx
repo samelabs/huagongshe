@@ -1,24 +1,22 @@
 "use client";
 
 /**
- * SiteHeader — v1.7 全站唯一顶栏（DESIGN_SYSTEM §8，参考 §8–11 模板）。
+ * SiteHeader — 全站唯一顶栏（DESIGN_SYSTEM 2.3）。
  *
  * 公开页 (site) 与工作台 (workbench) 两个 layout 共用；桌面 / 平板 / 手机三态：
- * - 桌面（>1024）：标志 · 主导航（查询/Skills/MCP/工作台）· 全局搜索（⌘K）·
- *   铃铛（未读红点，链接 /aichem?tab=activity）· 语言 · 头像菜单。
- * - 平板（641–1024）：主导航收进「更多」菜单，搜索框缩短。
- * - 手机（≤640）：高 --header-h-m，标志（24，无中文副标，由全局 .hgs-logo 媒体
- *   规则处理）+ 搜索图标（跳 /search?focus=1 自动聚焦）+ 头像/登录 +
- *   mobileActions 插槽（工作台传入抽屉汉堡按钮）。
+ * - 桌面（≥1024）：标志 · 主导航（查询/Skills/MCP/工作台）·
+ *   铃铛（未读红点，链接 /aichem?tab=activity）· 语言 · 头像菜单。无搜索框。
+ * - 平板（641–1023）：主导航收进「更多」菜单。
+ * - 手机（≤640）：高 --header-h-m，只有标志 + 语言切换；头像菜单内容并入底部「我的」。
  *
  * 未读数来源 = 工作台计数同一接口 /users/me/dashboard（counts.unread），
  * 只在已登录时请求，不新增 API；工作台 layout 通过 initialUnread 直传
  * 服务端已取的值，避免重复请求。ShellUnreadContext 下发给 MobileTabBar。
  *
- * 不吸顶（保持 v1.6 锚点修复）：header 在正常文档流中。
+ * 不吸顶：header 在正常文档流中。
  */
 import Link from "next/link";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
@@ -27,7 +25,7 @@ import type { User } from "@/lib/api";
 import { HgsLogo } from "@/components/ui/HgsLogo";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { IconSearch, IconBell, IconChevron } from "@/components/ui/icons";
+import { IconBell, IconChevron } from "@/components/ui/icons";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { ShellUnreadProvider, useShellUnread } from "./ShellUnread";
 import { useToast } from "@/components/ui/Toast";
@@ -82,11 +80,8 @@ export function SiteHeader({ initialUnread, mobileActions }: {
             ))}
           </nav>
 
-          <HeaderSearch />
-
           <div className="sh-right">
-            {/* FX-11（SMK-007 / HGS-SHELL-UNREAD-01）：铃铛对未读数的消费移入
-                Provider 内部（HeaderBell），顶栏不再吃 Provider 外的空 Context */}
+            {/* 铃铛对未读数的消费在 Provider 内部（HeaderBell） */}
             <HeaderBell user={user} />
             <MoreMenu items={nav} routePath={routePath} />
             <div className="sh-lang">
@@ -101,21 +96,11 @@ export function SiteHeader({ initialUnread, mobileActions }: {
             )}
           </div>
 
-          {/* 手机（≤640）：搜索图标 + 头像/登录 + 工作台抽屉汉堡 */}
+          {/* 手机（≤640）：只有标志 + 语言切换（DESIGN_SYSTEM 2.3） */}
           <div className="sh-mobile-right">
-            <Link
-              href={withLocale("/search?focus=1", locale)}
-              className="hg-btn ghost icon"
-              aria-label={t.nav.searchAria}
-            >
-              <IconSearch />
-            </Link>
-            {user ? (
-              <UserMenu user={user} />
-            ) : (
-              <Link href={withLocale("/login", locale)} className="sh-login-sm">{t.nav.loginShort}</Link>
-            )}
-            {mobileActions}
+            <div className="sh-lang-m">
+              <LanguageSwitcher />
+            </div>
           </div>
         </div>
       </header>
@@ -125,7 +110,7 @@ export function SiteHeader({ initialUnread, mobileActions }: {
   );
 }
 
-/* ── 桌面铃铛（ShellUnreadProvider 内消费未读数，FX-11） ─────────── */
+/* ── 桌面铃铛（ShellUnreadProvider 内消费未读数） ─────────── */
 function HeaderBell({ user }: { user: User | null }) {
   const t = useDictionary();
   const locale = useLocale();
@@ -140,67 +125,6 @@ function HeaderBell({ user }: { user: User | null }) {
       <IconBell />
       {unread > 0 && <span className="sh-bell-dot" aria-hidden="true" />}
     </Link>
-  );
-}
-
-/* ── 全局搜索框（⌘K / Ctrl+K / / 聚焦；回车跳 /search?q=） ── */
-function HeaderSearch() {
-  const t = useDictionary();
-  const locale = useLocale();
-  const router = useRouter();
-  const [query, setQuery] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-        return;
-      }
-      if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        const el = e.target instanceof HTMLElement ? e.target : null;
-        const editable = el != null && (
-          el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT"
-          || el.isContentEditable
-        );
-        if (!editable) {
-          e.preventDefault();
-          inputRef.current?.focus();
-        }
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  return (
-    <form
-      className="sh-search"
-      role="search"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const value = query.trim();
-        if (!value) { inputRef.current?.focus(); return; }
-        router.push(withLocale(`/search?q=${encodeURIComponent(value)}`, locale));
-      }}
-    >
-      <IconSearch className="sh-search-icon" />
-      <input
-        ref={inputRef}
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={t.nav.globalSearch}
-        aria-label={t.nav.searchAria}
-        autoComplete="off"
-        spellCheck={false}
-        maxLength={4000}
-        enterKeyHint="search"
-      />
-      <kbd aria-hidden="true">⌘K</kbd>
-    </form>
   );
 }
 

@@ -9,14 +9,14 @@
  */
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { apiPost, apiDelete, ApiError } from "@/lib/api";
+import { apiPost, apiDelete, ApiError, apiErrorMessage } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Button, type ButtonVariant, type ButtonSize } from "@/components/ui/Button";
 import { IconStar } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/Toast";
 
-export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = "follow", idleText, activeText, activeHoverText, onChange, variant = "primary", activeVariant, size, iconOnly = false }: {
+export function FollowButton({ endpoint, initial, count = 0, disabled = false, showCount = true, label = "follow", idleText, activeText, activeHoverText, onChange, variant = "primary", activeVariant, size, iconOnly = false, withIcon = false }: {
   endpoint: string;
   initial: boolean;
   count?: number;
@@ -35,6 +35,8 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   size?: ButtonSize;
   /** 星标图标按钮（Step 10：搜索卡片 / 主页反应卡收藏）；aria-label 取当前文案 */
   iconOnly?: boolean;
+  /** 带星标图标的文本按钮（如工作台关注动态卡） */
+  withIcon?: boolean;
 }) {
   const router = useRouter();
   const t = useDictionary();
@@ -91,7 +93,7 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
         router.push(withLocale(`/login?next=${encodeURIComponent(next)}`, locale));
         return;
       }
-      toast.error(label === "favor" ? t.follow.favorErr : t.follow.followErr);
+      toast.error(apiErrorMessage(err, t, label === "favor" ? t.follow.favorErr : t.follow.followErr));
     } finally {
       setBusy(false);
     }
@@ -123,6 +125,7 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   const currentVariant = following && activeVariant ? activeVariant : variant;
   return (
     <Button variant={currentVariant} size={size} aria-pressed={following} loading={busy} disabled={disabled} onClick={() => void apply(!followingRef.current)}>
+      {withIcon && <IconStar />}
       <span className={hoverSwap ? "hg-hover-swap" : undefined}>
         <span className="when-idle">{text}</span>
         {hoverSwap && <span className="when-hover">{activeHoverText}</span>}

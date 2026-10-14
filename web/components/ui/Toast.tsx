@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Toast — 全局轻提示（参考 §6，IX-2）。
+ * Toast — 全局轻提示（DESIGN_SYSTEM 3.9，IX-2）。
  *
  * ToastProvider 挂在 app/layout.tsx；useToast() 提供
  *   toast.success(msg, { action: { label, onClick } })  3s 自动消失

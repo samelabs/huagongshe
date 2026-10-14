@@ -42,7 +42,7 @@
 - `/guide`：面向用户的网页记录、AI 对话提示词与 Skill 使用指南。
 - `/workapi/*`：worker HMAC 面，只服务受信任 PubChem worker，与用户 Agent 完全无关。
 
-网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 AI Key（即 API Token，Bearer 传输）：Key 属于用户账号，用于 Agent/API 调用；列表仅已认证本人可读，响应带 `Cache-Control: private, no-store`；当前产品允许本人后续重新查看和复制自己的 Key。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
+网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 AI Key（即 API Token，Bearer 传输）：Key 属于用户账号，用于 Agent/API 调用；列表仅本人网页会话可读，响应带 `Cache-Control: private, no-store`；Key 明文有意保存在账号下（项目负责人裁定，2026-10-14），可在设置页再次查看和复制，无明文的旧 Key 显示为空。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
 
 ## 化合物事实规则
 
@@ -59,7 +59,7 @@
 - 身份解析按 `cid → ik → cas` 顺序定位既有 HCID；解析只决定"归到哪一行"，不授权合并。
 - 破坏性合并（destructive merge gate）只由一致的非空 CID entity proof 授权；`cb_number` 只是来源标识，不参与身份裁定；InChIKey 可参与解析与候选定位，但 same IK alone 永不授权合并；CAS 或来源编号相同同样不构成合并证据（一个物质可有多个 CAS 与来源编号）。
 - 多行命中且缺乏充分判据时挂起（AMBIGUOUS），不猜归属；证据冲突时拒绝写入（CONFLICT），不吞并。
-- 每次合并留有审计记录（merge log）与旧 ID 重定向（redirect），旧 ID 的引用自动指向合并后的正身行，合并可追溯。
+- 每次合并留有审计记录（merge log）与旧 ID 重定向表（redirect，仅供内部任务寻址，公开查询不跟随）：合并后旧 HCID 不再可访问；反应参与关系会改指到保留行，合并可经 merge log 追溯。
 - 各来源数据保存在各自来源子表，来源 grain 由对应子表约束定义，不以一种统一复合键概括所有来源（例如 ChemicalBook 记录按其子表约束独立保留，同一化合物可挂多条来源记录，互不覆盖）。
 
 ## 化学数据源

@@ -2,7 +2,7 @@
    aichem-tokens.css — AI化学工作台 设计 Token
    ═══════════════════════════════════════════════════════════════
    v1.7 起本文件不再自带任何取值：所有 --wb-* 只是 web/app/tokens.css
-   语义 token 的别名（docs/DESIGN_SYSTEM.md §10）。aichem.css 继续
+   语义 token 的别名（docs/DESIGN_SYSTEM.md 第一层 / 第七章）。aichem.css 继续
    引用 --wb-* 名称，取值统一由 tokens.css 决定（契约测试保证
    每个别名的值都以 var(-- 开头）。
    ═══════════════════════════════════════════════════════════════ */

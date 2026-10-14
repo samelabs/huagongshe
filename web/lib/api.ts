@@ -28,9 +28,50 @@ export class ApiError extends Error {
         if (typeof message === "string" && message) this.detail = message;
         if (typeof kind === "string" && kind) this.detailKind = kind;
       }
+    } else if (detail && typeof detail === "object") {
+      const { message, kind } = detail as { message?: unknown; kind?: unknown };
+      if (typeof message === "string" && message) this.detail = message;
+      if (typeof kind === "string" && kind) this.detailKind = kind;
+    }
+
+    // 过渡兼容：后端未全部返回 {message, kind} 结构前，从已知中文 detail 映射出稳定 kind
+    if (!this.detailKind && this.detail) {
+      if (typeof this.detail === "string" && /^[a-z0-9_]+$/.test(this.detail)) {
+        this.detailKind = this.detail;
+      } else if (this.detail.includes("CAS") || this.detail === "invalid_cas") {
+        this.detailKind = "invalid_cas";
+      } else if (this.detail.includes("SMILES") || this.detail === "invalid_structure") {
+        this.detailKind = "invalid_structure";
+      } else if (this.detail.includes("至少") || this.detail === "query_too_short") {
+        this.detailKind = "query_too_short";
+      } else if (this.detail.includes("超时") || this.detail === "backend_unavailable") {
+        this.detailKind = "backend_unavailable";
+      } else if (this.detail.includes("substructure_too_small")) {
+        this.detailKind = "substructure_too_small";
+      } else if (this.detail.includes("invalid_doi")) {
+        this.detailKind = "invalid_doi";
+      }
     }
   }
 }
+
+/**
+ * 统一报错文案函数（v1.7.1）：
+ * 先按 detailKind 查字典 t.errors[kind]，查不到再用该场景的通用文案（fallback）。
+ * 任何地方都不得直接渲染 err.detail。
+ */
+export function apiErrorMessage(
+  error: unknown,
+  t: { errors: Record<string, string> },
+  fallback: string,
+): string {
+  if (error instanceof ApiError && error.detailKind) {
+    const message = t.errors[error.detailKind];
+    if (message) return message;
+  }
+  return fallback;
+}
+
 
 export function isApiNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 404;

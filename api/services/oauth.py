@@ -509,6 +509,75 @@ async def refresh_access_token(
     return result
 
 
+async def list_connections(db, *, user_id: int) -> list[dict[str, Any]]:
+    """Active MCP client connections for the account security page.
+
+    One row per client that still holds a non-revoked, non-expired access or
+    refresh token for this user. Disabled clients are excluded (their tokens
+    are unusable, so they are not live connections). All aggregates run over
+    valid tokens only; last_used_at comes from access tokens because refresh
+    tokens never touch last_used_at.
+    """
+    rows = (await db.execute(text("""
+        WITH valid AS (
+            SELECT client_id, scopes, created_at, last_used_at
+            FROM community.oauth_access_tokens
+            WHERE user_id=:user_id AND revoked_at IS NULL AND expires_at>now()
+            UNION ALL
+            SELECT client_id, scopes, created_at, NULL::timestamptz
+            FROM community.oauth_refresh_tokens
+            WHERE user_id=:user_id AND revoked_at IS NULL AND expires_at>now()
+        ), times AS (
+            SELECT client_id,
+                   min(created_at) AS authorized_at,
+                   max(last_used_at) AS last_used_at
+            FROM valid GROUP BY client_id
+        ), scope_union AS (
+            SELECT client_id, array_agg(DISTINCT scope ORDER BY scope) AS scopes
+            FROM valid, unnest(scopes) AS scope
+            GROUP BY client_id
+        )
+        SELECT c.client_id, c.client_name,
+               COALESCE(s.scopes, ARRAY[]::text[]) AS scopes,
+               t.authorized_at, t.last_used_at
+        FROM times t
+        JOIN community.oauth_clients c
+          ON c.client_id=t.client_id AND c.disabled_at IS NULL
+        LEFT JOIN scope_union s ON s.client_id=t.client_id
+        ORDER BY COALESCE(t.last_used_at, t.authorized_at) DESC, c.client_id
+    """), {"user_id": user_id})).mappings().all()
+    return [
+        {
+            "client_id": row["client_id"],
+            "client_name": row["client_name"],
+            "scopes": list(row["scopes"]),
+            "authorized_at": row["authorized_at"],
+            "last_used_at": row["last_used_at"],
+        }
+        for row in rows
+    ]
+
+
+async def revoke_connection(db, *, user_id: int, client_id: str) -> None:
+    """Revoke every token one client holds for one user.
+
+    Both updates land in one transaction. Idempotent by design: repeat calls
+    and unknown client_ids still succeed so the response cannot leak whether
+    another user ever authorized the client.
+    """
+    await db.execute(text("""
+        UPDATE community.oauth_access_tokens
+        SET revoked_at=now()
+        WHERE user_id=:user_id AND client_id=:client_id AND revoked_at IS NULL
+    """), {"user_id": user_id, "client_id": client_id})
+    await db.execute(text("""
+        UPDATE community.oauth_refresh_tokens
+        SET revoked_at=now()
+        WHERE user_id=:user_id AND client_id=:client_id AND revoked_at IS NULL
+    """), {"user_id": user_id, "client_id": client_id})
+    await db.commit()
+
+
 async def resolve_access_token(
     db, token: str, *, expected_resource: str
 ) -> dict[str, Any] | None:

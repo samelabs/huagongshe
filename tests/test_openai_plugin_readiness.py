@@ -152,8 +152,13 @@ class OpenAIPluginPackageTests(unittest.TestCase):
         self.assertIn("OAuth", llms)
         self.assertIn("reaction:write", llms)
         self.assertIn("skill:write", llms)
-        self.assertIn("HTTP API", llms)
         self.assertIn("AI Key", llms)
+        # v1.7.1 REST 收口: 对外接入只宣称 MCP, 不再出现 HTTP API /
+        # agent-guide / REST 端点路径
+        self.assertIn("MCP server only", llms)
+        self.assertNotIn("HTTP API", llms)
+        self.assertNotIn("agent-guide", llms)
+        self.assertNotIn("/api/", llms)
 
 
 if __name__ == "__main__":

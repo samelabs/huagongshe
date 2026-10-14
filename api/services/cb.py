@@ -15,11 +15,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import re
 from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import text
+
+from ..chemistry import valid_cas
 
 logger = logging.getLogger(__name__)
 
@@ -100,15 +101,25 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
 async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
     # 2026-08-31 收口: 老表迁移完成(profile 6,417/listing 449k), 双读回退桥拆除,
     # 只读两新表。旧表 chemical_supplier 已摘除。
+    # I-056(v1.7.1): 对外 ref 一律为 caslib/redact.supplier_ref 不透明哈希。
+    # 库内 ref 列保存原站标识形态(cb-supplier:{cbsid}), 属 DB 身份字段不出
+    # 公开详情/MCP; 库内键与数据不变, 哈希在此出口计算。输出不含 cbsid 键。
+    from caslib.redact import supplier_ref
+
     rows = (await db.execute(text("""
-        SELECT p.ref, p.name, p.phone, p.email, p.website,
+        SELECT p.cbsid, p.name, p.phone, p.email, p.website,
                l.purity, l.pack_price, l.remark
         FROM chemistry.chemical_supplier_listing l
         JOIN chemistry.chemical_supplier_profile p ON p.cbsid=l.cbsid
         WHERE l.chemical_id=:chemical_id
-        ORDER BY p.ref
+        ORDER BY p.cbsid
     """), {"chemical_id": chemical_id})).fetchall()
-    return [dict(r._mapping) for r in rows]
+    return [
+        {"ref": supplier_ref(row.cbsid), "name": row.name, "phone": row.phone,
+         "email": row.email, "website": row.website, "purity": row.purity,
+         "pack_price": row.pack_price, "remark": row.remark}
+        for row in rows
+    ]
 
 
 def _strip_nul(value):
@@ -216,7 +227,7 @@ async def upsert_externals(
         cb_mass = identity.get("mw")
         if cb_mass is not None and not (0 < cb_mass < 10000):
             cb_mass = None
-        cb_cas = cas_number if cas_number and CAS_FORMAT_RE.fullmatch(str(cas_number).strip()) else None
+        cb_cas = cas_number if cas_number and valid_cas(str(cas_number).strip()) else None
         await db.execute(text("""
             UPDATE chemistry.chemicals SET
                 preferred_name=coalesce(preferred_name, :nm),
@@ -231,10 +242,11 @@ async def upsert_externals(
             "nm": cb_name, "fm": cb_formula, "ms": cb_mass,
             "cs": cb_cas, "chemical_id": chemical_id,
         })
-    # name_index 摄入: 仅 zh-CN 主行(镜像)
+    # name_index 摄入: 仅 zh-CN 主行(镜像); I-055 后名称在镜像内取
+    # 该化合物全部 zh-CN ok 行并集(见 name_index.ingest_from_entry_cn)。
     if locale == "zh-CN":
         await ingest_from_entry_cn(
-            db, chemical_id, entry,
+            db, chemical_id,
             [s.get("name") for s in suppliers] if status == "ok" else [],
         )
     # 供应商两表写入(2026-08-30 准线§4): 档表(cbsid主键,过期才重拉)+映射表
@@ -337,8 +349,8 @@ def _norm_country_code(raw: str | None) -> str | None:
     return _COUNTRY_CODE_MAP.get(s, s)
 
 
-# CAS 格式校验(0902 basic分拣用): 2-7位-2位-1位数字
-CAS_FORMAT_RE = re.compile(r"^\d{2,7}-\d{2}-\d$")
+# CAS 校验(I-061): 往主表 cas_numbers 追加只收「格式+校验位」都合法的 CAS,
+# 统一走 api/chemistry.py valid_cas(原仅格式正则已于 2026-10-14 移除)。
 
 
 def _dedupe_key(chemical_id: int, cas_number: str, locale: str = "zh-CN",

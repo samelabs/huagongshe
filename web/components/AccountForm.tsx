@@ -7,11 +7,13 @@ import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { applyLocale } from "@/lib/localePath";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
+import { HgsLogo } from "@/components/ui/HgsLogo";
 import { Notice } from "@/components/ui/Notice";
 import { Segmented } from "@/components/ui/Segmented";
+import { TextLink } from "@/components/ui/TextLink";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
-/** 登录/注册表单（Step 11 §9.6）：ui 表单控件 + 错误 Notice err（写明原因，
+/** 登录/注册表单（DESIGN_SYSTEM 6.9）：ui 表单控件 + 错误 Notice err（写明原因，
  *  不暴露错误码，IX-12）；提交 primary lg（触控 ≥44px）。请求路径与
  *  字段 name 与旧版逐字一致（登录回跳/工具登录流依赖这些锚点）。 */
 export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
@@ -66,6 +68,10 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
 
   return (
     <>
+      <div className="auth-header">
+        <HgsLogo variant="mark" size={44} locale={locale} />
+        <h1>{kind === "login" ? t.auth.loginTitle : t.auth.registerTitle}</h1>
+      </div>
       <Segmented
         ariaLabel={t.auth.title}
         value={kind}
@@ -75,7 +81,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
           { value: "register", label: t.auth.registerTitle },
         ]}
       />
-      <form className="form-stack" onSubmit={async (event) => {
+      <form method="post" className="form-stack" onSubmit={async (event) => {
         event.preventDefault();
         if (busy) return;  // loading 不落 disabled：提交重入在 handler 拦截
         setBusy(true); setMessage("");
@@ -103,8 +109,8 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
           });
           if (response.ok) { await refresh(); router.push(applyLocale(nextPath, locale)); router.refresh(); return; }
-          const error = await response.json().catch(() => null);
-          setMessage(apiError(response.status, error?.detail, t));
+          const errorPayload = await response.json().catch(() => null);
+          setMessage(apiError(response.status, errorPayload, t));
         } catch {
           setMessage(t.auth.networkFailed);
         } finally {
@@ -142,9 +148,14 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
             <Input name="confirm_password" type="password" required minLength={8} autoComplete="new-password" />
           </Field>
         )}
-        <Button type="submit" variant="primary" size="lg" loading={busy}>{busy ? t.auth.submitting : t.auth.submit(kind)}</Button>
+        <Button type="submit" variant="primary" size="lg" className="auth-submit-btn" loading={busy}>{busy ? t.auth.submitting : t.auth.submit(kind)}</Button>
       </form>
       {message && <Notice tone="err">{message}</Notice>}
+      <div className="auth-switch">
+        <TextLink onClick={() => { setKind(kind === "login" ? "register" : "login"); setMessage(""); }}>
+          {kind === "login" ? t.auth.switchToRegister : t.auth.switchToLogin}
+        </TextLink>
+      </div>
     </>
   );
 }
@@ -152,8 +163,9 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
 /** BX-A2：登录/注册失败按状态 + 机器码（detail.kind）渲染五语言文案；
  *  不再透传服务端 message 原文（旧纯字符串 detail 一律落本地化兜底 ——
  *  同样的规则注册时已在客户端预校验，422 数组亦落通用校验文案）。 */
-function apiError(status: number, detail: unknown, labels: Dictionary) {
+function apiError(status: number, data: unknown, labels: Dictionary) {
   if (status === 429) return labels.auth.rateLimited;
+  const detail = data && typeof data === "object" && "detail" in (data as Record<string, unknown>) ? (data as { detail: unknown }).detail : data;
   if (detail && typeof detail === "object" && "kind" in (detail as Record<string, unknown>)) {
     const kind = (detail as { kind?: unknown }).kind;
     if (kind === "invalid_credentials") return labels.auth.failed;

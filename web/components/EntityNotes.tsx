@@ -108,8 +108,8 @@ export function EntityNotes({ entity, entityId, canAdd, privateContext }: {
               <p className="note-clamp-2">{note.content}</p>
               {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
                 <div className="entity-note-links">
-                  {note.chemical_ids.map((id) => <Link key={`c-${id}`} href={withLocale(`/chemical/${id}`, locale)}><EntityBadge kind="chemical" id={id} size="xs" compact /></Link>)}
-                  {note.reaction_ids.map((id) => <Link key={`r-${id}`} href={withLocale(`/reaction/${id}`, locale)}><EntityBadge kind="reaction" id={id} size="xs" compact /></Link>)}
+                  {note.chemical_ids.map((id) => <Link key={`c-${id}`} href={withLocale(`/chemical/${id}`, locale)}><EntityBadge kind="chemical" id={id} size="xs" /></Link>)}
+                  {note.reaction_ids.map((id) => <Link key={`r-${id}`} href={withLocale(`/reaction/${id}`, locale)}><EntityBadge kind="reaction" id={id} size="xs" /></Link>)}
                 </div>
               )}
               <TextLink className="note-view-full" href={withLocale(`/note/${note.id}`, locale)}>{t.notes.viewFull}</TextLink>

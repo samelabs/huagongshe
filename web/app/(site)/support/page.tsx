@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { CopyButton } from "@/components/ui/CopyButton";
-import { getRequestLocale } from "@/lib/serverI18n";
+import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { withLocale } from "@/lib/localePath";
 
 /**
  * S3 (G1.5-A): 法律/支持页正文只有英文权威版。
@@ -27,8 +29,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function SupportPage() {
+export default async function SupportPage() {
+  const locale = await getRequestLocale();
+  const t = await getRequestDictionary();
   return <article lang="en" className="content-page guide-page legal-page">
+    <Breadcrumb
+      items={[
+        { label: t.chemical.home, href: withLocale("/", locale) },
+        { label: "Support" },
+      ]}
+      ariaLabel={t.common.breadcrumb}
+    />
     <header className="page-head guide-hero">
       <h1>Support</h1>
       <p className="legal-meta">Help with accounts, chemistry data, MCP connections, OAuth authorization, and plugin use.</p>
@@ -36,12 +47,12 @@ export default function SupportPage() {
 
     <section className="guide-section">
       <h2>Contact</h2>
-      <p>Email <a className="footer-link" href="mailto:mail@huagongshe.com">mail@huagongshe.com</a> <CopyButton value="mail@huagongshe.com" ariaLabel="Copy email address" />. Include the feature you were using, the relevant HCID or HRID when applicable, and a concise description of the problem. Never send passwords, AI Keys, OAuth access or refresh tokens, MFA codes, or other authentication secrets.</p>
+      <p>Email <span className="inline-copy-target"><a className="footer-link" href="mailto:mail@huagongshe.com">mail@huagongshe.com</a><CopyButton value="mail@huagongshe.com" ariaLabel="Copy email address" /></span>. Include the feature you were using, the relevant HCID or HRID when applicable, and a concise description of the problem. Never send passwords, AI Keys, OAuth access or refresh tokens, MFA codes, or other authentication secrets.</p>
     </section>
 
     <section className="guide-section">
       <h2>MCP and OAuth</h2>
-      <p>The public MCP endpoint is <code>https://huagongshe.com/mcp</code> <CopyButton value="https://huagongshe.com/mcp" ariaLabel="Copy MCP endpoint" />. Public tools can be used anonymously. Private records and write actions use account authorization. Compatible MCP clients can use the standard HGS OAuth flow; existing HGS AI Keys remain available for supported manual integrations.</p>
+      <p>The public MCP endpoint is <span className="inline-copy-target"><code>https://huagongshe.com/mcp</code><CopyButton value="https://huagongshe.com/mcp" ariaLabel="Copy MCP endpoint" /></span>. Public tools can be used anonymously. Private records and write actions use account authorization. Compatible MCP clients can use the standard HGS OAuth flow; existing HGS AI Keys remain available for supported manual integrations.</p>
       <p>If an OAuth connection is rejected, reconnect through the client and confirm the requested scope. Huagongshe OAuth scopes in HGS v1.7.0 are <code>read</code>, <code>reaction:write</code>, and <code>skill:write</code>. Notes are not exposed through MCP in this version.</p>
     </section>
 

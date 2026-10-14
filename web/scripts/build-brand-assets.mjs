@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-brand-assets.mjs — 从 web/public/brand/*.svg 生成全站图标（DESIGN_SYSTEM §2）。
+ * build-brand-assets.mjs — 从 web/public/brand/*.svg 生成全站图标（DESIGN_SYSTEM 2.2）。
  *
  *   cd web && node scripts/build-brand-assets.mjs
  *

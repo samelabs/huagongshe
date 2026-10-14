@@ -99,8 +99,7 @@ class McpGetChemicalFullGhsTests(unittest.IsolatedAsyncioTestCase):
         from api.services import chemicals as chemicals_service
         with patch.object(chemicals_service, "get_chemical_detail", fake_get):
             result = await fn(chemical_id=1, enrich="full", ctx=_Ctx())
-        self.assertEqual(result["details"]["safety"]["pb_sections"]
-                         ["ghs_classification"], ghs,
+        self.assertEqual(result["details"]["safety"]["ghs_classification"], ghs,
                          "MCP full 丢失 GHS 分类（白名单键名回归？）")
         self.assertEqual(captured["enrich"], "full")
 

@@ -12,8 +12,8 @@ import { NextRequest, NextResponse } from "next/server";
  * - 公开数据匿名完整体验：匿名分页与本页数据走同一通道，无需身份。
  * - 防御性规则：inbound x-hgs-* 一律不向 FastAPI 转发 —— 任何未来的
  *   X-HGS 机制不得因经此代理而自动获得可信地位。
- * - /api/docs /api/openapi.json /api/redoc 本层 404：MCP 发现机制是
- *   /api/agent-guide 自描述文档，不是 OpenAPI。
+ * - /api/docs /api/openapi.json /api/redoc 本层 404：对外接入统一走 MCP
+ *   （https://huagongshe.com/mcp），不暴露 OpenAPI。
  */
 
 const API_ORIGIN = process.env.API_ORIGIN_INTERNAL || "http://127.0.0.1:8000";

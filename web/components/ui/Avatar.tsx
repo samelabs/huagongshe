@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Avatar — 头像（参考 §6）：24 / 32 / 40 / 80。
+ * Avatar — 头像（DESIGN_SYSTEM 3.12）：24 / 32 / 40 / 80。
  * 有图片用图片；没有则显示首字，底色按用户 id 取模从 --avatar-1…5 选。
  */
 export type AvatarSize = 24 | 32 | 40 | 80;

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * GroupToggle — 组级折叠的展开/收起按钮（v1.7 Step 7 §9.1 篇幅收敛）。
+ * GroupToggle — 组级折叠的展开/收起按钮（DESIGN_SYSTEM 4.2 篇幅收敛）。
  *
  * 约定：组内第 `limit` 项之后的服务端渲染元素带 `data-overflow` 且
  * `hidden`（DOM 保留——SEO 与页内搜索可用）。本组件只翻转这些元素的

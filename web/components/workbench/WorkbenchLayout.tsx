@@ -62,7 +62,7 @@ export function WorkbenchLayout({
   filterChemicalId?: number;
   filterReactionId?: number;
   initialReactions: ReactionResponse | null;
-  /** 概览（§9.4）：我的内容收藏流 / 动态前 5 / 收藏反应 id 集 */
+  /** 概览（DESIGN_SYSTEM 6.7）：我的内容收藏流 / 动态前 5 / 收藏反应 id 集 */
   initialFavorites: PageResponse<ChemicalFollow> | null;
   initialNotices: NoticeResponse | null;
   initialFavoredIds: number[] | null;

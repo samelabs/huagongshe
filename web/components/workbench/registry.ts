@@ -6,10 +6,10 @@ import {
 import type { WorkbenchPanelConfig } from "./types";
 
 /**
- * 工作台面板注册表（v1.7 Step 8 §9.4：四组 + 16px 图标）。
+ * 工作台面板注册表（DESIGN_SYSTEM 6.7：四组 + 16px 图标）。
  * 加新能力 = 新建 panel 组件文件 + 这里加一行。
  * id 与 href 是深链/测试钉子的稳定接口，不随展示分组调整；
- * 分组（section）、图标（icon）、label 是展示层，可按 §9.4 演进。
+ * 分组（section）、图标（icon）、label 是展示层，可按 DESIGN_SYSTEM 6.7 演进。
  * 账户组只留「设置」——头像/安全/AI Key 子页在设置页内部切换
  * （api-tokens 归入工具组，作为「MCP 与 AI Key」入口）。
  */
@@ -30,7 +30,7 @@ export const workbenchRegistry: Omit<WorkbenchPanelConfig, "label">[] = [
 
 /** panel id → 当前字典下的导航 label */
 export function panelLabel(id: string, t: Dictionary): string {
-  // Step 9 A.4：saved/activity 用侧栏短文案（§9.4「收藏」「动态」），
+  // saved/activity 用侧栏短文案（DESIGN_SYSTEM 6.7「收藏」「动态」），
   // 面板标题仍用 tabSaved/tabActivity（长文案），底部 tab 用 nav.* 独立 key。
   const me: Record<string, string> = {
     home: t.me.tabHome, notes: t.nav.tabNotes, search: t.me.tabSearch, stoich: t.me.tabStoich,

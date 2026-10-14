@@ -85,17 +85,29 @@ async def ingest_chemical_names(
 
 
 async def ingest_from_entry_cn(
-    db: Any, chemical_id: int, entry: dict[str, Any] | None,
+    db: Any,
+    chemical_id: int,
     supplier_names: list[str | None],
 ) -> None:
     """CB 挂点: chemical_cb 落库同事务调用(0905 canonical schema)。
 
-    identity.cn(name_cn) + alias_cn + alias_en + 供应商(supplier)。
-    entry 为 None(not_found)时清空该 source。
+    I-055: 同一化合物挂多条 CB 记录时, 名称取该化合物全部 zh-CN、
+    last_status='ok' 的 chemical_cb 行的并集(本事务刚 UPSERT 的行同事务
+    可见, 已在并集内), 按 cb_number 固定排序 + (kind,lang,normalized)
+    首现去重 —— 结果与各行的刷新先后无关。ok 行全部消失(全 error/删除)
+    时 supplier 之外清空, 镜像语义不变。supplier 名仍由调用方按本次
+    zh-CN ok 载荷传入。identity.cn(name_cn) + alias_cn + alias_en。
     """
     items: list[tuple[str, str, str]] = []
-    if entry:
-        identity = entry.get("identity") or {}
+    entries = (await db.execute(text("""
+        SELECT entry FROM chemistry.chemical_cb
+        WHERE chemical_id=:id AND locale='zh-CN' AND last_status='ok'
+        ORDER BY cb_number ASC NULLS LAST
+    """), {"id": chemical_id})).scalars().all()
+    for row_entry in entries:
+        if not row_entry:
+            continue
+        identity = row_entry.get("identity") or {}
         if identity.get("cn"):
             items.append(("name_cn", "cn", str(identity["cn"])))
         for v in identity.get("alias_cn") or []:

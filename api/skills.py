@@ -20,13 +20,12 @@ from .core.config import settings
 from .core.database import get_db
 from .rate_limit_http import enforce_http, to_http_exception
 from .core.rate_limit import RateLimitError
-from .core.security import Actor, current_actor, public_or_actor, require_scope
+from .core.security import Actor, current_actor, public_or_actor
 from .services.skills import (list_skills as list_skills_service,
     SkillNotAccessibleError, get_skill_detail as get_skill_detail_service,
     load_accessible_skill)
-from .services.skills import (MissingSkillIdempotencyKeyError,
-    SkillArchiveValidationError, SkillCategoryError,
-    SkillIdempotencyKeyTooLongError, SkillSlugConflictError)
+from .services.skills import (
+    SkillArchiveValidationError, SkillCategoryError, SkillSlugConflictError)
 from .services.skills import create_skill as create_skill_service
 from .services.skills import extract_skill_zip
 from .services.skills import validate_category
@@ -164,7 +163,7 @@ async def list_skills(
 ):
     if scope == "mine":
         if actor is None:
-            raise HTTPException(401, "列出自己的技能需要登录或 API Token")
+            raise HTTPException(401, {"message": "列出自己的技能需要登录", "kind": "login_required"})
         owner_id: int | None = actor.id
     else:
         owner_id = None
@@ -249,9 +248,8 @@ async def validate_skill(
     file: UploadFile = File(...),
     actor: Actor = Depends(current_actor),
 ):
-    # REST 与 MCP 对齐(B4): validate_skill 统一要求 skill:write。
-    # require_scope 只收紧 agent token, web session 行为不变。
-    require_scope(actor, "skill:write")
+    # v1.7.1: REST 已不接受 AI Key, agent-only 的 require_scope 分支退役;
+    # MCP 侧 scope 检查在 mcp_server。
     # HGS-A4-01: 网页 REST 校验入口的交互预算(与创建 20/h 同维度)。
     # MCP validate_skill 不经此桶(MCP 侧走其自身调用路径), 不是全入口 CPU 防刷。
     await enforce_http("skill-validate-hour", str(actor.id),
@@ -300,7 +298,8 @@ async def create_skill(
     # services.skills.create_skill(payload loader); adapter 只余 auth/scope
     # + loader 构造 + neutral → HTTP 映射。读文件时机由 service 决定
     # (rate→category→key→预检 之后才 loader(max+1)), 保持原 ordering。
-    require_scope(actor, "skill:write")
+    # v1.7.1: agent-only 幂等 key 分支已随 REST 收口退役(MCP 侧映射在
+    # mcp_server; service 检查保留)。
 
     async def archive_loader(limit: int) -> bytes:
         return await file.read(limit)
@@ -316,10 +315,6 @@ async def create_skill(
         raise HTTPException(400, {"message": exc.detail, "kind": "category_invalid"}) from exc
     except SkillSlugConflictError as exc:
         raise HTTPException(409, {"message": exc.detail, "kind": "slug_conflict"}) from exc
-    except MissingSkillIdempotencyKeyError as exc:
-        raise HTTPException(400, {"message": exc.detail, "kind": "idempotency_key_missing"}) from exc
-    except SkillIdempotencyKeyTooLongError as exc:
-        raise HTTPException(400, {"message": exc.detail, "kind": "idempotency_key_too_long"}) from exc
     except RateLimitError as exc:
         raise to_http_exception(exc) from exc
 
@@ -335,11 +330,10 @@ async def update_skill(
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):
-    if actor.auth_kind == "agent":
-        raise HTTPException(403, "API Token 当前不开放技能编辑，请使用网页登录会话")
+    # v1.7.1: REST 已不接受 AI Key, agent-only 的编辑封禁分支退役。
     current = await _load_accessible_skill_http(db, skill_id, actor)
     if current["owner_id"] != actor.id:
-        raise HTTPException(403, "只能编辑自己创建的技能")
+        raise HTTPException(403, {"message": "只能编辑自己创建的技能", "kind": "skill_not_owner"})
     # E4: validation + DB mutation + commit + readback 归
     # services.skills.update_skill_metadata; adapter 只余授权判定 + neutral → HTTP 映射。
     try:
@@ -361,11 +355,10 @@ async def delete_skill(
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):
-    if actor.auth_kind == "agent":
-        raise HTTPException(403, "API Token 当前不开放技能删除，请使用网页登录会话")
+    # v1.7.1: REST 已不接受 AI Key, agent-only 的删除封禁分支退役。
     current = await _load_accessible_skill_http(db, skill_id, actor)
     if current["owner_id"] != actor.id:
-        raise HTTPException(403, "只能删除自己创建的技能")
+        raise HTTPException(403, {"message": "只能删除自己创建的技能", "kind": "skill_not_owner"})
     # E4: 行锁 / DB 删除 / FS staging / 补偿 / 清理归
     # services.skills.delete_skill_lifecycle(user 与 admin 共用同一 owner)。
     # SkillNotFoundError = 授权检查与行锁之间的并发 delete 竞态 → 404(与重复删除同语义)。

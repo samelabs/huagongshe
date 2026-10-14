@@ -31,6 +31,8 @@ export type ChemicalNameFields = {
   preferred_name?: string | null;
   iupac_name?: string | null;
   molecular_formula?: string | null;
+  cas_numbers?: string[] | null;
+  cas?: string | null;
 };
 
 export type ChemicalNameSource =
@@ -38,6 +40,7 @@ export type ChemicalNameSource =
   | "preferred_name"
   | "iupac_name"
   | "molecular_formula"
+  | "cas"
   | "hcid";
 
 export type ResolvedChemicalName = {
@@ -64,10 +67,22 @@ export function resolveChemicalName(
   const common = clean(chemical.preferred_name);
   const systematic = clean(chemical.iupac_name);
   const formula = clean(chemical.molecular_formula);
+  const casVal = clean(chemical.cas ?? chemical.cas_numbers?.[0]);
 
   const chain: [string | null, ChemicalNameSource][] = isChineseLocale(locale)
-    ? [[localized, "name_cn"], [common, "preferred_name"], [systematic, "iupac_name"], [formula, "molecular_formula"]]
-    : [[common, "preferred_name"], [systematic, "iupac_name"], [formula, "molecular_formula"]];
+    ? [
+        [localized, "name_cn"],
+        [common, "preferred_name"],
+        [systematic, "iupac_name"],
+        [formula, "molecular_formula"],
+        [casVal, "cas"],
+      ]
+    : [
+        [common, "preferred_name"],
+        [systematic, "iupac_name"],
+        [formula, "molecular_formula"],
+        [casVal, "cas"],
+      ];
 
   const hit = chain.find(([value]) => value !== null);
   const source: ChemicalNameSource = hit ? hit[1] : "hcid";
@@ -79,3 +94,4 @@ export function resolveChemicalName(
 
   return { title, secondary, source };
 }
+

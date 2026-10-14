@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { apiDelete } from "@/lib/api";
+import { apiDelete, apiErrorMessage } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -11,7 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 
 /**
- * ReactionOwnerActions — 本人反应操作行（v1.7 Step 7 §9.2，Step 8 收敛为两项）。
+ * ReactionOwnerActions — 本人反应操作行（DESIGN_SYSTEM 6.4）。
  *
  * 编辑 / 删除（danger-quiet，经 useConfirm）。原「可见性切换」按钮同样跳
  * /submit 编辑表单（无独立切换端点），与「编辑」完全重复——Step 8 删除，
@@ -38,9 +38,9 @@ export function ReactionOwnerActions({ reactionId }: { reactionId: number }) {
       await apiDelete(`/reactions/${reactionId}`);
       toast.success(t.reaction.deleted);
       router.push(withLocale("/aichem", locale)); router.refresh(); return;
-    } catch {
+    } catch (err) {
       setBusy(false);
-      toast.error(t.common.deleteFailed);
+      toast.error(apiErrorMessage(err, t, t.common.deleteFailed));
     }
   }
   const editHref = withLocale(`/submit?reaction=${reactionId}`, locale);

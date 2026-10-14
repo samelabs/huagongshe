@@ -4,11 +4,13 @@
  * Molecule — 化合物结构图（RDKit SVG 端点渲染）。
  *
  * locale 来源: I18nContext(runtime locale); alt / noStructureText 仍可显式覆盖。
- * 公开调用方(Search/Chemical/Reaction)均已传 alt, 默认值仅兜底无 Provider 场景
- * (不存在于当前 app —— root layout 恒包 I18nProvider)。
+ * 结构图加载失败或无结构时显示占位（图标 24 + 暂无结构图，DESIGN_SYSTEM 5.1），
+ * 不露 alt 文本。
  */
+import { useState } from "react";
 import { molSvgUrl } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
+import { GlyphChem } from "@/components/ui/icons";
 
 export function Molecule({ chemicalId, smiles, label, width = 260, height = 180, alt, noStructureText }: {
   chemicalId: number;
@@ -22,9 +24,32 @@ export function Molecule({ chemicalId, smiles, label, width = 260, height = 180,
   noStructureText?: string;
 }) {
   const t = useDictionary();
-  if (!chemicalId) return <span className="result-sub">{noStructureText ?? t.reaction.noStructure}</span>;
+  const [loadError, setLoadError] = useState(false);
+  const placeholderText = noStructureText ?? t.chemical.noStructure;
+
+  if (!chemicalId || smiles === null || smiles === "" || loadError) {
+    return (
+      <span className="mol-placeholder" aria-label={placeholderText}>
+        <GlyphChem width={24} height={24} aria-hidden="true" />
+        <span>{placeholderText}</span>
+      </span>
+    );
+  }
   const name = label || t.common.hcidShort(chemicalId);
   // SVG is rendered by our validated RDKit endpoint; no remote image host is involved.
+  // alt="" prevents the browser from displaying broken alt text if the image fails;
+  // aria-label preserves accessibility.
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={molSvgUrl(chemicalId, width, height)} width={width} height={height} alt={alt ?? t.chemical.structureAlt(name)} loading="lazy" />;
+  return (
+    <img
+      src={molSvgUrl(chemicalId, width, height)}
+      width={width}
+      height={height}
+      alt=""
+      role="img"
+      aria-label={alt ?? t.chemical.structureAlt(name)}
+      loading="lazy"
+      onError={() => setLoadError(true)}
+    />
+  );
 }

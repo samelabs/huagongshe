@@ -60,12 +60,33 @@ python -m worker.main
 
 ## Testing
 
+测试分级（固定规范，2026-10-14 起）——按改动类型选择最小充分集，不随手跑全量：
+
+| 改动类型 | 必跑 |
+|---|---|
+| 只改文案 | `test:locale` + `tsc` |
+| 改前端组件或样式 | 前者之外再加 `test_ui_token_contract`，只截改到的页面 |
+| 改后端 | 只跑涉及的测试文件 + 直接相关的回归 |
+| 数据库迁移 | 经 `scripts/migrate.py` 在测试库正向执行一次，附执行输出 |
+
+跨全局的契约变更（错误响应格式、对外接口面、被删除的函数或字符串）不适用上表的最小集：「涉及的测试」要用 grep 找全 —— 凡是引用了被改字符串、被删符号的测试文件都要跑（例：`grep -rn "被改的旧文案" tests/`），否则只跑表面相关的文件会漏，最终 CI 才暴露批量红。
+
 ```bash
-# Backend tests
+# Backend tests（改后端时：只跑涉及的文件，例如）
 cd /var/www/huagongshe
 source venv/bin/activate
-./venv/bin/python -m unittest discover -s tests
+./venv/bin/python -m pytest tests/test_reactions.py tests/test_search.py -v
+
+# DB integration tests 需要过闸的测试库（tests/db_gate.py）
+TEST_DATABASE_URL='postgresql://...test_hgs?test_sentinel=hgs-test-db' \
+  ./venv/bin/python -m pytest tests/test_xxx.py
+
+# 迁移在测试库正向执行
+./venv/bin/python scripts/migrate.py "postgresql://user:pass@host:5432/test_hgs"
 ```
+
+全量测试只在两处各跑一次：CI 与发布门禁；全量截图只在发布门禁跑一次。日常
+PR 与本地开发不得跑全量。
 
 Test files: `test_reactions.py`, `test_search.py`, `test_security.py`, `test_worker.py`.
 

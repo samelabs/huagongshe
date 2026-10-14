@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ChemPageNav — 化合物详情页内导航（v1.7 Step 6，§9.1）。
+ * ChemPageNav — 化合物详情页内导航（DESIGN_SYSTEM 6.3）。
  *
  * 两个形态共用一份 section 列表与高亮逻辑（IntersectionObserver）：
  * - variant="rail"：桌面右侧栏列表，sticky top var(--sp-6)，当前项

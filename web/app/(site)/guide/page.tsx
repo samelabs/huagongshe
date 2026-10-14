@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AiSubmissionPrompt } from "@/components/AiSubmissionPrompt";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ShareButton } from "@/components/ShareButton";
 import { CodeField } from "@/components/ui/CodeField";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
@@ -17,12 +18,19 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-/** 文档页（§9.6，Step 11）：阅读版式 --w-reading 720；段落 + 小标题为主，
- *  代码/配置片段走 CodeField（IX-7 复制播报），无英文 eyebrow（同 Step 10 A3）。 */
+/** 文档页（6.10）：阅读版式 --w-reading 720；段落 + 小标题为主，
+ *  代码/配置片段走 CodeField（IX-7 复制播报），无英文 eyebrow。 */
 export default async function GuidePage() {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   return <div className="content-page guide-page">
+    <Breadcrumb
+      items={[
+        { label: t.chemical.home, href: withLocale("/", locale) },
+        { label: t.guide.title },
+      ]}
+      ariaLabel={t.common.breadcrumb}
+    />
     <header className="page-head guide-hero">
       <div className="guide-hero-top">
         <ShareButton />

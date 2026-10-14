@@ -217,10 +217,12 @@ class HttpAdapterTests(unittest.TestCase):
         e400b = reactions_module._reaction_validation_http(
             ReactionValidationError(
                 ReactionValidationError.INVALID_REACTION, "d3"))
-        for e, code, detail in ((e400a, 400, "d1"), (e409, 409, "d2"),
-                                (e400b, 400, "d3")):
+        for e, code, detail, kind in (
+                (e400a, 400, "d1", ReactionValidationError.INVALID_STRUCTURE),
+                (e409, 409, "d2", ReactionValidationError.DUPLICATE_PARTICIPANT),
+                (e400b, 400, "d3", ReactionValidationError.INVALID_REACTION)):
             self.assertEqual(e.status_code, code)
-            self.assertEqual(e.detail, detail)
+            self.assertEqual(e.detail, {"message": detail, "kind": kind})
 
     def test_rate_bridge_via_enforce_neutral(self):
         """service 冒泡 RateLimitError → handler G2.R bridge → 429。"""
@@ -236,7 +238,8 @@ class HttpAdapterTests(unittest.TestCase):
                 self.fail("expected HTTPException")
             except HTTPException as exc:
                 self.assertEqual(exc.status_code, 429)
-                self.assertEqual(exc.detail, "请求过于频繁，请稍后重试")
+                self.assertEqual(exc.detail, {
+                    "message": "请求过于频繁，请稍后重试", "kind": "rate_limited"})
                 self.assertEqual(exc.headers.get("Retry-After"), "5")
 
 

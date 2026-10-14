@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import unittest
 
@@ -130,15 +131,30 @@ class IngestTest(unittest.TestCase):
                         "identity": {"cn": "哨兵苯甲酸", "en": "Sentinel Acid",
                                      "alias_cn": ["哨兵安息香酸"], "alias_en": ["Sentinel Benzoate"]},
                     }
-                    await ingest_from_entry_cn(conn, sid, entry, ["哨兵供应商甲", None])
+                    # I-055: 名称一律以表内 zh-CN ok 行为准(真实链路是
+                    # cb.py 先 UPSERT chemical_cb 再同事务调镜像摄入)。
+                    await conn.execute(text("""
+                        INSERT INTO chemistry.chemical_cb
+                          (chemical_id,cas_number,cb_number,entry,last_status,fetched_at,locale)
+                        VALUES (:i,'7732-18-5','CBTEST01',
+                                CAST(:entry AS jsonb),'ok',now(),'zh-CN')
+                    """), {"i": sid, "entry": json.dumps(entry)})
+                    await ingest_from_entry_cn(conn, sid, ["哨兵供应商甲", None])
                     rows = (await conn.execute(text(
                         "SELECT source, kind, lang, normalized FROM chemistry.name_index"
                         " WHERE chemical_id=:i ORDER BY kind"
                     ), {"i": sid})).fetchall()
-                    await ingest_from_entry_cn(conn, sid, None, [])  # not_found 清空
+                    # 行转 error(not_found/error 均不贡献数据)后再摄入 → 清空
+                    await conn.execute(text(
+                        "UPDATE chemistry.chemical_cb SET last_status='error'"
+                        " WHERE chemical_id=:i"
+                    ), {"i": sid})
+                    await ingest_from_entry_cn(conn, sid, [])
                     after = (await conn.execute(text(
                         "SELECT count(*) FROM chemistry.name_index WHERE chemical_id=:i"
                     ), {"i": sid})).scalar()
+                    await conn.execute(text(
+                        "DELETE FROM chemistry.chemical_cb WHERE chemical_id=:i"), {"i": sid})
                     await conn.execute(text(
                         "DELETE FROM chemistry.chemicals WHERE id=:i"), {"i": sid})
                     return [tuple(r) for r in rows], after
@@ -154,6 +170,58 @@ class IngestTest(unittest.TestCase):
         self.assertIn(("alias_en", "en", "sentinel benzoate"), kinds)
         self.assertIn(("supplier", "cn", "哨兵供应商甲"), kinds)
         self.assertEqual(after, 0)
+
+    def test_cb_multi_record_names_are_union_regardless_of_refresh_order(self):
+        """I-055: 同一化合物多条 zh-CN CB 记录, name_index 名称取并集且与刷新先后无关。"""
+
+        async def refresh(conn, sid, cb_number, cn_name, alias):
+            from api.services.cb import upsert_externals
+            entry = {"identity": {"cn": cn_name, "alias_cn": [alias]}}
+            await upsert_externals(
+                conn, chemical_id=sid, cas_number="1000000-00-9",
+                entry=entry, suppliers=[],
+                status="ok", cb_number=cb_number, locale="zh-CN")
+
+        def read_names(rows):
+            return {r[1] for r in rows if r[0] == "cb"}
+
+        async def body():
+            eng = _engine()
+            try:
+                names_by_sentinel = []
+                for order in (("CB001", "CB002"), ("CB002", "CB001")):
+                    async with eng.begin() as conn:
+                        sid = await _alloc_sentinel_id(conn)
+                    for cb_number in order:
+                        # 两条记录各自的中文名与别名互不重叠
+                        async with eng.begin() as conn:
+                            await refresh(conn, sid, cb_number,
+                                          f"哨兵并集名{cb_number}", f"哨兵别名{cb_number}")
+                    # 两次刷新都完成后读镜像: 必须是两行名称的并集
+                    async with eng.begin() as conn:
+                        rows = (await conn.execute(text(
+                            "SELECT source, name FROM chemistry.name_index"
+                            " WHERE chemical_id=:i AND kind IN ('name_cn','alias_cn')"
+                        ), {"i": sid})).fetchall()
+                    names_by_sentinel.append((sid, read_names(rows)))
+                    # 清理本哨兵的全部痕迹
+                    async with eng.begin() as conn:
+                        await conn.execute(text(
+                            "DELETE FROM chemistry.chemical_cb WHERE chemical_id=:i"), {"i": sid})
+                        await conn.execute(text(
+                            "DELETE FROM chemistry.chemicals WHERE id=:i"), {"i": sid})
+                return names_by_sentinel
+            finally:
+                await eng.dispose()
+
+        results = self.run_coro(body())
+        expected = {"哨兵并集名CB001", "哨兵并集名CB002",
+                    "哨兵别名CB001", "哨兵别名CB002"}
+        for sid, names in results:
+            self.assertEqual(
+                names, expected,
+                f"哨兵 {sid}: 两种刷新顺序都必须得到同一并集",
+            )
 
     def test_ingest_from_synonyms_none_keeps(self):
         async def body():

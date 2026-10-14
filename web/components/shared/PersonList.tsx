@@ -16,7 +16,7 @@ export type PersonSummary = {
   is_me: boolean;
 };
 
-/** 关注/粉丝列表行（§6 Step 9 Part B.5）：Avatar 40 + 名字 + @username +
+/** 关注/粉丝列表行（DESIGN_SYSTEM 6.7）：Avatar 40 + 名字 + @username +
  *  简介首行 + 关注按钮（未关注 tonal / 已关注 secondary，hover 显示
  *  「取消关注」）+ 关系标签。粉丝列表里的人按定义都关注了当前用户：
  *  is_following → 「互相关注」，否则「关注了你」（列表语义可客户端判定，

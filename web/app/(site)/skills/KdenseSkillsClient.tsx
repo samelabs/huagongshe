@@ -3,6 +3,9 @@
 import { useState, useMemo } from "react";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { IconSparkle } from "@/components/ui/icons";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 type Skill = {
@@ -93,11 +96,13 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
       {/* Hero */}
       <section className="kdense-hero">
         <div className="kdense-hero-inner">
-          <p className="kdense-breadcrumb">
-            <a href={withLocale("/", locale)}>{t.brand.name}</a>
-            <span className="kdense-sep">/</span>
-            <span>{t.skills.openLibrary}</span>
-          </p>
+          <Breadcrumb
+            items={[
+              { label: t.chemical.home, href: withLocale("/", locale) },
+              { label: t.skills.openLibrary },
+            ]}
+            ariaLabel={t.common.breadcrumb}
+          />
           <h1>{t.skills.heroTitle}</h1>
           <p className="kdense-subtitle">
             {t.skills.heroSubtitle(skills.length)}
@@ -141,7 +146,7 @@ export function KdenseSkillsClient({ skills, cats, loadError }: {
         {error ? (
           <p className="kdense-empty">{t.skills.loadFailed}</p>
         ) : filtered.length === 0 ? (
-          <p className="kdense-empty">{t.skills.noMatch}</p>
+          <EmptyState icon={<IconSparkle />} title={t.skills.noMatch} />
         ) : (
           <div className="kdense-groups">
             {grouped.map(([cat, catSkills]) => (

@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
 import { LoginRequired } from "@/components/settings/SettingsAuth";
-import { apiPost, apiDelete } from "@/lib/api";
+import { apiPost, apiDelete, apiErrorMessage } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Field, Input } from "@/components/ui/Field";
+import { Field } from "@/components/ui/Field";
+import { FileUpload } from "@/components/ui/FileUpload";
 import { useToast } from "@/components/ui/Toast";
 
 /** 头像设置（Step 11 Part D）：预览统一 ui/Avatar（无图首字回退）；
@@ -22,12 +23,12 @@ export function AvatarSettings() {
   if (!user) return <LoginRequired text={t.settings.avatar.title} />;
 
   return <section className="form-section">
-    <div className="form-section-head"><div><h2>{t.settings.avatar.title}</h2><p>{t.settings.avatar.desc}</p></div></div>
+    <div className="form-section-head"><div><p>{t.settings.avatar.desc}</p></div></div>
     <div className="avatar-settings-preview">
       <Avatar id={user.id} name={user.display_name || user.username} src={user.avatar_url} size={80} />
       <div><strong>{t.settings.avatar.current}</strong><small>{t.settings.avatar.hint}</small></div>
     </div>
-    <form className="avatar-upload" onSubmit={async (event) => {
+    <form method="post" className="avatar-upload" onSubmit={async (event) => {
       event.preventDefault();
       if (uploading || removing) return;
       const form = event.currentTarget;
@@ -40,12 +41,18 @@ export function AvatarSettings() {
         await refresh();
         form.reset();
         toast.success(t.settings.avatar.updated);
-      } catch {
-        toast.error(t.settings.avatar.uploadFailed);
+      } catch (err) {
+        toast.error(apiErrorMessage(err, t, t.settings.avatar.uploadFailed));
       } finally { setUploading(false); }
     }}>
       <Field label={t.settings.avatar.uploadLabel}>
-        <Input name="image" type="file" accept="image/jpeg,image/png,image/webp" required disabled={uploading} />
+        <FileUpload
+          name="image"
+          accept="image/jpeg,image/png,image/webp"
+          required
+          disabled={uploading}
+          buttonText={t.settings.avatar.selectFile ?? "选择文件"}
+        />
       </Field>
       <Button type="submit" variant="primary" loading={uploading}>{uploading ? t.settings.avatar.uploading : t.settings.avatar.uploadBtn}</Button>
     </form>
@@ -62,8 +69,8 @@ export function AvatarSettings() {
               await apiDelete(`/users/me/avatar`);
               await refresh();
               toast.success(t.settings.avatar.removed);
-            } catch {
-              toast.error(t.settings.avatar.removeFailed);
+            } catch (err) {
+              toast.error(apiErrorMessage(err, t, t.settings.avatar.removeFailed));
             } finally { setRemoving(false); }
           }}
         >
