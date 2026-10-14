@@ -156,7 +156,9 @@ class HttpContractTests(unittest.TestCase):
             self._run(render_molecule, chemical_id=999, w=400, h=300,
                       actor=None, db=_FakeDB(None))
         self.assertEqual(ctx.exception.status_code, 404)
-        self.assertEqual(ctx.exception.detail, "化合物没有可渲染的结构表达")
+        self.assertEqual(ctx.exception.detail, {
+            "message": "化合物没有可渲染的结构表达",
+            "kind": "chemical_not_renderable"})
 
     def test_molecule_svg_success_immutable(self):
         from api.mol import render_molecule
@@ -197,7 +199,9 @@ class HttpContractTests(unittest.TestCase):
             self._run(render_reaction, reaction_id=424242, w=1200, h=300,
                       actor=None, db=_FakeDB(None))
         self.assertEqual(ctx.exception.status_code, 404)
-        self.assertEqual(ctx.exception.detail, "反应没有可渲染的结构表达")
+        self.assertEqual(ctx.exception.detail, {
+            "message": "反应没有可渲染的结构表达",
+            "kind": "reaction_not_renderable"})
 
 
 # ---------------------------------------------------------------------------

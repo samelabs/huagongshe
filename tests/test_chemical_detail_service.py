@@ -306,7 +306,9 @@ class HttpAdapterTests(unittest.TestCase):
         import api.routes as routes
         src = inspect.getsource(routes.chemical_detail)
         self.assertIn("get_chemical_detail", src)
-        self.assertIn('raise HTTPException(404, "化合物不存在")', src)
+        self.assertIn(
+            'raise HTTPException(404, {"message": "化合物不存在", "kind": "chemical_not_found"})',
+            src)
         self.assertIn("priority=80 if actor is not None else 50", src)
         self.assertNotIn("fill_detail_context(", src)
         self.assertNotIn("enqueue_chemical_if_needed", src)

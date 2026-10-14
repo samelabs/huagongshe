@@ -437,45 +437,68 @@ class HttpMappingContractTests(unittest.IsolatedAsyncioTestCase):
                     reaction_id=5, actor=self._actor(), db=RecordingDB())
         return ctx.exception
 
-    async def test_put_agent_forbidden_403_exact(self):
-        exc = await self._put_expect(service.AgentReactionMutationForbiddenError(
-            service.AgentReactionMutationForbiddenError.EDIT_DETAIL))
-        self.assertEqual((exc.status_code, exc.detail),
-                         (403, "API Token 当前不开放反应编辑，请使用网页登录会话"))
+    async def test_agent_rejected_at_auth_entry_not_route_403(self):
+        """v1.7.1 REST 收口: AI Key 在鉴权入口(optional_actor)即 401,
+        路由函数收不到 agent 身份 —— 场景"agent 直调路由得 403"已不存在,
+        不再构造 agent 身份直调路由函数。"""
+        import api.core.security as security
 
-    async def test_delete_agent_forbidden_403_exact(self):
-        exc = await self._delete_expect(service.AgentReactionMutationForbiddenError(
-            service.AgentReactionMutationForbiddenError.DELETE_DETAIL))
-        self.assertEqual((exc.status_code, exc.detail),
-                         (403, "API Token 当前不开放反应删除，请使用网页登录会话"))
+        # 1) PUT/DELETE /reactions/{id} 的 actor 依赖是 current_actor
+        #    (optional_actor 下游 → agent 在依赖层即被拒)
+        route = next(r for r in adapter.router.routes
+                     if getattr(r, "path", "") == "/reactions/{reaction_id}"
+                     and "DELETE" in (r.methods or ()))
+        dep_names = {getattr(d.call, "__name__", "")
+                     for d in route.dependant.dependencies}
+        self.assertIn("current_actor", dep_names)
+
+        # 2) 依赖层行为: agent Actor → 401 rest_agent_forbidden(先于任何 DB 工作)
+        async def _agent_actor(*_a, **_k):
+            return self._actor(auth_kind="agent")
+
+        with patch.object(security, "resolve_actor", _agent_actor):
+            with self.assertRaises(HTTPException) as ctx:
+                await security.optional_actor(
+                    db=None, authorization="Bearer hgs_probe",
+                    session_token=None)
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertEqual(ctx.exception.detail, {
+            "message": "API Token 仅支持 MCP 接入，网页接口请使用登录会话",
+            "kind": "rest_agent_forbidden",
+        })
 
     async def test_put_not_found_404_exact(self):
         exc = await self._put_expect(service.ReactionAccessError(
             service.ReactionAccessError.NOT_FOUND, "反应不存在"))
-        self.assertEqual((exc.status_code, exc.detail), (404, "反应不存在"))
+        self.assertEqual((exc.status_code, exc.detail),
+                         (404, {"message": "反应不存在", "kind": "not_found"}))
 
     async def test_put_not_owner_403_exact(self):
         exc = await self._put_expect(service.ReactionAccessError(
             service.ReactionAccessError.NOT_OWNER, "只能维护自己创建的反应"))
         self.assertEqual((exc.status_code, exc.detail),
-                         (403, "只能维护自己创建的反应"))
+                         (403, {"message": "只能维护自己创建的反应",
+                                "kind": "not_owner"}))
 
     async def test_delete_not_owner_403_exact(self):
         exc = await self._delete_expect(service.ReactionAccessError(
             service.ReactionAccessError.DELETE_NOT_OWNER, "只能删除自己创建的反应"))
         self.assertEqual((exc.status_code, exc.detail),
-                         (403, "只能删除自己创建的反应"))
+                         (403, {"message": "只能删除自己创建的反应",
+                                "kind": "delete_not_owner"}))
 
     async def test_delete_system_import_403_exact(self):
         exc = await self._delete_expect(service.ReactionAccessError(
             service.ReactionAccessError.SYSTEM_IMPORT, "系统导入反应不能由用户删除"))
         self.assertEqual((exc.status_code, exc.detail),
-                         (403, "系统导入反应不能由用户删除"))
+                         (403, {"message": "系统导入反应不能由用户删除",
+                                "kind": "system_import"}))
 
     async def test_put_delete_not_found_404_exact(self):
         exc = await self._delete_expect(service.ReactionAccessError(
             service.ReactionAccessError.NOT_FOUND, "反应不存在"))
-        self.assertEqual((exc.status_code, exc.detail), (404, "反应不存在"))
+        self.assertEqual((exc.status_code, exc.detail),
+                         (404, {"message": "反应不存在", "kind": "not_found"}))
 
     async def test_put_validation_400_409_exact(self):
         for kind, status in ((service.ReactionValidationError.INVALID_STRUCTURE, 400),
@@ -483,19 +506,23 @@ class HttpMappingContractTests(unittest.IsolatedAsyncioTestCase):
                              (service.ReactionValidationError.INVALID_REACTION, 400)):
             exc = await self._put_expect(
                 service.ReactionValidationError(kind, f"detail-{kind}"))
-            self.assertEqual((exc.status_code, exc.detail), (status, f"detail-{kind}"))
+            self.assertEqual((exc.status_code, exc.detail),
+                             (status, {"message": f"detail-{kind}", "kind": kind}))
 
     async def test_put_rate_limit_429_503_exact(self):
         from api.core.rate_limit import LimiterUnavailable, RateLimited
 
         exc = await self._put_expect(RateLimited("请求过于频繁，请稍后重试", 5))
         self.assertEqual((exc.status_code, exc.detail),
-                         (429, "请求过于频繁，请稍后重试"))
+                         (429, {"message": "请求过于频繁，请稍后重试",
+                                "kind": "rate_limited"}))
         self.assertEqual(exc.headers.get("Retry-After"), "5")
         self.assertEqual(exc.headers.get("X-RateLimit-Remaining"), "0")
 
+        # LimiterUnavailable 维持 503 + 纯文案 detail(桥未包 {message,kind})
         exc = await self._put_expect(LimiterUnavailable("限流服务不可用，请稍后重试"))
         self.assertEqual(exc.status_code, 503)
+        self.assertEqual(exc.detail, "限流服务不可用，请稍后重试")
 
     async def test_success_paths_pass_actor_identity_to_service(self):
         calls = {}

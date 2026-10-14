@@ -247,7 +247,8 @@ class HttpAdapterTests(unittest.IsolatedAsyncioTestCase):
                                          page=1, page_size=30,
                                          actor=None, db=object())
         self.assertEqual(ctx.exception.status_code, 401)
-        self.assertEqual(ctx.exception.detail, "列出自己的技能需要登录或 API Token")
+        self.assertEqual(ctx.exception.detail, {
+            "message": "列出自己的技能需要登录", "kind": "login_required"})
 
     def test_http_validation_signature_unchanged(self):
         from api import skills as skills_api

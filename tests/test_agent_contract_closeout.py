@@ -79,8 +79,12 @@ class LlmsTxtEnglishContract(unittest.TestCase):
         self.assertIn("13 total", self.text)
         self.assertIn("PKCE S256", self.text)
         self.assertIn("`read`, `reaction:write`, `skill:write`", self.text)
-        self.assertIn("REST / AI Key compatibility surface", self.text)
-        self.assertIn("never accepted as a REST bearer credential", self.text)
+        # v1.7.1 REST 收口: 对外只宣称 MCP; 不再出现 REST 兼容面/agent-guide
+        self.assertIn("MCP server only", self.text)
+        self.assertNotIn("REST / AI Key compatibility surface", self.text)
+        self.assertNotIn("never accepted as a REST bearer credential", self.text)
+        self.assertNotIn("HTTP API", self.text)
+        self.assertNotIn("agent-guide", self.text)
         self.assertIn("Note MCP tools and the `note:write` scope", self.text)
         self.assertNotIn("note:write scope is", self.text)  # negative only
 

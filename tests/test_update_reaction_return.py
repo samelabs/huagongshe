@@ -171,22 +171,35 @@ class UpdateReactionReturnTests(_Base):
                 await reactions_module.update_reaction(
                     body=body, reaction_id=5, actor=actor, db=db)
         self.assertEqual(ctx.exception.status_code, 403)
-        self.assertEqual(ctx.exception.detail, "只能维护自己创建的反应")
+        self.assertEqual(ctx.exception.detail, {
+            "message": "只能维护自己创建的反应", "kind": "not_owner"})
         self.assertEqual(db.commit_count, 0)
         self.assertEqual(db.rollback_count, 1)
 
-    async def test_agent_edit_is_403_and_no_db_work(self):
-        """agent(AI Key)编辑: 403 + 原文 detail(现由 service 中性错误产生)。"""
-        db, actor, body, events = self._make_env()
-        actor.auth_kind = "agent"
-        with self._patched(events):
+    async def test_agent_edit_rejected_at_auth_entry(self):
+        """v1.7.1 REST 收口: AI Key 在鉴权入口(optional_actor)即 401,
+        路由函数收不到 agent 身份 —— 不再构造 agent 直调路由函数。"""
+        import api.core.security as security
+
+        # 1) PUT /reactions/{id} 的 actor 依赖是 current_actor(optional_actor 下游)
+        route = next(r for r in reactions_module.router.routes
+                     if getattr(r, "path", "") == "/reactions/{reaction_id}"
+                     and "PUT" in (r.methods or ()))
+        dep_names = {getattr(d.call, "__name__", "")
+                     for d in route.dependant.dependencies}
+        self.assertIn("current_actor", dep_names)
+
+        # 2) 依赖层行为: agent Actor → 401 rest_agent_forbidden(先于任何 DB 工作)
+        async def _agent_actor(*_a, **_k):
+            return FakeActor(auth_kind="agent")
+
+        with patch.object(security, "resolve_actor", _agent_actor):
             with self.assertRaises(HTTPException) as ctx:
-                await reactions_module.update_reaction(
-                    body=body, reaction_id=5, actor=actor, db=db)
-        self.assertEqual(ctx.exception.status_code, 403)
-        self.assertEqual(ctx.exception.detail,
-                         "API Token 当前不开放反应编辑，请使用网页登录会话")
-        self.assertEqual(events, [])  # agent 403 在任何 DB 动作之前
+                await security.optional_actor(
+                    db=None, authorization="Bearer hgs_probe",
+                    session_token=None)
+        self.assertEqual(ctx.exception.status_code, 401)
+        self.assertEqual(ctx.exception.detail["kind"], "rest_agent_forbidden")
 
     async def test_notify_only_on_public_transition(self):
         """visibility 副作用保持: 仅 private→public 触发 notify, 且在 commit 后。"""
