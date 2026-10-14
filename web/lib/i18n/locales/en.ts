@@ -978,7 +978,7 @@ If you cannot call the Huagongshe API for now, still output the draft with the s
     aboutTitle: 'About',
     institutionLabel: 'Institution',
     joinedLabel: 'Joined',
-    /* HGS-ACCOUNT-CONTENT-01 (PM ruling): disabled-account profile state (§9.8) + author mark */
+    /* HGS-ACCOUNT-CONTENT-01 (PM ruling): disabled-account profile state (DESIGN_SYSTEM 6.6) + author mark */
     deactivatedTag: 'Account disabled',
     deactivatedTitle: 'This account is disabled',
     deactivatedBody: 'This account has been disabled by an administrator. Public reactions, notes, and skills remain reachable by link, but no content lists are shown here and the account cannot be followed.',

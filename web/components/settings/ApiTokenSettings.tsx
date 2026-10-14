@@ -68,7 +68,7 @@ export function ApiTokenSettings() {
 
   return <section className="form-section">
     <div className="form-section-head"><div><h2>{t.settings.ai.title}</h2><p>{t.settings.ai.desc}</p></div></div>
-    <form className="token-create" onSubmit={async (event) => {
+    <form method="post" className="token-create" onSubmit={async (event) => {
       event.preventDefault();
       if (creating) return;
       const form = event.currentTarget;

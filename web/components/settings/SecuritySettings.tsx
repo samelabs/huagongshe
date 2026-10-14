@@ -23,7 +23,7 @@ export function SecuritySettings() {
 
   return <section className="form-section">
     <div className="form-section-head"><div><h2>{t.settings.security.title}</h2><p>{t.settings.security.desc}</p></div></div>
-    <form className="form-fields" onSubmit={async (event) => {
+    <form method="post" className="form-fields" onSubmit={async (event) => {
       event.preventDefault();
       if (busy) return;
       const values = new FormData(event.currentTarget);

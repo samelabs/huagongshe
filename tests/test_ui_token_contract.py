@@ -1,37 +1,21 @@
-"""UI token contract for the v1.7 design-system rollout (docs/DESIGN_SYSTEM.md §11).
+"""UI token contract for the v2.0 design-system rollout (docs/DESIGN_SYSTEM.md 第七章).
 
-Step 1 scope: three parallel style-variable systems were converged onto
-web/app/tokens.css. This module pins that convergence with pure static
-source scans of web/app + web/components — no database, no network, no
-node. Violations that exist *today* and are owned by later steps are
-marked ``@unittest.expectedFailure`` and pinned by a companion guard so
-they cannot silently grow; each is listed in the Step 1 report.
-
-Checks:
+Static source scans of web/app + web/components — no database, no network, no
+node. Checks:
 1. No hex / rgb( / hsl( color literals outside tokens.css and an
    explicit file+line whitelist (data-driven colors, metadata literals).
-   Colors with no equal-value token in tokens.css are parked in
-   KNOWN_HEX_PENDING awaiting a decision (report §5) — the strict
-   no-hex-at-all test stays expectedFailure until they are resolved.
-2. font-size only takes var(--fs-*) / var(--wb-fs*) / inherit / 16px
-   (input iOS-zoom guard). Today's only offenders are responsive
-   clamp() headlines, deferred to a later step.
-3. border-radius only takes var(--r-*) / var(--wb-r-*) / 999px / 50% /
-   0 / inherit.
-4. Every --wb-* in aichem-tokens.css is a pure alias — its value must
-   start with var(--, no literals of its own.
+2. font-size only takes scale tokens / inherit / 16px iOS-zoom guard.
+3. border-radius only takes scale tokens / 999px / 50% / 0 / inherit.
+4. Every --wb-* in aichem-tokens.css is a pure alias of tokens.css vars.
 5. --green* / --warm* tokens must not reappear.
-6. No alert( / confirm( / prompt( calls in TSX. A bare ``confirm(``
-   call is legal only in files that also call ``useConfirm`` — that is
-   the ConfirmDialog API replacing the native dialogs (Step 4).
-7. Brand: components/ui/HgsLogo.tsx geometry (polygon points, path d)
-   must stay byte-identical to web/public/brand/*.svg source files.
-8. Brand: public/brand/*.svg is the only place besides the line
-   whitelist where hex values are allowed (brand source files).
-9. Entity display: no HCID/HRID display may be spelled (interpolating
-   an id) outside components/ui/EntityBadge.tsx. The i18n dictionaries
-   (lib/i18n/locales, not scanned) and aria-only copy are exempt;
-   EntityBadge keeps its literals behind the component boundary.
+6. No alert( / confirm( / prompt( calls in TSX (ConfirmDialog via useConfirm).
+7. Brand: components/ui/HgsLogo.tsx geometry byte-identical to SVG sources.
+8. Brand: public/brand/*.svg only hex exceptions beyond line whitelist.
+9. Entity display: no HCID/HRID display spelled outside EntityBadge.
+10. EntityBadge: compact only in table columns or dev-ui showcase.
+11. Form: all <form> tags must declare method="post".
+12. Topbar: no search input or shortcut.
+13. Media query: must not hide .hg-btn or its svg.
 """
 
 from __future__ import annotations
@@ -63,7 +47,7 @@ def rel(p: Path) -> str:
     return str(p.relative_to(WEB))
 
 
-# ── §11.1 whitelist: file + exact line-content match, never whole files ──────
+# ── 7.1 whitelist: file + exact line-content match, never whole files ──────
 HEX_LINE_WHITELIST: list[tuple[str, str, str]] = [
     # metadata 只接受字符串字面量，无法引用 CSS 变量；值与 tokens.css --brand 一致
     ("app/layout.tsx", 'themeColor: "#1e90ff"',
@@ -71,12 +55,12 @@ HEX_LINE_WHITELIST: list[tuple[str, str, str]] = [
     # 分类颜色是数据（读写数据库，喂给 <input type="color">，只认 hex 字面量）
     ("components/samelabs/SkillsAdminPanel.tsx", 'color: "#1e90ff"',
      "category color form default; DB-bound data, input[type=color] needs a hex"),
-    # HgsLogo 的白色横画随 hgs-mark.svg 源文件逐字交付（§7 geometry 契约的组成部分）
+    # HgsLogo 的白色横画随 hgs-mark.svg 源文件逐字交付（品牌 geometry 契约的组成部分）
     ("components/ui/HgsLogo.tsx", '<g fill="#FFFFFF">',
      "brand mark knockout white, byte-identical to public/brand/hgs-mark.svg"),
 ]
 
-# ── §2 brand: public/brand/*.svg 是品牌源文件, 色值是其交付物的一部分 ─────────
+# ── 2.2 brand: public/brand/*.svg 是品牌源文件, 色值是其交付物的一部分 ─────────
 # 文件级白名单: 目录里新增 SVG 必须显式登记在这里(双向钉死, 防止借目录夹带)。
 HEX_FILE_WHITELIST: dict[str, str] = {
     "public/brand/hgs-mark.svg": "品牌图形标源文件(blue-500 + 白色横画)",
@@ -85,7 +69,7 @@ HEX_FILE_WHITELIST: dict[str, str] = {
     "public/brand/hgs-mark-16.svg": "16px 简化版图形标源文件",
     "public/brand/hgs-wordmark.svg": "字标源文件(currentColor)",
     "public/brand/hgs-lockup.svg": "横版组合源文件(静态场景)",
-    "public/brand/hgs-app-icon.svg": "App 图标源文件(渐变例外见 DESIGN_SYSTEM §2.2)",
+    "public/brand/hgs-app-icon.svg": "App 图标源文件(渐变例外见 DESIGN_SYSTEM 2.2)",
 }
 
 
@@ -97,7 +81,7 @@ def hex_scan_files() -> list[Path]:
     # hex/rgb/hsl 扫描覆盖面 = 组件样式 + 品牌 SVG 源文件(后者整体在文件白名单里)
     return scan_files() + brand_svg_files()
 
-# ── native-dialog ban (DESIGN_SYSTEM §11.7) ─────────────────────────────
+# ── native-dialog ban (DESIGN_SYSTEM 7.5) ─────────────────────────────
 # ConfirmDialog (Step 4) replaces window.confirm; its hook returns a
 # function named ``confirm``, so a bare ``confirm(`` is legal only in
 # files that also call ``useConfirm``. window.alert/confirm/prompt and
@@ -202,7 +186,7 @@ class ColorLiteralTests(unittest.TestCase):
                     findings.append((rel(p), i, line.strip()[:140]))
         self.assertEqual([], findings)
         # NOTE: rgba() (box-shadow tints) is deliberately out of scope in Step 1;
-        # DESIGN_SYSTEM §11.4 (shadow policy) owns it in a later step.
+        # DESIGN_SYSTEM 7.3 (shadow policy) owns it in a later step.
 
 
 
@@ -250,7 +234,7 @@ class ForbiddenTokenTests(unittest.TestCase):
 
 
 class BrandAssetTests(unittest.TestCase):
-    """DESIGN_SYSTEM §2: React 实现的 SVG geometry 与品牌源文件逐字一致。"""
+    """DESIGN_SYSTEM 2.2: React 实现的 SVG geometry 与品牌源文件逐字一致。"""
 
     def test_hgs_logo_geometry_matches_brand_svgs(self):
         logo = (WEB / "components" / "ui" / "HgsLogo.tsx").read_text(encoding="utf-8")
@@ -282,12 +266,12 @@ class BrandAssetTests(unittest.TestCase):
 
 class DialogCallTests(unittest.TestCase):
     def test_no_dialog_calls_at_all(self):
-        # DESIGN_SYSTEM §11.7：alert/confirm/prompt 一律禁止；
+        # DESIGN_SYSTEM 7.5：alert/confirm/prompt 一律禁止；
         # 唯一例外是 useConfirm() 返回的 confirm({...})（ConfirmDialog API）。
         self.assertEqual([], dialog_findings())
 
 
-# ── entity display spelled outside EntityBadge (DESIGN_SYSTEM §11.8) ──────
+# ── entity display spelled outside EntityBadge (DESIGN_SYSTEM 7.6) ──────
 ENTITY_BADGE_FILE = "components/ui/EntityBadge.tsx"
 # HCID/HRID 后面紧跟 id 插值 = 在拼写实体号的展示（模板串或 JSX 文本）
 ENTITY_SPELL_RE = re.compile(r"(HCID|HRID)(\s*\$\{|\s*\{[a-zA-Z_.\[\]]+\})")
@@ -311,11 +295,7 @@ class EntityBadgeDisplayTests(unittest.TestCase):
         self.assertEqual([], entity_spell_findings())
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
-# ── §11.9–11 BX-B1/B2: 旧类名清零 + ui 之外无原生表单元素 + eyebrow 禁止 ────
+# ── 7.7–7.8 BX-B1/B2: 旧类名清零 + ui 之外无原生表单元素 + eyebrow 禁止 ────
 # 迁移终点（BX）：旧类名（button/wb-btn/empty-state/eyebrow/text-link/text-button）
 # 的样式定义与使用全部清除；原生表单元素只允许出现在 components/ui 与下方
 # 行级白名单（每条注明理由，禁止整文件豁免）。
@@ -340,12 +320,14 @@ NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
      "复选框：ui 无 Checkbox 原语，浏览器原生勾选框外观"),
     ("components/samelabs/SkillsAdminPanel.tsx", 'type="color"',
      "取色器：ui 无 ColorPicker 原语，input[type=color] 原生色板"),
-    ("components/shell/SiteHeader.tsx", "inputRef",
-     "顶栏 ⌘K 搜索框：.sh-search 自有无边框搜索壳体系，内层 input 必须裸置"),
     ("components/shell/SiteHeader.tsx", "triggerRef",
      "头像/更多菜单触发器：焦点管理需 ref（ui Button 不转发 ref），sh-menu 键盘体系自有"),
     ("components/shell/SiteHeader.tsx", "sh-menu-logout",
      "菜单项行按钮：ui 无 Menu 原语，菜单行自有样式体系"),
+    ("components/shell/MobileTabBar.tsx", "triggerRef",
+     "手机底部「我的」菜单触发器：焦点管理需 ref（ui Button 不转发 ref）"),
+    ("components/shell/MobileTabBar.tsx", "sh-menu-logout",
+     "手机底部「我的」菜单项行按钮：ui 无 Menu 原语，菜单行自有样式体系"),
     ("components/workbench/WbCreateMenu.tsx", "triggerRef",
      "「+ 新建」菜单触发器：焦点管理需 ref（ui Button 不转发 ref）"),
     ("components/workbench/EntityReferencePicker.tsx", "key={`c-${chemical.id}`}",
@@ -357,13 +339,13 @@ NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
     ("components/workbench/EntityReferencePicker.tsx", 'onClick={() => remove("reaction", id)}',
      "已选实体 chip：ui 无可关闭 Chip 原语"),
     ("components/workbench/panels/StoichPanel.tsx", "wb-stoich",
-     "投料计算器紧凑网格（§9.4）：单元格级密度需求，hg-input 标准控件尺寸会破坏表格布局；含 radio（ui 无 Radio 原语）"),
+     "投料计算器紧凑网格（6.7）：单元格级密度需求，hg-input 标准控件尺寸会破坏表格布局；含 radio（ui 无 Radio 原语）"),
     ("components/SearchHero.tsx", "inputRef",
      "首页大搜索框内层 input：srch-box-wrap 提供边框/焦点体系，内层必须裸置"),
     ("app/(site)/skills/KdenseSkillsClient.tsx", 'type="search"',
-     "Skills 分类页搜索框内层 input：kdense-search-bar 自有搜索壳体系（§9.6）"),
+     "Skills 分类页搜索框内层 input：kdense-search-bar 自有搜索壳体系（6.10）"),
     ("app/(site)/skills/KdenseSkillsClient.tsx", "kdense-cat",
-     "Skills 分类导航 chip（§9.6）：动态数量 + 计数徽标的分类条设计，非 Segmented 场景"),
+     "Skills 分类导航 chip（6.10）：动态数量 + 计数徽标的分类条设计，非 Segmented 场景"),
 ]
 
 
@@ -441,3 +423,100 @@ class EyebrowBanTests(unittest.TestCase):
                 if _css_class_def("eyebrow").search(line):
                     offenders.append(f"{rel(p)}:{i} (css)")
         self.assertEqual(offenders, [], "\n".join(offenders))
+
+
+# ── Rule 6: compact only in table columns (DESIGN_SYSTEM 3.4 / 7.6) ────────
+COMPACT_BADGE_RE = re.compile(r"<EntityBadge\b[^>]*\bcompact\b")
+
+
+class CompactBadgeTests(unittest.TestCase):
+    """DESIGN_SYSTEM 3.4 / 7.6: `compact`（只有字形和编号）只用于表格列，其他地方一律用完整徽标。"""
+
+    def test_compact_badge_only_in_table_columns_or_dev(self):
+        offenders = []
+        for p in scan_files():
+            if p.suffix != ".tsx":
+                continue
+            r = rel(p)
+            if r == ENTITY_BADGE_FILE or r == "app/(site)/dev-ui/page.tsx":
+                continue
+            text = p.read_text(encoding="utf-8")
+            for i, line in enumerate(text.splitlines(), 1):
+                if COMPACT_BADGE_RE.search(line):
+                    offenders.append(f"{r}:{i}: {line.strip()[:100]}")
+        self.assertEqual([], offenders, "EntityBadge compact used outside table columns")
+
+
+# ── Rule 9: form must declare method="post" (DESIGN_SYSTEM 4.3 / 7.9) ─────
+FORM_TAG_RE = re.compile(r"<form\b([^>]*)>", re.DOTALL)
+METHOD_POST_RE = re.compile(r'method=["\'{](?:post|POST)["\'}]')
+
+
+class FormMethodPostTests(unittest.TestCase):
+    """DESIGN_SYSTEM 4.3 / 7.9: 所有表单声明 method="post"。"""
+
+    def test_all_forms_declare_method_post(self):
+        offenders = []
+        for p in scan_files():
+            if p.suffix != ".tsx":
+                continue
+            r = rel(p)
+            text = p.read_text(encoding="utf-8")
+            for m in FORM_TAG_RE.finditer(text):
+                tag_attrs = m.group(1)
+                if not METHOD_POST_RE.search(tag_attrs):
+                    line_no = text.count("\n", 0, m.start()) + 1
+                    offenders.append(f"{r}:{line_no}: <form {tag_attrs.strip()[:80]}>")
+        self.assertEqual([], offenders, "Form tag missing method=\"post\"")
+
+
+# ── Rule 10: topbar has no search input (DESIGN_SYSTEM 2.3 / 7.10) ──────────
+class TopbarSearchBanTests(unittest.TestCase):
+    """DESIGN_SYSTEM 2.3 / 7.10: 顶栏无搜索输入框、无快捷键。"""
+
+    def test_site_header_has_no_search_input(self):
+        path = WEB / "components" / "shell" / "SiteHeader.tsx"
+        self.assertTrue(path.exists(), "SiteHeader.tsx missing")
+        text = path.read_text(encoding="utf-8")
+        self.assertNotIn("<input", text, "SiteHeader must not render native input")
+        self.assertNotIn("HeaderSearch", text, "SiteHeader must not render HeaderSearch")
+        self.assertNotIn("⌘K", text, "SiteHeader must not render ⌘K shortcut")
+        self.assertNotIn("handleShortcut", text, "SiteHeader must not have search shortcut handler")
+
+
+# ── Rule 11: media queries must not hide .hg-btn or its svg (DESIGN_SYSTEM 7.11) ─
+HG_BTN_HIDE_RE = re.compile(r"([^{}]*\.hg-btn[^{}]*)\{\s*([^}]*display\s*:\s*none[^}]*)\}", re.DOTALL | re.I)
+
+
+class MediaQueryButtonPreservationTests(unittest.TestCase):
+    """DESIGN_SYSTEM 7.11: 在媒体查询里隐藏按钮的图标或操作（display: none 作用于 .hg-btn 或其 svg）。"""
+
+    def test_no_media_query_hiding_button_or_svg(self):
+        offenders = []
+        for p in scan_files():
+            if p.suffix != ".css":
+                continue
+            r = rel(p)
+            text = p.read_text(encoding="utf-8")
+            for m in re.finditer(r"@media\s*([^{]+)\{", text):
+                start = m.end()
+                depth = 1
+                end = start
+                while end < len(text) and depth > 0:
+                    if text[end] == '{':
+                        depth += 1
+                    elif text[end] == '}':
+                        depth -= 1
+                    end += 1
+                media_content = text[start:end - 1]
+                for rule_m in HG_BTN_HIDE_RE.finditer(media_content):
+                    selector = rule_m.group(1).strip()
+                    body = rule_m.group(2).strip()
+                    line_no = text.count("\n", 0, start + rule_m.start()) + 1
+                    offenders.append(f"{r}:{line_no}: {selector} {{ {body} }}")
+        self.assertEqual([], offenders, "Media query must not hide .hg-btn or its svg")
+
+
+if __name__ == "__main__":
+    unittest.main()
+

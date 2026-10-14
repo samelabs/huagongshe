@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ProfileHeader — 公开主页社交名片头部（v1.7 Step 10，DESIGN_SYSTEM §9.5）。
+ * ProfileHeader — 公开主页社交名片头部（DESIGN_SYSTEM 6.6）。
  * 桌面三列：Avatar 80 | 信息 | 操作。信息依次为 展示名(fs-28/650) + 关系 Tag
  * （互相关注 > 关注了你）→ @username → 职位·机构 → 简介(fs-14/text-2/60ch)
  * → 元信息行（机构图标、加入时间）→ 数据行（公开反应 · 公开笔记 · 粉丝 · 关注，
@@ -9,7 +9,7 @@
  * 操作：访客 = 关注（primary 乐观更新，已关注转 secondary hover「取消关注」）
  * + 分享（复制链接 + Toast）；本人 = 编辑资料(secondary) + 进入工作台(primary)。
  * 关注/取消时头部数据行的粉丝数同步 ±1（FollowButton onChange）。
- * 手机（≤640，参考 §12 第三屏）：头像 64 + 反应/粉丝/关注 三数横排 → 名字+
+ * 手机（≤640，参考 DESIGN_SYSTEM 6.6）：头像 64 + 反应/粉丝/关注 三数横排 → 名字+
  * 关系 Tag → 简介 → 职位·机构 → 关注 + 分享主页 两个 lg 文字按钮并排等宽
  * （分享桌面仍为 ghost 图标，CSS 切换，Part E）。
  */
@@ -99,7 +99,7 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
               activeHoverText={t.follow.unfollow}
               onChange={(next) => setFollowers((value) => Math.max(value + (next ? 1 : -1), 0))}
             />
-            {/* Step 10 Part E（§12 第三屏）：桌面 ghost 图标；手机 secondary lg
+            {/* DESIGN_SYSTEM 6.6：桌面 ghost 图标；手机 secondary lg
                 文字「分享主页」（与关注并排等宽）—— 两个形态 CSS 切换，行为同源。 */}
             <span className="pf-share">
               <ShareButton iconOnly title={`${profile.display_name}｜${t.brand.name}`} ariaLabel={t.me.profileShareLabel} className="pf-share-icon" />

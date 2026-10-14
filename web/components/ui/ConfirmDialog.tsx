@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ConfirmDialog — 不可逆操作的二次确认（参考 §6，IX-3 / IX-10）。
+ * ConfirmDialog — 不可逆操作的二次确认（DESIGN_SYSTEM 3.10，IX-3 / IX-10）。
  *
  * ConfirmProvider 挂在 app/layout.tsx；useConfirm() 返回
  *   const ok = await confirm({ title, body, confirmLabel, tone: "danger" })

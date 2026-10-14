@@ -7,7 +7,7 @@ export async function generateMetadata(): Promise<Metadata> {
   // S4 (G1.5-A): 登录页不参与索引(鉴权入口无索引价值), 仍可跟随回跳链接
   return { title: t.auth.title, robots: { index: false, follow: true } };
 }
-/** Step 11 §9.6：居中单列 ≤400（intro + 表单卡），next 回跳逻辑不动。 */
+/** 6.9 登录/注册：居中单列 ≤400（intro + 表单卡），next 回跳逻辑不动。 */
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
   const t = await getRequestDictionary();
   const query = await searchParams;

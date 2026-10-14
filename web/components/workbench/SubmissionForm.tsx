@@ -208,6 +208,7 @@ export function SubmissionForm() {
 
   return (
     <form
+      method="post"
       className="structured-form"
       onSubmit={submit}
       onChange={() => { if (!dirty) setDirty(true); }}

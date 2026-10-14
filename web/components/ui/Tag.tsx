@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * Tag — v1.7 标签（参考 §6）。neutral / blue / ok / warn / err / src；
- * dot=true 带状态圆点，icon 传任意图标组件。
+ * Tag — v2.0 标签（参考 3.6）。neutral / blue / ok / warn / err；
+ * dot=true 带状态圆点，icon 传任意图标组件。没有来源 Tag。
  */
 import type { ReactNode } from "react";
 
-export type TagTone = "neutral" | "blue" | "ok" | "warn" | "err" | "src";
+export type TagTone = "neutral" | "blue" | "ok" | "warn" | "err";
 
 export function Tag({ tone = "neutral", dot, icon, children, className }: {
   tone?: TagTone;

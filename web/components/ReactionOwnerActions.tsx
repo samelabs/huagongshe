@@ -11,7 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 
 /**
- * ReactionOwnerActions — 本人反应操作行（v1.7 Step 7 §9.2，Step 8 收敛为两项）。
+ * ReactionOwnerActions — 本人反应操作行（DESIGN_SYSTEM 6.4）。
  *
  * 编辑 / 删除（danger-quiet，经 useConfirm）。原「可见性切换」按钮同样跳
  * /submit 编辑表单（无独立切换端点），与「编辑」完全重复——Step 8 删除，

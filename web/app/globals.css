@@ -1,5 +1,5 @@
-/* v1.7: 设计 token 唯一来源是 tokens.css（docs/DESIGN_SYSTEM.md）；
-   本文件只写组件样式，旧 :root 变量已按 §10 迁移表收敛为语义 token。 */
+/* v2.0: 设计 token 唯一来源是 tokens.css（docs/DESIGN_SYSTEM.md）；
+   本文件只写组件样式，旧 :root 变量已收敛为语义 token。 */
 
 
 * { box-sizing: border-box; }
@@ -20,16 +20,16 @@ h1 { font-weight: var(--fw-medium); }
 h2, h3 { font-weight: var(--fw-semibold); }
 .mono { font-family: var(--font-mono); word-break: break-all; }
 
-/* 顶栏（v1.7 Step 5）= components/shell/SiteHeader（.sh-*，样式在
+/* 顶栏 = components/shell/SiteHeader（.sh-*，样式在
    components/shell/shell.css）。旧 .site-header / .header-inner / .brand /
    .site-main-nav / .login-link / .nav-guide（含 MCP 入口残留）已删除。 */
 /* HGS lockup (components/ui/HgsLogo): 字标 currentColor, 图形标 var(--brand);
-   品牌色不随交互状态变化(DESIGN_SYSTEM §2.2), 无 hover 变色 */
+   品牌色不随交互状态变化(DESIGN_SYSTEM 2.2), 无 hover 变色 */
 .hgs-logo { display: inline-flex; align-items: center; gap: 10px; color: var(--text); }
 .hgs-logo-zh { display: inline-flex; align-items: center; gap: 10px; }
 .hgs-logo-divider { width: 1px; height: 16px; background: var(--border-strong); }
 .hgs-logo-zh-text { font-size: var(--fs-14); font-weight: var(--fw-medium); letter-spacing: .08em; color: var(--text-2); }
-/* 手机顶栏(DESIGN_SYSTEM §2.2): 图形标 28→24, 隐藏中文副标, 只显示 HGS */
+/* 手机顶栏(DESIGN_SYSTEM 2.2): 图形标 28→24, 隐藏中文副标, 只显示 HGS */
 @media (max-width: 640px) {
   .hgs-logo svg.hgs-logo-mark { width: 24px; height: 24px; }
   .hgs-logo svg.hgs-logo-wordmark { width: 44.47px; height: 16.32px; }
@@ -73,7 +73,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 }
 .hero .search-wrap { margin-top: 36px; }
 
-/* ── 大搜索框 + 检索方式（Step 10 §9.3：首页与 /search 共用 SearchHero）── */
+/* ── 大搜索框 + 检索方式（DESIGN_SYSTEM 6.1 / 6.2：首页与 /search 共用 SearchHero）── */
 .srch-hero { margin-top: 36px; display: grid; gap: var(--sp-3); justify-items: stretch; text-align: left; }
 .search-head .srch-hero { margin-top: 22px; justify-self: start; width: min(620px, 100%); }
 .srch-box { display: flex; align-items: stretch; gap: var(--sp-2); }
@@ -248,7 +248,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .search-head .context-line { margin-top: 14px; }
 .context-line a { color: var(--action); }
 
-/* ── 搜索结果卡片 EntityCard（Step 10 §9.3）：缩略图 112×84 + HCID sm +
+/* ── 搜索结果卡片 EntityCard（DESIGN_SYSTEM 3.13 / 6.2）：缩略图 112×84 + HCID sm +
    名称(fs-16/600) + 元信息 + 右侧收藏 ghost icon；SMILES 不在卡片显示 ── */
 .entity-card-grid { display: grid; gap: 10px; }
 .entity-card {
@@ -341,15 +341,16 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 
 /* 化合物页「相关反应」压缩卡（Step 8 Part A）：两列网格 + 方程图 96 等比 contain
    + 单行底栏（HRID 徽标 / 角色 Tag / 来源 Tag）。搜索页 .reaction-result 不受影响。 */
-.reaction-mini-grid { display: grid; gap: 12px; }
-.reaction-mini { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); overflow: hidden; transition: border-color .15s; }
+.reaction-mini-grid { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; }
+.reaction-mini { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); overflow: hidden; transition: border-color .15s; min-width: 0; width: 100%; }
 @media (hover:hover) {
   .reaction-mini:hover { border-color: var(--action-border); }
 }
 .reaction-mini-img { display: block; height: 96px; background: var(--bg-surface); }
 .reaction-mini-img img { display: block; width: 100%; height: 96px; object-fit: contain; }
 .reaction-mini-img.unavailable { display: flex; align-items: center; justify-content: center; color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-13); text-align: center; }
-.reaction-mini-foot { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--border); overflow: hidden; white-space: nowrap; }
+.reaction-mini-foot { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; white-space: nowrap; min-width: 0; }
+.reaction-mini-foot::-webkit-scrollbar { display: none; }
 .reaction-mini-foot .hg-tag { flex: 0 0 auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
 .reaction-mini-more { display: none; margin-top: 12px; padding: 8px 16px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); color: var(--action); font-size: var(--fs-14); font-weight: 500; }
 @media (min-width: 641px) {
@@ -365,7 +366,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .prompt-box { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 16px; background: var(--bg-page); }
 .prompt-box pre { max-height: 200px; margin: 0 0 12px; overflow: auto; color: var(--text); font-family: var(--font-mono); font-size: var(--fs-12); line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
 
-/* ══ Chemical Detail 头部（v1.7 Step 6, §9.1）：左内容 + 右 300 结构图卡片 ══ */
+/* ══ Chemical Detail 头部（DESIGN_SYSTEM 6.3）：左内容 + 右 300 结构图卡片 ══ */
 .chem-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
@@ -388,7 +389,9 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .chem-head-iupac { grid-area: iupac; margin: 2px 0 0; color: var(--text-muted); font-size: var(--fs-14); }
 .chem-head-chips { grid-area: chips; display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-4) 0 var(--sp-6); }
 .chem-cas-chip { display: inline-flex; align-items: center; gap: 2px; }
-.chem-head-actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.chem-head-actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+.chem-actions-desktop { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.chem-actions-more { display: none; }
 .chem-favor-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 .chem-head-struct { grid-area: struct; align-self: start; position: relative; display: grid; place-items: center; min-height: 220px; margin: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); }
 .chem-head-struct img { max-width: 100%; max-height: 220px; object-fit: contain; }
@@ -396,11 +399,11 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 /* 补全中 Notice（DetailRefresher 渲染，头部下方） */
 .chem-refill-notice { margin: var(--sp-4) 0 0; }
 
-/* DataRow（§9.1）：dl 两列，标签列 140（手机 96），13px muted / fs-14 / 1px 分割线 */
-.chem-dl { margin: 0; }
-.chem-dl > div { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: var(--sp-4); padding: 12px 0; border-bottom: 1px solid var(--border); }
+/* DataRow（DESIGN_SYSTEM 3.14 / 6.3）：dl 两列，标签列 140（手机 96），13px muted / fs-14 / 1px 分割线 */
+.chem-dl { margin: 0; min-width: 0; }
+.chem-dl > div { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: var(--sp-4); padding: 12px 0; border-bottom: 1px solid var(--border); min-width: 0; }
 .chem-dl dt { color: var(--text-muted); font-size: var(--fs-13); }
-.chem-dl dd { margin: 0; color: var(--text); font-size: var(--fs-14); line-height: 1.6; overflow-wrap: anywhere; }
+.chem-dl dd { margin: 0; color: var(--text); font-size: var(--fs-14); line-height: 1.6; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
 
 .chemical-layout { margin-top: 48px; display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); gap: 64px; align-items: start; }
 .chemical-main { min-width: 0; display: grid; gap: 52px; }
@@ -413,20 +416,20 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .chemical-aside dd { margin: 0; font-size: var(--fs-13); line-height: 1.55; overflow-wrap: anywhere; }
 .chemical-aside dd a { color: var(--action); }
 .contribute-panel { background: var(--bg-page); }
-/* Step 7 紧凑版：标题一行（fs-14/600）+ 一句说明（fs-13 muted）+ tonal sm 按钮 */
+/* 紧凑版：标题一行（fs-14/600）+ 一句说明（fs-13 muted）+ tonal sm 按钮 */
 .contribute-title { margin: 0 0 var(--sp-1); font-size: var(--fs-14); font-weight: 600; color: var(--text); }
 .contribute-panel p { margin: 0 0 var(--sp-3); color: var(--text-muted); font-size: var(--fs-13); line-height: 1.55; }
 .description-panel { border-left: 3px solid var(--brand); padding: 0 0 0 18px; }
 .description-panel p { margin: 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.85; }
 /* Chemical Detail semantic v2 (Issue #4):
    语义 section 为一级 IA, source 只是 evidence tag; token 用 #3 Foundation。 */
-.chem-section { display: grid; gap: var(--sp-4); }
+.chem-section { display: grid; gap: var(--sp-4); min-width: 0; max-width: 100%; }
 /* 仅 Chemical Detail: 一级 section H2 用 v2 规范字号(22px); 共享 .section-heading 不动 */
 .chem-section .section-heading h2 { font-size: var(--fs-22); font-weight: 600; letter-spacing: var(--ls-heading); }
 .chem-subhead { margin: var(--sp-3) 0 0; font-size: var(--fs-18); font-weight: var(--fw-semibold); color: var(--text); }
 .chem-subhead-note { margin-left: var(--sp-2); color: var(--text-muted); font-size: var(--fs-13); font-weight: 400; }
 .chem-names-block { display: grid; gap: var(--sp-2); }
-/* 来源分组（§9.1 Step 7）：组头一行 = h3 组标题在前 + Tag src 同行；组间距 sp-6 */
+/* 分组（DESIGN_SYSTEM 6.3）：组头一行 = h3 组标题在前；组间距 sp-6 */
 .chem-group { display: grid; gap: var(--sp-2); }
 .chem-group + .chem-group { margin-top: var(--sp-6); }
 .chem-group-head { margin: 0; display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; font-size: var(--fs-18); font-weight: var(--fw-semibold); color: var(--text); }
@@ -457,7 +460,7 @@ details.chem-group[open] > summary::after { content: "▴"; }
 .synonym-disclosure > summary { cursor: pointer; color: var(--action); font-size: var(--fs-13); padding: var(--sp-1) 0; }
 .synonym-full { margin-top: var(--sp-2); }
 .synonym-more { margin-top: var(--sp-1); }
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
   .chem-tabs-nav {
     display: flex; gap: var(--sp-4);
     position: sticky; top: 0; z-index: 20;
@@ -471,19 +474,18 @@ details.chem-group[open] > summary::after { content: "▴"; }
   .chem-tabs-nav a { color: var(--text-2); font-size: var(--fs-14); font-weight: 600; white-space: nowrap; flex-shrink: 0; text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; }
   .chem-tabs-nav a:hover { color: var(--action); }
   .chem-tabs-nav a.on { color: var(--action); border-bottom-color: var(--action); }
-  /* ≤900 右侧栏并入正文末尾（单列）；页内导航由顶部 .chem-tabs-nav 承担，
-     rail 导航不再重复渲染 */
+  /* ≤1023 平板/手机右侧栏下沉到正文末尾（DESIGN_SYSTEM 2.1）；页内导航由顶部 .chem-tabs-nav 承担 */
   .chemical-layout { grid-template-columns: minmax(0, 1fr); gap: 40px; }
   .chemical-aside { position: static; }
   .chemical-aside .chem-rail-nav { display: none; }
   .chem-section { scroll-margin-top: 62px; }
 }
 @media (max-width: 640px) {
-  /* 篇幅收敛（§9.1 Step 7）：手机分区距 sp-8（原约 52）、组距 sp-6 */
+  /* 篇幅收敛（DESIGN_SYSTEM 6.3）：手机分区距 sp-8、组距 sp-6 */
   .chemical-main { gap: var(--sp-8); }
   .chem-dl > div { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); }
   .evidence-flat { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); }
-  /* 头部手机序（§12）：徽标 md → h1 28 → 英文名 → 结构图满宽 → Tag 行 → 操作行 */
+  /* 头部手机序（DESIGN_SYSTEM 2.4 框架 B）：徽标 md → h1 28 → 英文名 → 结构图满宽 → Tag 行 → 操作行 */
   .chem-head { grid-template-columns: minmax(0, 1fr); grid-template-areas: "badge" "title" "alt" "struct" "chips" "actions"; padding: var(--sp-4) 0 var(--sp-6); }
   .chem-head .hg-eb.lg { --eb-h: 28px; --eb-fs: var(--fs-13); --fs-eb-prefix: var(--fs-12); --eb-ic: 14px; }
   .chem-head .hg-eb.lg .k { padding: 0 7px; }
@@ -493,14 +495,11 @@ details.chem-group[open] > summary::after { content: "▴"; }
   .chem-head-chips { margin: var(--sp-3) 0 var(--sp-4); }
   .chem-head-struct { min-height: 180px; }
   .chem-head-struct img { max-height: 180px; }
-  /* 操作行：收藏 + 子结构检索 等宽 lg，分享 48 图标；相似结构收起
-     （特异性须高于 ui.css 的 .hg-btn{display:inline-flex}，ui.css 后加载） */
-  .chem-head-actions { display: grid; grid-template-columns: 1fr 1fr 48px; }
-  /* FX-15d：允许换行（en/de 最长词仍溢出时进一步收窄）—— 高度自适应不裁字，
-     隐藏前置图标（腾出 ~24px，Substructure search/Substruktursuche 均可容纳） */
-  .chem-head-actions .hg-btn { --bh: auto; min-height: 44px; min-width: 0; padding: var(--sp-2); height: auto; line-height: 1.3; }
-  .chem-head-actions .hg-btn > svg { display: none; }
-  .chem-head-actions .chem-similarity-btn { display: none; }
+  /* 操作行（DESIGN_SYSTEM 5.5 / 6.3）：收藏 + 子结构检索并排（min-width:0），相似结构和分享进更多 */
+  .chem-head-actions { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-width: 0; }
+  .chem-head-actions > .hg-btn { flex: 1; min-width: 0; padding: 0 var(--sp-2); }
+  .chem-actions-desktop { display: none; }
+  .chem-actions-more { display: inline-flex; flex: none; }
 }
 
 .metric-grid { margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
@@ -543,7 +542,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .inline-error { margin: 0; color: var(--err); font-size: var(--fs-13); }
 .inline-error a { text-decoration: underline; }
 
-/* ══ Reaction Detail v1.7 Step 7（§9.2）：头部 / 反应式卡片 / 参与物紧凑行 ══ */
+/* ══ Reaction Detail（6.4）：头部 / 反应式卡片 / 参与物紧凑行 ══ */
 .rx-head { display: grid; justify-items: start; gap: var(--sp-2); padding: var(--sp-6) 0 var(--sp-8); border-bottom: 1px solid var(--border); }
 .rx-head-title { margin: var(--sp-3) 0 0; font-size: clamp(var(--fs-28), 3.7vw, var(--fs-40)); font-weight: 650; line-height: 1.15; letter-spacing: var(--ls-display); overflow-wrap: anywhere; }
 /* 事实摘要: 只由结构化字段拼出(反应物→产物 · 催化剂/溶剂 · 温度 · 时间), 无值不出 */
@@ -559,7 +558,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .rx-equation-unavailable { min-height: 140px; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-14); text-align: center; border-radius: var(--r-sm); }
 .rx-smiles-code { margin-top: var(--sp-1); }
 
-/* 参与物（§9.2 紧凑行）：缩略图 64×48 + 徽标 sm + 名称 + 用量；桌面两列手机一列 */
+/* 参与物（3.4 / 5.4 / 6.4 紧凑行）：缩略图 64×48 + 徽标 sm + 名称 + 用量；桌面两列手机一列 */
 .reaction-sides { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-6); }
 .participant-section { min-width: 0; }
 .participant-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
@@ -676,9 +675,9 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .profile-pagination a:last-child { justify-self: end; }
 .profile-pagination small { color: var(--text-muted); font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
 
-/* ══ 公开主页（Step 10 §9.5：社交名片 + 研究档案）═════════════════
+/* ══ 公开主页（6.6：社交名片 + 研究档案）═════════════════
    .pf-head 三列：Avatar 80 | 信息 | 操作；正文 .pf-body = 列表 + 右栏 rail。
-   手机（≤640，参考 §12 第三屏）：头像 64 + 三项数据横排 → 名字+关系 Tag →
+   手机（≤640，参考 2.1 / 6.6）：头像 64 + 三项数据横排 → 名字+关系 Tag →
    简介 → 职位·机构 → 两个 lg 按钮并排 → Tabs → 列表（.pf-info 提升为
    display:contents 让各段成为 header 的 grid item，纯 CSS 重排）。 */
 .profile-page .hg-tabs { margin: var(--sp-6) 0 var(--sp-4); }
@@ -719,8 +718,11 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pf-share { display: flex; min-width: 0; }
 .pf-acts .pf-share-text { display: none; }
 
-/* 正文两栏：列表 + 右栏（手机 rail 落到正文下方，IX-11） */
+/* 正文两栏：列表 + 右栏（手机与平板 rail 落到正文下方，DESIGN_SYSTEM 2.1） */
 .pf-body { display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); gap: var(--sp-8); align-items: start; }
+@media (max-width: 1023px) {
+  .pf-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); }
+}
 .pf-main { min-width: 0; display: grid; gap: var(--sp-4); }
 
 /* 反应两列卡片：方程式高 110 白底 + 底部 HRID md / 收藏 / 关注数 / 日期 */
@@ -761,7 +763,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pf-pagination .hg-btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
 .pf-pagination-page { min-width: 64px; text-align: center; color: var(--text-muted); font-size: var(--fs-13); font-variant-numeric: tabular-nums; }
 
-/* 停用态（HGS-ACCOUNT-CONTENT-01, §9.8）：头像 + 名字 + Tag 的状态卡，
+/* 停用态（HGS-ACCOUNT-CONTENT-01, 4.1 / 6.11）：头像 + 名字 + Tag 的状态卡，
    不渲染关注/分享/内容列表 */
 .pf-deactivated { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-5); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); }
 .pf-deactivated-id { display: grid; gap: var(--sp-1); justify-items: start; }
@@ -794,7 +796,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pf-about dt { color: var(--text-muted); font-size: var(--fs-13); }
 .pf-about dd { margin: 0; color: var(--text-2); font-size: var(--fs-14); overflow-wrap: anywhere; }
 
-/* 手机 ≤640：名片改纵向（§12 第三屏） */
+/* 手机 ≤640：名片改纵向（2.1 / 6.6） */
 @media (max-width: 640px) {
   .pf-head { grid-template-columns: 64px minmax(0, 1fr); gap: var(--sp-2) var(--sp-4); padding-bottom: var(--sp-4); }
   .pf-head > .hg-avatar { width: 64px; height: 64px; grid-row: 1; grid-column: 1; }
@@ -816,7 +818,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .pf-counts strong { font-size: var(--fs-18); }
   .pf-meta { display: none; }
   .pf-info h1 { margin-top: var(--sp-2); font-size: var(--fs-22); }
-  /* 关注 + 分享主页：两个 lg 按钮并排等宽（§12 第三屏）；只有分享没有关注时占满整行 */
+  /* 关注 + 分享主页：两个 lg 按钮并排等宽（2.1 / 6.6）；只有分享没有关注时占满整行 */
   .pf-acts { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); }
   .pf-acts .hg-btn { height: var(--h-lg); }
   .pf-share:only-child { grid-column: 1 / -1; }
@@ -859,7 +861,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .token-list article { flex-direction: column; align-items: flex-start; }
 }
 
-/* ── 文档页（§9.6，Step 11）：阅读版式 --w-reading 720；h2 与实体页分区同规格 ── */
+/* ── 文档页（6.10）：阅读版式 --w-reading 720；h2 与实体页分区同规格 ── */
 .guide-page { max-width: var(--w-reading); }
 .guide-hero { max-width: var(--w-reading); padding: 30px 0 34px; }
 .guide-hero-top { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
@@ -957,7 +959,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 .notice.success { color: var(--ok); background: var(--ok-bg); border: 1px solid var(--ok-border); border-radius: var(--r-sm); padding: 10px 14px; }
 
-/* ── 登录/注册（Step 11 §9.6）：居中单列 ≤400，触控友好的 lg 控件 ── */
+/* ── 登录/注册（6.9）：居中单列 ≤400，触控友好的 lg 控件 ── */
 .auth-page { width: min(400px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 100px; display: grid; gap: 22px; justify-items: stretch; }
 .auth-intro { text-align: center; }
 .auth-intro h1 { margin: 0; font-size: var(--fs-28); font-weight: var(--fw-medium); letter-spacing: -.012em; }
@@ -1299,8 +1301,10 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
    样式在 shell.css，≤640 显示）；让位只此一处（main padding-bottom，
    高度 var(--tabbar-h)=64 + safe-area）。 */
 @media (max-width: 640px) {
-  main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); }
-  footer { display: none; }
+  .app-container > main { padding-bottom: 0; }
+  footer {
+    padding: 18px 14px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);
+  }
 }
 @media (min-width: 641px) {
   /* desktop: local nav 隐藏, 由 secondary rail 的 On this page 承担 */
@@ -1540,11 +1544,11 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 /* v1.7 — public linked notes */
 .entity-notes-heading{display:flex;align-items:end;justify-content:space-between;gap:16px}
-.entity-note-list{display:grid;gap:12px}
-.entity-note-card{border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;background:var(--bg-surface)}
+.entity-note-list{display:grid;gap:12px;min-width:0;max-width:100%}
+.entity-note-card{border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;background:var(--bg-surface);min-width:0;max-width:100%}
 .entity-note-card>header{display:flex;justify-content:space-between;gap:12px;font-size:var(--fs-13);color:var(--text-muted)}
 .entity-note-card>header a{font-weight:600;color:inherit;text-decoration:none}
-.entity-note-card>p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;margin:10px 0 0}
+.entity-note-card>p{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.65;margin:10px 0 0;min-width:0}
 .entity-note-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 /* v1.7 EntityBadge 自带边框/底色 —— 外层链接只负责布局,不再画胶囊(避免双层边框) */
 .entity-note-links>a{display:inline-flex;text-decoration:none}
@@ -1553,13 +1557,13 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .entity-note-meta .hg-avatar{flex:none}
 .entity-note-meta a{color:var(--text);font-weight:500}
 .entity-note-meta time{color:var(--text-muted)}
-.note-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
+.note-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;min-width:0}
 
 /* ── Phase 1c: Notes 产品闭环 ── */
 /* P-3: 卡片 6 行截断(保留 pre-wrap/anywhere; 30000 字符不横溢不无限长) */
-.note-clamp{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
+.note-clamp{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;min-width:0}
 .note-view-full{display:inline-block;margin-top:8px}
-/* P-1: Note 详情页（§Part C：reading 宽度 / 标题 28 / 元信息行 / 全文 prose） */
+/* P-1: Note 详情页（6.5：reading 宽度 / 标题 28 / 元信息行 / 全文 prose） */
 .content-page.note-detail-page{width:min(var(--w-reading), calc(100% - 40px))}
 .note-detail-page .note-detail{border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-6);background:var(--bg-surface);max-width:var(--w-reading)}
 .note-detail-head h1{font-size:var(--fs-28);font-weight:650;letter-spacing:var(--ls-title);line-height:1.25;margin:0 0 var(--sp-2);overflow-wrap:anywhere}
@@ -1586,14 +1590,14 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 /* P-7: Stoich 成功态下游动作 */
 .wb-stoich-actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
 
-/* ══ FX-15（SMK-019/020 / §4 §12）：手机端字号阶梯与触控目标 ════════════ */
+/* ══ FX-15（SMK-019/020 / 1.3 / 1.5 / IX-11）：手机端字号阶梯与触控目标 ════════════ */
 
 /* skills H1：≤420 落 token（6vw 在 375 = 22.5px 非阶梯） */
 @media (max-width: 420px) {
   .kdense-hero h1 { font-size: var(--fs-22); }
 }
 
-/* 触控目标 ≥44×44（§12）：直接以真实尺寸落 44（与 samelabs G3 同法）。
+/* 触控目标 ≥44×44（1.5 / IX-11）：直接以真实尺寸落 44（与 samelabs G3 同法）。
    伪元素扩热区不改变 getBoundingClientRect，运行时断言（ix-check s65）无法
    验证，且相邻项热区互相争抢 —— 故手机端统一最小高度 44（内边距撑开，
    图标/文字居中），列表行高随之小幅增加。 */

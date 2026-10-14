@@ -98,7 +98,7 @@ export type NoticeResponse = {
 /* ── Panel 注册接口 ───────────────────────────────────
  * 加新能力 = 新建 panel 组件 + registry.ts 加一行。
  * 不改 WorkbenchNav、不改路由、不改 CSS 类名。
- * Step 8 §9.4：分组收敛为 workspace/tools/network/account 四组，
+ * DESIGN_SYSTEM 6.7：分组收敛为 workspace/tools/network/account 四组，
  * 每项带 16px 图标（icon）。
  */
 export type PanelSection = "workspace" | "tools" | "network" | "account";

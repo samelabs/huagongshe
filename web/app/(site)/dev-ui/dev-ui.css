@@ -8,8 +8,10 @@
   padding: var(--sp-8) var(--sp-4) var(--sp-16);
   display: grid;
   gap: var(--sp-8);
+  min-width: 0;
+  width: 100%;
 }
-.du-wrap section { display: grid; gap: var(--sp-4); }
+.du-wrap section { display: grid; gap: var(--sp-4); min-width: 0; max-width: 100%; }
 .du-wrap h2 { font-size: var(--fs-22); font-weight: 600; letter-spacing: var(--ls-heading); margin: 0; }
 .du-wrap h2 small { font-size: var(--fs-13); color: var(--text-muted); font-weight: 400; }
 .du-wrap h3 { font-size: var(--fs-18); font-weight: 600; margin: var(--sp-4) 0 0; }
@@ -20,6 +22,9 @@
   border-radius: var(--r-md);
   padding: var(--sp-6);
   overflow-x: auto;
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* 徽标矩阵（参考 .eb-grid） */
@@ -45,13 +50,16 @@
 .du-matrix .h { font-size: var(--fs-12); color: var(--text-muted); }
 .du-matrix .lbl { font: 500 var(--fs-12) var(--font-mono); color: var(--text-2); }
 
-.du-row { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
-.du-g2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
-.du-g3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); }
-.du-stack { display: grid; gap: var(--sp-3); align-content: start; }
+.du-row { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; min-width: 0; }
+.du-row > * { min-width: 0; overflow-wrap: anywhere; }
+.du-g2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); min-width: 0; }
+.du-g3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); min-width: 0; }
+.du-stack { display: grid; gap: var(--sp-3); align-content: start; min-width: 0; }
 .du-inline-demo { font-size: var(--fs-16); line-height: 1.8; color: var(--text-2); max-width: 62ch; margin: 0; }
 
 @media (max-width: 680px) {
+  .du-box { padding: var(--sp-4); }
   .du-g2, .du-g3 { grid-template-columns: minmax(0, 1fr); }
   .du-eb-grid { grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1fr); }
+  .chem-kv > div { grid-template-columns: 96px minmax(0, 1fr) !important; }
 }

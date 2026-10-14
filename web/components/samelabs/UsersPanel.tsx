@@ -172,7 +172,7 @@ export function SamelabsUsers() {
             <div><h2>{t.admin.usersAll}</h2></div>
             <span>{appliedQ ? `搜索 "${appliedQ}" · 共 ${total} 条` : `共 ${total} 条`}</span>
           </div>
-          <form className="admin-search" onSubmit={submitSearch}>
+          <form method="post" className="admin-search" onSubmit={submitSearch}>
             <Input
               value={q}
               placeholder={t.admin.userSearchPlaceholder}

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * EntityBadge — HCID / HRID 徽标（DESIGN_SYSTEM §5，参考 §5）。
+ * EntityBadge — HCID / HRID 徽标（DESIGN_SYSTEM 3.4）。
  *
  * 全站唯一的实体标识展示组件（禁止在别处拼写 HCID/HRID 的显示）：
  *   [字形][前缀] | [编号] —— 前缀段实体色浅底、编号段白底、1px 实体色描边、圆角 6。
@@ -102,7 +102,7 @@ export function EntityBadge({ kind, id, size = "sm", href, copyable, compact, st
     return (
       <span className="hg-eb-copy">
         {badge}
-        <CopyButton mini value={String(id)} ariaLabel={`${t.common.copy} ${prefix} ${id}`} />
+        <CopyButton value={String(id)} ariaLabel={`${t.common.copy} ${prefix} ${id}`} />
       </span>
     );
   }

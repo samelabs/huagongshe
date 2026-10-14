@@ -23,7 +23,7 @@ import type { ChemicalFollow, Notice } from "../types";
 import { Input } from "@/components/ui/Field";
 
 /**
- * 工作台概览（§9.4 Step 8 重做：工具在左，社交在右）。
+ * 工作台概览（DESIGN_SYSTEM 6.7：工具在左，社交在右）。
  *
  * 数据全部来自现有读接口（SSR 预取传入，失败的流客户端补拉）：
  *  - 我的内容：/users/me/notes、/users/me/reactions、/users/me/follows/chemicals
@@ -159,13 +159,13 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
       </header>
 
       {/* ── 手机（≤640）：标题行 → 快速检索 → 2×2 快捷入口 → Segmented
-          （我的内容 | 关注动态 · N）→ 列表 → 主页卡片（§9.7 / Step 9 A.3）。
+          （我的内容 | 关注动态 · N）→ 列表 → 主页卡片（DESIGN_SYSTEM 6.7）。
           Segmented 放进 grid（data-area=switch）：手机在 quick 与 mine 之间，
           桌面由 CSS 隐藏。 ── */}
       <div className="wb-home2-grid">
         {/* ── 快速检索 + 快捷入口 ── */}
         <section className="wb-card wb-home2-quick" data-area="quick">
-          <form className="wb-home2-search" onSubmit={goSearch}>
+          <form method="post" className="wb-home2-search" onSubmit={goSearch}>
             <div className="wb-search-field">
               <svg className="wb-search-field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="11" cy="11" r="7" />
@@ -289,7 +289,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
   );
 }
 
-/* ── 行组件：概览「我的内容」行 = 面板列表行（WbListRow，§6 Step 9）── */
+/* ── 行组件：概览「我的内容」行 = 面板列表行（WbListRow，DESIGN_SYSTEM 6.7）── */
 
 function RecentRow({ item, t, locale }: { item: RecentItem; t: ReturnType<typeof useDictionary>; locale: Locale }) {
   if (item.kind === "note") return <NoteRow note={item.note} t={t} locale={locale} />;

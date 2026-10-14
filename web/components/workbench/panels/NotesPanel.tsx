@@ -153,7 +153,7 @@ export function NotesPanel({
     return withLocale(`/aichem?${new URLSearchParams({ tab: "notes", ...Object.fromEntries(listParams(visibility, filterChemicalId, filterReactionId, targetPage)) }).toString()}`, locale);
   }
 
-  /** §6 Step 9：筛选用 Segmented（全部/私有/公开），仍走 URL 参数（可分享/SSR 预取一致）。
+  /** DESIGN_SYSTEM 3.7 / 6.7：筛选用 Segmented（全部/私有/公开），仍走 URL 参数（可分享/SSR 预取一致）。
    *  SMK-017：编辑器有未保存内容时先确认（router.push 不经过 <a> 拦截）。 */
   async function switchVisibility(value: NoteVisibility) {
     if (value === visibility) return;

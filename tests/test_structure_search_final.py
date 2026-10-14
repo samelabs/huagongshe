@@ -27,7 +27,7 @@ def _read(rel: str) -> str:
 class ChemicalDetailStructureLinksTests(unittest.TestCase):
     """chemical detail: 结构搜索入口必须是 q+mode, 无 chemical_id。
 
-    v1.7 Step 6(§9.1): 结构检索按钮移入 components/ChemicalActions.tsx;
+    DESIGN_SYSTEM 6.3: 结构检索按钮移入 components/ChemicalActions.tsx;
     未登录仍显示, 点击去登录页并带 next=本页回跳(不再隐藏按钮);
     已登录仍跳 /search?q=<smiles>&mode=<mode>; 无 smiles 不渲染。
     """

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   shell.css — v1.7 全局框架（DESIGN_SYSTEM §8，参考 §8–11 模板顶栏、§12 手机端）
+   shell.css — 全局外壳（DESIGN_SYSTEM 2.3）
    ═══════════════════════════════════════════════════════════════
    - SiteHeader：公开页与工作台共用的唯一顶栏（桌面 / 平板 / 手机三态）。
    - MobileTabBar：手机底部 4 tab（查询 / 工作台 / 动态 / 我的）。
@@ -54,39 +54,8 @@
 .sh-nav a.on { color: var(--text); background: var(--bg-subtle); }
 .sh-nav a:focus-visible, .sh-logo:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-xs); }
 
-/* 全局搜索框（参考 .p-hsearch） */
-.sh-search { flex: 1; max-width: 380px; margin-left: auto; position: relative; min-width: 0; }
-.sh-search input {
-  width: 100%;
-  height: 36px;
-  padding: 0 52px 0 34px;
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  background: var(--bg-subtle);
-  font: 400 var(--fs-14) var(--font-ui);
-  color: var(--text);
-  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
-}
-.sh-search input::placeholder { color: var(--text-muted); }
-.sh-search input:focus { outline: none; border-color: var(--action); background: var(--bg-surface); box-shadow: 0 0 0 4px var(--focus-halo); }
-.sh-search .sh-search-icon {
-  position: absolute; left: 11px; top: 10px;
-  width: 16px; height: 16px; color: var(--text-muted);
-  pointer-events: none;
-}
-.sh-search kbd {
-  position: absolute; right: 8px; top: 8px;
-  font: var(--fs-12) var(--font-mono);
-  color: var(--text-muted);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-xs);
-  padding: 1px 5px;
-  background: var(--bg-surface);
-  pointer-events: none;
-}
-
-/* 右侧区（参考 .p-right） */
-.sh-right { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+/* 右侧区 */
+.sh-right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex: none; }
 .sh-bell { position: relative; }
 .sh-bell-dot {
   position: absolute; top: 6px; right: 7px;
@@ -133,74 +102,65 @@
 .sh-menu-panel .sh-menu-logout { color: var(--err); }
 .sh-menu-panel .sh-menu-logout:hover { background: var(--err-bg); color: var(--err); }
 
-/* ══ 平板（641–1024）：主导航收进「更多」，搜索框缩短 ═══════ */
+/* ══ 平板（641–1023）：主导航收进「更多」 ═══════════════════ */
 .sh-more { display: none; }
-@media (min-width: 641px) and (max-width: 1024px) {
+@media (min-width: 641px) and (max-width: 1023px) {
   .sh-nav { display: none; }
   .sh-inner { gap: var(--sp-3); }
-  .sh-search { max-width: 200px; }
   .sh-more { display: block; }
 }
 
-/* ══ 手机（≤640）：高 52，标志 + 搜索图标 + 头像/登录 ═══════ */
+/* ══ 手机（≤640）：高 52，标志 + 语言切换（DESIGN_SYSTEM 2.3） ══ */
 .sh-mobile-right { display: none; }
-.sh-login-sm {
-  display: inline-flex;
-  align-items: center;
-  height: var(--h-sm);
-  padding: 0 12px;
-  border-radius: var(--r-sm);
-  font-size: var(--fs-13);
-  font-weight: 500;
-  color: var(--text-2);
-  text-decoration: none;
-  white-space: nowrap;
-}
-.sh-login-sm:hover { background: var(--bg-hover); color: var(--text); }
 @media (max-width: 640px) {
   .sh-inner {
     width: calc(100% - 24px);
     height: var(--header-h-m);
     gap: var(--sp-2);
   }
-  /* Step 9 修复：此前只隐藏 .sh-right 的子项（铃铛/语言/登录），漏了
-     UserMenu——手机端 .sh-right 与 .sh-mobile-right 各渲染一个头像菜单，
-     顶栏出现两个「S˅」。整组隐藏，手机只留 .sh-mobile-right 一份。 */
   .sh-right { display: none; }
-  .sh-nav, .sh-search, .sh-more, .sh-bell, .sh-lang, .sh-login-btn { display: none; }
-  .sh-mobile-right { display: flex; align-items: center; gap: var(--sp-1); margin-left: auto; }
+  .sh-nav, .sh-more, .sh-bell, .sh-lang, .sh-login-btn { display: none; }
+  .sh-mobile-right { display: flex; align-items: center; margin-left: auto; }
   .sh-lang-m .lang-switcher summary { min-height: 44px; padding: 0 var(--sp-2); }
 }
 
-/* ══ 手机底部 tab（参考 .m-tab） ════════════════════════════ */
+/* ══ 手机底部 tab（DESIGN_SYSTEM 2.3） ══════════════════════ */
 .sh-tabbar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
   z-index: 40;
   display: none;
   grid-template-columns: repeat(4, 1fr);
-  height: var(--tabbar-h);
+  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
-  /* Step 6 修正：不透明底 —— 半透明 + blur 会让正文透出（375 实测可见文字） */
+  box-sizing: border-box;
   background: var(--bg-surface);
   border-top: 1px solid var(--border);
 }
 @media (max-width: 640px) {
   .sh-tabbar { display: grid; }
 }
+.sh-tab-wrap { position: relative; width: 100%; height: var(--tabbar-h); display: flex; }
 .sh-tab {
   position: relative;
-  display: grid;
-  place-items: center;
-  align-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 3px;
+  height: var(--tabbar-h);
+  width: 100%;
   font-size: var(--fs-12);
   font-weight: 500;
   color: var(--text-muted);
   text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.sh-tab svg { width: 22px; height: 22px; }
+.sh-tab svg { width: var(--icon-md); height: var(--icon-md); flex: none; }
 .sh-tab.on { color: var(--action); }
 .sh-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .sh-tab .sh-tab-badge {
@@ -214,6 +174,39 @@
   border-radius: var(--r-pill);
   padding: 2px 5px;
 }
+.sh-tab-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 8px;
+  z-index: 60;
+  min-width: 200px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-float);
+  padding: var(--sp-1);
+  display: grid;
+  text-align: left;
+}
+.sh-tab-panel a, .sh-tab-panel button {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 8px var(--sp-3);
+  border-radius: var(--r-xs);
+  font-size: var(--fs-14);
+  color: var(--text-2);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  width: 100%;
+}
+.sh-tab-panel a:hover, .sh-tab-panel button:hover { background: var(--bg-hover); color: var(--text); }
+.sh-tab-panel a.on { color: var(--text); background: var(--bg-subtle); font-weight: 500; }
+.sh-tab-panel a:focus-visible, .sh-tab-panel button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.sh-tab-panel .sh-menu-logout { color: var(--err); }
+.sh-tab-panel .sh-menu-logout:hover { background: var(--err-bg); color: var(--err); }
 
 @media (prefers-reduced-motion: reduce) {
   .sh-menu-trigger .sh-chev { transition: none; }

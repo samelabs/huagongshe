@@ -27,10 +27,9 @@ import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alter
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /**
- * Chemical Detail — semantic-first（DESIGN_SYSTEM §9.1 v1.7 Step 6/7 重排）。
+ * Chemical Detail — semantic-first（DESIGN_SYSTEM 6.3 重排）。
  *
- * 一级 IA = 语义主题；分区内按来源分组（组头一行：组标题 + Tag src；
- * v1.7 不做跨来源同名属性合并）。篇幅收敛（Step 7）：每个 h3 组默认
+ * 一级 IA = 语义主题；篇幅收敛（4.2）：每个 h3 组默认
  * 只显示前 6 项（DataRow/已折叠 details 均算 1 项），超出的项服务端
  * hidden + data-overflow（DOM 保留），GroupToggle 客户端翻转；供应商
  * 紧凑行默认 5 家；上下游 Tag 每向最多 12 个。没有内容的分区不渲染，
@@ -38,10 +37,10 @@ import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
  * 硬约束: 只重组展示——数据请求 = chemical full + reactions，不新增不改删。
  */
 
-const SYN_PREVIEW = 12; // Names 默认展示条数（§9.1 前 12 个 Tag）
+const SYN_PREVIEW = 12; // Names 默认展示条数（4.2 前 12 个 Tag）
 const COLLAPSE_ITEMS = 2; // 长证据折叠阈值：超过 2 条
 const COLLAPSE_CHARS = 240; // 或单条超过 240 字
-const GROUP_ITEM_LIMIT = 6; // 组级折叠：h3 组默认可见项数（§9.1 Step 7）
+const GROUP_ITEM_LIMIT = 6; // 组级折叠：h3 组默认可见项数（4.2）
 const SUPPLIER_LIMIT = 5; // 供应商默认显示家数
 const UPDOWN_TAG_LIMIT = 12; // 上下游 Tag 每向默认显示数
 
@@ -204,7 +203,7 @@ export default async function ChemicalPage({ params }: {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href={withLocale("/", locale)}>{t.chemical.home}</Link><span>/</span><span>{t.chemical.detail}</span></nav>
 
-      {/* ── Entity Header（§9.1：左内容 + 右 300 结构图卡片） ── */}
+      {/* ── Entity Header（5.1 / 6.3：左内容 + 右 300 结构图卡片） ── */}
       <header className="chem-head">
         <EntityBadge kind="chemical" id={chemical.id} size="lg" copyable ariaLabel={t.common.hcidLabel(chemical.id)} />
         <h1 className="chem-head-name">{title}</h1>
@@ -214,7 +213,7 @@ export default async function ChemicalPage({ params }: {
           {chemical.cas_numbers[0] && (
             <span className="chem-cas-chip">
               <Tag>CAS {chemical.cas_numbers[0]}</Tag>
-              <CopyButton mini value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
+              <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
             </span>
           )}
           {chemical.molecular_formula && <Tag>{chemical.molecular_formula}</Tag>}
@@ -452,7 +451,7 @@ export default async function ChemicalPage({ params }: {
 
 /* ── 小组件 ── */
 
-/** 一级 section 标题：h2 22/600/--ls-heading，右侧可选计数注记（§9.1 v1.7 去 eyebrow） */
+/** 一级 section 标题：h2 22/600/--ls-heading，右侧可选计数注记（5.3 / 6.3 去 eyebrow） */
 function SectionHead({ title, note }: { title: string; note?: string }) {
   return (
     <div className="section-heading chem-section-head">
@@ -462,7 +461,7 @@ function SectionHead({ title, note }: { title: string; note?: string }) {
   );
 }
 
-/** DataRow 已提取为共享组件 components/DataRow（§9.1/§9.2 统一数据行） */
+/** DataRow 已提取为共享组件 components/DataRow（3.14 / 6.3 / 6.4 统一数据行） */
 
 /** 组级折叠超限标记（DataRow 以外的元素用） */
 function overProps(index: number, limit: number) {
@@ -470,7 +469,7 @@ function overProps(index: number, limit: number) {
 }
 
 /**
- * 分组（§9.1 Step 7 组头一行）：h3 组标题 + 可选注记。页面不展示数据来源。
+ * 分组（4.2 / 5.3 组头一行）：h3 组标题 + 可选注记。页面不展示数据来源。
  * 篇幅收敛：total > limit 时渲染 GroupToggle（「展开全部 N 项」/「收起」），
  * 超限项由内容构建方标 data-overflow + hidden（仍在上面的 gid 容器内）。
  */

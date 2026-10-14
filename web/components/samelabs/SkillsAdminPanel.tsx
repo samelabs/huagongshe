@@ -267,7 +267,7 @@ export function SamelabsSkills() {
             <span>{appliedQ || visibility !== "all" ? `当前条件下共 ${total} 个技能` : t.admin.skillCount(total)}</span>
           </div>
           <div className="admin-filters">
-            <form className="admin-filters-search" onSubmit={submitSearch}>
+            <form method="post" className="admin-filters-search" onSubmit={submitSearch}>
               <Input
                 value={q}
                 placeholder={t.admin.skillsSearchPlaceholder}

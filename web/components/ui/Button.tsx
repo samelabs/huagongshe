@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Button — v1.7 组件库按钮（docs/design/hgs-ui-reference.html §6）。
+ * Button — v1.7 组件库按钮（docs/DESIGN_SYSTEM.md 3.1）。
  *
  * variant: primary（每区域一个）/ secondary / tonal / ghost / danger / danger-quiet
  * size: sm 32 / md 40（默认）/ lg 48；iconOnly 时按方块渲染（必须给 aria-label）。
@@ -31,6 +31,10 @@ export type ButtonProps = {
   /** 克隆 children（单个元素）注入按钮类与状态属性 */
   asChild?: boolean;
   "aria-label"?: string;
+  "aria-haspopup"?: boolean | "false" | "true" | "menu" | "listbox" | "tree" | "grid" | "dialog";
+  "aria-expanded"?: boolean;
+  "aria-pressed"?: boolean;
+  role?: string;
 };
 
 function classes(p: ButtonProps): string {

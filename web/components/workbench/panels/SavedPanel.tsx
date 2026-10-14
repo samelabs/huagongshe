@@ -102,7 +102,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
     } catch { /* 保持当前展示 */ }
   }
 
-  /** §6 Step 9：Tabs 分 化合物/反应（带计数），切换走 URL 参数（SSR 预取一致） */
+  /** DESIGN_SYSTEM 3.7 / 6.7：Tabs 分 化合物/反应（带计数），切换走 URL 参数（SSR 预取一致） */
   function switchKind(next: string) {
     if (next === kind) return;
     router.push(withLocale(next === "reactions" ? "/aichem?tab=saved&kind=reactions" : "/aichem?tab=saved", locale));

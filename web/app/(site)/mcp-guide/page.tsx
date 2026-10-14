@@ -5,7 +5,7 @@ import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { CodeField } from "@/components/ui/CodeField";
 
-/** 文档页（§9.6，Step 11）：阅读版式 --w-reading 720；配置片段走 CodeField
+/** 文档页（6.10）：阅读版式 --w-reading 720；配置片段走 CodeField
  *  multiline（IX-7：复制 aria-live 播报 + ✓ 1.5s，内部滚动不撑破布局）。 */
 function AgentSteps({ title, desc, steps }: { title: string; desc: string; steps: readonly string[] }) {
   return <div className="guide-prose-list">

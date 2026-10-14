@@ -27,7 +27,7 @@ async function getSummary(cookieHeader: string): Promise<Summary | null> {
   } catch { return null; }
 }
 
-/** 笔记总数（§9.4 侧栏「笔记」计数）：dashboard counts 不含笔记，
+/** 笔记总数（2.3 / 6.7 侧栏「笔记」计数）：dashboard counts 不含笔记，
  *  用既有读接口 /users/me/notes?page_size=1 的 total 补齐（一次请求）。 */
 async function getNotesCount(cookieHeader: string): Promise<number | null> {
   try {
@@ -71,7 +71,7 @@ export default async function WorkbenchLayout({ children }: { children: React.Re
       <WorkbenchCountsProvider counts={counts}>
         <div className="wb-body">
           <aside className="wb-aside">
-            {/* Step 8 §9.4：桌面侧栏不再放「新建反应/新建笔记」，
+            {/* 2.3 / 6.7：桌面侧栏不再放「新建反应/新建笔记」，
                 创建入口移概览页标题行；手机抽屉顶部仍保留一份（WbMobileNav）。 */}
             <Suspense><WorkbenchNav counts={counts} variant="sidebar" /></Suspense>
           </aside>

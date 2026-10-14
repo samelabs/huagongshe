@@ -55,7 +55,7 @@ export function ProfileSettings() {
   return <section className="form-section">
     <div className="form-section-head"><div><h2>{t.settings.profile.title}</h2><p>{t.settings.profile.desc}</p></div></div>
 
-    <form className="form-fields" onSubmit={async (event) => {
+    <form method="post" className="form-fields" onSubmit={async (event) => {
       event.preventDefault();
       if (busy) return;
       const errors: Partial<Record<keyof Profile, string>> = {};

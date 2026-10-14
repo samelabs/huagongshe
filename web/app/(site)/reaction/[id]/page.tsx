@@ -24,7 +24,7 @@ import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import type { Locale } from "@/lib/i18n/locales";
 
 /**
- * Reaction Detail（DESIGN_SYSTEM §9.2，v1.7 Step 7 重排）。
+ * Reaction Detail（DESIGN_SYSTEM 6.4 重排）。
  *
  * 头部：EntityBadge lg copyable（私有带锁）→ h1 中性「反应详情」（字号同化合物页）
  * → 结构化事实摘要（fs-16/text-2）→ 操作行（本人：编辑/可见性/删除；
@@ -146,7 +146,7 @@ export default async function ReactionPage({ params }: {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href={withLocale(reaction.is_owner ? "/aichem" : "/", locale)}>{reaction.is_owner ? t.reaction.ownerSelf : t.reaction.ownerOther}</Link><span>/</span><span>{t.reaction.detail}</span></nav>
 
-      {/* ── Reaction Entity Header（§9.2：徽标 lg + 中性 h1 + 事实摘要 + 操作行） ── */}
+      {/* ── Reaction Entity Header（5.1 / 6.4：徽标 lg + 中性 h1 + 事实摘要 + 操作行） ── */}
       <header className="rx-head">
         <EntityBadge
           kind="reaction"
@@ -298,7 +298,7 @@ export default async function ReactionPage({ params }: {
                 const safeHref = row.href && /^https?:\/\//i.test(row.href) ? row.href : undefined;
                 return (
                   <div key={row.label} className="rx-citation">
-                    <Tag tone="src">{row.label}</Tag>
+                    <Tag>{row.label}</Tag>
                     {safeHref
                       ? <a href={safeHref} target="_blank" rel="nofollow noopener noreferrer">{row.value}</a>
                       : <span>{row.value}</span>}
@@ -351,7 +351,7 @@ function dedupeParens(name: string): string {
   return outer.trim().toLowerCase() === inner.trim().toLowerCase() ? outer.trim() : name;
 }
 
-/** 参与物（§9.2 紧凑行）：64×48 缩略图 + 徽标 sm + 名称 + 用量/当量；桌面两列、手机一列 */
+/** 参与物（3.4 / 5.4 / 6.4 紧凑行）：64×48 缩略图 + 徽标 sm + 名称 + 用量/当量；桌面两列、手机一列 */
 function ParticipantRoleGroup({ title, items, showRole = false, t, locale }: {
   title: string; items: Chemical[]; showRole?: boolean; t: Dictionary; locale: Locale;
 }) {

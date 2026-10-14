@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { withLocale } from "@/lib/localePath";
 import { TextLink } from "@/components/ui/TextLink";
+import { SiteHeader } from "@/components/shell/SiteHeader";
+import { SiteFooter } from "@/components/shell/SiteFooter";
 
-/** 根错误边界（FX-4 / SMK 遗漏）：ui 组件 + 如实文案（客户端渲染出错，
- *  不说「服务暂时不可用」）。根层无站点顶栏 —— 公开页的顶栏保留由
- *  app/(site)/error.tsx 提供；此处给重试 + 返回首页两个出口。 */
+/** 根错误边界（DESIGN_SYSTEM 4.1）：外壳完整（SiteHeader + SiteFooter）。
+ *  EmptyState + “重新加载”；文案说明数据未丢失、可重试，不暴露技术细节。 */
 export default function ErrorPage({ error, unstable_retry }: {
   error: Error & { digest?: string };
   unstable_retry: () => void;
@@ -19,6 +19,7 @@ export default function ErrorPage({ error, unstable_retry }: {
   useEffect(() => { if (process.env.NODE_ENV !== "production") console.error(error); }, [error]);
   return (
     <div className="app-container">
+      <SiteHeader />
       <main className="content-page error-page">
         <EmptyState
           title={t.error.clientTitle}
@@ -30,6 +31,7 @@ export default function ErrorPage({ error, unstable_retry }: {
           <TextLink className="error-page-home-link" href={withLocale("/", locale)}>{t.error.notFoundHome}</TextLink>
         </p>
       </main>
+      <SiteFooter />
     </div>
   );
 }

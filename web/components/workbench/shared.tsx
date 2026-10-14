@@ -14,7 +14,7 @@ import type { LoadState, Notice, Reaction } from "./types";
 import type { Locale } from "@/lib/i18n/locales";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
-/* ── 面板头部（§6 Step 9）：标题 fs-22 650，计数紧随标题；副标题一行
+/* ── 面板头部（DESIGN_SYSTEM 6.7）：标题 fs-22 650，计数紧随标题；副标题一行
    muted；右侧放主要操作。手机允许换行，操作落到标题下方（修「新建笔记」
    与计数重叠）。 ─────────────────────────────────────── */
 export function PanelHeading({ title, subtitle, count, unit = "", action }: {
@@ -38,7 +38,7 @@ export function PanelHeading({ title, subtitle, count, unit = "", action }: {
   );
 }
 
-/* ── 统一分页（§6 Step 9）：上一页 / 页码 / 下一页，按钮 ghost sm ── */
+/* ── 统一分页（DESIGN_SYSTEM 6.7）：上一页 / 页码 / 下一页，按钮 ghost sm ── */
 export function Pagination({ page, pageSize, total, href }: {
   page: number;
   pageSize: number;
@@ -60,7 +60,7 @@ export function Pagination({ page, pageSize, total, href }: {
   );
 }
 
-/* ── 工作台统一列表行（§6 Step 9）：概览「我的内容」与各面板列表共用。
+/* ── 工作台统一列表行（DESIGN_SYSTEM 6.7）：概览「我的内容」与各面板列表共用。
    结构 = 类型图标/缩略图 ｜ 标题(整行点击目标)+元信息 ｜ 右侧展示+操作。
    整行点击靠标题链接的 ::after 铺满行（CSS）；actions 内按钮层级更高，
    不会误触发行跳转。 ──────────────────────────────────── */
@@ -100,7 +100,7 @@ export function WbListRow({ href, icon, iconTone, thumb, title, meta, side, acti
   );
 }
 
-/* ── 加载骨架（§6 Step 9：统一用 ui/Skeleton）── */
+/* ── 加载骨架（DESIGN_SYSTEM 3.11 / 6.7：统一用 ui/Skeleton）── */
 export function PanelLoading({ variant = "grid", rows = 4 }: { variant?: "grid" | "list"; rows?: number }) {
   if (variant === "list") {
     return (
@@ -148,7 +148,7 @@ export function VisibilityTag({ visibility, t }: { visibility: "public" | "priva
     : <Tag tone="blue">{t.common.public}</Tag>;
 }
 
-/* ── 动态卡片（§9.4）：概览「关注动态」与动态面板（?tab=activity）同一个
+/* ── 动态卡片（DESIGN_SYSTEM 6.7）：概览「关注动态」与动态面板（?tab=activity）同一个
    组件（Step 9 Part B.4）。v1.7 只有 new_reaction 事件。 ── */
 export function ActivityFeedCard({ item, favored, t, locale }: {
   item: Notice;
@@ -186,7 +186,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
   );
 }
 
-/* ── 反应行（§6）：方程式缩略图（高 48）+ HRID 徽标 sm（私有锁）+ 摘要 +
+/* ── 反应行（DESIGN_SYSTEM 6.7）：方程式缩略图（高 48）+ HRID 徽标 sm（私有锁）+ 摘要 +
    日期 + 关注人数 —— 「我的反应」与「收藏·反应」共用（Step 9 Part B）── */
 export function ReactionRow({ item, t, locale, actions }: {
   item: Reaction;

@@ -175,7 +175,7 @@ export function SamelabsWorkers() {
       </div>
 
       {showForm && (
-        <form className="admin-worker-form" onSubmit={issue}>
+        <form method="post" className="admin-worker-form" onSubmit={issue}>
           <label>{t.admin.workerId}
             <Input value={workerId} onChange={(e) => setWorkerId(e.target.value)} required
               minLength={3} maxLength={64} pattern="[a-z0-9][a-z0-9-]*" placeholder="gpu-box-1" />

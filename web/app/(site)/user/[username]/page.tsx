@@ -62,7 +62,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   try { profile = await apiGet<Profile>(`/users/${encodeURIComponent(username)}`, headers); }
   catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
 
-  /* ── 停用态（§9.8 状态页）：头像 + 名字 + Tag「账号已停用」+ 事实说明。
+  /* ── 停用态（4.1 / 6.11 状态页）：头像 + 名字 + Tag「账号已停用」+ 事实说明。
      不显示关注、分享和内容列表（列表接口对停用用户本就 404）；
      已公开的反应/笔记/技能在各自详情页保留可见并带「已停用」标记。 ── */
   if (profile.is_active === false) {

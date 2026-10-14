@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Field / Input / Textarea / Select — v1.7 表单控件（参考 §6）。
+ * Field / Input / Textarea / Select — 表单控件（DESIGN_SYSTEM 3.3）。
  *
  * Field 负责 label、必填星号、help 与 error 文字，并把 id / aria-invalid /
  * aria-describedby 注入子控件（cloneElement，调用方传 ref 不受影响）。

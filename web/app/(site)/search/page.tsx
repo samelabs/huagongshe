@@ -148,7 +148,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   // 结果分类链接（Tabs 切换）：保留 URL 模式（含 structure 回显）
   const typeHref = (nextType?: string) =>
     withLocale(`/search?q=${encodeURIComponent(q)}${urlMode !== "exact" ? `&mode=${urlMode}` : ""}${nextType === "reactions" ? "&type=reactions" : ""}${page > 1 ? `&page=${page}` : ""}`, locale);
-  // 结果分类（Step 10 §9.3）：只显示当前搜索接口实际返回的类型 ——
+  // 结果分类（6.2）：只显示当前搜索接口实际返回的类型 ——
   // reactions 仅在 exact 首页由接口返回；只有化合物时不显示 Tabs，计数直接放标题行。
   const hasReactions = reactions.length > 0;
   const activeType = params.type === "reactions" && hasReactions ? "reactions" : "chemicals";

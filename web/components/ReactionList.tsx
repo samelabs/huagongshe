@@ -83,9 +83,9 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
                 {reaction.matched_roles.length > 0 && (
                   reaction.matched_roles.map((r) => <Tag key={r}>{roleNames[r.toLowerCase()] ?? r}</Tag>)
                 )}
-                {reaction.dataset_name && <Tag tone="src">{reaction.dataset_name === USER_SUBMITTED_SOURCE ? t.reaction.userSubmitted : reaction.dataset_name}</Tag>}
-                {!reaction.dataset_name && reaction.doi && <Tag tone="src">DOI</Tag>}
-                {!reaction.dataset_name && !reaction.doi && reaction.patent && <Tag tone="src">{t.reaction.sourceFields.patent}</Tag>}
+                {reaction.dataset_name && <Tag>{reaction.dataset_name === USER_SUBMITTED_SOURCE ? t.reaction.userSubmitted : reaction.dataset_name}</Tag>}
+                {!reaction.dataset_name && reaction.doi && <Tag>DOI</Tag>}
+                {!reaction.dataset_name && !reaction.doi && reaction.patent && <Tag>{t.reaction.sourceFields.patent}</Tag>}
               </div>
             </article>
           ))}

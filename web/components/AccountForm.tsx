@@ -11,7 +11,7 @@ import { Notice } from "@/components/ui/Notice";
 import { Segmented } from "@/components/ui/Segmented";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
-/** 登录/注册表单（Step 11 §9.6）：ui 表单控件 + 错误 Notice err（写明原因，
+/** 登录/注册表单（DESIGN_SYSTEM 6.9）：ui 表单控件 + 错误 Notice err（写明原因，
  *  不暴露错误码，IX-12）；提交 primary lg（触控 ≥44px）。请求路径与
  *  字段 name 与旧版逐字一致（登录回跳/工具登录流依赖这些锚点）。 */
 export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
@@ -75,7 +75,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
           { value: "register", label: t.auth.registerTitle },
         ]}
       />
-      <form className="form-stack" onSubmit={async (event) => {
+      <form method="post" className="form-stack" onSubmit={async (event) => {
         event.preventDefault();
         if (busy) return;  // loading 不落 disabled：提交重入在 handler 拦截
         setBusy(true); setMessage("");

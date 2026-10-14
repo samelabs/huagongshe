@@ -127,7 +127,7 @@ const t = {
     noResultsHints: ['检查名称、CAS、SMILES、CID 的拼写', '换用更精确的标识符（如 CAS 号）', '化合物可用英文名或分子式再试'],
     fetchPendingTitle: '正在获取该 CAS',
     fetchPendingHint: '已开始从外部数据源获取 {cas}，通常 1 分钟内完成，稍后刷新本页',
-    /* Step 10 §9.3：大搜索框（SearchHero）+ 检索方式 Segmented + 结果分类 Tabs */
+    /* 大搜索框（SearchHero）+ 检索方式 Segmented + 结果分类 Tabs（DESIGN_SYSTEM 6.2） */
     placeholder: '名称、CAS 号、SMILES 或 InChIKey',
     modeLabel: '检索方式',
     modeNameCas: '名称 / CAS',
@@ -360,7 +360,7 @@ const t = {
     tabStoich: '投料计算',
     tabReactions: '我的反应',
     tabSaved: '我的收藏',
-    /* Step 9 A.4：侧栏短文案（§9.4「收藏」「动态」）；面板标题与底部 tab
+    /* 侧栏短文案（DESIGN_SYSTEM 6.7「收藏」「动态」）；面板标题与底部 tab
        继续用 tabSaved/tabActivity，互不影响 */
     sideSaved: '收藏',
     tabSkills: '我的技能',
@@ -969,13 +969,13 @@ const t = {
     followedBy: '关注了你',
     mutual: '互相关注',
     editProfile: '编辑资料',
-    /* Step 10 Part E：手机主页分享文字按钮（§12 第三屏） */
+    /* 手机主页分享文字按钮（DESIGN_SYSTEM 6.6） */
     shareProfile: '分享主页',
     noReactions: '还没有公开反应。',
     contentError: '内容暂时无法加载，请稍后重试。',
     peopleCount: (n: number) => `${n} 人收藏`,
     joinedAt: (date: string) => `加入时间：${date}`,
-    /* Step 10 §9.5：Tabs / 空状态 / 右栏 */
+    /* Tabs / 空状态 / 右栏（DESIGN_SYSTEM 6.6） */
     tabReactions: '反应',
     tabNotes: '笔记',
     profileTabsLabel: '主页内容分类',
@@ -988,7 +988,7 @@ const t = {
     aboutTitle: '关于',
     institutionLabel: '机构',
     joinedLabel: '加入时间',
-    /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用账号主页停用态（§9.8）与作者标记 */
+    /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用账号主页停用态（DESIGN_SYSTEM 6.6）与作者标记 */
     deactivatedTag: '账号已停用',
     deactivatedTitle: '该账号已停用',
     deactivatedBody: '这个账号已被管理员停用。TA 公开发的反应、笔记与技能仍可通过链接访问，但这里不再展示内容列表，也无法关注。',

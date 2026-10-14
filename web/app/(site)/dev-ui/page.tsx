@@ -1,36 +1,56 @@
-import { notFound } from "next/navigation";
+"use client";
+
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Button } from "@/components/ui/Button";
+import { TextLink } from "@/components/ui/TextLink";
 import { Tag } from "@/components/ui/Tag";
-import { Field, Input } from "@/components/ui/Field";
+import { Field, Input, Select, Textarea } from "@/components/ui/Field";
+import { FileUpload } from "@/components/ui/FileUpload";
+import { CopyButton } from "@/components/ui/CopyButton";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Notice } from "@/components/ui/Notice";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Avatar } from "@/components/ui/Avatar";
 import { DevUiInteractive } from "@/components/ui/DevUiDemos";
-import { IconStar, IconUsers, IconLock, IconTrash, IconOk } from "@/components/ui/icons";
+import { IconStar, IconUsers, IconLock, IconTrash, IconOk, IconInfo, IconWarn, IconCheck } from "@/components/ui/icons";
 import "./dev-ui.css";
 
 /**
- * /dev-ui — v1.7 组件库开发预览页（仅非 production）。
- * 结构与 docs/design/hgs-ui-reference.html §5（#badge）、§6（#comp）一一对应，
- * 用于像素级对照（pair.mjs）与键盘走查（ix-check.mjs）。
- * 按钮矩阵的 hover/pressed/focus 用 class 强制展示，同参考 HTML 做法。
+ * /dev-ui — v2.0 组件库开发预览页（仅非 production）。
+ * 组件活样张，规则见 docs/DESIGN_SYSTEM.md 第三层，
+ * 用于像素级对照与键盘走查。
+ * 按钮矩阵的 hover/pressed/focus 用 class 强制展示。
  */
 export default function DevUiPage() {
-  if (process.env.NODE_ENV === "production") notFound();
-
   const buttonVariants = [
     { key: "primary", label: "保存反应", loading: "保存中" },
     { key: "secondary", label: "分享", loading: "分享" },
     { key: "tonal", label: "关注", loading: "关注" },
+    { key: "ghost", label: "翻页", loading: "翻页" },
     { key: "danger", label: "删除", loading: "删除中" },
+    { key: "danger-quiet", label: "撤销 Key", loading: "撤销中" },
   ] as const;
 
   return (
     <div className="du-wrap">
+      {/* 3.8 Breadcrumb */}
+      <section id="dev-breadcrumb">
+        <h2>面包屑 <small>Breadcrumb (DESIGN_SYSTEM 3.8) · 首页 / 栏目 / 当前</small></h2>
+        <div className="du-box">
+          <Breadcrumb
+            items={[
+              { label: "首页", href: "#dev-breadcrumb" },
+              { label: "化合物" },
+              { label: "阿司匹林 Aspirin" },
+            ]}
+          />
+        </div>
+      </section>
+
+      {/* 3.4 EntityBadge */}
       <section id="dev-badge">
-        <h2>HCID / HRID 徽标 <small>EntityBadge · 4 尺寸 × 2 实体 × 全部状态</small></h2>
+        <h2>HCID / HRID 徽标 <small>EntityBadge (DESIGN_SYSTEM 3.4) · 4 尺寸 × 2 实体 × 全部状态</small></h2>
         <div className="du-box">
           <div className="du-eb-grid">
             <span></span><span className="h">HCID · 化合物</span><span className="h">HRID · 反应</span>
@@ -72,8 +92,9 @@ export default function DevUiPage() {
         </div>
       </section>
 
+      {/* 3.1 Button & 3.2 TextLink */}
       <section id="dev-comp">
-        <h2>组件 <small>.hg- 前缀 · 与参考 §6 一一对应</small></h2>
+        <h2>按钮与链接 <small>Button (3.1) · TextLink (3.2)</small></h2>
 
         <div className="du-box">
           <div className="du-matrix">
@@ -92,15 +113,19 @@ export default function DevUiPage() {
               </span>
             ))}
           </div>
-          <div className="du-row" style={{ marginTop: 24 }}>
+          <div className="du-row" style={{ marginTop: 24, alignItems: "center" }}>
             <Button variant="primary" size="sm">sm 32</Button>
             <Button variant="primary">md 40</Button>
             <Button variant="primary" size="lg">lg 48</Button>
             <Button variant="ghost" iconOnly aria-label="收藏"><IconStar /></Button>
             <Button variant="danger-quiet" size="sm"><IconTrash />删除笔记</Button>
+            <TextLink href="#dev-comp">返回首页</TextLink>
+            <TextLink disabled>禁用操作</TextLink>
           </div>
         </div>
 
+        {/* 3.3 Field / Input / Select / Textarea / FileUpload */}
+        <h3>表单输入控件 <small>Field · Input · Select · Textarea · FileUpload (3.3)</small></h3>
         <div className="du-g2">
           <div className="du-box du-stack">
             <Field label="产物 SMILES" required error="SMILES 无法解析：第 19 个字符后缺少右括号">
@@ -109,8 +134,22 @@ export default function DevUiPage() {
             <Field label="收率" help="不确定就留空，不要估计">
               <Input className="is-focus" defaultValue="82 %" />
             </Field>
+            <Field label="参与角色">
+              <Select defaultValue="reactant">
+                <option value="reactant">主要反应物 (Reactant)</option>
+                <option value="catalyst">催化剂 / 助剂 (Catalyst)</option>
+                <option value="product">产物 (Product)</option>
+              </Select>
+            </Field>
+            <Field label="实验步骤备注">
+              <Textarea placeholder="输入实验操作步骤及观察现象..." rows={2} />
+            </Field>
           </div>
           <div className="du-box du-stack">
+            <Field label="头像上传 (FileUpload)">
+              <FileUpload buttonText="选择图片" placeholder="未选择任何文件" />
+            </Field>
+            {/* 3.6 Tag */}
             <div className="du-row" style={{ gap: 8 }}>
               <Tag>C9H8O4</Tag>
               <Tag>CAS 50-78-2</Tag>
@@ -118,15 +157,58 @@ export default function DevUiPage() {
               <Tag icon={<IconLock />}>私有</Tag>
               <Tag tone="ok" dot>已补全</Tag>
               <Tag tone="warn" dot>来源冲突</Tag>
-              <Tag tone="src">PubChem</Tag>
+              <Tag tone="err" dot>验证失败</Tag>
             </div>
+            {/* 3.5 CopyButton standalone */}
+            <div className="du-row" style={{ alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: "var(--fs-14)", color: "var(--text-2)" }}>InChIKey: BSYNRYMUTXBXSQ-UHFFFAOYSA-N</span>
+              <CopyButton value="BSYNRYMUTXBXSQ-UHFFFAOYSA-N" ariaLabel="复制 InChIKey" />
+            </div>
+            {/* 3.7 / 3.9 / 3.10 交互演示 */}
             <DevUiInteractive />
-            <Notice tone="warn" title="熔点在两个来源之间不一致">
-              两个值并列显示，没有合并。
-            </Notice>
           </div>
         </div>
 
+        {/* 3.9 Notice */}
+        <h3>页面通知 <small>Notice (3.9) · info · ok · warn · err</small></h3>
+        <div className="du-stack">
+          <Notice tone="info" title="新功能提示">
+            MCP 服务端已支持 Chemistry Tools 协议，前往接入指南查看配置方法。
+          </Notice>
+          <Notice tone="ok" title="反应已成功提交">
+            HRID 18628 已完成事实核验并录入公开知识库。
+          </Notice>
+          <Notice tone="warn" title="熔点在两个来源之间不一致">
+            两个值并列显示，没有合并。
+          </Notice>
+          <Notice tone="err" title="读取化合物数据失败" action={{ label: "重试", onClick: () => {} }}>
+            网络连接超时，请检查您的网络连接或稍后重试。
+          </Notice>
+        </div>
+
+        {/* 3.14 DataRow */}
+        <h3>数据分区行 <small>DataRow (3.14) · dl 两列布局</small></h3>
+        <div className="du-box">
+          <dl className="chem-kv" style={{ display: "grid", gap: 0, margin: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+              <dt style={{ color: "var(--text-muted)", fontSize: "var(--fs-13)" }}>CAS 号</dt>
+              <dd style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <code>50-78-2</code>
+                <CopyButton value="50-78-2" ariaLabel="复制 CAS" />
+              </dd>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+              <dt style={{ color: "var(--text-muted)", fontSize: "var(--fs-13)" }}>分子式</dt>
+              <dd style={{ margin: 0 }}>C9H8O4</dd>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 8, padding: "8px 0" }}>
+              <dt style={{ color: "var(--text-muted)", fontSize: "var(--fs-13)" }}>分子量</dt>
+              <dd style={{ margin: 0 }}>180.16 g/mol</dd>
+            </div>
+          </dl>
+        </div>
+
+        {/* 3.9 Toast & 3.10 ConfirmDialog & 3.11 EmptyState */}
         <div className="du-g3">
           <div className="hg-stage">
             <div className="hg-toast">
@@ -151,6 +233,7 @@ export default function DevUiPage() {
           </div>
         </div>
 
+        {/* 3.11 Skeleton & 3.12 Avatar */}
         <h3>骨架屏 · 头像</h3>
         <div className="du-box du-stack">
           <div className="du-row">

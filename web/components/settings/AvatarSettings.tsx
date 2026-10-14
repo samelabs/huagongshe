@@ -7,7 +7,8 @@ import { apiPost, apiDelete } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { Field, Input } from "@/components/ui/Field";
+import { Field } from "@/components/ui/Field";
+import { FileUpload } from "@/components/ui/FileUpload";
 import { useToast } from "@/components/ui/Toast";
 
 /** 头像设置（Step 11 Part D）：预览统一 ui/Avatar（无图首字回退）；
@@ -27,7 +28,7 @@ export function AvatarSettings() {
       <Avatar id={user.id} name={user.display_name || user.username} src={user.avatar_url} size={80} />
       <div><strong>{t.settings.avatar.current}</strong><small>{t.settings.avatar.hint}</small></div>
     </div>
-    <form className="avatar-upload" onSubmit={async (event) => {
+    <form method="post" className="avatar-upload" onSubmit={async (event) => {
       event.preventDefault();
       if (uploading || removing) return;
       const form = event.currentTarget;
@@ -45,7 +46,13 @@ export function AvatarSettings() {
       } finally { setUploading(false); }
     }}>
       <Field label={t.settings.avatar.uploadLabel}>
-        <Input name="image" type="file" accept="image/jpeg,image/png,image/webp" required disabled={uploading} />
+        <FileUpload
+          name="image"
+          accept="image/jpeg,image/png,image/webp"
+          required
+          disabled={uploading}
+          buttonText={t.settings.avatar.selectFile ?? "选择文件"}
+        />
       </Field>
       <Button type="submit" variant="primary" loading={uploading}>{uploading ? t.settings.avatar.uploading : t.settings.avatar.uploadBtn}</Button>
     </form>

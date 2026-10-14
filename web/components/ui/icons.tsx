@@ -1,5 +1,5 @@
 /**
- * icons — v1.7 组件库图标（docs/design/hgs-ui-reference.html <symbol> 照抄）。
+ * icons — v1.7 组件库图标（全站唯一图标来源，见 docs/DESIGN_SYSTEM.md 1.6）。
  *
  * 24 视口图标逐字照抄；16 视口字形（g-chem / g-rx / lock）保留参考的
  * viewBox="0 0 16 16" 与原始坐标 —— 不做视口换算（换算会引入变换矩阵，
@@ -145,7 +145,7 @@ export function IconLock(props: P) {
 }
 
 export function IconChevron(props: P) {
-  // 朝下 chevron（§8 菜单触发器）；展开态由 shell.css 旋转 180° 朝上
+  // 朝下 chevron（DESIGN_SYSTEM 2.3 菜单触发器）；展开态由 shell.css 旋转 180° 朝上
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" {...props}>
       <path d="m6 9 6 6 6-6" />
@@ -241,3 +241,15 @@ export function GlyphRx(props: P) {
     </svg>
   );
 }
+
+/** 更多操作（三个水平圆点） — DESIGN_SYSTEM 5.5 / IX-11 手机操作组 */
+export function IconMore(props: P) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false" {...props}>
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
+  );
+}
+

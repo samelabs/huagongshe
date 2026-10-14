@@ -78,7 +78,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
       <PanelHeading title={t.me.tabSearch} subtitle={t.me.searchHint} />
 
       {/* 搜索框 — 工作台自有布局，控件用 ui 库（Step 9） */}
-      <form className="wb-search-form" onSubmit={(e) => { e.preventDefault(); doSearch(query, mode); }}>
+      <form method="post" className="wb-search-form" onSubmit={(e) => { e.preventDefault(); doSearch(query, mode); }}>
         <div className="wb-search-field">
           <Input
             type="text"
@@ -93,7 +93,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
           />
           <Button type="submit" variant="primary">{t.me.searchButton}</Button>
         </div>
-        {/* 模式切换（§6：检索方式用 Segmented） */}
+        {/* 模式切换（DESIGN_SYSTEM 3.7 / 6.7：检索方式用 Segmented） */}
         <Segmented
           ariaLabel={t.me.searchHint}
           options={[

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * TextLink — 行内文字链接 / 文字按钮（§6；BX-B1）。
+ * TextLink — 行内文字链接 / 文字按钮（DESIGN_SYSTEM 3.2）。
  *
  * 旧类 text-link / text-button 的唯一 ui 归宿：href → next/link，
  * onClick → button。语义色 = --action，无底无边框，hover 下划线。
