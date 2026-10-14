@@ -44,8 +44,8 @@ const ja: Dictionary = {
     pageNav: 'ページナビゲーション',
     pageOf: (cur: number, total: number) => `${cur} / ${total} ページ`,
     networkError: 'ネットワークエラーです。後でもう一度お試しください。',
-    hcidLabel: (id: number | string) => `化工社 化合物記録 HCID ${id}`,
-    hridLabel: (id: number | string) => `化工社 反応記録 HRID ${id}`,
+    hcidLabel: (id: number | string) => `HCID ${id}、化合物`,
+    hridLabel: (id: number | string) => `HRID ${id}、反応`,
     breadcrumb: 'パンくずリスト',
     close: '閉じる',
     /* v1.7 组件库 */
@@ -156,6 +156,8 @@ const ja: Dictionary = {
   /* ── 化合物詳細 ─────────────────────────────────────── */
   chemical: {
     detail: '化合物詳細',
+    category: '化合物',
+    noStructure: '構造図なし',
     descFor: (name: string) => `${name}｜構造・識別子・物性・関連反応`,
     structureAlt: (name: string) => `${name} の分子構造式`,
     home: 'ホーム',
@@ -259,6 +261,9 @@ const ja: Dictionary = {
   /* ── 反応詳細 ───────────────────────────────────────── */
   reaction: {
     detail: '反応詳細',
+    category: '反応',
+    reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,
+    reactionTitleFallback: (id: number | string) => `反応 HRID ${id}`,
     desc: '反応式・参加物・条件・結果・出典',
     ownerSelf: '自分の反応',
     ownerOther: 'データ参照',
@@ -296,6 +301,7 @@ const ja: Dictionary = {
       atmosphere: '雰囲気',
       pressure: '圧力',
       reflux: '還流',
+      other: 'その他',
     },
     sourceTypes: {
       literature: '文献',
@@ -509,6 +515,7 @@ const ja: Dictionary = {
     loadFailed: 'ノートを読み込めませんでした。',
     /* ── Phase 1c: 詳細ページ / プロフィール / プライベート / フィルタ / 切り詰め / Stoich ── */
     detailTitle: 'ノート',
+    category: 'ノート',
     updatedLabel: '更新日時',
     visibilityPublic: '公開',
     visibilityPrivate: '非公開',

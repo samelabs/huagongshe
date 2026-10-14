@@ -12,6 +12,7 @@ import { Notice } from "@/components/ui/Notice";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Avatar } from "@/components/ui/Avatar";
+import { DataRow } from "@/components/ui/DataRow";
 import { DevUiInteractive } from "@/components/ui/DevUiDemos";
 import { IconStar, IconUsers, IconLock, IconTrash, IconOk, IconInfo, IconWarn, IconCheck } from "@/components/ui/icons";
 import "./dev-ui.css";
@@ -189,22 +190,10 @@ export default function DevUiPage() {
         {/* 3.14 DataRow */}
         <h3>数据分区行 <small>DataRow (3.14) · dl 两列布局</small></h3>
         <div className="du-box">
-          <dl className="chem-kv" style={{ display: "grid", gap: 0, margin: 0 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-              <dt style={{ color: "var(--text-muted)", fontSize: "var(--fs-13)" }}>CAS 号</dt>
-              <dd style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <code>50-78-2</code>
-                <CopyButton value="50-78-2" ariaLabel="复制 CAS" />
-              </dd>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-              <dt style={{ color: "var(--text-muted)", fontSize: "var(--fs-13)" }}>分子式</dt>
-              <dd style={{ margin: 0 }}>C9H8O4</dd>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 8, padding: "8px 0" }}>
-              <dt style={{ color: "var(--text-muted)", fontSize: "var(--fs-13)" }}>分子量</dt>
-              <dd style={{ margin: 0 }}>180.16 g/mol</dd>
-            </div>
+          <dl className="chem-dl">
+            <DataRow label="CAS 号" value="50-78-2" mono copyable copyLabel="复制 CAS" />
+            <DataRow label="分子式" value="C9H8O4" />
+            <DataRow label="分子量" value="180.16 g/mol" />
           </dl>
         </div>
 

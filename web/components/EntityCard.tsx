@@ -16,19 +16,19 @@ import { withLocale } from "@/lib/localePath";
 export async function EntityCard({ chemical, favored = false }: { chemical: Chemical; favored?: boolean }) {
   const t = await getRequestDictionary();
   const locale = await getRequestLocale();
-  const { title, secondary } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
+  const { title, secondary, source } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
   const identity = [
     secondary,
-    chemical.cas_numbers[0] ? `CAS ${chemical.cas_numbers[0]}` : null,
+    source === "cas" ? null : (chemical.cas_numbers[0] ? `CAS ${chemical.cas_numbers[0]}` : null),
     chemical.pubchem_cid ? `CID ${chemical.pubchem_cid}` : null,
-    chemical.molecular_formula,
+    source === "molecular_formula" ? null : chemical.molecular_formula,
   ].filter(Boolean).join(" · ");
   const href = withLocale(`/chemical/${chemical.id}`, locale);
 
   return (
     <article className="entity-card">
       <Link className="entity-card-thumb" href={href} aria-label={`${t.common.view} ${title}`}>
-        <Molecule chemicalId={chemical.id} width={112} height={84} label={title} alt={t.chemical.structureAlt(title)} noStructureText={t.reaction.noStructure} />
+        <Molecule chemicalId={chemical.id} smiles={chemical.smiles} width={112} height={84} label={title} alt={t.chemical.structureAlt(title)} noStructureText={t.chemical.noStructure} />
       </Link>
       <div className="entity-card-copy">
         <EntityBadge kind="chemical" id={chemical.id} ariaLabel={t.common.hcidLabel(chemical.id)} />

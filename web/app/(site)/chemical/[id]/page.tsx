@@ -11,7 +11,7 @@ import { GroupToggle } from "@/components/GroupToggle";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { EntityNotes } from "@/components/EntityNotes";
 import { Button } from "@/components/ui/Button";
-import { CodeField } from "@/components/ui/CodeField";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { Tag } from "@/components/ui/Tag";
 import { Molecule } from "@/components/Molecule";
@@ -119,7 +119,7 @@ export default async function ChemicalPage({ params }: {
   // 名称解析唯一出口(与搜索结果/SEO 同规则); pb.record_title 不再入链 ——
   // 数据事实: PubChem 摄入时 preferred_name = properties.Title or record_title,
   // 抽样 6/6 record_title 与 preferred_name 同值, 单独入链只会制造第二套 fallback。
-  const { title, secondary } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
+  const { title, secondary, source } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
   const iupacShow = chemical.iupac_name
     && chemical.iupac_name.toLowerCase() !== title.toLowerCase()
     && chemical.iupac_name.toLowerCase() !== (secondary || "").toLowerCase() ? chemical.iupac_name : null;
@@ -187,9 +187,18 @@ export default async function ChemicalPage({ params }: {
     ...(chemical.pubchem_cid ? { url: localizedAbsoluteUrl(`/chemical/${chemical.id}`, locale) } : {}),
   };
 
+  const hasOverview = Boolean(
+    detail?.description.record_description ||
+    chemical.smiles ||
+    chemical.inchikey ||
+    chemical.molecular_formula ||
+    chemical.average_mass != null ||
+    chemical.monoisotopic_mass != null
+  );
+
   // TOC 只列实际渲染的 section(rail TOC 与 tablet/mobile local nav 共用此唯一列表)
   const tocSections: [string, string][] = [
-    ["overview", t.chemical.page.overview],
+    ...(hasOverview ? [["overview", t.chemical.page.overview] as [string, string]] : []),
     ...(hasNames ? [["names", t.chemical.page.names] as [string, string]] : []),
     ...(hasProperties ? [["properties", t.chemical.page.properties] as [string, string]] : []),
     ...(hasSafetyReal ? [["safety", t.chemical.page.safety] as [string, string]] : []),
@@ -201,7 +210,14 @@ export default async function ChemicalPage({ params }: {
   return (
     <div className="content-page chemical-page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
-      <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href={withLocale("/", locale)}>{t.chemical.home}</Link><span>/</span><span>{t.chemical.detail}</span></nav>
+      <Breadcrumb
+        items={[
+          { label: t.chemical.home, href: withLocale("/", locale) },
+          { label: t.chemical.category },
+          { label: title },
+        ]}
+        ariaLabel={t.common.breadcrumb}
+      />
 
       {/* ── Entity Header（5.1 / 6.3：左内容 + 右 300 结构图卡片） ── */}
       <header className="chem-head">
@@ -210,13 +226,13 @@ export default async function ChemicalPage({ params }: {
         {secondary && <p className="chem-head-alt">{secondary}</p>}
         {iupacShow && <p className="chem-head-iupac">{iupacShow}</p>}
         <div className="chem-head-chips">
-          {chemical.cas_numbers[0] && (
+          {chemical.cas_numbers[0] && source !== "cas" && (
             <span className="chem-cas-chip">
               <Tag>CAS {chemical.cas_numbers[0]}</Tag>
               <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
             </span>
           )}
-          {chemical.molecular_formula && <Tag>{chemical.molecular_formula}</Tag>}
+          {chemical.molecular_formula && source !== "molecular_formula" && <Tag>{chemical.molecular_formula}</Tag>}
           {chemical.average_mass != null && <Tag>{formatNumber(chemical.average_mass, locale)} g/mol</Tag>}
           {chemical.pubchem_cid != null && <Tag>PubChem CID {chemical.pubchem_cid}</Tag>}
         </div>
@@ -229,8 +245,7 @@ export default async function ChemicalPage({ params }: {
           title={title}
         />
         <figure className="chem-head-struct">
-          <Molecule chemicalId={chemical.id} label={title} width={276} height={206} alt={t.chemical.structureAlt(title)} />
-          <figcaption>RDKit 2D</figcaption>
+          <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} width={276} height={206} alt={t.chemical.structureAlt(title)} />
         </figure>
       </header>
 
@@ -244,26 +259,19 @@ export default async function ChemicalPage({ params }: {
         <main className="chemical-main">
 
           {/* ── 1. Overview ── */}
+          {hasOverview && (
           <section className="chem-section" id="overview">
             <SectionHead title={t.chemical.page.overview} />
             {detail?.description.record_description && <div className="description-panel"><p>{detail.description.record_description}</p></div>}
             <dl className="chem-dl">
-              {chemical.cas_numbers[0] && (
-                <DataRow label="CAS">
-                  <CodeField value={chemical.cas_numbers[0]} copyLabel={`${t.common.copy} CAS`} />
-                </DataRow>
-              )}
-              <DataRow label={t.chemical.identity.standardSmiles}>
-                {chemical.smiles && <CodeField value={chemical.smiles} copyLabel={`${t.common.copy} SMILES`} />}
-              </DataRow>
-              <DataRow label="InChIKey">
-                {chemical.inchikey && <CodeField value={chemical.inchikey} copyLabel={`${t.common.copy} InChIKey`} />}
-              </DataRow>
+              <DataRow label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono copyable copyLabel={`${t.common.copy} SMILES`} />
+              <DataRow label="InChIKey" value={chemical.inchikey} mono copyable copyLabel={`${t.common.copy} InChIKey`} />
               <DataRow label={t.chemical.identity.formula} value={chemical.molecular_formula} />
               <DataRow label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass, locale)} g/mol` : null} />
               <DataRow label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, locale, 8) : null} />
             </dl>
           </section>
+          )}
 
           {/* ── 2. Names & Identifiers ── */}
           {hasNames && (
@@ -299,7 +307,16 @@ export default async function ChemicalPage({ params }: {
               <div className="chem-names-block">
                 <h3 className="chem-subhead">{t.chemical.page.dbIdentifiers}</h3>
                 <dl className="chem-dl">
-                  {identifiers.map(([label, values]) => <DataRow key={label} label={label} value={values.join("、")} />)}
+                  {identifiers.map(([label, values]) => (
+                    <DataRow
+                      key={label}
+                      label={label}
+                      value={values.join("、")}
+                      mono={label === "CAS" || label === "DTXSID" || label.startsWith("ChE")}
+                      copyable={label === "CAS"}
+                      copyLabel={label === "CAS" ? `${t.common.copy} CAS` : undefined}
+                    />
+                  ))}
                 </dl>
               </div>
             )}

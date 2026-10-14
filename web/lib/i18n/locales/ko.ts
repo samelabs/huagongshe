@@ -46,8 +46,8 @@ const ko: Dictionary = {
     pageNav: '페이지 탐색',
     pageOf: (cur: number, total: number) => `${cur} / ${total} 페이지`,
     networkError: '네트워크 오류입니다. 잠시 후 다시 시도해 주세요.',
-    hcidLabel: (id: number | string) => `化工社 화합물 기록 HCID ${id}`,
-    hridLabel: (id: number | string) => `化工社 반응 기록 HRID ${id}`,
+    hcidLabel: (id: number | string) => `HCID ${id}, 화합물`,
+    hridLabel: (id: number | string) => `HRID ${id}, 반응`,
     breadcrumb: '브레드크럼',
     close: '닫기',
     /* v1.7 组件库 */
@@ -158,6 +158,8 @@ const ko: Dictionary = {
   /* ── 화합물 상세 ────────────────────────────────────── */
   chemical: {
     detail: '화합물 상세',
+    category: '화합물',
+    noStructure: '구조도 없음',
     descFor: (name: string) => `${name}｜구조·식별자·물성·관련 반응`,
     structureAlt: (name: string) => `${name} 분자 구조식`,
     home: '홈',
@@ -261,6 +263,9 @@ const ko: Dictionary = {
   /* ── 반응 상세 ──────────────────────────────────────── */
   reaction: {
     detail: '반응 상세',
+    category: '반응',
+    reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,
+    reactionTitleFallback: (id: number | string) => `반응 HRID ${id}`,
     desc: '반응식·참가 물질·조건·결과·출처',
     ownerSelf: '내 반응',
     ownerOther: '데이터 조회',
@@ -298,6 +303,7 @@ const ko: Dictionary = {
       atmosphere: '분위기',
       pressure: '압력',
       reflux: '환류',
+      other: '기타',
     },
     sourceTypes: {
       literature: '문헌',
@@ -511,6 +517,7 @@ const ko: Dictionary = {
     loadFailed: '노트를 불러오지 못했습니다.',
     /* ── Phase 1c: 상세 페이지 / 프로필 / 비공개 / 필터 / 잘라내기 / Stoich ── */
     detailTitle: '노트',
+    category: '노트',
     updatedLabel: '업데이트',
     visibilityPublic: '공개',
     visibilityPrivate: '비공개',

@@ -43,8 +43,8 @@ const en: Dictionary = {
     pageNav: 'Pagination',
     pageOf: (cur: number, total: number) => `Page ${cur} of ${total}`,
     networkError: 'Network error. Please try again later.',
-    hcidLabel: (id: number | string) => `Huagongshe compound record HCID ${id}`,
-    hridLabel: (id: number | string) => `Huagongshe reaction record HRID ${id}`,
+    hcidLabel: (id: number | string) => `HCID ${id}, compound`,
+    hridLabel: (id: number | string) => `HRID ${id}, reaction`,
     breadcrumb: 'Breadcrumb',
     close: 'Close',
     /* v1.7 组件库 */
@@ -155,6 +155,8 @@ const en: Dictionary = {
   /* ── Compound detail ───────────────────────────────── */
   chemical: {
     detail: 'Compound detail',
+    category: 'Compound',
+    noStructure: 'No structure available',
     descFor: (name: string) => `${name}｜Structure, identifiers, properties, and related reactions`,
     structureAlt: (name: string) => `${name} molecular structure`,
     home: 'Home',
@@ -258,6 +260,9 @@ const en: Dictionary = {
   /* ── Reaction detail ───────────────────────────────── */
   reaction: {
     detail: 'Reaction detail',
+    category: 'Reaction',
+    reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,
+    reactionTitleFallback: (id: number | string) => `Reaction HRID ${id}`,
     desc: 'Equation, participants, conditions, outcome, and sources',
     ownerSelf: 'My reaction',
     ownerOther: 'Data lookup',
@@ -295,6 +300,7 @@ const en: Dictionary = {
       atmosphere: 'Atmosphere',
       pressure: 'Pressure',
       reflux: 'Reflux',
+      other: 'Other',
     },
     sourceTypes: {
       literature: 'Literature',
@@ -508,6 +514,7 @@ const en: Dictionary = {
     loadFailed: 'Could not load notes.',
     /* ── Phase 1c: detail page / profile block / private section / filter / truncation / stoich ── */
     detailTitle: 'Note',
+    category: 'Note',
     updatedLabel: 'Updated',
     visibilityPublic: 'Public',
     visibilityPrivate: 'Private',

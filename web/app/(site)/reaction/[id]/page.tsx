@@ -10,6 +10,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { CreatorFollow } from "@/components/CreatorFollow";
 import { Avatar } from "@/components/ui/Avatar";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { CodeField } from "@/components/ui/CodeField";
 import { Notice } from "@/components/ui/Notice";
@@ -81,6 +82,23 @@ export default async function ReactionPage({ params }: {
   const products = reaction.participants.filter((item) => item.role === "PRODUCT");
   const auxiliaries = reaction.participants.filter((item) => item.role !== "REACTANT" && item.role !== "PRODUCT");
 
+  // 主要反应物取第一个反应物；主要产物取有收率中最高的一个，都没有收率时取第一个产物（DESIGN_SYSTEM 5.1）
+  const primaryReactantParticipant = reactants[0];
+  const productsWithYield = products.filter((p) => typeof p.yield_percent === "number" && !isNaN(p.yield_percent));
+  const primaryProductParticipant = productsWithYield.length > 0
+    ? productsWithYield.reduce((max, cur) => ((cur.yield_percent ?? 0) > (max.yield_percent ?? 0) ? cur : max))
+    : products[0];
+
+  const primaryReactant = primaryReactantParticipant ? resolveChemicalName(primaryReactantParticipant, t.common.hcidLabel, locale).title : "";
+  const primaryProduct = primaryProductParticipant ? resolveChemicalName(primaryProductParticipant, t.common.hcidLabel, locale).title : "";
+  const reactionTitleText = (primaryReactant && primaryProduct)
+    ? t.reaction.reactionTitle(primaryReactant, primaryProduct)
+    : primaryReactant
+      ? `${primaryReactant} →`
+      : primaryProduct
+        ? `→ ${primaryProduct}`
+        : t.reaction.reactionTitleFallback(reaction.id);
+
   // 条件 = structured facts(独立字段); conditions_detail 只作补充说明, 不与 facts 混成一段。
   const conditions = [
     reaction.temperature ? [t.reaction.conditionFields.temperature, `${reaction.temperature.value} ${unitName(reaction.temperature.unit, t)}`] : null,
@@ -105,8 +123,6 @@ export default async function ReactionPage({ params }: {
   if (reaction.doi) provenance.push({ label: t.reaction.sourceFields.doi, value: reaction.doi, href: `https://doi.org/${reaction.doi}` });
   if (reaction.patent) provenance.push({ label: t.reaction.sourceFields.patent, value: reaction.patent });
   if (reaction.publication_url) provenance.push({ label: t.reaction.sourceFields.link, value: t.reaction.sourceFields.viewSource, href: reaction.publication_url });
-  // 引用（rail）：带链接的条目 + 数据集/ORD（Tag src 标注类型）
-  const citations = provenance.filter((row) => row.value);
 
   const hasParticipants = reaction.participants.length > 0;
   const hasConditions = conditions.length > 0 || Boolean(reaction.conditions_detail);
@@ -144,9 +160,16 @@ export default async function ReactionPage({ params }: {
       {/* 0904 P0收口: JSON.stringify 不转义 '<', </script> 可闭合标签注入脚本
           (存储型XSS)。规范做法: < 与 U+2028/2029 转义为 JSON 等价形式。 */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
-      <nav className="breadcrumbs" aria-label={t.common.breadcrumb}><Link href={withLocale(reaction.is_owner ? "/aichem" : "/", locale)}>{reaction.is_owner ? t.reaction.ownerSelf : t.reaction.ownerOther}</Link><span>/</span><span>{t.reaction.detail}</span></nav>
+      <Breadcrumb
+        items={[
+          { label: t.chemical.home, href: withLocale("/", locale) },
+          { label: t.reaction.category },
+          { label: reactionTitleText },
+        ]}
+        ariaLabel={t.common.breadcrumb}
+      />
 
-      {/* ── Reaction Entity Header（5.1 / 6.4：徽标 lg + 中性 h1 + 事实摘要 + 操作行） ── */}
+      {/* ── Reaction Entity Header（5.1 / 6.4：徽标 lg + 标题 + 事实摘要 + 操作行） ── */}
       <header className="rx-head">
         <EntityBadge
           kind="reaction"
@@ -156,7 +179,7 @@ export default async function ReactionPage({ params }: {
           state={reaction.visibility === "private" ? "private" : undefined}
           ariaLabel={t.common.hridLabel(reaction.id)}
         />
-        <h1 className="rx-head-title">{t.reaction.detail}</h1>
+        <h1 className="rx-head-title">{reactionTitleText}</h1>
         {factualSummary && <p className="rx-head-summary">{factualSummary}</p>}
         <div className="rx-head-actions">
           {reaction.is_owner ? (
@@ -202,12 +225,12 @@ export default async function ReactionPage({ params }: {
           {hasConditions && (
             <section className="chem-section" id="conditions">
               <div className="section-heading chem-section-head"><h2>{t.reaction.conditions}</h2></div>
-              {conditions.length > 0 && (
-                <dl className="chem-dl">
-                  {conditions.map(([label, value]) => <DataRow key={label} label={label} value={value} />)}
-                </dl>
-              )}
-              {reaction.conditions_detail && <p className="document-text">{reaction.conditions_detail}</p>}
+              <dl className="chem-dl">
+                {conditions.map(([label, value]) => <DataRow key={label} label={label} value={value} />)}
+                {reaction.conditions_detail && (
+                  <DataRow label={t.reaction.conditionFields.other} value={reaction.conditions_detail} />
+                )}
+              </dl>
             </section>
           )}
 
@@ -291,22 +314,6 @@ export default async function ReactionPage({ params }: {
               <div><dt>{t.reaction.fieldUpdated}</dt><dd>{formatDate(reaction.updated_at, locale)}</dd></div>
             </dl>
           </section>
-          {citations.length > 0 && (
-            <section className="rx-citations">
-              <h2>{t.reaction.sources}</h2>
-              {citations.map((row) => {
-                const safeHref = row.href && /^https?:\/\//i.test(row.href) ? row.href : undefined;
-                return (
-                  <div key={row.label} className="rx-citation">
-                    <Tag>{row.label}</Tag>
-                    {safeHref
-                      ? <a href={safeHref} target="_blank" rel="nofollow noopener noreferrer">{row.value}</a>
-                      : <span>{row.value}</span>}
-                  </div>
-                );
-              })}
-            </section>
-          )}
         </aside>
       </div>
     </div>
@@ -369,7 +376,7 @@ function ParticipantRoleGroup({ title, items, showRole = false, t, locale }: {
         ].filter(Boolean).join(" · ");
         return (
           <Link className="participant-row" href={withLocale(`/chemical/${chemical.id}`, locale)} key={`${chemical.role}-${chemical.id}`}>
-            <span className="participant-thumb"><Molecule chemicalId={chemical.id} label={name} width={64} height={48} alt={t.chemical.structureAlt(name)} /></span>
+            <span className="participant-thumb"><Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={name} width={64} height={48} alt={t.chemical.structureAlt(name)} /></span>
             <span className="participant-id"><EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} /></span>
             <span className="participant-name">{name}</span>
             {showRole && <Tag>{roleLabels[chemical.role || ""] || chemical.role}</Tag>}

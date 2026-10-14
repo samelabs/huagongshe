@@ -575,3 +575,17 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   font-size: var(--fs-13);
 }
 
+/* ══ DataRow（DESIGN_SYSTEM 3.14） ════════════════════════════ */
+.hg-datarow-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.hg-datarow-copy code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-14);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+

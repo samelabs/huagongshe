@@ -134,6 +134,7 @@ export function ChemicalActions({ chemicalId, smiles, initialFollowing, initialC
       <div className="chem-actions-desktop">
         {smiles && (
           <Button variant="secondary" className="chem-similarity-btn" href={structureHref("similarity")}>
+            <IconSearch />
             {t.chemical.similarity}
           </Button>
         )}

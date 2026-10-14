@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { NoteOwnerActions } from "@/components/NoteOwnerActions";
 import { Avatar } from "@/components/ui/Avatar";
+import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { IconLock } from "@/components/ui/icons";
 import { Tag } from "@/components/ui/Tag";
@@ -34,31 +35,28 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   };
 }
 
-/** 笔记标题（Step 8 Part A）：
- *  - 正文只有一行（非空行计）→「笔记 · 2026/10/10」（本地化日期），不重复正文；
- *  - 两行及以上 → 第一行作标题（≤60 字超出省略号），正文从第二行开始显示。
- *  第一行为空退回「笔记 {id}」；<title>/meta 保持 generic，不入正文。 */
-function noteTitle(content: string, id: number, fallback: string): string {
-  const lines = content.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
-  if (lines.length === 0) return `${fallback} ${id}`;
-  if (lines.length === 1) return "";
-  const firstLine = lines[0];
-  return firstLine.length > 60 ? `${firstLine.slice(0, 60)}…` : firstLine;
-}
-
-/** 「笔记 · 本地化日期」标题（单行正文的标题形态） */
-function noteDateTitle(fallback: string, updatedAt: string, locale: string): string {
-  const date = new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(updatedAt));
-  return `${fallback} · ${date}`;
-}
-
-/** 两行及以上时，正文从第二行开始显示：截掉首个非空行（标题行）之前与该行本身。 */
-function contentAfterFirstLine(content: string): string {
+/** 笔记标题与正文（DESIGN_SYSTEM 6.5 / I-043）：
+ *  标题取正文首行（≤60 字超出省略号）；
+ *  首行之后的内容作为正文排在页面上；
+ *  若只有一行且超过 60 字，正文显示完整内容避免文字丢失。 */
+function extractNoteTitleAndBody(content: string, id: number, fallback: string): { title: string; body: string } {
   const lines = content.split("\n");
-  let index = 0;
-  while (index < lines.length && lines[index].trim().length === 0) index += 1;
-  if (index >= lines.length) return content;
-  return lines.slice(index + 1).join("\n");
+  let firstIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim().length > 0) {
+      firstIdx = i;
+      break;
+    }
+  }
+  if (firstIdx === -1) {
+    return { title: `${fallback} ${id}`, body: "" };
+  }
+  const firstLine = lines[firstIdx].trim();
+  const isTruncated = firstLine.length > 60;
+  const title = isTruncated ? `${firstLine.slice(0, 60)}…` : firstLine;
+  const afterFirstLine = lines.slice(firstIdx + 1).join("\n").trim();
+  const body = afterFirstLine || (isTruncated ? firstLine : "");
+  return { title, body };
 }
 
 export default async function NoteDetailPage({ params }: Params) {
@@ -83,12 +81,19 @@ export default async function NoteDetailPage({ params }: Params) {
   }
 
   const authorLine = note.display_name || `@${note.username}`;
-  const singleLineTitle = noteTitle(note.content, note.id, t.notes.detailTitle);
-  const title = singleLineTitle || noteDateTitle(t.notes.detailTitle, note.updated_at, locale);
-  const bodyContent = singleLineTitle ? contentAfterFirstLine(note.content) : note.content;
+  const { title, body } = extractNoteTitleAndBody(note.content, note.id, t.notes.detailTitle);
+  const hasLinkedEntities = note.chemical_ids.length > 0 || note.reaction_ids.length > 0;
 
   return (
     <div className="content-page note-detail-page">
+      <Breadcrumb
+        items={[
+          { label: t.chemical.home, href: withLocale("/", locale) },
+          { label: t.notes.category },
+          { label: title },
+        ]}
+        ariaLabel={t.common.breadcrumb}
+      />
       <article className="note-detail">
         <header className="note-detail-head">
           <h1>{title}</h1>
@@ -102,26 +107,43 @@ export default async function NoteDetailPage({ params }: Params) {
               ? <Tag tone="blue">{t.notes.visibilityPublic}</Tag>
               : <Tag icon={<IconLock />}>{t.notes.visibilityPrivate}</Tag>}
           </div>
-          {/* 本人操作：NoteOwnerActions 用全局会话比对作者 username，非本人隐藏 */}
-          {hasSession && <NoteOwnerActions noteId={note.id} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />}
         </header>
+
+        {hasLinkedEntities && (
+          <div className="note-detail-links entity-note-links">
+            {note.chemical_ids.map((cid) => (
+              <EntityBadge
+                key={`c-${cid}`}
+                kind="chemical"
+                id={cid}
+                size="xs"
+                href={withLocale(`/chemical/${cid}`, locale)}
+                ariaLabel={t.common.hcidLabel(cid)}
+              />
+            ))}
+            {note.reaction_ids.map((rid) => (
+              <EntityBadge
+                key={`r-${rid}`}
+                kind="reaction"
+                id={rid}
+                size="xs"
+                href={withLocale(`/reaction/${rid}`, locale)}
+                ariaLabel={t.common.hridLabel(rid)}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Full content: pre-wrap + overflow-wrap; no truncation on the detail page.
             多行笔记的标题行（第一行）不重复出现在正文里。 */}
-        <div className="note-detail-content">{bodyContent}</div>
-        {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
-          <div className="note-detail-links">
-            <h2 className="note-links-title">{t.notes.linkedLabel}</h2>
-            <div className="entity-note-links">
-              {note.chemical_ids.map((cid) => (
-                <Link key={`c-${cid}`} href={withLocale(`/chemical/${cid}`, locale)}><EntityBadge kind="chemical" id={cid} size="sm" ariaLabel={t.common.hcidLabel(cid)} /></Link>
-              ))}
-              {note.reaction_ids.map((rid) => (
-                <Link key={`r-${rid}`} href={withLocale(`/reaction/${rid}`, locale)}><EntityBadge kind="reaction" id={rid} size="sm" ariaLabel={t.common.hridLabel(rid)} /></Link>
-              ))}
-            </div>
-          </div>
+        {body && <div className="note-detail-content">{body}</div>}
+
+        {/* 本人操作：编辑（secondary）、删除（danger-quiet） */}
+        {hasSession && (
+          <NoteOwnerActions noteId={note.id} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />
         )}
       </article>
     </div>
   );
 }
+

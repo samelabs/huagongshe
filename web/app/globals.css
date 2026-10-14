@@ -289,6 +289,7 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 /* 空结果：Notice（CAS 获取中）+ EmptyState + 清空查询 */
 .search-empty { display: grid; gap: var(--sp-4); justify-items: center; margin-top: var(--sp-6); }
 .search-empty .hg-notice, .search-empty .hg-empty { width: 100%; }
+.search-pending { display: grid; gap: var(--sp-4); margin-top: var(--sp-6); }
 /* 结果页空态提示（2026-08-27 收敛：/search 是结果页，发现职责归首页） */
 .results-section + .results-section { margin-top: 44px; }
 .load-more { text-align: center; margin-top: 32px; }
@@ -391,11 +392,13 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 .chem-cas-chip { display: inline-flex; align-items: center; gap: 2px; }
 .chem-head-actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
 .chem-actions-desktop { display: inline-flex; align-items: center; gap: var(--sp-2); }
-.chem-actions-more { display: none; }
+.chem-actions-more { display: none !important; }
 .chem-favor-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 .chem-head-struct { grid-area: struct; align-self: start; position: relative; display: grid; place-items: center; min-height: 220px; margin: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); }
 .chem-head-struct img { max-width: 100%; max-height: 220px; object-fit: contain; }
 .chem-head-struct figcaption { position: absolute; left: var(--sp-3); bottom: var(--sp-2); color: var(--text-muted); font-size: var(--fs-12); }
+.mol-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2); color: var(--text-muted); font-size: var(--fs-13); text-align: center; width: 100%; height: 100%; user-select: none; }
+.mol-placeholder svg { width: 24px; height: 24px; color: var(--text-muted); flex-shrink: 0; }
 /* 补全中 Notice（DetailRefresher 渲染，头部下方） */
 .chem-refill-notice { margin: var(--sp-4) 0 0; }
 
@@ -498,8 +501,8 @@ details.chem-group[open] > summary::after { content: "▴"; }
   /* 操作行（DESIGN_SYSTEM 5.5 / 6.3）：收藏 + 子结构检索并排（min-width:0），相似结构和分享进更多 */
   .chem-head-actions { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-width: 0; }
   .chem-head-actions > .hg-btn { flex: 1; min-width: 0; padding: 0 var(--sp-2); }
-  .chem-actions-desktop { display: none; }
-  .chem-actions-more { display: inline-flex; flex: none; }
+  .chem-actions-desktop { display: none !important; }
+  .chem-actions-more { display: inline-flex !important; flex: none; }
 }
 
 .metric-grid { margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
@@ -718,10 +721,10 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pf-share { display: flex; min-width: 0; }
 .pf-acts .pf-share-text { display: none; }
 
-/* 正文两栏：列表 + 右栏（手机与平板 rail 落到正文下方，DESIGN_SYSTEM 2.1） */
-.pf-body { display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); gap: var(--sp-8); align-items: start; }
+/* 正文单栏（DESIGN_SYSTEM 6.6：无本页导航，单栏） */
+.pf-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); }
 @media (max-width: 1023px) {
-  .pf-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); }
+  .pf-body { gap: var(--sp-6); }
 }
 .pf-main { min-width: 0; display: grid; gap: var(--sp-4); }
 
@@ -1432,7 +1435,21 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 /* Step 10 Part C：MCP 区块 = CodeField 地址 → 三入口按钮 → 说明 + Tag warn「未上架」 */
 .home-entry { margin-top: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-5); background: var(--bg-surface); display: grid; gap: var(--sp-3); text-align: left; }
 .home-entry-code .hg-code code { font-size: var(--fs-13); }
-.home-entry-actions { margin-top: 0; }
+.home-entry-actions { margin-top: 0; display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+@media (max-width: 640px) {
+  .home-entry-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-2);
+  }
+  .home-entry-actions > * {
+    width: 100%;
+    min-width: 0;
+  }
+  .home-entry-actions > *:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
 
 /* ── 数据看板 v2 (0911) ── */
 .pipe-grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
@@ -1564,17 +1581,17 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .note-clamp{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;min-width:0}
 .note-view-full{display:inline-block;margin-top:8px}
 /* P-1: Note 详情页（6.5：reading 宽度 / 标题 28 / 元信息行 / 全文 prose） */
-.content-page.note-detail-page{width:min(var(--w-reading), calc(100% - 40px))}
-.note-detail-page .note-detail{border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-6);background:var(--bg-surface);max-width:var(--w-reading)}
+.content-page.note-detail-page{width:min(var(--w-reading), calc(100% - 40px));margin:0 auto}
+.note-detail-page .note-detail{max-width:var(--w-reading);margin:0 auto}
 .note-detail-head h1{font-size:var(--fs-28);font-weight:650;letter-spacing:var(--ls-title);line-height:1.25;margin:0 0 var(--sp-2);overflow-wrap:anywhere}
 .note-detail-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);font-size:var(--fs-13);color:var(--text-muted)}
 .note-detail-meta .hg-avatar{flex:none}
 .note-detail-meta a{font-weight:500;color:var(--text)}
 .note-detail-meta a:hover{color:var(--action)}
 .note-detail-meta .hg-tag svg{width:11px;height:11px}
-.note-owner-actions{display:flex;gap:var(--sp-2);margin-top:var(--sp-3)}
+.note-owner-actions{display:flex;gap:var(--sp-2);margin-top:var(--sp-6)}
 .note-detail-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:var(--lh-prose);margin:var(--sp-4) 0 0;font-size:var(--fs-16)}
-.note-detail-links{margin-top:var(--sp-4)}
+.note-detail-links{margin-top:var(--sp-3)}
 /* 笔记标题字号：桌面 fs-28 / 手机 fs-22（Step 8 Part A） */
 @media (max-width: 640px) {
   .note-detail-head h1{font-size:var(--fs-22)}

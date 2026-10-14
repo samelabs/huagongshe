@@ -47,8 +47,8 @@ const de: Dictionary = {
     pageNav: 'Seitennavigation',
     pageOf: (cur: number, total: number) => `Seite ${cur} von ${total}`,
     networkError: 'Netzwerkfehler. Bitte später erneut versuchen.',
-    hcidLabel: (id: number | string) => `化工社-Verbindungseintrag HCID ${id}`,
-    hridLabel: (id: number | string) => `化工社-Reaktionseintrag HRID ${id}`,
+    hcidLabel: (id: number | string) => `HCID ${id}, Verbindung`,
+    hridLabel: (id: number | string) => `HRID ${id}, Reaktion`,
     breadcrumb: 'Brotkrumen-Navigation',
     close: 'Schließen',
     /* v1.7 组件库 */
@@ -159,6 +159,8 @@ const de: Dictionary = {
   /* ── Verbindungsdetail ──────────────────────────────── */
   chemical: {
     detail: 'Verbindungsdetails',
+    category: 'Verbindung',
+    noStructure: 'Keine Strukturformel verfügbar',
     descFor: (name: string) => `${name}｜Struktur, Bezeichner, Eigenschaften und zugehörige Reaktionen`,
     structureAlt: (name: string) => `Molekülstruktur von ${name}`,
     home: 'Startseite',
@@ -262,6 +264,9 @@ const de: Dictionary = {
   /* ── Reaktionsdetail ────────────────────────────────── */
   reaction: {
     detail: 'Reaktionsdetails',
+    category: 'Reaktion',
+    reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,
+    reactionTitleFallback: (id: number | string) => `Reaktion HRID ${id}`,
     desc: 'Reaktionsgleichung, Komponenten, Bedingungen, Ergebnisse und Quellen',
     ownerSelf: 'Eigene Reaktion',
     ownerOther: 'Datenabfrage',
@@ -299,6 +304,7 @@ const de: Dictionary = {
       atmosphere: 'Atmosphäre',
       pressure: 'Druck',
       reflux: 'Rückfluss',
+      other: 'Sonstiges',
     },
     sourceTypes: {
       literature: 'Literatur',
@@ -512,6 +518,7 @@ const de: Dictionary = {
     loadFailed: 'Notizen konnten nicht geladen werden.',
     /* ── Phase 1c: Detailseite / Profil / privat / Filter / Kürzung / Stoich ── */
     detailTitle: 'Notiz',
+    category: 'Notiz',
     updatedLabel: 'Aktualisiert',
     visibilityPublic: 'Öffentlich',
     visibilityPrivate: 'Privat',

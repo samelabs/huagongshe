@@ -50,8 +50,8 @@ const t = {
     pageNav: '分页',
     pageOf: (cur: number, total: number) => `第 ${cur} / ${total} 页`,
     networkError: '网络错误，稍后重试',
-    hcidLabel: (id: number | string) => `Huagongshe 化合物记录 HCID ${id}`,
-    hridLabel: (id: number | string) => `Huagongshe 反应记录 HRID ${id}`,
+    hcidLabel: (id: number | string) => `HCID ${id}，化合物`,
+    hridLabel: (id: number | string) => `HRID ${id}，反应`,
     breadcrumb: '面包屑',
     close: '关闭',
     /* ── v1.7 组件库（web/components/ui/）通用文案 ── */
@@ -164,6 +164,8 @@ const t = {
   /* ── 化合物详情 ──────────────────────────────────────── */
   chemical: {
     detail: '化合物详情',
+    category: '化合物',
+    noStructure: '暂无结构图',
     descFor: (name: string) => `${name}｜化合物结构、身份、性质与相关反应`,
     structureAlt: (name: string) => `${name} 分子结构式`,
     home: '首页',
@@ -267,6 +269,9 @@ const t = {
   /* ── 反应详情 ────────────────────────────────────────── */
   reaction: {
     detail: '反应详情',
+    category: '反应',
+    reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,
+    reactionTitleFallback: (id: number | string) => `反应 HRID ${id}`,
     desc: '反应方程式、参与物、条件、结果与来源',
     ownerSelf: '我的反应',
     ownerOther: '查数据',
@@ -304,6 +309,7 @@ const t = {
       atmosphere: '气氛',
       pressure: '压力',
       reflux: '回流',
+      other: '其他',
     },
     sourceTypes: {
       literature: '文献',
@@ -519,6 +525,7 @@ const t = {
     loadFailed: '笔记读取失败。',
     /* ── Phase 1c: 详情页 / 公开主页 / 私有区块 / 实体过滤 / 截断 / Stoich ── */
     detailTitle: '笔记',
+    category: '笔记',
     updatedLabel: '更新于',
     visibilityPublic: '公开',
     visibilityPrivate: '私有',

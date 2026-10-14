@@ -15,15 +15,17 @@ export type BreadcrumbItem = {
 
 export function Breadcrumb({
   items,
+  ariaLabel = "Breadcrumb",
   className,
 }: {
   items: BreadcrumbItem[];
+  ariaLabel?: string;
   className?: string;
 }) {
   if (!items || items.length === 0) return null;
 
   return (
-    <nav aria-label="Breadcrumb" className={`hg-breadcrumb${className ? ` ${className}` : ""}`}>
+    <nav aria-label={ariaLabel} className={`hg-breadcrumb${className ? ` ${className}` : ""}`}>
       <ol style={{ display: "contents", listStyle: "none", margin: 0, padding: 0 }}>
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
