@@ -12,6 +12,8 @@ import { SavedPanel } from "./panels/SavedPanel";
 import { SearchPanel } from "./panels/SearchPanel";
 import { SkillsPanel } from "./panels/SkillsPanel";
 import { StoichPanel } from "./panels/StoichPanel";
+import { PeoplePanel } from "./panels/PeoplePanel";
+import { WorkbenchSocialRail } from "./WorkbenchSocialRail";
 import type {
   ChemicalFollow,
   NoticeResponse,
@@ -84,35 +86,41 @@ export function WorkbenchLayout({
   if (authReady && !user) return <div className="wb-auth-required"><div><strong>{t.common.loginRequired}</strong><span>{t.common.loginHint}</span></div></div>;
 
   return (
-    <>
-      {activeTab === "home" && (
-        <HomePanel
-          counts={counts}
-          initialNotes={initialNotes}
-          initialReactions={initialReactions}
-          initialFavorites={initialFavorites}
-          initialNotices={initialNotices}
-          initialFavoredIds={initialFavoredIds}
-        />
-      )}
-      {activeTab === "notes" && <NotesPanel
-        page={page}
-        visibility={noteVisibility}
-        initialData={initialNotes}
-        createOpen={createNote}
-        editNoteId={editNoteId}
-        initialChemicalId={initialChemicalId}
-        initialReactionId={initialReactionId}
-        filterChemicalId={filterChemicalId}
-        filterReactionId={filterReactionId}
-      />}
-      {activeTab === "search" && <SearchPanel initialQuery={searchQuery} />}
-      {activeTab === "stoich" && <StoichPanel />}
-      {activeTab === "mine" && <ReactionsPanel page={page} visibility={visibility} initialData={initialReactions} />}
-      {activeTab === "saved" && <SavedPanel page={page} kind={savedKind} initialChemicals={initialChemicals} initialReactions={initialSavedReactions} />}
-      {activeTab === "activity" && <ActivityPanel page={page} initialData={initialNotices} />}
-      {activeTab === "skills" && <SkillsPanel page={page} initialData={initialSkills} />}
-      {(activeTab === "followers" || activeTab === "following") && <RelationshipsPanel page={page} kind={activeTab} initialData={initialPeople} username={summary?.username} />}
-    </>
+    <div className="wb-grid">
+      <div className="wb-grid-main">
+        {activeTab === "home" && (
+          <HomePanel
+            counts={counts}
+            initialNotes={initialNotes}
+            initialReactions={initialReactions}
+            initialFavorites={initialFavorites}
+            initialNotices={initialNotices}
+            initialFavoredIds={initialFavoredIds}
+          />
+        )}
+        {activeTab === "notes" && <NotesPanel
+          page={page}
+          visibility={noteVisibility}
+          initialData={initialNotes}
+          createOpen={createNote}
+          editNoteId={editNoteId}
+          initialChemicalId={initialChemicalId}
+          initialReactionId={initialReactionId}
+          filterChemicalId={filterChemicalId}
+          filterReactionId={filterReactionId}
+        />}
+        {activeTab === "search" && <SearchPanel initialQuery={searchQuery} />}
+        {activeTab === "stoich" && <StoichPanel />}
+        {activeTab === "mine" && <ReactionsPanel page={page} visibility={visibility} initialData={initialReactions} />}
+        {activeTab === "saved" && <SavedPanel page={page} kind={savedKind} initialChemicals={initialChemicals} initialReactions={initialSavedReactions} />}
+        {activeTab === "activity" && <ActivityPanel page={page} initialData={initialNotices} />}
+        {activeTab === "skills" && <SkillsPanel page={page} initialData={initialSkills} />}
+        {(activeTab === "followers" || activeTab === "following") && <RelationshipsPanel page={page} kind={activeTab} initialData={initialPeople} username={summary?.username} />}
+        {activeTab === "people" && <PeoplePanel page={page} initialQuery={searchQuery} />}
+      </div>
+      <aside className="wb-grid-side">
+        <WorkbenchSocialRail initialNotices={initialNotices} initialFavoredIds={initialFavoredIds} />
+      </aside>
+    </div>
   );
 }

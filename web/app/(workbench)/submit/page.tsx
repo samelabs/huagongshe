@@ -9,6 +9,7 @@ import type { User } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import { TextLink } from "@/components/ui/TextLink";
+import { WorkbenchSocialRail } from "@/components/workbench/WorkbenchSocialRail";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
@@ -34,15 +35,22 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
   const query = await searchParams;
   const editing = typeof query.reaction === "string" && /^\d+$/.test(query.reaction);
   return (
-    <section>
-      <div className="wb-panel-head">
-        <div>
-          <h2>{editing ? t.submit.editTitle : t.submit.newTitle}</h2>
-          <span>{editing ? t.submit.editDesc : t.submit.newDesc}</span>
-        </div>
-        <TextLink href={withLocale("/guide", locale)}>{t.submit.guideLink}</TextLink>
+    <div className="wb-grid">
+      <div className="wb-grid-main">
+        <section>
+          <div className="wb-panel-head">
+            <div>
+              <h2>{editing ? t.submit.editTitle : t.submit.newTitle}</h2>
+              <span>{editing ? t.submit.editDesc : t.submit.newDesc}</span>
+            </div>
+            <TextLink href={withLocale("/guide", locale)}>{t.submit.guideLink}</TextLink>
+          </div>
+          <Suspense><SubmissionForm /></Suspense>
+        </section>
       </div>
-      <Suspense><SubmissionForm /></Suspense>
-    </section>
+      <aside className="wb-grid-side">
+        <WorkbenchSocialRail />
+      </aside>
+    </div>
   );
 }

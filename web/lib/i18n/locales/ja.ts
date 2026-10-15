@@ -97,6 +97,7 @@ const ja: Dictionary = {
     deleteFailed: '削除に失敗しました。もう一度お試しください',
     hcidShort: (id: number | string) => `HCID ${id}`,
     hridShort: (id: number | string) => `HRID ${id}`,
+    print: '印刷プレビュー',
   },
 
   /* ── ナビゲーション / ヘッダー ──────────────────────── */
@@ -112,6 +113,7 @@ const ja: Dictionary = {
     skills: 'Skills',
     mcp: 'MCP',
     myProfile: 'マイページ',
+    aiKey: 'AI Key',
     settings: '設定',
     activity: 'アクティビティ',
     tabQuery: '検索',
@@ -511,6 +513,11 @@ const ja: Dictionary = {
     navSkills: 'マイ Skills',
     navMcpKey: 'MCP と AI Key',
     navSettings: '設定',
+    tabPeople: 'ユーザー検索',
+    peopleSearchPlaceholder: 'ユーザー名または表示名で検索...',
+    peopleEmptyPrompt: 'ユーザー名または表示名を入力してユーザーを検索します',
+    peopleNoResults: '一致するユーザーが見つかりません',
+    peopleFollowers: (n: number) => `フォロワー ${n} 人`,
   },
 
   notes: {
@@ -518,6 +525,8 @@ const ja: Dictionary = {
     add: 'ノートを追加',
     emptyPublic: '公開された関連ノートはまだありません。',
     loadFailed: 'ノートを読み込めませんでした。',
+    aboutEntityNote: (name: string) => `${name}に関するノート`,
+    authorNote: (author: string) => `${author}のノート`,
     /* ── Phase 1c: 詳細ページ / プロフィール / プライベート / フィルタ / 切り詰め / Stoich ── */
     detailTitle: 'ノート',
     category: 'ノート',
@@ -836,6 +845,7 @@ const ja: Dictionary = {
     defaultCategory: '汎用ツール',
     loadFailed: 'データの読み込みに失敗しました。更新してもう一度お試しください。',
     noMatch: '一致するスキルが見つかりません',
+    emptySkills: '公開スキルはまだありません',
     officialBadge: '公式',
     hasScriptsBadge: 'スクリプトあり',
     hasScriptsHint: 'このスキルにはスクリプトファイルが含まれます。利用前に手動で確認してください',
@@ -1209,6 +1219,26 @@ const ja: Dictionary = {
     notFoundBody: 'リンクが無効か、記録が削除された可能性があります。',
     notFoundHome: 'ホームに戻る',
     notFoundAction: '検索へ',
+  },
+
+  /* ── 印刷レポート（I-078） ───────────────────────────── */
+  print: {
+    title: '印刷レポート',
+    printAction: '印刷',
+    backAction: '戻る',
+    reportNotice: '化工社 化学情報印刷レポート · 研究参考用',
+    generatedAt: (date: string) => `作成日：${date}`,
+    chemicalReportTitle: '化合物レポート',
+    reactionReportTitle: '反応レポート',
+    identifiers: '識別子と物理属性',
+    properties: '化学・物理的性質',
+    safety: '安全性と法規制',
+    applications: '用途',
+    synthesis: '製法・合成法',
+    participants: '関与物質',
+    conditions: '反応条件',
+    steps: '反応手順',
+    provenance: '情報源と証拠',
   },
 
 }

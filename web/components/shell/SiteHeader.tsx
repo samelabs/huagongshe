@@ -226,6 +226,9 @@ function UserMenu({ user }: { user: User }) {
           <Link role="menuitem" data-sh-menu-item href={withLocale("/aichem", locale)} onClick={close}>
             {t.nav.tabWorkbench}
           </Link>
+          <Link role="menuitem" data-sh-menu-item href={withLocale("/me/settings/api-tokens", locale)} onClick={close}>
+            {t.nav.aiKey}
+          </Link>
           <Link role="menuitem" data-sh-menu-item href={withLocale("/me/settings/profile", locale)} onClick={close}>
             {t.nav.settings}
           </Link>

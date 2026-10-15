@@ -100,6 +100,7 @@ const de: Dictionary = {
     deleteFailed: 'Löschen fehlgeschlagen, bitte erneut versuchen',
     hcidShort: (id: number | string) => `HCID ${id}`,
     hridShort: (id: number | string) => `HRID ${id}`,
+    print: 'Druckvorschau',
   },
 
   /* ── Navigation / Header ────────────────────────────── */
@@ -115,6 +116,7 @@ const de: Dictionary = {
     skills: 'Skills',
     mcp: 'MCP',
     myProfile: 'Mein Profil',
+    aiKey: 'AI Key',
     settings: 'Einstellungen',
     activity: 'Aktivität',
     tabQuery: 'Suche',
@@ -514,6 +516,11 @@ const de: Dictionary = {
     navSkills: 'Meine Skills',
     navMcpKey: 'MCP & AI Keys',
     navSettings: 'Einstellungen',
+    tabPeople: 'Personen finden',
+    peopleSearchPlaceholder: 'Nach Benutzername oder Anzeigename suchen...',
+    peopleEmptyPrompt: 'Geben Sie einen Benutzernamen oder Anzeigenamen ein, um Benutzer zu finden',
+    peopleNoResults: 'Keine Benutzer gefunden',
+    peopleFollowers: (n: number) => `${n} ${n === 1 ? 'Follower' : 'Follower'}`,
   },
 
   notes: {
@@ -521,6 +528,8 @@ const de: Dictionary = {
     add: 'Notiz hinzufügen',
     emptyPublic: 'Noch keine öffentlichen verknüpften Notizen.',
     loadFailed: 'Notizen konnten nicht geladen werden.',
+    aboutEntityNote: (name: string) => `Notiz zu ${name}`,
+    authorNote: (author: string) => `Notiz von ${author}`,
     /* ── Phase 1c: Detailseite / Profil / privat / Filter / Kürzung / Stoich ── */
     detailTitle: 'Notiz',
     category: 'Notiz',
@@ -839,6 +848,7 @@ const de: Dictionary = {
     defaultCategory: 'Allgemeine Werkzeuge',
     loadFailed: 'Daten konnten nicht geladen werden. Bitte neu laden und erneut versuchen.',
     noMatch: 'Keine passenden Skills gefunden',
+    emptySkills: 'Noch keine öffentlichen Skills vorhanden',
     officialBadge: 'Offiziell',
     hasScriptsBadge: 'Mit Skripten',
     hasScriptsHint: 'Dieses Skill enthält Skriptdateien. Vor der Verwendung manuell prüfen',
@@ -1212,6 +1222,26 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     notFoundBody: 'Der Link ist möglicherweise veraltet oder der Eintrag wurde entfernt.',
     notFoundHome: 'Zur Startseite',
     notFoundAction: 'Zur Suche',
+  },
+
+  /* ── Print report (I-078) ───────────────────────────── */
+  print: {
+    title: 'Druckbericht',
+    printAction: 'Drucken',
+    backAction: 'Zurück',
+    reportNotice: 'Huagongshe Chemie-Druckbericht · Nur für Forschungszwecke',
+    generatedAt: (date: string) => `Erstellt: ${date}`,
+    chemicalReportTitle: 'Stoffbericht',
+    reactionReportTitle: 'Reaktionsbericht',
+    identifiers: 'Identifikatoren & physikalische Daten',
+    properties: 'Chemische & physikalische Eigenschaften',
+    safety: 'Sicherheit & Vorschriften',
+    applications: 'Anwendungen & Verwendung',
+    synthesis: 'Herstellung & Synthese',
+    participants: 'Beteiligte Stoffe',
+    conditions: 'Reaktionsbedingungen',
+    steps: 'Reaktionsschritte',
+    provenance: 'Herkunft & Nachweise',
   },
 
 }

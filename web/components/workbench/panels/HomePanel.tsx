@@ -160,122 +160,69 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
         </div>
       </header>
 
-      {/* ── 概览网格（DESIGN_SYSTEM 6.7）：两列独立纵向排布，快速检索与我的内容无缝顺排 ── */}
-      <div className="wb-home2-grid">
-        <div className="wb-home2-col-main">
-          {/* ── 快速检索 + 快捷入口 ── */}
-          <section className="wb-card wb-home2-quick" data-area="quick">
-            <form method="post" className="wb-home2-search" onSubmit={goSearch}>
-              <div className="wb-search-field">
-                <svg className="wb-search-field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <line x1="21" y1="21" x2="16.5" y2="16.5" />
-                </svg>
-                <Input
-                  type="text"
-                  enterKeyHint="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t.me.homeSearchPlaceholder}
-                  aria-label={t.me.homeSearchButton}
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                <Button type="submit" variant="secondary" size="sm" className="wb-search-submit">{t.me.homeSearchButton}</Button>
-              </div>
-            </form>
-            <div className="wb-quick-links">
-              {quickLinks.map((item) => (
-                <Link key={item.href} href={withLocale(item.href, locale)} className="wb-quick-link">
-                  <span className="wb-quick-link-icon" aria-hidden="true">{item.icon}</span>
-                  <span>{item.label}</span>
-                </Link>
-              ))}
+      {/* ── 概览内容列（工具在左，社交统一由外层 WorkbenchSocialRail 提供） ── */}
+      <div className="wb-home2-col-main">
+        {/* ── 快速检索 + 快捷入口 ── */}
+        <section className="wb-card wb-home2-quick" data-area="quick">
+          <form method="post" className="wb-home2-search" onSubmit={goSearch}>
+            <div className="wb-search-field">
+              <svg className="wb-search-field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.5" y2="16.5" />
+              </svg>
+              <Input
+                type="text"
+                enterKeyHint="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t.me.homeSearchPlaceholder}
+                aria-label={t.me.homeSearchButton}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <Button type="submit" variant="secondary" size="sm" className="wb-search-submit">{t.me.homeSearchButton}</Button>
             </div>
-          </section>
-
-          {/* ── 我的内容 ── */}
-          <section className="wb-card wb-home2-mine" data-area="mine">
-            <div className="wb-card-head">
-              <h3>{t.me.mineTitle}</h3>
-              <Link href={withLocale(viewAllHref, locale)}>{t.me.mineAll}</Link>
-            </div>
-            <Tabs tabs={mineTabs} value={mineTab} onChange={setMineTab} ariaLabel={t.me.mineTitle} />
-            <div className="wb-row-list">
-              {mineTab === "recent" && (recentItems.length > 0
-                ? recentItems.map((item) => <RecentRow key={`${item.kind}-${item.id}`} item={item} t={t} locale={locale} />)
-                : <EmptyState icon={<IconNote />} title={t.me.mineEmptyRecent}>
-                    <Button variant="tonal" size="sm" href={withLocale("/submit", locale)}>{t.me.navNewReaction}</Button>
-                  </EmptyState>)}
-              {mineTab === "reactions" && (reactions.length > 0
-                ? reactions.map((item) => <ReactionRow key={item.id} item={item} t={t} locale={locale} />)
-                : <EmptyState icon={<GlyphRx />} title={t.me.emptyReactions}>
-                    <Button variant="tonal" size="sm" href={withLocale("/submit", locale)}>{t.me.navNewReaction}</Button>
-                  </EmptyState>)}
-              {mineTab === "notes" && (notes.length > 0
-                ? notes.map((note) => <NoteRow key={note.id} note={note} t={t} locale={locale} />)
-                : <EmptyState icon={<IconNote />} title={t.me.notesEmpty}>
-                    <Button variant="tonal" size="sm" href={withLocale("/aichem?tab=notes&new=1", locale)}>{t.me.navNewNote}</Button>
-                  </EmptyState>)}
-              {mineTab === "saved" && (savedItems.length > 0
-                ? savedItems.map((chemical) => <SavedRow key={chemical.id} chemical={chemical} t={t} locale={locale} />)
-                : <EmptyState icon={<GlyphChem />} title={t.me.emptyChemicals}>
-                    <Button variant="tonal" size="sm" href={withLocale("/aichem?tab=search", locale)}>{t.me.tabSearch}</Button>
-                  </EmptyState>)}
-            </div>
-          </section>
-        </div>
-
-        <div className="wb-home2-col-side">
-          {/* ── 我的主页卡片 ── */}
-          <section className="wb-card wb-profile-card" data-area="profile">
-            <div className="wb-profile-top">
-              <Avatar id={user.id} name={user.display_name} src={user.avatar_url} size={40} />
-              <div className="wb-profile-id">
-                <strong>{user.display_name}</strong>
-                <small>@{user.username}</small>
-              </div>
-              <Button variant="ghost" iconOnly aria-label={t.me.profileShareLabel} onClick={shareProfile}>
-                <IconShare />
-              </Button>
-            </div>
-            <div className="wb-profile-stats">
-              <Link href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)}>
-                <strong>{counts.public_reactions}</strong><span>{t.user.publicReactions}</span>
+          </form>
+          <div className="wb-quick-links">
+            {quickLinks.map((item) => (
+              <Link key={item.href} href={withLocale(item.href, locale)} className="wb-quick-link">
+                <span className="wb-quick-link-icon" aria-hidden="true">{item.icon}</span>
+                <span>{item.label}</span>
               </Link>
-              <Link href={withLocale(`/aichem?tab=followers`, locale)}>
-                <strong>{counts.followers}</strong><span>{t.user.followers}</span>
-              </Link>
-              <Link href={withLocale(`/aichem?tab=following`, locale)}>
-                <strong>{counts.following}</strong><span>{t.user.following}</span>
-              </Link>
-            </div>
-            <Button variant="secondary" size="sm" className="wb-profile-cta" href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)}>
-              {t.me.profileViewPublic}
-            </Button>
-          </section>
+            ))}
+          </div>
+        </section>
 
-          {/* ── 关注动态 ── */}
-          <section className="wb-card wb-feed-card" data-area="feed">
-            <div className="wb-card-head">
-              <h3>{t.me.tabActivity}</h3>
-            </div>
-            {feedItems.length > 0 ? (
-              <>
-                <div className="wb-feed-list">
-                  {feedItems.map((item) => (
-                    <ActivityFeedCard key={item.id} item={item} favored={item.reaction_id != null ? favoredIds.has(item.reaction_id) : false} t={t} locale={locale} />
-                  ))}
-                </div>
-                <Link className="wb-feed-all" href={withLocale("/aichem?tab=activity", locale)}>{t.me.feedViewAll}</Link>
-              </>
-            ) : (
-              <EmptyState icon={<GlyphRx />} title={t.me.feedEmptyTitle}>
-                {t.me.feedEmptyDesc}
-              </EmptyState>
-            )}
-          </section>
-        </div>
+        {/* ── 我的内容 ── */}
+        <section className="wb-card wb-home2-mine" data-area="mine">
+          <div className="wb-card-head">
+            <h3>{t.me.mineTitle}</h3>
+            <Link href={withLocale(viewAllHref, locale)}>{t.me.mineAll}</Link>
+          </div>
+          <Tabs tabs={mineTabs} value={mineTab} onChange={setMineTab} ariaLabel={t.me.mineTitle} />
+          <div className="wb-row-list">
+            {mineTab === "recent" && (recentItems.length > 0
+              ? recentItems.map((item) => <RecentRow key={`${item.kind}-${item.id}`} item={item} t={t} locale={locale} />)
+              : <EmptyState icon={<IconNote />} title={t.me.mineEmptyRecent}>
+                  <Button variant="tonal" size="sm" href={withLocale("/submit", locale)}>{t.me.navNewReaction}</Button>
+                </EmptyState>)}
+            {mineTab === "reactions" && (reactions.length > 0
+              ? reactions.map((item) => <ReactionRow key={item.id} item={item} t={t} locale={locale} />)
+              : <EmptyState icon={<GlyphRx />} title={t.me.emptyReactions}>
+                  <Button variant="tonal" size="sm" href={withLocale("/submit", locale)}>{t.me.navNewReaction}</Button>
+                </EmptyState>)}
+            {mineTab === "notes" && (notes.length > 0
+              ? notes.map((note) => <NoteRow key={note.id} note={note} t={t} locale={locale} />)
+              : <EmptyState icon={<IconNote />} title={t.me.notesEmpty}>
+                  <Button variant="tonal" size="sm" href={withLocale("/aichem?tab=notes&new=1", locale)}>{t.me.navNewNote}</Button>
+                </EmptyState>)}
+            {mineTab === "saved" && (savedItems.length > 0
+              ? savedItems.map((chemical) => <SavedRow key={chemical.id} chemical={chemical} t={t} locale={locale} />)
+              : <EmptyState icon={<GlyphChem />} title={t.me.emptyChemicals}>
+                  <Button variant="tonal" size="sm" href={withLocale("/aichem?tab=search", locale)}>{t.me.tabSearch}</Button>
+                </EmptyState>)}
+          </div>
+        </section>
       </div>
     </div>
   );

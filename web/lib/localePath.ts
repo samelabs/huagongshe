@@ -28,6 +28,7 @@ export const NON_LOCALIZED_PREFIXES = [
   "/samelabs",
   "/.well-known",
   "/_next",
+  "/u",
 ] as const;
 
 /**

@@ -1,7 +1,7 @@
 import type { ComponentType, SVGProps } from "react";
 
 export type LoadState = "idle" | "loading" | "ready" | "error";
-export type WorkbenchTab = "home" | "notes" | "search" | "stoich" | "mine" | "saved" | "activity" | "followers" | "following" | "skills" | "profile" | "avatar" | "security" | "api-tokens";
+export type WorkbenchTab = "home" | "notes" | "search" | "stoich" | "mine" | "saved" | "activity" | "followers" | "following" | "people" | "skills" | "profile" | "avatar" | "security" | "api-tokens";
 export type ReactionVisibility = "all" | "public" | "private";
 export type SavedKind = "chemicals" | "reactions";
 

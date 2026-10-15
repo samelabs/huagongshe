@@ -3,7 +3,13 @@
 
 
 * { box-sizing: border-box; }
-html { max-width: 100%; color-scheme: light; scroll-behavior: smooth; overflow-x: clip; }
+html {
+  scrollbar-gutter: stable;
+  max-width: 100%;
+  color-scheme: light;
+  scroll-behavior: smooth;
+  overflow-x: clip;
+}
 body { width: 100%; max-width: 100%; margin: 0; color: var(--text); background: var(--bg-page); font-family: var(--font-ui); -webkit-font-smoothing: antialiased; overflow-x: clip; }
 /* 手机背景到底: body 与 main 同为 --wash, 短页面 main 结束后不再露出异色 body 到 fixed 底栏。*/
 img, svg { max-width: 100%; }
@@ -53,9 +59,9 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
  * 溢出防线由 .hg-eb 的 overflow:hidden 兜底（flex 子项自动最小尺寸为 0）。
  */
 
-/* ── 首页 Hero ── */
-.home { width: min(820px, calc(100% - 40px)); margin: auto; padding-bottom: 48px; }
-.hero { text-align: center; padding: clamp(64px, 12vh, 110px) 0 56px; }
+/* ── 首页（框架 A，wide 1200）：外框与公开页统一，Logo 左边缘对齐，内容在阅读宽内左对齐 ── */
+.home { width: min(var(--w-wide), calc(100% - 40px)); margin: 0 auto; padding-bottom: 48px; }
+.hero { text-align: left; max-width: var(--w-reading); padding: clamp(48px, 8vh, 80px) 0 36px; }
 .hero h1 {
   margin: 0 0 6px;
   font-size: clamp(var(--fs-28), 4vw, var(--fs-40));
@@ -71,10 +77,10 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
   color: var(--text-2);
   line-height: 1.5;
 }
-.hero .search-wrap { margin-top: 36px; }
+.hero .search-wrap { margin-top: 24px; }
 
 /* ── 大搜索框 + 检索方式（DESIGN_SYSTEM 6.1 / 6.2：首页与 /search 共用 SearchHero）── */
-.srch-hero { margin-top: 36px; display: grid; gap: var(--sp-3); justify-items: stretch; text-align: left; }
+.srch-hero { margin-top: 24px; display: grid; gap: var(--sp-3); justify-items: stretch; text-align: left; max-width: var(--w-reading); }
 .search-head .srch-hero { margin-top: 22px; justify-self: start; width: min(620px, 100%); }
 .srch-box { display: flex; align-items: stretch; gap: var(--sp-2); }
 .srch-box-wrap {
@@ -767,7 +773,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 /* 停用态（HGS-ACCOUNT-CONTENT-01, 4.1 / 6.11）：头像 + 名字 + Tag 的状态卡，
    不渲染关注/分享/内容列表 */
-.pf-deactivated { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-5); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); }
+.pf-deactivated { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-6); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); }
 .pf-deactivated-id { display: grid; gap: var(--sp-1); justify-items: start; }
 .pf-deactivated-id h1 { margin: 0; font-size: var(--fs-22); font-weight: 600; color: var(--text); }
 .pf-deactivated-handle { margin: 0; color: var(--text-muted); font-size: var(--fs-13); }
@@ -1116,59 +1122,59 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 /* ── Open Skills 专页 ───────────────────────────────────────── */
 
-.kdense-page { max-width: 100%; }
+.skills-page { max-width: 100%; }
 
 /* Hero */
-.kdense-hero {
+.skills-hero {
   background: linear-gradient(135deg, var(--bg-subtle), var(--action-subtle));
   border-bottom: 1px solid var(--action-border);
   padding: 36px 0 32px;
 }
-.kdense-hero-inner { width: min(var(--w-wide), calc(100% - 40px)); margin: 0 auto; }
-.kdense-breadcrumb {
+.skills-hero-inner { width: min(var(--w-wide), calc(100% - 40px)); margin: 0 auto; }
+.skills-breadcrumb {
   font-size: var(--fs-12); color: var(--text-muted);
   margin-bottom: 14px;
 }
-.kdense-breadcrumb a { color: var(--action); text-decoration: none; }
-.kdense-sep { margin: 0 6px; color: var(--text-placeholder); }
+.skills-breadcrumb a { color: var(--action); text-decoration: none; }
+.skills-sep { margin: 0 6px; color: var(--text-placeholder); }
 
-.kdense-hero h1 {
+.skills-hero h1 {
   /* 对齐公共 page-head 标度(guide/mcp-guide 同款), 不再自成一套 */
   font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); color: var(--text);
   margin: 0 0 10px; letter-spacing: -.008em; line-height: 1.28;
 }
 
 /* 副标题与来源:统一字号,避免大小不一 */
-.kdense-subtitle {
+.skills-subtitle {
   font-size: var(--fs-16); color: var(--text-2);
   margin: 0 0 6px; line-height: 1.6; max-width: 680px;
 }
-.kdense-source {
+.skills-source {
   font-size: var(--fs-16); color: var(--text-muted);
   margin: 0 0 18px; line-height: 1.6;
 }
-.kdense-source a { color: var(--action); }
+.skills-source a { color: var(--action); }
 
 /* 搜索框 */
-.kdense-search-bar { max-width: 480px; }
-.kdense-search-bar input {
+.skills-search-bar { max-width: 480px; }
+.skills-search-bar input {
   width: 100%; padding: 10px 14px;
   border: 1px solid var(--border-strong); border-radius: var(--r-sm);
   background: var(--bg-surface);
   transition: border-color .15s, box-shadow .15s;
 }
-.kdense-search-bar input:focus {
+.skills-search-bar input:focus {
   outline: none; border-color: var(--brand);
   box-shadow: 0 0 0 3px var(--focus-halo);
 }
 
 /* 分类导航 */
-.kdense-cats {
+.skills-cats {
   display: flex; flex-wrap: wrap; gap: 8px;
   padding: 16px 0; width: min(var(--w-wide), calc(100% - 40px)); margin: 0 auto;
   border-bottom: 1px solid var(--border);
 }
-.kdense-cat {
+.skills-cat {
   display: inline-flex; align-items: center; gap: 5px;
   min-height: 32px;
   padding: 6px 13px; border: 1px solid var(--border-strong);
@@ -1176,34 +1182,34 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   font-size: var(--fs-12); color: var(--text-2);
   cursor: pointer; transition: all .15s;
 }
-.kdense-cat.active {
+.skills-cat.active {
   background: var(--action); border-color: var(--action);
   color: var(--text-inverse); font-weight: 600;
 }
-.kdense-cat-count {
+.skills-cat-count {
   font-size: var(--fs-12); opacity: .65;
   background: rgba(0,0,0,.06); padding: 1px 7px; border-radius: var(--r-pill);
 }
-.kdense-cat.active .kdense-cat-count {
+.skills-cat.active .skills-cat-count {
   background: rgba(255,255,255,.25); opacity: 1;
 }
 
 /* 内容区 */
-.kdense-content { width: min(var(--w-wide), calc(100% - 40px)); margin: 0 auto; padding: 24px 0 48px; }
-.kdense-empty {
+.skills-content { width: min(var(--w-wide), calc(100% - 40px)); margin: 0 auto; padding: 24px 0 48px; }
+.skills-empty {
   text-align: center; padding: 48px 0; color: var(--text-muted);
 }
 
 /* 分组 */
-.kdense-group { margin-bottom: 36px; }
-.kdense-group-title {
+.skills-group { margin-bottom: 36px; }
+.skills-group-title {
   display: flex; align-items: center; gap: 10px;
   font-size: var(--fs-16); font-weight: 700; color: var(--text);
   margin: 0 0 16px; padding-bottom: 10px;
   border-bottom: 2px solid var(--action-subtle);
 }
-.kdense-group-name { line-height: 1; }
-.kdense-group-count {
+.skills-group-name { line-height: 1; }
+.skills-group-count {
   font-size: var(--fs-13); font-weight: 500; color: var(--text-muted);
   background: var(--bg-page); padding: 2px 9px; border-radius: var(--r-pill);
 }
@@ -1218,13 +1224,13 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 }
 
 /* 卡片网格 */
-.kdense-grid {
+.skills-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 14px;
 }
 
-.kdense-card {
+.skills-card {
   position: relative;
   border: 1px solid var(--border); border-radius: var(--r-md);
   background: var(--bg-surface);
@@ -1233,29 +1239,29 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 }
 
 /* 左侧色条装饰 */
-.kdense-card-accent {
+.skills-card-accent {
   position: absolute; left: 0; top: 0; bottom: 0;
   width: 3px;
 }
 
-.kdense-card-body { padding: 14px 16px 14px 18px; }
+.skills-card-body { padding: 14px 16px 14px 18px; }
 
-.kdense-card-head {
+.skills-card-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; margin-bottom: 6px;
 }
-.kdense-card-name {
+.skills-card-name {
   font-size: var(--fs-13); font-weight: 700; color: var(--text);
   margin: 0; font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
   overflow-wrap: anywhere; line-height: 1.4;
 }
-.kdense-card-license {
+.skills-card-license {
   font-size: var(--fs-12); color: var(--text-muted);
   border: 1px solid var(--border); border-radius: var(--r-xs);
   padding: 1px 6px; white-space: nowrap; flex-shrink: 0;
 }
 
-.kdense-card-desc {
+.skills-card-desc {
   font-size: var(--fs-12); color: var(--text-muted);
   margin: 0; line-height: 1.55;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
@@ -1263,43 +1269,42 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 }
 
 /* 卡片统计信息 */
-.kdense-card-stats {
+.skills-card-stats {
   display: flex; gap: 8px; margin-top: 6px;
 }
-.kdense-stat {
+.skills-stat {
   font-size: var(--fs-12); color: var(--text-muted);
   background: var(--bg-page); padding: 2px 7px;
   border-radius: var(--r-xs); white-space: nowrap;
 }
 
 /* 操作按钮 */
-.kdense-card-actions {
+.skills-card-actions {
   display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;
 }
-.kdense-btn {
+.skills-btn {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: var(--fs-12); padding: 5px 12px;
   border-radius: var(--r-sm); text-decoration: none;
   border: 1px solid var(--border-strong); background: var(--bg-surface);
   color: var(--text-2); cursor: pointer; transition: all .15s;
 }
-.kdense-btn-download {
+.skills-btn-download {
   background: var(--action-subtle); border-color: var(--action-border);
   color: var(--action-hover); font-weight: 500;
 }
 
 /* 手机端 */
 @media (max-width: 640px) {
-  .kdense-hero { padding: 24px 16px 20px; }
-  .kdense-hero h1 { font-size: var(--fs-28); }
-  .kdense-subtitle { font-size: var(--fs-12); }
-  .kdense-source { font-size: var(--fs-12); }
-  .kdense-cats { padding: 12px 16px; gap: 6px; }
-  .kdense-cat { padding: 5px 10px; font-size: var(--fs-12); }
-  .kdense-content { padding: 16px 12px 32px; }
-  .kdense-grid { grid-template-columns: 1fr; gap: 10px; }
-  .kdense-card-body { padding: 12px 14px 12px 16px; }
-
+  .skills-hero { padding: 24px 16px 20px; }
+  .skills-hero h1 { font-size: var(--fs-28); }
+  .skills-subtitle { font-size: var(--fs-12); }
+  .skills-source { font-size: var(--fs-12); }
+  .skills-cats { padding: 12px 16px; gap: 6px; }
+  .skills-cat { padding: 5px 10px; font-size: var(--fs-12); }
+  .skills-content { padding: 16px 12px 32px; }
+  .skills-grid { grid-template-columns: 1fr; gap: 10px; }
+  .skills-card-body { padding: 12px 14px 12px 16px; }
 }
 /* 移动端壳层 — 标准范式(cas.cool MODEL A 同构):
    body 自然滚动, header 在正常文档流(不悬浮), tabbar fixed。
@@ -1327,11 +1332,11 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .breadcrumbs a:hover { color: var(--action); }
   .chemical-result h3 a:hover, .reaction-result h3 a:hover { color: var(--action); }
   .participant-row:hover { border-color: var(--action-border); }
-  .kdense-card:hover { border-color: var(--action-border); box-shadow: 0 2px 12px rgba(0,0,0,.05); }
-  .kdense-breadcrumb a:hover { text-decoration: underline; }
-  .kdense-cat:hover { border-color: var(--action-border); background: var(--bg-subtle); }
-  .kdense-btn:hover { border-color: var(--action); color: var(--action); }
-  .kdense-btn-download:hover { background: var(--action); color: var(--text-inverse); }
+  .skills-card:hover { border-color: var(--action-border); box-shadow: 0 2px 12px rgba(0,0,0,.05); }
+  .skills-breadcrumb a:hover { text-decoration: underline; }
+  .skills-cat:hover { border-color: var(--action-border); background: var(--bg-subtle); }
+  .skills-btn:hover { border-color: var(--action); color: var(--action); }
+  .skills-btn-download:hover { background: var(--action); color: var(--text-inverse); }
 }
 
 /* ── 后台·技能管理 ───────────────────────────── */
@@ -1404,9 +1409,15 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 *::-webkit-scrollbar-track { background: transparent; }
 
 /* ── CB 中文扩展条目/供应商(casext) ───────────────── */
-.casext-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.casext-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
 .casext-tag { padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: var(--fs-12); color: var(--text-muted); background: var(--bg-page); }
 .casext-tag.en { font-family: var(--font-mono); }
+/* I-088: 可点击品名链接 hover/focus 态 */
+a.casext-tag-link { text-decoration: none; transition: border-color 0.15s, color 0.15s, background 0.15s; }
+a.casext-tag-link:hover { border-color: var(--accent); color: var(--accent); background: var(--bg-surface); }
+a.casext-tag-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* I-079: GroupToggle 单独一行，不入 flex-wrap 胶囊行 */
+.casext-toggle-row { margin-top: 8px; }
 .casext-prose-list p { margin: 0 0 10px; font-size: var(--fs-13); line-height: 1.75; }
 .casext-prose-list strong { display: inline-block; margin-right: 10px; color: var(--text); font-weight: 650; }
 .casext-updown { display: grid; gap: 18px; }
@@ -1432,6 +1443,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .mcp-agent-card { display: flex; flex-direction: column; }
 .mcp-agent-steps { margin: 8px 0 0; padding-left: 20px; color: var(--text); font-size: var(--fs-12); line-height: 1.8; }
 .mcp-agent-steps li { word-break: break-word; }
+.mcp-tools-table-wrapper { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .mcp-tools-table td { vertical-align: top; }
 .mcp-tools-table .guide-ref-name { width: 220px; padding-right: var(--sp-4); box-sizing: border-box; }
 .mcp-tool-auth { color: var(--text-muted); font-size: var(--fs-12); white-space: nowrap; }
@@ -1466,7 +1478,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 /* ── 首页 AI 接入入口(第一屏) ── */
 /* Step 10 Part C：MCP 区块 = CodeField 地址 → 三入口按钮 → 说明 + Tag warn「未上架」 */
-.home-entry { margin-top: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-5); background: var(--bg-surface); display: grid; gap: var(--sp-3); text-align: left; }
+.home-entry { margin-top: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-6); background: var(--bg-surface); display: grid; gap: var(--sp-3); text-align: left; max-width: var(--w-reading); }
 .home-entry-code .hg-code code { font-size: var(--fs-13); }
 .home-entry-actions { margin-top: 0; display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
 
@@ -1628,7 +1640,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 /* skills H1：≤420 落 token（6vw 在 375 = 22.5px 非阶梯） */
 @media (max-width: 420px) {
-  .kdense-hero h1 { font-size: var(--fs-22); }
+  .skills-hero h1 { font-size: var(--fs-22); }
 }
 
 /* 触控目标 ≥44×44（1.5 / IX-11）：直接以真实尺寸落 44（与 samelabs G3 同法）。
@@ -1644,7 +1656,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .hg-code.multiline { min-height: 0; }
   .mcp-connect-row .hg-text { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; }
   nav.breadcrumbs a { min-width: 44px; justify-content: center; }
-  .kdense-breadcrumb a { min-width: 44px; justify-content: center; }
+  .skills-breadcrumb a { min-width: 44px; justify-content: center; }
   .chem-tabs-nav a { min-width: 44px; justify-content: center; }
   .hg-seg button { min-height: 44px; }
   .chem-tabs-nav a { min-height: 44px; display: inline-flex; align-items: center; }
@@ -1652,11 +1664,11 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   a.hg-eb { min-height: 44px; }
   nav.breadcrumbs a { min-height: 44px; display: inline-flex; align-items: center; }
   .hg-btn { --bh: auto; min-height: 44px; height: auto; }
-  .kdense-cat { min-height: 44px; }
-  .kdense-breadcrumb a { min-height: 44px; display: inline-flex; align-items: center; }
+  .skills-cat { min-height: 44px; }
+  .skills-breadcrumb a { min-height: 44px; display: inline-flex; align-items: center; }
   /* 输入框本體即热区：撑到 44 */
   .srch-box-wrap input { min-height: 44px; }
-  .kdense-search-bar input { min-height: 44px; box-sizing: border-box; }
+  .skills-search-bar input { min-height: 44px; box-sizing: border-box; }
   /* BX-A3：PM 复测补齐 —— text-button 全站（此前仅 samelabs），
      化合物页关联笔记的动作/作者/查看全文链接、EntityBadge 外层链接、
      顶栏移动端图标钮（icon 钮宽度随 --bh:auto 塌缩）、工作台卡片头

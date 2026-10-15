@@ -102,8 +102,8 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
             {/* DESIGN_SYSTEM 6.6：桌面 ghost 图标；手机 secondary lg
                 文字「分享主页」（与关注并排等宽）—— 两个形态 CSS 切换，行为同源。 */}
             <span className="pf-share">
-              <ShareButton iconOnly title={`${profile.display_name}｜${t.brand.name}`} ariaLabel={t.me.profileShareLabel} className="pf-share-icon" />
-              <ShareButton title={`${profile.display_name}｜${t.brand.name}`} label={t.user.shareProfile} variant="secondary" size="lg" ariaLabel={t.me.profileShareLabel} feedback="toast" className="pf-share-text" />
+              <ShareButton url={`https://huagongshe.com/u/${encodeURIComponent(profile.username)}`} iconOnly title={`${profile.display_name}｜${t.brand.name}`} ariaLabel={t.me.profileShareLabel} className="pf-share-icon" />
+              <ShareButton url={`https://huagongshe.com/u/${encodeURIComponent(profile.username)}`} title={`${profile.display_name}｜${t.brand.name}`} label={t.user.shareProfile} variant="secondary" size="lg" ariaLabel={t.me.profileShareLabel} feedback="toast" className="pf-share-text" />
             </span>
           </>
         )}

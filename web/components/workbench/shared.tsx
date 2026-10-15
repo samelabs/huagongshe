@@ -138,7 +138,8 @@ export function relativeTime(value: string, locale: string): string {
 }
 
 /** 笔记标题行：首个非空行（≤60 字）— 概览与笔记面板共用（实现在 lib，公开主页服务端同用） */
-export { noteHeadline } from "@/lib/noteHeadline";
+import { resolveNotePresentation } from "@/lib/noteHeadline";
+export { noteHeadline, resolveNotePresentation } from "@/lib/noteHeadline";
 
 /** FX-16（SMK-018 / IX-4）：客户端加载 >10s 的「仍在处理」Notice + 重试 */
 export { SlowNotice } from "./SlowNotice";
@@ -163,22 +164,40 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
   const actorName = item.actor_display_name || item.actor_username;
 
   if (isNote) {
+    const entityName = item.chemical_id != null ? t.common.hcidLabel(item.chemical_id) : item.reaction_id != null ? t.common.hridLabel(item.reaction_id) : null;
+    const { title, body } = resolveNotePresentation(item.note_excerpt || "", {
+      authorName: actorName,
+      linkedEntityName: entityName,
+      t,
+    });
+    const hasBadges = item.chemical_id != null || item.reaction_id != null;
+
     return (
-      <article className="wb-feed-item">
+      <article className="wb-feed-item wb-feed-note">
         <Avatar id={item.actor_username} name={actorName} size={32} />
         <div className="wb-feed-body">
-          <p className="wb-feed-line">
-            {t.me.feedActorNote(actorName)}
-          </p>
-          <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
-          {item.note_excerpt && (
-            <p className="wb-feed-excerpt">{item.note_excerpt}</p>
-          )}
-          <div className="wb-feed-actions">
-            <Button variant="ghost" size="sm" href={withLocale(`/note/${item.note_id}`, locale)}>
-              <IconNote />{t.me.feedOpen}
-            </Button>
+          <div className="wb-feed-author-row">
+            <Link className="wb-feed-author-name" href={withLocale(`/user/${encodeURIComponent(item.actor_username)}`, locale)}>
+              <strong>{actorName}</strong>
+            </Link>
+            <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
           </div>
+          <Link href={withLocale(`/note/${item.note_id}`, locale)} className="wb-feed-note-title">
+            <strong>{title}</strong>
+          </Link>
+          {body && (
+            <p className="wb-feed-excerpt wb-clamp-3">{body}</p>
+          )}
+          {hasBadges && (
+            <div className="wb-feed-badges">
+              {item.chemical_id != null && (
+                <EntityBadge kind="chemical" id={item.chemical_id} size="xs" href={withLocale(`/chemical/${item.chemical_id}`, locale)} ariaLabel={t.common.hcidLabel(item.chemical_id)} />
+              )}
+              {item.reaction_id != null && (
+                <EntityBadge kind="reaction" id={item.reaction_id} size="xs" href={withLocale(`/reaction/${item.reaction_id}`, locale)} ariaLabel={t.common.hridLabel(item.reaction_id)} />
+              )}
+            </div>
+          )}
         </div>
       </article>
     );

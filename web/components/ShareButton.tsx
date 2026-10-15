@@ -13,7 +13,8 @@ import { Button, type ButtonVariant, type ButtonSize } from "@/components/ui/But
 import { IconShare } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/Toast";
 
-export function ShareButton({ title, iconOnly = false, label, variant, size, className, ariaLabel, feedback = "text" }: {
+export function ShareButton({ url: customUrl, title, iconOnly = false, label, variant, size, className, ariaLabel, feedback = "text" }: {
+  url?: string;
   title?: string;
   iconOnly?: boolean;
   /** 文字按钮文案（默认 t.guide.share） */
@@ -31,7 +32,7 @@ export function ShareButton({ title, iconOnly = false, label, variant, size, cla
   const toast = useToast();
   const [copied, setCopied] = useState(false);
   async function share() {
-    const url = typeof window !== "undefined" ? window.location.href : "https://huagongshe.com/guide";
+    const url = customUrl ?? (typeof window !== "undefined" ? window.location.href : "https://huagongshe.com/guide");
     const shareTitle = title ?? t.guide.title;
     if (navigator.share) {
       try {

@@ -103,6 +103,7 @@ const t = {
     deleteFailed: '删除失败，请重试',
     hcidShort: (id: number | string) => `HCID ${id}`,
     hridShort: (id: number | string) => `HRID ${id}`,
+    print: '打印预览',
   },
 
   /* ── 导航 / 头部 ──────────────────────────────────────── */
@@ -118,6 +119,7 @@ const t = {
     skills: 'Skills',
     mcp: 'MCP',
     myProfile: '我的主页',
+    aiKey: 'AI Key',
     settings: '设置',
     activity: '动态',
     tabQuery: '查询',
@@ -521,6 +523,11 @@ const t = {
     navSkills: '我的 Skills',
     navMcpKey: 'MCP 与 AI Key',
     navSettings: '设置',
+    tabPeople: '找人',
+    peopleSearchPlaceholder: '搜索用户名或显示名称...',
+    peopleEmptyPrompt: '输入用户名或显示名称查找化工社用户',
+    peopleNoResults: '未找到匹配的用户',
+    peopleFollowers: (n: number) => `${n} 粉丝`,
   },
 
   notes: {
@@ -528,6 +535,8 @@ const t = {
     add: '记一条',
     emptyPublic: '还没有公开的关联笔记。',
     loadFailed: '笔记读取失败。',
+    aboutEntityNote: (name: string) => `关于 ${name} 的笔记`,
+    authorNote: (author: string) => `${author} 的笔记`,
     /* ── Phase 1c: 详情页 / 公开主页 / 私有区块 / 实体过滤 / 截断 / Stoich ── */
     detailTitle: '笔记',
     category: '笔记',
@@ -845,6 +854,7 @@ const t = {
     defaultCategory: '通用工具',
     loadFailed: '数据读取失败，请刷新后重试。',
     noMatch: '未找到匹配的技能',
+    emptySkills: '暂无公开技能',
     officialBadge: '官方',
     hasScriptsBadge: '含脚本',
     hasScriptsHint: '该技能包含脚本文件，使用前请人工审阅',
@@ -1218,6 +1228,26 @@ const t = {
     notFoundBody: '链接可能已失效，或记录已被删除。',
     notFoundHome: '返回首页',
     notFoundAction: '去搜索',
+  },
+
+  /* ── 打印报告（I-078） ─────────────────────────────────── */
+  print: {
+    title: '打印报告',
+    printAction: '打印',
+    backAction: '返回',
+    reportNotice: '化工社化学信息打印报告 · 仅供科研参考',
+    generatedAt: (date: string) => `生成日期：${date}`,
+    chemicalReportTitle: '化合物报告',
+    reactionReportTitle: '反应报告',
+    identifiers: '标识与物理属性',
+    properties: '化学与物理性质',
+    safety: '安全与法规',
+    applications: '用途与应用',
+    synthesis: '制备与合成方法',
+    participants: '参与物',
+    conditions: '反应条件',
+    steps: '反应步骤',
+    provenance: '来源与证据',
   },
 
 } as const

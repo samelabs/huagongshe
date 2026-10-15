@@ -40,17 +40,6 @@ export default function McpPage() {
       <p>{t.mcp.heroBody}</p>
     </header>
 
-    {/* Agent Plugin：agent-plugins.org 规范插件包下载入口，MCP 端点只在下方出现一次（I-005） */}
-    <section className="guide-section" id="agent-plugin">
-      <div className="section-heading"><div><h2>{t.mcp.pluginTitle}</h2></div></div>
-      <p className="guide-section-intro">{t.mcp.pluginStatus}</p>
-      <div className="guide-actions">
-        <Button variant="secondary" href={PLUGIN_PACKAGE_URL} download>
-          {t.mcp.pluginDownload}
-        </Button>
-      </div>
-    </section>
-
     <section className="guide-section">
       <div className="section-heading"><div><h2>{t.mcp.connectKicker}</h2></div></div>
       <div className="mcp-connect">
@@ -83,6 +72,17 @@ export default function McpPage() {
       </div>
     </section>
 
+    {/* Agent Plugin：agent-plugins.org 规范插件包下载入口，MCP 端点只在下方出现一次（I-005） */}
+    <section className="guide-section" id="agent-plugin">
+      <div className="section-heading"><div><h2>{t.mcp.pluginTitle}</h2></div></div>
+      <p className="guide-section-intro">{t.mcp.pluginStatus}</p>
+      <div className="guide-actions">
+        <Button variant="secondary" href={PLUGIN_PACKAGE_URL} download>
+          {t.mcp.pluginDownload}
+        </Button>
+      </div>
+    </section>
+
     <section className="guide-section">
       <div className="section-heading"><div><h2>{t.mcp.commonKicker}</h2></div></div>
       <p className="guide-section-intro">{t.mcp.commonDesc}</p>
@@ -93,17 +93,19 @@ export default function McpPage() {
     <section className="guide-section">
       <div className="section-heading"><div><h2>{t.mcp.toolsKicker}</h2></div></div>
       <p className="guide-section-intro">{t.mcp.toolsIntro}</p>
-      <table className="guide-ref-table mcp-tools-table">
-        <tbody>
-          {t.mcp.tools.map((tool) => (
-            <tr key={tool.name}>
-              <td className="guide-ref-name"><code>{tool.name}</code></td>
-              <td className="mcp-tool-auth">{tool.auth}</td>
-              <td className="guide-ref-desc">{tool.desc}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="mcp-tools-table-wrapper">
+        <table className="guide-ref-table mcp-tools-table">
+          <tbody>
+            {t.mcp.tools.map((tool) => (
+              <tr key={tool.name}>
+                <td className="guide-ref-name"><code>{tool.name}</code></td>
+                <td className="mcp-tool-auth">{tool.auth}</td>
+                <td className="guide-ref-desc">{tool.desc}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section className="guide-section">

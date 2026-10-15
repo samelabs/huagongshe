@@ -1,19 +1,11 @@
 import type { Metadata } from "next";
 import { apiGet } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
-import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
-import { withLocale } from "@/lib/localePath";
-import { KdenseSkillsClient } from "./KdenseSkillsClient";
+import { localeAlternates } from "@/lib/alternates";
+import { SkillsClient, type Skill, type Category } from "./SkillsClient";
+import { buildShareMetadata } from "@/lib/shareMeta";
+import { WeChatMeta } from "@/components/shared/WeChatMeta";
 
-type Skill = {
-  id: number; slug: string; title: string; description: string;
-  category: string | null; origin: string; has_scripts: boolean;
-  file_count: number; size_bytes: number;
-};
-type Category = { name: string; abbr: string; color: string; sort_order: number };
-
-// 0904 ⑰: 技能计数动态化 — 原硬编码"159 个"会随库变化失实。
-// generateMetadata 每次构建/请求取 real total; 失败降级为不带数字的描述。
 async function skillsCount(): Promise<number | null> {
   try {
     const data = await apiGet<{ total: number }>(`/skills?scope=public&page=1&page_size=1`);
@@ -22,9 +14,6 @@ async function skillsCount(): Promise<number | null> {
     return null;
   }
 }
-
-import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -57,33 +46,53 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const dynamic = "force-dynamic";
 
-async function loadSkills(): Promise<{ skills: Skill[]; cats: Category[]; error: boolean }> {
-  // SSR(loopback=内部通道)拉全量公开池; 失败降级为空集+错误标记
+async function loadCategories(): Promise<Category[] | null> {
   try {
-    const cats = await apiGet<Category[]>("/skills/categories");
-    const all: Skill[] = [];
-    for (let page = 1; ; page += 1) {
-      const data = await apiGet<{ total: number; items: Skill[] }>(
-        `/skills?scope=public&page=${page}&page_size=100`,
-      );
-      all.push(...data.items);
-      if (all.length >= data.total || data.items.length === 0) break;
-    }
-    return { skills: all, cats, error: false };
+    return await apiGet<Category[]>("/skills/categories");
   } catch {
-    return { skills: [], cats: [], error: true };
+    return null;
+  }
+}
+
+async function loadSkills(): Promise<{ skills: Skill[]; error: boolean }> {
+  try {
+    const first = await apiGet<{ total: number; items: Skill[] }>(
+      "/skills?scope=public&page=1&page_size=100",
+    );
+    const all: Skill[] = [...first.items];
+    const total = first.total;
+    if (all.length < total) {
+      const remainingPages = Math.ceil(total / 100);
+      const pagePromises: Promise<{ items: Skill[] }>[] = [];
+      for (let p = 2; p <= remainingPages; p++) {
+        pagePromises.push(apiGet<{ items: Skill[] }>(`/skills?scope=public&page=${p}&page_size=100`));
+      }
+      const rest = await Promise.all(pagePromises);
+      for (const r of rest) all.push(...r.items);
+    }
+    return { skills: all, error: false };
+  } catch {
+    return { skills: [], error: true };
   }
 }
 
 export default async function SkillsPage() {
   const t = await getRequestDictionary();
-  const { skills, cats, error } = await loadSkills();
-  const n = skills.length;
+  // I-090: 并行请求分类与技能列表；分开处理错误
+  const [cats, skillsResult, totalCount] = await Promise.all([
+    loadCategories(),
+    loadSkills(),
+    skillsCount(),
+  ]);
+
+  const skills = skillsResult.skills;
+  const n = typeof totalCount === "number" ? totalCount : skills.length;
   const count = t.skills.countUnit(n);
+
   return (
     <>
       <WeChatMeta name={t.skills.metaOgTitle(t.brand.name)} description={t.skills.metaOgDesc(count)} image="/icon-512.png" />
-      <KdenseSkillsClient skills={skills} cats={cats} loadError={error} />
+      <SkillsClient skills={skills} cats={cats} skillsError={skillsResult.error} />
     </>
   );
 }

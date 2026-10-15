@@ -153,14 +153,57 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   L4 — Panel
+   L4 — Grid & Panel（DESIGN_SYSTEM 2.4 框架 D / I-085 / I-047）
+   所有工作台页面（各 Tab 与 /me 设置页）共用同一个栅格，主列左边缘与宽度恒定。
+   桌面保留右栏社交列，平板及以下统一下沉或隐藏。
    ═══════════════════════════════════════════════════════════════ */
+.wb-grid {
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.wb-grid-main {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--wb-sp-4);
+}
+
+.wb-grid-side {
+  width: var(--rail-w-wide);
+  flex: none;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .wb-grid {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 1023px) {
+  .wb-grid-side {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .wb-grid-side .wb-feed-card {
+    display: none;
+  }
+}
+
 .wb-panel {
   display: flex;
   flex-direction: column;
   gap: var(--wb-sp-4);
-  max-width: 1120px;
-  margin-inline: auto;
+  width: 100%;
 }
 
 .wb-panel-head {
@@ -310,19 +353,19 @@
   color: var(--wb-heading);
 }
 
-/* ── 反应卡片网格 ── */
-.wb-grid {
+/* ── 反应卡片网格 (legacy) ── */
+.wb-legacy-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--wb-sp-3);
 }
-.wb-grid > article {
+.wb-legacy-grid > article {
   border: 1px solid var(--wb-line);
   border-radius: var(--wb-r-md);
   overflow: hidden;
   background: var(--wb-paper);
 }
-.wb-grid > article > header {
+.wb-legacy-grid > article > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -334,7 +377,7 @@
 }
 .wb-card-img { display: block; padding: var(--wb-sp-2); }
 .wb-card-img img { width: 100%; height: auto; display: block; }
-.wb-grid > article > footer {
+.wb-legacy-grid > article > footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -344,7 +387,7 @@
   font-size: var(--wb-fs-sm);
   color: var(--wb-muted);
 }
-.wb-grid > article > footer a { color: var(--wb-blue); }
+.wb-legacy-grid > article > footer a { color: var(--wb-blue); }
 
 /* ── 骨架屏 ── */
 @keyframes wb-pulse {
@@ -459,8 +502,7 @@
 
 /* ── 概览（6.7：工具在左，社交在右；整体最大宽 1120） ── */
 .wb-home2 {
-  max-width: 1120px;
-  margin-inline: auto;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--wb-sp-5);
@@ -520,6 +562,7 @@
 }
 
 /* 概览卡片基座 */
+.wb-card,
 .wb-home2 .wb-card {
   border: 1px solid var(--wb-line);
   border-radius: var(--wb-r-md);
@@ -734,7 +777,7 @@
   margin: 2px 0 0;
   font-size: var(--wb-fs-sm);
   color: var(--wb-muted);
-  line-height: var(--lh-snug);
+  line-height: var(--wb-lh-normal);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -754,6 +797,48 @@
 .wb-feed-eq img { display: block; width: 100%; height: 64px; object-fit: contain; }
 .wb-feed-actions { display: flex; gap: var(--wb-sp-2); }
 .wb-feed-all { text-align: center; font-size: var(--wb-fs-sm); color: var(--wb-blue); }
+
+/* 动态笔记卡片（I-080） */
+.wb-feed-author-row {
+  display: flex;
+  align-items: center;
+  gap: var(--wb-sp-2);
+  font-size: var(--wb-fs-sm);
+  color: var(--wb-quiet);
+}
+.wb-feed-author-name {
+  color: var(--wb-ink);
+  font-weight: var(--wb-w-semibold);
+  text-decoration: none;
+}
+.wb-feed-author-name:hover { color: var(--wb-blue); }
+.wb-feed-note-title {
+  display: block;
+  font-size: var(--wb-fs);
+  font-weight: var(--wb-w-semibold);
+  color: var(--wb-ink);
+  line-height: var(--wb-lh-snug, 1.35);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.wb-feed-note-title:hover { color: var(--wb-blue); }
+.wb-feed-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.wb-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
 
 /* 手机 ≤640：标题行 fs-22、创建按钮收进顶栏「+」、
    快速检索脱离卡片框（48 高、图标入框左侧）＋ 2×2 快捷入口、
@@ -1273,7 +1358,7 @@
   padding: var(--wb-sp-3) var(--wb-sp-4);
   border: 1px solid var(--wb-line);
   border-radius: var(--wb-r-sm);
-  background: var(--wb-surface);
+  background: var(--wb-paper);
 }
 .wb-panel .oauth-conn-main {
   display: flex;

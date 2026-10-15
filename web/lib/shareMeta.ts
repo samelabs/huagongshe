@@ -42,11 +42,8 @@ export function buildShareMetadata({
   ogImage,
   itempropImage,
   twitterCard = "summary_large_image",
-}: ShareMetaParams): Pick<Metadata, "openGraph" | "twitter" | "other"> {
+}: ShareMetaParams): Pick<Metadata, "openGraph" | "twitter"> {
   const ogUrl = ogImage.url.startsWith("http") ? ogImage.url : `${SITE_ORIGIN}${ogImage.url}`;
-  const wechatUrl = (itempropImage || (ogImage.width === ogImage.height ? ogImage.url : "/icon-512.png")).startsWith("http")
-    ? (itempropImage || (ogImage.width === ogImage.height ? ogImage.url : "/icon-512.png"))
-    : `${SITE_ORIGIN}${itempropImage || (ogImage.width === ogImage.height ? ogImage.url : "/icon-512.png")}`;
 
   return {
     openGraph: {
@@ -70,11 +67,6 @@ export function buildShareMetadata({
       title,
       description,
       images: [ogUrl],
-    },
-    other: {
-      "itemprop:name": title,
-      "itemprop:description": description,
-      "itemprop:image": wechatUrl,
     },
   };
 }

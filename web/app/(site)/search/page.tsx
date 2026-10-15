@@ -112,7 +112,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       if (urlMode === "similarity" && typeof data.threshold === "number") {
         similarityThreshold = data.threshold;
       }
-      chemicals = data.chemicals;
+      chemicals = data.chemicals || [];
       reactions = data.reactions || [];
       total = data.total ?? null;
       // Search System Governance: 翻页入口只消费 API 的权威 has_more,

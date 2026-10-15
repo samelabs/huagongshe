@@ -27,6 +27,7 @@ export { SITE_LOCALE };
 
 export type ChemicalNameFields = {
   id: number | string;
+  name_local?: string | null;
   name_cn?: string | null;
   preferred_name?: string | null;
   iupac_name?: string | null;
@@ -36,6 +37,7 @@ export type ChemicalNameFields = {
 };
 
 export type ChemicalNameSource =
+  | "name_local"
   | "name_cn"
   | "preferred_name"
   | "iupac_name"
@@ -63,32 +65,28 @@ export function resolveChemicalName(
   hcidLabel: (id: number | string) => string,
   locale: string = SITE_LOCALE,
 ): ResolvedChemicalName {
-  const localized = clean(chemical.name_cn);
+  const localVal = clean(chemical.name_local) ?? (isChineseLocale(locale) ? clean(chemical.name_cn) : null);
   const common = clean(chemical.preferred_name);
   const systematic = clean(chemical.iupac_name);
   const formula = clean(chemical.molecular_formula);
   const casVal = clean(chemical.cas ?? chemical.cas_numbers?.[0]);
 
-  const chain: [string | null, ChemicalNameSource][] = isChineseLocale(locale)
-    ? [
-        [localized, "name_cn"],
-        [common, "preferred_name"],
-        [systematic, "iupac_name"],
-        [formula, "molecular_formula"],
-        [casVal, "cas"],
-      ]
-    : [
-        [common, "preferred_name"],
-        [systematic, "iupac_name"],
-        [formula, "molecular_formula"],
-        [casVal, "cas"],
-      ];
+  const localSource: ChemicalNameSource = clean(chemical.name_local) ? "name_local" : "name_cn";
+
+  const chain: [string | null, ChemicalNameSource][] = [
+    [localVal, localSource],
+    [common, "preferred_name"],
+    [systematic, "iupac_name"],
+    [formula, "molecular_formula"],
+    [casVal, "cas"],
+  ];
 
   const hit = chain.find(([value]) => value !== null);
   const source: ChemicalNameSource = hit ? hit[1] : "hcid";
   const title = hit ? (hit[0] as string) : hcidLabel(chemical.id);
 
-  const secondary = source === "name_cn" && common && common.toLowerCase() !== title.toLowerCase()
+  const isLocalSource = source === "name_local" || source === "name_cn";
+  const secondary = isLocalSource && common && common.toLowerCase() !== title.toLowerCase()
     ? common
     : null;
 

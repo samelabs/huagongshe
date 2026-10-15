@@ -22,11 +22,12 @@ import { isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
 import { apiGet, isApiGone, isEntityId, type Chemical, type ReactionSummary, type SemanticDetail, type ProseItem, type CasSupplier } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
-import { withLocale } from "@/lib/localePath";
+import { withLocale, type Locale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
 import { WeChatMeta } from "@/components/shared/WeChatMeta";
 import { ShareButton } from "@/components/ShareButton";
+import { IconPrinter } from "@/components/ui/icons";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /**
@@ -235,6 +236,9 @@ export default async function ChemicalPage({ params }: {
         <div className="chem-badge-row">
           <EntityBadge kind="chemical" id={chemical.id} size="lg" ariaLabel={t.common.hcidLabel(chemical.id)} />
           <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
+          <Link href={withLocale(`/chemical/${chemical.id}/print`, locale)} className="hg-icon-btn" aria-label={t.common.print} target="_blank" rel="noopener">
+            <IconPrinter size={18} />
+          </Link>
         </div>
         <h1 className="chem-head-name">{title}</h1>
         {secondary && <p className="chem-head-alt">{secondary}</p>}
@@ -433,7 +437,7 @@ export default async function ChemicalPage({ params }: {
                     {(["up", "down"] as const).map((dir) => {
                       const items = dir === "up" ? industry?.cb_updown?.up : industry?.cb_updown?.down;
                       if (!items?.length) return null;
-                      return <div key={dir}><h4>{dir === "up" ? t.chemical.casext.upstream : t.chemical.casext.downstream}</h4><UpdownTags gid={`grp-updown-${dir}`} direction={dir} items={items} dict={t} /></div>;
+                      return <div key={dir}><h4>{dir === "up" ? t.chemical.casext.upstream : t.chemical.casext.downstream}</h4><UpdownTags gid={`grp-updown-${dir}`} direction={dir} items={items} dict={t} locale={locale} /></div>;
                     })}
                   </div>
                 </div>
@@ -567,13 +571,29 @@ function ProseGroup({ gid, title, prose, dict }: { gid: string; title: string; p
   );
 }
 
-/** 上下游 Tag 列表：每向最多 UPDOWN_TAG_LIMIT 个，超出 data-overflow + 「展开」 */
-function UpdownTags({ gid, direction, items, dict }: { gid: string; direction: string; items: { name: string }[]; dict: Dictionary }) {
+/** 上下游 Tag 列表：每向最多 UPDOWN_TAG_LIMIT 个，超出 data-overflow + 「展开」
+ * I-079: GroupToggle 不放入 flex-wrap 行，避免撑变形同行胶囊。
+ * I-088: 每个品名可点击，跳到名称搜索。
+ */
+function UpdownTags({ gid, direction, items, dict, locale }: { gid: string; direction: string; items: { name: string }[]; dict: Dictionary; locale: Locale }) {
   return (
-    <div className="casext-tags" id={gid}>
-      {items.map((n, i) => <span key={`${direction}-${n.name}`} className="casext-tag" {...overProps(i, UPDOWN_TAG_LIMIT)}>{n.name}</span>)}
+    <div id={gid}>
+      <div className="casext-tags">
+        {items.map((n, i) => (
+          <Link
+            key={`${direction}-${n.name}`}
+            href={withLocale(`/search?q=${encodeURIComponent(n.name)}`, locale)}
+            className="casext-tag casext-tag-link"
+            {...overProps(i, UPDOWN_TAG_LIMIT)}
+          >
+            {n.name}
+          </Link>
+        ))}
+      </div>
       {items.length > UPDOWN_TAG_LIMIT && (
-        <GroupToggle controls={gid} total={items.length} collapsedLabel={dict.chemical.page.expandTags} expandedLabel={dict.chemical.page.collapse} />
+        <div className="casext-toggle-row">
+          <GroupToggle controls={gid} total={items.length} collapsedLabel={dict.chemical.page.expandTags} expandedLabel={dict.chemical.page.collapse} />
+        </div>
       )}
     </div>
   );
