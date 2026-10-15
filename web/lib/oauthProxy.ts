@@ -16,7 +16,12 @@ export async function proxyOAuth(
   backendPath: string,
 ): Promise<NextResponse> {
   const incoming = new Headers();
-  for (const key of ["cookie", "authorization", "content-type", "accept", "user-agent"]) {
+  // x-forwarded-for: 匿名 /oauth/authorize 触发 CIMD 拉取时按真实访客 IP
+  // 分桶限流, 必须原样带到后端(nginx 注入, 首段应为访客 IP)。
+  for (const key of [
+    "cookie", "authorization", "content-type", "accept", "user-agent",
+    "x-forwarded-for",
+  ]) {
     const value = request.headers.get(key);
     if (value != null) incoming.set(key, value);
   }

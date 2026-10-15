@@ -264,6 +264,252 @@ class DocumentValidationTests(unittest.TestCase):
                     oauth_cimd.validate_cimd_document(self.URL, doc)
 
 
+class AddressPreferenceTests(unittest.TestCase):
+    """1.1: 解析去重不打乱顺序, IPv4 优先(生产机无 IPv6 出口)。"""
+
+    def test_prefer_ipv4_keeps_first_seen_order_within_family(self):
+        self.assertEqual(
+            oauth_cimd._prefer_ipv4(
+                ["2606:4700::1111", "93.184.216.34", "93.184.216.34",
+                 "1.2.3.4", "2606:4700::1111"]),
+            ["93.184.216.34", "1.2.3.4", "2606:4700::1111"],
+        )
+        self.assertEqual(oauth_cimd._prefer_ipv4(["::1"]), ["::1"])
+        self.assertEqual(oauth_cimd._prefer_ipv4([]), [])
+
+
+class _FakeStreamReader:
+    """最小 HTTP 响应流桩: 逐行头 + 一次性 body。"""
+
+    def __init__(self, lines: list[bytes], body: bytes):
+        self._lines = list(lines)
+        self._body = body
+
+    async def readline(self):
+        return self._lines.pop(0) if self._lines else b""
+
+    async def readexactly(self, n: int) -> bytes:
+        value, self._body = self._body[:n], self._body[n:]
+        if len(value) < n:
+            raise asyncio.IncompleteReadError(value, n)
+        return value
+
+    async def read(self, n: int = -1) -> bytes:
+        take = self._body if n is None or n < 0 else self._body[:n]
+        self._body = self._body[len(take):]
+        return take
+
+
+class _FakeStreamWriter:
+    def write(self, data):
+        pass
+
+    async def drain(self):
+        pass
+
+    def close(self):
+        pass
+
+    async def wait_closed(self):
+        pass
+
+
+def _ok_response(body: bytes) -> tuple[_FakeStreamReader, _FakeStreamWriter]:
+    lines = [
+        b"HTTP/1.1 200 OK\r\n",
+        b"Content-Type: application/json\r\n",
+        f"Content-Length: {len(body)}\r\n".encode(),
+        b"\r\n",
+    ]
+    return _FakeStreamReader(lines, body), _FakeStreamWriter()
+
+
+class FetchRetryTests(unittest.TestCase):
+    """1.1: 逐地址尝试建连, 直到成功或全部失败; 总耗时受 5 秒约束。"""
+
+    URL = "https://example.com/c.json"
+
+    def _fetch(self, open_side_effect, resolved):
+        async def fake_resolve(host, port):
+            return resolved
+
+        async def go():
+            with patch.object(oauth_cimd, "_resolve_addresses", fake_resolve), \
+                 patch.object(asyncio, "open_connection", open_side_effect):
+                return await oauth_cimd._fetch_document(self.URL)
+
+        return asyncio.run(go())
+
+    def test_first_address_failure_falls_through_to_next(self):
+        attempts: list[str] = []
+
+        async def open_conn(address, port, ssl=None, server_hostname=None):
+            attempts.append(address)
+            if len(attempts) == 1:
+                raise OSError("connection refused (v6 without egress)")
+            return _ok_response(b'{"ok":1}')
+
+        document = self._fetch(open_conn, ["93.184.216.34", "2606:4700::1111"])
+        self.assertEqual(document.status, 200)
+        self.assertEqual(document.body, b'{"ok":1}')
+        self.assertEqual(attempts, ["93.184.216.34", "2606:4700::1111"])
+
+    def test_all_addresses_failing_raises_fetch_error(self):
+        async def open_conn(address, port, ssl=None, server_hostname=None):
+            raise OSError("down")
+
+        with self.assertRaises(svc.OAuthProtocolError) as raised:
+            self._fetch(open_conn, ["93.184.216.34", "1.2.3.4"])
+        self.assertIn("could not be fetched", raised.exception.description)
+
+    def test_tls_error_counts_as_address_failure_not_fatal(self):
+        # ssl.SSLError 是 OSError 子类: 首地址握手失败应尝试下一个地址。
+        import ssl as _ssl
+
+        attempts: list[str] = []
+
+        async def open_conn(address, port, ssl=None, server_hostname=None):
+            attempts.append(address)
+            if len(attempts) == 1:
+                raise _ssl.SSLError("certificate verify failed")
+            return _ok_response(b'{"ok":2}')
+
+        document = self._fetch(open_conn, ["93.184.216.34", "1.2.3.4"])
+        self.assertEqual(document.body, b'{"ok":2}')
+        self.assertEqual(len(attempts), 2)
+
+
+class BodyReadTests(unittest.TestCase):
+    """1.2: 响应分多次到达时必须读到完整 body; 上限与畸形拒绝。"""
+
+    def _read(self, pieces: list[bytes], content_length: str | None, eof=True):
+        async def go():
+            reader = asyncio.StreamReader(limit=64 * 1024)
+            for piece in pieces:
+                reader.feed_data(piece)
+            if eof:
+                reader.feed_eof()
+            return await oauth_cimd._read_body(reader, content_length)
+
+        return asyncio.run(go())
+
+    def test_multi_chunk_arrival_with_content_length(self):
+        body = b'{"client_name":"' + b"\xe3\x81\x82" * 90 + b'"}'
+        self.assertGreater(len(body), 100)
+        pieces = [body[i:i + 7] for i in range(0, len(body), 7)]
+        self.assertEqual(
+            self._read(pieces, str(len(body))), body)
+
+    def test_multi_chunk_arrival_until_eof(self):
+        body = b'{"a":' + b"9" * 800 + b"}"
+        pieces = [body[i:i + 13] for i in range(0, len(body), 13)]
+        self.assertEqual(self._read(pieces, None), body)
+
+    def test_oversized_content_length_rejected_before_read(self):
+        with self.assertRaises(svc.OAuthProtocolError) as raised:
+            self._read([b"x"], str(oauth_cimd.DOCUMENT_MAX_BYTES + 1))
+        self.assertIn("5 KB", raised.exception.description)
+
+    def test_malformed_content_length_rejected(self):
+        for value in ("abc", "-5"):
+            with self.subTest(cl=value):
+                with self.assertRaises(svc.OAuthProtocolError):
+                    self._read([b"x"], value)
+
+    def test_truncated_body_before_content_length_rejected(self):
+        with self.assertRaises(svc.OAuthProtocolError) as raised:
+            self._read([b'{"partial":'], "4096")
+        self.assertIn("malformed", raised.exception.description)
+
+    def test_chunked_multi_chunk_body_read_complete(self):
+        async def go():
+            reader = asyncio.StreamReader(limit=64 * 1024)
+            body = b'{"b":' + b"7" * 200 + b"}"
+            stream = b""
+            for i in range(0, len(body), 30):
+                part = body[i:i + 30]
+                stream += f"{len(part):x}\r\n".encode() + part + b"\r\n"
+            stream += b"0\r\n\r\n"
+            for i in range(0, len(stream), 11):
+                reader.feed_data(stream[i:i + 11])
+            reader.feed_eof()
+            return await oauth_cimd._read_chunked(
+                reader, oauth_cimd.DOCUMENT_MAX_BYTES + 1)
+
+        self.assertEqual(asyncio.run(go()), b'{"b":' + b"7" * 200 + b"}")
+
+
+class RateLimitKeyTests(unittest.TestCase):
+    """1.3/1.4: URL 桶每次尝试计; host 桶只计失败; 无 IP 不落共用桶并告警。"""
+
+    URL = "https://agent.example.test/c.json"
+
+    def _ensure(self, fetch_result, *, actor_id, client_ip):
+        calls: list[tuple] = []
+
+        async def recorder(bucket, identity, limit, window):
+            calls.append((bucket, identity, limit, window))
+
+        async def go():
+            try:
+                await oauth_cimd.ensure_client_for_authorize(
+                    _SelectOnlyDb(),
+                    client_id=self.URL,
+                    redirect_uri="https://agent.example.test/callback",
+                    actor_id=actor_id,
+                    client_ip=client_ip,
+                    fetcher=_StubFetcher(fetch_result),
+                )
+            except Exception:
+                # 只关心 enforce 的调用记录: 校验通过后写库被 _SelectOnlyDb
+                # 拒绝、或校验失败抛 OAuthProtocolError, 都不影响本测试断言。
+                pass
+
+        with patch.object(oauth_cimd.rate_limit, "enforce", recorder):
+            asyncio.run(go())
+        return calls
+
+    def test_success_counts_url_bucket_only_not_host(self):
+        calls = self._ensure(_ok_fetch(self.URL), actor_id=None,
+                             client_ip="203.0.113.9")
+        self.assertEqual(calls, [
+            ("oauth-cimd-url", self.URL,
+             oauth_cimd.FETCH_URL_LIMIT_PER_HOUR, 3600),
+            ("oauth-cimd-fetch-anon", "203.0.113.9",
+             oauth_cimd.FETCH_ANON_IP_LIMIT_PER_HOUR, 3600),
+        ])
+
+    def test_failure_counts_host_bucket(self):
+        result = FetchedDocument(status=302, content_type="application/json",
+                                 cache_control=None, body=b"{}")
+        calls = self._ensure(result, actor_id=None, client_ip="203.0.113.9")
+        self.assertEqual(calls, [
+            ("oauth-cimd-url", self.URL,
+             oauth_cimd.FETCH_URL_LIMIT_PER_HOUR, 3600),
+            ("oauth-cimd-fetch-anon", "203.0.113.9",
+             oauth_cimd.FETCH_ANON_IP_LIMIT_PER_HOUR, 3600),
+            ("oauth-cimd-host-fail", "agent.example.test",
+             oauth_cimd.FETCH_HOST_FAIL_LIMIT_PER_HOUR, 3600),
+        ])
+
+    def test_no_client_ip_skips_anon_bucket_and_logs_warning(self):
+        with self.assertLogs("api.services.oauth_cimd", level="WARNING") as logs:
+            calls = self._ensure(_ok_fetch(self.URL), actor_id=None,
+                                 client_ip=None)
+        self.assertEqual(calls, [
+            ("oauth-cimd-url", self.URL,
+             oauth_cimd.FETCH_URL_LIMIT_PER_HOUR, 3600),
+        ])
+        self.assertTrue(any("client IP" in line for line in logs.output))
+
+    def test_logged_in_actor_has_no_anon_bucket(self):
+        calls = self._ensure(_ok_fetch(self.URL), actor_id=7, client_ip=None)
+        self.assertEqual(calls, [
+            ("oauth-cimd-url", self.URL,
+             oauth_cimd.FETCH_URL_LIMIT_PER_HOUR, 3600),
+        ])
+
+
 # ---------------------------------------------------------------------------
 # 拉取消费侧校验(对任何 fetcher 一致, 不触网)
 # ---------------------------------------------------------------------------

@@ -12,8 +12,16 @@ ALTER TABLE community.oauth_clients
 ALTER TABLE community.oauth_clients
     ADD COLUMN IF NOT EXISTS logo_uri text;
 
+-- 加列默认值会把既有 DCR 行(client_id 形如 hgo_client_…)标成 'registered',
+-- 与列注释不符: 统一改标 'dcr'(动态注册)。left() 前缀等值比较避免 LIKE
+-- 通配符歧义。生产影响行数约 119(PM 口径), 不改动其余数据。
+UPDATE community.oauth_clients
+SET source_type = 'dcr'
+WHERE left(client_id, 11) = 'hgo_client_'
+  AND source_type = 'registered';
+
 COMMENT ON COLUMN community.oauth_clients.source_type IS
-    'client 来源: registered=预登记(历史行默认), dcr=动态注册(/oauth/register), cimd=Client ID Metadata Document 拉取缓存(client_id 即 https URL)';
+    'client 来源: registered=预登记, dcr=动态注册(/oauth/register, 含历史 hgo_client_ 行), cimd=Client ID Metadata Document 拉取缓存(client_id 即 https URL)';
 COMMENT ON COLUMN community.oauth_clients.metadata_fetched_at IS
     'CIMD: 最近一次成功拉取文档的时间; 其余来源为 NULL';
 COMMENT ON COLUMN community.oauth_clients.metadata_cache_until IS

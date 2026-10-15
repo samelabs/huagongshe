@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import json
+import logging
 import re
 import socket
 import ssl
@@ -31,14 +32,17 @@ from sqlalchemy import text
 from ..core import rate_limit
 from .oauth import OAuthProtocolError, _valid_redirect_uri
 
+logger = logging.getLogger(__name__)
+
 CLIENT_ID_MAX_LENGTH = 300  # 与 oauth_clients.client_id 现有上限一致
 DOCUMENT_MAX_BYTES = 5 * 1024
 FETCH_TIMEOUT_SECONDS = 5.0
 CACHE_AGE_MIN_SECONDS = 300        # 5 分钟
 CACHE_AGE_MAX_SECONDS = 24 * 3600  # 24 小时
 CACHE_AGE_DEFAULT_SECONDS = 3600   # 无 Cache-Control 时的缺省
-FETCH_HOST_LIMIT_PER_HOUR = 60     # 按被拉取文档的 host 分桶
-FETCH_ANON_IP_LIMIT_PER_HOUR = 30  # 匿名触发拉取时按来源 IP 分桶
+FETCH_URL_LIMIT_PER_HOUR = 20        # 按完整 client_id URL 分桶, 每次拉取尝试都计
+FETCH_HOST_FAIL_LIMIT_PER_HOUR = 300  # 按 host 分桶, 只计失败的拉取(非 200/超限/校验不过)
+FETCH_ANON_IP_LIMIT_PER_HOUR = 30   # 匿名触发拉取时按来源 IP 分桶(拿得到 IP 才计)
 _REDIRECT_URI_MAX = 2000
 _MAX_URIS = 10
 _MAX_NAME = 160
@@ -121,10 +125,21 @@ def _ip_allowed(value: str) -> bool:
     )
 
 
+def _prefer_ipv4(addresses: list[str]) -> list[str]:
+    """IPv4 优先(生产机无 IPv6 出口, AAAA 随机选中必失败); 去重保持首现顺序。"""
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in addresses:
+        if value not in seen:
+            seen.add(value)
+            ordered.append(value)
+    return sorted(ordered, key=lambda ip: ipaddress.ip_address(ip).version == 6)
+
+
 async def _resolve_addresses(host: str, port: int) -> list[str]:
     loop = asyncio.get_running_loop()
     infos = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-    return list({info[4][0] for info in infos})
+    return _prefer_ipv4([sockaddr[0] for _, _, _, _, sockaddr in infos])
 
 
 @dataclass
@@ -136,11 +151,13 @@ class FetchedDocument:
 
 
 async def _fetch_document(url: str) -> FetchedDocument:
-    """SSRF 加固的 HTTPS GET: 解析 DNS → 校验全部 IP → 按 IP 建连。
+    """SSRF 加固的 HTTPS GET: 解析 DNS → 校验全部 IP → 逐个地址建连。
 
-    只发一次请求(不跟随重定向), 超时 5 秒, 响应体上限 5 KB。
-    TLS 证书按 URL 的 host 校验(server_hostname), 连接却钉在已校验的
-    IP 上, DNS rebinding 在两次解析之间切换地址也无效。
+    只发一次请求(不跟随重定向), 总耗时(含逐地址重试)受 5 秒上限约束,
+    响应体上限 5 KB。TLS 证书按 URL 的 host 校验(server_hostname),
+    连接却钉在已校验的 IP 上, DNS rebinding 在两次解析之间切换地址也无效。
+    IPv4 优先(同族保持解析顺序): 生产机无 IPv6 出口, 混合解析时
+    随机选中 AAAA 会导致必然失败, 所以逐个地址尝试到成功为止。
     """
     parsed = urlsplit(url)
     host = parsed.hostname
@@ -156,7 +173,6 @@ async def _fetch_document(url: str) -> FetchedDocument:
             "invalid_request",
             "client_id host resolves to a forbidden address.",
         )
-    target = addresses[0]
     path = parsed.path or "/"
     if parsed.query:
         path += "?" + parsed.query
@@ -171,9 +187,9 @@ async def _fetch_document(url: str) -> FetchedDocument:
         "\r\n"
     ).encode("ascii")
 
-    async def _do_fetch() -> FetchedDocument:
+    async def _attempt(address: str) -> FetchedDocument:
         reader, writer = await asyncio.open_connection(
-            target, port,
+            address, port,
             ssl=ssl.create_default_context(),
             server_hostname=host,
         )
@@ -200,7 +216,7 @@ async def _fetch_document(url: str) -> FetchedDocument:
             if headers.get("transfer-encoding", "").lower() == "chunked":
                 body = await _read_chunked(reader, DOCUMENT_MAX_BYTES + 1)
             else:
-                body = await reader.read(DOCUMENT_MAX_BYTES + 1)
+                body = await _read_body(reader, headers.get("content-length"))
             return FetchedDocument(
                 status=status,
                 content_type=headers.get("content-type", ""),
@@ -214,6 +230,20 @@ async def _fetch_document(url: str) -> FetchedDocument:
             except Exception:
                 pass
 
+    async def _do_fetch() -> FetchedDocument:
+        last_error: OSError | None = None
+        for address in addresses:
+            try:
+                return await _attempt(address)
+            except OSError as exc:
+                # 建连/握手/读失败(TLS 错误是 OSError 子类) → 尝试下一个地址
+                last_error = exc
+                continue
+        raise OAuthProtocolError(
+            "invalid_request",
+            "Client ID Metadata Document could not be fetched.",
+        ) from last_error
+
     try:
         document = await asyncio.wait_for(_do_fetch(), FETCH_TIMEOUT_SECONDS)
     except OAuthProtocolError:
@@ -224,6 +254,54 @@ async def _fetch_document(url: str) -> FetchedDocument:
             "Client ID Metadata Document could not be fetched.",
         ) from exc
     return document
+
+
+async def _read_body(
+    reader: asyncio.StreamReader, content_length: str | None
+) -> bytes:
+    """按 Content-Length 或 EOF 读完整响应体; 单次 read() 可能返回部分数据。
+
+    有 Content-Length: 超过 5 KB 直接拒绝; 用 readexactly 收满声明的字节数
+    (流提前 EOF 抛 IncompleteReadError → 视为畸形响应)。
+    无 Content-Length: 循环 read() 到 EOF, 期间超过 5 KB 即拒绝。
+    """
+    if content_length is not None:
+        raw = content_length.strip()
+        try:
+            declared = int(raw)
+        except ValueError as exc:
+            raise OAuthProtocolError(
+                "invalid_request",
+                "Client ID Metadata Document response was malformed.",
+            ) from exc
+        if declared < 0:
+            raise OAuthProtocolError(
+                "invalid_request",
+                "Client ID Metadata Document response was malformed.",
+            )
+        if declared > DOCUMENT_MAX_BYTES:
+            raise OAuthProtocolError(
+                "invalid_request", "Client ID Metadata Document exceeds 5 KB."
+            )
+        try:
+            return await reader.readexactly(declared)
+        except asyncio.IncompleteReadError as exc:
+            raise OAuthProtocolError(
+                "invalid_request",
+                "Client ID Metadata Document response was malformed.",
+            ) from exc
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await reader.read(4096)
+        if not chunk:
+            return b"".join(chunks)
+        total += len(chunk)
+        if total > DOCUMENT_MAX_BYTES:
+            raise OAuthProtocolError(
+                "invalid_request", "Client ID Metadata Document exceeds 5 KB."
+            )
+        chunks.append(chunk)
 
 
 async def _read_chunked(reader: asyncio.StreamReader, limit: int) -> bytes:
@@ -239,15 +317,27 @@ async def _read_chunked(reader: asyncio.StreamReader, limit: int) -> bytes:
                 "Client ID Metadata Document response was malformed.",
             ) from exc
         if size == 0:
-            await reader.readline()
+            try:
+                await reader.readexactly(2)  # 终止 chunk 后的 CRLF
+            except asyncio.IncompleteReadError as exc:
+                raise OAuthProtocolError(
+                    "invalid_request",
+                    "Client ID Metadata Document response was malformed.",
+                ) from exc
             return b"".join(chunks)
         total += size
         if total > limit:
             raise OAuthProtocolError(
                 "invalid_request", "Client ID Metadata Document exceeds 5 KB."
             )
-        chunks.append(await reader.readexactly(size))
-        await reader.readexactly(2)  # CRLF
+        try:
+            chunks.append(await reader.readexactly(size))
+            await reader.readexactly(2)  # CRLF
+        except asyncio.IncompleteReadError as exc:
+            raise OAuthProtocolError(
+                "invalid_request",
+                "Client ID Metadata Document response was malformed.",
+            ) from exc
 
 
 def cache_age_seconds(cache_control: str | None) -> int:
@@ -420,38 +510,56 @@ async def ensure_client_for_authorize(
         and row["metadata_cache_until"] > (now or datetime.now(timezone.utc))
     )
     if not fresh:
-        # 限流两级: 按被拉取文档的 host; 匿名触发再加来源 IP 桶。
+        # 限流(1.3/1.4): 每次拉取尝试按完整 client_id URL 分桶(同 host 的
+        # 随机路径各自计数, 攻击者无法耗尽真实客户端的配额)。匿名且有
+        # 来源 IP 时再加 IP 桶; 拿不到 IP 不落全站共用桶, 只走 URL 桶并告警。
         await rate_limit.enforce(
-            "oauth-cimd-fetch", host, FETCH_HOST_LIMIT_PER_HOUR, 3600)
+            "oauth-cimd-url", client_id, FETCH_URL_LIMIT_PER_HOUR, 3600)
         if actor_id is None:
-            await rate_limit.enforce(
-                "oauth-cimd-fetch-anon", client_ip or "unknown",
-                FETCH_ANON_IP_LIMIT_PER_HOUR, 3600)
-        fetch = fetcher or _fetch_document
-        document = await fetch(client_id)
-        # 状态码/大小/类型校验放在消费侧, 对任何 fetcher(含测试桩)一致生效。
-        if document.status != 200:
-            raise OAuthProtocolError(
-                "invalid_request",
-                "Client ID Metadata Document request did not return HTTP 200 "
-                f"(got {document.status}). Redirects are not followed.",
-            )
-        if len(document.body) > DOCUMENT_MAX_BYTES:
-            raise OAuthProtocolError(
-                "invalid_request", "Client ID Metadata Document exceeds 5 KB."
-            )
-        if "json" not in document.content_type.split(";")[0].strip().lower():
-            raise OAuthProtocolError(
-                "invalid_request",
-                "Client ID Metadata Document must be served as JSON.",
-            )
+            if client_ip:
+                await rate_limit.enforce(
+                    "oauth-cimd-fetch-anon", client_ip,
+                    FETCH_ANON_IP_LIMIT_PER_HOUR, 3600)
+            else:
+                logger.warning(
+                    "CIMD anonymous fetch without client IP "
+                    "(no x-forwarded-for): anonymous IP limit skipped, "
+                    "url bucket only, client_id=%s", client_id)
         try:
-            parsed = json.loads(document.body.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise OAuthProtocolError(
-                "invalid_request", "Client ID Metadata Document is not valid JSON."
-            ) from exc
-        values = validate_cimd_document(client_id, parsed)
+            fetch = fetcher or _fetch_document
+            document = await fetch(client_id)
+            # 状态码/大小/类型校验放在消费侧, 对任何 fetcher(含测试桩)一致生效。
+            if document.status != 200:
+                raise OAuthProtocolError(
+                    "invalid_request",
+                    "Client ID Metadata Document request did not return HTTP 200 "
+                    f"(got {document.status}). Redirects are not followed.",
+                )
+            if len(document.body) > DOCUMENT_MAX_BYTES:
+                raise OAuthProtocolError(
+                    "invalid_request",
+                    "Client ID Metadata Document exceeds 5 KB.",
+                )
+            if "json" not in document.content_type.split(";")[0].strip().lower():
+                raise OAuthProtocolError(
+                    "invalid_request",
+                    "Client ID Metadata Document must be served as JSON.",
+                )
+            try:
+                parsed = json.loads(document.body.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise OAuthProtocolError(
+                    "invalid_request",
+                    "Client ID Metadata Document is not valid JSON.",
+                ) from exc
+            values = validate_cimd_document(client_id, parsed)
+        except OAuthProtocolError:
+            # host 级宽松上限只计失败的拉取(非 200/超限/校验不过)。
+            # 成功的拉取写入缓存不会重复触发, 天然不计入。
+            await rate_limit.enforce(
+                "oauth-cimd-host-fail", host,
+                FETCH_HOST_FAIL_LIMIT_PER_HOUR, 3600)
+            raise
         cache_until = (now or datetime.now(timezone.utc)) + timedelta(
             seconds=cache_age_seconds(document.cache_control))
         await db.execute(text("""
