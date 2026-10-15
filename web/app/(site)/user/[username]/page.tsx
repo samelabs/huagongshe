@@ -131,7 +131,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
                 <article className="pf-rx-card" key={item.id}>
                   <Link className="pf-rx-eq" href={withLocale(`/reaction/${item.id}`, locale)}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={reactionSvgUrl(item.id, 720, 180)} alt={t.reaction.equationAlt(item.id)} loading="lazy" />
+                    <img src={reactionSvgUrl(item.id)} alt={t.reaction.equationAlt(item.id)} loading="lazy" />
                   </Link>
                   <div className="pf-rx-foot">
                     <EntityBadge kind="reaction" id={item.id} size="md" href={withLocale(`/reaction/${item.id}`, locale)} ariaLabel={t.common.hridLabel(item.id)} />

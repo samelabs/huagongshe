@@ -98,7 +98,7 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
         <section className="pr-section pr-structure-section">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={reactionSvgUrl(reaction.id, 800, 220)}
+            src={reactionSvgUrl(reaction.id)}
             alt={t.reaction.equation}
             className="pr-reaction-svg"
           />

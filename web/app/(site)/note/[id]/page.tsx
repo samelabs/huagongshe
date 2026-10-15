@@ -15,7 +15,6 @@ import { localeAlternates } from "@/lib/alternates";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { resolveNotePresentation } from "@/lib/noteHeadline";
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -63,7 +62,6 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       height: 630,
       alt: t.brand.ogAlt,
     },
-    itempropImage: "/icon-512.png",
     twitterCard: "summary_large_image",
   });
   return {
@@ -112,7 +110,6 @@ export default async function NoteDetailPage({ params }: Params) {
 
   return (
     <div className="content-page note-detail-page">
-      <WeChatMeta name={`${title}｜${t.brand.name}`} description={t.notes.detailTitle} image="/icon-512.png" />
       <Breadcrumb
         items={[
           { label: t.chemical.home, href: withLocale("/", locale) },

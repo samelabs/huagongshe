@@ -4,7 +4,6 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { localeAlternates } from "@/lib/alternates";
 import { SkillsClient, type Skill, type Category } from "./SkillsClient";
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 
 async function skillsCount(): Promise<number | null> {
   try {
@@ -32,7 +31,6 @@ export async function generateMetadata(): Promise<Metadata> {
       height: 630,
       alt: t.brand.ogAlt,
     },
-    itempropImage: "/icon-512.png",
     twitterCard: "summary_large_image",
   });
   return {
@@ -91,7 +89,6 @@ export default async function SkillsPage() {
 
   return (
     <>
-      <WeChatMeta name={t.skills.metaOgTitle(t.brand.name)} description={t.skills.metaOgDesc(count)} image="/icon-512.png" />
       <SkillsClient skills={skills} cats={cats} skillsError={skillsResult.error} />
     </>
   );

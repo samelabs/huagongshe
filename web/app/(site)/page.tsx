@@ -12,7 +12,6 @@ import { withLocale } from "@/lib/localePath";
 const PLUGIN_PACKAGE_URL = "/downloads/huagongshe-agent-plugin-1.0.0.zip";
 
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -29,7 +28,6 @@ export async function generateMetadata(): Promise<Metadata> {
       height: 630,
       alt: t.brand.ogAlt,
     },
-    itempropImage: "/icon-512.png",
     twitterCard: "summary_large_image",
   });
   return {
@@ -46,7 +44,6 @@ export default async function Home() {
   const authed = (await cookies()).has("hgs_session");
   return (
     <div className="home">
-      <WeChatMeta name={t.brand.seoTitle} description={t.brand.seoDesc} image="/icon-512.png" />
       <section className="hero">
         <h1>{t.home.hero}</h1>
         <p className="hero-subtitle">{t.home.subtitle}</p>

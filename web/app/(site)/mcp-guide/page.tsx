@@ -21,13 +21,11 @@ function AgentSteps({ title, desc, steps }: { title: string; desc: string; steps
   </div>;
 }
 
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 
 export default function McpPage() {
   const t = useDictionary();
   const locale = useLocale();
   return <div className="content-page guide-page mcp-page">
-    <WeChatMeta name={`${t.mcp.hero}｜${t.brand.name}`} description={t.mcp.heroBody} image="/icon-512.png" />
     <Breadcrumb
       items={[
         { label: t.chemical.home, href: withLocale("/", locale) },

@@ -162,21 +162,14 @@ export async function apiPut<T>(path: string, body?: BodyInit, headers?: Headers
   return response.status === 204 ? undefined as T : await response.json() as T;
 }
 
-import { MOL_SVG_SIZES, type MolSvgSizeKey } from "./molSizes";
-export { MOL_SVG_SIZES, type MolSvgSizeKey };
-
-export function molSvgUrl(chemicalId: number, sizeOrWidth: MolSvgSizeKey | number = "lg", height?: number): string {
-  if (typeof sizeOrWidth === "string" && sizeOrWidth in MOL_SVG_SIZES) {
-    const dim = MOL_SVG_SIZES[sizeOrWidth as MolSvgSizeKey];
-    return `/api/mol/${chemicalId}/svg/${dim.width}x${dim.height}.svg`;
-  }
-  const w = typeof sizeOrWidth === "number" ? sizeOrWidth : 280;
-  const h = height ?? Math.round((w * 3) / 4);
-  return `/api/mol/${chemicalId}/svg/${w}x${h}.svg`;
+/** 化合物结构图（矢量）：地址不带尺寸，显示尺寸由页面 CSS 决定。 */
+export function molSvgUrl(chemicalId: number): string {
+  return `/img/chemical/${chemicalId}.svg`;
 }
 
-export function reactionSvgUrl(reactionId: number, width = 1100, height = 230) {
-  return `/api/reactions/${reactionId}/svg/${width}x${height}.svg`;
+/** 反应方程式图（矢量）：地址不带尺寸，显示尺寸由页面 CSS 决定。 */
+export function reactionSvgUrl(reactionId: number): string {
+  return `/img/reaction/${reactionId}.svg`;
 }
 
 export type Chemical = {

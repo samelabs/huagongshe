@@ -25,8 +25,13 @@ function normKey(value: string): string {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+/** 上游把多个值拼进一个字符串（分号连接）时拆开逐项展示。 */
+function splitPackedValues(value: string): string[] {
+  return value.split(/[；;]/).map((part) => part.trim()).filter(Boolean);
+}
+
 function collect(rows: FieldRow[], rawLabel: string, label: string, values: string[]): void {
-  const clean = values.filter((v): v is string => Boolean(v));
+  const clean = values.filter((v): v is string => Boolean(v)).flatMap(splitPackedValues);
   if (!clean.length) return;
   const key = fieldKey(rawLabel);
   let row = rows.find((r) => r.key === key);
@@ -38,6 +43,11 @@ function collect(rows: FieldRow[], rawLabel: string, label: string, values: stri
   for (const value of clean) {
     const dedupeKey = normKey(value);
     if (seen.has(dedupeKey)) continue;
+    // 短值若是某长值的片段（如 "1.46" ⊂ "Log Kow = 1.46"），视为同一值
+    const redundant = [...seen].some(
+      (existing) => existing.length > dedupeKey.length && existing.includes(dedupeKey) && dedupeKey.length <= 16,
+    );
+    if (redundant) continue;
     seen.add(dedupeKey);
     row.values.push(value);
   }
@@ -164,7 +174,11 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
 
   const names = detail?.names;
   const cbIdentity = names?.cb_identity ?? {};
-  const aliases = names?.cb_aliases?.map(a => a.value) ?? [];
+  const rawAliases = names?.cb_aliases?.map(a => a.value) ?? [];
+  const aliases: string[] = [];
+  for (const alias of rawAliases) {
+    if (!aliases.some((a) => normKey(a) === normKey(alias))) aliases.push(alias);
+  }
   const props = detail?.properties;
   const safety = detail?.safety;
   const industry = detail?.industry;
@@ -269,7 +283,7 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <section className="pr-section pr-structure-section">
           <img
-            src={`/api/mol/${id}/png/800x800.png`}
+            src={`/img/chemical/${id}.png`}
             alt={t.chemical.structureAlt(title)}
             className="pr-structure-img"
             width={400}

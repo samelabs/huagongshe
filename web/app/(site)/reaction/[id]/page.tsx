@@ -24,7 +24,6 @@ import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import type { Locale } from "@/lib/i18n/locales";
 
@@ -58,19 +57,27 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const t = await getRequestDictionary();
   const pageTitle = t.common.hridShort(id);
   const description = t.reaction.desc;
+  // 匿名可访问（公开且存在）才有分享图；不公开或不存在用兜底横版品牌图
+  const visible = await apiGet(`/reactions/${id}`).then(() => true).catch(() => false);
   const shareMeta = buildShareMetadata({
     title: `${pageTitle}｜${t.brand.name}`,
     description,
     path: canonical,
     locale,
     siteName: t.brand.name,
-    ogImage: {
-      url: `/api/reactions/${id}/png/1200x630.png`,
-      width: 1200,
-      height: 630,
-      alt: t.reaction.equationAlt(Number(id)),
-    },
-    itempropImage: `/api/reactions/${id}/png/800x800.png`,
+    ogImage: visible
+      ? {
+          url: `/img/reaction/${id}.png`,
+          width: 1200,
+          height: 630,
+          alt: t.reaction.equationAlt(Number(id)),
+        }
+      : {
+          url: "/og.png",
+          width: 1200,
+          height: 630,
+          alt: `${pageTitle}｜${t.brand.name}`,
+        },
     twitterCard: "summary_large_image",
   });
   return {
@@ -176,11 +183,6 @@ export default async function ReactionPage({ params }: {
 
   return (
     <div className="content-page reaction-page">
-      <WeChatMeta
-        name={`${t.common.hridShort(reaction.id)}｜${t.brand.name}`}
-        description={t.reaction.desc}
-        image={`/api/reactions/${reaction.id}/png/800x800.png`}
-      />
       {/* 0904 P0收口: JSON.stringify 不转义 '<', </script> 可闭合标签注入脚本
           (存储型XSS)。规范做法: < 与 U+2028/2029 转义为 JSON 等价形式。 */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
@@ -225,7 +227,7 @@ export default async function ReactionPage({ params }: {
         <div className="rx-equation-card">
           {reaction.reaction_smiles ? (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={reactionSvgUrl(reaction.id, 1500, 340)} width="1500" height="340" alt={t.reaction.equationAlt(reaction.id)} />
+            <img src={reactionSvgUrl(reaction.id)} width="1500" height="340" alt={t.reaction.equationAlt(reaction.id)} />
           ) : <div className="rx-equation-unavailable">{t.reaction.equationUnavailable}</div>}
         </div>
         {reaction.reaction_smiles && (

@@ -5,7 +5,6 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 
 /**
  * S3 (G1.5-A): 法律/支持页正文只有英文权威版。
@@ -28,7 +27,6 @@ export async function generateMetadata(): Promise<Metadata> {
       height: 630,
       alt: "Huagongshe",
     },
-    itempropImage: "/icon-512.png",
     twitterCard: "summary_large_image",
   });
   if (locale === "en") {
@@ -52,7 +50,6 @@ export default async function TermsPage() {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   return <article lang="en" className="content-page guide-page legal-page">
-    <WeChatMeta name="Terms of Service｜Huagongshe" description="Terms for using Huagongshe web, API, MCP, OAuth, and plugin integrations." image="/icon-512.png" />
     <Breadcrumb
       items={[
         { label: t.chemical.home, href: withLocale("/", locale) },

@@ -16,7 +16,6 @@ import { withLocale } from "@/lib/localePath";
 import type { Metadata } from "next";
 
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 
 type SearchParams = { q?: string; mode?: string; page?: string; focus?: string; type?: string };
 
@@ -53,7 +52,6 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
       height: 630,
       alt: t.brand.ogAlt,
     },
-    itempropImage: "/icon-512.png",
     twitterCard: "summary_large_image",
   });
   return {

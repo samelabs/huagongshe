@@ -25,7 +25,6 @@ import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale, type Locale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 import { ShareButton } from "@/components/ShareButton";
 import { IconPrinter } from "@/components/ui/icons";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
@@ -64,20 +63,28 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { title: displayName } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel, locale);
   const pageTitle = `${displayName} (${t.common.hcidShort(id)})`;
   const description = t.chemical.descFor(displayName);
+  // 有可渲染结构 → 1:1 结构图分享卡；没有 → 兜底横版品牌图
+  const hasStructure = Boolean(chemical?.smiles || chemical?.pubchem_smiles);
   const shareMeta = buildShareMetadata({
     title: `${pageTitle}｜${t.brand.name}`,
     description,
     path: canonical,
     locale,
     siteName: t.brand.name,
-    ogImage: {
-      url: `/api/mol/${id}/png/800x800.png`,
-      width: 800,
-      height: 800,
-      alt: t.chemical.structureAlt(displayName),
-    },
-    itempropImage: `/api/mol/${id}/png/800x800.png`,
-    twitterCard: "summary",
+    ogImage: hasStructure
+      ? {
+          url: `/img/chemical/${id}.png`,
+          width: 800,
+          height: 800,
+          alt: t.chemical.structureAlt(displayName),
+        }
+      : {
+          url: "/og.png",
+          width: 1200,
+          height: 630,
+          alt: `${pageTitle}｜${t.brand.name}`,
+        },
+    twitterCard: hasStructure ? "summary" : "summary_large_image",
   });
   return {
     title: pageTitle,
@@ -216,11 +223,6 @@ export default async function ChemicalPage({ params }: {
 
   return (
     <div className="content-page chemical-page">
-      <WeChatMeta
-        name={`${title} (${t.common.hcidShort(chemical.id)})｜${t.brand.name}`}
-        description={t.chemical.descFor(title)}
-        image={`/api/mol/${chemical.id}/png/800x800.png`}
-      />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       <Breadcrumb
         items={[
