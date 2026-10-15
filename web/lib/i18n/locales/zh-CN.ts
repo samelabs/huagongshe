@@ -20,6 +20,7 @@ const t = {
 
   /* ── 统一业务错误码（五语言） ──────────────────────────── */
   errors: {
+    invalid_field: '内容有误，请检查对应字段后重试',
     invalid_doi: 'DOI 格式不正确',
     invalid_cas: 'CAS 号校验位不正确',
     invalid_structure: '无法识别该 SMILES 结构',
@@ -693,6 +694,7 @@ const t = {
       locationPH: '如：北京',
       website: '个人主页',
       websitePH: '如：https://lab.example.edu',
+      websiteInvalid: '网址须为 http(s) 链接或裸域名（如 example.com）',
       orcid: 'ORCID',
       orcidHint: '学术研究者标识符，16位数字',
       requiredHint: '必填项不能为空。',

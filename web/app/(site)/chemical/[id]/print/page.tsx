@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { apiGet, isApiGone, isEntityId, type Chemical, type SemanticDetail, type ProseItem, type EvidenceBlock } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
+import { fieldKey, fieldLabel, pathLabel, type FieldLocale } from "@/lib/fieldLabels";
 import { withLocale } from "@/lib/localePath";
 import "./print.css";
 
@@ -16,52 +17,102 @@ function formatNumber(n: number | null | undefined, locale: string, fractionDigi
   return new Intl.NumberFormat(locale, { maximumFractionDigits: fractionDigits }).format(n);
 }
 
-function ProseSection({ title, items }: { title: string; items: ProseItem[] }) {
-  if (!items.length) return null;
-  return (
-    <section className="pr-section">
-      <h2 className="pr-section-h">{title}</h2>
-      {items.map((item, i) => (
-        <div key={i} className="pr-prose-item">
-          {item.title && <h3 className="pr-prose-title">{item.title}</h3>}
-          <p className="pr-prose-text">{item.text}</p>
-        </div>
-      ))}
-    </section>
-  );
+/** 分区内按字段组织：同一字段只出一行，多来源的值合并去重。 */
+type FieldRow = { key: string; label: string; values: string[] };
+
+function collect(rows: FieldRow[], rawLabel: string, label: string, values: string[]): void {
+  const clean = values.filter((v): v is string => Boolean(v));
+  if (!clean.length) return;
+  const key = fieldKey(rawLabel);
+  const existing = rows.find((row) => row.key === key);
+  if (existing) {
+    for (const value of clean) if (!existing.values.includes(value)) existing.values.push(value);
+  } else {
+    rows.push({ key, label, values: clean });
+  }
 }
 
-/** CB safety 字段的值可能是字符串或嵌套对象(GHS 的 h/p/象形图/信号词):
- *  报告里渲染成 "键: 值" 逗号串, 不打印 [object Object]。 */
-function readableSafetyValue(value: unknown): string {
-  if (value == null) return "—";
+/** CB 安全字段的值可能是字符串或嵌套对象（GHS 的说明/象形图/信号词）：
+ *  报告里渲染成可读文本，不打印 [object Object]。 */
+function readableSafetyValue(value: unknown, locale: FieldLocale): string {
+  if (value == null) return "";
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map(readableSafetyValue).filter(Boolean).join("、");
+  if (Array.isArray(value)) return value.map((v) => readableSafetyValue(v, locale)).filter(Boolean).join("、");
   if (typeof value === "object") {
     return Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => `${k}: ${readableSafetyValue(v)}`)
+      .map(([k, v]) => `${fieldLabel(k, locale)}: ${readableSafetyValue(v, locale)}`)
       .join("；");
   }
   return String(value);
 }
 
-function EvidenceSection({ title, block }: { title: string; block: EvidenceBlock | null | undefined }) {  if (!block || !block.entries || Object.keys(block.entries).length === 0) return null;
-  const entries = block.entries as Record<string, { value?: string; text?: string; unit?: string }>;
+/** 证据条目 → 展示值列表。条目结构为 {路径: 值数组}，每个值项带 value 与可选 unit。 */
+function evidenceValues(input: unknown, locale: FieldLocale): string[] {
+  const list = Array.isArray(input) ? input : [input];
+  const result: string[] = [];
+  for (const item of list) {
+    if (item == null) continue;
+    if (typeof item === "string" || typeof item === "number" || typeof item === "boolean") {
+      result.push(String(item));
+      continue;
+    }
+    if (typeof item === "object") {
+      const record = item as Record<string, unknown>;
+      const raw = record.value ?? record.name ?? record.description ?? record.text;
+      if (Array.isArray(raw)) result.push(raw.map((v) => readableSafetyValue(v, locale)).filter(Boolean).join("；"));
+      else if (raw != null) {
+        const unit = typeof record.unit === "string" ? record.unit : null;
+        result.push(unit ? `${readableSafetyValue(raw, locale)} ${unit}` : readableSafetyValue(raw, locale));
+      }
+    }
+  }
+  return result.filter(Boolean);
+}
+
+/** 证据块 → 字段行（labels 用当前语言字段名，多值合并）。 */
+function evidenceRows(block: EvidenceBlock | null | undefined, locale: FieldLocale): FieldRow[] {
+  if (!block || typeof block !== "object") return [];
+  const record = block as Record<string, unknown>;
+  const entries = record.entries && typeof record.entries === "object"
+    ? (record.entries as Record<string, unknown>) : {};
+  const rows: FieldRow[] = [];
+  for (const [path, values] of Object.entries(entries)) {
+    if (["references", "normalization"].includes(path)) continue;
+    const label = pathLabel(path, locale);
+    collect(rows, path.split(" > ").at(-1) || path, label, evidenceValues(values, locale));
+  }
+  return rows;
+}
+
+function FieldTable({ rows }: { rows: FieldRow[] }) {
+  if (!rows.length) return null;
   return (
-    <section className="pr-section">
-      <h2 className="pr-section-h">{title}</h2>
-      <table className="pr-table">
-        <tbody>
-          {Object.entries(entries).map(([k, v]) => (
-            <tr key={k}>
-              <th>{k}</th>
-              <td>{v?.value ?? v?.text ?? "—"}{v?.unit ? ` ${v.unit}` : ""}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+    <table className="pr-table">
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.key}>
+            <th>{row.label}</th>
+            <td>{row.values.join("；")}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ProseSection({ items, skipKeys }: { items: ProseItem[]; skipKeys?: Set<string> }) {
+  const visible = items.filter((item) => !item.title || !skipKeys?.has(fieldKey(item.title)));
+  if (!visible.length) return null;
+  return (
+    <>
+      {visible.map((item, i) => (
+        <div key={i} className="pr-prose-item">
+          {item.title && <h3 className="pr-prose-title">{item.title}</h3>}
+          <p className="pr-prose-text">{item.text}</p>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -72,8 +123,7 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
 
-  // 语义详情与主记录同源: /chemicals/{id}?enrich=full 的 details 字段
-  // (站点没有独立的 /details 路由)。
+  // 语义详情与主记录同源: /chemicals/{id}?enrich=full 的 details 字段。
   const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=full&locale=${encodeURIComponent(locale)}`).catch((e: unknown) => {
     if (isApiGone(e)) notFound();
     return null;
@@ -105,6 +155,50 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
     ["EC No.", chemical.ec_numbers[0] ?? null],
     ["DTXSID", chemical.dtxsid],
   ].filter(([, v]) => v != null) as [string, string][];
+
+  // ── 性质分区：计算值 + 实验证据 + 实测值 + 说明文本，同一字段只出现一次。
+  const propertyRows: FieldRow[] = [];
+  const computed: [string, string, number | null | undefined][] = [
+    ["xlogp", "XLogP", props?.pb_computed?.xlogp],
+    ["tpsa", t.chemical.knowledge.tpsa, props?.pb_computed?.topological_polar_surface_area],
+    ["hbd", t.chemical.knowledge.hbd, props?.pb_computed?.hbond_donor_count],
+    ["hba", t.chemical.knowledge.hba, props?.pb_computed?.hbond_acceptor_count],
+    ["rotatable", t.chemical.knowledge.rotatable, props?.pb_computed?.rotatable_bond_count],
+    ["heavy_atoms", t.chemical.knowledge.heavyAtoms, props?.pb_computed?.heavy_atom_count],
+    ["charge", t.chemical.knowledge.charge, props?.pb_computed?.formal_charge],
+    ["complexity", t.chemical.knowledge.complexity, props?.pb_computed?.complexity],
+  ];
+  for (const [key, label, value] of computed) {
+    if (value != null) collect(propertyRows, key, label, [formatNumber(value, locale)]);
+  }
+  for (const row of evidenceRows(props?.pb_physical_properties, locale)) {
+    collect(propertyRows, row.label, row.label, row.values);
+  }
+  for (const row of props?.cb_experimental ?? []) {
+    const label = fieldLabel(row.label ?? "", locale);
+    // 文本值自带单位与条件（如 "40-42 °C(lit.)"），优先于数值+单位。
+    const value = row.text
+      ?? [row.v != null ? formatNumber(row.v, locale) : null, row.unit].filter(Boolean).join(" ");
+    collect(propertyRows, row.label ?? label, label, [value]);
+  }
+  const propertyKeys = new Set(propertyRows.map((row) => row.key));
+
+  // ── 安全与法规分区：GHS/危害/防护/毒理/法规证据 + 安全字段，同一字段只出现一次。
+  const safetyRows: FieldRow[] = [];
+  const PB_SAFETY_BLOCKS = ["ghs_classification", "hazards", "safety_measures", "toxicity", "regulatory"] as const;
+  for (const blockKey of PB_SAFETY_BLOCKS) {
+    for (const row of evidenceRows(safety?.pb_sections?.[blockKey], locale)) {
+      collect(safetyRows, row.label, row.label, row.values);
+    }
+  }
+  for (const [key, value] of Object.entries(safety?.cb_safety ?? {})) {
+    collect(safetyRows, key, fieldLabel(key, locale), [readableSafetyValue(value, locale)]);
+  }
+  const safetyKeys = new Set(safetyRows.map((row) => row.key));
+
+  const showProperties = propertyRows.length > 0 || (props?.cb_prose?.length ?? 0) > 0;
+  const showSafety = safetyRows.length > 0
+    || (safety?.cb_toxicity?.length ?? 0) > 0 || (safety?.cb_packaging?.length ?? 0) > 0;
 
   return (
     <div className="pr-root">
@@ -179,75 +273,40 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
           </section>
         )}
 
-        {/* Computed Properties */}
-        {props?.pb_computed && Object.keys(props.pb_computed).length > 0 && (
+        {/* Properties: 每分区一个标题, 分区内按字段组织 */}
+        {showProperties && (
           <section className="pr-section">
             <h2 className="pr-section-h">{t.print.properties}</h2>
-            <table className="pr-table">
-              <tbody>
-                {[
-                  ["XLogP", props.pb_computed.xlogp],
-                  [t.chemical.knowledge.tpsa, props.pb_computed.topological_polar_surface_area],
-                  [t.chemical.knowledge.hbd, props.pb_computed.hbond_donor_count],
-                  [t.chemical.knowledge.hba, props.pb_computed.hbond_acceptor_count],
-                  [t.chemical.knowledge.rotatable, props.pb_computed.rotatable_bond_count],
-                  [t.chemical.knowledge.heavyAtoms, props.pb_computed.heavy_atom_count],
-                  [t.chemical.knowledge.charge, props.pb_computed.formal_charge],
-                  [t.chemical.knowledge.complexity, props.pb_computed.complexity],
-                ].filter(([, v]) => v != null).map(([label, val]) => (
-                  <tr key={String(label)}>
-                    <th>{label}</th>
-                    <td>{formatNumber(val as number, locale)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <FieldTable rows={propertyRows} />
+            <ProseSection items={props?.cb_prose ?? []} skipKeys={propertyKeys} />
           </section>
         )}
 
-        <EvidenceSection title={t.print.properties} block={props?.pb_physical_properties} />
-
-        {/* CB Experimental */}
-        {(props?.cb_experimental?.length ?? 0) > 0 && (
-          <section className="pr-section">
-            <h2 className="pr-section-h">{t.print.properties}</h2>
-            <table className="pr-table">
-              <tbody>
-                {(props!.cb_experimental ?? []).map((row, i) => (
-                  <tr key={i}>
-                    <th>{row.label ?? "—"}</th>
-                    <td>{[row.v != null ? formatNumber(row.v, locale) : null, row.unit].filter(Boolean).join(" ") || row.text || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        )}
-
-        <ProseSection title={t.print.properties} items={props?.cb_prose ?? []} />
-
-        {/* Safety */}
-        <EvidenceSection title={t.print.safety} block={safety?.pb_sections?.["Safety and Hazards"]} />
-        {safety?.cb_safety && Object.keys(safety.cb_safety).length > 0 && (
+        {/* Safety & regulation */}
+        {showSafety && (
           <section className="pr-section">
             <h2 className="pr-section-h">{t.print.safety}</h2>
-            <table className="pr-table">
-              <tbody>
-                {Object.entries(safety.cb_safety).map(([k, v]) => (
-                  <tr key={k}><th>{k}</th><td>{readableSafetyValue(v)}</td></tr>
-                ))}
-              </tbody>
-            </table>
+            <FieldTable rows={safetyRows} />
+            <ProseSection items={safety?.cb_toxicity ?? []} skipKeys={safetyKeys} />
+            <ProseSection items={safety?.cb_packaging ?? []} skipKeys={safetyKeys} />
           </section>
         )}
-        <ProseSection title={t.print.safety} items={safety?.cb_toxicity ?? []} />
-        <ProseSection title={t.print.safety} items={safety?.cb_packaging ?? []} />
 
         {/* Applications */}
-        <ProseSection title={t.print.applications} items={industry?.cb_uses ?? []} />
+        {(industry?.cb_uses?.length ?? 0) > 0 && (
+          <section className="pr-section">
+            <h2 className="pr-section-h">{t.print.applications}</h2>
+            <ProseSection items={industry?.cb_uses ?? []} />
+          </section>
+        )}
 
         {/* Preparation */}
-        <ProseSection title={t.print.synthesis} items={industry?.cb_preparation ?? []} />
+        {(industry?.cb_preparation?.length ?? 0) > 0 && (
+          <section className="pr-section">
+            <h2 className="pr-section-h">{t.print.synthesis}</h2>
+            <ProseSection items={industry?.cb_preparation ?? []} />
+          </section>
+        )}
       </article>
 
       {/* Print trigger script */}

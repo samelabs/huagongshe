@@ -7,7 +7,6 @@ import { ProfileTabs } from "@/components/profile/ProfileTabs";
 import { RetryNotice } from "@/components/profile/RetryNotice";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { Avatar } from "@/components/ui/Avatar";
-import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Tag } from "@/components/ui/Tag";
@@ -107,18 +106,13 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const base = withLocale(`/user/${encodeURIComponent(profile.username)}`, locale);
   const joined = new Date(profile.created_at).toLocaleDateString(locale);
 
+  /* 主页场景：名片区直接置顶（无面包屑），内容区随后。 */
   return <div className="content-page profile-page">
-    <Breadcrumb
-      items={[
-        { label: t.chemical.home, href: withLocale("/", locale) },
-        { label: profile.display_name || profile.username },
-      ]}
-      ariaLabel={t.common.breadcrumb}
-    />
     <ProfileHeader profile={{
       id: profile.id, username: profile.username, display_name: profile.display_name,
       bio: profile.bio, avatar_url: profile.avatar_url, created_at: profile.created_at,
       institution: profile.institution, title: profile.title,
+      location: profile.location, website: profile.website, orcid: profile.orcid,
       followers: profile.followers, following: profile.following,
       public_reactions: profile.public_reactions, notes: notesTotal ?? 0,
       is_following: profile.is_following, is_followed_by: profile.is_followed_by,

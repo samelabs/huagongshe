@@ -7,7 +7,9 @@
  * - 桌面（≥1024）：标志 · 主导航（查询/Skills/MCP/工作台）·
  *   铃铛（未读红点，链接 /aichem?tab=activity）· 语言 · 头像菜单。无搜索框。
  * - 平板（641–1023）：主导航收进「更多」菜单。
- * - 手机（≤640）：高 --header-h-m，只有标志 + 语言切换；头像菜单内容并入底部「我的」。
+ * - 手机（≤640）：高 --header-h-m，标志 + 工作台动作插槽（工作台 layout 传
+ *   抽屉菜单与创建入口；公开页不传，顶栏只有标志和语言）+ 语言切换；
+ *   头像菜单内容并入底部「我的」。
  *
  * 未读数来源 = 工作台计数同一接口 /users/me/dashboard（counts.unread），
  * 只在已登录时请求，不新增 API；工作台 layout 通过 initialUnread 直传
@@ -96,8 +98,10 @@ export function SiteHeader({ initialUnread, mobileActions }: {
             )}
           </div>
 
-          {/* 手机（≤640）：只有标志 + 语言切换（DESIGN_SYSTEM 2.3） */}
+          {/* 手机（≤640）：标志 + 工作台动作插槽（有则渲染）+ 语言切换
+              （DESIGN_SYSTEM 2.3；公开页不传插槽，顶栏只有标志和语言） */}
           <div className="sh-mobile-right">
+            {mobileActions}
             <div className="sh-lang-m">
               <LanguageSwitcher />
             </div>

@@ -59,7 +59,20 @@ export function ProfileSettings() {
       event.preventDefault();
       if (busy) return;
       const errors: Partial<Record<keyof Profile, string>> = {};
-      if (!profile.display_name.trim()) errors.display_name = t.settings.profile.requiredHint;
+      // 网址与 API 同一规则（api/schemas/users.py clean_website）：裸域名自动补
+      // https:// 后按完整网址校验；不合规在字段下方说明原因，不发请求。
+      const website = profile.website.trim();
+      let normalizedWebsite = website;
+      if (website && !/^https?:\/\//i.test(website)) {
+        if (/^[^\s/?#]+\.[^\s/?#]+(\/.*)?$/.test(website)) normalizedWebsite = `https://${website}`;
+        else errors.website = t.settings.profile.websiteInvalid;
+      }
+      if (website && !errors.website) {
+        let host: string | null = null;
+        try { host = new URL(normalizedWebsite).hostname; } catch { host = null; }
+        if (!host || !host.includes(".")) errors.website = t.settings.profile.websiteInvalid;
+      }
+      if (!errors.display_name && !profile.display_name.trim()) errors.display_name = t.settings.profile.requiredHint;
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email.trim())) errors.email = t.settings.profile.emailHint;
       // ORCID 与 API 同口径（api/schemas/users.py clean_orcid）：去非 [\dXx] 后 16 位（末位可 X）；
       // 带连字符与纯数字两种写法都放行 —— 前端不得比 API 更严。
@@ -67,12 +80,23 @@ export function ProfileSettings() {
       setFieldErrors(errors);
       if (Object.keys(errors).length > 0) return;
       setBusy(true);
+      // 新结果出现前清掉旧提示：错误提示不会自动消失，若保留会在成功提示
+      // 淡出后继续留在屏幕上，看起来像保存成功后又弹出失败。
+      toast.dismissAll();
       try {
-        await apiPatch(`/users/me`, JSON.stringify(profile));
+        await apiPatch(`/users/me`, JSON.stringify({ ...profile, website: normalizedWebsite }));
         await refresh();
         toast.success(t.settings.profile.saved);
       } catch (err) {
-        toast.error(apiErrorMessage(err, t, t.settings.profile.saveFailed));
+        // 字段校验错误按字段展示；其余错误用统一文案提示。
+        if (err instanceof ApiError && err.detailKind === "invalid_field") {
+          const { detail: reason } = err;
+          const field = err.detailField as keyof Profile | undefined;
+          if (field && field in EMPTY) setFieldErrors({ [field]: reason ?? t.settings.profile.websiteInvalid });
+          else toast.error(apiErrorMessage(err, t, t.settings.profile.saveFailed));
+        } else {
+          toast.error(apiErrorMessage(err, t, t.settings.profile.saveFailed));
+        }
       } finally { setBusy(false); }
     }}>
       <Field label={t.settings.profile.username} help={`@${user.username}（${t.settings.profile.usernameHint}）`} />
@@ -100,8 +124,8 @@ export function ProfileSettings() {
         <Field label={t.settings.profile.location}>
           <Input value={profile.location} onChange={(e) => update("location", e.target.value)} maxLength={100} placeholder={t.settings.profile.locationPH} />
         </Field>
-        <Field label={t.settings.profile.website}>
-          <Input value={profile.website} onChange={(e) => update("website", e.target.value)} maxLength={500} placeholder={t.settings.profile.websitePH} />
+        <Field label={t.settings.profile.website} error={fieldErrors.website}>
+          <Input value={profile.website} onChange={(e) => update("website", e.target.value)} maxLength={500} placeholder={t.settings.profile.websitePH} invalid={Boolean(fieldErrors.website)} />
         </Field>
       </div>
 

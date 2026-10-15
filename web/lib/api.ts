@@ -14,6 +14,8 @@ export class ApiError extends Error {
   detail?: string;
   /** v1.7.0 L2: 结构化 detail 的稳定机器码(如 Notes 引用校验 kind), 可能为空 */
   detailKind?: string;
+  /** 字段级校验错误携带的字段名(invalid_field), 可能为空 */
+  detailField?: string;
   constructor(public status: number, path: string, detail?: unknown) {
     super(`API ${status}: ${path}`);
     this.name = "ApiError";
@@ -24,14 +26,16 @@ export class ApiError extends Error {
       // v1.7.0 L2: Notes 400 detail = {message, kind} — message 回填 detail,
       // kind 单独透出供五语言分类; 其他对象形态不受影响。
       else if (inner && typeof inner === "object") {
-        const { message, kind } = inner as { message?: unknown; kind?: unknown };
+        const { message, kind, field } = inner as { message?: unknown; kind?: unknown; field?: unknown };
         if (typeof message === "string" && message) this.detail = message;
         if (typeof kind === "string" && kind) this.detailKind = kind;
+        if (typeof field === "string" && field) this.detailField = field;
       }
     } else if (detail && typeof detail === "object") {
-      const { message, kind } = detail as { message?: unknown; kind?: unknown };
+      const { message, kind, field } = detail as { message?: unknown; kind?: unknown; field?: unknown };
       if (typeof message === "string" && message) this.detail = message;
       if (typeof kind === "string" && kind) this.detailKind = kind;
+      if (typeof field === "string" && field) this.detailField = field;
     }
 
     // 过渡兼容：后端未全部返回 {message, kind} 结构前，从已知中文 detail 映射出稳定 kind

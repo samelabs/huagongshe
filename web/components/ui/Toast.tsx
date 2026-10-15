@@ -22,6 +22,8 @@ type ToastItem = { id: number; kind: ToastKind; message: string; action?: ToastA
 type ToastApi = {
   success: (message: string, opts?: { action?: ToastAction }) => void;
   error: (message: string) => void;
+  /** 清空当前提示 —— 新结果出现前先撤掉旧提示，避免过期提示残留。 */
+  dismissAll: () => void;
 };
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -55,9 +57,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }
   }, [dismiss]);
 
+  const dismissAll = useCallback(() => {
+    for (const timer of timers.current.values()) clearTimeout(timer);
+    timers.current.clear();
+    setItems([]);
+  }, []);
+
   const api = useRef<ToastApi>({
     success: (message, opts) => push("ok", message, opts?.action),
     error: (message) => push("err", message),
+    dismissAll,
   });
 
   return (

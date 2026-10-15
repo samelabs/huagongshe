@@ -16,6 +16,7 @@ const ko: Dictionary = {
 
   /* ── 통합 업무 오류 코드 ───────────────────────────────── */
   errors: {
+    invalid_field: '입력 내용에 오류가 있습니다. 해당 항목을 확인하고 다시 시도하세요',
     invalid_doi: 'DOI 형식이 올바르지 않습니다.',
     invalid_cas: 'CAS 등록번호 체크섬이 올바르지 않습니다.',
     invalid_structure: 'SMILES 구조를 인식할 수 없습니다.',
@@ -687,6 +688,7 @@ const ko: Dictionary = {
       locationPH: '예: 서울',
       website: '개인 웹사이트',
       websitePH: '예: https://lab.example.ac.kr',
+      websiteInvalid: 'URL은 http(s) 링크 또는 도메인(예: example.com)이어야 합니다',
       orcid: 'ORCID',
       orcidHint: '연구자 식별자, 16자리 숫자',
       requiredHint: '필수 항목입니다.',

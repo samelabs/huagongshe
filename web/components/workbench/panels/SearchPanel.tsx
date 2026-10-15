@@ -50,7 +50,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
     setError(null);
     // Drop stale responses: only the newest request may commit results.
     const requestId = ++latestRequest.current;
-    apiGet<SearchResponse>(`/search?q=${encodeURIComponent(trimmed)}&mode=${m}&page=1&page_size=30`)
+    apiGet<SearchResponse>(`/search?q=${encodeURIComponent(trimmed)}&mode=${m}&page=1&page_size=30&locale=${encodeURIComponent(locale)}`)
       .then((data) => {
         if (requestId !== latestRequest.current) return;
         setChemicals(data.chemicals);

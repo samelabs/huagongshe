@@ -14,6 +14,7 @@ const ja: Dictionary = {
 
   /* ── 統一業務エラーコード ───────────────────────────────── */
   errors: {
+    invalid_field: '入力内容に誤りがあります。該当欄を確認して再試行してください',
     invalid_doi: 'DOI の形式が正しくありません。',
     invalid_cas: 'CAS 登録番号のチェックディジットが正しくありません。',
     invalid_structure: 'SMILES 構造を認識できません。',
@@ -685,6 +686,7 @@ const ja: Dictionary = {
       locationPH: '例：東京',
       website: 'ウェブサイト',
       websitePH: '例：https://lab.example.ac.jp',
+      websiteInvalid: 'URL は http(s) リンクまたはドメインのみ（例: example.com）にしてください',
       orcid: 'ORCID',
       orcidHint: '研究者識別子（16桁の数字）',
       requiredHint: '必須項目です。',

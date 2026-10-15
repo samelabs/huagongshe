@@ -13,6 +13,7 @@ const en: Dictionary = {
 
   /* ── Unified Business Error Codes ───────────────────────── */
   errors: {
+    invalid_field: 'Some fields need attention. Please check and try again',
     invalid_doi: 'Invalid DOI format.',
     invalid_cas: 'Invalid CAS check digit.',
     invalid_structure: 'Unrecognized SMILES structure.',
@@ -684,6 +685,7 @@ const en: Dictionary = {
       locationPH: 'e.g. Beijing',
       website: 'Website',
       websitePH: 'e.g. https://lab.example.edu',
+      websiteInvalid: 'The URL must be an http(s) link or a bare domain (e.g. example.com)',
       orcid: 'ORCID',
       orcidHint: 'Researcher identifier, 16 digits',
       requiredHint: 'This field is required.',

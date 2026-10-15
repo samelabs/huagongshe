@@ -49,8 +49,8 @@ Counted per identity; over the limit the server returns `429` with a `Retry-Afte
 
 ## Identifiers
 
-- **HCID** (Huagongshe Chemical ID): internal compound ID, e.g. `12345678`
-- **HRID** (Huagongshe Reaction ID): internal reaction ID, e.g. `8765432`
+- **HCID** (Huagongshe Chemical ID): the public compound identifier, e.g. `12345678`
+- **HRID** (Huagongshe Reaction ID): the public reaction identifier, e.g. `8765432`
 - Search supports prefixes: `id:12345`, `cid:2244`, `cas:64-17-5`, `inchikey:LFQSCWFLJHTTHZ-UHFFFAOYSA-N`
 
 ## Links

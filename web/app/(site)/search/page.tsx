@@ -107,7 +107,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   try {
     if (q) {
       const data = await apiGet<SearchResponse>(
-        `/search?q=${encodeURIComponent(q)}&mode=${mode}&threshold=0.7&page=${page}&page_size=${PAGE_SIZE}`, sessionHeaders
+        `/search?q=${encodeURIComponent(q)}&mode=${mode}&threshold=0.7&page=${page}&page_size=${PAGE_SIZE}&locale=${encodeURIComponent(locale)}`, sessionHeaders
       );
       if (urlMode === "similarity" && typeof data.threshold === "number") {
         similarityThreshold = data.threshold;

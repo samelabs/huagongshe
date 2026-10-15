@@ -1319,7 +1319,9 @@
   gap: var(--wb-sp-2);
   background: rgba(212, 136, 6, .06);
   font-size: var(--wb-fs-sm);
+  min-width: 0;
 }
+.wb-panel .token-secret > * { min-width: 0; }
 .wb-panel .token-secret > div {
   display: flex;
   align-items: center;

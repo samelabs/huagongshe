@@ -17,6 +17,7 @@ const de: Dictionary = {
 
   /* ── Einheitliche Geschäftsfehlercodes ───────────────────── */
   errors: {
+    invalid_field: 'Die Eingaben enthalten Fehler. Bitte die markierten Felder prüfen und erneut versuchen',
     invalid_doi: 'Ungültiges DOI-Format.',
     invalid_cas: 'Ungültige CAS-Prüfziffer.',
     invalid_structure: 'SMILES-Struktur nicht erkannt.',
@@ -688,6 +689,7 @@ const de: Dictionary = {
       locationPH: 'z. B. München',
       website: 'Website',
       websitePH: 'z. B. https://lab.example.de',
+      websiteInvalid: 'Die URL muss ein http(s)-Link oder eine nackte Domain sein (z. B. example.com)',
       orcid: 'ORCID',
       orcidHint: 'Forscher-ID, 16 Ziffern',
       requiredHint: 'Dieses Feld ist erforderlich.',
