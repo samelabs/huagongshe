@@ -1322,12 +1322,14 @@
   min-width: 0;
 }
 .wb-panel .token-secret > * { min-width: 0; }
-.wb-panel .token-secret > div {
+.wb-panel .token-secret > div:not(.hg-code) {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--wb-sp-3);
 }
+/* 代码字段在卡片内按容器宽度收缩, 内容在字段内滚动 */
+.token-secret .hg-code { width: 100%; }
 .wb-panel .token-secret > span {
   color: var(--wb-muted);
   font-size: var(--wb-fs-xs);
