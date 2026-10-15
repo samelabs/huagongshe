@@ -1038,6 +1038,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     navSkills: 'Skills',
     navConfig: 'Konfiguration',
     navWorkers: 'Worker',
+    navDataClients: 'Datendienst-Zugänge',
     navPipeline: 'Daten-Pipeline',
     pipelineTitle: 'Daten-Pipeline',
     pipelineDesc: (s: number, at: string) => `Warteschlangenstatus, Durchsatz von heute und letzte Erfassung — aktualisiert sich alle ${s} s · Datenstand ${at}`,

@@ -1034,6 +1034,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     navSkills: 'Skills',
     navConfig: 'Config',
     navWorkers: 'Workers',
+    navDataClients: 'Data service credentials',
     navPipeline: 'Data pipeline',
     pipelineTitle: 'Data pipeline',
     pipelineDesc: (s: number, at: string) => `Queue health, today's throughput, and latest ingest — auto-refreshes every ${s}s · data as of ${at}`,

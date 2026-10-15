@@ -1035,6 +1035,7 @@ const ja: Dictionary = {
     navSkills: 'スキル',
     navConfig: '設定',
     navWorkers: 'Worker',
+    navDataClients: 'データサービス資格',
     navPipeline: 'データパイプライン',
     pipelineTitle: 'データパイプライン',
     pipelineDesc: (s: number, at: string) => `キューの健全性・当日のスループット・最新の取り込み。${s} 秒ごとに自動更新 · データ時点 ${at}`,

@@ -34,6 +34,7 @@ class Consumer(str, Enum):
     WORKER = "WORKER"            # WorkAPI 投影(trusted worker projection)
     ADMIN = "ADMIN"              # 管理面
     OPS = "OPS"                  # 运维面
+    PARTNER = "PARTNER"          # 持授权凭证的对外数据服务面
     DISCOVERY = "DISCOVERY"      # llms.txt / sitemap 公布投影
 
 
@@ -70,6 +71,7 @@ class AuthPolicy(str, Enum):
     ACTOR = "ACTOR"                            # 需任意已解析 actor(session 或 agent token)
     SESSION = "SESSION"                        # 需交互式网页会话(agent 403)
     ADMIN_SESSION = "ADMIN_SESSION"            # SESSION + role=='admin'
+    DATA_CREDENTIAL = "DATA_CREDENTIAL"        # 对外数据服务的签名凭证(独立于站内会话)
     WORKER_HMAC = "WORKER_HMAC"                # worker HMAC 签名(具体 scope 见 scenario)
 
 

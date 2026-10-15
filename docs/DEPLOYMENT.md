@@ -91,6 +91,22 @@ python -m ops.deploy --nginx-bootstrap
 流程：改写 site config 为固定 upstream → `nginx -t` → `nginx -s reload`。
 备份写入 `/etc/nginx/hgs/`（include 目录之外）。
 
+### 数据服务接入（/data/ 直连 FastAPI，不经过 Next）
+
+生产 nginx vhost 需要新增以下 location（由 PM 在生产执行；`ops.deploy`
+不自动修改）：
+
+```nginx
+# 对外数据服务(/data/v1)直接转发给 FastAPI;
+# 该接口自带凭证鉴权(HMAC 签名 + nonce 防重放)与按凭证计量。
+location /data/ {
+    proxy_pass http://hgs_api;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For "";
+}
+```
+
 ## 生产配置（只列出不自动变更的项，I-070）
 
 本节只是生产机配置的**记录与核对清单**——`ops.deploy` 不会自动修改这些参数；

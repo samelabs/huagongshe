@@ -13,6 +13,7 @@ const items = [
   { href: "/samelabs/governance", label: t.admin.navGovernance },
   { href: "/samelabs/workers", label: t.admin.navWorkers },
   { href: "/samelabs/config", label: t.admin.navConfig },
+  { href: "/samelabs/data-clients", label: t.admin.navDataClients },
 ];
 
 export function SamelabsNav() {

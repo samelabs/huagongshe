@@ -454,6 +454,50 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
+        # data service(对外数据服务: 独立凭证面, /data/v1 经接入层直连)
+        # ------------------------------------------------------------------
+        Family("data.chemical", E.READ, scenarios=(
+            S("detail", A.DATA_CREDENTIAL, entrypoints=(
+                I(T.HTTP, "GET /data/v1/chemicals/{hcid}"),),
+              contract=Contract(
+                  frozenset({C.PARTNER}), X.STABLE_EXTERNAL,
+                  "data.chemical.detail"),
+              note="字段只增不改; 与化合物详情页同一分区与字段范式"),
+            S("batch", A.DATA_CREDENTIAL, entrypoints=(
+                I(T.HTTP, "GET /data/v1/chemicals"),),
+              contract=Contract(
+                  frozenset({C.PARTNER}), X.STABLE_EXTERNAL,
+                  "data.chemical.batch"),
+              note="单次至多 50 个 HCID"),
+            S("lookup", A.DATA_CREDENTIAL, entrypoints=(
+                I(T.HTTP, "GET /data/v1/chemicals/lookup"),),
+              contract=Contract(
+                  frozenset({C.PARTNER}), X.STABLE_EXTERNAL,
+                  "data.chemical.lookup"),
+              note="标识/名称候选; 未收录 SMILES 建行、CAS 入列采集"),
+            S("reactions", A.DATA_CREDENTIAL, entrypoints=(
+                I(T.HTTP, "GET /data/v1/chemicals/{hcid}/reactions"),),
+              contract=Contract(
+                  frozenset({C.PARTNER}), X.STABLE_EXTERNAL,
+                  "data.chemical.reactions"),
+              note="该化合物参与的公开反应摘要"),
+        )),
+        Family("data.reaction", E.READ, scenarios=(
+            S("detail", A.DATA_CREDENTIAL, entrypoints=(
+                I(T.HTTP, "GET /data/v1/reactions/{hrid}"),),
+              contract=Contract(
+                  frozenset({C.PARTNER}), X.STABLE_EXTERNAL,
+                  "data.reaction.detail"),
+              note="只返回公开反应; 字段只增不改"),
+            S("batch", A.DATA_CREDENTIAL, entrypoints=(
+                I(T.HTTP, "GET /data/v1/reactions"),),
+              contract=Contract(
+                  frozenset({C.PARTNER}), X.STABLE_EXTERNAL,
+                  "data.reaction.batch"),
+              note="单次至多 20 个 HRID"),
+        )),
+
+        # ------------------------------------------------------------------
         # admin(G1A: 九块独立 scenario, adapter 聚合短期接受)
         # ------------------------------------------------------------------
         Family("admin.worker", E.PRIVILEGED, scenarios=(
@@ -485,6 +529,13 @@ def _fams() -> list[Family]:
               contract=Contract(frozenset({C.ADMIN}), X.NONE),
               note="E4: DELETE 与 user delete 共用 application service "
                    "delete_skill_lifecycle; 差异仅在授权 dep 与响应 shape"),
+        )),
+        Family("admin.data_clients", E.PRIVILEGED, scenarios=(
+            S("manage", A.ADMIN_SESSION, entrypoints=(
+                I(T.HTTP, "GET /api/admin/data-clients"),
+                I(T.HTTP, "POST /api/admin/data-clients"),
+                I(T.HTTP, "PATCH /api/admin/data-clients/{client_pk}")),
+              contract=Contract(frozenset({C.ADMIN}), X.NONE)),
         )),
         Family("admin.skill_category", E.PRIVILEGED, scenarios=(
             S("manage", A.ADMIN_SESSION, entrypoints=(

@@ -1037,6 +1037,7 @@ const ko: Dictionary = {
     navSkills: '스킬',
     navConfig: '설정',
     navWorkers: 'Worker',
+    navDataClients: '데이터 서비스 자격증',
     navPipeline: '데이터 파이프라인',
     pipelineTitle: '데이터 파이프라인',
     pipelineDesc: (s: number, at: string) => `큐 상태·금일 처리량·최신 수집 — ${s}초마다 자동 갱신 · 데이터 기준 ${at}`,

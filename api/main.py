@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .admin import router as admin_router
+from .data_api import router as data_api_router
 from .core.config import settings
 from .core.database import engine
 from .mcp_server import mcp_session_lifespan, mount_mcp
@@ -94,6 +95,8 @@ app.include_router(stoichiometry_router, prefix="/api")
 app.include_router(skills_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(workapi_router, include_in_schema=False)
+# 对外数据服务经接入层(nginx /data/)直连, 不挂 /api 前缀。
+app.include_router(data_api_router)
 
 app.add_exception_handler(RequestValidationError, _validation_error_response)
 
