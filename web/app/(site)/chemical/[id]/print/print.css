@@ -133,20 +133,19 @@
 }
 
 /* ── Sections ─────────────────────────────────────────── */
+/* 全页只有两级标题: 分区标题(.pr-section-h)与分区内小标题(.pr-prose-title)。 */
 .pr-section {
   margin-bottom: 24px;
   break-inside: avoid;
 }
 
 .pr-section-h {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--pr-muted);
+  color: var(--pr-accent);
   margin: 0 0 10px;
   padding-bottom: 4px;
-  border-bottom: 1px solid var(--pr-border);
+  border-bottom: 1px solid var(--pr-accent);
 }
 
 /* ── Table ────────────────────────────────────────────── */
@@ -171,13 +170,29 @@
   white-space: nowrap;
 }
 
+/* 值列按单词换行, 不在字母中间断; 无空格长串由 .pr-breakany 兜底 */
 .pr-table td {
+  overflow-wrap: break-word;
+}
+
+/* 多值逐项分行, 不用连接符拼接 */
+.pr-val {
+  display: block;
+}
+
+.pr-val + .pr-val {
+  margin-top: 2px;
+}
+
+/* InChI、SMILES、长 URL 等无空格长串允许任意处断开 */
+.pr-breakany {
   word-break: break-all;
 }
 
 .pr-mono {
   font-family: 'Courier New', Courier, monospace;
   font-size: 11.5px;
+  word-break: break-all;
 }
 
 /* ── Prose items ──────────────────────────────────────── */
@@ -189,6 +204,7 @@
 .pr-prose-title {
   font-size: 13px;
   font-weight: 600;
+  color: var(--pr-muted);
   margin: 0 0 4px;
 }
 

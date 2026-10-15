@@ -20,31 +20,44 @@ function formatNumber(n: number | null | undefined, locale: string, fractionDigi
 /** 分区内按字段组织：同一字段只出一行，多来源的值合并去重。 */
 type FieldRow = { key: string; label: string; values: string[] };
 
+/** 去重键：空白与大小写归一后比较 —— 逐字的空白差异不算不同的值。 */
+function normKey(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
 function collect(rows: FieldRow[], rawLabel: string, label: string, values: string[]): void {
   const clean = values.filter((v): v is string => Boolean(v));
   if (!clean.length) return;
   const key = fieldKey(rawLabel);
-  const existing = rows.find((row) => row.key === key);
-  if (existing) {
-    for (const value of clean) if (!existing.values.includes(value)) existing.values.push(value);
-  } else {
-    rows.push({ key, label, values: clean });
+  let row = rows.find((r) => r.key === key);
+  if (!row) {
+    row = { key, label, values: [] };
+    rows.push(row);
+  }
+  const seen = new Set(row.values.map(normKey));
+  for (const value of clean) {
+    const dedupeKey = normKey(value);
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    row.values.push(value);
   }
 }
 
 /** CB 安全字段的值可能是字符串或嵌套对象（GHS 的说明/象形图/信号词）：
- *  报告里渲染成可读文本，不打印 [object Object]。 */
-function readableSafetyValue(value: unknown, locale: FieldLocale): string {
-  if (value == null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map((v) => readableSafetyValue(v, locale)).filter(Boolean).join("、");
-  if (typeof value === "object") {
-    return Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => `${fieldLabel(k, locale)}: ${readableSafetyValue(v, locale)}`)
-      .join("；");
+ *  报告里渲染成可读文本列表，不打印 [object Object]，多值逐项返回。 */
+function readableSafetyValues(value: unknown, locale: FieldLocale): string[] {
+  if (value == null) return [];
+  if (typeof value === "string") return value ? [value] : [];
+  if (typeof value === "number" || typeof value === "boolean") return [String(value)];
+  if (Array.isArray(value)) {
+    return value.flatMap((v) => readableSafetyValues(v, locale));
   }
-  return String(value);
+  if (typeof value === "object") {
+    return [Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => `${fieldLabel(k, locale)}: ${readableSafetyValues(v, locale).join(" ")}`)
+      .join("; ")];
+  }
+  return [String(value)];
 }
 
 /** 证据条目 → 展示值列表。条目结构为 {路径: 值数组}，每个值项带 value 与可选 unit。 */
@@ -60,10 +73,12 @@ function evidenceValues(input: unknown, locale: FieldLocale): string[] {
     if (typeof item === "object") {
       const record = item as Record<string, unknown>;
       const raw = record.value ?? record.name ?? record.description ?? record.text;
-      if (Array.isArray(raw)) result.push(raw.map((v) => readableSafetyValue(v, locale)).filter(Boolean).join("；"));
+      if (Array.isArray(raw)) result.push(...raw.flatMap((v) => readableSafetyValues(v, locale)));
       else if (raw != null) {
         const unit = typeof record.unit === "string" ? record.unit : null;
-        result.push(unit ? `${readableSafetyValue(raw, locale)} ${unit}` : readableSafetyValue(raw, locale));
+        for (const text of readableSafetyValues(raw, locale)) {
+          result.push(unit ? `${text} ${unit}` : text);
+        }
       }
     }
   }
@@ -85,6 +100,12 @@ function evidenceRows(block: EvidenceBlock | null | undefined, locale: FieldLoca
   return rows;
 }
 
+/** 无空格的长串（InChI、SMILES、长 URL）允许在任意字符处断开；
+ *  普通文本按单词换行，不在字母中间断。 */
+function isUnbrokenToken(value: string): boolean {
+  return /\S{25,}/.test(value);
+}
+
 function FieldTable({ rows }: { rows: FieldRow[] }) {
   if (!rows.length) return null;
   return (
@@ -93,7 +114,13 @@ function FieldTable({ rows }: { rows: FieldRow[] }) {
         {rows.map((row) => (
           <tr key={row.key}>
             <th>{row.label}</th>
-            <td>{row.values.join("；")}</td>
+            <td>
+              {row.values.map((value, i) => (
+                <span key={i} className={isUnbrokenToken(value) ? "pr-val pr-breakany" : "pr-val"}>
+                  {value}
+                </span>
+              ))}
+            </td>
           </tr>
         ))}
       </tbody>
@@ -192,7 +219,7 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
     }
   }
   for (const [key, value] of Object.entries(safety?.cb_safety ?? {})) {
-    collect(safetyRows, key, fieldLabel(key, locale), [readableSafetyValue(value, locale)]);
+    collect(safetyRows, key, fieldLabel(key, locale), readableSafetyValues(value, locale));
   }
   const safetyKeys = new Set(safetyRows.map((row) => row.key));
 
