@@ -41,7 +41,7 @@ Counted per identity; over the limit the server returns `429` with a `Retry-Afte
 
 | Type | Limit |
 |------|------|
-| Structure search (substructure/similarity) | 6 per minute per identity; 30 per minute global; 2 (identity) / 4 (global) concurrent |
+| Structure search (substructure/similarity) | 6 per minute per identity; 2 (identity) / 4 (global) concurrent |
 | Reaction validation | 20 per minute |
 | Reaction writes | 10 per minute, 200 per day |
 | Stoichiometry calculation | 30 per minute |
