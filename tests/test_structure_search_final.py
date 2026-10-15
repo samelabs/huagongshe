@@ -231,7 +231,7 @@ class StructureHasMorePage20Tests(unittest.TestCase):
 
         # G2.3 final: has_more 公式唯一 owner = execute_search(orchestration)
         async def fake_execute(db, query, mode, *, threshold, page, page_size,
-                               actor_id, locale=None):
+                               actor_id, locale=None, client_ip=None):
             # 模拟 page=20 契约上限: has_more and page < 20
             return {"has_more": True and page < 20}
 
@@ -242,8 +242,16 @@ class StructureHasMorePage20Tests(unittest.TestCase):
         actor = MagicMock()
         actor.id = 999
 
+        class _Headers:
+            def get(self, key, default=None):
+                return default
+
+        class _Request:
+            headers = _Headers()
+
         with patch.object(routes_module, "execute_search", fake_execute):
             data = asyncio.run(routes_module.search(
+                request=_Request(),
                 actor=actor, q="CC(=O)Oc1ccccc1C(=O)O", mode="substructure",
                 threshold=0.7, page=20, page_size=30, db=db,
             ))

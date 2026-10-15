@@ -75,15 +75,13 @@ from .schemas.stoichiometry import ScaleInput
 # 两个 render tool 共用同一资源池: render_molecule_svg / render_reaction_svg。
 # RDKit 渲染是 CPU-bound(外部直传 SMILES 可占分钟级), 复用与结构检索同一组
 # 原语: enforce(fixed-window 限频) + acquire_lease/release_lease(in-flight 租约)。
-# - 已认证 actor 120 次/分钟, 匿名按来源 IP 各 120 次/分钟(x-real-ip),
-#   匿名全局兜底 600 次/分钟(防分布式刷)
+# - 已认证 actor 120 次/分钟, 匿名按来源 IP 各 120 次/分钟(x-real-ip)
 # - 已认证 actor in-flight ≤ 2(匿名不额外持 actor 租约)
 # - 全局 in-flight ≤ 4
 # - Redis acquire 失败 fail-closed(503 → ToolError), 不放行
 # - 闸门必须在 RDKit to_thread 之前, finally 必释放
 MCP_RENDER_BUCKET = "mcp-render"
 MCP_RENDER_RATE_LIMIT = 120
-MCP_RENDER_ANON_GLOBAL_LIMIT = 600
 MCP_RENDER_ACTOR_INFLIGHT = 2
 MCP_RENDER_GLOBAL_INFLIGHT = 4
 
@@ -326,8 +324,8 @@ def _skill_error_message(exc: Exception) -> str:
 
 
 def _client_ip(headers: Any) -> str | None:
-    """匿名限流分桶键(R2): 读 nginx 覆盖写入的 x-real-ip; 缺省 None,
-    由调用方决定是否落桶(x-forwarded-for 首段可伪造, 不再使用)。"""
+    """匿名限流分桶键: 读 nginx 覆盖写入的 x-real-ip; 缺省 None,
+    由调用方决定是否落桶(x-forwarded-for 首段可伪造, 不使用)。"""
     return rate_limit.client_ip(headers)
 
 
@@ -341,15 +339,11 @@ async def _render_enter(actor: Actor | None, headers: Any = None) -> list[str]:
         elif ip:
             identity = f"anon:{ip}"
         else:
-            # R2: 拿不到来源 IP 不落 "anon:unknown" 全站共用桶 —— 匿名
-            # 全局兜底桶仍在, 单一来源刷不动它; 缺头本身记警。
+            # 拿不到来源 IP 时不落全站共用桶 —— 限流按来源分桶, 缺头记警。
             identity = None
             logger.warning(
                 "MCP render without client IP (no x-real-ip): "
-                "per-IP anonymous limit skipped, anon-global only")
-        # 匿名拆桶(按来源IP)后加全局兜底, 防分布式刷
-        if actor is None:
-            await rate_limit.enforce(MCP_RENDER_BUCKET, "anon-global", MCP_RENDER_ANON_GLOBAL_LIMIT, 60)
+                "per-IP anonymous limit skipped")
         if identity is not None:
             await rate_limit.enforce(MCP_RENDER_BUCKET, identity, MCP_RENDER_RATE_LIMIT, 60)
         if actor is not None:
@@ -840,6 +834,7 @@ def build_mcp_server() -> MCPServer:
                     _session, q, mode, threshold=threshold, page=page,
                     page_size=page_size,
                     actor_id=actor.id if actor else None,
+                    client_ip=_client_ip(ctx.headers if ctx else None),
                 ))
             except _SearchError as exc:
                 raise ToolError(_search_error_message(exc)) from exc
@@ -1143,16 +1138,24 @@ def build_mcp_server() -> MCPServer:
             )
         except Exception as exc:
             raise ToolError(_validation_error_message("Invalid stoichiometry fields", exc)) from exc
-        # 限流桶与 REST 同构(登录=u{id} 桶, 匿名=anon 桶) —— G2.1 起 MCP
-        # 直调 transport-neutral service, 限流作为 entrypoint policy 在本
-        # adapter 显式执行, 与 HTTP adapter 同桶同身份方案(行为不变)。
-        _identity = f"u{actor.id}" if actor else "anon"
+        # 限流桶与 REST 同构: 登录=u{id} 桶; 匿名按来源 IP 分桶, 拿不到
+        # 来源 IP 时不设限流并记警(不落全站共用桶)。
+        _ip = _client_ip(ctx.headers if ctx else None)
+        if actor:
+            _identity = f"u{actor.id}"
+        elif _ip:
+            _identity = f"ip:{_ip}"
+        else:
+            _identity = None
+            logger.warning(
+                "stoichiometry without client IP (no x-real-ip): "
+                "anonymous rate limit skipped")
         # 限流(RateLimited/LimiterUnavailable)与业务校验(ValueError)都在
-        # MCP 边界转成 ToolError —— 客户端可读 detail 原文(G2.R: 捕 neutral
-        # 语义异常, 不再捕 FastAPI HTTPException)。
+        # MCP 边界转成 ToolError —— 客户端可读 detail 原文。
         try:
-            await _rate_limit.enforce("stoich", _identity,
-                                      _settings.api_stoich_limit_per_minute, 60)
+            if _identity is not None:
+                await _rate_limit.enforce("stoich", _identity,
+                                          _settings.api_stoich_limit_per_minute, 60)
             return await stoich_service.compute(body)
         except ValueError as exc:
             raise ToolError(_stoichiometry_error_message(exc)) from exc

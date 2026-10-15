@@ -41,13 +41,8 @@ module.exports = {
       name: "huagongshe",
       cwd: "/var/www/huagongshe/web",
       script: "/usr/bin/npx",
-      // R2(2026-10-15): 只监听 127.0.0.1 —— BFF 现在向后端转发 x-real-ip 做
-      // 匿名限流分桶, 该头的可信前提是 Next 不对公网开放(nginx 覆盖写入)。
-      // 注意: v1.7.2 时期 -H 127.0.0.1 曾在生产触发 Next 16 locale proxy 的
-      // redirect loop(五语言首页 500), 当时退回默认 hostname。本次重新收紧,
-      // 部署后必须立即冒烟五个语言首页; 若 loop 复现, 回退本行(或改用系统
-      // 防火墙封 3001 对外端口), 不得回退 BFF 的 x-real-ip 转发。
-      args: "next start -H 127.0.0.1 -p 3001",
+      // 3001 只经 nginx 反向代理访问, 主机防火墙不对外开放该端口。
+      args: "next start -p 3001",
       interpreter: "none",
       env: {
         NODE_ENV: "production",

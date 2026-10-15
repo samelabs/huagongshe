@@ -1,5 +1,6 @@
 """Pydantic 请求模型 — 自各路由文件集中, 逻辑零改动(批次2)。"""
 import re
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -92,9 +93,18 @@ class ProfileBody(BaseModel):
         if not value:
             return None
         value = value.strip()
-        if value and not value.startswith(("http://", "https://")):
-            raise ValueError("个人主页必须以 http:// 或 https:// 开头")
-        return value or None
+        if not value:
+            return None
+        # 裸域名自动补 https://(与前端同一规则); 其余非 http(s) 输入报错。
+        if not value.startswith(("http://", "https://")):
+            if re.fullmatch(r"[^\s/?#]+\.[^\s/?#]+(/.*)?", value):
+                value = f"https://{value}"
+            else:
+                raise ValueError("个人主页须为 http(s) 网址或裸域名（如 example.com）")
+        host = urlparse(value).hostname
+        if not host or "." not in host:
+            raise ValueError("个人主页域名不完整（如 example.com）")
+        return value
 
 
 

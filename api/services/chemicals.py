@@ -581,15 +581,19 @@ async def substructure_snapshot(db: Any, smiles: str,
     return ids
 
 
-async def hydrate_chemicals(db: Any, ids: list[int]) -> list[dict[str, Any]]:
-    """按给定 ID 顺序 hydrate 化学行(snapshot 分页用; 主键点查, 无 OFFSET 扫描)。"""
+async def hydrate_chemicals(
+    db: Any, ids: list[int], *, locale: str | None = None,
+) -> list[dict[str, Any]]:
+    """按给定 ID 顺序 hydrate 化学行(snapshot 分页用; 主键点查, 无 OFFSET 扫描)。
+
+    locale: 请求语言 — 化合物条目附该语言的当地名(name_local), 缺失时英文兜底。"""
     if not ids:
         return []
     items = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT}
         FROM chemistry.chemicals c
         WHERE c.id = ANY(:ids)
-    """, {"ids": list(ids)})
+    """, {"ids": list(ids)}, locale=locale)
     order = {value: index for index, value in enumerate(ids)}
     items.sort(key=lambda item: order.get(item["id"], len(order)))
     return items

@@ -113,6 +113,26 @@ class ServiceUnitTests(unittest.TestCase):
             )))
         self.assertEqual(str(ctx.exception), "按浓度定容仅支持单一溶剂行")
 
+    def test_zero_molar_mass_basis_is_value_error(self):
+        """基准为骨架占位(摩尔质量 0)按质量计量 → 4xx 而非除零错误。"""
+        with self.assertRaises(ValueError) as ctx:
+            asyncio.run(service.compute(_input(
+                components=[
+                    {"role": "REACTANT", "smiles": "*", "eq": 1},
+                    {"role": "PRODUCT", "smiles": "CCOCCO", "eq": 1},
+                ],
+                basis={"index": 0, "amount_value": 10, "amount_unit": "g"})))
+        self.assertIn("没有确定的摩尔质量", str(ctx.exception))
+
+    def test_zero_molar_mass_basis_mol_unit_ok(self):
+        out = asyncio.run(service.compute(_input(
+            components=[
+                {"role": "REACTANT", "smiles": "*", "eq": 1},
+                {"role": "PRODUCT", "smiles": "CCOCCO", "eq": 1},
+            ],
+            basis={"index": 0, "amount_value": 1, "amount_unit": "mol"})))
+        self.assertEqual(out["basis"]["moles"], 1.0)
+
     def test_unparseable_smiles(self):
         with self.assertRaises(ValueError) as ctx:
             asyncio.run(service.compute(_input(
@@ -123,6 +143,19 @@ class ServiceUnitTests(unittest.TestCase):
                 basis={"index": 0, "amount_value": 1, "amount_unit": "g"})))
         self.assertIn("SMILES 无法解析", str(ctx.exception))
         self.assertIn("组分 1（REACTANT）", str(ctx.exception))
+
+
+class _FakeHeaders:
+    def __init__(self, mapping=None):
+        self._m = {k.lower(): v for k, v in (mapping or {}).items()}
+
+    def get(self, key, default=None):
+        return self._m.get(key.lower(), default)
+
+
+class _FakeRequest:
+    def __init__(self, mapping=None):
+        self.headers = _FakeHeaders(mapping)
 
 
 class HttpContractTests(unittest.TestCase):
@@ -147,9 +180,11 @@ class HttpContractTests(unittest.TestCase):
                 asyncio.run(mod.calculate_stoichiometry(
                     body=_input(basis={"index": 9, "amount_value": 1,
                                        "amount_unit": "g"}),
+                    request=_FakeRequest({"x-real-ip": "203.0.113.4"}),
                     actor=None))
         self.assertEqual(ctx.exception.status_code, 400)
-        self.assertEqual(ctx.exception.detail, "基准 index 9 超出组分范围")
+        self.assertEqual(ctx.exception.detail, {
+            "message": "基准 index 9 超出组分范围", "kind": "invalid_input"})
 
     def test_rate_limit_orchestration_before_compute(self):
         """限流在计算之前执行(enforce 先于 service.compute)。"""
@@ -166,9 +201,29 @@ class HttpContractTests(unittest.TestCase):
         with patch.object(mod, "enforce_http", fake_enforce), \
                 patch.object(mod.stoich_service, "compute", fake_compute):
             out = asyncio.run(mod.calculate_stoichiometry(
-                body=_input(), actor=None))
-        self.assertEqual(calls, ["enforce:stoich:anon", "compute"])
+                body=_input(),
+                request=_FakeRequest({"x-real-ip": "203.0.113.4"}),
+                actor=None))
+        self.assertEqual(calls, ["enforce:stoich:ip:203.0.113.4", "compute"])
         self.assertEqual(out["note"], "")
+
+    def test_rate_limit_skipped_without_ip(self):
+        """匿名且拿不到来源 IP: 不落全站共用桶, 只记警。"""
+        calls: list[str] = []
+        import api.stoichiometry as mod
+
+        async def fake_enforce(bucket, identity, limit, window):
+            calls.append(f"enforce:{bucket}:{identity}")
+
+        async def fake_compute(body):
+            calls.append("compute")
+            return {"basis": {}, "components": [], "note": ""}
+
+        with patch.object(mod, "enforce_http", fake_enforce), \
+                patch.object(mod.stoich_service, "compute", fake_compute):
+            asyncio.run(mod.calculate_stoichiometry(
+                body=_input(), request=_FakeRequest(), actor=None))
+        self.assertEqual(calls, ["compute"])
 
 
 class McpContractTests(unittest.TestCase):
@@ -244,12 +299,20 @@ class McpErrorBoundaryTests(unittest.TestCase):
 
     @staticmethod
     def _body_kwargs():
+        class _Headers:
+            def get(self, key, default=None):
+                return "203.0.113.4" if key.lower() == "x-real-ip" else default
+
+        class _Ctx:
+            headers = _Headers()
+
         return dict(
             components=[{"role": "REACTANT", "smiles": "O=C(O)c1ccccc1O",
                          "eq": 1},
                         {"role": "PRODUCT", "smiles": "CC(=O)Oc1ccccc1C(=O)O",
                          "eq": 1}],
             basis={"index": 0, "amount_value": 10, "amount_unit": "g"},
+            ctx=_Ctx(),
         )
 
     def test_429_becomes_tool_error_compute_not_called(self):

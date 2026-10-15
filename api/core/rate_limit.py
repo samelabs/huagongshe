@@ -103,14 +103,13 @@ def client_ip(headers) -> str | None:
 
 
 
-# ---- 结构检索资源闸门(0912) -------------------------------------------------
-# 两层: ① fixed-window 限频 ② in-flight 租约(并发上限)。
+# ---- 结构检索资源闸门 -------------------------------------------------------
+# 两层: ① 按身份 fixed-window 限频 ② in-flight 租约(并发上限)。
 # 依据生产事实: DB pool 5+5=10 连接 / similarity 冷查 ~5s / statement_timeout 8s /
 # substructure 低选择性 motif 冷查可吃满 8s。全局并发 4 → 最坏 4 个昂贵结构查询
 # 同时占连接, 至少 6 个连接留给普通请求; 超限立即拒绝, 不占着连接等 503。
-STRUCTURE_ACTOR_RATE_LIMIT = 6      # actor 6 次/分钟
-STRUCTURE_GLOBAL_RATE_LIMIT = 30    # 全局 30 次/分钟
-STRUCTURE_ACTOR_INFLIGHT = 2        # actor 并发 2
+STRUCTURE_ACTOR_RATE_LIMIT = 6      # 单一用户 6 次/分钟
+STRUCTURE_ACTOR_INFLIGHT = 2        # 单一用户并发 2
 STRUCTURE_GLOBAL_INFLIGHT = 4       # 全局并发 4
 LEASE_TTL_SECONDS = 30              # > statement_timeout(8s); 进程崩溃自动回收
 
@@ -178,9 +177,9 @@ async def structure_enter(actor_id: int | None, bucket: str = "structure-search"
     """
     identity = f"actor:{actor_id}" if actor_id is not None else None
     # fixed-window 行为不变: enforce 限流服务异常 → LimiterUnavailable, 超限 → RateLimited。
+    # 限频只按身份设桶(全站共享速率桶不设在业务代码里, 全站容量保护交给接入层)。
     if identity is not None:
         await enforce(bucket, identity, STRUCTURE_ACTOR_RATE_LIMIT, 60)
-    await enforce(bucket, "global", STRUCTURE_GLOBAL_RATE_LIMIT, 60)
 
     held: list[str] = []
     if identity is not None:

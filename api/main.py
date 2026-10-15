@@ -3,7 +3,9 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .admin import router as admin_router
 from .core.config import settings
@@ -19,6 +21,42 @@ from .social import router as social_router
 from .stoichiometry import router as stoichiometry_router
 from .users import auth_router, router as users_router
 from .workapi import router as workapi_router
+
+# 请求体字段校验错误 → 站内统一 {message, kind} 契约, 并带字段名定位,
+# 供前端在对应字段下方展示原因。
+_VALIDATION_TYPE_MESSAGES = {
+    "missing": "缺少必填字段",
+    "string_type": "该字段必须是文本",
+    "string_too_short": "内容过短",
+    "string_too_long": "超出长度上限",
+    "greater_than": "数值超出上限",
+    "greater_than_equal": "数值超出上限",
+    "less_than": "数值低于下限",
+    "less_than_equal": "数值低于下限",
+    "enum": "取值不在允许范围内",
+    "bool_parsing": "该字段必须是布尔值",
+    "int_parsing": "该字段必须是整数",
+    "float_parsing": "该字段必须是数值",
+    "json_invalid": "内容格式不正确",
+    "literal_error": "取值不在允许范围内",
+}
+
+
+def _validation_error_response(request, exc: RequestValidationError) -> JSONResponse:
+    errors = exc.errors()
+    first = errors[0] if errors else {}
+    loc = [str(part) for part in first.get("loc", ()) if part not in ("body", "query", "path")]
+    field = ".".join(loc) or None
+    raw_message = str(first.get("msg") or "输入不正确")
+    if raw_message.startswith("Value error, "):
+        reason = raw_message[len("Value error, "):]
+    else:
+        reason = _VALIDATION_TYPE_MESSAGES.get(first.get("type"), raw_message)
+    message = f"{field}：{reason}" if field else reason
+    content: dict = {"message": message, "kind": "invalid_field"}
+    if field:
+        content["field"] = field
+    return JSONResponse(status_code=422, content=content)
 
 
 @asynccontextmanager
@@ -56,6 +94,8 @@ app.include_router(stoichiometry_router, prefix="/api")
 app.include_router(skills_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(workapi_router, include_in_schema=False)
+
+app.add_exception_handler(RequestValidationError, _validation_error_response)
 
 # 0904: health 必须注册在 mount_mcp 之前 — MCP 子应用挂根会吞掉其后
 # 所有路由(0831 151307d 回归, 0903 体检发现 /api/health 404)
