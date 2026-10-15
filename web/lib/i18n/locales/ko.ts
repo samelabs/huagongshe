@@ -51,6 +51,8 @@ const ko: Dictionary = {
     delete_not_owner: '자신이 생성한 기록만 삭제할 수 있습니다.',
     chemical_identity_conflict: '화합물 식별자와 구조 간에 충돌이 있습니다.',
     chemical_identity_ambiguous: '화합물 식별자가 모호하여 유일하게 식별할 수 없습니다.',
+    invalid_scope: '제공되지 않는 접근 범위가 포함되어 있습니다.',
+    empty_update: '업데이트할 필드가 없습니다.',
   },
 
   /* ── 브랜드 ─────────────────────────────────────────── */

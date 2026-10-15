@@ -43,9 +43,14 @@ class AdminDataClientTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.engine = create_async_engine(ASYNC_URL)
         self.Session = async_sessionmaker(self.engine, expire_on_commit=False)
+        self.run = uuid.uuid4().hex[:10]
         async with self.Session() as db:
-            self.owner = (await db.execute(text(
-                "SELECT id FROM community.users LIMIT 1"))).scalar()
+            # 真实管理员用户夹具: created_by 非空, 凭证必须落在具体管理员名下。
+            self.owner = (await db.execute(text("""
+                INSERT INTO community.users (username,email,password_hash,role,display_name)
+                VALUES (:u,:e,'x','admin','数据服务管理员') RETURNING id
+            """), {"u": f"dc{self.run}", "e": f"dc{self.run}@t.example"})).scalar()
+            await db.commit()
         self.actor = _Actor()
         self.actor.id = self.owner
         self.created: list[int] = []
@@ -57,6 +62,8 @@ class AdminDataClientTests(unittest.IsolatedAsyncioTestCase):
                     "DELETE FROM data_api.usage_daily WHERE client_id=:pk"), {"pk": pk})
                 await db.execute(text(
                     "DELETE FROM data_api.clients WHERE id=:pk"), {"pk": pk})
+            await db.execute(text(
+                "DELETE FROM community.users WHERE id=:uid"), {"uid": self.owner})
             await db.commit()
         await self.engine.dispose()
 

@@ -52,6 +52,8 @@ const de: Dictionary = {
     delete_not_owner: 'Du kannst nur von dir erstellte Einträge löschen.',
     chemical_identity_conflict: 'Konflikt zwischen chemischem Bezeichner und Struktur.',
     chemical_identity_ambiguous: 'Mehrdeutiger chemischer Bezeichner; eindeutige Zuordnung nicht möglich.',
+    invalid_scope: 'Der angeforderte Zugriffsbereich ist nicht verfügbar.',
+    empty_update: 'Es gibt keine zu aktualisierenden Felder.',
   },
 
   /* ── Marke ──────────────────────────────────────────── */

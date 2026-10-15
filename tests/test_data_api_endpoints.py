@@ -92,6 +92,11 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         # 一个保证存在的化合物: 与站内同一规则本地建行。
         from api.services.reactions import resolve_or_create_chemical
         async with self.Session() as db:
+            # 真实管理员用户夹具: created_by 非空, 凭证必须落在具体管理员名下。
+            self.owner = (await db.execute(text("""
+                INSERT INTO community.users (username,email,password_hash,role,display_name)
+                VALUES (:u,:e,'x','admin','数据服务管理员') RETURNING id
+            """), {"u": f"dp{self.run}", "e": f"dp{self.run}@t.example"})).scalar()
             self.hcid, _ = await resolve_or_create_chemical(db, "CCO")
             await db.commit()
             self.merged_old = int(f"9{uuid.uuid4().hex[:7]}", 16) % 2_000_000_000
@@ -113,6 +118,8 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
             await db.execute(text(
                 "DELETE FROM maintenance.chemical_identity_redirect"
                 " WHERE old_chemical_id=:old"), {"old": self.merged_old})
+            await db.execute(text(
+                "DELETE FROM community.users WHERE id=:uid"), {"uid": self.owner})
             await db.commit()
         await self.engine.dispose()
 
@@ -125,12 +132,11 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
                     (client_id, name, contact, scopes, rate_per_minute,
                      rate_per_day, enabled, created_by, token_hash)
                 VALUES (:cid, :name, '', CAST(:scopes AS text[]), :rpm, :rpd,
-                        :enabled,
-                        (SELECT id FROM community.users LIMIT 1), :th)
+                        :enabled, :owner, :th)
                 RETURNING id
             """), {"cid": client_id, "name": f"测试凭证{self.run}",
                    "scopes": scopes, "rpm": rate_per_minute, "rpd": rate_per_day,
-                   "enabled": enabled, "th": token_hash(token)})).fetchone()
+                   "enabled": enabled, "owner": self.owner, "th": token_hash(token)})).fetchone()
             await db.commit()
         self.credentials.append((client_id, token, row[0]))
         return client_id

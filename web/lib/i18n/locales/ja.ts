@@ -49,6 +49,8 @@ const ja: Dictionary = {
     delete_not_owner: '自身が作成したデータのみ削除できます。',
     chemical_identity_conflict: '化合物識別子と構造に競合があります。',
     chemical_identity_ambiguous: '化合物識別子があいまいなため、特定できません。',
+    invalid_scope: '未提供のアクセス範囲が含まれています。',
+    empty_update: '更新できるフィールドがありません。',
   },
 
   /* ── ブランド ───────────────────────────────────────── */

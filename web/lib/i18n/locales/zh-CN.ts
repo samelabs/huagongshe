@@ -55,6 +55,8 @@ const t = {
     delete_not_owner: '只能删除自己创建的记录',
     chemical_identity_conflict: '化合物标识符与结构存在冲突',
     chemical_identity_ambiguous: '化合物标识符存在歧义，无法唯一定位',
+    invalid_scope: '存在未开放的接口权限范围',
+    empty_update: '没有可更新的字段',
   },
 
   /* ── 品牌 ────────────────────────────────────────────── */

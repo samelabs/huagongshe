@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiGet, apiPost, apiPatch, ApiError } from "@/lib/api";
+import { apiGet, apiPost, apiPatch, apiErrorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Field, Input } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
+import { useDictionary } from "@/components/shared/I18nContext";
 
 type ClientRow = {
   id: number; client_id: string; name: string; contact: string;
@@ -20,6 +22,7 @@ const SCOPE_OPTIONS = ["data:chemical:read", "data:reaction:read"];
 
 /** 对外数据服务的凭证管理: 发放(令牌只显示一次)、停用/启用、改额度。 */
 export function SamelabsDataClients() {
+  const t = useDictionary();
   const [items, setItems] = useState<ClientRow[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -66,7 +69,7 @@ export function SamelabsDataClients() {
       const data = await apiGet<ListResponse>("/admin/data-clients");
       setItems(data.items);
     } catch (err) {
-      setError(err instanceof ApiError ? (err.detail || "发放失败") : "发放失败");
+      setError(apiErrorMessage(err, t, "发放失败"));
     } finally { setBusy(false); }
   }
 
@@ -109,10 +112,9 @@ export function SamelabsDataClients() {
       <Field label="scope">
         <div style={{ display: "flex", gap: 12 }}>
           {SCOPE_OPTIONS.map((scope) => (
-            <label key={scope} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-              <input type="checkbox" checked={form.scopes.includes(scope)} onChange={() => toggleScope(scope)} />
-              {scope}
-            </label>
+            <Checkbox key={scope} label={scope}
+                      checked={form.scopes.includes(scope)}
+                      onChange={() => toggleScope(scope)} />
           ))}
         </div>
       </Field>

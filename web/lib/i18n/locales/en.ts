@@ -48,6 +48,8 @@ const en: Dictionary = {
     delete_not_owner: 'You can only delete records you created.',
     chemical_identity_conflict: 'Conflicting chemical identifier and structure.',
     chemical_identity_ambiguous: 'Ambiguous chemical identity; unable to match a unique compound.',
+    invalid_scope: 'The requested access scope is not available.',
+    empty_update: 'There is nothing to update.',
   },
 
   /* ── Brand ─────────────────────────────────────────── */
