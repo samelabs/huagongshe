@@ -236,9 +236,9 @@ export default async function ChemicalPage({ params }: {
         <div className="chem-badge-row">
           <EntityBadge kind="chemical" id={chemical.id} size="lg" ariaLabel={t.common.hcidLabel(chemical.id)} />
           <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
-          <Link href={withLocale(`/chemical/${chemical.id}/print`, locale)} className="hg-icon-btn" aria-label={t.common.print} target="_blank" rel="noopener">
-            <IconPrinter size={18} />
-          </Link>
+          <Button variant="ghost" size="sm" iconOnly href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
+            <IconPrinter />
+          </Button>
         </div>
         <h1 className="chem-head-name">{title}</h1>
         {secondary && <p className="chem-head-alt">{secondary}</p>}

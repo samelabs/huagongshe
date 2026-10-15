@@ -7,6 +7,7 @@ import { DataRow } from "@/components/DataRow";
 import { EntityNotes } from "@/components/EntityNotes";
 import { ReactionOwnerActions } from "@/components/ReactionOwnerActions";
 import { ShareButton } from "@/components/ShareButton";
+import { Button } from "@/components/ui/Button";
 import { IconPrinter } from "@/components/ui/icons";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { CreatorFollow } from "@/components/CreatorFollow";
@@ -203,9 +204,9 @@ export default async function ReactionPage({ params }: {
             ariaLabel={t.common.hridLabel(reaction.id)}
           />
           <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
-          <Link href={withLocale(`/reaction/${reaction.id}/print`, locale)} className="hg-icon-btn" aria-label={t.common.print} target="_blank" rel="noopener">
-            <IconPrinter size={18} />
-          </Link>
+          <Button variant="ghost" size="sm" iconOnly href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
+            <IconPrinter />
+          </Button>
         </div>
         <h1 className="rx-head-title">{reactionTitleText}</h1>
         {factualSummary && <p className="rx-head-summary">{factualSummary}</p>}

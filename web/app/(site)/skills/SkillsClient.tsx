@@ -37,6 +37,9 @@ function CategoryIcon({ cat, size = 28 }: { cat: Category | undefined; size?: nu
   );
 }
 
+// I-083: 默认渲染进 DOM 的技能卡上限; 超出经「查看全部」展开。
+const SKILL_PREVIEW = 24;
+
 export function SkillsClient({
   skills,
   cats,
@@ -50,6 +53,7 @@ export function SkillsClient({
   const locale = useLocale();
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>(t.skills.allCategories);
+  const [showAll, setShowAll] = useState(false);
 
   const catMap = useMemo(() => new Map((cats ?? []).map((c) => [c.name, c])), [cats]);
 
@@ -81,9 +85,15 @@ export function SkillsClient({
     });
   }, [skills, query, activeCategory, t.skills.allCategories, t.skills.defaultCategory]);
 
+  // 分组只消费可见前 SKILL_PREVIEW 条; 分类 chips 的计数仍用完整 skills。
+  const visible = useMemo(
+    () => (showAll ? filtered : filtered.slice(0, SKILL_PREVIEW)),
+    [filtered, showAll],
+  );
+
   const grouped = useMemo(() => {
     const map = new Map<string, Skill[]>();
-    for (const s of filtered) {
+    for (const s of visible) {
       const cat = s.category || t.skills.defaultCategory;
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(s);
@@ -93,7 +103,7 @@ export function SkillsClient({
       const ob = catMap.get(b[0])?.sort_order ?? 99;
       return oa - ob;
     });
-  }, [filtered, catMap, t.skills.defaultCategory]);
+  }, [visible, catMap, t.skills.defaultCategory]);
 
   return (
     <div className="skills-page">
@@ -119,7 +129,7 @@ export function SkillsClient({
               type="text"
               enterKeyHint="search"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { setQuery(e.target.value); setShowAll(false); }}
               placeholder={t.skills.searchPlaceholder}
               aria-label={t.skills.searchPlaceholder}
             />
@@ -134,7 +144,7 @@ export function SkillsClient({
             variant={activeCategory === t.skills.allCategories ? "primary" : "ghost"}
             size="sm"
             className={`skills-cat ${activeCategory === t.skills.allCategories ? "active" : ""}`}
-            onClick={() => setActiveCategory(t.skills.allCategories)}
+            onClick={() => { setActiveCategory(t.skills.allCategories); setShowAll(false); }}
           >
             {t.skills.allCategories} <span className="skills-cat-count">{skills.length}</span>
           </Button>
@@ -144,7 +154,7 @@ export function SkillsClient({
               variant={activeCategory === cat ? "primary" : "ghost"}
               size="sm"
               className={`skills-cat ${activeCategory === cat ? "active" : ""}`}
-              onClick={() => setActiveCategory(cat)}
+              onClick={() => { setActiveCategory(cat); setShowAll(false); }}
             >
               {cat} <span className="skills-cat-count">{count}</span>
             </Button>
@@ -161,22 +171,31 @@ export function SkillsClient({
         ) : filtered.length === 0 ? (
           <EmptyState icon={<IconSparkle />} title={t.skills.noMatch} />
         ) : (
-          <div className="skills-groups">
-            {grouped.map(([cat, catSkills]) => (
-              <section key={cat} className="skills-group">
-                <h2 className="skills-group-title">
-                  <CategoryIcon cat={catMap.get(cat)} size={26} />
-                  <span className="skills-group-name">{cat}</span>
-                  <span className="skills-group-count">{catSkills.length}</span>
-                </h2>
-                <div className="skills-grid">
-                  {catSkills.map((s) => (
-                    <SkillCard key={s.id} skill={s} cat={catMap.get(s.category || t.skills.defaultCategory)} labels={t} />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          <>
+            <div className="skills-groups">
+              {grouped.map(([cat, catSkills]) => (
+                <section key={cat} className="skills-group">
+                  <h2 className="skills-group-title">
+                    <CategoryIcon cat={catMap.get(cat)} size={26} />
+                    <span className="skills-group-name">{cat}</span>
+                    <span className="skills-group-count">{catSkills.length}</span>
+                  </h2>
+                  <div className="skills-grid">
+                    {catSkills.map((s) => (
+                      <SkillCard key={s.id} skill={s} cat={catMap.get(s.category || t.skills.defaultCategory)} labels={t} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+            {filtered.length > SKILL_PREVIEW && (
+              <div className="skills-show-all">
+                <Button variant="ghost" size="md" onClick={() => setShowAll(!showAll)}>
+                  {showAll ? t.skills.collapseSkills : t.skills.showAllSkills(filtered.length)}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

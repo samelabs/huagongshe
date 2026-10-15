@@ -133,6 +133,8 @@ const t = {
     workbenchNav: '工作台导航',
     languageSwitcher: "切换语言",
     footer: '化工社开放计划',
+    footerAi: 'AI 接入：',
+    footerMcpGuide: 'MCP 指南',
   },
 
   /* ── 首页 ────────────────────────────────────────────── */
@@ -855,6 +857,8 @@ const t = {
     loadFailed: '数据读取失败，请刷新后重试。',
     noMatch: '未找到匹配的技能',
     emptySkills: '暂无公开技能',
+    showAllSkills: (n: number) => `查看全部 ${n} 个技能`,
+    collapseSkills: '收起',
     officialBadge: '官方',
     hasScriptsBadge: '含脚本',
     hasScriptsHint: '该技能包含脚本文件，使用前请人工审阅',
@@ -1236,6 +1240,7 @@ const t = {
     printAction: '打印',
     backAction: '返回',
     reportNotice: '化工社化学信息打印报告 · 仅供科研参考',
+    colName: '名称',
     generatedAt: (date: string) => `生成日期：${date}`,
     chemicalReportTitle: '化合物报告',
     reactionReportTitle: '反应报告',

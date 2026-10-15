@@ -3,9 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiGet, isApiGone, isEntityId, reactionSvgUrl, type ReactionDetail, type Chemical } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
-import "../../chemical/[id]/print/print.css";
+import "@/app/(site)/chemical/[id]/print/print.css";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -14,6 +15,26 @@ export const metadata: Metadata = {
 function fmt(v: number | null | undefined, locale: string): string {
   if (v == null) return "—";
   return new Intl.NumberFormat(locale, { maximumFractionDigits: 4 }).format(v);
+}
+
+/** 与详情页同款单位/角色本地化(枚举值不直接进报告)。 */
+function unitName(value: string, t: Dictionary): string {
+  const labels: Record<string, string> = {
+    CELSIUS: "°C", KELVIN: "K",
+    MINUTE: t.reaction.timeUnits.minute, HOUR: t.reaction.timeUnits.hour, DAY: t.reaction.timeUnits.day,
+  };
+  return labels[value] || value.replaceAll("_", " ").toLowerCase();
+}
+
+function roleLabel(role: string | null | undefined, t: Dictionary): string {
+  const labels: Record<string, string> = {
+    REACTANT: t.submit.roles.reactant, REAGENT: t.submit.roles.reagent,
+    CATALYST: t.submit.roles.catalyst, SOLVENT: t.submit.roles.solvent,
+    PRODUCT: t.submit.roles.product, WORKUP: t.reaction.workup,
+    INTERNAL_STANDARD: t.reaction.internalStandard,
+  };
+  if (!role) return "—";
+  return labels[role] || role.replaceAll("_", " ").toLowerCase();
 }
 
 export default async function ReactionPrintPage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,8 +55,8 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
   const pageUrl = `https://huagongshe.com${withLocale(`/reaction/${id}`, locale)}`;
 
   const conditionRows: [string, string][] = [
-    reaction.temperature ? [t.reaction.conditionFields.temperature, `${reaction.temperature.value} ${reaction.temperature.unit}`] : null,
-    reaction.duration ? [t.reaction.conditionFields.time, `${reaction.duration.value} ${reaction.duration.unit}`] : null,
+    reaction.temperature ? [t.reaction.conditionFields.temperature, `${reaction.temperature.value} ${unitName(reaction.temperature.unit, t)}`] : null,
+    reaction.duration ? [t.reaction.conditionFields.time, `${reaction.duration.value} ${unitName(reaction.duration.unit, t)}`] : null,
     reaction.atmosphere ? [t.reaction.conditionFields.atmosphere, reaction.atmosphere] : null,
     reaction.pressure ? [t.reaction.conditionFields.pressure, `${reaction.pressure.value} ${reaction.pressure.unit}`] : null,
     reaction.ph != null ? ["pH", String(reaction.ph)] : null,
@@ -90,8 +111,8 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
             <table className="pr-participants-table">
               <thead>
                 <tr>
-                  <th>{t.submit.roles ? "Role" : "Role"}</th>
-                  <th>{t.common.name}</th>
+                  <th>{t.stoich.colRole}</th>
+                  <th>{t.print.colName}</th>
                   <th>HCID</th>
                   <th>{t.submit.amount}</th>
                 </tr>
@@ -106,7 +127,7 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
                   ].filter(Boolean).join(", ");
                   return (
                     <tr key={p.id}>
-                      <td>{p.role ?? "—"}</td>
+                      <td>{roleLabel(p.role, t)}</td>
                       <td>{pName}</td>
                       <td className="pr-mono">{t.common.hcidLabel(p.id)}</td>
                       <td>{amount || "—"}</td>
@@ -171,10 +192,10 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
             <table className="pr-table">
               <tbody>
                 {reaction.doi && <tr><th>DOI</th><td>{reaction.doi}</td></tr>}
-                {reaction.patent && <tr><th>{t.reaction.patent}</th><td>{reaction.patent}</td></tr>}
-                {reaction.dataset_name && <tr><th>{t.reaction.dataset}</th><td>{reaction.dataset_name}</td></tr>}
+                {reaction.patent && <tr><th>{t.reaction.sourceFields.patent}</th><td>{reaction.patent}</td></tr>}
+                {reaction.dataset_name && <tr><th>{t.reaction.sourceFields.dataset}</th><td>{reaction.dataset_name}</td></tr>}
                 {reaction.ord_id && <tr><th>ORD ID</th><td className="pr-mono">{reaction.ord_id}</td></tr>}
-                {reaction.source_citation && <tr><th>{t.reaction.sourceCitation}</th><td>{reaction.source_citation}</td></tr>}
+                {reaction.source_citation && <tr><th>{t.reaction.sourceFields.note}</th><td>{reaction.source_citation}</td></tr>}
               </tbody>
             </table>
           </section>

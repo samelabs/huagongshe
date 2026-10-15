@@ -126,6 +126,8 @@ const en: Dictionary = {
     workbenchNav: 'Workbench navigation',
     languageSwitcher: "Change language",
     footer: 'Huagongshe Open Program',
+    footerAi: 'AI access: ',
+    footerMcpGuide: 'MCP Guide',
   },
 
   /* ── Homepage ──────────────────────────────────────── */
@@ -845,6 +847,8 @@ const en: Dictionary = {
     loadFailed: 'Failed to load data. Refresh and try again.',
     noMatch: 'No matching skills',
     emptySkills: 'No public skills yet',
+    showAllSkills: (n: number) => `Show all ${n} skills`,
+    collapseSkills: 'Show less',
     officialBadge: 'Official',
     hasScriptsBadge: 'Has scripts',
     hasScriptsHint: 'This skill contains script files — review them manually before use',
@@ -1226,6 +1230,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     printAction: 'Print',
     backAction: 'Back',
     reportNotice: 'Huagongshe Chemistry Print Report · For research reference only',
+    colName: 'Name',
     generatedAt: (date: string) => `Generated: ${date}`,
     chemicalReportTitle: 'Chemical Report',
     reactionReportTitle: 'Reaction Report',

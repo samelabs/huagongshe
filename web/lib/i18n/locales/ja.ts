@@ -127,6 +127,8 @@ const ja: Dictionary = {
     workbenchNav: 'ワークベンチナビゲーション',
     languageSwitcher: "言語を切り替える",
     footer: '化工社オープンプロジェクト',
+    footerAi: 'AIアクセス：',
+    footerMcpGuide: 'MCPガイド',
   },
 
   /* ── ホーム ─────────────────────────────────────────── */
@@ -846,6 +848,8 @@ const ja: Dictionary = {
     loadFailed: 'データの読み込みに失敗しました。更新してもう一度お試しください。',
     noMatch: '一致するスキルが見つかりません',
     emptySkills: '公開スキルはまだありません',
+    showAllSkills: (n: number) => `すべて表示（${n} 件）`,
+    collapseSkills: '折りたたむ',
     officialBadge: '公式',
     hasScriptsBadge: 'スクリプトあり',
     hasScriptsHint: 'このスキルにはスクリプトファイルが含まれます。利用前に手動で確認してください',
@@ -1227,6 +1231,7 @@ const ja: Dictionary = {
     printAction: '印刷',
     backAction: '戻る',
     reportNotice: '化工社 化学情報印刷レポート · 研究参考用',
+    colName: '名称',
     generatedAt: (date: string) => `作成日：${date}`,
     chemicalReportTitle: '化合物レポート',
     reactionReportTitle: '反応レポート',

@@ -817,7 +817,7 @@
   font-size: var(--wb-fs);
   font-weight: var(--wb-w-semibold);
   color: var(--wb-ink);
-  line-height: var(--wb-lh-snug, 1.35);
+  line-height: 1.35;
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;

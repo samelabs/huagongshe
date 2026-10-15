@@ -129,6 +129,8 @@ const ko: Dictionary = {
     workbenchNav: '워크벤치 내비게이션',
     languageSwitcher: "언어 변경",
     footer: 'Huagongshe 오픈 프로젝트',
+    footerAi: 'AI 접속: ',
+    footerMcpGuide: 'MCP 가이드',
   },
 
   /* ── 홈 ─────────────────────────────────────────────── */
@@ -848,6 +850,8 @@ const ko: Dictionary = {
     loadFailed: '데이터를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.',
     noMatch: '일치하는 스킬을 찾지 못했습니다',
     emptySkills: '아직 공개된 스킬이 없습니다',
+    showAllSkills: (n: number) => `전체 ${n}개 보기`,
+    collapseSkills: '접기',
     officialBadge: '공식',
     hasScriptsBadge: '스크립트 포함',
     hasScriptsHint: '이 스킬에는 스크립트 파일이 포함되어 있습니다. 사용 전에 직접 검토하세요',
@@ -1229,6 +1233,7 @@ const ko: Dictionary = {
     printAction: '인쇄',
     backAction: '돌아가기',
     reportNotice: '화공사 화학 정보 인쇄 보고서 · 연구 참고용',
+    colName: '이름',
     generatedAt: (date: string) => `생성일: ${date}`,
     chemicalReportTitle: '화합물 보고서',
     reactionReportTitle: '반응 보고서',

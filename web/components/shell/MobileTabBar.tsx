@@ -36,6 +36,14 @@ export function MobileTabBar() {
     routePath === "/aichem" || routePath.startsWith("/aichem/")
     || routePath.startsWith("/submit") || (routePath.startsWith("/me") && !routePath.startsWith("/me/settings"))
   );
+  // 底栏选中态(I-095): 公开内容页(搜索/化合物/反应/笔记/Skills/MCP/指南/
+  // 法务页等)归入"首页"tab —— 除工作台族、动态、登录注册、OAuth 授权页、
+  // 以及"我的"族(/user/{name}、/me/settings, 规则不变)外的路由都算公开
+  // 内容。规则见 DESIGN_SYSTEM 2.3。
+  const isAuthPage = /^\/(login|register|verify|forgot|reset|oauth)(\/|$)/.test(routePath);
+  const isMeActive = routePath.startsWith("/user/") || routePath.startsWith("/me/settings");
+  const isHomeActive = (routePath === "/" || routePath === "")
+    || (!isAuthPage && !isWorkbench && !isActivity && !isMeActive);
 
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -79,14 +87,12 @@ export function MobileTabBar() {
     router.refresh();
   }
 
-  const isMeActive = routePath.startsWith("/user/") || routePath.startsWith("/me/settings");
-
   return (
     <nav className="sh-tabbar" aria-label={t.nav.bottomNav}>
       <Link
         href={withLocale("/", locale)}
-        className={`sh-tab${routePath === "/" || routePath === "" ? " on" : ""}`}
-        aria-current={routePath === "/" || routePath === "" ? "page" : undefined}
+        className={`sh-tab${isHomeActive ? " on" : ""}`}
+        aria-current={isHomeActive ? "page" : undefined}
       >
         <IconHome />
         {t.nav.tabHome}

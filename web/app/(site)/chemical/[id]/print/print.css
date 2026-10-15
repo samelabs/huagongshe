@@ -5,7 +5,6 @@
 
 /* ── Reset / base ─────────────────────────────────────── */
 .pr-root {
-  --pr-serif: Georgia, 'Times New Roman', Times, serif;
   --pr-sans: system-ui, -apple-system, sans-serif;
   --pr-border: #d0d0d0;
   --pr-accent: #1a1a1a;
@@ -92,7 +91,8 @@
 }
 
 .pr-title {
-  font-family: var(--pr-serif);
+  /* 与报告正文同族无衬线(CJK/拉丁五语言一致); 纸质报告不混排衬线标题 */
+  font-family: var(--pr-sans);
   font-size: 22px;
   font-weight: 700;
   line-height: 1.25;
@@ -225,6 +225,14 @@
   text-transform: uppercase;
   color: var(--pr-muted);
 }
+
+/* ── 站点壳层隐藏（屏幕与纸张一致）───────────────────────
+   打印预览页不显示站点顶栏、页脚、手机底栏；屏幕上只有工具栏。 */
+body:has(.pr-root) .sh-header,
+body:has(.pr-root) footer,
+body:has(.pr-root) .sh-tabbar { display: none !important; }
+body:has(.pr-root) main { padding-bottom: 0 !important; }
+body:has(.pr-root) { background: #f0f0f0; }
 
 /* ── @media print ────────────────────────────────────── */
 @media print {

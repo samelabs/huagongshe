@@ -130,6 +130,8 @@ const de: Dictionary = {
     workbenchNav: 'Workbench-Navigation',
     languageSwitcher: "Sprache wechseln",
     footer: 'Huagongshe Open Project',
+    footerAi: 'KI-Anbindung: ',
+    footerMcpGuide: 'MCP-Anleitung',
   },
 
   /* ── Startseite ─────────────────────────────────────── */
@@ -849,6 +851,8 @@ const de: Dictionary = {
     loadFailed: 'Daten konnten nicht geladen werden. Bitte neu laden und erneut versuchen.',
     noMatch: 'Keine passenden Skills gefunden',
     emptySkills: 'Noch keine öffentlichen Skills vorhanden',
+    showAllSkills: (n: number) => `Alle ${n} Skills anzeigen`,
+    collapseSkills: 'Weniger anzeigen',
     officialBadge: 'Offiziell',
     hasScriptsBadge: 'Mit Skripten',
     hasScriptsHint: 'Dieses Skill enthält Skriptdateien. Vor der Verwendung manuell prüfen',
@@ -1230,6 +1234,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     printAction: 'Drucken',
     backAction: 'Zurück',
     reportNotice: 'Huagongshe Chemie-Druckbericht · Nur für Forschungszwecke',
+    colName: 'Name',
     generatedAt: (date: string) => `Erstellt: ${date}`,
     chemicalReportTitle: 'Stoffbericht',
     reactionReportTitle: 'Reaktionsbericht',

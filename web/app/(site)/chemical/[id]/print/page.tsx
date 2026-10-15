@@ -31,8 +31,22 @@ function ProseSection({ title, items }: { title: string; items: ProseItem[] }) {
   );
 }
 
-function EvidenceSection({ title, block }: { title: string; block: EvidenceBlock | null | undefined }) {
-  if (!block || !block.entries || Object.keys(block.entries).length === 0) return null;
+/** CB safety 字段的值可能是字符串或嵌套对象(GHS 的 h/p/象形图/信号词):
+ *  报告里渲染成 "键: 值" 逗号串, 不打印 [object Object]。 */
+function readableSafetyValue(value: unknown): string {
+  if (value == null) return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(readableSafetyValue).filter(Boolean).join("、");
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => `${k}: ${readableSafetyValue(v)}`)
+      .join("；");
+  }
+  return String(value);
+}
+
+function EvidenceSection({ title, block }: { title: string; block: EvidenceBlock | null | undefined }) {  if (!block || !block.entries || Object.keys(block.entries).length === 0) return null;
   const entries = block.entries as Record<string, { value?: string; text?: string; unit?: string }>;
   return (
     <section className="pr-section">
@@ -58,12 +72,14 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
 
-  const [chemical, detail] = await Promise.all([
-    apiGet<Chemical>(`/chemicals/${id}?enrich=core`).catch((e: unknown) => { if (isApiGone(e)) notFound(); return null; }),
-    apiGet<SemanticDetail>(`/chemicals/${id}/details?locale=${encodeURIComponent(locale)}`).catch(() => null),
-  ]);
-
+  // 语义详情与主记录同源: /chemicals/{id}?enrich=full 的 details 字段
+  // (站点没有独立的 /details 路由)。
+  const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=full&locale=${encodeURIComponent(locale)}`).catch((e: unknown) => {
+    if (isApiGone(e)) notFound();
+    return null;
+  });
   if (!chemical) notFound();
+  const detail: SemanticDetail | null = chemical.details ?? null;
 
   const { title } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
   const printDate = new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date());
@@ -218,7 +234,7 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
             <table className="pr-table">
               <tbody>
                 {Object.entries(safety.cb_safety).map(([k, v]) => (
-                  <tr key={k}><th>{k}</th><td>{v}</td></tr>
+                  <tr key={k}><th>{k}</th><td>{readableSafetyValue(v)}</td></tr>
                 ))}
               </tbody>
             </table>
