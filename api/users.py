@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import logging
 import os
 import re
 import secrets
@@ -16,8 +17,11 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+logger = logging.getLogger(__name__)
+
 from .core.config import settings
 from .core.database import get_db
+from .core import rate_limit
 from .rate_limit_http import enforce_http
 from .core.security import (
     Actor, actor_payload, current_actor, current_session, public_or_actor,
@@ -162,10 +166,9 @@ def _like_literal(value: str) -> str:
 
 
 def _client_ip(request) -> str | None:
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip() or None
-    return None
+    # R2: 统一读 nginx 覆盖写入的 x-real-ip(x-forwarded-for 首段可伪造)。
+    # 返回 None 时调用方不落 "unknown" 全站共用桶。
+    return rate_limit.client_ip(request.headers)
 
 
 @router.get("/search")
@@ -185,9 +188,19 @@ async def search_users(
     query = q.strip()
     if not query:
         raise HTTPException(422, {"message": "q 不能为空白", "kind": "invalid_query"})
-    identity = (str(actor.id) if actor is not None
-                else (_client_ip(request) or "unknown"))
-    await enforce_http("users-search", identity, 60, 60)
+    if actor is not None:
+        await enforce_http("users-search", str(actor.id), 60, 60)
+    else:
+        ip = _client_ip(request)
+        if ip:
+            await enforce_http("users-search", ip, 60, 60)
+        else:
+            # R2: 拿不到来源 IP 不落 "unknown" 全站共用桶(那等于所有匿名
+            # 访客合用 60/min)。生产链路 nginx 必写 x-real-ip, 走到这里
+            # 说明绕过了 nginx, 记警不当桶。
+            logger.warning(
+                "users search without client IP (no x-real-ip): "
+                "anonymous rate limit skipped")
 
     like_q = _like_literal(query).lower()
     viewer_id = actor.id if actor else 0

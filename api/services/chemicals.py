@@ -606,7 +606,7 @@ async def fill_detail_context(db: Any, result: dict[str, Any], chemical_id: int,
         SELECT jsonb_array_length(items),coalesce((
             SELECT jsonb_agg(value ORDER BY ordinality)
             FROM jsonb_array_elements_text(items) WITH ORDINALITY AS alias(value,ordinality)
-            WHERE ordinality<=200
+            WHERE ordinality<=20
         ),'[]'::jsonb)
         FROM source
     """), {"id": chemical_id})).fetchone()

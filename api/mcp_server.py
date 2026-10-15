@@ -23,6 +23,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -40,6 +41,8 @@ from sqlalchemy import text
 from .core import rate_limit
 from .core.config import settings
 from .core.database import async_session
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # I-067: MCP 工具参数契约单一来源 —— tools/list 的 schema 约束与函数体内的
@@ -72,7 +75,7 @@ from .schemas.stoichiometry import ScaleInput
 # 两个 render tool 共用同一资源池: render_molecule_svg / render_reaction_svg。
 # RDKit 渲染是 CPU-bound(外部直传 SMILES 可占分钟级), 复用与结构检索同一组
 # 原语: enforce(fixed-window 限频) + acquire_lease/release_lease(in-flight 租约)。
-# - 已认证 actor 120 次/分钟, 匿名按来源 IP 各 120 次/分钟(x-forwarded-for),
+# - 已认证 actor 120 次/分钟, 匿名按来源 IP 各 120 次/分钟(x-real-ip),
 #   匿名全局兜底 600 次/分钟(防分布式刷)
 # - 已认证 actor in-flight ≤ 2(匿名不额外持 actor 租约)
 # - 全局 in-flight ≤ 4
@@ -322,25 +325,33 @@ def _skill_error_message(exc: Exception) -> str:
     return "The skill request could not be completed."
 
 
-def _client_ip(headers: Any) -> str:
-    """匿名限流分桶键: 取 x-forwarded-for 首段(nginx 注入), 缺省 unknown。"""
-    if not headers:
-        return "unknown"
-    xff = headers.get("x-forwarded-for") or headers.get("X-Forwarded-For")
-    if xff:
-        return xff.split(",")[0].strip() or "unknown"
-    return "unknown"
+def _client_ip(headers: Any) -> str | None:
+    """匿名限流分桶键(R2): 读 nginx 覆盖写入的 x-real-ip; 缺省 None,
+    由调用方决定是否落桶(x-forwarded-for 首段可伪造, 不再使用)。"""
+    return rate_limit.client_ip(headers)
 
 
 async def _render_enter(actor: Actor | None, headers: Any = None) -> list[str]:
     """进入渲染闸门, 返回已持有租约的身份列表(交给 _render_exit 释放)。"""
-    identity = f"actor:{actor.id}" if actor is not None else f"anon:{_client_ip(headers)}"
     held: list[str] = []
     try:
+        ip = _client_ip(headers)
+        if actor is not None:
+            identity = f"actor:{actor.id}"
+        elif ip:
+            identity = f"anon:{ip}"
+        else:
+            # R2: 拿不到来源 IP 不落 "anon:unknown" 全站共用桶 —— 匿名
+            # 全局兜底桶仍在, 单一来源刷不动它; 缺头本身记警。
+            identity = None
+            logger.warning(
+                "MCP render without client IP (no x-real-ip): "
+                "per-IP anonymous limit skipped, anon-global only")
+        # 匿名拆桶(按来源IP)后加全局兜底, 防分布式刷
         if actor is None:
-            # 匿名拆桶(按来源IP)后加全局兜底, 防分布式刷
             await rate_limit.enforce(MCP_RENDER_BUCKET, "anon-global", MCP_RENDER_ANON_GLOBAL_LIMIT, 60)
-        await rate_limit.enforce(MCP_RENDER_BUCKET, identity, MCP_RENDER_RATE_LIMIT, 60)
+        if identity is not None:
+            await rate_limit.enforce(MCP_RENDER_BUCKET, identity, MCP_RENDER_RATE_LIMIT, 60)
         if actor is not None:
             if await rate_limit.acquire_lease(MCP_RENDER_BUCKET, identity, MCP_RENDER_ACTOR_INFLIGHT):
                 held.append(identity)

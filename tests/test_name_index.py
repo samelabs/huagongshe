@@ -311,6 +311,56 @@ class IngestTest(unittest.TestCase):
             self.assertEqual(after, expected_after_ja_error,
                              f"哨兵 {sid}: ja 行转 error 后其名称必须移除, 其余保留")
 
+    def test_zh_cn_wins_when_ja_local_name_collides(self):
+        """R4: 同一 cb_number 下 ja 当地名归一化后与中文名相同时,
+        (name_cn, 'cn') 行必须保留 —— name_index 的 PK 不含 lang, 先处理
+        的行先占主键; zh-CN 永远在每个 cb_number 内第一个处理。"""
+
+        async def refresh(conn, sid, cb_number, locale, cn_name):
+            from api.services.cb import upsert_externals
+            entry = {"identity": {"cn": cn_name}}
+            await upsert_externals(
+                conn, chemical_id=sid, cas_number="1000000-00-9",
+                entry=entry, suppliers=[],
+                status="ok", cb_number=cb_number, locale=locale)
+
+        async def body():
+            eng = _engine()
+            try:
+                results = []
+                # 两种落库顺序(ja 先 / zh-CN 先)结果必须一致
+                for order in (("ja", "zh-CN"), ("zh-CN", "ja")):
+                    async with eng.begin() as conn:
+                        sid = await _alloc_sentinel_id(conn)
+                    for locale in order:
+                        async with eng.begin() as conn:
+                            # 同一 cb_number, ja 与 zh-CN 当地名逐字相同
+                            await refresh(conn, sid, "CB9500", locale,
+                                          "哨兵碰撞名")
+                    async with eng.begin() as conn:
+                        rows = (await conn.execute(text(
+                            "SELECT kind, lang, name FROM chemistry.name_index"
+                            " WHERE chemical_id=:i AND source='cb'"
+                        ), {"i": sid})).fetchall()
+                        results.append((sid, {(r[0], r[1], r[2]) for r in rows}))
+                    async with eng.begin() as conn:
+                        await conn.execute(text(
+                            "DELETE FROM chemistry.chemical_cb WHERE chemical_id=:i"),
+                            {"i": sid})
+                        await conn.execute(text(
+                            "DELETE FROM chemistry.chemicals WHERE id=:i"),
+                            {"i": sid})
+                return results
+            finally:
+                await eng.dispose()
+
+        results = self.run_coro(body())
+        # 中文主标题行 (name_cn, 'cn') 必须存在(attach_localized_names 依赖
+        # 该三元组); 归一化碰撞时 ja 行被 PK 冲突合并掉, 不再单列。
+        for sid, rows in results:
+            self.assertEqual(rows, {("name_cn", "cn", "哨兵碰撞名")},
+                             f"哨兵 {sid}: 碰撞时中文行必须保留且唯一")
+
     def test_multilocale_names_are_searchable_via_normalize(self):
         """I-087: ja/ko/de 名称按 normalize_name 命中(搜索端不按语言过滤)。"""
 

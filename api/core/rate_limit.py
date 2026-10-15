@@ -83,6 +83,24 @@ async def enforce(bucket: str, identity: str, limit: int, window_seconds: int) -
         raise RateLimited("请求过于频繁，请稍后重试", retry_after=retry_after)
 
 
+def client_ip(headers) -> str | None:
+    """按 IP 限流的统一分桶键(R2): 读 nginx 覆盖写入的 X-Real-IP。
+
+    生产链路 Cloudflare → nginx(cloudflare-realip) → FastAPI: nginx 把
+    $remote_addr(真实访客 IP)写入 X-Real-IP, 客户端无法伪造。X-Forwarded-For
+    首段是请求自带的值(Cloudflare 原样保留再追加), 可伪造, 不用于分桶。
+    接受任何带 .get() 的 headers 映射(FastAPI Request.headers 与 MCP
+    ctx.headers 通用)。头缺失/为空返回 None —— 调用方按"拿不到 IP 不落
+    全站共用桶"处理, 避免所有匿名请求挤进同一个桶。
+    """
+    if not headers:
+        return None
+    value = headers.get("x-real-ip") or headers.get("X-Real-Ip")
+    if value:
+        return value.strip() or None
+    return None
+
+
 
 
 # ---- 结构检索资源闸门(0912) -------------------------------------------------
