@@ -33,7 +33,8 @@ class OAuthContractTests(unittest.TestCase):
         self.assertEqual(auth["registration_endpoint"], "https://huagongshe.com/oauth/register")
         self.assertEqual(auth["token_endpoint_auth_methods_supported"], ["none"])
         self.assertEqual(auth["code_challenge_methods_supported"], ["S256"])
-        self.assertNotIn("client_id_metadata_document_supported", auth)
+        # B1 (I-072): 元数据声明 CIMD 支持; registration_endpoint (DCR) 保留。
+        self.assertTrue(auth["client_id_metadata_document_supported"])
         self.assertNotIn("authorization_response_iss_parameter_supported", auth)
 
     def test_pkce_s256(self):

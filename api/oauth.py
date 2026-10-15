@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import html
 import logging
-from urllib.parse import parse_qs, quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 from fastapi import APIRouter, Body, Depends, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -11,13 +11,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .core import rate_limit
 from .core.database import get_db
+from .core.rate_limit import RateLimitError
 from .core.security import Actor, current_session, optional_actor
-from .rate_limit_http import enforce_http
+from .rate_limit_http import enforce_http, to_http_exception
 from .services import oauth as svc
+from .services import oauth_cimd
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/oauth", tags=["oauth"])
+
+
+def _client_ip(request: Request) -> str | None:
+    """匿名限流分桶键: x-forwarded-for 首段(nginx 注入), 缺省 None。"""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip() or None
+    return None
 
 
 def _oauth_error(exc: svc.OAuthProtocolError) -> JSONResponse:
@@ -92,6 +102,82 @@ async def register(
     return response
 
 
+_AUTHORIZE_PAGE_STYLE = """body{font-family:system-ui,-apple-system,sans-serif;background:#f6f7f8;color:#15171a;margin:0}
+main{max-width:620px;margin:10vh auto;padding:32px;background:white;border:1px solid #e3e6e8;border-radius:16px}
+h1{font-size:24px;margin:0 0 12px} p{line-height:1.6;color:#4b5563}
+code{font-size:13px} .actions{display:flex;gap:12px;margin-top:28px}
+button{border:1px solid #cfd4d9;border-radius:9px;padding:10px 18px;background:white;font:inherit;cursor:pointer}
+button.primary{background:#111827;color:white;border-color:#111827}
+.origin{margin:-6px 0 12px;color:#6b7280}"""
+
+
+def _authorize_error_page(exc: svc.OAuthProtocolError) -> HTMLResponse:
+    """I-071: client_id/redirect_uri 无效时, 不重定向到未校验地址, 也不返回
+    裸 JSON —— 沿用授权页样式的英文错误页, 说明是哪一项无效。
+    本函数只服务于登录前校验: 除 redirect_uri 相关错误外, 其余均归为
+    client_id 无效(含 CIMD 文档无法拉取/校验)。"""
+    if "redirect_uri" in exc.description:
+        invalid = "The <strong>redirect_uri</strong> is not registered for this client."
+    else:
+        invalid = "The <strong>client_id</strong> is invalid or could not be verified."
+    page = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cannot connect · HGS</title>
+<style>{_AUTHORIZE_PAGE_STYLE}</style>
+</head>
+<body><main>
+<p>HGS · 化工社</p>
+<h1>Cannot connect</h1>
+<p>{invalid}</p>
+<p class="origin">{html.escape(exc.description)}</p>
+<p><a href="/mcp-guide">MCP 接入指南</a></p>
+</main></body></html>"""
+    response = HTMLResponse(page, status_code=400)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+async def _resolve_client_for_authorize(
+    db: AsyncSession,
+    *,
+    client_id: str,
+    redirect_uri: str,
+    actor: Actor | None,
+    request: Request,
+) -> dict:
+    """登录跳转之前先校验 client_id + redirect_uri (I-071)。
+
+    CIMD client_id(https URL)按缓存/拉取解析; 其余按 oauth_clients 登记
+    内容校验。返回 {client_name, host, source_type, ...}; 无效时抛
+    OAuthProtocolError(不带 redirect_uri, 由调用方渲染错误页)。
+    """
+    if oauth_cimd.is_cimd_client_id(client_id):
+        logged_in = actor is not None and actor.auth_kind == "session"
+        return await oauth_cimd.ensure_client_for_authorize(
+            db,
+            client_id=client_id,
+            redirect_uri=redirect_uri,
+            actor_id=actor.id if logged_in else None,
+            client_ip=_client_ip(request),
+        )
+    client = await svc._load_client(db, client_id)
+    if client is None:
+        raise svc.OAuthProtocolError("unauthorized_client", "Unknown OAuth client.")
+    if redirect_uri not in tuple(client["redirect_uris"] or ()):
+        raise svc.OAuthProtocolError(
+            "invalid_request", "redirect_uri is not registered."
+        )
+    return {
+        "client_id": client_id,
+        "client_name": client["client_name"] or "MCP client",
+        "host": None,
+        "source_type": "registered_or_dcr",
+    }
+
+
 @router.get("/authorize")
 async def authorize(
     request: Request,
@@ -109,6 +195,21 @@ async def authorize(
     actor: Actor | None = Depends(optional_actor),
     db: AsyncSession = Depends(get_db),
 ):
+    # I-071: client_id / redirect_uri (CIMD 含文档拉取) 先于登录判断校验,
+    # 未登录用户直接得到错误页而不是被带去登录后再失败。
+    try:
+        client = await _resolve_client_for_authorize(
+            db,
+            client_id=client_id,
+            redirect_uri=redirect_uri,
+            actor=actor,
+            request=request,
+        )
+    except svc.OAuthProtocolError as exc:
+        return _authorize_error_page(exc)
+    except RateLimitError as exc:
+        raise to_http_exception(exc) from exc
+
     if actor is None or actor.auth_kind != "session":
         next_path = "/oauth/authorize"
         if request.url.query:
@@ -145,24 +246,31 @@ async def authorize(
     scopes = "".join(
         f"<li><code>{html.escape(value)}</code></li>" for value in pending["scopes"]
     )
+    # CIMD 客户端名称由文档自报, host 才是可信身份 → 名称下方显著展示来源。
+    host_line = (
+        f'\n<p class="origin">from {html.escape(str(client["host"]))}</p>'
+        if client["host"] else ""
+    )
+    # localhost 回调: 授权码会返回到用户本机应用, 明示避免误授权。
+    local_note = ""
+    if client["host"]:
+        redirect_host = urlsplit(redirect_uri).hostname or ""
+        if redirect_host in {"localhost", "127.0.0.1", "::1"}:
+            local_note = (
+                '\n<p class="origin">The authorization code will be returned '
+                'to an application on this machine (localhost).</p>'
+            )
     page = f"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Connect HGS</title>
-<style>
-body{{font-family:system-ui,-apple-system,sans-serif;background:#f6f7f8;color:#15171a;margin:0}}
-main{{max-width:620px;margin:10vh auto;padding:32px;background:white;border:1px solid #e3e6e8;border-radius:16px}}
-h1{{font-size:24px;margin:0 0 12px}} p{{line-height:1.6;color:#4b5563}}
-code{{font-size:13px}} .actions{{display:flex;gap:12px;margin-top:28px}}
-button{{border:1px solid #cfd4d9;border-radius:9px;padding:10px 18px;background:white;font:inherit;cursor:pointer}}
-button.primary{{background:#111827;color:white;border-color:#111827}}
-</style>
+<style>{_AUTHORIZE_PAGE_STYLE}</style>
 </head>
 <body><main>
 <p>HGS · 化工社</p>
-<h1>Connect {html.escape(str(pending["client_name"]))}</h1>
+<h1>Connect {html.escape(str(pending["client_name"]))}</h1>{host_line}{local_note}
 <p>This connection will act as <strong>{html.escape(actor.display_name)}</strong>
 for the permissions below.</p>
 <ul>{scopes}</ul>
