@@ -11,7 +11,7 @@ import secrets
 import tempfile
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -154,6 +154,87 @@ async def me(actor: Actor = Depends(current_actor)):
     if actor.auth_kind == "agent":
         result.pop("email", None)
     return result
+
+
+def _like_literal(value: str) -> str:
+    """ILIKE 字面量: %/_/反斜杠是数据不是通配符(与搜索层同语义)。"""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _client_ip(request) -> str | None:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip() or None
+    return None
+
+
+@router.get("/search")
+async def search_users(
+    request: Request,
+    q: str = Query(..., min_length=1, max_length=50),
+    page: int = Query(1, ge=1, le=50),
+    page_size: int = Query(20, ge=1, le=50),
+    actor: Actor | None = Depends(public_or_actor),
+    db=Depends(get_db),
+):
+    """I-082: 用户搜索 —— username 前缀(不区分大小写)或 display_name 包含
+    (不区分大小写); username 完全匹配排第一。只返回 active 用户与公开字段。
+    匿名按 IP 限流 60/min, 登录按用户限流(当前 545 用户, ILIKE 足够;
+    将来量级上来再评估 pg_trgm GIN(username/display_name) + 前缀 opclass)。
+    """
+    query = q.strip()
+    if not query:
+        raise HTTPException(422, {"message": "q 不能为空白", "kind": "invalid_query"})
+    identity = (str(actor.id) if actor is not None
+                else (_client_ip(request) or "unknown"))
+    await enforce_http("users-search", identity, 60, 60)
+
+    like_q = _like_literal(query).lower()
+    viewer_id = actor.id if actor else 0
+    match_clause = (
+        "lower(u.username) LIKE :prefix ESCAPE '\\'"
+        " OR lower(u.display_name) LIKE '%' || :contains || '%' ESCAPE '\\'"
+    )
+    params = {
+        "prefix": like_q + "%",
+        "contains": like_q,
+        "exact": query.lower(),
+        "limit": page_size,
+        "offset": (page - 1) * page_size,
+        "viewer_id": viewer_id,
+    }
+    total = int((await db.execute(text(f"""
+        SELECT count(*) FROM community.users u
+        WHERE u.status='active' AND ({match_clause})
+    """), params)).scalar() or 0)
+    rows = (await db.execute(text(f"""
+        SELECT u.username, u.display_name, u.avatar_path AS avatar_url, u.bio,
+               (SELECT count(*) FROM community.user_follows fc
+                 WHERE fc.followed_user_id=u.id) AS follower_count,
+               EXISTS(
+                 SELECT 1 FROM community.user_follows mine
+                 WHERE mine.follower_user_id=:viewer_id
+                   AND mine.followed_user_id=u.id
+               ) AS is_following
+        FROM community.users u
+        WHERE u.status='active' AND ({match_clause})
+        ORDER BY (lower(u.username)=:exact) DESC,
+                 (lower(u.username) LIKE :prefix ESCAPE '\\') DESC,
+                 u.id
+        LIMIT :limit OFFSET :offset
+    """), params)).mappings().all()
+    users = [
+        {
+            "username": row["username"],
+            "display_name": row["display_name"],
+            "avatar_url": row["avatar_url"],
+            "bio": (row["bio"] or "")[:120] or None,
+            "follower_count": int(row["follower_count"] or 0),
+            "is_following": bool(row["is_following"]),
+        }
+        for row in rows
+    ]
+    return {"total": total, "page": page, "page_size": page_size, "users": users}
 
 
 @router.get("/me/dashboard")
@@ -329,6 +410,7 @@ async def list_tokens(response: Response, actor: Actor = Depends(current_session
         FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL
         ORDER BY id DESC
+        LIMIT 5  -- I-083: 与创建上限(5 个有效 Key)一致的有界防御
     """), {"id": actor.id})).mappings().all()
     return [dict(row) for row in rows]
 

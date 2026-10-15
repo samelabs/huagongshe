@@ -105,7 +105,10 @@ async def list_skills(
             {
                 "id": row["id"], "slug": row["slug"], "title": row["title"],
                 "description": row["description"], "category": row["category"],
-                "origin": row["origin"], "visibility": row["visibility"],
+                # I-024: 公开输出不暴露 origin 枚举值(含历史 'kdense'),
+                # 改出 is_official; admin 接口保留 origin, 数据库值不动。
+                "is_official": row["origin"] == "official",
+                "visibility": row["visibility"],
                 "has_scripts": row["has_scripts"], "file_count": row["file_count"],
                 "size_bytes": int(row["size_bytes"]), "updated_at": row["updated_at"],
                 "owner": {"username": row["username"],
@@ -182,6 +185,8 @@ async def get_skill_detail(
     (missing → skill_md=None; decode errors="replace") → 组装。
     """
     manifest = await load_accessible_skill(db, skill_id, actor_id=actor_id)
+    # I-024: 公开 detail 输出同 list —— origin 换 is_official。
+    manifest["is_official"] = manifest.pop("origin") == "official"
     files = (await db.execute(text("""
         SELECT path,is_text,size_bytes,sha256,is_entry
         FROM community.skill_files WHERE skill_id=:id ORDER BY is_entry DESC, path

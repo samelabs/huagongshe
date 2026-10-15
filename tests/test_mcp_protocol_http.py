@@ -86,12 +86,18 @@ class McpStreamableHttpProtocolTests(unittest.IsolatedAsyncioTestCase):
 
                     # Invalid ID is rejected before any DB access. This proves
                     # a real tools/call round-trip without coupling this wire
-                    # contract test to PostgreSQL or Redis.
+                    # contract test to PostgreSQL or Redis. I-067 后越界值在
+                    # 入参 schema 校验即拒绝(pydantic 消息), 不再进入工具体
+                    # 的运行时 ToolError —— 两种文案都算"入参被拒"。
                     result = await client.call_tool(
                         "get_chemical", {"chemical_id": 0, "enrich": "core"}
                     )
                     self.assertTrue(result.is_error)
-                    self.assertIn("chemical_id is out of range", str(result.content))
+                    text = str(result.content)
+                    self.assertTrue(
+                        "chemical_id is out of range" in text
+                        or "Input should be greater than or equal to 1" in text,
+                        f"unexpected rejection text: {text}")
 
 
 if __name__ == "__main__":

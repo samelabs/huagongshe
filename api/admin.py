@@ -48,14 +48,22 @@ def _validated_scopes(scopes: list[str]) -> list[str]:
 @router.get("/workers")
 async def list_workers(
     actor: Actor = Depends(admin), db=Depends(get_db),
+    limit: int = Query(200, ge=1, le=200),
+    offset: int = Query(0, ge=0),
 ):
-    """Worker 客户端清单(不含 token hash)。运行状态复用 pipeline_health 投影。"""
+    """Worker 客户端清单(不含 token hash)。运行状态复用 pipeline_health 投影。
+
+    I-083: SQL 加界(limit ≤ 200)。返回保持裸数组形状——管理端
+    WorkersPanel 按数组消费, 换 {items,total} 契约需与前端轮次协同,
+    本批不动(表为运维手工登记的小表, 200 上限远超实际规模)。
+    """
     from .services.pipeline_health import build_worker_runtimes
     rows = (await db.execute(text("""
         SELECT worker_id,display_name,scopes,max_lease_jobs,enabled,
                created_at,last_seen_at,disabled_at
         FROM maintenance.worker_clients ORDER BY worker_id
-    """))).mappings().all()
+        LIMIT :limit OFFSET :offset
+    """), {"limit": limit, "offset": offset})).mappings().all()
     now_dt = (await db.execute(text("SELECT now()"))).scalar()
     runtimes = {w.worker_id: w.runtime for w in build_worker_runtimes(
         [(r["worker_id"], r["display_name"], r["enabled"], r["scopes"], r["last_seen_at"]) for r in rows],

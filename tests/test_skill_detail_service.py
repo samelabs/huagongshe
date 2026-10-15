@@ -127,7 +127,8 @@ class AccessKernelTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_16_field_shape_unchanged(self):
         """16 基础字段不变; owner 子对象新增 active(停用作者标记,
-        HGS-ACCOUNT-CONTENT-01) — 顶层字段数不变。"""
+        HGS-ACCOUNT-CONTENT-01) — 顶层字段数不变。内部 kernel 保留 origin
+        (admin 语义); is_official 投影发生在 detail 编排层(I-024)。"""
         d = await self._load(_skill_row(), None)
         self.assertEqual(
             list(d.keys()),
@@ -152,6 +153,10 @@ class DetailServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result["files"]), 2)
         self.assertIsNone(result["skill_md"])  # fs 无文件 → None
         self.assertNotIn("script_warning", result)  # has_scripts=False
+        # I-024: 公开 detail 输出 origin → is_official(布尔)
+        self.assertNotIn("origin", result)
+        self.assertIn("is_official", result)
+        self.assertFalse(result["is_official"])  # origin='user' → 非官方
 
     async def test_skill_md_present(self):
         import tempfile

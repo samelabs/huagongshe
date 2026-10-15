@@ -24,9 +24,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI, HTTPException
+from pydantic import Field
+
 from .core.rate_limit import RateLimitError
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.context import Context
@@ -38,6 +40,28 @@ from sqlalchemy import text
 from .core import rate_limit
 from .core.config import settings
 from .core.database import async_session
+
+# ---------------------------------------------------------------------------
+# I-067: MCP 工具参数契约单一来源 —— tools/list 的 schema 约束与函数体内的
+# 运行时校验取同一组常量(漂移即测试失败)。schema 收紧后越界值在入参校验即
+# 报错(原先静默 clamp), clamp 语句保留为双保险。
+# ---------------------------------------------------------------------------
+QUERY_MAX_LENGTH = 4000
+SEARCH_PAGE_MAX = 20
+SEARCH_PAGE_SIZE_DEFAULT = 30
+SEARCH_PAGE_SIZE_MAX = 100
+THRESHOLD_MIN = 0.4
+THRESHOLD_MAX = 1.0
+ID_MAX = 2_147_483_647
+RENDER_SIZE_MIN = 50
+RENDER_SIZE_MAX = 800
+SMILES_MAX_LENGTH = 512
+SKILL_QUERY_MAX_LENGTH = 120
+SKILL_CATEGORY_MAX_LENGTH = 40
+LIST_PAGE_MAX = 500
+MY_REACTIONS_PAGE_SIZE_DEFAULT = 20
+MY_REACTIONS_PAGE_SIZE_MAX = 50
+IDEMPOTENCY_KEY_MAX_LENGTH = 200
 from .schemas.reactions import ReactionBody
 from .core.security import Actor, resolve_actor
 from .schemas.stoichiometry import ScaleInput
@@ -685,6 +709,24 @@ def _public_skill(s: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in s.items() if k not in ("origin", "owner_id")}
 
 
+def _clean_doc(doc: str | None) -> str | None:
+    """I-067: 工具描述去掉 docstring 缩进与首尾/行尾空白。
+
+    嵌套定义的 docstring 首行贴着三引号(无缩进), 其余行带 8 空格缩进,
+    textwrap.dedent 对这种形态的公共前缀是空串 —— 改为按"第二行起的
+    最小缩进"切齐, 逐行去行尾空白。
+    """
+    if not doc:
+        return doc
+    lines = doc.strip().splitlines()
+    if len(lines) > 1:
+        indents = [len(line) - len(line.lstrip())
+                   for line in lines[1:] if line.strip()]
+        cut = min(indents) if indents else 0
+        lines = [lines[0].rstrip()] + [line[cut:].rstrip() for line in lines[1:]]
+    return "\n".join(lines).strip()
+
+
 def build_mcp_server() -> MCPServer:
     server = MCPServer(
         name="huagongshe-aichem",
@@ -704,15 +746,40 @@ def build_mcp_server() -> MCPServer:
         ),
     )
 
+    # I-067: 包装 tool 注册 —— 描述统一 dedent+strip(docstring 原样带
+    # 嵌套缩进与尾随空白进 tools/list), 其余参数透传。
+    _register_tool = server.tool
+
+    def _tool(**kwargs):
+        def deco(fn):
+            if fn.__doc__ and "description" not in kwargs:
+                kwargs["description"] = _clean_doc(fn.__doc__)
+            return _register_tool(**kwargs)(fn)
+        return deco
+
+    server.tool = _tool
+
     # ---------------- 查询与读取工具 ----------------
 
     @server.tool(name="search_chemistry_data", title="Search chemistry data", annotations=ANN_SEARCH_OPEN, meta=SEC_OPTIONAL_READ)
     async def search_chemistry_data(
-        q: str,
-        mode: str = "exact",
-        threshold: float = 0.7,
-        page: int = 1,
-        page_size: int = 30,
+        q: Annotated[str, Field(
+            min_length=1, max_length=QUERY_MAX_LENGTH,
+            description="Query string: chemical or reaction name, CAS number, "
+                        "HCID, PubChem CID, InChIKey, DOI, SMILES, or reaction "
+                        "SMILES.")],
+        mode: Annotated[Literal["exact", "substructure", "similarity"], Field(
+            description="Search mode. exact matches identifiers and names; "
+                        "substructure and similarity take a SMILES query and "
+                        "require authentication.")] = "exact",
+        threshold: Annotated[float, Field(
+            ge=THRESHOLD_MIN, le=THRESHOLD_MAX,
+            description="Similarity cutoff, only used when mode=similarity.")] = 0.7,
+        page: Annotated[int, Field(
+            ge=1, le=SEARCH_PAGE_MAX, description="Result page number.")] = 1,
+        page_size: Annotated[int, Field(
+            ge=1, le=SEARCH_PAGE_SIZE_MAX,
+            description="Results per page.")] = SEARCH_PAGE_SIZE_DEFAULT,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """Search chemicals and reactions by name, CAS, HCID, PubChem CID, InChIKey,
@@ -730,13 +797,13 @@ def build_mcp_server() -> MCPServer:
         if mode not in ("exact", "substructure", "similarity"):
             raise ToolError("mode must be one of: exact, substructure, similarity.")
         q = (q or "").strip()
-        if not q or len(q) > 4000:
+        if not q or len(q) > QUERY_MAX_LENGTH:
             raise ToolError("q is required and must not exceed 4000 characters.")
-        page = min(max(page, 1), 20)
-        page_size = min(max(page_size, 1), 100)
+        page = min(max(page, 1), SEARCH_PAGE_MAX)
+        page_size = min(max(page_size, 1), SEARCH_PAGE_SIZE_MAX)
         # threshold 3位小数契约(与 REST routes.py 0914 #6 同口径): 不round则
         # 0.70004 穿透到 REST 层吃 422, 错误信息对 MCP 客户端不可解。
-        threshold = round(min(max(threshold, 0.4), 1.0), 3)
+        threshold = round(min(max(threshold, THRESHOLD_MIN), THRESHOLD_MAX), 3)
         # 结构检索登录墙与 REST 一致: mode!=exact 需 Bearer token, 匿名 ToolError.
         # exact 保持原样(匿名, 不透传 actor).
         actor = None
@@ -770,8 +837,12 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="get_chemical", title="Get chemical", annotations=ANN_CHEMICAL_OPEN, meta=SEC_NOAUTH)
     async def get_chemical(
-        chemical_id: int,
-        enrich: str = "core",
+        chemical_id: Annotated[int, Field(
+            ge=1, le=ID_MAX, description="HCID, the HGS chemical identifier.")],
+        enrich: Annotated[Literal["core", "full"], Field(
+            description="core returns identifiers, names, formula, masses and "
+                        "structure; full adds semantic detail (properties, "
+                        "safety, industry, suppliers).")] = "core",
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """Return one chemical by HCID.
@@ -783,7 +854,7 @@ def build_mcp_server() -> MCPServer:
         """
         if enrich not in ("core", "full"):
             raise ToolError("enrich must be either core or full.")
-        if not 1 <= chemical_id <= 2_147_483_647:
+        if not 1 <= chemical_id <= ID_MAX:
             raise ToolError("chemical_id is out of range.")
         # G2.4B: 直调 shared detail orchestration(services/chemicals)。
         # auth 行为冻结: 恒匿名(actor 不解析), priority=50 与基线一致。
@@ -805,7 +876,9 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="get_reaction", title="Get reaction", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
     async def get_reaction(
-        reaction_id: int,
+        reaction_id: Annotated[int, Field(
+            ge=1, le=ID_MAX,
+            description="HRID, the HGS reaction identifier.")],
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """Return one reaction by HRID. With an authenticated credential, the owner may
@@ -816,7 +889,7 @@ def build_mcp_server() -> MCPServer:
             ctx.headers if ctx else None, oauth_scope="read")
         if auth_result is not None:
             return auth_result  # type: ignore[return-value]
-        if not 1 <= reaction_id <= 2_147_483_647:
+        if not 1 <= reaction_id <= ID_MAX:
             raise ToolError("reaction_id is out of range.")
         # G2.5B: 直调 transport-neutral service(None=不存在或不可见);
         # auth 行为冻结: 无/无效 credential → anonymous(viewer_id=0)。
@@ -832,10 +905,18 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="render_molecule_svg", title="Render molecule SVG", annotations=ANN_READ_CLOSED, meta=SEC_NOAUTH)
     async def render_molecule_svg(
-        chemical_id: int | None = None,
-        smiles: str | None = None,
-        width: int = 400,
-        height: int = 300,
+        chemical_id: Annotated[int | None, Field(
+            ge=1, le=ID_MAX,
+            description="HCID to render. Provide either chemical_id or smiles.")] = None,
+        smiles: Annotated[str | None, Field(
+            max_length=SMILES_MAX_LENGTH,
+            description="SMILES to render instead of a chemical_id.")] = None,
+        width: Annotated[int, Field(
+            ge=RENDER_SIZE_MIN, le=RENDER_SIZE_MAX,
+            description="Output width in pixels (clamped to range).")] = 400,
+        height: Annotated[int, Field(
+            ge=RENDER_SIZE_MIN, le=RENDER_SIZE_MAX,
+            description="Output height in pixels (clamped to range).")] = 300,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> str:
         """Render a 2D molecular structure as SVG text.
@@ -847,8 +928,8 @@ def build_mcp_server() -> MCPServer:
         from .services import rendering as render_service
 
         actor = await _actor_from_headers(ctx.headers if ctx else None)
-        width = min(max(width, 50), 800)
-        height = min(max(height, 50), 800)
+        width = min(max(width, RENDER_SIZE_MIN), RENDER_SIZE_MAX)
+        height = min(max(height, RENDER_SIZE_MIN), RENDER_SIZE_MAX)
         target_smiles: str | None = None
         if chemical_id is not None:
             async with async_session() as session:
@@ -862,7 +943,7 @@ def build_mcp_server() -> MCPServer:
             # SMILES 可让 RDKit render 占分钟级 CPU。512 只管用户直传;
             # chemical_id 路径的 SMILES 来自 DB(受写入校验), 不套用。
             # guard 必须在 RDKit 之前。
-            if len(target_smiles) > 512:
+            if len(target_smiles) > SMILES_MAX_LENGTH:
                 raise ToolError("SMILES must not exceed 512 characters.")
         else:
             raise ToolError("Provide exactly one structure source: chemical_id or smiles.")
@@ -882,9 +963,14 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="render_reaction_svg", title="Render reaction SVG", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
     async def render_reaction_svg(
-        reaction_id: int,
-        width: int = 800,
-        height: int = 300,
+        reaction_id: Annotated[int, Field(
+            ge=1, le=ID_MAX, description="HRID to render.")],
+        width: Annotated[int, Field(
+            ge=RENDER_SIZE_MIN, le=RENDER_SIZE_MAX,
+            description="Output width in pixels (clamped to range).")] = 800,
+        height: Annotated[int, Field(
+            ge=RENDER_SIZE_MIN, le=RENDER_SIZE_MAX,
+            description="Output height in pixels (clamped to range).")] = 300,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> str:
         """Render a reaction equation as SVG text.
@@ -898,8 +984,8 @@ def build_mcp_server() -> MCPServer:
             ctx.headers if ctx else None, oauth_scope="read")
         if auth_result is not None:
             return auth_result  # type: ignore[return-value]
-        width = min(max(width, 50), 800)
-        height = min(max(height, 50), 800)
+        width = min(max(width, RENDER_SIZE_MIN), RENDER_SIZE_MAX)
+        height = min(max(height, RENDER_SIZE_MIN), RENDER_SIZE_MAX)
         async with async_session() as session:
             source = await render_service.lookup_reaction_render_source(
                 session, reaction_id,
@@ -923,11 +1009,21 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="list_skills", title="List skills", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
     async def list_skills(
-        scope: str = "public",
-        q: str = "",
-        category: str = "",
-        page: int = 1,
-        page_size: int = 30,
+        scope: Annotated[Literal["public", "mine"], Field(
+            description="public lists the public skill pool anonymously; "
+                        "mine lists the caller's own skills (requires "
+                        "authentication).")] = "public",
+        q: Annotated[str, Field(
+            max_length=SKILL_QUERY_MAX_LENGTH,
+            description="Optional case-insensitive title/slug filter.")] = "",
+        category: Annotated[str, Field(
+            max_length=SKILL_CATEGORY_MAX_LENGTH,
+            description="Optional exact category filter.")] = "",
+        page: Annotated[int, Field(
+            ge=1, le=LIST_PAGE_MAX, description="Result page number.")] = 1,
+        page_size: Annotated[int, Field(
+            ge=1, le=SEARCH_PAGE_SIZE_MAX,
+            description="Results per page.")] = SEARCH_PAGE_SIZE_DEFAULT,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """List reusable skills. scope=public is available anonymously; scope=mine
@@ -950,8 +1046,8 @@ def build_mcp_server() -> MCPServer:
             assert actor is not None
         q = (q or "")[:120]
         category = (category or "")[:40]
-        page = min(max(page, 1), 500)
-        page_size = min(max(page_size, 1), 100)
+        page = min(max(page, 1), LIST_PAGE_MAX)
+        page_size = min(max(page_size, 1), SEARCH_PAGE_SIZE_MAX)
         # G2.6B: 直调 shared service(skill.query.list kernel)。
         async with async_session() as session:
             listed = await _list_service(
@@ -962,7 +1058,9 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="get_skill", title="Get skill", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
     async def get_skill(
-        skill_id: int | str,
+        skill_id: Annotated[int | str, Field(
+            description="Numeric skill ID or slug, e.g. "
+                        "huagongshe-reaction-publisher.")],
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """Return a skill manifest, file list, and full SKILL.md text.
@@ -985,7 +1083,7 @@ def build_mcp_server() -> MCPServer:
                 resolved_id = await _resolve_skill_slug(candidate, actor)
         else:
             resolved_id = skill_id
-        if not 1 <= resolved_id <= 2_147_483_647:
+        if not 1 <= resolved_id <= ID_MAX:
             raise ToolError("skill_id is out of range.")
         # G2.6C: 直调 shared detail service(slug 解析留本 adapter);
         # missing/private-unreadable → 同一 ToolError 原文。
@@ -999,9 +1097,18 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="calculate_stoichiometry", title="Calculate stoichiometry", annotations=ANN_READ_CLOSED, meta=SEC_NOAUTH)
     async def calculate_stoichiometry(
-        components: list[dict[str, Any]],
-        basis: dict[str, Any],
-        concentration_mol_per_l: float | None = None,
+        components: Annotated[list[dict[str, Any]], Field(
+            description="Reaction components. Each entry uses role "
+                        "(REACTANT/REAGENT/CATALYST/SOLVENT/PRODUCT), name, "
+                        "amount fields, and optional molecular weight; see the "
+                        "tool description for the full shape.")],
+        basis: Annotated[dict[str, Any], Field(
+            description="Basis for scaling: which component and which amount "
+                        "field the new total applies to.")],
+        concentration_mol_per_l: Annotated[float | None, Field(
+            gt=0,
+            description="Optional solution concentration (mol/L) used when "
+                        "the basis is a volume.")] = None,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """Scale a reaction formulation from one basis amount.
@@ -1045,9 +1152,13 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="list_my_reactions", title="List my reactions", annotations=ANN_READ_CLOSED, meta=SEC_OAUTH_READ)
     async def list_my_reactions(
-        visibility: str = "all",
-        page: int = 1,
-        page_size: int = 20,
+        visibility: Annotated[Literal["all", "public", "private"], Field(
+            description="Filter the caller's own reactions by visibility.")] = "all",
+        page: Annotated[int, Field(
+            ge=1, le=LIST_PAGE_MAX, description="Result page number.")] = 1,
+        page_size: Annotated[int, Field(
+            ge=1, le=MY_REACTIONS_PAGE_SIZE_MAX,
+            description="Results per page.")] = MY_REACTIONS_PAGE_SIZE_DEFAULT,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """List reaction records owned by the authenticated HGS user."""
@@ -1063,8 +1174,8 @@ def build_mcp_server() -> MCPServer:
         assert actor is not None
         if visibility not in ("all", "public", "private"):
             raise ToolError("visibility must be one of: all, public, private.")
-        page = min(max(page, 1), 500)
-        page_size = min(max(page_size, 1), 50)
+        page = min(max(page, 1), LIST_PAGE_MAX)
+        page_size = min(max(page_size, 1), MY_REACTIONS_PAGE_SIZE_MAX)
         # G2.5C: 直调 shared service(clamp 保持, 不改 ToolError/拒绝).
         async with async_session() as session:
             listed = await _list_service(
@@ -1077,7 +1188,9 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="validate_reaction", title="Validate reaction draft", annotations=ANN_READ_CLOSED, meta=SEC_OAUTH_REACTION_WRITE)
     async def validate_reaction(
-        reaction: dict[str, Any],
+        reaction: Annotated[dict[str, Any], Field(
+            description="Reaction draft to validate. Same field model as "
+                        "create_reaction; nothing is saved.")],
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """Validate and normalize a reaction draft without saving it.
@@ -1112,7 +1225,10 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="validate_skill", title="Validate skill package", annotations=ANN_READ_CLOSED, meta=SEC_OAUTH_SKILL_WRITE)
     async def validate_skill(
-        zip_base64: str,
+        zip_base64: Annotated[str, Field(
+            min_length=1,
+            description="Base64-encoded skill ZIP archive (same package "
+                        "format as create_skill). Nothing is saved.")],
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """Validate a skill ZIP without saving it.
@@ -1159,9 +1275,17 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="create_skill", title="Create skill", annotations=ANN_CREATE_CLOSED, meta=SEC_OAUTH_SKILL_WRITE)
     async def create_skill(
-        zip_base64: str,
-        category: str | None = None,
-        idempotency_key: str = "",
+        zip_base64: Annotated[str, Field(
+            min_length=1,
+            description="Base64-encoded skill ZIP archive.")],
+        category: Annotated[str | None, Field(
+            max_length=SKILL_CATEGORY_MAX_LENGTH,
+            description="Optional category slug from the public category "
+                        "dictionary.")] = None,
+        idempotency_key: Annotated[str, Field(
+            max_length=IDEMPOTENCY_KEY_MAX_LENGTH,
+            description="Client-generated retry key; the same key never "
+                        "creates a duplicate skill.")] = "",
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """Create a private skill from a user-confirmed ZIP package.
@@ -1218,8 +1342,14 @@ def build_mcp_server() -> MCPServer:
 
     @server.tool(name="create_reaction", title="Create reaction", annotations=ANN_CREATE_OPEN, meta=SEC_OAUTH_REACTION_WRITE)
     async def create_reaction(
-        reaction: dict[str, Any],
-        idempotency_key: str,
+        reaction: Annotated[dict[str, Any], Field(
+            description="User-confirmed reaction draft. Validate it first "
+                        "with validate_reaction; required fields and "
+                        "constraints are listed by that tool.")],
+        idempotency_key: Annotated[str, Field(
+            min_length=1, max_length=IDEMPOTENCY_KEY_MAX_LENGTH,
+            description="Client-generated retry key; the same key never "
+                        "creates a duplicate reaction.")],
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
         """Create a user-confirmed reaction record.
@@ -1246,7 +1376,7 @@ def build_mcp_server() -> MCPServer:
         assert actor is not None
         # G3.1C 冻结差异: MCP 侧 idempotency_key 必填且 ≤200, 检查在
         # service/rate 之前(service 不被调, quota 不消耗)。
-        if not idempotency_key or len(idempotency_key) > 200:
+        if not idempotency_key or len(idempotency_key) > IDEMPOTENCY_KEY_MAX_LENGTH:
             raise ToolError("idempotency_key is required and must not exceed 200 characters.")
         try:
             body = ReactionBody(**reaction)

@@ -29,13 +29,15 @@ sys.path.insert(0, str(ROOT))
 
 # HGS_DATABASE_URL 必须指向 asyncpg 驱动的测试库(import api.admin 时
 # create_async_engine 拒绝 psycopg2)。与 tests/test_cb_negative.py 同模式。
-os.environ.setdefault(
-    "HGS_DATABASE_URL",
-    os.environ.get("TEST_DATABASE_URL",
-                   "postgresql+asyncpg://test:test@127.0.0.1:5432/test_hgs"))
-if os.environ["HGS_DATABASE_URL"].startswith("postgresql://"):
-    os.environ["HGS_DATABASE_URL"] = "postgresql+asyncpg://" + \
-        os.environ["HGS_DATABASE_URL"].split("://", 1)[1].split("?", 1)[0]
+# I-058: 统一走 db_gate(库名模式+sentinel), 不再自带缺省 DSN 回落。
+from tests.db_gate import require_test_db
+try:
+    _gated = require_test_db().split("?", 1)[0]
+except Exception:
+    _gated = ""
+if _gated:
+    os.environ["HGS_DATABASE_URL"] = _gated.replace(
+        "postgresql://", "postgresql+asyncpg://")
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
 from sqlalchemy.pool import NullPool  # noqa: E402

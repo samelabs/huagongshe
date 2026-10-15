@@ -95,6 +95,7 @@ def candidate_window(offset: int, page_size: int) -> int:
 
 async def run_name_search(
     db: Any, query: str, page_size: int, offset: int,
+    *, locale: str | None = None,
 ) -> tuple[list[dict[str, Any]], bool]:
     """统一名称候选流: exact 聚合短路 → fuzzy deterministic 统一分页。
 
@@ -158,7 +159,7 @@ async def run_name_search(
                 SELECT {CHEMICAL_SELECT}
                 FROM chemistry.chemicals c
                 WHERE c.id = ANY(:ids)
-            """, {"ids": page_rows})
+            """, {"ids": page_rows}, locale=locale)
             by_id = {row["id"]: row for row in rows}
             hydrated = [by_id[cid] for cid in page_rows if cid in by_id]
             return hydrated, has_more
@@ -209,7 +210,7 @@ async def run_name_search(
             SELECT {CHEMICAL_SELECT}
             FROM chemistry.chemicals c
             WHERE c.id = ANY(:ids)
-        """, {"ids": page_rows})
+        """, {"ids": page_rows}, locale=locale)
         by_id = {row["id"]: row for row in rows}
         hydrated = [by_id[cid] for cid in page_rows if cid in by_id]
         return hydrated, has_more
@@ -227,7 +228,7 @@ def _exact_variants(query: str) -> list[str]:
 
 async def execute_search(
     db, query: str, mode: str, *, threshold: float, page: int, page_size: int,
-    actor_id: int | None,
+    actor_id: int | None, locale: str | None = None,
 ):
     """共享搜索编排(G2.3 final): HTTP/MCP 唯一 application pipeline。
 
@@ -276,7 +277,7 @@ async def execute_search(
         (chemicals, total, reactions, cas_fetch_pending, canonical,
          cas_fetch_hit_id, has_more, capped) = await run_search_query(
             db, query, mode, canonical, page, page_size, offset,
-            actor_id=actor_id, threshold=threshold,
+            actor_id=actor_id, threshold=threshold, locale=locale,
         )
         data: dict[str, Any] = {
             "query": query, "mode": mode, "canonical_smiles": canonical,
@@ -307,6 +308,7 @@ async def run_search_query(
     db: Any, query: str, mode: str, canonical: Any, page: int, page_size: int,
     offset: int,
     *, actor_id: int | None = None, threshold: float = 0.7,
+    locale: str | None = None,
 ) -> tuple[list[dict[str, Any]], int | None, list[dict[str, Any]], bool, Any, int | None, bool, bool]:
     """执行搜索主体(化合物命中/total/反应/cas_fetch_pending/canonical 回写)。
 
@@ -363,7 +365,7 @@ async def run_search_query(
                 WHERE c.mol IS NOT NULL
                 ORDER BY c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles))
                 LIMIT :window
-            """, {"smiles": canonical, "window": window})
+            """, {"smiles": canonical, "window": window}, locale=locale)
             qualifying = [item for item in chemicals if (item.get("similarity") or 0) >= threshold]
             qualifying.sort(key=lambda item: item.get("similarity") or 0, reverse=True)
             # total 语义(0912): prefix 内已跌破 threshold/prefix 未满 ⇒ 精确总数;
@@ -421,7 +423,7 @@ async def run_search_query(
                     FROM chemistry.chemicals c
                     WHERE {' OR '.join(clauses)}
                     ORDER BY c.id LIMIT :limit OFFSET :offset
-                """, params)
+                """, params, locale=locale)
                 # CAS miss -> standalone CB 任务(2026-08-27): 只入队不同步拉。
                 # 三态: pending=在途 / miss=CB负缓存 / 新入队也返回 pending。
                 # 鉴权用户按 actor.id 限流; 匿名(BFF/SSR=loopback)共享全局桶
@@ -497,7 +499,7 @@ async def run_search_query(
                         created = await fetch_chemicals(db, f"""
                             SELECT {CHEMICAL_SELECT}
                             FROM chemistry.chemicals c WHERE c.id = :id
-                        """, {"id": chemical_id})
+                        """, {"id": chemical_id}, locale=locale)
                         if created:
                             await db.commit()
                             chemicals = created
@@ -517,7 +519,7 @@ async def run_search_query(
                 # 三来源统一候选流分页(无 per-tier OFFSET / 无 offset==0 闸门),
                 # has_more 来自同一窗口(offset+page_size+1), 名称面零 count SQL。
                 chemicals, name_has_more = await run_name_search(
-                    db, query, page_size, offset,
+                    db, query, page_size, offset, locale=locale,
                 )
             elif not chemicals and not canonical and name_query_width(query) < MIN_FUZZY_NAME_LENGTH:
                 raise SearchError(QUERY_TOO_SHORT, "名称查询至少需要 3 个字符（中文至少 2 个字）")

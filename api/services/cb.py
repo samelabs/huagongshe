@@ -24,7 +24,7 @@ from ..chemistry import valid_cas
 
 logger = logging.getLogger(__name__)
 
-from .name_index import ingest_from_entry_cn
+from .name_index import ingest_from_cb_locales
 
 CACHE_KEY = "v4:cas-ext:{chemical_id}"  # v4: 0905 CB entry schema 规范化(canonical)
 MAX_ENTRY_JSON_BYTES = 2_000_000  # 双保险: workapi 载荷上限内的条目尺寸
@@ -242,13 +242,6 @@ async def upsert_externals(
             "nm": cb_name, "fm": cb_formula, "ms": cb_mass,
             "cs": cb_cas, "chemical_id": chemical_id,
         })
-    # name_index 摄入: 仅 zh-CN 主行(镜像); I-055 后名称在镜像内取
-    # 该化合物全部 zh-CN ok 行并集(见 name_index.ingest_from_entry_cn)。
-    if locale == "zh-CN":
-        await ingest_from_entry_cn(
-            db, chemical_id,
-            [s.get("name") for s in suppliers] if status == "ok" else [],
-        )
     # 供应商两表写入(2026-08-30 准线§4): 档表(cbsid主键,过期才重拉)+映射表
     # (chemical_id+cbsid 全量替换)。仅 zh-CN 主行写。
     # locale 规范化(ISO 3166-1 alpha-2)。
@@ -316,6 +309,13 @@ async def upsert_externals(
                 })
         # else: zh error 载荷 — 只刷 last_status/fetched_at, 不删任何 source
         # 的供应商行(非权威信号不得抹掉他源数据; not_found 已在上方早退)。
+
+    # name_index 摄入在函数尾(供应商两表写入之后): 镜像内供应商名取
+    # listing ⋈ profile 的落库结果, 必须在同事务更晚位置读。I-087: 任意
+    # locale 行落库(含 error)都触发重建 —— 名称取全部 locale ok 行并集,
+    # 某个 locale 转 error 后其名称随之移除
+    # (见 name_index.ingest_from_cb_locales)。
+    await ingest_from_cb_locales(db, chemical_id)
 
 
 _COUNTRY_CODE_MAP = {

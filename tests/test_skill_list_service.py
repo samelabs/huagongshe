@@ -157,9 +157,10 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
         item = result["items"][0]
         self.assertEqual(
             list(item.keys()),
-            ["id", "slug", "title", "description", "category", "origin",
+            ["id", "slug", "title", "description", "category", "is_official",
              "visibility", "has_scripts", "file_count", "size_bytes",
              "updated_at", "owner"])
+        self.assertFalse(item["is_official"])  # I-024: origin='user' → False
         self.assertEqual(item["size_bytes"], 512)  # int() 转换保留
         self.assertEqual(item["owner"], {"username": "alice",
                                          "display_name": "Alice", "active": True})

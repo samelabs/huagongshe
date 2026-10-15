@@ -23,10 +23,11 @@ from urllib.parse import parse_qs, urlparse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-DB_URL = os.environ.get("TEST_DATABASE_URL", "")
-if DB_URL:
-    _u = urlparse(DB_URL)
-    assert parse_qs(_u.query).get("test_sentinel") in (["hgs-test-db"], ["hgs-ephemeral-db"])
+from tests.db_gate import require_test_db  # I-058: 收口到统一闸(原内联 sentinel 等价)
+try:
+    DB_URL = require_test_db().split("?", 1)[0]
+except Exception:
+    DB_URL = ""
 
 _GATE = unittest.skipUnless(DB_URL, "需要 PG 测试库 (TEST_DATABASE_URL 过闸)")
 

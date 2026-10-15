@@ -19,7 +19,11 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-DB_URL = os.environ.get("TEST_DATABASE_URL", "")
+from tests.db_gate import require_test_db  # I-058: 统一测试库闸
+try:
+    DB_URL = require_test_db().split("?", 1)[0]
+except Exception:
+    DB_URL = ""
 _GATE = unittest.skipUnless(DB_URL, "需要 PG 测试库 (TEST_DATABASE_URL 过闸)")
 
 CJK_RE = re.compile(r"[\u3400-\u9fff\u3000-\u303f\uff00-\uffef]")
