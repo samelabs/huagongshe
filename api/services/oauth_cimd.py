@@ -43,6 +43,7 @@ CACHE_AGE_DEFAULT_SECONDS = 3600   # 无 Cache-Control 时的缺省
 FETCH_URL_LIMIT_PER_HOUR = 20        # 按完整 client_id URL 分桶, 每次拉取尝试都计
 FETCH_HOST_FAIL_LIMIT_PER_HOUR = 300  # 按 host 分桶, 只计失败的拉取(非 200/超限/校验不过)
 FETCH_ANON_IP_LIMIT_PER_HOUR = 30   # 匿名触发拉取时按来源 IP 分桶(拿得到 IP 才计)
+FETCH_USER_LIMIT_PER_HOUR = 30      # 登录用户触发拉取时按人分桶
 _REDIRECT_URI_MAX = 2000
 _MAX_URIS = 10
 _MAX_NAME = 160
@@ -512,7 +513,9 @@ async def ensure_client_for_authorize(
     if not fresh:
         # 限流(1.3/1.4): 每次拉取尝试按完整 client_id URL 分桶(同 host 的
         # 随机路径各自计数, 攻击者无法耗尽真实客户端的配额)。匿名且有
-        # 来源 IP 时再加 IP 桶; 拿不到 IP 不落全站共用桶, 只走 URL 桶并告警。
+        # 来源 IP 时再加 IP 桶; 登录用户按人分桶 —— URL 桶挡不住"同 host
+        # 换路径"的横向铺开, 按人限次才挡得住。拿不到匿名 IP 时不落全站
+        # 共用桶, 只走 URL 桶并告警。
         await rate_limit.enforce(
             "oauth-cimd-url", client_id, FETCH_URL_LIMIT_PER_HOUR, 3600)
         if actor_id is None:
@@ -523,8 +526,18 @@ async def ensure_client_for_authorize(
             else:
                 logger.warning(
                     "CIMD anonymous fetch without client IP "
-                    "(no x-forwarded-for): anonymous IP limit skipped, "
+                    "(no x-real-ip): anonymous IP limit skipped, "
                     "url bucket only, client_id=%s", client_id)
+        else:
+            await rate_limit.enforce(
+                "oauth-cimd-fetch-user", str(actor_id),
+                FETCH_USER_LIMIT_PER_HOUR, 3600)
+        # host 失败桶预检: 已满说明该 host 近一小时失败次数已到上限,
+        # 直接拒绝, 不再对外发请求(该桶只在失败后计数, 预检只读不写)。
+        if not await rate_limit.check(
+                "oauth-cimd-host-fail", host,
+                FETCH_HOST_FAIL_LIMIT_PER_HOUR, 3600):
+            raise rate_limit.RateLimited("该站点近期文档拉取失败过多，请稍后再试")
         try:
             fetch = fetcher or _fetch_document
             document = await fetch(client_id)

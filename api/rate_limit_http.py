@@ -20,6 +20,7 @@ from .core.rate_limit import (
     RateLimited,
     RateLimitError,
     ResourceBusy,
+    client_ip,  # 统一 IP 分桶键(core 定义, HTTP/MCP 共用)
     structure_enter as _neutral_structure_enter,
 )
 

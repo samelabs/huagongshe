@@ -16,11 +16,13 @@ export async function proxyOAuth(
   backendPath: string,
 ): Promise<NextResponse> {
   const incoming = new Headers();
-  // x-forwarded-for: 匿名 /oauth/authorize 触发 CIMD 拉取时按真实访客 IP
-  // 分桶限流, 必须原样带到后端(nginx 注入, 首段应为访客 IP)。
+  // x-real-ip: 匿名 /oauth/authorize 触发 CIMD 拉取时按真实访客 IP 分桶
+  // 限流。nginx 用 $remote_addr 覆盖写入该头, 客户端无法伪造; 经 Next
+  // 代理必须原样带到后端。不再转发 x-forwarded-for —— 其首段是请求
+  // 自带值, 可伪造, 后端也不读它。
   for (const key of [
     "cookie", "authorization", "content-type", "accept", "user-agent",
-    "x-forwarded-for",
+    "x-real-ip",
   ]) {
     const value = request.headers.get(key);
     if (value != null) incoming.set(key, value);

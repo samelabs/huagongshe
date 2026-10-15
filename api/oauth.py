@@ -13,21 +13,13 @@ from .core import rate_limit
 from .core.database import get_db
 from .core.rate_limit import RateLimitError
 from .core.security import Actor, current_session, optional_actor
-from .rate_limit_http import enforce_http, to_http_exception
+from .rate_limit_http import client_ip as _client_ip, enforce_http, to_http_exception
 from .services import oauth as svc
 from .services import oauth_cimd
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/oauth", tags=["oauth"])
-
-
-def _client_ip(request: Request) -> str | None:
-    """匿名限流分桶键: x-forwarded-for 首段(nginx 注入), 缺省 None。"""
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip() or None
-    return None
 
 
 def _oauth_error(exc: svc.OAuthProtocolError) -> JSONResponse:
@@ -161,7 +153,7 @@ async def _resolve_client_for_authorize(
             client_id=client_id,
             redirect_uri=redirect_uri,
             actor_id=actor.id if logged_in else None,
-            client_ip=_client_ip(request),
+            client_ip=_client_ip(request.headers),
         )
     client = await svc._load_client(db, client_id)
     if client is None:

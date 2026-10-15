@@ -129,6 +129,44 @@ class ClientIpTests(unittest.TestCase):
         self.assertIsNone(rl.client_ip({"x-real-ip": "   "}))
 
 
+class CheckProbeTests(unittest.TestCase):
+    """只读探测: 满桶 False / 未满 True / Redis 故障 fail-open True。"""
+
+    class _Redis:
+        def __init__(self, value=None, exc=None):
+            self._value = value
+            self._exc = exc
+
+        async def get(self, _key):
+            if self._exc:
+                raise self._exc
+            return self._value
+
+    def test_under_limit_allows(self):
+        with patch.object(rl.redis, "Redis",
+                          lambda connection_pool=None: self._Redis(b"300")):
+            self.assertTrue(asyncio.run(rl.check("t", "h", 300, 3600)))
+
+    def test_at_and_over_limit_blocks(self):
+        for count in (301, 999):
+            with self.subTest(count=count):
+                with patch.object(
+                        rl.redis, "Redis",
+                        lambda connection_pool=None: self._Redis(str(count).encode())):
+                    self.assertFalse(asyncio.run(rl.check("t", "h", 300, 3600)))
+
+    def test_missing_key_allows(self):
+        with patch.object(rl.redis, "Redis",
+                          lambda connection_pool=None: self._Redis(None)):
+            self.assertTrue(asyncio.run(rl.check("t", "h", 300, 3600)))
+
+    def test_redis_failure_fails_open(self):
+        with patch.object(
+                rl.redis, "Redis",
+                lambda connection_pool=None: self._Redis(exc=ConnectionError())):
+            self.assertTrue(asyncio.run(rl.check("t", "h", 300, 3600)))
+
+
 class NeutralCoreBehaviorTests(unittest.TestCase):
     def test_enforce_allowed_passes(self):
         with patch.object(rl, "consume", _consume_ok):

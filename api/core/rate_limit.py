@@ -83,6 +83,22 @@ async def enforce(bucket: str, identity: str, limit: int, window_seconds: int) -
         raise RateLimited("请求过于频繁，请稍后重试", retry_after=retry_after)
 
 
+async def check(bucket: str, identity: str, limit: int, window_seconds: int) -> bool:
+    """只读探测: 桶当前是否仍允许一次计数。不递增计数器、不可用时报允许。
+
+    用途: "失败后计数"的桶在动作发生前预检 —— 已满直接拒绝, 不再发起
+    外部请求; 探测本身失败时按未满放行, 不让预检变成新的故障点。
+    """
+    window = int(time.time()) // window_seconds
+    key = f"rate:{bucket}:{identity}:{window}"
+    client = redis.Redis(connection_pool=_cache.current_pool())
+    try:
+        count = int(await client.get(key) or 0)
+    except Exception:
+        return True
+    return count <= limit
+
+
 def client_ip(headers) -> str | None:
     """按 IP 限流的统一分桶键(R2): 读 nginx 覆盖写入的 X-Real-IP。
 
@@ -99,6 +115,7 @@ def client_ip(headers) -> str | None:
     if value:
         return value.strip() or None
     return None
+
 
 
 

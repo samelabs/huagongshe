@@ -440,11 +440,12 @@ class BodyReadTests(unittest.TestCase):
 
 
 class RateLimitKeyTests(unittest.TestCase):
-    """1.3/1.4: URL 桶每次尝试计; host 桶只计失败; 无 IP 不落共用桶并告警。"""
+    """1.3/1.4/R1: URL 桶每次尝试计; host 桶只计失败且拉取前预检;
+    登录用户按人分桶; 无 IP 不落共用桶并告警。"""
 
     URL = "https://agent.example.test/c.json"
 
-    def _ensure(self, fetch_result, *, actor_id, client_ip):
+    def _ensure(self, fetch_result, *, actor_id, client_ip, check=None):
         calls: list[tuple] = []
 
         async def recorder(bucket, identity, limit, window):
@@ -465,13 +466,24 @@ class RateLimitKeyTests(unittest.TestCase):
                 # 拒绝、或校验失败抛 OAuthProtocolError, 都不影响本测试断言。
                 pass
 
-        with patch.object(oauth_cimd.rate_limit, "enforce", recorder):
+        patches = [patch.object(oauth_cimd.rate_limit, "enforce", recorder)]
+        if check is not None:
+            async def check_stub(bucket, identity, limit, window):
+                return check
+            patches.append(patch.object(
+                oauth_cimd.rate_limit, "check", check_stub))
+        for p in patches:
+            p.start()
+        try:
             asyncio.run(go())
+        finally:
+            for p in patches:
+                p.stop()
         return calls
 
     def test_success_counts_url_bucket_only_not_host(self):
         calls = self._ensure(_ok_fetch(self.URL), actor_id=None,
-                             client_ip="203.0.113.9")
+                             client_ip="203.0.113.9", check=True)
         self.assertEqual(calls, [
             ("oauth-cimd-url", self.URL,
              oauth_cimd.FETCH_URL_LIMIT_PER_HOUR, 3600),
@@ -482,7 +494,8 @@ class RateLimitKeyTests(unittest.TestCase):
     def test_failure_counts_host_bucket(self):
         result = FetchedDocument(status=302, content_type="application/json",
                                  cache_control=None, body=b"{}")
-        calls = self._ensure(result, actor_id=None, client_ip="203.0.113.9")
+        calls = self._ensure(result, actor_id=None, client_ip="203.0.113.9",
+                             check=True)
         self.assertEqual(calls, [
             ("oauth-cimd-url", self.URL,
              oauth_cimd.FETCH_URL_LIMIT_PER_HOUR, 3600),
@@ -495,19 +508,80 @@ class RateLimitKeyTests(unittest.TestCase):
     def test_no_client_ip_skips_anon_bucket_and_logs_warning(self):
         with self.assertLogs("api.services.oauth_cimd", level="WARNING") as logs:
             calls = self._ensure(_ok_fetch(self.URL), actor_id=None,
-                                 client_ip=None)
+                                 client_ip=None, check=True)
         self.assertEqual(calls, [
             ("oauth-cimd-url", self.URL,
              oauth_cimd.FETCH_URL_LIMIT_PER_HOUR, 3600),
         ])
         self.assertTrue(any("client IP" in line for line in logs.output))
 
-    def test_logged_in_actor_has_no_anon_bucket(self):
-        calls = self._ensure(_ok_fetch(self.URL), actor_id=7, client_ip=None)
+    def test_logged_in_actor_gets_per_user_bucket(self):
+        # R1: 登录用户按人限次(30/h) —— URL 桶挡不住同 host 换路径的横向
+        # 铺开, 按人才挡得住; 不再有匿名 IP 桶。
+        calls = self._ensure(_ok_fetch(self.URL), actor_id=7, client_ip=None,
+                             check=True)
         self.assertEqual(calls, [
             ("oauth-cimd-url", self.URL,
              oauth_cimd.FETCH_URL_LIMIT_PER_HOUR, 3600),
+            ("oauth-cimd-fetch-user", "7",
+             oauth_cimd.FETCH_USER_LIMIT_PER_HOUR, 3600),
         ])
+
+    def test_host_fail_bucket_full_rejects_without_fetch(self):
+        # R1: host 失败桶已满 → 拉取前直接拒绝, 不对外发请求, 不计数。
+        fetcher = _StubFetcher(_ok_fetch(self.URL))
+        from api.core.rate_limit import RateLimited
+
+        async def go():
+            await oauth_cimd.ensure_client_for_authorize(
+                _SelectOnlyDb(),
+                client_id=self.URL,
+                redirect_uri="https://agent.example.test/callback",
+                actor_id=7,
+                client_ip=None,
+                fetcher=fetcher,
+            )
+
+        async def recorder(bucket, identity, limit, window):
+            return None
+
+        async def check_full(bucket, identity, limit, window):
+            # 只对 host 失败桶报满, 其余桶不影响
+            return bucket != "oauth-cimd-host-fail"
+
+        with patch.object(oauth_cimd.rate_limit, "enforce", recorder), \
+             patch.object(oauth_cimd.rate_limit, "check", check_full):
+            with self.assertRaises(RateLimited):
+                asyncio.run(go())
+        self.assertEqual(fetcher.calls, [], "桶满后不得再发起拉取")
+
+    def test_host_fail_probe_passes_still_fetches(self):
+        # 对照: 预检通过时照常拉取(fetcher 被调用)。
+        fetcher = _StubFetcher(_ok_fetch(self.URL))
+
+        async def go():
+            try:
+                await oauth_cimd.ensure_client_for_authorize(
+                    _SelectOnlyDb(),
+                    client_id=self.URL,
+                    redirect_uri="https://agent.example.test/callback",
+                    actor_id=None,
+                    client_ip="203.0.113.9",
+                    fetcher=fetcher,
+                )
+            except Exception:
+                pass
+
+        async def recorder(bucket, identity, limit, window):
+            return None
+
+        async def check_ok(bucket, identity, limit, window):
+            return True
+
+        with patch.object(oauth_cimd.rate_limit, "enforce", recorder), \
+             patch.object(oauth_cimd.rate_limit, "check", check_ok):
+            asyncio.run(go())
+        self.assertEqual(fetcher.calls, [self.URL])
 
 
 # ---------------------------------------------------------------------------
