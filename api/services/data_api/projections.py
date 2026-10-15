@@ -12,7 +12,6 @@ from typing import Any
 
 from .field_labels import field_key, field_label
 
-STRUCTURE_IMAGE_SIZE = "800x800"
 
 # 安全字段落入五个安全分区的归类线索(按子串匹配; 未命中归 hazards)。
 _SAFETY_BUCKETS: list[tuple[str, tuple[str, ...]]] = [
@@ -200,7 +199,7 @@ def project_chemical(detail: dict[str, Any], locale: str, *, site_origin: str) -
         "cas": (detail.get("cas_numbers") or [None])[0],
         "formula": detail.get("molecular_formula"),
         "molecular_weight": detail.get("average_mass"),
-        "structure_image": f"{site_origin}/api/mol/{detail.get('id')}/png/{STRUCTURE_IMAGE_SIZE}.png",
+        "structure_image": f"{site_origin}/img/chemical/{detail.get('id')}.png",
         "overview": {
             "description": facts.get("description"),
             "smiles": detail.get("smiles") or detail.get("pubchem_smiles"),
@@ -289,7 +288,7 @@ def project_reaction(reaction: dict[str, Any], locale: str, *, site_origin: str)
         "hrid": reaction.get("id"),
         "title": title,
         "equation_smiles": reaction.get("reaction_smiles"),
-        "equation_image": f"{site_origin}/api/reactions/{reaction.get('id')}/svg/1200x300.svg",
+        "equation_image": f"{site_origin}/img/reaction/{reaction.get('id')}.svg",
         "visibility": reaction.get("visibility"),
         "participants": [
             {

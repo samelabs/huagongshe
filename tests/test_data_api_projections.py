@@ -97,7 +97,7 @@ class ProjectionParityTests(unittest.TestCase):
         projection = project_chemical(_load("996", "zh-CN"), "zh-CN", site_origin=SITE)
         self.assertEqual(
             projection["structure_image"],
-            f"{SITE}/api/mol/996/png/800x800.png")
+            f"{SITE}/img/chemical/996.png")
 
     def test_synonyms_capped_with_total(self):
         projection = project_chemical(_load("996", "zh-CN"), "zh-CN", site_origin=SITE)
@@ -147,7 +147,7 @@ class ReactionProjectionTests(unittest.TestCase):
         projection = project_reaction(self._reaction(), "zh-CN", site_origin=SITE)
         self.assertEqual(projection["hrid"], 7)
         self.assertEqual(projection["title"], "乙醇 → 乙酸乙酯")
-        self.assertTrue(projection["equation_image"].endswith("/api/reactions/7/svg/1200x300.svg"))
+        self.assertTrue(projection["equation_image"].endswith("/img/reaction/7.svg"))
         self.assertEqual(projection["participants"][0]["amount"]["unit"], "mL")
         self.assertEqual(projection["participants"][1]["yield_percent"], 85.0)
         self.assertEqual(projection["conditions"]["temperature"]["unit"], "CELSIUS")
