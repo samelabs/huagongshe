@@ -15,12 +15,15 @@
  *  - locale 列表复用 SUPPORTED_LOCALES, 不建第二份
  *  - query 直接取当前路由状态(useSearchParams), 无挂载后快照 ——
  *    客户端搜索导航后切换语言携带的是当前 query, 而非初始 URL 的
+ *  - 浮层回收走站内统一规则(useDismissableMenu): 外部点击、焦点移出、
+ *    Esc、路由变化
  */
 
-import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { Button } from "@/components/ui/Button";
 import { SUPPORTED_LOCALES, isPathAtOrBelow, replaceLocalePrefix, rewriteNextParam, type Locale } from "@/lib/localePath";
+import { useDismissableMenu } from "@/lib/useDismissableMenu";
 
 /** 各语言自称(固定, 不翻译) */
 const NATIVE_NAMES: Record<string, string> = {
@@ -43,52 +46,47 @@ export function LanguageSwitcher() {
     const rewritten = rewriteNextParam(search, target);
     return rewritten ? `?${rewritten}` : "";
   };
-  const detailsRef = useRef<HTMLDetailsElement>(null);
-
-  // Esc 关闭浮层（IX-10），焦点回触发器。
-  // SMK-006 / HGS-LOCALE-HOOK-01：所有 Hook 必须在下面的条件 return 之前 ——
-  // 站点顶栏跨 /samelabs 与公开页常驻，条件 return 早于 Hook 会在客户端
-  // 路由切换时改变 Hook 调用数量，触发 React Rules of Hooks 崩溃。
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      const el = detailsRef.current;
-      if (el?.open) {
-        el.open = false;
-        el.querySelector("summary")?.focus();
-      }
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  const menu = useDismissableMenu();
 
   // samelabs 后台不在 locale 治理范围(边界语义: /samelabs 与 /samelabs/*, 不含 /samelabs-guide 等)
   if (isPathAtOrBelow(pathname, "/samelabs")) return null;
 
   return (
-    <details className="lang-switcher" aria-label={t.nav.languageSwitcher} ref={detailsRef}>
-      <summary>{NATIVE_NAMES[locale] ?? locale}</summary>
-      <div className="lang-switcher-menu" role="menu">
-        {SUPPORTED_LOCALES.map((l) => (
-          <a
-            key={l}
-            role="menuitem"
-            hrefLang={l}
-            href={replaceLocalePrefix(pathname, l) + suffixFor(l)}
-            aria-current={l === locale ? "true" : undefined}
-            className={l === locale ? "current" : undefined}
-            onClick={() => {
-              // Round 14: 匿名用户语言偏好改由语言切换器在客户端主动切换时写入
-              document.cookie = `site_locale=${encodeURIComponent(l)}; path=/; max-age=31536000; SameSite=Lax`;
-              if (detailsRef.current) {
-                detailsRef.current.open = false;
-              }
-            }}
-          >
-            {NATIVE_NAMES[l] ?? l}
-          </a>
-        ))}
-      </div>
-    </details>
+    <div className={menu.open ? "lang-switcher open" : "lang-switcher"} ref={menu.rootRef} onKeyDown={menu.onKeyDown}>
+      <Button
+        variant="ghost"
+        size="sm"
+        ref={menu.triggerRef}
+        aria-label={t.nav.languageSwitcher}
+        aria-haspopup="menu"
+        aria-expanded={menu.open}
+        onClick={() => menu.setOpen((v) => !v)}
+        className="lang-switcher-trigger"
+      >
+        {NATIVE_NAMES[locale] ?? locale}
+      </Button>
+      {menu.open && (
+        <div className="lang-switcher-menu" role="menu">
+          {SUPPORTED_LOCALES.map((l) => (
+            <a
+              key={l}
+              role="menuitem"
+              data-menu-item
+              hrefLang={l}
+              href={replaceLocalePrefix(pathname, l) + suffixFor(l)}
+              aria-current={l === locale ? "true" : undefined}
+              className={l === locale ? "current" : undefined}
+              onClick={() => {
+                // Round 14: 匿名用户语言偏好改由语言切换器在客户端主动切换时写入
+                document.cookie = `site_locale=${encodeURIComponent(l)}; path=/; max-age=31536000; SameSite=Lax`;
+                menu.setOpen(false);
+              }}
+            >
+              {NATIVE_NAMES[l] ?? l}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

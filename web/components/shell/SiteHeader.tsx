@@ -23,6 +23,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale, stripLocalePrefix } from "@/lib/localePath";
+import { useDismissableMenu } from "@/lib/useDismissableMenu";
 import type { User } from "@/lib/api";
 import { HgsLogo } from "@/components/ui/HgsLogo";
 import { Avatar } from "@/components/ui/Avatar";
@@ -132,61 +133,15 @@ function HeaderBell({ user }: { user: User | null }) {
   );
 }
 
-/* ── 下拉菜单基座：Esc 关闭 + 焦点回触发器 + 方向键移动 + 外点关闭 ── */
-function useMenuKeyboard(open: boolean, onClose: () => void, panelRef: React.RefObject<HTMLElement | null>, triggerRef: React.RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(e: PointerEvent) {
-      const inPanel = panelRef.current?.contains(e.target as Node);
-      const inTrigger = triggerRef.current?.contains(e.target as Node);
-      if (!inPanel && !inTrigger) onClose();
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open, onClose, panelRef, triggerRef]);
-
-  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!open) return;
-    if (e.key === "Escape") {
-      e.preventDefault();
-      onClose();
-      triggerRef.current?.focus();
-      return;
-    }
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-    e.preventDefault();
-    const panel = panelRef.current;
-    if (!panel) return;
-    const items = Array.from(panel.querySelectorAll<HTMLElement>("[data-sh-menu-item]"))
-      .filter((el) => el.offsetParent !== null);
-    if (items.length === 0) return;
-    const index = items.indexOf(document.activeElement as HTMLElement);
-    const next = e.key === "ArrowDown"
-      ? items[(index + 1 + items.length) % items.length]
-      : items[(index - 1 + items.length) % items.length];
-    next.focus();
-  }, [open, onClose, panelRef, triggerRef]);
-
-  return onKeyDown;
-}
-
 /* ── 头像菜单：我的主页 / 工作台 / 设置 / 退出 ─────────────── */
 function UserMenu({ user }: { user: User }) {
   const t = useDictionary();
   const locale = useLocale();
   const router = useRouter();
-  const pathname = usePathname();
   const toast = useToast();
   const { clear } = useAccount();
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // 路由变化自动收起
-  useEffect(() => { setOpen(false); }, [pathname]);
-
-  const close = useCallback(() => setOpen(false), []);
-  const onKeyDown = useMenuKeyboard(open, close, panelRef, triggerRef);
+  const menu = useDismissableMenu();
+  const { open, setOpen, close } = menu;
 
   async function logout() {
     setOpen(false);
@@ -205,9 +160,9 @@ function UserMenu({ user }: { user: User }) {
   }
 
   return (
-    <div className={`sh-menu${open ? " open" : ""}`} onKeyDown={onKeyDown}>
+    <div className={`sh-menu${open ? " open" : ""}`} ref={menu.rootRef} onKeyDown={menu.onKeyDown}>
       <button
-        ref={triggerRef}
+        ref={menu.triggerRef}
         type="button"
         className="hg-btn ghost sh-menu-trigger"
         aria-label={t.nav.openMenu}
@@ -219,24 +174,24 @@ function UserMenu({ user }: { user: User }) {
         <IconChevron className="sh-chev" />
       </button>
       {open && (
-        <div ref={panelRef} className="sh-menu-panel" role="menu">
+        <div className="sh-menu-panel" role="menu">
           <div className="sh-menu-head">
             <strong>{user.display_name}</strong>
             <span>@{user.username}</span>
           </div>
-          <Link role="menuitem" data-sh-menu-item href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)} onClick={close}>
+          <Link role="menuitem" data-menu-item href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)} onClick={close}>
             {t.nav.myProfile}
           </Link>
-          <Link role="menuitem" data-sh-menu-item href={withLocale("/aichem", locale)} onClick={close}>
+          <Link role="menuitem" data-menu-item href={withLocale("/aichem", locale)} onClick={close}>
             {t.nav.tabWorkbench}
           </Link>
-          <Link role="menuitem" data-sh-menu-item href={withLocale("/me/settings/api-tokens", locale)} onClick={close}>
+          <Link role="menuitem" data-menu-item href={withLocale("/me/settings/api-tokens", locale)} onClick={close}>
             {t.nav.aiKey}
           </Link>
-          <Link role="menuitem" data-sh-menu-item href={withLocale("/me/settings/profile", locale)} onClick={close}>
+          <Link role="menuitem" data-menu-item href={withLocale("/me/settings/profile", locale)} onClick={close}>
             {t.nav.settings}
           </Link>
-          <button role="menuitem" data-sh-menu-item type="button" className="sh-menu-logout" onClick={() => void logout()}>
+          <button role="menuitem" data-menu-item type="button" className="sh-menu-logout" onClick={() => void logout()}>
             {t.nav.logout}
           </button>
         </div>
@@ -249,20 +204,13 @@ function UserMenu({ user }: { user: User }) {
 function MoreMenu({ items, routePath }: { items: NavItem[]; routePath: string }) {
   const t = useDictionary();
   const locale = useLocale();
-  const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
-
-  useEffect(() => { setOpen(false); }, [pathname]);
-
-  const close = useCallback(() => setOpen(false), []);
-  const onKeyDown = useMenuKeyboard(open, close, panelRef, triggerRef);
+  const menu = useDismissableMenu();
+  const { open, setOpen, close } = menu;
 
   return (
-    <div className={`sh-menu sh-more${open ? " open" : ""}`} onKeyDown={onKeyDown}>
+    <div className={`sh-menu sh-more${open ? " open" : ""}`} ref={menu.rootRef} onKeyDown={menu.onKeyDown}>
       <button
-        ref={triggerRef}
+        ref={menu.triggerRef}
         type="button"
         className="hg-btn ghost sm sh-menu-trigger"
         aria-haspopup="menu"
@@ -273,12 +221,12 @@ function MoreMenu({ items, routePath }: { items: NavItem[]; routePath: string })
         <IconChevron className="sh-chev" />
       </button>
       {open && (
-        <div ref={panelRef} className="sh-menu-panel" role="menu">
+        <div className="sh-menu-panel" role="menu">
           {items.map((item) => (
             <Link
               key={item.href}
               role="menuitem"
-              data-sh-menu-item
+              data-menu-item
               href={withLocale(item.href, locale)}
               onClick={close}
               className={item.match(routePath) ? "on" : undefined}

@@ -1325,7 +1325,8 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 @media (max-width: 640px) {
   .app-container > main { padding-bottom: 0; }
   footer {
-    padding: 18px 14px calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 16px);
+    /* 底栏让位全站一条规则：--tabbar-clear（含安全区），与工作台正文共用 */
+    padding: 18px 14px calc(var(--tabbar-clear) + 16px);
   }
 }
 @media (min-width: 641px) {

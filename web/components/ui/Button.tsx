@@ -26,6 +26,8 @@ export type ButtonProps = {
   className?: string;
   children?: React.ReactNode;
   onClick?: (e: React.MouseEvent) => void;
+  /** 触发器焦点归还等场景需要外部 ref（React 19 ref-as-prop，随 rest 透传） */
+  ref?: React.Ref<HTMLButtonElement | HTMLAnchorElement>;
   /** 传了渲染成 next/link 或原生 a（有 download 时走原生 a） */
   href?: string;
   /** 下载文件名或布尔值（配合 href 渲染原生 <a>） */
@@ -65,13 +67,18 @@ function useFixedWidthWhileLoading<T extends HTMLElement>(loading: boolean) {
 }
 
 export function Button(props: ButtonProps) {
-  const { variant, size, iconOnly, loading = false, disabled, className, children, onClick, asChild, href, download, type, ...rest } = props;
+  const { variant, size, iconOnly, loading = false, disabled, className, children, onClick, asChild, href, download, type, ref, ...rest } = props;
 
   if (process.env.NODE_ENV !== "production" && iconOnly && !rest["aria-label"]) {
     console.error("<Button iconOnly> requires an aria-label");
   }
 
-  const ref = useFixedWidthWhileLoading<HTMLButtonElement & HTMLAnchorElement>(loading);
+  const widthRef = useFixedWidthWhileLoading<HTMLButtonElement & HTMLAnchorElement>(loading);
+  const setRef = (node: (HTMLButtonElement & HTMLAnchorElement) | null) => {
+    widthRef.current = node;
+    if (typeof ref === "function") ref(node);
+    else if (ref) (ref as React.MutableRefObject<HTMLButtonElement | HTMLAnchorElement | null>).current = node;
+  };
   const stateProps = {
     "aria-busy": loading || undefined,
     "aria-disabled": loading || disabled || undefined,
@@ -96,7 +103,7 @@ export function Button(props: ButtonProps) {
           download={download}
           className={classes(props)}
           onClick={onClick}
-          ref={ref}
+          ref={setRef}
           {...stateProps}
           {...rest}
         >
@@ -106,7 +113,7 @@ export function Button(props: ButtonProps) {
       );
     }
     return (
-      <Link href={href} className={classes(props)} onClick={onClick} ref={ref} {...stateProps} {...rest}>
+      <Link href={href} className={classes(props)} onClick={onClick} ref={setRef} {...stateProps} {...rest}>
         {loading && <i className="hg-spin" aria-hidden="true" />}
         {children}
       </Link>
@@ -123,7 +130,7 @@ export function Button(props: ButtonProps) {
       // 由 onClick 守卫拦下，aria-disabled 播报状态。
       disabled={disabled || undefined}
       onClick={loading || disabled ? undefined : onClick}
-      ref={ref}
+      ref={setRef}
       {...stateProps}
       {...rest}
     >

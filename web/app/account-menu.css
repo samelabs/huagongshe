@@ -6,21 +6,20 @@
    触发器视觉 = ghost sm 文字按钮（DESIGN_SYSTEM 2.3 顶栏右侧）。 */
 
 .lang-switcher { position: relative; }
-.lang-switcher summary {
+.lang-switcher > button {
   display: inline-flex; align-items: center;
-  cursor: pointer; list-style: none;
+  cursor: pointer;
   height: var(--h-sm); padding: 0 12px;
   font: 500 var(--fs-13) var(--font-ui);
   color: var(--text-2);
-  border-radius: var(--r-sm);
+  border: 0; border-radius: var(--r-sm);
   background: transparent;
   white-space: nowrap;
   transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
-.lang-switcher summary::-webkit-details-marker { display: none; }
-.lang-switcher summary:hover { background: var(--bg-hover); color: var(--text); }
-.lang-switcher summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.lang-switcher[open] summary { background: var(--bg-hover); color: var(--text); }
+.lang-switcher > button:hover { background: var(--bg-hover); color: var(--text); }
+.lang-switcher > button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.lang-switcher.open > button { background: var(--bg-hover); color: var(--text); }
 .lang-switcher-menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 60;
   display: flex; flex-direction: column; min-width: 120px;

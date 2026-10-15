@@ -217,7 +217,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
         {item.reaction_id != null && (
           <Link className="wb-feed-eq" href={withLocale(`/reaction/${item.reaction_id}`, locale)}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={reactionSvgUrl(item.reaction_id, 720, 160)} height={64} alt={t.reaction.equationAlt(item.reaction_id)} loading="lazy" />
+            <img src={reactionSvgUrl(item.reaction_id)} height={64} alt={t.reaction.equationAlt(item.reaction_id)} loading="lazy" />
           </Link>
         )}
         <div className="wb-feed-actions">
@@ -256,7 +256,7 @@ export function ReactionRow({ item, t, locale, actions }: {
       href={`/reaction/${item.id}`}
       thumb={
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={reactionSvgUrl(item.id, 360, 96)} height={48} alt="" loading="lazy" />
+        <img src={reactionSvgUrl(item.id)} height={48} alt="" loading="lazy" />
       }
       title={
         <EntityBadge

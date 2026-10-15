@@ -340,12 +340,12 @@ NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
      "已选实体 chip：ui 无可关闭 Chip 原语"),
     ("components/workbench/panels/StoichPanel.tsx", "wb-stoich",
      "投料计算器紧凑网格（6.7）：单元格级密度需求，hg-input 标准控件尺寸会破坏表格布局；含 radio（ui 无 Radio 原语）"),
+    ("app/(site)/chemical/[id]/print/page.tsx", 'data-print-btn="true"',
+     "打印报告工具栏按钮：服务端组件不能传 onClick，window.print 由页内脚本经 data 属性注入"),
+    ("app/(site)/reaction/[id]/print/page.tsx", 'data-print-btn="true"',
+     "打印报告工具栏按钮：服务端组件不能传 onClick，window.print 由页内脚本经 data 属性注入"),
     ("components/SearchHero.tsx", "inputRef",
      "首页大搜索框内层 input：srch-box-wrap 提供边框/焦点体系，内层必须裸置"),
-    ("app/(site)/skills/KdenseSkillsClient.tsx", 'type="search"',
-     "Skills 分类页搜索框内层 input：kdense-search-bar 自有搜索壳体系（6.10）"),
-    ("app/(site)/skills/KdenseSkillsClient.tsx", "kdense-cat",
-     "Skills 分类导航 chip（6.10）：动态数量 + 计数徽标的分类条设计，非 Segmented 场景"),
 ]
 
 

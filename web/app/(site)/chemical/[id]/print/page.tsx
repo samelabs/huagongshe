@@ -246,12 +246,12 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
       {/* ── Toolbar (screen only, hidden on print) ── */}
       <div className="pr-toolbar no-print">
         <button
+          // window.print() injected via data-print-btn in a <script> for CSR
+          data-print-btn="true"
           className="pr-btn"
           onClick={undefined}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           suppressHydrationWarning
-          // window.print() injected via data-print-btn in a <script> for CSR
-          data-print-btn="true"
         >
           {t.print.printAction}
         </button>

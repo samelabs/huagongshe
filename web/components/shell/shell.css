@@ -122,7 +122,7 @@
   .sh-right { display: none; }
   .sh-nav, .sh-more, .sh-bell, .sh-lang, .sh-login-btn { display: none; }
   .sh-mobile-right { display: flex; align-items: center; margin-left: auto; }
-  .sh-lang-m .lang-switcher summary { min-height: 44px; padding: 0 var(--sp-2); }
+  .sh-lang-m .lang-switcher .lang-switcher-trigger { min-height: 44px; padding: 0 var(--sp-2); }
 }
 
 /* ══ 手机底部 tab（DESIGN_SYSTEM 2.3） ══════════════════════ */
