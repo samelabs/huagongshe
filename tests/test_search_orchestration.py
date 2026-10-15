@@ -55,7 +55,7 @@ class _Recorder:
         self.calls.append(f"structure_exit:{held}")
 
     async def run_query(self, db, query, mode, canonical, page, page_size,
-                        offset, *, actor_id=None, threshold=0.7):
+                        offset, *, actor_id=None, threshold=0.7, locale=None):
         self.calls.append(f"run_search_query:{mode}:{canonical}:{offset}")
         return TUP
 

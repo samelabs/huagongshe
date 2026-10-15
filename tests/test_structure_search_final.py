@@ -231,7 +231,7 @@ class StructureHasMorePage20Tests(unittest.TestCase):
 
         # G2.3 final: has_more 公式唯一 owner = execute_search(orchestration)
         async def fake_execute(db, query, mode, *, threshold, page, page_size,
-                               actor_id):
+                               actor_id, locale=None):
             # 模拟 page=20 契约上限: has_more and page < 20
             return {"has_more": True and page < 20}
 

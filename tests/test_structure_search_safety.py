@@ -139,7 +139,7 @@ class SimilaritySemanticsTests(unittest.TestCase):
     def test_mcp_threshold_passthrough(self):
         with open("api/mcp_server.py") as handle:
             mcp = handle.read()
-        self.assertIn("threshold: float = 0.7", mcp)
+        self.assertIn("threshold: Annotated[float, Field(", mcp)
         self.assertIn("threshold=threshold", mcp)
 
     def test_frontend_no_hardcoded_70(self):
