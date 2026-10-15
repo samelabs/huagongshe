@@ -1,8 +1,7 @@
 """CX 批 Part A —— P1 候选反例裁定（真实 PG 反例，hermetic）。
 
 审计来源: audit/HGS-1.7-上线问题清单.md「P1 候选」七项。每项先写反例
-（按修复口径断言），红=问题成立；随后按语义修复翻绿。撤销项不出现在本文件，
-其反例过程在 .rc-acceptance/ui/cx/REPORT.md 留档。
+（按修复口径断言），红=问题成立；随后按语义修复翻绿。撤销项不出现在本文件。
 
 覆盖:
 - A1 HGS-MERGE-CORE-01: absorb 主表核心字段漏迁（survivor 空时不补；

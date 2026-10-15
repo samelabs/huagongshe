@@ -25,6 +25,16 @@ Production site: https://huagongshe.com
 - I-058：剩余 6 个直读库地址的测试文件统一走 tests/db_gate.py
 - I-069：CI push 触发只保留 main，消除 push+PR 双触发
 - I-070：公网冒烟扩为 /api/health + 五语言首页 + HCID 4 详情页 + MCP initialize 版本对 VERSION（任一失败 deploy 非零退出）；docs/DEPLOYMENT.md 新增"生产配置"记录节（PG ALTER SYSTEM 参数与 needrestart 策略，只记录不自动变更）
+**MCP OAuth：支持 Client ID Metadata Document（CIMD，I-072/I-073/I-071）**
+- 授权服务器元数据声明 `client_id_metadata_document_supported`；三种客户端身份并存且平等：CIMD（client_id 为一个 https URL，推荐陌生/个人 Agent 使用）、动态客户端注册（DCR，行为不变）、预登记 client_id
+- CIMD 拉取带 SSRF 防护：私网/回环/链路本地/保留/组播/CGNAT 地址拒绝（IPv4 与 IPv6，含映射写法）、按已校验 IP 建连防 DNS rebinding、不跟随重定向、5 秒超时、5 KB 上限、按文档 host 与匿名来源 IP 限流
+- 文档按响应 Cache-Control max-age 缓存（夹在 5 分钟~24 小时，缺省 1 小时）；缓存过期后重新拉取，拉取失败拒绝本次授权，不用过期缓存兜底；/token 与 refresh 不重新拉取
+- /oauth/authorize 先校验 client_id 与 redirect_uri 再判断登录；无效时返回错误页（不重定向到未校验地址，也不返回裸 400 JSON）
+- CIMD 客户端授权确认页显示来源 host（名称自报、host 可信）；redirect_uri 为 localhost 时提示授权码将返回到本机应用；授权管理列表为 CIMD 客户端附出来源 host（client_host 字段）
+- 受保护资源元数据新增 RFC 9728 标准路径 `/.well-known/oauth-protected-resource/mcp`（根路径保留为回退发现地址）；MCP 401 挑战的 resource_metadata 改指标准路径
+
+**仓库降噪**
+- 删除过程文档 docs/PRD_V1.7.0.md 与 docs/PLUGIN_SUBMISSION_V1.7.0.md；仍然成立的事实（MCP 端点、scope、插件包结构、OAuth 接入方式含 CIMD）合并进 README 的「MCP 与 Agent 接入」一节
 
 ## [1.7.2] — 2026-10-15
 

@@ -44,6 +44,14 @@
 
 网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 AI Key（即 API Token，Bearer 传输）：Key 属于用户账号，用于 Agent/API 调用；列表仅本人网页会话可读，响应带 `Cache-Control: private, no-store`；Key 明文有意保存在账号下（项目负责人裁定，2026-10-14），可在设置页再次查看和复制，无明文的旧 Key 显示为空。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
 
+## MCP 与 Agent 接入
+
+- MCP 端点：`https://huagongshe.com/mcp`（Streamable HTTP），共 13 个工具；读取类工具匿名可用，写入类需授权。
+- Agent 身份两种：AI Key（`hgs_` 前缀，Bearer 直连），或标准 OAuth 2.1（Authorization Code + PKCE S256，公开客户端），scope 为 `read`、`reaction:write`、`skill:write`。
+- OAuth 客户端身份三种并存且平等：Client ID Metadata Document（client_id 为一个 https URL，授权服务器拉取该 URL 上的 JSON 元数据并按其中 redirect_uris 校验，无需注册，推荐陌生/个人 Agent 使用）、动态客户端注册（`/oauth/register`，RFC 7591）、预登记 client_id。
+- 发现地址：`/.well-known/oauth-protected-resource/mcp`（RFC 9728 标准路径；根路径 `/.well-known/oauth-protected-resource` 保留为客户端回退发现地址）与 `/.well-known/oauth-authorization-server`。
+- Agent 插件包位于 `plugins/huagongshe/`，为 agent-plugins.org 规范（plugin.json + mcp.json + 图标），站点 `/mcp-guide` 页提供说明与下载。
+
 ## 化合物事实规则
 
 - `chemistry.chemicals.id` 是稳定 HCID；PubChem CID 与 ChemicalBook 编号只标识各自来源子集。
