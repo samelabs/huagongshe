@@ -59,6 +59,12 @@ async function proxy(request: NextRequest, path: string): Promise<NextResponse> 
     const value = request.headers.get(key);
     if (value != null) incoming.set(key, value);
   }
+  // x-real-ip 转发给 FastAPI 按人分桶(匿名限流)。该头由 nginx 用
+  // $remote_addr 覆盖写入(经 cloudflare-realip 后即真实访客 IP), 客户端
+  // 伪造不了 —— 前提是 Next 只经 nginx 可达。x-forwarded-for 首段是请求
+  // 自带值, 可伪造, 继续剥掉不转发(FastAPI 也不读它)。
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp != null) incoming.set("x-real-ip", realIp);
 
   const url = new URL(request.url);
   const target = `${API_ORIGIN}${url.pathname}${url.search}`;

@@ -168,14 +168,12 @@ class OAuthContractTests(unittest.TestCase):
 
 
 class OAuthRegisterRateLimitTests(unittest.TestCase):
-    """注册限流(ZX): 只保留全站共享桶, 无 client_name/IP 维度分桶。
+    """注册限流: 按来源 IP 分桶, 不设全站共享桶。
 
-    事故口径: client_name 桶让所有同名客户端(如 ChatGPT)共享 10 次/小时;
-    IP 桶经 Next 代理转发后全站只有一个来源 IP。两桶已删, 仅
-    enforce_http("oauth-register","global",120,3600) 一道。
+    拿不到来源 IP(request=None, 无 x-real-ip)时不设限流并记警。
     """
 
-    def test_register_consumes_single_global_bucket_only(self):
+    def _run(self, headers):
         import api.oauth as oauth_adapter
 
         calls: list[tuple] = []
@@ -186,6 +184,18 @@ class OAuthRegisterRateLimitTests(unittest.TestCase):
         async def fake_register_client(db, **kwargs):
             return {"client_id": "cid", "client_secret": "sec"}
 
+        class _H:
+            def __init__(self, mapping):
+                self._m = mapping or {}
+
+            def get(self, key, default=None):
+                return self._m.get(key.lower(), default)
+
+        class _R:
+            def __init__(self, mapping):
+                self.headers = _H(mapping)
+
+        request = _R(headers)
         async def go():
             with patch.object(oauth_adapter, "enforce_http", fake_enforce), \
                  patch.object(oauth_adapter.svc, "register_client",
@@ -194,13 +204,21 @@ class OAuthRegisterRateLimitTests(unittest.TestCase):
                     {"client_name": "ChatGPT",
                      "redirect_uris": ["https://chatgpt.com/callback"],
                      "token_endpoint_auth_method": "none"},
-                    None, None)
+                    request, None)
 
-        response = asyncio.run(go())
+        return asyncio.run(go()), calls
+
+    def test_register_consumes_source_ip_bucket(self):
+        response, calls = self._run({"x-real-ip": "203.0.113.7"})
         self.assertEqual(response.status_code, 201)
         self.assertEqual(
-            calls, [("oauth-register", "global", 120, 3600)],
-            "注册只应走全站共享桶, 不得再按 client_name/IP 分桶")
+            calls, [("oauth-register", "203.0.113.7", 120, 3600)],
+            "注册按来源 IP 分桶, 不设全站共享桶")
+
+    def test_register_without_ip_skips_limit(self):
+        response, calls = self._run(None)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(calls, [], "拿不到来源 IP 时不落共用桶")
 
 
 if __name__ == "__main__":

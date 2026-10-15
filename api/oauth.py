@@ -2,16 +2,20 @@
 from __future__ import annotations
 
 import html
+import logging
 from urllib.parse import parse_qs, quote
 
 from fastapi import APIRouter, Body, Depends, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .core import rate_limit
 from .core.database import get_db
 from .core.security import Actor, current_session, optional_actor
 from .rate_limit_http import enforce_http
 from .services import oauth as svc
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/oauth", tags=["oauth"])
 
@@ -61,10 +65,15 @@ async def register(
     request: Request = None,
     db: AsyncSession = Depends(get_db),
 ):
-    # F-05: 注册限流 — 全站共享一个桶(120 次/小时)。不设 client_name/IP
-    # 维度: client_name 桶会让所有同名客户端(如 ChatGPT)共享 10 次/小时;
-    # IP 桶经 Next 代理转发后全站只有一个来源 IP, 等价于更小的全局桶。
-    await enforce_http("oauth-register", "global", 120, 3600)
+    # 按来源 IP 限流 120 次/小时，防批量注册客户端。拿不到来源 IP 时
+    # 不设限流并记警。
+    ip = rate_limit.client_ip(request.headers if request else None)
+    if ip:
+        await enforce_http("oauth-register", ip, 120, 3600)
+    else:
+        logger.warning(
+            "oauth client register without client IP (no x-real-ip): "
+            "rate limit skipped")
     try:
         result = await svc.register_client(
             db,

@@ -55,8 +55,10 @@ class _Recorder:
         self.calls.append(f"structure_exit:{held}")
 
     async def run_query(self, db, query, mode, canonical, page, page_size,
-                        offset, *, actor_id=None, threshold=0.7):
-        self.calls.append(f"run_search_query:{mode}:{canonical}:{offset}")
+                        offset, *, actor_id=None, threshold=0.7, locale=None,
+                        client_ip=None):
+        self.calls.append(
+            f"run_search_query:{mode}:{canonical}:{offset}:{locale}:{client_ip}")
         return TUP
 
 
@@ -142,7 +144,7 @@ class OrchestrationStructureTests(unittest.TestCase):
             for p in patches:
                 p.stop()
         self.assertIs(out, cached_result)
-        self.assertEqual(rec.calls, ["cache_get:v2:unified-search:substructure:0.7:1:30:CCO",
+        self.assertEqual(rec.calls, ["cache_get:v2:unified-search:substructure:0.7:1:30::CCO",
                                      "structure_exit:None"])
 
     def test_cache_miss_full_ordering_and_key_ttl(self):
@@ -158,13 +160,13 @@ class OrchestrationStructureTests(unittest.TestCase):
         finally:
             for p in patches:
                 p.stop()
-        want_key = "v2:unified-search:similarity:0.55:2:50:CCO"
+        want_key = "v2:unified-search:similarity:0.55:2:50::CCO"
         # 顺序(G2.3 final blocker 2): cache_get → structure_enter →
         # canonicalize → run_search_query → cache_set(300) → structure_exit(finally)
         self.assertEqual(rec.calls, [
             f"cache_get:{want_key}",
             "structure_enter:9",
-            "run_search_query:similarity:CCO:50",
+            "run_search_query:similarity:CCO:50:None:None",
             f"cache_set:{want_key}:300",
             "structure_exit:['actor:x']",
         ])
@@ -172,6 +174,26 @@ class OrchestrationStructureTests(unittest.TestCase):
         # key 逐字与基线一致
         self.assertTrue(all(want_key in c for c in rec.calls if "unified-search" in c))
         self.assertFalse(data is None)
+
+    def test_locale_keyed_cache_and_passthrough(self):
+        """缓存键含 locale, 且 locale 与来源 IP 穿到查询层。"""
+        rec = _Recorder()
+        patches = _patch_layer(rec)
+        for p in patches:
+            p.start()
+        try:
+            with patch("api.chemistry.canonicalize_smiles", _canonical_ok("CCO")):
+                asyncio.run(execute_search(
+                    object(), "CCO", "similarity", threshold=0.55, page=1,
+                    page_size=30, actor_id=9, locale="ja", client_ip="203.0.113.3"))
+        finally:
+            for p in patches:
+                p.stop()
+        self.assertIn("cache_get:v2:unified-search:similarity:0.55:1:30:ja:CCO",
+                      rec.calls)
+        self.assertIn("cache_set:v2:unified-search:similarity:0.55:1:30:ja:CCO:300",
+                      rec.calls)
+        self.assertIn("run_search_query:similarity:CCO:0:ja:203.0.113.3", rec.calls)
 
     def test_query_failure_still_releases_gate(self):
         rec = _Recorder()

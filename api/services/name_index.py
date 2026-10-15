@@ -107,10 +107,15 @@ async def ingest_from_cb_locales(db: Any, chemical_id: int) -> int:
     listing 镜像保留, 镜像语义不变。
     """
     items: list[tuple[str, str, str]] = []
+    # R4: 每个 cb_number 内 zh-CN 永远第一个处理。name_index 的 PK 不含
+    # lang, 其他语言当地名归一化后与中文名相同时先到先得 —— de/en/ja/ko
+    # 按字母序都在 zh-CN 前面, 会抢走 (name_cn, 'cn') 行, attach_localized_
+    # names 就解析不出中文主标题(生产抽样约 1/5600 受影响)。zh-CN 优先后
+    # 冲突时 'cn' 行必胜, 其余 locale 内部仍按字母序, 结果保持确定。
     entries = (await db.execute(text("""
         SELECT locale, entry FROM chemistry.chemical_cb
         WHERE chemical_id=:id AND last_status='ok'
-        ORDER BY cb_number ASC NULLS LAST, locale ASC
+        ORDER BY cb_number ASC NULLS LAST, (locale = 'zh-CN') DESC, locale ASC
     """), {"id": chemical_id})).all()
     for locale, row_entry in entries:
         if not row_entry:

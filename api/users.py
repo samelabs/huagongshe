@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import logging
 import os
 import re
 import secrets
@@ -16,8 +17,11 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+logger = logging.getLogger(__name__)
+
 from .core.config import settings
 from .core.database import get_db
+from .core import rate_limit
 from .rate_limit_http import enforce_http
 from .core.security import (
     Actor, actor_payload, current_actor, current_session, public_or_actor,
@@ -64,14 +68,22 @@ async def create_session(db, response: Response, user_id: int) -> None:
 
 
 @auth_router.get("/check-username")
-async def check_username(username: str = Query(min_length=4, max_length=30), db=Depends(get_db)):
+async def check_username(
+    request: Request,
+    username: str = Query(min_length=4, max_length=30), db=Depends(get_db),
+):
     """注册时实时校验用户名是否可用。
-    0904 ⑱: 枚举敞口 — 原无限流, 脚本可批量探测已注册用户名。
-    匿名共享桶 30/min(BFF 后无真实 IP, 与 cas-search-fetch 同口径);
-    超限 429, 注册表单降级为提交时校验(不阻塞正常使用)。
-    BX-A2：reason 改为 reason_code 稳定机器码（taken / invalid_format），
-    不再返回中文文案 —— 前端按语言渲染。"""
-    await enforce_http("check-username", "global", 30, 60)
+
+    匿名按来源 IP 限流 30/min，防脚本批量探测已注册用户名；超限 429,
+    注册表单降级为提交时校验（不阻塞正常使用）。拿不到来源 IP 时不设
+    限流并记警。reason 为 reason_code 稳定机器码（taken / invalid_format），
+    前端按语言渲染。"""
+    ip = _client_ip(request)
+    if ip:
+        await enforce_http("check-username", ip, 30, 60)
+    else:
+        logger.warning(
+            "check-username without client IP (no x-real-ip): rate limit skipped")
     if not USERNAME_RE.fullmatch(username):
         return {"available": False, "reason_code": "invalid_format"}
     exists = (await db.execute(text(
@@ -81,10 +93,17 @@ async def check_username(username: str = Query(min_length=4, max_length=30), db=
 
 
 @auth_router.post("/register", status_code=201)
-async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
-    # 注册界=全局宽松上限: 只防批量灌号; 真实流量(个位数/天)永远不可见.
-    # per-IP 对代理池无效(B2 后应用层也拿不到真实 IP), 不做地址维度.
-    await enforce_http("register", "global", 60, 3600)
+async def register(
+    body: RegisterBody, request: Request, response: Response, db=Depends(get_db),
+):
+    # 按来源 IP 限流 60/小时，只防批量灌号；真实流量（个位数/天）永远不可见。
+    # 拿不到来源 IP 时不设限流并记警。
+    ip = _client_ip(request)
+    if ip:
+        await enforce_http("register", ip, 60, 3600)
+    else:
+        logger.warning(
+            "register without client IP (no x-real-ip): rate limit skipped")
     encoded_password = await asyncio.to_thread(password_hash, body.password)
     try:
         row = (await db.execute(text("""
@@ -110,11 +129,14 @@ async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
 
 
 @auth_router.post("/login")
-async def login(body: LoginBody, response: Response, db=Depends(get_db)):
+async def login(body: LoginBody, request: Request, response: Response, db=Depends(get_db)):
     account = body.account.strip().lower()
-    # 限流键=账号本身: 换 IP(代理池)无效; 换账号打的是廉价未命中查询, 不触发 scrypt.
-    # 真实账号的猜解被账号桶封死 → scrypt(~50ms/次) CPU 消耗有界.
-    await enforce_http("login", hashlib.sha256(account.encode()).hexdigest()[:24], 15, 900)
+    # 限流键=账号+来源 IP: 猜解被挡在真实账号 + 单一来源的组合上，他人
+    # 无法用别的地址把某个账号锁死；换账号打的是廉价未命中查询，不触发
+    # scrypt。拿不到来源 IP 时退回仅按账号。
+    account_key = hashlib.sha256(account.encode()).hexdigest()[:24]
+    ip = _client_ip(request)
+    await enforce_http("login", f"{account_key}:{ip}" if ip else account_key, 15, 900)
     row = (await db.execute(text("""
         SELECT id,username,display_name,email,role,password_hash,avatar_path
         FROM community.users
@@ -162,10 +184,9 @@ def _like_literal(value: str) -> str:
 
 
 def _client_ip(request) -> str | None:
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip() or None
-    return None
+    # R2: 统一读 nginx 覆盖写入的 x-real-ip(x-forwarded-for 首段可伪造)。
+    # 返回 None 时调用方不落 "unknown" 全站共用桶。
+    return rate_limit.client_ip(request.headers)
 
 
 @router.get("/search")
@@ -185,9 +206,19 @@ async def search_users(
     query = q.strip()
     if not query:
         raise HTTPException(422, {"message": "q 不能为空白", "kind": "invalid_query"})
-    identity = (str(actor.id) if actor is not None
-                else (_client_ip(request) or "unknown"))
-    await enforce_http("users-search", identity, 60, 60)
+    if actor is not None:
+        await enforce_http("users-search", str(actor.id), 60, 60)
+    else:
+        ip = _client_ip(request)
+        if ip:
+            await enforce_http("users-search", ip, 60, 60)
+        else:
+            # R2: 拿不到来源 IP 不落 "unknown" 全站共用桶(那等于所有匿名
+            # 访客合用 60/min)。生产链路 nginx 必写 x-real-ip, 走到这里
+            # 说明绕过了 nginx, 记警不当桶。
+            logger.warning(
+                "users search without client IP (no x-real-ip): "
+                "anonymous rate limit skipped")
 
     like_q = _like_literal(query).lower()
     viewer_id = actor.id if actor else 0

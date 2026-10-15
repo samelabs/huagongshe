@@ -23,11 +23,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tests.db_gate import test_db_or_skip  # noqa: E402,F401
+from tests.db_gate import test_db_or_skip  # noqa: E402
 
-import os
-
-DB_URL = os.environ.get("TEST_DATABASE_URL", "")
+# 建任何 engine 之前先过测试库闸(库名模式 + sentinel 双保险)。
+DB_URL = test_db_or_skip()
 _GATE = unittest.skipUnless(DB_URL, "需要 PG 测试库")
 
 TABLE = "maintenance.pubchem_identity_jobs"

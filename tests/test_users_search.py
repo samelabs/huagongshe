@@ -36,8 +36,13 @@ if ASYNC_URL:
 
 
 class _FakeRequest:
-    def __init__(self, xff=None):
-        self.headers = {"x-forwarded-for": xff} if xff else {}
+    def __init__(self, xff=None, real_ip=None):
+        headers = {}
+        if xff:
+            headers["x-forwarded-for"] = xff
+        if real_ip:
+            headers["x-real-ip"] = real_ip
+        self.headers = headers
 
 
 def _actor(user_id: int) -> Actor:
@@ -106,10 +111,11 @@ class UsersSearchTests(unittest.IsolatedAsyncioTestCase):
                 {"ids": list(self.ids.values())})
         await self.engine.dispose()
 
-    async def _search(self, q, *, actor=None, page=1, page_size=20, xff=None):
+    async def _search(self, q, *, actor=None, page=1, page_size=20,
+                      xff=None, real_ip=None):
         async with self.Session() as db:
             return await users_api.search_users(
-                request=_FakeRequest(xff=xff), q=q, page=page,
+                request=_FakeRequest(xff=xff, real_ip=real_ip), q=q, page=page,
                 page_size=page_size, actor=actor, db=db)
 
     async def test_prefix_match_case_insensitive(self):
@@ -185,15 +191,40 @@ class UsersSearchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(page_size.default, 20)
 
     async def test_anonymous_rate_limit_per_ip(self):
-        # 同一匿名 IP 连打 61 次 → 429(Redis 真实闸门)
+        # 同一匿名 IP 连打 61 次 → 429(Redis 真实闸门); 分桶键是 nginx
+        # 覆盖写入的 x-real-ip(R2), 与请求自带的 x-forwarded-for 无关。
         limited = False
         for _ in range(61):
             try:
-                await self._search(self.prefix, xff="198.51.100.77")
+                await self._search(self.prefix, real_ip="198.51.100.77")
             except HTTPException as exc:
                 limited = exc.status_code == 429
                 break
         self.assertTrue(limited, "匿名 61 次/分钟必须被限流")
+
+    async def test_forged_xff_does_not_affect_bucketing(self):
+        # R2: XFF 首段是客户端可伪造的值 —— 每次换一个伪造 XFF, 若分桶
+        # 错误地读 XFF 则永不超限; 读 x-real-ip 时同一 IP 61 次必 429。
+        limited = False
+        for i in range(61):
+            try:
+                await self._search(
+                    self.prefix, real_ip="198.51.100.78",
+                    xff=f"1.2.3.{i}, 10.0.0.1")
+            except HTTPException as exc:
+                limited = exc.status_code == 429
+                break
+        self.assertTrue(limited, "伪造 XFF 不得绕过按 IP 限流")
+
+    async def test_no_real_ip_skips_limit_without_shared_unknown_bucket(self):
+        # R2: 拿不到 x-real-ip 时不落 "unknown" 全站共用桶 —— 80 次(超过
+        # 单桶 60/min 上限)全部放行, 并记告警(生产 nginx 必写该头)。
+        with self.assertLogs("api.users", level="WARNING") as logs:
+            for _ in range(80):
+                await self._search(self.prefix, xff="9.9.9.9")
+        self.assertTrue(
+            any("client IP" in line for line in logs.output),
+            "缺 x-real-ip 应记告警")
 
 
 if __name__ == "__main__":

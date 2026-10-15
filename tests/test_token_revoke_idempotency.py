@@ -22,9 +22,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from tests.db_gate import test_db_or_skip  # noqa: E402,F401
+from tests.db_gate import test_db_or_skip  # noqa: E402
 
-DB_URL = os.environ.get("TEST_DATABASE_URL", "")
+# 建任何 engine 之前先过测试库闸(库名模式 + sentinel 双保险)。
+DB_URL = test_db_or_skip()
 
 RUN = random.randint(10_000_000, 99_000_000)
 

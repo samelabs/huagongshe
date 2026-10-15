@@ -215,7 +215,7 @@ class InvariantsTests(unittest.TestCase):
         """行为契约(0915 改写): 不再审计源码字面 `enforce(...)` — 函数局部
         alias 名不是 contract。直接驱动 run_search_query 的 CAS-miss 分支,
         断言落进 rate_limit 的 (bucket, identity, limit, window):
-        anonymous → cas-search-fetch / anonymous-global / 30 / 60;
+        anonymous → cas-search-fetch / ip:<来源IP> / 30 / 60;
         authenticated → cas-search-fetch / actor id / 10 / 60。
         """
         import asyncio
@@ -242,6 +242,7 @@ class InvariantsTests(unittest.TestCase):
                  patch.object(search_service, "reaction_lookup", new=AsyncMock(return_value=[])):
                 result = asyncio.run(search_service.run_search_query(
                     db, cas_query, "exact", None, 1, 30, 0, actor_id=actor_id,
+                    client_ip="203.0.113.4" if actor_id is None else None,
                 ))
             return calls, result
 
@@ -249,8 +250,8 @@ class InvariantsTests(unittest.TestCase):
         cas_calls = [c for c in calls if c[0] == "cas-search-fetch"]
         self.assertEqual(
             [(c[1], c[2], c[3]) for c in cas_calls],
-            [("anonymous-global", 30, 60)],
-            "匿名 CAS miss 必须落 cas-search-fetch / anonymous-global / 30 / 60",
+            [("ip:203.0.113.4", 30, 60)],
+            "匿名 CAS miss 必须落 cas-search-fetch / 来源IP / 30 / 60",
         )
 
         calls, _ = run(actor_id=12345)

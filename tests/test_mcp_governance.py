@@ -373,28 +373,40 @@ class RenderResourceGate(unittest.TestCase):
                            if step[0] in ("enforce", "acquire", "release_leases")}
                 self.assertEqual(buckets, {mcp_server.MCP_RENDER_BUCKET})
                 self.assertEqual(mcp_server.MCP_RENDER_BUCKET, "mcp-render")
-                # 匿名: 600/min 全局兜底先执行, 120/min render gate 随后执行。
+                # 匿名: 限流只按来源 IP 分桶, 无全站共享桶。
                 self.assertEqual(
-                    [(step[2], step[3]) for step in ORDER if step[0] == "enforce"],
-                    [("anon-global", 600), ("anon:unknown", 120)],
-                    "600 全局 gate 必须先于 120 render gate",
+                    [step for step in ORDER if step[0] == "enforce"],
+                    [],
+                    "无来源 IP 不落任何限流桶(不设全站共享兜底)",
                 )
-                # 常量即外部契约: 不得为迁就旧断言把 600 改回 120。
-                self.assertEqual(mcp_server.MCP_RENDER_ANON_GLOBAL_LIMIT, 600)
+                self.assertFalse(hasattr(mcp_server, "MCP_RENDER_ANON_GLOBAL_LIMIT"),
+                                 "渲染限流不设全站共享兜底桶")
                 self.assertEqual(mcp_server.MCP_RENDER_RATE_LIMIT, 120)
                 kinds = [step[0] for step in ORDER]
                 self.assertLess(max(i for i, k in enumerate(kinds) if k == "enforce"),
                                 min(i for i, k in enumerate(kinds) if k == "acquire"),
                                 "限频必须先于租约")
                 self.assertEqual(kinds[-1], "release_leases", "租约必须 finally 释放")
-            with self.subTest(tool=f"{tool}/anonymous+forwarded-for"):
+            with self.subTest(tool=f"{tool}/anonymous+real-ip"):
                 patch_runtime(row=row)
                 asyncio.run(build_server().call_tool(
-                    tool, args, context=FakeCtx({"x-forwarded-for": "203.0.113.9, 10.0.0.1"})))
+                    tool, args, context=FakeCtx({"x-real-ip": "203.0.113.9"})))
                 self.assertEqual(
                     [step[2] for step in ORDER if step[0] == "enforce"],
-                    ["anon-global", "anon:203.0.113.9"],
-                    "匿名按来源 IP 拆桶(取 x-forwarded-for 首段)",
+                    ["anon:203.0.113.9"],
+                    "匿名按来源 IP 拆桶(读 nginx 覆盖写入的 x-real-ip)",
+                )
+            with self.subTest(tool=f"{tool}/forged-xff-ignored"):
+                # x-forwarded-for 是请求自带值可伪造, 不用于分桶 ——
+                # 只带 XFF 时按 IP 桶直接跳过, 不落任何桶。
+                patch_runtime(row=row)
+                asyncio.run(build_server().call_tool(
+                    tool, args,
+                    context=FakeCtx({"x-forwarded-for": "203.0.113.9, 10.0.0.1"})))
+                self.assertEqual(
+                    [step[2] for step in ORDER if step[0] == "enforce"],
+                    [],
+                    "伪造 XFF 不得参与分桶",
                 )
             with self.subTest(tool=f"{tool}/authenticated"):
                 patch_runtime(row=row, auth=True)
@@ -403,7 +415,7 @@ class RenderResourceGate(unittest.TestCase):
                 self.assertEqual(
                     [(step[2], step[3]) for step in ORDER if step[0] == "enforce"],
                     [("actor:7", 120)],
-                    "已认证身份不吃匿名全局兜底, 仍为 120 次/分钟",
+                    "已认证身份按用户分桶, 120 次/分钟",
                 )
 
     def test_actor_inflight_and_global_inflight_bounds(self):

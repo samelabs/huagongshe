@@ -173,8 +173,8 @@ class AdapterTests(unittest.TestCase):
         self.assertNotIn("reactions_module", seg)
         self.assertNotIn("my_reactions(", seg.replace(
             "list_my_reactions", "").replace("_list_service", "x"))
-        self.assertIn("min(max(page, 1), 500)", seg)
-        self.assertIn("min(max(page_size, 1), 50)", seg)
+        self.assertIn("min(max(page, 1), LIST_PAGE_MAX)", seg)
+        self.assertIn("min(max(page_size, 1), MY_REACTIONS_PAGE_SIZE_MAX)", seg)
         self.assertIn("ToolError", seg)  # visibility validation 保持
 
 

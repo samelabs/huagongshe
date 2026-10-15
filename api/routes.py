@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from sqlalchemy import text
 
 from .core.cache import cache_get, cache_set
@@ -17,7 +17,7 @@ from .services.search import (
     SearchError, execute_search,
 )
 from .rate_limit_http import to_http_exception  # noqa: E402  (G2.R HTTP bridge)
-from .core.rate_limit import RateLimitError  # noqa: E402
+from .core.rate_limit import RateLimitError, client_ip  # noqa: E402
 
 # service 语义类别 → 基线 HTTP status 唯一映射(G2.3 final; detail 逐字不变)
 _STATUS_BY_KIND = {
@@ -59,6 +59,7 @@ async def public_config(actor: Actor | None = Depends(public_or_actor), db=Depen
     summary="统一查询化合物和反应",
 )
 async def search(
+    request: Request,
     actor: Actor | None = Depends(public_or_actor),
     q: str = Query(..., min_length=1, max_length=4000),
     mode: str = Query("exact", pattern="^(exact|substructure|similarity)$"),
@@ -87,6 +88,7 @@ async def search(
             page_size=page_size,
             actor_id=actor.id if actor else None,
             locale=locale,
+            client_ip=client_ip(request.headers),
         )
     except SearchError as exc:  # service 领域错误 → 原基线 status + {message,kind}
         raise HTTPException(

@@ -113,8 +113,17 @@ class HttpContractTests(unittest.TestCase):
     def _search(self, actor, mode, **kw):
         from api import routes as routes_module
         db = _FakeDB()
+
+        class _Headers:
+            def get(self, key, default=None):
+                return default
+
+        class _Request:
+            headers = _Headers()
+
         async def go():
             return await routes_module.search(
+                request=_Request(),
                 actor=actor, q=kw.get("q", "benzoic acid"), mode=mode,
                 threshold=kw.get("threshold", 0.7), page=1, page_size=30, db=db)
         return asyncio.run(go())

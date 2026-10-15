@@ -84,15 +84,17 @@ class SessionBoundaryTests(unittest.TestCase):
         # 函数仍存在(非权限用途保留), 但生产 api/ 内零调用方
         self.assertTrue(callable(rate_limit.is_loopback_host))
 
-    def test_auth_budgets_are_account_and_global_not_address(self) -> None:
-        """限流键与地址脱钩: login=账号桶(代理池换IP无效), register=全局宽松桶; request_identity 已删."""
+    def test_auth_budgets_keyed_by_account_and_source_ip(self) -> None:
+        """限流按真实身份: login=账号+来源IP(他人无法锁死账号), register=按来源IP; request_identity 已删."""
         import api.users as users
         import api.core.rate_limit as rate_limit
         login_source = inspect.getsource(users.login)
         self.assertIn('enforce_http("login"', login_source)
         self.assertIn("sha256(account", login_source)
         self.assertNotIn("request_identity", login_source)
-        self.assertIn('enforce_http("register", "global", 60, 3600)', inspect.getsource(users.register))
+        register_source = inspect.getsource(users.register)
+        self.assertIn('enforce_http("register", ip, 60, 3600)', register_source)
+        self.assertNotIn('"global"', register_source)
         self.assertFalse(hasattr(rate_limit, "request_identity"))
 
 

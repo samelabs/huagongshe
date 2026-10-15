@@ -218,10 +218,75 @@ class PublicSmokeContractTests(unittest.TestCase):
         self.assertEqual(D.PUBLIC_SMOKE_URL, "https://huagongshe.com/api/health")
         self.assertNotIn("127.0.0.1", D.PUBLIC_SMOKE_URL)
 
+    @staticmethod
+    def _fake_public_http(ok_pages=True, version=None):
+        """公网冒烟替身: 覆盖 health/页面/MCP 三类请求, 零真实网络访问。
+
+        返回 (http_ok, http_200, post_json) 三个 MagicMock, 供断言调用面。
+        """
+        if version is None:
+            version = (D.REPO / "VERSION").read_text(encoding="utf-8").strip()
+        sse = ("event: message\n"
+               f'data: {{"jsonrpc":"2.0","id":1,"result":'
+               f'{{"serverInfo":{{"name":"huagongshe","version":"{version}"}}}}}}\n\n')
+        http_200 = mock.MagicMock(return_value=((True, "status=200") if ok_pages
+                                                else (False, "error=fake")))
+        post_json = mock.MagicMock(return_value=((200, sse) if ok_pages
+                                                 else (503, "")))
+        http_ok = mock.MagicMock(return_value=(True, "status=200"))
+        return http_ok, http_200, post_json
+
     def test_public_smoke_success_returns_true(self):
-        # mock http_ok, 零真实网络访问
-        with mock.patch.object(D, "http_ok", return_value=(True, "status=200")):
+        # 全部请求走替身, 零真实网络访问
+        http_ok, http_200, post_json = self._fake_public_http()
+        with mock.patch.object(D, "http_ok", http_ok), \
+             mock.patch.object(D, "_http_200", http_200), \
+             mock.patch.object(D, "_http_post_json", post_json):
             self.assertTrue(D.public_smoke())
+
+    def test_public_smoke_requests_every_page_and_mcp(self):
+        # 五语言首页 + 化合物详情页 + MCP initialize 都必须被请求(替身记录)
+        http_ok, http_200, post_json = self._fake_public_http()
+        with mock.patch.object(D, "http_ok", http_ok), \
+             mock.patch.object(D, "_http_200", http_200), \
+             mock.patch.object(D, "_http_post_json", post_json):
+            D.public_smoke()
+        page_urls = [c.args[0] for c in http_200.call_args_list]
+        for locale in D.SMOKE_LOCALES:
+            self.assertIn(f"https://huagongshe.com/{locale}", page_urls)
+        self.assertIn(D.SMOKE_CHEMICAL_PAGE, page_urls)
+        post_json.assert_called_once()
+        self.assertEqual(post_json.call_args.args[0], D.SMOKE_MCP_URL)
+        self.assertEqual(
+            post_json.call_args.args[2]["Accept"],
+            "application/json, text/event-stream")
+
+    def test_public_smoke_mcp_version_mismatch_fails(self):
+        http_ok, http_200, post_json = self._fake_public_http(version="0.0.0")
+        with mock.patch.object(D, "http_ok", http_ok), \
+             mock.patch.object(D, "_http_200", http_200), \
+             mock.patch.object(D, "_http_post_json", post_json):
+            self.assertFalse(D.public_smoke())
+
+    def test_public_smoke_page_failure_fail_closed(self):
+        http_ok, http_200, post_json = self._fake_public_http(ok_pages=False)
+        with mock.patch.object(D, "http_ok", http_ok), \
+             mock.patch.object(D, "_http_200", http_200), \
+             mock.patch.object(D, "_http_post_json", post_json):
+            self.assertFalse(D.public_smoke())
+
+    def test_public_smoke_never_touches_real_network(self):
+        # 单测禁止访问外网: 替身之外, urlopen 一旦被调用即失败。
+        http_ok, http_200, post_json = self._fake_public_http()
+        with mock.patch.object(D, "http_ok", http_ok), \
+             mock.patch.object(D, "_http_200", http_200), \
+             mock.patch.object(D, "_http_post_json", post_json):
+            import urllib.request
+            guard = mock.patch.object(
+                urllib.request, "urlopen",
+                side_effect=AssertionError("单测不得访问外网"))
+            with guard:
+                self.assertTrue(D.public_smoke())
 
     def test_public_smoke_public_failure_fail_closed(self):
         # 公网 health 非 ok(非 200/网络错误/异常 body) → deploy False

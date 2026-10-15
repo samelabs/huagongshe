@@ -59,6 +59,9 @@ def _compute(body: ScaleInput) -> dict:
     b = body.basis.index
     basis_mm = Descriptors.MolWt(mols[b])
     if body.basis.amount_unit in ("g", "mg"):
+        # 摩尔质量为 0 的结构(如骨架占位 "*")无法按质量折算摩尔量。
+        if basis_mm <= 0:
+            raise ValueError("基准组分没有确定的摩尔质量，无法按质量折算摩尔量；请改用摩尔(mol/mmol)计量或换真实结构作基准")
         basis_moles = body.basis.amount_value * _PER_MOL[body.basis.amount_unit] / basis_mm
     else:
         basis_moles = body.basis.amount_value * _PER_MOL[body.basis.amount_unit]

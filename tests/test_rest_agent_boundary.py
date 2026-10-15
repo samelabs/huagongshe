@@ -199,11 +199,19 @@ class SearchErrorKindPayloadTests(unittest.TestCase):
             url = "postgresql+asyncpg://" + url.split("://", 1)[1]
         eng = create_async_engine(url, poolclass=NullPool)
 
+        class _Headers:
+            def get(self, key, default=None):
+                return default
+
+        class _Request:
+            headers = _Headers()
+
         async def body():
             try:
                 async with eng.connect() as conn:
                     try:
                         await search(
+                            request=_Request(),
                             actor=None, q="7732-18-6", mode="exact",
                             threshold=0.7, page=1, page_size=30, db=conn)
                     except HTTPException as exc:

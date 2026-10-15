@@ -450,6 +450,17 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
             stripped.append(("/".join(parts), data))
         entries = stripped
 
+    # 规范化(根目录剥离)后同一路径只允许出现一次: zip 允许同名条目, 但
+    # 落盘与入库都按唯一路径; 重复必须在任何写盘之前拒绝(校验阶段为纯
+    # 内存操作, 不会留下残余文件)。
+    seen_paths: set[str] = set()
+    for name, _ in entries:
+        if name in seen_paths:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.INVALID_ARCHIVE,
+                f"压缩包内存在重复路径：{name}")
+        seen_paths.add(name)
+
     if not any(name == "SKILL.md" for name, _ in entries):
         raise SkillArchiveValidationError(
             SkillArchiveValidationError.MANIFEST_INVALID,
