@@ -1573,7 +1573,7 @@
     overflow: visible;
     padding: var(--wb-sp-4);
     /* 底栏让位全站一条规则：--tabbar-clear（含安全区），与公开页页脚共用；
-       BX-A3：触控行高增大后末项距底栏余量不足 —— 再加 sp-6 呼吸 */
+       触控行高增大后末项距底栏余量不足，另加 sp-6 呼吸 */
     padding-bottom: calc(var(--tabbar-clear) + var(--wb-sp-6));
   }
   /* PWA 独立窗口：让位含安全区（叠加在 .wb-main padding 之上，此处不再重复） */
@@ -2034,7 +2034,7 @@
 .wb-btn-danger:hover{border-color:var(--wb-danger);background:var(--wb-paper)}
 }
 
-/* BX-A3/VG：手机端列表行标题触控 ≥44（行高随之小幅增加） */
+/* 手机端列表行标题触控 ≥44（行高随之小幅增加） */
 @media (max-width: 680px) {
   .wb-row-title { min-height: 44px; }
 }

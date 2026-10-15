@@ -77,7 +77,7 @@ export function LanguageSwitcher() {
               aria-current={l === locale ? "true" : undefined}
               className={l === locale ? "current" : undefined}
               onClick={() => {
-                // Round 14: 匿名用户语言偏好改由语言切换器在客户端主动切换时写入
+                // 匿名用户语言偏好由语言切换器在客户端主动切换时写入
                 document.cookie = `site_locale=${encodeURIComponent(l)}; path=/; max-age=31536000; SameSite=Lax`;
                 menu.setOpen(false);
               }}
