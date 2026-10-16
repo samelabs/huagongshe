@@ -293,6 +293,8 @@ const ko: Dictionary = {
 
   /* ── 반응 상세 ──────────────────────────────────────── */
   reaction: {
+    publishedOn: (date: string) => `${date} 게시`,
+    hiddenNotice: '이 반응은 운영 정책에 따라 숨겨졌습니다: 더 이상 공개되지 않으며 본인(과 관리자)만 볼 수 있습니다. 잘못되었다고 생각되면 지원 페이지로 연락해 주세요.',
     detail: '반응 상세',
     category: '반응',
     reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,

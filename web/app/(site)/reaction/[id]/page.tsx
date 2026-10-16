@@ -206,11 +206,36 @@ export default async function ReactionPage({ params }: {
             ariaLabel={t.common.hridLabel(reaction.id)}
           />
           <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
-          <Button variant="ghost" size="sm" iconOnly href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
+          <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
             <IconPrinter />
           </Button>
         </div>
         <h1 className="rx-head-title">{reactionTitleText}</h1>
+        {reaction.creator && (
+          <div className="rx-head-byline">
+            <Byline
+              user={reaction.creator}
+              time={t.reaction.publishedOn(new Date(reaction.created_at).toLocaleDateString(locale))}
+              privateMark={reaction.visibility === "private"}
+              size={32}
+            />
+            {/* I-119：非作者关注作者的入口（停用账号不出，关注端点本就拒绝停用目标） */}
+            {!reaction.is_owner && reaction.creator.active !== false && (
+              <FollowButton
+                endpoint={`/users/${encodeURIComponent(reaction.creator.username)}/follow`}
+                initial={reaction.creator.is_following ?? false}
+                showCount={false}
+                size="sm"
+                activeVariant="secondary"
+                activeHoverText={t.follow.unfollow}
+              />
+            )}
+          </div>
+        )}
+        {reaction.is_owner && reaction.moderation_status === "hidden" && (
+          /* I-119：作者可见的隐藏提示 —— 内容被治理隐藏时明确告知，不再是「无声」 */
+          <Notice tone="warn">{t.reaction.hiddenNotice}</Notice>
+        )}
         {factualSummary && <p className="rx-head-summary">{factualSummary}</p>}
         <div className="rx-head-actions">
           {reaction.is_owner ? (

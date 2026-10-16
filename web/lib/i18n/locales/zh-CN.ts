@@ -299,6 +299,8 @@ const t = {
 
   /* ── 反应详情 ────────────────────────────────────────── */
   reaction: {
+    publishedOn: (date: string) => `发布于 ${date}`,
+    hiddenNotice: '此反应已被治理隐藏：不再对外公开展示，仅你自己（与管理员）可见。如认为有误可通过支持页联系。',
     detail: '反应详情',
     category: '反应',
     reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,

@@ -290,6 +290,8 @@ const en: Dictionary = {
 
   /* ── Reaction detail ───────────────────────────────── */
   reaction: {
+    publishedOn: (date: string) => `Published ${date}`,
+    hiddenNotice: 'This reaction has been hidden by moderation: it is no longer publicly visible, only you (and admins) can see it. If you believe this is a mistake, contact us via the support page.',
     detail: 'Reaction detail',
     category: 'Reaction',
     reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,

@@ -294,6 +294,8 @@ const de: Dictionary = {
 
   /* ── Reaktionsdetail ────────────────────────────────── */
   reaction: {
+    publishedOn: (date: string) => `Veröffentlicht am ${date}`,
+    hiddenNotice: 'Diese Reaktion wurde durch Moderation ausgeblendet: Sie ist nicht mehr öffentlich sichtbar, nur du (und Admins) kannst sie sehen. Wenn du dies für einen Fehler hältst, kontaktiere uns über die Support-Seite.',
     detail: 'Reaktionsdetails',
     category: 'Reaktion',
     reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,

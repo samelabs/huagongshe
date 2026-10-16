@@ -291,6 +291,8 @@ const ja: Dictionary = {
 
   /* ── 反応詳細 ───────────────────────────────────────── */
   reaction: {
+    publishedOn: (date: string) => `${date} 公開`,
+    hiddenNotice: 'この反応は管理運営により非表示にされています。一般には公開されず、あなた（と管理者）のみが閲覧できます。誤りだと思われる場合はサポートページからご連絡ください。',
     detail: '反応詳細',
     category: '反応',
     reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,

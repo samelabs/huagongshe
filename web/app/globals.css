@@ -416,6 +416,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .rx-badge-row { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .rx-head-title { margin: var(--sp-3) 0 0; font-size: clamp(var(--fs-28), 3.7vw, var(--fs-40)); font-weight: 650; line-height: 1.15; letter-spacing: var(--ls-display); overflow-wrap: anywhere; }
 /* 事实摘要: 只由结构化字段拼出(反应物→产物 · 催化剂/溶剂 · 温度 · 时间), 无值不出 */
+.rx-head-byline { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
 .rx-head-summary { margin: 0; color: var(--text-2); font-size: var(--fs-16); overflow-wrap: anywhere; }
 .rx-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
 .owner-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }

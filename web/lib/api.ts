@@ -362,7 +362,7 @@ export type ReactionDetail = {
   source_citation: string | null;
   workup_details: string | null;
   note: string | null;
-  creator: { username: string; display_name: string; avatar_url: string | null; active?: boolean } | null;
+  creator: { username: string; display_name: string; avatar_url: string | null; active?: boolean; is_following?: boolean } | null;
   is_owner: boolean;
   follower_count: number;
   is_following: boolean;
