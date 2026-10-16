@@ -50,8 +50,14 @@ async def lookup(
     db: Any, *, locale: str,
     hcid: int | None = None, cas: str | None = None, smiles: str | None = None,
     inchikey: str | None = None, name: str | None = None,
+    allow_ingest: bool = False,
 ) -> dict[str, Any]:
-    """按唯一标识或名称查候选; 未收录的 SMILES 建行、CAS 入列采集。"""
+    """按唯一标识或名称查候选。
+
+    未收录的兜底按 allow_ingest 分级：True 时与站内同一规则（SMILES
+    建行、CAS 入列采集）；False（只读凭证默认）纯读 —— CAS 只查既有
+    采集状态、SMILES 直接 not_found，不发生任何写库。
+    """
     from sqlalchemy import text
 
     if cas is not None:
@@ -65,8 +71,9 @@ async def lookup(
         if rows:
             return {"candidates": _match("cas", rows, locale), "pending": None}
         # 未收录: 与站内搜索同一规则 —— 受控入列采集, 不建占位行。
+        # 只读凭证不写库: 仅查询既有采集状态, 从不入列。
         state = await cas_search_state(db, cas)
-        if state == "new":
+        if state == "new" and allow_ingest:
             enqueued, _status, _row = await enqueue_cas_search_fetch(db, cas_number=cas)
             await db.commit()
             state = "pending" if enqueued else "miss"
@@ -83,6 +90,10 @@ async def lookup(
         """, {"smiles": canonical, "n": LOOKUP_MAX}, locale=locale)
         if rows:
             return {"candidates": _match("smiles", rows, locale), "pending": None}
+        if not allow_ingest:
+            # 只读凭证: 未收录即 not_found, 不建行不采集
+            return {"candidates": [],
+                    "pending": {"smiles": canonical, "status": "not_found"}}
         # 未收录: 与站内同一规则 —— 本地建行(结构三件)并触发采集; 身份
         # 冲突/歧义时按站内口径不建行。
         from ..reactions import UnresolvedIdentityError, resolve_or_create_chemical

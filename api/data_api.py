@@ -20,6 +20,7 @@ from .core.database import get_db
 from .services.chemicals import ChemicalNotFoundError, get_chemical_detail
 from .services.data_api.auth import (
     DataApiAuthError, authorize_scope, body_sha256_hex, check_nonce,
+    CHEMICAL_INGEST_SCOPE,
     load_client, sign_message, verify_signature,
 )
 from .services.data_api.lookup import DataApiInvalidParameter, lookup
@@ -113,7 +114,8 @@ async def chemicals_lookup(
     try:
         client = await _authenticate(request, db, "/data/v1/chemicals/lookup")
         result = await lookup(db, locale=locale, hcid=hcid, cas=cas,
-                              smiles=smiles, inchikey=inchikey, name=name)
+                              smiles=smiles, inchikey=inchikey, name=name,
+                              allow_ingest=CHEMICAL_INGEST_SCOPE in client.scopes)
         await record_usage(db, client.id)
         return _payload(request_id, **result)
     except (DataApiAuthError, DataApiInvalidParameter) as exc:
