@@ -55,6 +55,7 @@ export default async function Home() {
           直接下载随代码部署的插件包（web/public/downloads，见
           scripts/build_plugin_package.py）。 ── */}
       <section className="home-entry" aria-label={t.home.entryLabel}>
+        <p className="home-entry-kicker">{t.home.entryLabel}</p>
         <CodeField value="https://huagongshe.com/mcp" copyLabel={t.home.entryMcpCopy} className="home-entry-code" />
         <nav className="guide-actions home-entry-actions">
           <Button variant="primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Button>

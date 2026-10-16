@@ -493,7 +493,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-sk.card { height: 96px; border-radius: var(--r-md); }
 .hg-sk.row { height: 14px; }
 
-.hg-avatar { border-radius: 50%; display: grid; place-items: center; font-weight: 600; flex: none; color: var(--text-inverse); object-fit: cover; }
+.hg-avatar { border-radius: 50%; display: grid; place-items: center; font-weight: 600; flex: none; color: var(--text-inverse); object-fit: cover; max-width: none; }
 .hg-avatar.s24 { width: 24px; height: 24px; font-size: var(--fs-12); }
 .hg-avatar.s32 { width: 32px; height: 32px; font-size: var(--fs-13); }
 .hg-avatar.s40 { width: 40px; height: 40px; font-size: var(--fs-14); }

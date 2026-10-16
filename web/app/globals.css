@@ -59,9 +59,13 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
  * 溢出防线由 .hg-eb 的 overflow:hidden 兜底（flex 子项自动最小尺寸为 0）。
  */
 
-/* ── 首页（框架 A，wide 1200）：外框与公开页统一，Logo 左边缘对齐，内容在阅读宽内左对齐 ── */
+/* ── 首页（框架 A，wide 1200）：外框与公开页统一；标题、搜索与接入入口在框内居中 ── */
 .home { width: min(var(--w-wide), calc(100% - 40px)); margin: 0 auto; padding-bottom: 48px; }
-.hero { text-align: left; max-width: var(--w-reading); padding: clamp(48px, 8vh, 80px) 0 36px; }
+.hero { text-align: center; max-width: var(--w-reading); margin-inline: auto; padding: clamp(48px, 8vh, 80px) 0 36px; }
+.hero .srch-hero { margin-inline: auto; }
+/* Segmented 的 className 落在内层 .hg-seg —— 居中要打在外层 wrapper（grid 子项）上 */
+.hero .srch-hero > .hg-seg-wrap { justify-self: center; max-width: 100%; }
+.home .home-entry { margin-inline: auto; }
 .hero h1 {
   margin: 0 0 6px;
   font-size: clamp(var(--fs-28), 4vw, var(--fs-40));
@@ -597,7 +601,10 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 /* 手机 ≤640：名片改纵向（2.1 / 6.6） */
 @media (max-width: 640px) {
   .pf-head { grid-template-columns: 64px minmax(0, 1fr); gap: var(--sp-2) var(--sp-4); padding-bottom: var(--sp-4); }
-  .pf-head > .hg-avatar { width: 64px; height: 64px; grid-row: 1; grid-column: 1; }
+  /* 元素选择器抬特异性：ui.css(.hg-avatar.s80) 与本规则同为 (0,2,0)，
+     胜负取决于打包顺序 —— 曾因此高度残留 80、宽度被全局 img{max-width:100%}
+     钳到轨道 64，头像渲染成 64×80 椭圆。加 img 后恒胜。 */
+  .pf-head > img.hg-avatar, .pf-head > span.hg-avatar { width: 64px; height: 64px; grid-row: 1; grid-column: 1; }
   .pf-info { display: contents; }
   .pf-info > * { grid-column: 1 / -1; }
   .pf-counts {
@@ -616,10 +623,10 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .pf-counts strong { font-size: var(--fs-18); }
   .pf-meta { display: none; }
   .pf-info h1 { margin-top: var(--sp-2); font-size: var(--fs-22); }
-  /* 关注 + 分享主页：两个 lg 按钮并排等宽（2.1 / 6.6）；只有分享没有关注时占满整行 */
+  /* 关注 + 分享主页：两个 lg 按钮并排等宽（2.1 / 6.6）；主人态第三项（分享）
+     顺落网格左列，与上排按钮同宽同高 */
   .pf-acts { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); }
   .pf-acts .hg-btn { height: var(--h-lg); }
-  .pf-share:only-child { grid-column: 1 / -1; }
   .pf-acts .pf-share-icon { display: none; }
   .pf-acts .pf-share-text { display: inline-flex; width: 100%; }
   .pf-body { grid-template-columns: minmax(0, 1fr); gap: var(--sp-6); }
@@ -1170,35 +1177,39 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
 .mcp-tool-auth { color: var(--text-muted); font-size: var(--fs-12); white-space: nowrap; }
 .mcp-tools-table .mcp-tool-auth { width: 170px; padding-right: var(--sp-4); box-sizing: border-box; }
 @media (max-width: 680px) {
+  /* 手机：工具名与权限同一行（名左、权限右），说明占第二行 */
   .mcp-tools-table,
-  .mcp-tools-table tbody,
-  .mcp-tools-table tr,
-  .mcp-tools-table td {
+  .mcp-tools-table tbody {
     display: block;
     width: 100%;
-    box-sizing: border-box;
   }
   .mcp-tools-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 2px var(--sp-3);
     padding: 10px 0;
   }
   .mcp-tools-table td {
-    padding: 2px 0;
-  }
-  .mcp-tools-table .guide-ref-name {
-    width: 100%;
+    display: block;
+    width: auto;
+    padding: 0;
   }
   .mcp-tools-table .guide-ref-name code {
     overflow-wrap: anywhere;
     word-break: break-word;
   }
-  .mcp-tools-table .mcp-tool-auth {
-    white-space: normal;
+  .mcp-tools-table .guide-ref-name { width: auto; padding-right: 0; }
+  .mcp-tools-table .mcp-tool-auth { width: auto; padding-right: 0; text-align: right; }
+  .mcp-tools-table .guide-ref-desc {
+    grid-column: 1 / -1;
   }
 }
 
 /* ── 首页 AI 接入入口(第一屏) ── */
 /* Step 10 Part C：MCP 区块 = CodeField 地址 → 三入口按钮 → 说明 + Tag warn「未上架」 */
 .home-entry { margin-top: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-6); background: var(--bg-surface); display: grid; gap: var(--sp-3); text-align: left; max-width: var(--w-reading); }
+.home-entry-kicker { margin: 0; font-size: var(--fs-13); font-weight: 600; color: var(--text-muted); letter-spacing: .02em; }
 .home-entry-code .hg-code code { font-size: var(--fs-13); }
 .home-entry-actions { margin-top: 0; display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
 
@@ -1371,7 +1382,9 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
   .hg-seg button { min-height: 44px; }
   .chem-tabs-nav a { min-height: 44px; display: inline-flex; align-items: center; }
   .chem-rail-nav a { min-height: 44px; display: flex; align-items: center; }
-  a.hg-eb { min-height: 44px; }
+  /* a.hg-eb 不在此列：徽标按 DESIGN_SYSTEM 1.5 用透明热区补 44（ui.css 的
+     a.hg-eb::after），min-height 会把 20/24/28/32 的设计高度整体撑到 44，
+     徽标在手机上臃肿变形。 */
   .hg-btn { --bh: auto; min-height: 44px; height: auto; }
   .skills-cat { min-height: 44px; }
   /* 输入框本體即热区：撑到 44 */
