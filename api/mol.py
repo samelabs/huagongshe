@@ -93,8 +93,13 @@ async def render_reaction(
     cache)。TTL 5min 短窗接受最终一致性: 转私/隐藏/删除后旧 SVG 最多
     继续存在约 5 分钟。
     """
-    w = min(max(w, 600), 1800)
-    h = min(max(h, 180), 600)
+    # I-116④：尺寸收进固定档位（就近吸附）—— 该端点响应走共享缓存，
+    # 区间内任取 w/h 会让缓存键空间无界（每个组合一条 URL）。档位含
+    # 全部既有调用方（web /img 路由 1600×400；契约测试 1200×300），
+    # 共 5×4=20 个组合。MCP 的 render_reaction_svg 走服务层独立钳制，
+    # 不经此端点。
+    w = min((600, 800, 1200, 1600, 1800), key=lambda t: abs(t - w))
+    h = min((180, 300, 400, 600), key=lambda t: abs(t - h))
     source = await render_service.lookup_reaction_render_source(
         db, reaction_id,
         viewer_id=actor.id if actor else 0,
