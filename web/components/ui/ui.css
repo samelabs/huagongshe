@@ -588,8 +588,16 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-inline: auto;
   min-width: 0;
 }
-.hg-page-frame--reading { max-width: var(--w-reading); }
-.hg-page-frame--form { max-width: var(--w-form); }
+.hg-page-frame--reading {
+  max-width: var(--w-reading);
+  margin-left: max(20px, calc((100% - var(--w-wide)) / 2));
+  margin-right: auto;
+}
+.hg-page-frame--form {
+  max-width: var(--w-form);
+  margin-left: max(20px, calc((100% - var(--w-wide)) / 2));
+  margin-right: auto;
+}
 
 .hg-page-head {
   display: flex;
