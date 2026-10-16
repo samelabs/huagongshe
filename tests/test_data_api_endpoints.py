@@ -563,3 +563,32 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(ASYNC_URL, "测试库闸")
+class DataApiValidationEnvelopeTests(unittest.IsolatedAsyncioTestCase):
+    """FastAPI 参数校验 422 也走 /data/v1 统一错误契约（ASGI 真路径）。"""
+
+    async def test_query_validation_returns_envelope(self):
+        import httpx
+        from api.main import app
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            # hcid 非整数 → FastAPI 校验层 422，不进路由函数
+            r = await client.get("/data/v1/chemicals", params={"hcid": "abc"})
+        self.assertEqual(r.status_code, 422)
+        body = r.json()
+        self.assertEqual(body["error"]["code"], "invalid_parameter")
+        self.assertIn("message", body["error"])
+        self.assertTrue(body["request_id"], "契约要求携带 request_id")
+        self.assertNotIn("kind", body, "不得混用站内 {message,kind} 形状")
+
+    async def test_site_validation_shape_unchanged(self):
+        import httpx
+        from api.main import app
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            r = await client.get("/api/chemicals/abc/synonyms")
+        self.assertEqual(r.status_code, 422)
+        body = r.json()
+        self.assertEqual(body.get("kind"), "invalid_field")
