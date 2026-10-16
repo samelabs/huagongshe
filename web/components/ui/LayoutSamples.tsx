@@ -254,6 +254,7 @@ function ChemicalSample() {
 /* ── 反应详情 ─────────────────────────────────────────────── */
 
 function ReactionSample() {
+  const t = useDictionary();
   const [rx, setRx] = useState<ReactionDetail | null>(null);
   useEffect(() => {
     apiGet<ReactionDetail>("/reactions/1000")
@@ -318,7 +319,7 @@ function ReactionSample() {
         <CardPanel>
           <div className="du-participant-list">
             {participants.map((p) => {
-              const chemName = p.preferred_name || p.name_cn || p.iupac_name || `化合物 ${p.id}`;
+              const chemName = resolveChemicalName(p, t.common.hcidLabel).title;
               const roleLabel = (p.role && ROLE_NAMES[p.role]) ? ROLE_NAMES[p.role] : (p.role || "参与物");
               return (
                 <div key={p.id} className="du-participant-row">
