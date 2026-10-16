@@ -23,6 +23,7 @@ import { FollowButton } from "@/components/shared/FollowButton";
 import { ShareButton } from "@/components/ShareButton";
 import { Tag } from "@/components/ui/Tag";
 import { IconPin, IconCal, IconShare } from "@/components/ui/icons";
+import { SITE_ORIGIN } from "@/lib/alternates";
 
 export type ProfileHeaderData = {
   id: number;
@@ -68,6 +69,9 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
   // 本人：粉丝/关注链接到工作台列表页；他人无公开列表页 → 纯展示
   const followersHref = profile.is_me ? withLocale("/aichem?tab=followers", locale) : null;
   const followingHref = profile.is_me ? withLocale("/aichem?tab=following", locale) : null;
+  // 分享目标：I-084 规范短链；og:image 由页面 generateMetadata 按头像/兜底图生成
+  const shareUrl = `${SITE_ORIGIN}/u/${encodeURIComponent(profile.username)}`;
+  const shareTitle = `${profile.display_name}｜${t.brand.name}`;
 
   return (
     <header className="pf-head">
@@ -118,6 +122,12 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
           <>
             <Button variant="secondary" href={withLocale("/me/settings/profile", locale)}>{t.user.editProfile}</Button>
             <Button variant="primary" href={withLocale("/aichem", locale)}>{t.user.enterWorkbench}</Button>
+            {/* 主人态同样可分享主页；手机端顺落双列网格左列（与上排按钮同宽同高），
+                双形态与游客态同源（桌面 ghost 图标 / 手机 secondary lg 文字）。 */}
+            <span className="pf-share">
+              <ShareButton url={shareUrl} iconOnly size="sm" title={shareTitle} ariaLabel={t.me.profileShareLabel} className="pf-share-icon" />
+              <ShareButton url={shareUrl} title={shareTitle} label={t.user.shareProfile} variant="secondary" size="lg" ariaLabel={t.me.profileShareLabel} feedback="toast" className="pf-share-text" />
+            </span>
           </>
         ) : (
           <>
@@ -132,8 +142,8 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
             {/* DESIGN_SYSTEM 6.6：桌面 ghost 图标；手机 secondary lg
                 文字「分享主页」（与关注并排等宽）—— 两个形态 CSS 切换，行为同源。 */}
             <span className="pf-share">
-              <ShareButton url={`https://huagongshe.com/u/${encodeURIComponent(profile.username)}`} iconOnly title={`${profile.display_name}｜${t.brand.name}`} ariaLabel={t.me.profileShareLabel} className="pf-share-icon" />
-              <ShareButton url={`https://huagongshe.com/u/${encodeURIComponent(profile.username)}`} title={`${profile.display_name}｜${t.brand.name}`} label={t.user.shareProfile} variant="secondary" size="lg" ariaLabel={t.me.profileShareLabel} feedback="toast" className="pf-share-text" />
+              <ShareButton url={shareUrl} iconOnly size="sm" title={shareTitle} ariaLabel={t.me.profileShareLabel} className="pf-share-icon" />
+              <ShareButton url={shareUrl} title={shareTitle} label={t.user.shareProfile} variant="secondary" size="lg" ariaLabel={t.me.profileShareLabel} feedback="toast" className="pf-share-text" />
             </span>
           </>
         )}
