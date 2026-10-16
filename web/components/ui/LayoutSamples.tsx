@@ -166,7 +166,7 @@ function ReactionSample() {
     <PageFrame>
       <PageHead
         hero
-        breadcrumb={[{ label: "首页", href: "/" }, { label: "反应" }, { label: `HRID ${rx.id}` }]}
+        breadcrumb={[{ label: "首页", href: "/" }, { label: "反应" }, { label: `反应 ${rx.id}` }]}
         title={<>{rx.dataset_name === "user_submitted" || !rx.dataset_name ? "用户发布的反应" : rx.dataset_name} <EntityBadge kind="reaction" id={rx.id} size="md" copyable /></>}
         meta={<Byline
           user={{ username: rx.creator.username, display_name: rx.creator.display_name, avatar_url: rx.creator.avatar_url, active: rx.creator.active }}
@@ -181,7 +181,7 @@ function ReactionSample() {
         <p className="du-sample-private-caption">私有反应头部示意（无记录卡片与创建者卡片）</p>
         <PageHead
           hero
-          breadcrumb={[{ label: "首页", href: "/" }, { label: "反应" }, { label: `HRID ${rx.id}` }]}
+          breadcrumb={[{ label: "首页", href: "/" }, { label: "反应" }, { label: `反应 ${rx.id}` }]}
           title={<>{rx.dataset_name === "user_submitted" || !rx.dataset_name ? "用户发布的反应" : rx.dataset_name} <EntityBadge kind="reaction" id={rx.id} size="md" state="private" /></>}
           meta={<Byline
             user={{ username: rx.creator.username, display_name: rx.creator.display_name, avatar_url: rx.creator.avatar_url, active: rx.creator.active }}
@@ -257,7 +257,7 @@ function SearchSample() {
             <CardPanel key={c.id} className="du-sample-search-card">
               <span className="du-sample-search-title">
                 <EntityBadge kind="chemical" id={c.id} size="sm" href={`/chemical/${c.id}`} />
-                <TextLink href={`/chemical/${c.id}`}>{c.name_cn || c.preferred_name || `HCID ${c.id}`}</TextLink>
+                <TextLink href={`/chemical/${c.id}`}>{c.name_cn || c.preferred_name || `化合物 ${c.id}`}</TextLink>
                 {c.molecular_formula && <Tag>{c.molecular_formula}</Tag>}
               </span>
               {c.cas_numbers && c.cas_numbers.length > 0 && (
