@@ -122,9 +122,9 @@ export default async function NoteDetailPage({ params }: Params) {
         <header className="note-detail-head">
           <h1>{title}</h1>
           <div className="note-detail-meta">
-            <Avatar id={note.owner_user_id} name={authorLine} size={24} />
+            <Avatar id={note.owner_user_id} name={authorLine} src={note.avatar_url || undefined} size={24} />
             <Link href={withLocale(`/user/${encodeURIComponent(note.username)}`, locale)}>{authorLine}</Link>
-            {note.owner_active === false && <Tag tone="neutral" dot>{t.user.authorDeactivated}</Tag>}
+            {note.active === false && <Tag tone="neutral" dot>{t.user.authorDeactivated}</Tag>}
             <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
             {note.visibility === "public"
               ? <Tag tone="blue">{t.notes.visibilityPublic}</Tag>

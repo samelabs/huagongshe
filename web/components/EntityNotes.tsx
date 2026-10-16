@@ -101,7 +101,7 @@ export function EntityNotes({ entity, entityId, canAdd, privateContext }: {
           {data.items.map((note) => (
             <article className="entity-note-card" key={note.id}>
               <header className="entity-note-meta">
-                <Avatar id={note.owner_user_id} name={note.display_name || note.username} size={24} />
+                <Avatar id={note.owner_user_id} name={note.display_name || note.username} src={note.avatar_url || undefined} size={24} />
                 <Link href={withLocale(`/user/${note.username}`, locale)}>{note.display_name || `@${note.username}`}</Link>
                 <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
               </header>

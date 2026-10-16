@@ -283,8 +283,9 @@ export type NoteItem = {
   updated_at: string;
   username: string;
   display_name: string | null;
-  /* HGS-ACCOUNT-CONTENT-01: 停用作者的公开笔记保留可见, false 时前端渲染「已停用」 */
-  owner_active?: boolean;
+  /* 与接口投影同口径的用户四字段; active=false 时渲染「已停用」 */
+  avatar_url?: string | null;
+  active?: boolean;
   chemical_ids: number[];
   reaction_ids: number[];
 };

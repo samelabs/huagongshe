@@ -86,6 +86,8 @@ export type Notice = {
   note_excerpt?: string | null;
   actor_username: string;
   actor_display_name: string | null;
+  actor_avatar_url: string | null;
+  actor_active: boolean;
   created_at: string;
   read_at: string | null;
 };

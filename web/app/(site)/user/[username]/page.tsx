@@ -24,8 +24,8 @@ type Profile = {
   followers: number; following: number; public_reactions: number;
   is_following: boolean; is_followed_by: boolean; is_mutual: boolean; is_me: boolean;
   /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用账号主页不再 404 ——
-     is_active=false 时仅渲染停用态卡片（无关注/分享/内容列表）。 */
-  is_active?: boolean;
+     active=false 时仅渲染停用态卡片（无关注/分享/内容列表）。 */
+  active?: boolean;
 };
 type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
 type NoteCard = { id: number; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
@@ -63,7 +63,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   /* ── 停用态（4.1 / 6.11 状态页）：头像 + 名字 + Tag「账号已停用」+ 事实说明。
      不显示关注、分享和内容列表（列表接口对停用用户本就 404）；
      已公开的反应/笔记/技能在各自详情页保留可见并带「已停用」标记。 ── */
-  if (profile.is_active === false) {
+  if (profile.active === false) {
     const joined = new Date(profile.created_at).toLocaleDateString(locale);
     return <div className="content-page profile-page">
       <div className="pf-deactivated">
