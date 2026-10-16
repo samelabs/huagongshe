@@ -1349,10 +1349,6 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
    验证，且相邻项热区互相争抢 —— 故手机端统一最小高度 44（内边距撑开，
    图标/文字居中），列表行高随之小幅增加。 */
 @media (max-width: 640px) {
-  /* ui.css 的 .hg-copy 基础尺寸用双类名压过加载顺序 */
-  .hg-code .hg-copy, .hg-eb-copy .hg-copy { width: 44px; height: 44px; }
-  /* ui.css 的 .hg-copy.mini(22px) 与双类名同级且后加载 —— 三类名压过 */
-  .hg-eb-copy .hg-copy.mini { width: 44px; height: 44px; }
   .hg-code { min-height: 44px; height: auto; }
   .hg-code.multiline { min-height: 0; }
   .mcp-connect-row .hg-text { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; }

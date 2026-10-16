@@ -527,17 +527,8 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   .hg-input { min-height: 44px; height: auto; }
 }
 @media (max-width: 640px) {
-  /* 手机端复制钮：外观 28×28，可点击区域 ≥44 */
-  .hg-copy { position: relative; }
-  .hg-copy::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: var(--touch-min);
-    height: var(--touch-min);
-  }
+  /* 手机端复制钮按真实尺寸落到触控下限（任何位置一致，不用伪元素扩热区） */
+  .hg-copy { width: var(--touch-min); height: var(--touch-min); }
 }
 .hg-menu-wrap {
   position: relative;
@@ -567,11 +558,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 }
 
 /* ══ DataRow（DESIGN_SYSTEM 3.14） ════════════════════════════ */
+/* 值在左、复制钮靠行尾：各行复制钮落在同一竖线上；标签与值按文字基线对齐（.chem-dl） */
 .hg-datarow-copy {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--sp-2);
-  flex-wrap: wrap;
 }
 .hg-datarow-copy code {
   font-family: var(--font-mono);
