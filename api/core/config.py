@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     api_version: str = Field(default_factory=_version_from_repo)
     cors_origins: list[str] = ["https://huagongshe.com", "https://www.huagongshe.com"]
     session_cookie: str = "hgs_session"
+    # 会话 cookie 的 Secure 标记。线上恒为 True；本地经局域网 http 访问时设 False，
+    # 否则浏览器丢弃 Secure cookie，登录成功却留不住会话。
+    session_cookie_secure: bool = True
     session_days: int = 30
     avatar_root: str = "/var/lib/huagongshe/uploads/avatars"
     avatar_max_bytes: int = 5 * 1024 * 1024

@@ -63,7 +63,7 @@ async def create_session(db, response: Response, user_id: int) -> None:
     await db.commit()
     response.set_cookie(
         settings.session_cookie, token, max_age=settings.session_days * 86400,
-        httponly=True, secure=True, samesite="lax", path="/",
+        httponly=True, secure=settings.session_cookie_secure, samesite="lax", path="/",
     )
 
 
