@@ -117,7 +117,8 @@ async def register(
         await create_session(db, response, int(row[0]))
         return {
             "id": row[0], "username": row[1], "display_name": row[2], "email": row[3],
-            "role": row[4], "avatar_url": row[5], "auth_kind": "session",
+            "role": row[4], "avatar_url": row[5], "active": True,
+            "auth_kind": "session",
         }
     except IntegrityError as exc:
         await db.rollback()
@@ -152,7 +153,8 @@ async def login(body: LoginBody, request: Request, response: Response, db=Depend
     await create_session(db, response, int(row[0]))
     return {
         "id": row[0], "username": row[1], "display_name": row[2], "email": row[3],
-        "role": row[4], "avatar_url": row[6], "auth_kind": "session",
+        "role": row[4], "avatar_url": row[6], "active": True,
+        "auth_kind": "session",
     }
 
 
@@ -240,6 +242,7 @@ async def search_users(
     """), params)).scalar() or 0)
     rows = (await db.execute(text(f"""
         SELECT u.username, u.display_name, u.avatar_path AS avatar_url, u.bio,
+               (u.status='active') AS active,
                (SELECT count(*) FROM community.user_follows fc
                  WHERE fc.followed_user_id=u.id) AS follower_count,
                EXISTS(
@@ -259,6 +262,7 @@ async def search_users(
             "username": row["username"],
             "display_name": row["display_name"],
             "avatar_url": row["avatar_url"],
+            "active": bool(row["active"]),
             "bio": (row["bio"] or "")[:120] or None,
             "follower_count": int(row["follower_count"] or 0),
             "is_following": bool(row["is_following"]),
@@ -281,7 +285,8 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
           (SELECT count(*) FROM community.chemical_follows f WHERE f.user_id=u.id),
           (SELECT count(*) FROM community.reaction_follows f
            JOIN chemistry.reactions r ON r.id=f.reaction_id
-           WHERE f.user_id=u.id AND r.visibility='public' AND r.moderation_status='visible')
+           WHERE f.user_id=:id AND r.visibility='public' AND r.moderation_status='visible'),
+          (u.status='active')
         FROM community.users u WHERE u.id=:id AND u.status='active'
     """), {"id": actor.id})).one()
     # I-007: 未读数与 /users/me/notifications 同一过滤条件(含 new_note),
@@ -290,7 +295,7 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
     unread = await unread_activity_count(db, actor.id)
     return {
         "username": row[0], "display_name": row[1], "bio": row[2], "avatar_url": row[3],
-        "created_at": row[4],
+        "created_at": row[4], "active": bool(row[11]),
         "counts": {
             "public_reactions": row[5], "private_reactions": row[6],
             "following": row[7], "followers": row[8],
@@ -540,14 +545,14 @@ async def public_profile(username: str, actor: Actor | None = Depends(public_or_
         return {
             "id": row[0], "username": row[1], "display_name": row[2],
             "avatar_url": row[4], "created_at": row[5],
-            "is_active": False,
+            "active": False,
         }
     return {
         "id": row[0], "username": row[1], "display_name": row[2], "bio": row[3],
         "avatar_url": row[4], "created_at": row[5],
         "location": row[6], "institution": row[7], "title": row[8],
         "website": row[9], "orcid": row[10],
-        "is_active": True,
+        "active": True,
         "followers": row[13], "following": row[14], "public_reactions": row[15],
         "is_following": row[16],
         "is_followed_by": bool(row[17]) if viewer_id else False,
@@ -591,6 +596,7 @@ async def relationship_page(
     viewer_id = actor.id if actor else 0
     rows = (await db.execute(text(f"""
         SELECT u.username,u.display_name,u.bio,u.avatar_path AS avatar_url,
+               (u.status='active') AS active,
                EXISTS(
                  SELECT 1 FROM community.user_follows mine
                  WHERE mine.follower_user_id=:viewer_id AND mine.followed_user_id=u.id

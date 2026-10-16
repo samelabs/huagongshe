@@ -93,7 +93,8 @@ async def list_skills(
     rows = (await db.execute(text(f"""
         SELECT s.id,s.slug,s.title,s.description,s.category,s.origin,s.visibility,
                s.has_scripts,s.file_count,s.size_bytes,s.updated_at,
-               u.username,u.display_name,(u.status='active') AS owner_active
+               u.username,u.display_name,u.avatar_path AS avatar_url,
+               (u.status='active') AS active
         FROM community.skills s JOIN community.users u ON u.id=s.owner_id
         WHERE {where}
         ORDER BY s.updated_at DESC, s.id DESC
@@ -113,7 +114,8 @@ async def list_skills(
                 "size_bytes": int(row["size_bytes"]), "updated_at": row["updated_at"],
                 "owner": {"username": row["username"],
                           "display_name": row["display_name"],
-                          "active": bool(row["owner_active"])},
+                          "avatar_url": row["avatar_url"],
+                          "active": bool(row["active"])},
             }
             for row in rows
         ],
@@ -154,7 +156,7 @@ async def load_accessible_skill(
     row = (await db.execute(text("""
         SELECT s.id,s.owner_id,s.slug,s.title,s.description,s.license,s.category,s.origin,
                s.visibility,s.has_scripts,s.file_count,s.size_bytes,s.created_at,s.updated_at,
-               u.username,u.display_name,(u.status='active')
+               u.username,u.display_name,u.avatar_path,(u.status='active')
         FROM community.skills s JOIN community.users u ON u.id=s.owner_id
         WHERE s.id=:id
     """), {"id": skill_id})).fetchone()
@@ -168,7 +170,7 @@ async def load_accessible_skill(
         "visibility": row[8], "has_scripts": row[9], "file_count": row[10],
         "size_bytes": int(row[11]), "created_at": row[12], "updated_at": row[13],
         "owner": {"username": row[14], "display_name": row[15],
-                  "active": bool(row[16])},
+                  "avatar_url": row[16], "active": bool(row[17])},
     }
 
 
