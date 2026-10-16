@@ -182,10 +182,10 @@ class P1AccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
                     await svc.get_note(db, note_id=nid, actor_id=self.owner)
             # HGS-ACCOUNT-CONTENT-01（PM 裁定 2026-10-12）: 停用作者的公开
             # 笔记保留可见(此前 404) —— 停用态只影响作者主页/关注, 不撤内容;
-            # owner_active=False 供前端渲染「已停用」标记。
+            # active=False 供前端渲染「已停用」标记。
             inactive_row = await svc.get_note(db, note_id=inactive_pub, actor_id=None)
             self.assertEqual(inactive_row["id"], inactive_pub)
-            self.assertIs(inactive_row["owner_active"], False)
+            self.assertIs(inactive_row["active"], False)
             # 停用作者无法登录(会话已撤), private 笔记实际不可达 ——
             # 以 owner 身份的读路径不再出现, 404 语义由会话层保证。
 
