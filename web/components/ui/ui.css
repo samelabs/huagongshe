@@ -277,8 +277,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-tabs {
   display: flex;
   gap: var(--sp-6);
-  border-bottom: 1px solid var(--border);
+  /* 底线画成背景而非 border：选中下划线可落在容器内（bottom: 0）盖住它。
+     只许横向滚动 —— overflow-x: auto 会把 overflow-y 连带算成 auto，
+     任何超出容器的像素都会让 tab 条能上下滚动。 */
+  background: linear-gradient(var(--border), var(--border)) left bottom / 100% 1px no-repeat;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   white-space: nowrap;
   min-width: 0;
@@ -303,7 +307,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-tabs button[aria-selected="true"]::after {
   content: "";
   position: absolute;
-  left: 0; right: 0; bottom: -1px;
+  left: 0; right: 0; bottom: 0;
   height: 2px;
   border-radius: var(--r-xs);
   background: var(--action);
