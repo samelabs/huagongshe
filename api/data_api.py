@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from typing import Any
 
@@ -35,6 +36,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/data/v1", tags=["data-api"])
 
 CHEMICAL_BATCH_MAX = 50
+# 批量整体耗时预算：到点后剩余 HCID 不再取详情，进 missing 并置
+# timed_out=true（200 部分成功；消费方据 timed_out 重试缺失项）。
+# 防止单请求 50 次 enrich=full 的总成本无界放大。
+CHEMICAL_BATCH_BUDGET_SECONDS = 30.0
 REACTION_BATCH_MAX = 20
 REACTION_PAGE_MAX = 50
 REACTION_PAGE_SIZE_DEFAULT = 20
@@ -192,7 +197,14 @@ async def chemicals_batch(
             parsed.append(int(chunk))
         items: list[dict[str, Any]] = []
         missing: list[int] = []
+        deadline = time.monotonic() + CHEMICAL_BATCH_BUDGET_SECONDS
+        timed_out = False
         for hcid in parsed:
+            if time.monotonic() >= deadline:
+                # 预算耗尽：剩余项整体让位，不逐项放大成本
+                timed_out = True
+                missing.append(hcid)
+                continue
             try:
                 detail = await get_chemical_detail(
                     db, hcid, actor_id=None, priority=ENRICH_PRIORITY_BACKGROUND,
@@ -201,7 +213,8 @@ async def chemicals_batch(
             except ChemicalNotFoundError:
                 missing.append(hcid)
         await record_usage(db, client.id)
-        return _payload(request_id, items=items, missing=missing)
+        return _payload(request_id, items=items, missing=missing,
+                        timed_out=timed_out)
     except DataApiAuthError as exc:
         if client is not None:
             await record_usage(db, client.id, error=True)

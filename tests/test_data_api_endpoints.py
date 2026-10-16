@@ -356,6 +356,43 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self._status(response), 422)
         self.assertEqual(self._json(response)["error"]["code"], "invalid_parameter")
 
+    async def test_chemical_batch_budget_times_out_gracefully(self):
+        """预算耗尽：剩余 HCID 进 missing、timed_out=true、仍 200 部分成功。"""
+        from unittest.mock import patch as _patch
+        import api.data_api as dai
+        client_id = await self._make_client(scopes=[CHEMICAL_READ_SCOPE])
+        ids = ",".join(str(self.hcid + i * 1000000) for i in range(3))
+        query = f"ids={ids}"
+
+        from api.services.chemicals import ChemicalNotFoundError
+
+        calls = {"n": 0}
+
+        async def slow_detail(db, hcid, **_kw):
+            calls["n"] += 1
+            await asyncio.sleep(0.05)
+            if hcid == self.hcid:
+                return {"id": hcid}
+            raise ChemicalNotFoundError()
+
+        def fake_project(detail, *_a, **_kw):
+            return {"hcid": detail["id"]}
+
+        # 预算压到 0.06s：第 1 项耗时 0.05 通过，其后到点全部让位
+        with _patch.object(dai, "get_chemical_detail", slow_detail), \
+             _patch.object(dai, "project_chemical", fake_project), \
+             _patch.object(dai, "CHEMICAL_BATCH_BUDGET_SECONDS", 0.06):
+            response = await self._call(
+                data_api.chemicals_batch, "/data/v1/chemicals", query,
+                self._auth_headers(client_id, TOKEN, "/data/v1/chemicals", query))
+        self.assertEqual(self._status(response), 200)
+        payload = self._json(response)
+        self.assertTrue(payload["timed_out"])
+        self.assertEqual(len(payload["missing"]), 2)
+        self.assertEqual(len(payload["items"]), 1)
+        # 预算按项前检查：第 2 项发起时尚未到点(0.05<0.06)，第 3 项让位
+        self.assertEqual(calls["n"], 2)
+
     async def test_reaction_batch_limit_20(self):
         client_id = await self._make_client(scopes=[REACTION_READ_SCOPE])
         ids = ",".join("1" for _ in range(21))
