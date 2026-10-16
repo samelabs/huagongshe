@@ -13,7 +13,7 @@ type SectionProps = { title: string; children: React.ReactNode };
 function Section({ title, children }: SectionProps) {
   return (
     <section className="chem-section" style={{ maxWidth: 860 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 650, margin: "28px 0 10px" }}>{title}</h2>
+      <h2 className="chem-subhead">{title}</h2>
       {children}
     </section>
   );

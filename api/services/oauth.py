@@ -70,6 +70,7 @@ def authorization_server_metadata() -> dict[str, Any]:
         "authorization_endpoint": f"{base}/oauth/authorize",
         "token_endpoint": f"{base}/oauth/token",
         "registration_endpoint": f"{base}/oauth/register",
+        "client_id_metadata_document_supported": True,
         "token_endpoint_auth_methods_supported": ["none"],
         "grant_types_supported": ["authorization_code", "refresh_token"],
         "response_types_supported": ["code"],
@@ -198,10 +199,10 @@ async def register_client(
     await db.execute(text("""
         INSERT INTO community.oauth_clients(
             client_id,client_name,redirect_uris,token_endpoint_auth_method,
-            grant_types,response_types,application_type
+            grant_types,response_types,application_type,source_type
         ) VALUES (
             :client_id,:client_name,:redirect_uris,'none',
-            :grant_types,:response_types,:application_type
+            :grant_types,:response_types,:application_type,'dcr'
         )
     """), {
         "client_id": client_id,
@@ -509,6 +510,13 @@ async def refresh_access_token(
     return result
 
 
+def _client_host(client_id: str) -> str | None:
+    """CIMD 客户端的可信身份标识: client_id URL 的 host; 其余来源为 None。"""
+    if client_id.startswith("https://"):
+        return urlsplit(client_id).hostname
+    return None
+
+
 async def list_connections(db, *, user_id: int) -> list[dict[str, Any]]:
     """Active MCP client connections for the account security page.
 
@@ -551,6 +559,7 @@ async def list_connections(db, *, user_id: int) -> list[dict[str, Any]]:
         {
             "client_id": row["client_id"],
             "client_name": row["client_name"],
+            "client_host": _client_host(row["client_id"]),
             "scopes": list(row["scopes"]),
             "authorized_at": row["authorized_at"],
             "last_used_at": row["last_used_at"],

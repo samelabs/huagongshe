@@ -417,7 +417,7 @@ def _oauth_challenge(
 ) -> CallToolResult:
     resource_metadata = (
         f"{settings.public_base_url.rstrip('/')}"
-        "/.well-known/oauth-protected-resource"
+        "/.well-known/oauth-protected-resource/mcp"
     )
     challenge = (
         'Bearer '

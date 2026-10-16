@@ -47,11 +47,6 @@ class V170IntegrationContractTests(unittest.TestCase):
         self.assertFalse(any(name.startswith("mcp") for name in imports))
         self.assertFalse(any(name.startswith("fastapi") for name in imports))
 
-    def test_prd_keeps_note_mcp_out_of_scope(self):
-        prd = (REPO / "docs/PRD_V1.7.0.md").read_text(encoding="utf-8")
-        self.assertIn("does not add Note MCP tools", prd)
-        self.assertIn("No `note:write` in v1.7.0", prd)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -32,7 +32,7 @@ class McpOAuthContractTests(unittest.TestCase):
         values = meta.get("mcp/www_authenticate") or []
         self.assertEqual(len(values), 1)
         self.assertIn(
-            'resource_metadata="https://huagongshe.com/.well-known/oauth-protected-resource"',
+            'resource_metadata="https://huagongshe.com/.well-known/oauth-protected-resource/mcp"',
             values[0],
         )
         self.assertIn('scope="reaction:write"', values[0])
