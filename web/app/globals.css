@@ -448,13 +448,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .workup-list li { border-top: 1px solid var(--border); padding: var(--sp-3) 0; display: grid; grid-template-columns: 160px 1fr; gap: var(--sp-6); font-size: var(--fs-14); }
 .workup-list li strong { overflow-wrap: anywhere; }
 .workup-list span { color: var(--text-muted); line-height: 1.7; overflow-wrap: anywhere; }
-/* rail：创建者 / 引用 */
-.rx-creator-row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.rx-creator-id { display: grid; min-width: 0; }
-.rx-creator-id a { color: var(--text); font-weight: 500; text-decoration: none; }
-.rx-creator-id a:hover { color: var(--action); }
-.rx-creator-id small { color: var(--text-muted); font-size: var(--fs-12); }
-.rx-creator-row .hg-btn { margin-left: auto; }
 
 .auth-required { margin-bottom: 25px; border: 1px solid var(--action-border); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 20px; background: var(--bg-subtle); }
 .auth-required div { display: grid; gap: 3px; }
