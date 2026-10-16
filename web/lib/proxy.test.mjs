@@ -320,3 +320,53 @@ test("RSC 与预取请求不进共享缓存 (private, no-store 且无 Set-Cookie
   assert.equal(r5.headers.getSetCookie().length, 0);
 });
 
+/* ─────── I-084: /u/{username} 短地址跳转 ─────── */
+
+test("合法用户名跳转: /u/{username} → 307 到 /{locale}/user/{username}，Cache-Control: private, no-store", () => {
+  const r1 = proxy(nextReq("/u/alice_01"));
+  assert.equal(r1.status, 307);
+  assert.equal(getRedirectUrl(r1), ORIGIN + "/en/user/alice_01");
+  assert.equal(r1.headers.get("cache-control"), "private, no-store");
+
+  // 带 locale 协商
+  const r2 = proxy(nextReq("/u/bob_99", { cookie: "site_locale=ja" }));
+  assert.equal(r2.status, 307);
+  assert.equal(getRedirectUrl(r2), ORIGIN + "/ja/user/bob_99");
+  assert.equal(r2.headers.get("cache-control"), "private, no-store");
+
+  // query 保留
+  const r3 = proxy(nextReq("/u/charlie?tab=notes", { al: "de-DE" }));
+  assert.equal(r3.status, 307);
+  assert.equal(getRedirectUrl(r3), ORIGIN + "/de/user/charlie?tab=notes");
+});
+
+test("非法用户名 404: /u/abc, /u/invalid-hyphen, /u, /u/", () => {
+  // 长度 < 4
+  const r1 = proxy(nextReq("/u/abc"));
+  assert.equal(r1.status, 404);
+
+  // 包含非法字符（连字符）
+  const r2 = proxy(nextReq("/u/invalid-user"));
+  assert.equal(r2.status, 404);
+
+  // 超过 30 字符
+  const r3 = proxy(nextReq("/u/" + "a".repeat(31)));
+  assert.equal(r3.status, 404);
+
+  // 根路径 /u 与空用户名 /u/
+  const r4 = proxy(nextReq("/u"));
+  assert.equal(r4.status, 404);
+
+  const r5 = proxy(nextReq("/u/"));
+  assert.equal(r5.status, 404);
+});
+
+test("带 locale 前缀的 /ja/u/x 不当作别名（按现有排除规则 404）", () => {
+  const r1 = proxy(nextReq("/ja/u/alice_01"));
+  assert.equal(r1, undefined, "/ja/u/* 命中排除规则，proxy 返回 undefined 交给 Next 404");
+
+  const r2 = proxy(nextReq("/zh-CN/u/bad"));
+  assert.equal(r2, undefined);
+});
+
+

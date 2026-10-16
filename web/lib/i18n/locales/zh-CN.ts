@@ -20,6 +20,7 @@ const t = {
 
   /* ── 统一业务错误码（五语言） ──────────────────────────── */
   errors: {
+    invalid_field: '内容有误，请检查对应字段后重试',
     invalid_doi: 'DOI 格式不正确',
     invalid_cas: 'CAS 号校验位不正确',
     invalid_structure: '无法识别该 SMILES 结构',
@@ -103,6 +104,7 @@ const t = {
     deleteFailed: '删除失败，请重试',
     hcidShort: (id: number | string) => `HCID ${id}`,
     hridShort: (id: number | string) => `HRID ${id}`,
+    print: '打印预览',
   },
 
   /* ── 导航 / 头部 ──────────────────────────────────────── */
@@ -118,6 +120,7 @@ const t = {
     skills: 'Skills',
     mcp: 'MCP',
     myProfile: '我的主页',
+    aiKey: 'AI Key',
     settings: '设置',
     activity: '动态',
     tabQuery: '查询',
@@ -131,6 +134,8 @@ const t = {
     workbenchNav: '工作台导航',
     languageSwitcher: "切换语言",
     footer: '化工社开放计划',
+    footerAi: 'AI 接入：',
+    footerMcpGuide: 'MCP 指南',
   },
 
   /* ── 首页 ────────────────────────────────────────────── */
@@ -521,6 +526,11 @@ const t = {
     navSkills: '我的 Skills',
     navMcpKey: 'MCP 与 AI Key',
     navSettings: '设置',
+    tabPeople: '找人',
+    peopleSearchPlaceholder: '搜索用户名或显示名称...',
+    peopleEmptyPrompt: '输入用户名或显示名称查找化工社用户',
+    peopleNoResults: '未找到匹配的用户',
+    peopleFollowers: (n: number) => `${n} 粉丝`,
   },
 
   notes: {
@@ -528,6 +538,8 @@ const t = {
     add: '记一条',
     emptyPublic: '还没有公开的关联笔记。',
     loadFailed: '笔记读取失败。',
+    aboutEntityNote: (name: string) => `关于 ${name} 的笔记`,
+    authorNote: (author: string) => `${author} 的笔记`,
     /* ── Phase 1c: 详情页 / 公开主页 / 私有区块 / 实体过滤 / 截断 / Stoich ── */
     detailTitle: '笔记',
     category: '笔记',
@@ -682,6 +694,7 @@ const t = {
       locationPH: '如：北京',
       website: '个人主页',
       websitePH: '如：https://lab.example.edu',
+      websiteInvalid: '网址须为 http(s) 链接或裸域名（如 example.com）',
       orcid: 'ORCID',
       orcidHint: '学术研究者标识符，16位数字',
       requiredHint: '必填项不能为空。',
@@ -845,6 +858,9 @@ const t = {
     defaultCategory: '通用工具',
     loadFailed: '数据读取失败，请刷新后重试。',
     noMatch: '未找到匹配的技能',
+    emptySkills: '暂无公开技能',
+    showAllSkills: (n: number) => `查看全部 ${n} 个技能`,
+    collapseSkills: '收起',
     officialBadge: '官方',
     hasScriptsBadge: '含脚本',
     hasScriptsHint: '该技能包含脚本文件，使用前请人工审阅',
@@ -1218,6 +1234,27 @@ const t = {
     notFoundBody: '链接可能已失效，或记录已被删除。',
     notFoundHome: '返回首页',
     notFoundAction: '去搜索',
+  },
+
+  /* ── 打印报告（I-078） ─────────────────────────────────── */
+  print: {
+    title: '打印报告',
+    printAction: '打印',
+    backAction: '返回',
+    reportNotice: '化工社化学信息打印报告 · 仅供科研参考',
+    colName: '名称',
+    generatedAt: (date: string) => `生成日期：${date}`,
+    chemicalReportTitle: '化合物报告',
+    reactionReportTitle: '反应报告',
+    identifiers: '标识与物理属性',
+    properties: '化学与物理性质',
+    safety: '安全与法规',
+    applications: '用途与应用',
+    synthesis: '制备与合成方法',
+    participants: '参与物',
+    conditions: '反应条件',
+    steps: '反应步骤',
+    provenance: '来源与证据',
   },
 
 } as const

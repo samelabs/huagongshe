@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import struct
 import unittest
 from pathlib import Path
@@ -150,15 +151,17 @@ class OpenAIPluginPackageTests(unittest.TestCase):
     def test_public_docs_describe_mixed_oauth_without_expanding_rest_bearer(self):
         llms = (REPO / "web" / "public" / "llms.txt").read_text(encoding="utf-8")
         self.assertIn("OAuth", llms)
+        self.assertIn("PKCE S256", llms)
         self.assertIn("reaction:write", llms)
         self.assertIn("skill:write", llms)
         self.assertIn("AI Key", llms)
-        # v1.7.1 REST 收口: 对外接入只宣称 MCP, 不再出现 HTTP API /
-        # agent-guide / REST 端点路径
-        self.assertIn("MCP server only", llms)
+        # 对外接入只宣称 MCP: 不出现 HTTP API / agent-guide / REST 端点路径,
+        # 也不出现版本号与内部字样
         self.assertNotIn("HTTP API", llms)
         self.assertNotIn("agent-guide", llms)
         self.assertNotIn("/api/", llms)
+        self.assertIsNone(re.search(r"\b\d+\.\d+(\.\d+)?\b", llms))
+        self.assertNotIn("internal", llms.lower())
 
 
 if __name__ == "__main__":

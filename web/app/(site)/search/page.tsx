@@ -16,7 +16,6 @@ import { withLocale } from "@/lib/localePath";
 import type { Metadata } from "next";
 
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 
 type SearchParams = { q?: string; mode?: string; page?: string; focus?: string; type?: string };
 
@@ -53,7 +52,6 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
       height: 630,
       alt: t.brand.ogAlt,
     },
-    itempropImage: "/icon-512.png",
     twitterCard: "summary_large_image",
   });
   return {
@@ -107,12 +105,12 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   try {
     if (q) {
       const data = await apiGet<SearchResponse>(
-        `/search?q=${encodeURIComponent(q)}&mode=${mode}&threshold=0.7&page=${page}&page_size=${PAGE_SIZE}`, sessionHeaders
+        `/search?q=${encodeURIComponent(q)}&mode=${mode}&threshold=0.7&page=${page}&page_size=${PAGE_SIZE}&locale=${encodeURIComponent(locale)}`, sessionHeaders
       );
       if (urlMode === "similarity" && typeof data.threshold === "number") {
         similarityThreshold = data.threshold;
       }
-      chemicals = data.chemicals;
+      chemicals = data.chemicals || [];
       reactions = data.reactions || [];
       total = data.total ?? null;
       // Search System Governance: 翻页入口只消费 API 的权威 has_more,

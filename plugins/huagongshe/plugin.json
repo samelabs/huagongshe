@@ -21,7 +21,7 @@
       "interface": {
         "displayName": "Huagongshe",
         "shortDescription": "Chemical data and reactions",
-        "longDescription": "Search Huagongshe chemical and reaction records, inspect compound and reaction details, render molecular and reaction structures, calculate stoichiometry, browse reusable chemistry skills, and work with your own saved reaction records after account authorization. Public chemistry tools can run without sign-in. Private records and write actions use the Huagongshe OAuth connection. The plugin does not expose Notes in HGS v1.7.0 and does not replace scientific, safety, regulatory, or process review.",
+        "longDescription": "Search Huagongshe chemical and reaction records, inspect compound and reaction details, render molecular and reaction structures, calculate stoichiometry, browse reusable chemistry skills, and work with your own saved reaction records after account authorization. Public chemistry tools can run without sign-in. Private records and write actions use the Huagongshe OAuth connection. Results are reference data and do not replace scientific, safety, regulatory, or process review.",
         "developerName": "Shandong Shenglan Chemical Technology Co., Ltd.",
         "category": "Education & Research",
         "capabilities": [
@@ -85,7 +85,7 @@
               "expected_behavior": "Do not call another tool as a substitute. Explain that reaction deletion is not exposed through this MCP plugin."
             },
             {
-              "description": "Notes are intentionally outside the v1.7.0 MCP surface.",
+              "description": "Notes are not exposed as MCP tools.",
               "prompt": "Save this conversation as a private Note attached to HCID 123.",
               "expected_behavior": "Do not create a reaction or skill as a substitute. Explain that Notes are not exposed as MCP tools in this version."
             },
@@ -99,7 +99,7 @@
         "commerce": false
       },
       "publication": {
-        "release_notes": "Initial Huagongshe plugin package for the HGS v1.7.0 MCP surface: 13 reviewed tools, mixed anonymous/OAuth access, chemistry search and detail, rendering, stoichiometry, saved reactions, and reusable chemistry skills."
+        "release_notes": "Huagongshe MCP plugin: chemistry search and detail, structure rendering, stoichiometry, saved reactions, and reusable chemistry skills, with anonymous and OAuth-authenticated access."
       }
     }
   }

@@ -1,14 +1,11 @@
 /**
- * shareMeta — 全站公开页统一分享与 SEO 元数据 helper（DESIGN_SYSTEM 规范）
+ * shareMeta — 全站公开页统一分享元数据 helper（DESIGN_SYSTEM 规范）
  *
- * 统一输出完整 OpenGraph、Twitter Card，以及微信等平台识别的
- * <meta itemprop="name|description|image">。
- *
- * 规则：
- * - 化合物页：结构图优先。分享图为结构图本身（方形，白底居中留白，基于 /api/mol/{id}/png），
- *   og:image 与 itemprop image 都用它；twitter:card 用 summary。
- * - 反应页：og:image 用反应式图；itemprop image 用方形白底的反应式图。
- * - 其他页面：og:image 用 1200×630 的 og.png；itemprop image 用方形的 512 logo。
+ * 只输出一套标准协议：OpenGraph + Twitter Card。
+ * - 化合物页：og:image 用 1:1 结构图（/img/chemical/{id}.png），twitter:card 用 summary。
+ * - 反应页与其余页面：og:image 用横版图（/img/reaction/{id}.png 或 /og.png，
+ *   1200×630），twitter:card 用 summary_large_image。
+ * - og:image 一律写绝对地址，width/height 与实际图片一致。
  * - alt 文案走五语言字典，不写死中文。
  */
 import type { Metadata } from "next";
@@ -29,7 +26,6 @@ export type ShareMetaParams = {
   locale: Locale;
   siteName: string;
   ogImage: ShareImage;
-  itempropImage?: string;
   twitterCard?: "summary" | "summary_large_image";
 };
 
@@ -40,13 +36,9 @@ export function buildShareMetadata({
   locale,
   siteName,
   ogImage,
-  itempropImage,
   twitterCard = "summary_large_image",
-}: ShareMetaParams): Pick<Metadata, "openGraph" | "twitter" | "other"> {
+}: ShareMetaParams): Pick<Metadata, "openGraph" | "twitter"> {
   const ogUrl = ogImage.url.startsWith("http") ? ogImage.url : `${SITE_ORIGIN}${ogImage.url}`;
-  const wechatUrl = (itempropImage || (ogImage.width === ogImage.height ? ogImage.url : "/icon-512.png")).startsWith("http")
-    ? (itempropImage || (ogImage.width === ogImage.height ? ogImage.url : "/icon-512.png"))
-    : `${SITE_ORIGIN}${itempropImage || (ogImage.width === ogImage.height ? ogImage.url : "/icon-512.png")}`;
 
   return {
     openGraph: {
@@ -70,11 +62,6 @@ export function buildShareMetadata({
       title,
       description,
       images: [ogUrl],
-    },
-    other: {
-      "itemprop:name": title,
-      "itemprop:description": description,
-      "itemprop:image": wechatUrl,
     },
   };
 }

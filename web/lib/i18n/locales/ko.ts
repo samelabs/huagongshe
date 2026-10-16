@@ -16,6 +16,7 @@ const ko: Dictionary = {
 
   /* ── 통합 업무 오류 코드 ───────────────────────────────── */
   errors: {
+    invalid_field: '입력 내용에 오류가 있습니다. 해당 항목을 확인하고 다시 시도하세요',
     invalid_doi: 'DOI 형식이 올바르지 않습니다.',
     invalid_cas: 'CAS 등록번호 체크섬이 올바르지 않습니다.',
     invalid_structure: 'SMILES 구조를 인식할 수 없습니다.',
@@ -99,6 +100,7 @@ const ko: Dictionary = {
     deleteFailed: '삭제에 실패했습니다. 다시 시도해 주세요',
     hcidShort: (id: number | string) => `HCID ${id}`,
     hridShort: (id: number | string) => `HRID ${id}`,
+    print: '인쇄 미리보기',
   },
 
   /* ── 내비게이션 / 헤더 ──────────────────────────────── */
@@ -114,6 +116,7 @@ const ko: Dictionary = {
     skills: 'Skills',
     mcp: 'MCP',
     myProfile: '내 프로필',
+    aiKey: 'AI Key',
     settings: '설정',
     activity: '활동',
     tabQuery: '검색',
@@ -127,6 +130,8 @@ const ko: Dictionary = {
     workbenchNav: '워크벤치 내비게이션',
     languageSwitcher: "언어 변경",
     footer: 'Huagongshe 오픈 프로젝트',
+    footerAi: 'AI 접속: ',
+    footerMcpGuide: 'MCP 가이드',
   },
 
   /* ── 홈 ─────────────────────────────────────────────── */
@@ -513,6 +518,11 @@ const ko: Dictionary = {
     navSkills: '내 Skills',
     navMcpKey: 'MCP 및 AI Key',
     navSettings: '설정',
+    tabPeople: '사용자 찾기',
+    peopleSearchPlaceholder: '사용자명 또는 표시 이름으로 검색...',
+    peopleEmptyPrompt: '사용자명 또는 표시 이름을 입력하여 사용자를 찾습니다',
+    peopleNoResults: '일치하는 사용자를 찾을 수 없습니다',
+    peopleFollowers: (n: number) => `팔로워 ${n}명`,
   },
 
   notes: {
@@ -520,6 +530,8 @@ const ko: Dictionary = {
     add: '노트 추가',
     emptyPublic: '공개된 연결 노트가 아직 없습니다.',
     loadFailed: '노트를 불러오지 못했습니다.',
+    aboutEntityNote: (name: string) => `${name}에 관한 노트`,
+    authorNote: (author: string) => `${author}의 노트`,
     /* ── Phase 1c: 상세 페이지 / 프로필 / 비공개 / 필터 / 잘라내기 / Stoich ── */
     detailTitle: '노트',
     category: '노트',
@@ -676,6 +688,7 @@ const ko: Dictionary = {
       locationPH: '예: 서울',
       website: '개인 웹사이트',
       websitePH: '예: https://lab.example.ac.kr',
+      websiteInvalid: 'URL은 http(s) 링크 또는 도메인(예: example.com)이어야 합니다',
       orcid: 'ORCID',
       orcidHint: '연구자 식별자, 16자리 숫자',
       requiredHint: '필수 항목입니다.',
@@ -838,6 +851,9 @@ const ko: Dictionary = {
     defaultCategory: '범용 도구',
     loadFailed: '데이터를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.',
     noMatch: '일치하는 스킬을 찾지 못했습니다',
+    emptySkills: '아직 공개된 스킬이 없습니다',
+    showAllSkills: (n: number) => `전체 ${n}개 보기`,
+    collapseSkills: '접기',
     officialBadge: '공식',
     hasScriptsBadge: '스크립트 포함',
     hasScriptsHint: '이 스킬에는 스크립트 파일이 포함되어 있습니다. 사용 전에 직접 검토하세요',
@@ -1211,6 +1227,27 @@ const ko: Dictionary = {
     notFoundBody: '링크가 만료되었거나 기록이 삭제되었을 수 있습니다.',
     notFoundHome: '홈으로 돌아가기',
     notFoundAction: '검색으로 이동',
+  },
+
+  /* ── 인쇄 보고서（I-078） ───────────────────────────── */
+  print: {
+    title: '인쇄 보고서',
+    printAction: '인쇄',
+    backAction: '돌아가기',
+    reportNotice: '화공사 화학 정보 인쇄 보고서 · 연구 참고용',
+    colName: '이름',
+    generatedAt: (date: string) => `생성일: ${date}`,
+    chemicalReportTitle: '화합물 보고서',
+    reactionReportTitle: '반응 보고서',
+    identifiers: '식별자 및 물리적 특성',
+    properties: '화학 및 물리적 성질',
+    safety: '안전 및 규제',
+    applications: '용도',
+    synthesis: '제조 및 합성 방법',
+    participants: '참여 물질',
+    conditions: '반응 조건',
+    steps: '반응 단계',
+    provenance: '출처 및 근거',
   },
 
 }

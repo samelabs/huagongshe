@@ -189,8 +189,26 @@ export function SubmissionForm() {
       router.push(withLocale(`/reaction/${body.id}`, locale));
       router.refresh();
     } catch (err) {
-      // IX-5：失败保留全部输入内容（defaultValue / state 均不动），页面级 Notice。
-      setMessage(apiErrorMessage(err, t, t.submit.errSave));
+      // IX-5：失败保留全部输入内容（defaultValue / state 均不动）。
+      // 字段级校验错误定位到对应字段；其余错误用页面级 Notice。
+      if (err instanceof ApiError && err.detailKind === "invalid_field") {
+        const { detail: reason } = err;
+        const field = err.detailField ?? "";
+        const text = reason ?? apiErrorMessage(err, t, t.submit.errSave);
+        if (field.startsWith("participants")) {
+          const errors: FieldErrors = { participants: text };
+          setFieldErrors(errors);
+          focusFirstError(errors);
+        } else if (field) {
+          const errors = { [field]: text } as FieldErrors;
+          setFieldErrors(errors);
+          focusFirstError(errors);
+        } else {
+          setMessage(text);
+        }
+      } else {
+        setMessage(apiErrorMessage(err, t, t.submit.errSave));
+      }
     } finally {
       submitting.current = false;
       setBusy(false);

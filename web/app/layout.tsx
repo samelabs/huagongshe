@@ -5,6 +5,7 @@ import { I18nProvider } from "@/components/shared/I18nContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import { HydrationMarker } from "@/components/shell/HydrationMarker";
+import { AppShell } from "@/components/shell/AppShell";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { SITE_ORIGIN } from "@/lib/alternates";
 import { pwaAppName } from "@/lib/pwa";
@@ -96,6 +97,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <I18nProvider locale={locale}>
             <ToastProvider>
               <ConfirmProvider>
+                {/* 全站唯一外壳（顶栏 + 手机底栏）：在根 layout 挂一次，
+                    公开页与工作台之间切换路由不卸载重建。
+                    工作台路由时把手机动作与未读数作为插槽交给外壳。 */}
+                <AppShell />
                 {children}
                 {/* 水合哨兵：挂载后 <html data-hydrated=1>，截图工具等待它（Step 9 Part A.1） */}
                 <HydrationMarker />

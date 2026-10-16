@@ -1,7 +1,7 @@
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import {
   IconHome, IconNote, IconStar, IconSearch, IconCalc, IconSparkle, IconPlug,
-  IconBell, IconUsers, IconUser, IconGear, GlyphRx,
+  IconBell, IconUsers, IconUser, IconUserSearch, IconGear, GlyphRx,
 } from "@/components/ui/icons";
 import type { WorkbenchPanelConfig } from "./types";
 
@@ -25,6 +25,7 @@ export const workbenchRegistry: Omit<WorkbenchPanelConfig, "label">[] = [
   { id: "activity",   section: "network",   href: "/aichem?tab=activity",    icon: IconBell,   badge: (c) => c.unread || null },
   { id: "following",  section: "network",   href: "/aichem?tab=following",   icon: IconUsers,  badge: (c) => c.following },
   { id: "followers",  section: "network",   href: "/aichem?tab=followers",   icon: IconUser,   badge: (c) => c.followers },
+  { id: "people",     section: "network",   href: "/aichem?tab=people",      icon: IconUserSearch },
   { id: "profile",    section: "account",   href: "/me/settings/profile",    icon: IconGear },
 ];
 
@@ -37,6 +38,7 @@ export function panelLabel(id: string, t: Dictionary): string {
     mine: t.me.tabReactions, saved: t.me.sideSaved, skills: t.me.navSkills,
     "api-tokens": t.me.navMcpKey, profile: t.me.navSettings,
     activity: t.me.sideActivity, following: t.me.tabFollowing, followers: t.me.tabFollowers,
+    people: t.me.tabPeople,
   };
   return me[id] ?? id;
 }

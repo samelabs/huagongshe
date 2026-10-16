@@ -77,7 +77,7 @@ export function RelationshipsPanel({ kind, page, initialData, username }: PanelP
         <EmptyState
           icon={kind === "followers" ? <IconUser /> : <IconUsers />}
           title={kind === "followers" ? t.me.emptyFollowers : t.me.emptyFollowing}
-          action={{ label: t.nav.tabQuery, href: withLocale("/search", locale) }}
+          action={{ label: t.me.tabPeople, href: withLocale("/aichem?tab=people", locale) }}
         />
       ))}
       {state === "ready" && data.total > data.page_size && (

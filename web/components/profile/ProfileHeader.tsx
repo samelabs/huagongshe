@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { ShareButton } from "@/components/ShareButton";
 import { Tag } from "@/components/ui/Tag";
-import { IconPin, IconCal } from "@/components/ui/icons";
+import { IconPin, IconCal, IconShare } from "@/components/ui/icons";
 
 export type ProfileHeaderData = {
   id: number;
@@ -33,6 +33,9 @@ export type ProfileHeaderData = {
   created_at: string;
   institution: string | null;
   title: string | null;
+  location: string | null;
+  website: string | null;
+  orcid: string | null;
   followers: number;
   following: number;
   public_reactions: number;
@@ -42,6 +45,18 @@ export type ProfileHeaderData = {
   is_mutual: boolean;
   is_me: boolean;
 };
+
+/** 网址展示名：过长时只显示主机名 + 路径首段，完整地址留在链接上。 */
+function websiteLabel(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.replace(/\/$/, "");
+    const shown = path && path !== "/" ? `${parsed.hostname}${path.slice(0, 24)}${path.length > 24 ? "…" : ""}` : parsed.hostname;
+    return shown || url;
+  } catch {
+    return url;
+  }
+}
 
 export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
   const t = useDictionary();
@@ -69,6 +84,21 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
         <div className="pf-meta">
           {profile.institution && (
             <span><IconPin aria-hidden="true" />{profile.institution}</span>
+          )}
+          {profile.location && (
+            <span><IconPin aria-hidden="true" />{profile.location}</span>
+          )}
+          {profile.website && (
+            // 个人网址由本人填写，新窗口打开且不传递权重
+            <span className="pf-website">
+              <IconShare aria-hidden="true" />
+              <a href={profile.website} target="_blank" rel="noopener nofollow">
+                {websiteLabel(profile.website)}
+              </a>
+            </span>
+          )}
+          {profile.orcid && (
+            <span className="pf-orcid mono">ORCID {profile.orcid}</span>
           )}
           <span><IconCal aria-hidden="true" />{t.user.joinedAt(joined)}</span>
         </div>
@@ -102,8 +132,8 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
             {/* DESIGN_SYSTEM 6.6：桌面 ghost 图标；手机 secondary lg
                 文字「分享主页」（与关注并排等宽）—— 两个形态 CSS 切换，行为同源。 */}
             <span className="pf-share">
-              <ShareButton iconOnly title={`${profile.display_name}｜${t.brand.name}`} ariaLabel={t.me.profileShareLabel} className="pf-share-icon" />
-              <ShareButton title={`${profile.display_name}｜${t.brand.name}`} label={t.user.shareProfile} variant="secondary" size="lg" ariaLabel={t.me.profileShareLabel} feedback="toast" className="pf-share-text" />
+              <ShareButton url={`https://huagongshe.com/u/${encodeURIComponent(profile.username)}`} iconOnly title={`${profile.display_name}｜${t.brand.name}`} ariaLabel={t.me.profileShareLabel} className="pf-share-icon" />
+              <ShareButton url={`https://huagongshe.com/u/${encodeURIComponent(profile.username)}`} title={`${profile.display_name}｜${t.brand.name}`} label={t.user.shareProfile} variant="secondary" size="lg" ariaLabel={t.me.profileShareLabel} feedback="toast" className="pf-share-text" />
             </span>
           </>
         )}

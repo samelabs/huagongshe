@@ -134,7 +134,8 @@ class NotesUiContractTests(unittest.TestCase):
         # 侧栏「笔记」计数来自 Counts.notes（layout 用 notes?page_size=1 补齐）
         self.assertIn('badge: (c) => c.notes', src)
         self.assertIn("/users/me/notes?page=1&page_size=1",
-                      (REPO / "web/app/(workbench)/layout.tsx").read_text(encoding="utf-8"))
+                      (REPO / "web/lib/shellData.ts").read_text(encoding="utf-8"),
+                      "笔记计数取数应与外壳共用 shellData")
 
 
 if __name__ == "__main__":

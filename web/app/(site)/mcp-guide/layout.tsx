@@ -19,7 +19,6 @@ export async function generateMetadata(): Promise<Metadata> {
       height: 630,
       alt: t.brand.ogAlt,
     },
-    itempropImage: "/icon-512.png",
     twitterCard: "summary_large_image",
   });
   return {

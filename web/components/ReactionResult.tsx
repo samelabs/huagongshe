@@ -49,7 +49,7 @@ export async function ReactionResult({ reaction }: { reaction: ReactionSummary |
       {reaction.reaction_smiles ? (
         <Link className="reaction-preview" href={href}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={reactionSvgUrl(reaction.id, 1100, 220)} width="1100" height="220" alt={t.reaction.equationAlt(reaction.id)} loading="lazy" />
+          <img src={reactionSvgUrl(reaction.id)} width="1100" height="220" alt={t.reaction.equationAlt(reaction.id)} loading="lazy" />
         </Link>
       ) : <div className="reaction-preview unavailable">{t.reaction.equationUnavailable}</div>}
       <div className="reaction-result-foot">

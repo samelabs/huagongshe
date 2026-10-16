@@ -4,14 +4,13 @@
 
 ## AI integration (read this first)
 
-- **External AI access**: MCP server only (`https://huagongshe.com/mcp`) — Streamable HTTP transport; mixed anonymous / authenticated access depending on each tool's declaration.
-- **Authentication**: MCP OAuth (recommended) using standard Authorization Code flow with PKCE S256 (scopes: `read`, `reaction:write`, `skill:write`). MCP clients that do not support OAuth can use an AI Key via `Authorization: Bearer <AI Key>`.
+- **Zero configuration**: add `https://huagongshe.com/mcp` to your MCP client (Streamable HTTP transport). The public tools work anonymously — no account or registration needed.
+- **Account-only capabilities**: structure search (substructure/similarity), reading and writing your own reactions, and saving your own skills. To use them, the user must identify themselves in person: MCP clients with OAuth support open the authorization page when needed, where the user logs in and confirms; clients without OAuth support use an AI Key that the user creates after logging in (Account Settings → AI Key, https://huagongshe.com/me/settings/api-tokens) and send it as `Authorization: Bearer <AI Key>`.
+- **MCP OAuth** (recommended where supported): standard Authorization Code flow with PKCE S256; scopes: `read`, `reaction:write`, `skill:write`.
 - **MCP connection guide**: https://huagongshe.com/mcp-guide
-- **AI Key**: create one after logging in under Account Settings → AI Key (https://huagongshe.com/me/settings/api-tokens) for clients without OAuth support.
 
 **Anonymous**: unified search (exact mode), compound detail, public reaction detail, molecule/reaction SVG, public skills, stoichiometry calculation
-**After authentication (OAuth / AI Key)**: structure search (substructure/similarity), reading your own private reactions/skills, listing your reactions, validating/creating reactions, validating/saving skills
-**Not provided in v1.7.1**: Note MCP tools and the `note:write` scope
+**After the user identifies themselves (OAuth / AI Key)**: structure search (substructure/similarity), reading your own private reactions/skills, listing your reactions, validating/creating reactions, validating/saving skills
 
 ## What you can call
 
@@ -42,7 +41,7 @@ Counted per identity; over the limit the server returns `429` with a `Retry-Afte
 
 | Type | Limit |
 |------|------|
-| Structure search (substructure/similarity) | 6 per minute per identity; 30 per minute global; 2 (identity) / 4 (global) concurrent |
+| Structure search (substructure/similarity) | 6 per minute per identity; 2 (identity) / 4 (global) concurrent |
 | Reaction validation | 20 per minute |
 | Reaction writes | 10 per minute, 200 per day |
 | Stoichiometry calculation | 30 per minute |
@@ -50,8 +49,8 @@ Counted per identity; over the limit the server returns `429` with a `Retry-Afte
 
 ## Identifiers
 
-- **HCID** (Huagongshe Chemical ID): internal compound ID, e.g. `12345678`
-- **HRID** (Huagongshe Reaction ID): internal reaction ID, e.g. `8765432`
+- **HCID** (Huagongshe Chemical ID): the public compound identifier, e.g. `12345678`
+- **HRID** (Huagongshe Reaction ID): the public reaction identifier, e.g. `8765432`
 - Search supports prefixes: `id:12345`, `cid:2244`, `cas:64-17-5`, `inchikey:LFQSCWFLJHTTHZ-UHFFFAOYSA-N`
 
 ## Links

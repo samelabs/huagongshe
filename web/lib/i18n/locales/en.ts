@@ -13,6 +13,7 @@ const en: Dictionary = {
 
   /* ── Unified Business Error Codes ───────────────────────── */
   errors: {
+    invalid_field: 'Some fields need attention. Please check and try again',
     invalid_doi: 'Invalid DOI format.',
     invalid_cas: 'Invalid CAS check digit.',
     invalid_structure: 'Unrecognized SMILES structure.',
@@ -96,6 +97,7 @@ const en: Dictionary = {
     deleteFailed: 'Delete failed, please retry',
     hcidShort: (id: number | string) => `HCID ${id}`,
     hridShort: (id: number | string) => `HRID ${id}`,
+    print: 'Print preview',
   },
 
   /* ── Navigation / header ───────────────────────────── */
@@ -111,6 +113,7 @@ const en: Dictionary = {
     skills: 'Skills',
     mcp: 'MCP',
     myProfile: 'My profile',
+    aiKey: 'AI Key',
     settings: 'Settings',
     activity: 'Activity',
     tabQuery: 'Search',
@@ -124,6 +127,8 @@ const en: Dictionary = {
     workbenchNav: 'Workbench navigation',
     languageSwitcher: "Change language",
     footer: 'Huagongshe Open Program',
+    footerAi: 'AI access: ',
+    footerMcpGuide: 'MCP Guide',
   },
 
   /* ── Homepage ──────────────────────────────────────── */
@@ -510,6 +515,11 @@ const en: Dictionary = {
     navSkills: 'My Skills',
     navMcpKey: 'MCP & AI Keys',
     navSettings: 'Settings',
+    tabPeople: 'Find People',
+    peopleSearchPlaceholder: 'Search by username or display name...',
+    peopleEmptyPrompt: 'Enter a username or display name to find users',
+    peopleNoResults: 'No users found',
+    peopleFollowers: (n: number) => `${n} ${n === 1 ? 'follower' : 'followers'}`,
   },
 
   notes: {
@@ -517,6 +527,8 @@ const en: Dictionary = {
     add: 'Add note',
     emptyPublic: 'No public linked notes yet.',
     loadFailed: 'Could not load notes.',
+    aboutEntityNote: (name: string) => `Note on ${name}`,
+    authorNote: (author: string) => `Note by ${author}`,
     /* ── Phase 1c: detail page / profile block / private section / filter / truncation / stoich ── */
     detailTitle: 'Note',
     category: 'Note',
@@ -673,6 +685,7 @@ const en: Dictionary = {
       locationPH: 'e.g. Beijing',
       website: 'Website',
       websitePH: 'e.g. https://lab.example.edu',
+      websiteInvalid: 'The URL must be an http(s) link or a bare domain (e.g. example.com)',
       orcid: 'ORCID',
       orcidHint: 'Researcher identifier, 16 digits',
       requiredHint: 'This field is required.',
@@ -835,6 +848,9 @@ const en: Dictionary = {
     defaultCategory: 'General tools',
     loadFailed: 'Failed to load data. Refresh and try again.',
     noMatch: 'No matching skills',
+    emptySkills: 'No public skills yet',
+    showAllSkills: (n: number) => `Show all ${n} skills`,
+    collapseSkills: 'Show less',
     officialBadge: 'Official',
     hasScriptsBadge: 'Has scripts',
     hasScriptsHint: 'This skill contains script files — review them manually before use',
@@ -1208,6 +1224,27 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     notFoundBody: 'The link may be outdated, or the record has been removed.',
     notFoundHome: 'Back to home',
     notFoundAction: 'Go to search',
+  },
+
+  /* ── Print report (I-078) ───────────────────────────── */
+  print: {
+    title: 'Print Report',
+    printAction: 'Print',
+    backAction: 'Back',
+    reportNotice: 'Huagongshe Chemistry Print Report · For research reference only',
+    colName: 'Name',
+    generatedAt: (date: string) => `Generated: ${date}`,
+    chemicalReportTitle: 'Chemical Report',
+    reactionReportTitle: 'Reaction Report',
+    identifiers: 'Identifiers & Physical Properties',
+    properties: 'Chemical & Physical Properties',
+    safety: 'Safety & Regulations',
+    applications: 'Applications & Uses',
+    synthesis: 'Preparation & Synthesis',
+    participants: 'Participants',
+    conditions: 'Reaction Conditions',
+    steps: 'Reaction Steps',
+    provenance: 'Provenance & Evidence',
   },
 
 } /* satisfies Dictionary via the annotation above; kept as a plain literal for type-checking clarity */

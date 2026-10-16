@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
   return { title: t.me.title, robots: { index: false, follow: false } };
 }
-const tabs = new Set<WorkbenchTab>(["home", "notes", "search", "stoich", "mine", "saved", "skills", "activity", "followers", "following"]);
+const tabs = new Set<WorkbenchTab>(["home", "notes", "search", "stoich", "mine", "saved", "skills", "activity", "followers", "following", "people"]);
 const visibilities = new Set<ReactionVisibility>(["all", "public", "private"]);
 const noteVisibilities = new Set<NoteVisibility>(["all", "public", "private"]);
 const savedKinds = new Set<SavedKind>(["chemicals", "reactions"]);

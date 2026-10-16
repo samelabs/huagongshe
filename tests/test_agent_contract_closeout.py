@@ -63,7 +63,10 @@ def _guide_section(locale: str) -> str:
 
 
 class LlmsTxtEnglishContract(unittest.TestCase):
-    """A-02: llms.txt is English and keeps the frozen facts."""
+    """A-02: llms.txt is English-only and states current capabilities:
+    the MCP endpoint, the live tool count, OAuth (PKCE S256) and scopes.
+    It carries no version numbers, no internal wording, and does not
+    advertise retired scopes."""
 
     @classmethod
     def setUpClass(cls):
@@ -74,27 +77,85 @@ class LlmsTxtEnglishContract(unittest.TestCase):
     def test_no_cjk(self):
         self.assertIsNone(CJK_RE.search(self.text), "llms.txt must be English-only")
 
-    def test_frozen_facts(self):
+    def test_states_current_facts(self):
         self.assertIn("https://huagongshe.com/mcp", self.text)
-        self.assertIn("13 total", self.text)
         self.assertIn("PKCE S256", self.text)
         self.assertIn("`read`, `reaction:write`, `skill:write`", self.text)
-        # v1.7.1 REST 收口: 对外只宣称 MCP; 不再出现 REST 兼容面/agent-guide
-        self.assertIn("MCP server only", self.text)
-        self.assertNotIn("REST / AI Key compatibility surface", self.text)
-        self.assertNotIn("never accepted as a REST bearer credential", self.text)
-        self.assertNotIn("HTTP API", self.text)
-        self.assertNotIn("agent-guide", self.text)
-        self.assertIn("Note MCP tools and the `note:write` scope", self.text)
-        self.assertNotIn("note:write scope is", self.text)  # negative only
 
-    def test_note_write_not_advertised_as_capability(self):
-        # note:write may only appear inside the "not provided" sentence.
-        occurrences = [
-            line for line in self.text.splitlines() if "note:write" in line
-        ]
-        self.assertEqual(len(occurrences), 1)
-        self.assertIn("Not provided", occurrences[0])
+    def test_tool_count_matches_tools_list(self):
+        server = build_mcp_server()
+        tools = asyncio.run(server.list_tools())
+        match = re.search(r"### MCP tools \((\d+) total\)", self.text)
+        assert match, "llms.txt must declare the MCP tool count"
+        self.assertEqual(int(match.group(1)), len(tools))
+
+    def test_no_version_numbers(self):
+        self.assertIsNone(
+            re.search(r"\b\d+\.\d+(\.\d+)?\b", self.text),
+            "llms.txt states capabilities, not versions",
+        )
+
+    def test_no_internal_wording(self):
+        self.assertNotIn("internal", self.text.lower())
+
+    def test_no_retired_note_write_scope(self):
+        self.assertNotIn("note:write", self.text)
+
+
+class LlmsTxtRateTableContract(unittest.TestCase):
+    """限速表与代码常量逐项一致: 表里的数字必须能在限流代码里找到出处,
+    代码里的对外限流数字也必须都写进表里。"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = open(
+            os.path.join(REPO, "web", "public", "llms.txt"), encoding="utf-8"
+        ).read()
+
+    def test_structure_search_row_matches_rate_limit_constants(self):
+        from api.core import rate_limit
+
+        row = self._row("Structure search")
+        self.assertIn(f"{rate_limit.STRUCTURE_ACTOR_RATE_LIMIT} per minute per identity", row)
+        self.assertIn(
+            f"{rate_limit.STRUCTURE_ACTOR_INFLIGHT} (identity) / "
+            f"{rate_limit.STRUCTURE_GLOBAL_INFLIGHT} (global) concurrent", row)
+        # 全站共享速率桶已取消, 表中不得再出现全站级每分钟限速
+        self.assertNotIn("per minute global", row)
+
+    def test_reaction_validation_row_matches_service_constant(self):
+        src = open(
+            os.path.join(REPO, "api", "services", "reactions.py"), encoding="utf-8"
+        ).read()
+        match = re.search(
+            r'enforce\("reaction-validate", str\(actor_id\), (\d+), 60\)', src)
+        assert match, "reaction-validate enforce not found"
+        self.assertIn(f"Reaction validation | {match.group(1)} per minute", self.text)
+
+    def test_reaction_writes_row_matches_settings(self):
+        from api.core.config import settings
+
+        self.assertIn(
+            f"Reaction writes | {settings.api_reaction_write_limit_per_minute} per minute, "
+            f"{settings.api_reaction_write_limit_per_day} per day", self.text)
+
+    def test_stoichiometry_row_matches_settings(self):
+        from api.core.config import settings
+
+        self.assertIn(
+            f"Stoichiometry calculation | {settings.api_stoich_limit_per_minute} per minute",
+            self.text)
+
+    def test_skill_saves_row_matches_settings(self):
+        from api.core.config import settings
+
+        self.assertIn(
+            f"Skill saves | {settings.api_skill_write_limit_per_hour} per hour", self.text)
+
+    def _row(self, label: str) -> str:
+        match = re.search(rf"\| {re.escape(label)}[^|]*\|([^|]*)\|", self.text)
+        assert match, label
+        return match.group(1)
 
 
 class McpValidationTranslatorContract(unittest.TestCase):

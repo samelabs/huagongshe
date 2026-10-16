@@ -50,7 +50,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
     setError(null);
     // Drop stale responses: only the newest request may commit results.
     const requestId = ++latestRequest.current;
-    apiGet<SearchResponse>(`/search?q=${encodeURIComponent(trimmed)}&mode=${m}&page=1&page_size=30`)
+    apiGet<SearchResponse>(`/search?q=${encodeURIComponent(trimmed)}&mode=${m}&page=1&page_size=30&locale=${encodeURIComponent(locale)}`)
       .then((data) => {
         if (requestId !== latestRequest.current) return;
         setChemicals(data.chemicals);
@@ -130,7 +130,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
             {chemicals.map((chem) => (
               <Link key={chem.id} className="wb-search-chemical" href={withLocale(`/chemical/${chem.id}`, locale)}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img loading="lazy" src={molSvgUrl(chem.id, "md")} alt="" />
+                <img loading="lazy" src={molSvgUrl(chem.id)} alt="" />
                 <div>
                   <strong>{resolveChemicalName(chem, t.common.hcidLabel, locale).title}</strong>
                   <EntityBadge kind="chemical" id={chem.id} size="xs" ariaLabel={t.common.hcidLabel(chem.id)} />

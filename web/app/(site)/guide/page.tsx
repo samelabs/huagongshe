@@ -9,7 +9,6 @@ import { withLocale } from "@/lib/localePath";
 import { localeAlternates } from "@/lib/alternates";
 
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
@@ -26,7 +25,6 @@ export async function generateMetadata(): Promise<Metadata> {
       height: 630,
       alt: t.brand.ogAlt,
     },
-    itempropImage: "/icon-512.png",
     twitterCard: "summary_large_image",
   });
   return {
@@ -43,7 +41,6 @@ export default async function GuidePage() {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   return <div className="content-page guide-page">
-    <WeChatMeta name={`${t.guide.title}｜${t.brand.name}`} description={t.guide.desc} image="/icon-512.png" />
     <Breadcrumb
       items={[
         { label: t.chemical.home, href: withLocale("/", locale) },

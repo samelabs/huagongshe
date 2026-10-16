@@ -22,11 +22,11 @@ import { isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
 import { apiGet, isApiGone, isEntityId, type Chemical, type ReactionSummary, type SemanticDetail, type ProseItem, type CasSupplier } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
-import { withLocale } from "@/lib/localePath";
+import { withLocale, type Locale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { WeChatMeta } from "@/components/shared/WeChatMeta";
 import { ShareButton } from "@/components/ShareButton";
+import { IconPrinter } from "@/components/ui/icons";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /**
@@ -63,20 +63,28 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { title: displayName } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel, locale);
   const pageTitle = `${displayName} (${t.common.hcidShort(id)})`;
   const description = t.chemical.descFor(displayName);
+  // 有可渲染结构 → 1:1 结构图分享卡；没有 → 兜底横版品牌图
+  const hasStructure = Boolean(chemical?.smiles || chemical?.pubchem_smiles);
   const shareMeta = buildShareMetadata({
     title: `${pageTitle}｜${t.brand.name}`,
     description,
     path: canonical,
     locale,
     siteName: t.brand.name,
-    ogImage: {
-      url: `/api/mol/${id}/png/800x800.png`,
-      width: 800,
-      height: 800,
-      alt: t.chemical.structureAlt(displayName),
-    },
-    itempropImage: `/api/mol/${id}/png/800x800.png`,
-    twitterCard: "summary",
+    ogImage: hasStructure
+      ? {
+          url: `/img/chemical/${id}.png`,
+          width: 800,
+          height: 800,
+          alt: t.chemical.structureAlt(displayName),
+        }
+      : {
+          url: "/og.png",
+          width: 1200,
+          height: 630,
+          alt: `${pageTitle}｜${t.brand.name}`,
+        },
+    twitterCard: hasStructure ? "summary" : "summary_large_image",
   });
   return {
     title: pageTitle,
@@ -215,11 +223,6 @@ export default async function ChemicalPage({ params }: {
 
   return (
     <div className="content-page chemical-page">
-      <WeChatMeta
-        name={`${title} (${t.common.hcidShort(chemical.id)})｜${t.brand.name}`}
-        description={t.chemical.descFor(title)}
-        image={`/api/mol/${chemical.id}/png/800x800.png`}
-      />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       <Breadcrumb
         items={[
@@ -235,6 +238,9 @@ export default async function ChemicalPage({ params }: {
         <div className="chem-badge-row">
           <EntityBadge kind="chemical" id={chemical.id} size="lg" ariaLabel={t.common.hcidLabel(chemical.id)} />
           <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
+          <Button variant="ghost" size="sm" iconOnly href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
+            <IconPrinter />
+          </Button>
         </div>
         <h1 className="chem-head-name">{title}</h1>
         {secondary && <p className="chem-head-alt">{secondary}</p>}
@@ -433,7 +439,7 @@ export default async function ChemicalPage({ params }: {
                     {(["up", "down"] as const).map((dir) => {
                       const items = dir === "up" ? industry?.cb_updown?.up : industry?.cb_updown?.down;
                       if (!items?.length) return null;
-                      return <div key={dir}><h4>{dir === "up" ? t.chemical.casext.upstream : t.chemical.casext.downstream}</h4><UpdownTags gid={`grp-updown-${dir}`} direction={dir} items={items} dict={t} /></div>;
+                      return <div key={dir}><h4>{dir === "up" ? t.chemical.casext.upstream : t.chemical.casext.downstream}</h4><UpdownTags gid={`grp-updown-${dir}`} direction={dir} items={items} dict={t} locale={locale} /></div>;
                     })}
                   </div>
                 </div>
@@ -567,13 +573,29 @@ function ProseGroup({ gid, title, prose, dict }: { gid: string; title: string; p
   );
 }
 
-/** 上下游 Tag 列表：每向最多 UPDOWN_TAG_LIMIT 个，超出 data-overflow + 「展开」 */
-function UpdownTags({ gid, direction, items, dict }: { gid: string; direction: string; items: { name: string }[]; dict: Dictionary }) {
+/** 上下游 Tag 列表：每向最多 UPDOWN_TAG_LIMIT 个，超出 data-overflow + 「展开」
+ * I-079: GroupToggle 不放入 flex-wrap 行，避免撑变形同行胶囊。
+ * I-088: 每个品名可点击，跳到名称搜索。
+ */
+function UpdownTags({ gid, direction, items, dict, locale }: { gid: string; direction: string; items: { name: string }[]; dict: Dictionary; locale: Locale }) {
   return (
-    <div className="casext-tags" id={gid}>
-      {items.map((n, i) => <span key={`${direction}-${n.name}`} className="casext-tag" {...overProps(i, UPDOWN_TAG_LIMIT)}>{n.name}</span>)}
+    <div id={gid}>
+      <div className="casext-tags">
+        {items.map((n, i) => (
+          <Link
+            key={`${direction}-${n.name}`}
+            href={withLocale(`/search?q=${encodeURIComponent(n.name)}`, locale)}
+            className="casext-tag casext-tag-link"
+            {...overProps(i, UPDOWN_TAG_LIMIT)}
+          >
+            {n.name}
+          </Link>
+        ))}
+      </div>
       {items.length > UPDOWN_TAG_LIMIT && (
-        <GroupToggle controls={gid} total={items.length} collapsedLabel={dict.chemical.page.expandTags} expandedLabel={dict.chemical.page.collapse} />
+        <div className="casext-toggle-row">
+          <GroupToggle controls={gid} total={items.length} collapsedLabel={dict.chemical.page.expandTags} expandedLabel={dict.chemical.page.collapse} />
+        </div>
       )}
     </div>
   );

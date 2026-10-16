@@ -166,6 +166,7 @@
   --header-h:   60px;
   --header-h-m: 52px;
   --tabbar-h:   56px;   /* 内容区高度；总高 = --tabbar-h + safe-area */
+  --tabbar-clear: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); /* 手机底栏让位（公开页页脚与工作台正文共用此一条） */
   --sidebar-w:  232px;
   --rail-w:     260px;
   --rail-w-wide:320px;
