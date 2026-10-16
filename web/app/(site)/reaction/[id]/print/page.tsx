@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PrintButton } from "@/components/PrintButton";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { apiGet, isApiGone, isEntityId, reactionSvgUrl, type ReactionDetail, type Chemical } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
@@ -44,7 +46,10 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
 
-  const reaction = await apiGet<ReactionDetail>(`/reactions/${id}`).catch((e: unknown) => {
+  // 与详情页同范式：带会话 Cookie 取反应 —— 作者打印自己的私有反应不能按匿名处理（I-078/109）
+  const cookieStore = await cookies();
+  const cookie = cookieStore.toString();
+  const reaction = await apiGet<ReactionDetail>(`/reactions/${id}`, cookieStore.has("hgs_session") ? { Cookie: cookie } : undefined).catch((e: unknown) => {
     if (isApiGone(e)) notFound();
     return null;
   });
