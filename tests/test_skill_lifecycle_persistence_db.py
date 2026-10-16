@@ -101,7 +101,7 @@ class SkillLifecyclePersistenceDbTests(unittest.IsolatedAsyncioTestCase):
         self.uid = None
         self._pool = redis.ConnectionPool.from_url(settings.redis_url, decode_responses=True)
         self._pool_patches = [patch.object(cache, "pool", self._pool),
-                              patch.object(rate_limit, "pool", self._pool)]
+                              patch.object(rate_limit, "pool", self._pool, create=True)]
         for p in self._pool_patches:
             p.start()
 
