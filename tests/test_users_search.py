@@ -143,8 +143,8 @@ class UsersSearchTests(unittest.IsolatedAsyncioTestCase):
         alice = next(u for u in result["users"]
                      if u["username"] == f"{self.prefix}_alice")
         self.assertEqual(set(alice.keys()),
-                         {"username", "display_name", "avatar_url", "bio",
-                          "follower_count", "is_following"})
+                         {"username", "display_name", "avatar_url", "active",
+                          "bio", "follower_count", "is_following"})
         self.assertEqual(len(alice["bio"]), 120)  # 200 字截断
         self.assertEqual(alice["follower_count"], 1)  # disabled 用户的关注也计
         self.assertFalse(alice["is_following"])  # 匿名恒 False
