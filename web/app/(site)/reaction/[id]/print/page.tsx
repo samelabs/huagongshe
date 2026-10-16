@@ -72,13 +72,7 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
     <div className="pr-root">
       {/* ── Toolbar ── */}
       <div className="pr-toolbar no-print">
-        <button
-          className="pr-btn"
-          data-print-btn="true"
-          suppressHydrationWarning
-        >
-          {t.print.printAction}
-        </button>
+        <PrintButton label={t.print.printAction} />
         <Link href={withLocale(`/reaction/${id}`, locale)} className="pr-btn pr-btn-ghost">
           {t.print.backAction}
         </Link>
@@ -207,11 +201,6 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
         )}
       </article>
 
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `document.querySelectorAll('[data-print-btn]').forEach(function(b){b.addEventListener('click',function(){window.print();});});`,
-        }}
-      />
     </div>
   );
 }

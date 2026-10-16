@@ -339,10 +339,8 @@ NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
      "已选实体 chip：ui 无可关闭 Chip 原语"),
     ("components/workbench/panels/StoichPanel.tsx", "wb-stoich",
      "投料计算器紧凑网格（6.7）：单元格级密度需求，hg-input 标准控件尺寸会破坏表格布局；含 radio（ui 无 Radio 原语）"),
-    ("app/(site)/chemical/[id]/print/page.tsx", 'data-print-btn="true"',
-     "打印报告工具栏按钮：服务端组件不能传 onClick，window.print 由页内脚本经 data 属性注入"),
-    ("app/(site)/reaction/[id]/print/page.tsx", 'data-print-btn="true"',
-     "打印报告工具栏按钮：服务端组件不能传 onClick，window.print 由页内脚本经 data 属性注入"),
+    ("components/PrintButton.tsx", 'className="pr-btn"',
+     "打印报告工具栏按钮：打印页自有报告版式（pr-btn），不进 hg-btn 体系"),
     ("components/SearchHero.tsx", "inputRef",
      "首页大搜索框内层 input：srch-box-wrap 提供边框/焦点体系，内层必须裸置"),
 ]
