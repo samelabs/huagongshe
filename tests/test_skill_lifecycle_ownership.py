@@ -127,7 +127,7 @@ class _FetchAll:
 def _access_row(title="T", description="D", owner_id=OWNER, visibility="private"):
     # 末列 owner active(HGS-ACCOUNT-CONTENT-01)
     return [SID, owner_id, "slug", title, description, "MIT", "chem", "user",
-            visibility, False, 2, 20, "2026-01-01", "2026-01-02", "u1", "U1", True]
+            visibility, False, 2, 20, "2026-01-01", "2026-01-02", "u1", "U1", None, True]
 
 
 class _LifecycleDB:
