@@ -1004,3 +1004,8 @@ async def update_config(
     await cache_delete("config:public:all")
     return {"namespace": namespace, "key": key, "value": body}
 
+
+
+# 对外数据服务的凭证管理(创建/列表/停用/改额度)。
+from .admin_data_clients import register as _register_data_clients  # noqa: E402
+_register_data_clients(router)

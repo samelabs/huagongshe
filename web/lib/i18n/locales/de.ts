@@ -53,6 +53,8 @@ const de: Dictionary = {
     delete_not_owner: 'Du kannst nur von dir erstellte Einträge löschen.',
     chemical_identity_conflict: 'Konflikt zwischen chemischem Bezeichner und Struktur.',
     chemical_identity_ambiguous: 'Mehrdeutiger chemischer Bezeichner; eindeutige Zuordnung nicht möglich.',
+    invalid_scope: 'Der angeforderte Zugriffsbereich ist nicht verfügbar.',
+    empty_update: 'Es gibt keine zu aktualisierenden Felder.',
   },
 
   /* ── Marke ──────────────────────────────────────────── */
@@ -1046,6 +1048,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     navSkills: 'Skills',
     navConfig: 'Konfiguration',
     navWorkers: 'Worker',
+    navDataClients: 'Datendienst-Zugänge',
     navPipeline: 'Daten-Pipeline',
     pipelineTitle: 'Daten-Pipeline',
     pipelineDesc: (s: number, at: string) => `Warteschlangenstatus, Durchsatz von heute und letzte Erfassung — aktualisiert sich alle ${s} s · Datenstand ${at}`,
