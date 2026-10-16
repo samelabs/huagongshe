@@ -131,7 +131,7 @@ export function SkillsClient({
         </div>
       </section>
 
-      {/* Category nav - 仅当分类成功返回时展示；分类失败时仅隐藏本条，不整页报错 (I-090) */}
+      {/* Category nav - 仅当分类成功返回时展示；分类失败时仅隐藏本条，不整页报错 */}
       {cats && cats.length > 0 && (
         <nav className="skills-cats" aria-label={t.skills.categoriesLabel}>
           <Button
