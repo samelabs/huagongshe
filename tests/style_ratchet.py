@@ -114,19 +114,30 @@ def scan() -> dict[str, Counter]:
 
 
 def check() -> list[str]:
-    """与基线对账,返回违规清单(空 = 通过)。"""
+    """与基线对账,返回违规清单(空 = 通过)。
+
+    双向棘轮: ①取值必须在基线白名单内(新增取值须评审) ②当前出现次数
+    不得超过基线次数(只许减少、不许反弹 —— 基线里的历史存量靠迁移清零,
+    清零后基线同步下调,回升即失败)。仅查成员不查次数时,新增一个基线中
+    已存在的取值不会被发现,"只许减少"不成立。
+    """
     baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
     current = scan()
     offenders: list[str] = []
     for category, counter in current.items():
-        allowed = set(baseline.get(category, {}))
+        allowed = baseline.get(category, {})
         for value, n in sorted(counter.items()):
+            where = "样式前缀" if category == "prefixes" else "字面值"
             if value not in allowed:
-                where = "样式前缀" if category == "prefixes" else "字面值"
                 offenders.append(
                     f"[{category}] 新增{where} {value!r} ×{n} —— 用 tokens.css 的设计 "
                     f"token 替代; 确属新档位则先更新 tests/style_ratchet_baseline.json "
                     f"并在评审说明理由")
+            elif n > allowed[value]:
+                offenders.append(
+                    f"[{category}] {where} {value!r} 次数反弹 ×{n} > 基线 "
+                    f"{allowed[value]} —— 只许减少; 若上一批迁移已清零,先 regen "
+                    f"下调基线再新增")
     return offenders
 
 
