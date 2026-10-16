@@ -25,6 +25,7 @@ import hashlib
 import hmac
 import secrets
 import time
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Any
 
@@ -108,7 +109,9 @@ async def load_client(db: Any, client_id: str, token: str) -> DataClient:
         raise DataApiAuthError("unauthorized", "凭证无效")
     if not row[5]:
         raise DataApiAuthError("unauthorized", "凭证已停用")
-    if row[6] is not None and row[6] < time.time():
+    # expires_at 为 PG timestamptz → 带时区 datetime；与 time.time() 浮点
+    # 直接比较会 TypeError（被外层吞成服务不可用，未到期凭证也无法使用）。
+    if row[6] is not None and row[6] < datetime.now(timezone.utc):
         raise DataApiAuthError("unauthorized", "凭证已到期")
     return DataClient(
         id=row[0], client_id=row[1], scopes=list(row[2]),

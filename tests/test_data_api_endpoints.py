@@ -32,6 +32,7 @@ except Exception:
 
 TOKEN = "hgsd_endpoint_test_token"
 SECOND_TOKEN = "hgsd_endpoint_second_token"
+EXPIRY_TOKEN = "hgsd_endpoint_expiry_token"
 
 
 class FakeHeaders:
@@ -240,6 +241,42 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
             self._auth_headers(client_id, TOKEN, path))
         self.assertEqual(self._status(response), 403)
         self.assertEqual(self._json(response)["error"]["code"], "forbidden_scope")
+
+    async def _set_expires(self, client_id, value_sql, params=None):
+        from sqlalchemy import text as _t
+        async with self.Session() as db:
+            await db.execute(_t(
+                f"UPDATE data_api.clients SET expires_at={value_sql} "
+                "WHERE client_id=:cid"), {"cid": client_id, **(params or {})})
+            await db.commit()
+
+    async def test_credential_expiry_three_states(self):
+        """到期判断三态（真实 timestamptz 往返）：未到期可用、已到期拒绝、无到期可用。
+
+        历史缺陷：load_client 用 row[6]（datetime）与 time.time()（float）直接
+        比较 → TypeError 被外层吞成服务不可用，未到期凭证也无法使用。
+        """
+        from api.services.data_api.auth import load_client, DataApiAuthError
+
+        # ① 未到期（+1h）：可用
+        cid = await self._make_client(scopes=[CHEMICAL_READ_SCOPE], token=EXPIRY_TOKEN)
+        await self._set_expires(cid, "now() + interval '1 hour'")
+        async with self.Session() as db:
+            client = await load_client(db, cid, EXPIRY_TOKEN)
+        self.assertEqual(client.client_id, cid)
+
+        # ② 已到期（-1h）：拒绝且报「凭证已到期」
+        await self._set_expires(cid, "now() - interval '1 hour'")
+        async with self.Session() as db:
+            with self.assertRaises(DataApiAuthError) as ctx:
+                await load_client(db, cid, EXPIRY_TOKEN)
+        self.assertIn("到期", ctx.exception.message)
+
+        # ③ 无到期时间：可用
+        await self._set_expires(cid, "NULL")
+        async with self.Session() as db:
+            client = await load_client(db, cid, EXPIRY_TOKEN)
+        self.assertEqual(client.client_id, cid)
 
     async def test_disabled_credential_rejected(self):
         client_id = await self._make_client(scopes=[CHEMICAL_READ_SCOPE], enabled=False)
