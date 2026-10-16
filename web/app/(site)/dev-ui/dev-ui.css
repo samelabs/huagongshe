@@ -62,3 +62,29 @@
   .du-g2, .du-g3 { grid-template-columns: minmax(0, 1fr); }
   .du-eb-grid { grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1fr); }
 }
+
+/* ── 版式样张页（/dev-ui/layout-samples）的组合辅助 ── */
+.du-samples .hg-seg-wrap { margin-block: var(--sp-6); }
+.du-sample-stack .hg-card-panel + .hg-card-panel,
+.du-sample-stack > .hg-card-panel { margin-block-start: var(--sp-4); }
+.du-sample-stack { display: block; }
+.du-sample-structure { display: grid; place-items: center; }
+.du-sample-structure img { max-width: var(--w-reading); width: 100%; height: auto; }
+.du-sample-ghs { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.du-sample-notes { display: grid; gap: var(--sp-4); }
+.du-sample-note .hg-byline { margin-block-end: var(--sp-2); }
+.du-sample-note-body { margin: 0; color: var(--text-2); font-size: var(--fs-14); line-height: var(--lh-prose); }
+.du-sample-equation img { width: 100%; height: auto; }
+.du-sample-participant, .du-sample-search-title, .du-sample-tool {
+  display: inline-flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; min-width: 0;
+}
+.du-sample-private-head { margin-block: var(--sp-6); }
+.du-sample-private-caption {
+  margin: 0 0 var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-13);
+}
+.du-sample-private-head .hg-page-head { margin-block: 0 var(--sp-2); }
+@media (max-width: 640px) {
+  .du-sample-private-head .hg-page-head-actions { display: none; }
+}

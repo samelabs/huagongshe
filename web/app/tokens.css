@@ -173,6 +173,24 @@
   /* 全站顶栏毛玻璃底（DESIGN_SYSTEM 2.3：白色 86% 透明 + backdrop 模糊） */
   --header-glass: rgba(255, 255, 255, .86);
 
+  /* ── 版式层 token ─────────────────────────────────────────── */
+  /* z-index 阶梯：内容 < 粘性侧栏 < 顶栏 < 菜单/浮层 < Toast */
+  --z-content: 1;
+  --z-sticky:  20;
+  --z-header:  40;
+  --z-float:   50;   /* 菜单、抽屉、弹窗（配 --shadow-float） */
+  --z-toast:   60;
+
+  /* 断点档位。媒体查询条件里 var() 不可用，@media 条件仍写 640/1024
+     字面量（棘轮基线只认这两档）；token 供 JS 与文档引用同一档位。 */
+  --bp-s: 640px;
+  --bp-m: 1024px;
+
+  /* 卡片内边距与分区纵向节奏（手机档见文件末尾的覆盖） */
+  --pad-card: 24px;
+  --sp-section: 48px;     /* 分区间距 */
+  --sp-section-gap: 16px; /* 分区标题到内容 */
+
   /* 动效 */
   --dur-fast: 120ms;
   --dur:      200ms;
@@ -181,4 +199,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-fast: 0ms; --dur: 0ms; }
+}
+
+/* 手机档的卡片内边距与分区节奏降档（与 --bp-s 同一断点） */
+@media (max-width: 640px) {
+  :root {
+    --pad-card: 16px;
+    --sp-section: 32px;
+    --sp-section-gap: 12px;
+  }
 }
