@@ -5,11 +5,15 @@
  *
  * 只有一种尺寸：28 × 28，图标 16，手机上可点区域 44。
  * 行内使用时 inline-flex，对齐文字，不独占一行。
- * 复制成功：图标换 ✓ 保持 1.5s，aria-live 播报「已复制」。
+ * 复制成功：图标换 ✓ 保持 1.5s，并弹 Toast「已复制」（Toast 区域负责读屏播报）；
+ * 失败弹 Toast 并选中文本便于手动复制。
+ * 写剪贴板走 lib/clipboard（含非安全上下文的退路）。
  */
 import { useRef, useState } from "react";
 import { useDictionary } from "@/components/shared/I18nContext";
 import { IconCheck, IconCopy } from "./icons";
+import { useToast } from "./Toast";
+import { copyText } from "@/lib/clipboard";
 
 const DONE_MS = 1500;
 
@@ -32,30 +36,24 @@ export function CopyButton({ value, ariaLabel, textRef, className }: {
   className?: string;
 }) {
   const t = useDictionary();
+  const toast = useToast();
   const [done, setDone] = useState(false);
-  const [announce, setAnnounce] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function copy() {
-    let ok = false;
-    try {
-      await navigator.clipboard.writeText(value);
-      ok = true;
-    } catch {
+    const ok = await copyText(value);
+    if (ok) toast.success(t.common.copied);
+    else {
       selectElementText(textRef?.current ?? null);
+      toast.error(t.common.copyFailed);
     }
     if (timer.current) clearTimeout(timer.current);
     setDone(ok);
-    setAnnounce(ok ? t.common.copied : t.common.copyFailed);
-    timer.current = setTimeout(() => {
-      setDone(false);
-      setAnnounce("");
-    }, DONE_MS);
+    timer.current = setTimeout(() => setDone(false), DONE_MS);
   }
 
   return (
     <span className="hg-copy-wrap">
-      <span className="hg-sr" role="status" aria-live="polite">{announce}</span>
       <button
         type="button"
         className={["hg-copy", done ? "done" : "", className ?? ""].filter(Boolean).join(" ")}
