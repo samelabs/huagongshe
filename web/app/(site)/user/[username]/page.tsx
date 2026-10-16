@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -13,7 +14,8 @@ import { Tag } from "@/components/ui/Tag";
 import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
-import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
+import { localeAlternates, ogLocaleTag, SITE_ORIGIN } from "@/lib/alternates";
+import { buildShareMetadata } from "@/lib/shareMeta";
 import { noteHeadline } from "@/lib/noteHeadline";
 
 type Profile = {
@@ -33,16 +35,39 @@ type NotesBlock = { items: NoteCard[]; total: number };
 
 const REACTIONS_PAGE_SIZE = 20;
 
+/** 同请求内 metadata 与页面体共享的同一次取数（I-128：此前各拉一次后端；
+ *  cookie 内置 —— metadata 与页面看到同一份 is_me 投影）。 */
+const loadProfile = cache(async (username: string): Promise<Profile> => {
+  const cookieStore = await cookies();
+  const headers = cookieStore.has("hgs_session") ? { Cookie: cookieStore.toString() } : undefined;
+  return apiGet<Profile>(`/users/${encodeURIComponent(username)}`, headers);
+});
+
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
   const canonical = `/user/${encodeURIComponent(username)}`;
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
+  // og:image 用头像（512×512 方图，api 上传管线固定产 512 变体）；无头像退全局兜底横版品牌图
+  const profile = await loadProfile(username).catch(() => null);
+  const hasAvatar = Boolean(profile?.avatar_url);
+  const pageTitle = `${profile?.display_name ?? username}｜${t.brand.name}`;
+  const shareMeta = buildShareMetadata({
+    title: pageTitle,
+    description: t.user.desc,
+    path: canonical,
+    locale,
+    siteName: t.brand.name,
+    ogImage: hasAvatar
+      ? { url: `${SITE_ORIGIN}${profile!.avatar_url}`, width: 512, height: 512, alt: pageTitle }
+      : { url: "/og.png", width: 1200, height: 630, alt: t.brand.ogAlt },
+    twitterCard: hasAvatar ? "summary" : "summary_large_image",
+  });
   return {
-    title: t.user.title.replace("{username}", username),
+    title: `${profile?.display_name ?? username}`,
     description: t.user.desc,
     alternates: localeAlternates(canonical, locale),
-    openGraph: { url: withLocale(canonical, locale), title: `${t.user.title.replace("{username}", username)}｜${t.brand.name}`, description: t.user.desc, locale: ogLocaleTag(locale) },
+    ...shareMeta,
   };
 }
 
@@ -54,10 +79,8 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const tab = query.tab === "notes" ? "notes" : "reactions";
   const requestedPage = typeof query.page === "string" ? Number.parseInt(query.page, 10) : 1;
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const hasSession = (await cookies()).has("hgs_session");
-  const headers = hasSession ? { Cookie: (await cookies()).toString() } : undefined;
   let profile: Profile;
-  try { profile = await apiGet<Profile>(`/users/${encodeURIComponent(username)}`, headers); }
+  try { profile = await loadProfile(username); }
   catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
 
   /* ── 停用态（4.1 / 6.11 状态页）：头像 + 名字 + Tag「账号已停用」+ 事实说明。
@@ -91,13 +114,14 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   try { notesBlock = await apiGet<NotesBlock>(`/users/${encodeURIComponent(username)}/notes?page=1&page_size=8`); }
   catch { notesUnavailable = true; }
 
-  /* 反应卡收藏初始态：登录时取已收藏反应 id 集（失败按空集处理，乐观更新兜底） */
+  /* 反应卡收藏初始态：登录访客取自己的已收藏反应 id 集（失败按空集，乐观更新兜底） */
   let favoredReactionIds = new Set<number>();
-  if (hasSession) {
+  const cookieStore = await cookies();
+  if (cookieStore.has("hgs_session")) {
     try {
       // FX-8a（SMK-011 / HGS-PROFILE-FAVOR-SSR-01）：SSR 预取转发会话 Cookie，
       // 否则永远按匿名渲染为未收藏，首击发出重复 POST
-      const followed = await apiGet<{ items: { id: number }[] }>(`/users/me/follows/reactions?page=1&page_size=100`, headers);
+      const followed = await apiGet<{ items: { id: number }[] }>(`/users/me/follows/reactions?page=1&page_size=100`, { Cookie: cookieStore.toString() });
       favoredReactionIds = new Set(followed.items.map((item) => item.id));
     } catch { /* 保持空集 */ }
   }
