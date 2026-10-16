@@ -284,6 +284,27 @@ class ArchiveKernelTests(unittest.TestCase):
         self._assert(raw, SkillArchiveValidationError.MANIFEST_INVALID,
                      "压缩包根目录必须包含 SKILL.md")
 
+    def test_duplicate_normalized_path_rejected(self):
+        """同名条目(或剥离根目录后同名)必须在写盘之前被拒绝。"""
+        # zip 允许同名条目: dict 去重会吞掉, 用 writestr 两次构造
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("SKILL.md", SKILL_MD)
+            z.writestr("notes.txt", b"first")
+            z.writestr("notes.txt", b"second")
+        self._assert(buf.getvalue(), SkillArchiveValidationError.INVALID_ARCHIVE,
+                     "压缩包内存在重复路径：notes.txt")
+
+    def test_duplicate_after_root_strip_rejected(self):
+        """单一根目录内重复条目, 剥离根目录后同名同样拒绝。"""
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("pkg/SKILL.md", SKILL_MD)
+            z.writestr("pkg/guide.md", b"one")
+            z.writestr("pkg/guide.md", b"two")
+        self._assert(buf.getvalue(), SkillArchiveValidationError.INVALID_ARCHIVE,
+                     "压缩包内存在重复路径：guide.md")
+
     def test_oversized_zip_member_rejected_before_decompression(self):
         """Oversized declared members are rejected without opening their compressed data."""
         member = "assets/oversized.bin"

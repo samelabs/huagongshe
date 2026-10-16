@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from sqlalchemy import text
 
 from .core.cache import cache_get, cache_set
@@ -17,7 +17,7 @@ from .services.search import (
     SearchError, execute_search,
 )
 from .rate_limit_http import to_http_exception  # noqa: E402  (G2.R HTTP bridge)
-from .core.rate_limit import RateLimitError  # noqa: E402
+from .core.rate_limit import RateLimitError, client_ip  # noqa: E402
 
 # service 语义类别 → 基线 HTTP status 唯一映射(G2.3 final; detail 逐字不变)
 _STATUS_BY_KIND = {
@@ -59,6 +59,7 @@ async def public_config(actor: Actor | None = Depends(public_or_actor), db=Depen
     summary="统一查询化合物和反应",
 )
 async def search(
+    request: Request,
     actor: Actor | None = Depends(public_or_actor),
     q: str = Query(..., min_length=1, max_length=4000),
     mode: str = Query("exact", pattern="^(exact|substructure|similarity)$"),
@@ -67,6 +68,8 @@ async def search(
     # 否则 round(t,3) 同键不同结果(TTL 300s 内串页)。URI 传 0.70004 → 422。
     page: int = Query(1, ge=1, le=20),
     page_size: int = Query(30, ge=1, le=100),
+    # I-086: 请求 locale, 化合物条目附 name_local(该语言 CB 当地名)。
+    locale: str | None = Query(None),
     db=Depends(get_db),
 ):
     """One entry point for names, external identifiers, SMILES and structures."""
@@ -84,6 +87,8 @@ async def search(
             db, query, mode, threshold=threshold, page=page,
             page_size=page_size,
             actor_id=actor.id if actor else None,
+            locale=locale,
+            client_ip=client_ip(request.headers),
         )
     except SearchError as exc:  # service 领域错误 → 原基线 status + {message,kind}
         raise HTTPException(
@@ -142,7 +147,7 @@ async def chemical_synonyms(
     chemical_id: int = Path(..., ge=1, le=2_147_483_647),
     actor: Actor | None = Depends(public_or_actor),
     page: int = Query(1, ge=1, le=500),
-    page_size: int = Query(100, ge=1, le=500),
+    page_size: int = Query(100, ge=1, le=100),
     db=Depends(get_db),
 ):
     offset = (page - 1) * page_size

@@ -24,7 +24,12 @@ import unittest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-DB = os.environ.get("TEST_DATABASE_URL", "").replace("postgresql://", "postgresql+asyncpg://").split("?")[0]
+from tests.db_gate import require_test_db  # I-058: 统一测试库闸(库名模式+sentinel)
+try:
+    DB = require_test_db().replace(
+        "postgresql://", "postgresql+asyncpg://").split("?")[0]
+except Exception:
+    DB = ""
 
 
 def _db():

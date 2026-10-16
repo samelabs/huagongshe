@@ -93,7 +93,8 @@ async def list_skills(
     rows = (await db.execute(text(f"""
         SELECT s.id,s.slug,s.title,s.description,s.category,s.origin,s.visibility,
                s.has_scripts,s.file_count,s.size_bytes,s.updated_at,
-               u.username,u.display_name,(u.status='active') AS owner_active
+               u.username,u.display_name,u.avatar_path AS avatar_url,
+               (u.status='active') AS active
         FROM community.skills s JOIN community.users u ON u.id=s.owner_id
         WHERE {where}
         ORDER BY s.updated_at DESC, s.id DESC
@@ -105,12 +106,16 @@ async def list_skills(
             {
                 "id": row["id"], "slug": row["slug"], "title": row["title"],
                 "description": row["description"], "category": row["category"],
-                "origin": row["origin"], "visibility": row["visibility"],
+                # I-024: 公开输出不暴露 origin 枚举值(含历史 'kdense'),
+                # 改出 is_official; admin 接口保留 origin, 数据库值不动。
+                "is_official": row["origin"] == "official",
+                "visibility": row["visibility"],
                 "has_scripts": row["has_scripts"], "file_count": row["file_count"],
                 "size_bytes": int(row["size_bytes"]), "updated_at": row["updated_at"],
                 "owner": {"username": row["username"],
                           "display_name": row["display_name"],
-                          "active": bool(row["owner_active"])},
+                          "avatar_url": row["avatar_url"],
+                          "active": bool(row["active"])},
             }
             for row in rows
         ],
@@ -151,7 +156,7 @@ async def load_accessible_skill(
     row = (await db.execute(text("""
         SELECT s.id,s.owner_id,s.slug,s.title,s.description,s.license,s.category,s.origin,
                s.visibility,s.has_scripts,s.file_count,s.size_bytes,s.created_at,s.updated_at,
-               u.username,u.display_name,(u.status='active')
+               u.username,u.display_name,u.avatar_path,(u.status='active')
         FROM community.skills s JOIN community.users u ON u.id=s.owner_id
         WHERE s.id=:id
     """), {"id": skill_id})).fetchone()
@@ -165,7 +170,7 @@ async def load_accessible_skill(
         "visibility": row[8], "has_scripts": row[9], "file_count": row[10],
         "size_bytes": int(row[11]), "created_at": row[12], "updated_at": row[13],
         "owner": {"username": row[14], "display_name": row[15],
-                  "active": bool(row[16])},
+                  "avatar_url": row[16], "active": bool(row[17])},
     }
 
 
@@ -182,6 +187,8 @@ async def get_skill_detail(
     (missing → skill_md=None; decode errors="replace") → 组装。
     """
     manifest = await load_accessible_skill(db, skill_id, actor_id=actor_id)
+    # I-024: 公开 detail 输出同 list —— origin 换 is_official。
+    manifest["is_official"] = manifest.pop("origin") == "official"
     files = (await db.execute(text("""
         SELECT path,is_text,size_bytes,sha256,is_entry
         FROM community.skill_files WHERE skill_id=:id ORDER BY is_entry DESC, path
@@ -444,6 +451,17 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
                 continue
             stripped.append(("/".join(parts), data))
         entries = stripped
+
+    # 规范化(根目录剥离)后同一路径只允许出现一次: zip 允许同名条目, 但
+    # 落盘与入库都按唯一路径; 重复必须在任何写盘之前拒绝(校验阶段为纯
+    # 内存操作, 不会留下残余文件)。
+    seen_paths: set[str] = set()
+    for name, _ in entries:
+        if name in seen_paths:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.INVALID_ARCHIVE,
+                f"压缩包内存在重复路径：{name}")
+        seen_paths.add(name)
 
     if not any(name == "SKILL.md" for name, _ in entries):
         raise SkillArchiveValidationError(

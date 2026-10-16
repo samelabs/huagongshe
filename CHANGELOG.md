@@ -3,6 +3,29 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
+## [Unreleased]
+
+**化合物名称多语言（I-086 / I-087）**
+- name_index 的 CB 镜像推广到全部 locale：任意 locale 行落库（含转 error）都触发按"该化合物全部 locale ok 行并集"重建，日文、韩文、德文名可被搜索命中；供应商名改为镜像 supplier listing ⋈ profile（与刷新顺序无关）；lang 列放宽（zh-CN 沿用 'cn'，其余 ja/ko/de，迁移 20261015_03）
+- 详情 enrich=core|full 与搜索结果接受 locale 参数，化合物条目新增 `name_local`（该 locale ok CB 行的当地名，多条按 cb_number 取第一条；zh-CN 与 name_cn 一致；无则 null）；core 保持零 provider 访问
+- 新增可续跑回填脚本 scripts/backfill_name_index_locales.py（分批 500、--dry-run、断点续跑）
+
+**用户搜索（I-082）**
+- 新增 GET /api/users/search：username 前缀 / display_name 包含（均不区分大小写，完全匹配排第一），只返回 active 用户公开字段，page ≤ 50、page_size ≤ 50（默认 20）、返回 total；匿名按 IP、登录按用户限流 60/min
+
+**列表分页与详情数组上限（I-083）**
+- 详情嵌数组硬上限 + 总数字段：suppliers 50（suppliers_total）、cb_aliases 200（cb_aliases_total）、cb_price 50（cb_price_total）、cb_updown 每向 100（up_total/down_total）、cb_experimental 与六个文字组各 100（*_total，自定口径）；详情 synonyms 上限 20→200
+- /chemicals/{id}/synonyms page_size 上限 500→100；/admin/workers SQL 加界（≤200）；/users/me/oauth-connections LIMIT 100；/users/me/tokens LIMIT 5（与创建上限一致）
+
+**MCP 工具元数据（I-067）**
+- tools/list：描述去除 docstring 缩进与首尾空白；每个参数补 description，固定取值补 enum，数值范围补 minimum/maximum（与运行时校验同组常量，单一来源）；工具数量 13 与名字不变。注：MCPServer v2 无法不声明空的 prompts/resources 能力（SDK 构造时无条件注册，测试已锁定现状）
+
+**其他**
+- I-024：公开 GET /skills* 输出去掉 origin，改 `is_official: bool`（admin 保留 origin，数据库不动）
+- I-058：剩余 6 个直读库地址的测试文件统一走 tests/db_gate.py
+- I-069：CI push 触发只保留 main，消除 push+PR 双触发
+- I-070：公网冒烟扩为 /api/health + 五语言首页 + HCID 4 详情页 + MCP initialize 版本对 VERSION（任一失败 deploy 非零退出）；docs/DEPLOYMENT.md 新增"生产配置"记录节（PG ALTER SYSTEM 参数与 needrestart 策略，只记录不自动变更）
+
 ## [1.7.2] — 2026-10-15
 
 补丁版：手机端与按钮视觉、分享与 SEO、公开资源有界化与边缘缓存、部署与任务表稳定性。

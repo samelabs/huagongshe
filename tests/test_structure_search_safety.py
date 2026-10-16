@@ -83,7 +83,7 @@ class SubstructureSqlInvariantTests(unittest.TestCase):
         """统一搜索的 substructure 分支必须走同一 snapshot, 且全仓不再有
         `mol @> ... ORDER BY c.id` / SQL OFFSET 形态。"""
         self.assertIn("substructure_snapshot(db, canonical)", self.unified_src)
-        self.assertIn("hydrate_chemicals(db, ids[offset:offset + page_size])", self.unified_src)
+        self.assertIn("hydrate_chemicals(db, ids[offset:offset + page_size], locale=locale)", self.unified_src)
         self.assertIsNone(self.unified_sub, "unified 分支不应再自建 mol @> SQL")
         # 结构分支不得再出现自建排序/偏移(精确文本分支的文本搜索仍用它们, 故按分支切)
         structure_src = self.unified_src[self.unified_src.find('if mode == "substructure"'):]
@@ -139,7 +139,7 @@ class SimilaritySemanticsTests(unittest.TestCase):
     def test_mcp_threshold_passthrough(self):
         with open("api/mcp_server.py") as handle:
             mcp = handle.read()
-        self.assertIn("threshold: float = 0.7", mcp)
+        self.assertIn("threshold: Annotated[float, Field(", mcp)
         self.assertIn("threshold=threshold", mcp)
 
     def test_frontend_no_hardcoded_70(self):
@@ -153,10 +153,11 @@ class GateWiringTests(unittest.TestCase):
 
     def test_limits_are_documented_values(self):
         self.assertEqual(rate_limit.STRUCTURE_ACTOR_RATE_LIMIT, 6)
-        self.assertEqual(rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT, 30)
         self.assertEqual(rate_limit.STRUCTURE_ACTOR_INFLIGHT, 2)
         self.assertEqual(rate_limit.STRUCTURE_GLOBAL_INFLIGHT, 4)
         self.assertGreater(rate_limit.LEASE_TTL_SECONDS, 8)
+        self.assertFalse(hasattr(rate_limit, "STRUCTURE_GLOBAL_RATE_LIMIT"),
+                         "结构检索不设全站共享速率桶")
 
     def test_global_inflight_leaves_connections(self):
         """4 个结构查询 ≤ 10 连接池的一半以下 — 至少 6 个留给普通请求。"""
@@ -496,22 +497,20 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         self.fixture_id, self._fixture_created = await _ensure_fixture_chemical(self.app_engine)
 
         self._patched = search_service.run_search_query
-        self._rate = (rate_limit.STRUCTURE_ACTOR_RATE_LIMIT,
-                      rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT)
+        self._rate = rate_limit.STRUCTURE_ACTOR_RATE_LIMIT
         # 本组只验并发层: 把 fixed-window 抬高, 免得两层混在一起
         rate_limit.STRUCTURE_ACTOR_RATE_LIMIT = 10_000
-        rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT = 10_000
         # 0915: 真实 SMILES(直链烷烃, 10-49 个重原子) — 必须过生产
         # canonicalize_smiles(无效合成串如 C9100001CO 会 400, 测试根本到不了
         # 闸门层)。run_search_query 整体 mock, 生产 validation/gate 不放松。
         self._queries = ["C" * (10 + i) for i in range(40)]
-        self._cache_keys = [f"v2:unified-search:substructure:0.7:1:30:{value}"
+        self._cache_keys = [f"v2:unified-search:substructure:0.7:1:30::{value}"
                             for value in self._queries]
         await cache_delete(*self._cache_keys)
 
     async def asyncTearDown(self):
         search_service.run_search_query = self._patched
-        rate_limit.STRUCTURE_ACTOR_RATE_LIMIT, rate_limit.STRUCTURE_GLOBAL_RATE_LIMIT = self._rate
+        rate_limit.STRUCTURE_ACTOR_RATE_LIMIT = self._rate
         self.app.dependency_overrides.clear()
         await cache_delete(*self._cache_keys)
         await cache_delete(f"v2:substructure:{self.fixture_id}:1:30")
@@ -594,7 +593,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         search_service.run_search_query = self._slow(tracker)
         payload = {"page": 1, "page_size": 30, "total": 0, "chemicals": []}
         for value in self._queries[:6]:
-            await cache_set(f"v2:unified-search:substructure:0.7:1:30:{value}", payload, ttl=60)
+            await cache_set(f"v2:unified-search:substructure:0.7:1:30::{value}", payload, ttl=60)
         results = await asyncio.gather(*[
             self.client.get(f"/api/search?q={value}&mode=substructure") for value in self._queries[:6]
         ])

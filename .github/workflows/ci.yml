@@ -1,7 +1,10 @@
 name: CI
 
+# I-069: push 只保留 main(消除分支 push + PR 双触发, 被取消的重复 run
+# 曾在 PR 检查里显示为 fail); 分支/PR 一律走 pull_request 事件。
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:

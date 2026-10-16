@@ -113,7 +113,7 @@ CANONICAL_VALUES = [1, 962, "CCO", None, "water", None, "H2O", 18.02, 18.02,
 
 async def _fake_fetch(values=None):
     values = values if values is not None else CANONICAL_VALUES
-    async def fetch(db, sql, params):
+    async def fetch(db, sql, params, locale=None):
         return [_chemical_dict(values)]
     return fetch
 

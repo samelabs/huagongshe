@@ -181,7 +181,8 @@ async def notifications(
                CASE WHEN n.event_type='new_note'
                     THEN left(split_part(nt.content, E'\\n', 1), 140)
                     ELSE NULL END AS note_excerpt,
-               u.username AS actor_username,u.display_name AS actor_display_name
+               u.username AS actor_username,u.display_name AS actor_display_name,
+               u.avatar_path AS actor_avatar_url,(u.status='active') AS actor_active
         FROM community.notifications n
         {_ACTIVITY_FEED_JOINS}
         WHERE {_ACTIVITY_FEED_VISIBLE}

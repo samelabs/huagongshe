@@ -276,17 +276,103 @@ def wait_http_ok(url: str, timeout: float = 90.0, poll: float = 2.0) -> bool:
 
 # ------------------------------------------------------------- smoke -------
 
-def public_smoke() -> bool:
-    """canonical HTTPS API health public smoke。
+SMOKE_LOCALES = ("zh-CN", "en", "ja", "ko", "de")
+SMOKE_CHEMICAL_PAGE = "https://huagongshe.com/en/chemical/4"  # HCID 4 详情页
+SMOKE_MCP_URL = "https://huagongshe.com/mcp"
 
-    经公网 canonical ingress(https://huagongshe.com/api/health)验证:
-    nginx canonical vhost → TLS → API upstream(127.0.0.1:8000)整链。
-    HTTP 非 200 / body 无 status=ok / 网络错误一律 fail closed。
-    不含 MCP protocol handshake(历史 docstring 的 "MCP version" 描述与实现不符, 已删)。
+
+def _http_post_json(url: str, payload: dict, headers: dict[str, str],
+                    timeout: float = 10.0) -> tuple[int, str]:
+    import urllib.request
+    req = urllib.request.Request(
+        url, data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json", **headers},
+        method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.status, resp.read(4096).decode("utf-8", "replace")
+
+
+def _http_200(url: str, headers: dict[str, str], timeout: float = 10.0) -> tuple[bool, str]:
+    """页面冒烟: 只看 200(HTML 页无 status:ok 契约; 不跟随 3xx)。"""
+    try:
+        import urllib.request
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status == 200, f"status={resp.status}"
+    except Exception as e:  # noqa: BLE001 — 冒烟 fail closed, 不抛出
+        return False, f"error={e}"
+
+
+def public_smoke() -> bool:
+    """canonical HTTPS 公网冒烟(I-070 扩充), 任一项失败 → deploy 非零退出。
+
+    经公网 canonical ingress(https://huagongshe.com)验证:
+    1. /api/health 200 + status=ok(nginx → TLS → API 127.0.0.1:8000 整链);
+    2. 五种语言首页(zh-CN/en/ja/ko/de)各 200(web → SSR 整链);
+    3. 化合物详情页 HCID 4 → 200(公开实体页 + BFF);
+    4. MCP initialize 返回的 serverInfo.version 与仓库 VERSION 文件一致
+       (MCP 协议入口 + 版本单一来源)。
+    全部 fail closed; 不含 3xx 跟随(首页用无尾斜杠规范地址)。
     """
     ok_api, d1 = http_ok(PUBLIC_SMOKE_URL, headers=PUBLIC_SMOKE_HEADERS)
     _event("smoke.api", ok=ok_api, detail=d1)
-    return ok_api
+    if not ok_api:
+        return False
+
+    for locale in SMOKE_LOCALES:
+        ok_home, detail = _http_200(
+            f"https://huagongshe.com/{locale}", PUBLIC_SMOKE_HEADERS)
+        _event("smoke.home", locale=locale, ok=ok_home, detail=detail)
+        if not ok_home:
+            return False
+
+    ok_page, detail = _http_200(SMOKE_CHEMICAL_PAGE, PUBLIC_SMOKE_HEADERS)
+    _event("smoke.chemical_page", ok=ok_page, detail=detail)
+    if not ok_page:
+        return False
+
+    ok_mcp, detail = _smoke_mcp_version()
+    _event("smoke.mcp_version", ok=ok_mcp, detail=detail)
+    return ok_mcp
+
+
+def _smoke_mcp_version() -> tuple[bool, str]:
+    """MCP initialize 的 serverInfo.version 必须等于仓库 VERSION 文件。
+
+    /mcp 是 Streamable HTTP: 响应为 SSE 流(event: message + data: JSON),
+    Accept 必须含 text/event-stream, 从 data: 行取 JSON-RPC result。
+    """
+    try:
+        status, body = _http_post_json(SMOKE_MCP_URL, {
+            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "hgs-deploy-smoke", "version": "0"},
+            },
+        }, {**PUBLIC_SMOKE_HEADERS,
+            "Accept": "application/json, text/event-stream"})
+    except Exception as e:  # noqa: BLE001 — 冒烟 fail closed, 不抛出
+        return False, f"error={e}"
+    if status != 200:
+        return False, f"status={status}"
+    payload: dict | None = None
+    for line in body.splitlines():
+        if line.startswith("data:"):
+            try:
+                payload = json.loads(line[len("data:"):].strip())
+            except Exception:  # noqa: BLE001
+                payload = None
+    if not payload:
+        return False, "body=no-data-line"
+    try:
+        version = payload["result"]["serverInfo"]["version"]
+    except Exception:  # noqa: BLE001
+        return False, "body=no-serverInfo"
+    repo_version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
+    if version != repo_version:
+        return False, f"version={version} repo={repo_version}"
+    return True, f"version={version}"
 
 
 # ------------------------------------------------------------- deploy ------

@@ -5,19 +5,23 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import logging
 import os
 import re
 import secrets
 import tempfile
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Query, Request, Response, UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
+logger = logging.getLogger(__name__)
+
 from .core.config import settings
 from .core.database import get_db
+from .core import rate_limit
 from .rate_limit_http import enforce_http
 from .core.security import (
     Actor, actor_payload, current_actor, current_session, public_or_actor,
@@ -64,14 +68,22 @@ async def create_session(db, response: Response, user_id: int) -> None:
 
 
 @auth_router.get("/check-username")
-async def check_username(username: str = Query(min_length=4, max_length=30), db=Depends(get_db)):
+async def check_username(
+    request: Request,
+    username: str = Query(min_length=4, max_length=30), db=Depends(get_db),
+):
     """注册时实时校验用户名是否可用。
-    0904 ⑱: 枚举敞口 — 原无限流, 脚本可批量探测已注册用户名。
-    匿名共享桶 30/min(BFF 后无真实 IP, 与 cas-search-fetch 同口径);
-    超限 429, 注册表单降级为提交时校验(不阻塞正常使用)。
-    BX-A2：reason 改为 reason_code 稳定机器码（taken / invalid_format），
-    不再返回中文文案 —— 前端按语言渲染。"""
-    await enforce_http("check-username", "global", 30, 60)
+
+    匿名按来源 IP 限流 30/min，防脚本批量探测已注册用户名；超限 429,
+    注册表单降级为提交时校验（不阻塞正常使用）。拿不到来源 IP 时不设
+    限流并记警。reason 为 reason_code 稳定机器码（taken / invalid_format），
+    前端按语言渲染。"""
+    ip = _client_ip(request)
+    if ip:
+        await enforce_http("check-username", ip, 30, 60)
+    else:
+        logger.warning(
+            "check-username without client IP (no x-real-ip): rate limit skipped")
     if not USERNAME_RE.fullmatch(username):
         return {"available": False, "reason_code": "invalid_format"}
     exists = (await db.execute(text(
@@ -81,10 +93,17 @@ async def check_username(username: str = Query(min_length=4, max_length=30), db=
 
 
 @auth_router.post("/register", status_code=201)
-async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
-    # 注册界=全局宽松上限: 只防批量灌号; 真实流量(个位数/天)永远不可见.
-    # per-IP 对代理池无效(B2 后应用层也拿不到真实 IP), 不做地址维度.
-    await enforce_http("register", "global", 60, 3600)
+async def register(
+    body: RegisterBody, request: Request, response: Response, db=Depends(get_db),
+):
+    # 按来源 IP 限流 60/小时，只防批量灌号；真实流量（个位数/天）永远不可见。
+    # 拿不到来源 IP 时不设限流并记警。
+    ip = _client_ip(request)
+    if ip:
+        await enforce_http("register", ip, 60, 3600)
+    else:
+        logger.warning(
+            "register without client IP (no x-real-ip): rate limit skipped")
     encoded_password = await asyncio.to_thread(password_hash, body.password)
     try:
         row = (await db.execute(text("""
@@ -98,7 +117,8 @@ async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
         await create_session(db, response, int(row[0]))
         return {
             "id": row[0], "username": row[1], "display_name": row[2], "email": row[3],
-            "role": row[4], "avatar_url": row[5], "auth_kind": "session",
+            "role": row[4], "avatar_url": row[5], "active": True,
+            "auth_kind": "session",
         }
     except IntegrityError as exc:
         await db.rollback()
@@ -110,11 +130,14 @@ async def register(body: RegisterBody, response: Response, db=Depends(get_db)):
 
 
 @auth_router.post("/login")
-async def login(body: LoginBody, response: Response, db=Depends(get_db)):
+async def login(body: LoginBody, request: Request, response: Response, db=Depends(get_db)):
     account = body.account.strip().lower()
-    # 限流键=账号本身: 换 IP(代理池)无效; 换账号打的是廉价未命中查询, 不触发 scrypt.
-    # 真实账号的猜解被账号桶封死 → scrypt(~50ms/次) CPU 消耗有界.
-    await enforce_http("login", hashlib.sha256(account.encode()).hexdigest()[:24], 15, 900)
+    # 限流键=账号+来源 IP: 猜解被挡在真实账号 + 单一来源的组合上，他人
+    # 无法用别的地址把某个账号锁死；换账号打的是廉价未命中查询，不触发
+    # scrypt。拿不到来源 IP 时退回仅按账号。
+    account_key = hashlib.sha256(account.encode()).hexdigest()[:24]
+    ip = _client_ip(request)
+    await enforce_http("login", f"{account_key}:{ip}" if ip else account_key, 15, 900)
     row = (await db.execute(text("""
         SELECT id,username,display_name,email,role,password_hash,avatar_path
         FROM community.users
@@ -130,7 +153,8 @@ async def login(body: LoginBody, response: Response, db=Depends(get_db)):
     await create_session(db, response, int(row[0]))
     return {
         "id": row[0], "username": row[1], "display_name": row[2], "email": row[3],
-        "role": row[4], "avatar_url": row[6], "auth_kind": "session",
+        "role": row[4], "avatar_url": row[6], "active": True,
+        "auth_kind": "session",
     }
 
 
@@ -156,6 +180,98 @@ async def me(actor: Actor = Depends(current_actor)):
     return result
 
 
+def _like_literal(value: str) -> str:
+    """ILIKE 字面量: %/_/反斜杠是数据不是通配符(与搜索层同语义)。"""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _client_ip(request) -> str | None:
+    # R2: 统一读 nginx 覆盖写入的 x-real-ip(x-forwarded-for 首段可伪造)。
+    # 返回 None 时调用方不落 "unknown" 全站共用桶。
+    return rate_limit.client_ip(request.headers)
+
+
+@router.get("/search")
+async def search_users(
+    request: Request,
+    q: str = Query(..., min_length=1, max_length=50),
+    page: int = Query(1, ge=1, le=50),
+    page_size: int = Query(20, ge=1, le=50),
+    actor: Actor | None = Depends(public_or_actor),
+    db=Depends(get_db),
+):
+    """I-082: 用户搜索 —— username 前缀(不区分大小写)或 display_name 包含
+    (不区分大小写); username 完全匹配排第一。只返回 active 用户与公开字段。
+    匿名按 IP 限流 60/min, 登录按用户限流(当前 545 用户, ILIKE 足够;
+    将来量级上来再评估 pg_trgm GIN(username/display_name) + 前缀 opclass)。
+    """
+    query = q.strip()
+    if not query:
+        raise HTTPException(422, {"message": "q 不能为空白", "kind": "invalid_query"})
+    if actor is not None:
+        await enforce_http("users-search", str(actor.id), 60, 60)
+    else:
+        ip = _client_ip(request)
+        if ip:
+            await enforce_http("users-search", ip, 60, 60)
+        else:
+            # R2: 拿不到来源 IP 不落 "unknown" 全站共用桶(那等于所有匿名
+            # 访客合用 60/min)。生产链路 nginx 必写 x-real-ip, 走到这里
+            # 说明绕过了 nginx, 记警不当桶。
+            logger.warning(
+                "users search without client IP (no x-real-ip): "
+                "anonymous rate limit skipped")
+
+    like_q = _like_literal(query).lower()
+    viewer_id = actor.id if actor else 0
+    match_clause = (
+        "lower(u.username) LIKE :prefix ESCAPE '\\'"
+        " OR lower(u.display_name) LIKE '%' || :contains || '%' ESCAPE '\\'"
+    )
+    params = {
+        "prefix": like_q + "%",
+        "contains": like_q,
+        "exact": query.lower(),
+        "limit": page_size,
+        "offset": (page - 1) * page_size,
+        "viewer_id": viewer_id,
+    }
+    total = int((await db.execute(text(f"""
+        SELECT count(*) FROM community.users u
+        WHERE u.status='active' AND ({match_clause})
+    """), params)).scalar() or 0)
+    rows = (await db.execute(text(f"""
+        SELECT u.username, u.display_name, u.avatar_path AS avatar_url, u.bio,
+               (u.status='active') AS active,
+               (SELECT count(*) FROM community.user_follows fc
+                 WHERE fc.followed_user_id=u.id) AS follower_count,
+               EXISTS(
+                 SELECT 1 FROM community.user_follows mine
+                 WHERE mine.follower_user_id=:viewer_id
+                   AND mine.followed_user_id=u.id
+               ) AS is_following
+        FROM community.users u
+        WHERE u.status='active' AND ({match_clause})
+        ORDER BY (lower(u.username)=:exact) DESC,
+                 (lower(u.username) LIKE :prefix ESCAPE '\\') DESC,
+                 u.id
+        LIMIT :limit OFFSET :offset
+    """), params)).mappings().all()
+    users = [
+        {
+            "username": row["username"],
+            "display_name": row["display_name"],
+            "avatar_url": row["avatar_url"],
+            "active": bool(row["active"]),
+            "bio": (row["bio"] or "")[:120] or None,
+            "follower_count": int(row["follower_count"] or 0),
+            "is_following": bool(row["is_following"]),
+        }
+        for row in rows
+    ]
+    return {"total": total, "page": page, "page_size": page_size, "users": users}
+
+
 @router.get("/me/dashboard")
 async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(get_db)):
     row = (await db.execute(text("""
@@ -169,7 +285,8 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
           (SELECT count(*) FROM community.chemical_follows f WHERE f.user_id=u.id),
           (SELECT count(*) FROM community.reaction_follows f
            JOIN chemistry.reactions r ON r.id=f.reaction_id
-           WHERE f.user_id=u.id AND r.visibility='public' AND r.moderation_status='visible')
+           WHERE f.user_id=:id AND r.visibility='public' AND r.moderation_status='visible'),
+          (u.status='active')
         FROM community.users u WHERE u.id=:id AND u.status='active'
     """), {"id": actor.id})).one()
     # I-007: 未读数与 /users/me/notifications 同一过滤条件(含 new_note),
@@ -178,7 +295,7 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
     unread = await unread_activity_count(db, actor.id)
     return {
         "username": row[0], "display_name": row[1], "bio": row[2], "avatar_url": row[3],
-        "created_at": row[4],
+        "created_at": row[4], "active": bool(row[11]),
         "counts": {
             "public_reactions": row[5], "private_reactions": row[6],
             "following": row[7], "followers": row[8],
@@ -329,6 +446,7 @@ async def list_tokens(response: Response, actor: Actor = Depends(current_session
         FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL
         ORDER BY id DESC
+        LIMIT 5  -- I-083: 与创建上限(5 个有效 Key)一致的有界防御
     """), {"id": actor.id})).mappings().all()
     return [dict(row) for row in rows]
 
@@ -427,14 +545,14 @@ async def public_profile(username: str, actor: Actor | None = Depends(public_or_
         return {
             "id": row[0], "username": row[1], "display_name": row[2],
             "avatar_url": row[4], "created_at": row[5],
-            "is_active": False,
+            "active": False,
         }
     return {
         "id": row[0], "username": row[1], "display_name": row[2], "bio": row[3],
         "avatar_url": row[4], "created_at": row[5],
         "location": row[6], "institution": row[7], "title": row[8],
         "website": row[9], "orcid": row[10],
-        "is_active": True,
+        "active": True,
         "followers": row[13], "following": row[14], "public_reactions": row[15],
         "is_following": row[16],
         "is_followed_by": bool(row[17]) if viewer_id else False,
@@ -478,6 +596,7 @@ async def relationship_page(
     viewer_id = actor.id if actor else 0
     rows = (await db.execute(text(f"""
         SELECT u.username,u.display_name,u.bio,u.avatar_path AS avatar_url,
+               (u.status='active') AS active,
                EXISTS(
                  SELECT 1 FROM community.user_follows mine
                  WHERE mine.follower_user_id=:viewer_id AND mine.followed_user_id=u.id

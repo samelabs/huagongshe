@@ -69,6 +69,22 @@ def _is_price_row(r: Any) -> bool:
     return isinstance(r, dict) and isinstance(r.get("code"), str)
 
 
+# I-083 详情嵌数组硬上限: 服务端有界, 并附各自总数字段(前端显示"共 N 条")。
+# 供应商 50 / 同义词(cb_aliases) 200 / 价格 50 / 上下游每向 100 是工单定值;
+# CB 物性/文字组上限 100 为本批自定(工单未点名, 取宽松一致口径)。
+SUPPLIERS_CAP = 50
+CB_ALIASES_CAP = 200
+CB_PRICE_CAP = 50
+CB_UPDOWN_CAP = 100
+CB_PROPS_CAP = 100
+CB_PROSE_GROUP_CAP = 100
+
+
+def _capped(items: list, cap: int) -> tuple[list, int]:
+    """(前 cap 项, 总数) — 截断时总数仍是完整口径。"""
+    return items[:cap], len(items)
+
+
 def _pb_evidence_block(block: Any) -> dict[str, Any] | None:
     """PB evidence block 原样透传(输入可能是完整证据(MCP full)或经
     enrichment.display_details 页面级限幅的投影(REST 网页展示,
@@ -120,11 +136,23 @@ def build_semantic_detail(
     ] if isinstance(a, str) and a]
 
     updown_raw = cb_entry.get("updown") if isinstance(cb_entry.get("updown"), dict) else {}
+    up_list = [n for n in (updown_raw.get("up") or []) if _is_named_node(n)]
+    down_list = [n for n in (updown_raw.get("down") or []) if _is_named_node(n)]
     updown = {
-        "up": [n for n in (updown_raw.get("up") or []) if _is_named_node(n)],
-        "down": [n for n in (updown_raw.get("down") or []) if _is_named_node(n)],
+        "up": up_list[:CB_UPDOWN_CAP],
+        "down": down_list[:CB_UPDOWN_CAP],
+        "up_total": len(up_list),
+        "down_total": len(down_list),
     }
     prices = [r for r in (cb_entry.get("price") or []) if _is_price_row(r)]
+    prices, cb_price_total = _capped(prices, CB_PRICE_CAP)
+    aliases, cb_aliases_total = _capped(
+        [{"value": a, "source": "cb"} for a in names_aliases], CB_ALIASES_CAP)
+    cb_props, cb_experimental_total = _capped(cb_props, CB_PROPS_CAP)
+    # 每个 prose 组(uses/preparation/properties/toxicity/packaging/notes)
+    # 各自截断, 组内顺序保持 CB 原序。
+    prose_capped = {k: _capped(v, CB_PROSE_GROUP_CAP) for k, v in prose.items()}
+    suppliers, suppliers_total = _capped(list(cb_suppliers or []), SUPPLIERS_CAP)
 
     return {
         "description": {
@@ -136,7 +164,8 @@ def build_semantic_detail(
                 k: identity.get(k)
                 for k in ("cn", "en", "formula", "mw") if identity.get(k) is not None
             } if identity else {},
-            "cb_aliases": [{"value": a, "source": "cb"} for a in names_aliases],
+            "cb_aliases": aliases,
+            "cb_aliases_total": cb_aliases_total,
         },
         "properties": {
             "pb_computed": {k: v for k, v in properties_pb.items()
@@ -147,26 +176,35 @@ def build_semantic_detail(
                  "v": p.get("v"), "unit": p.get("unit"), "source": "cb"}
                 for p in cb_props
             ],
-            "cb_prose": prose["properties"],
+            "cb_experimental_total": cb_experimental_total,
+            "cb_prose": prose_capped["properties"][0],
+            "cb_prose_total": prose_capped["properties"][1],
         },
         "safety": {
             "pb_sections": safety_pb or None,
             "cb_safety": (
                 {k: v for k, v in cb_safety.items()} if cb_safety else None
             ),
-            "cb_toxicity": prose["toxicity"],
-            "cb_packaging": prose["packaging"],
+            "cb_toxicity": prose_capped["toxicity"][0],
+            "cb_toxicity_total": prose_capped["toxicity"][1],
+            "cb_packaging": prose_capped["packaging"][0],
+            "cb_packaging_total": prose_capped["packaging"][1],
         },
         "industry": {
             "pb_sections": industry_pb or None,
-            "cb_uses": prose["uses"],
-            "cb_preparation": prose["preparation"],
+            "cb_uses": prose_capped["uses"][0],
+            "cb_uses_total": prose_capped["uses"][1],
+            "cb_preparation": prose_capped["preparation"][0],
+            "cb_preparation_total": prose_capped["preparation"][1],
             "cb_updown": updown,
             "cb_price": prices,
-            "cb_notes": prose["notes"],
+            "cb_price_total": cb_price_total,
+            "cb_notes": prose_capped["notes"][0],
+            "cb_notes_total": prose_capped["notes"][1],
         },
         "suppliers": {
-            "items": (cb_suppliers or []),
+            "items": suppliers,
+            "suppliers_total": suppliers_total,
         },
         "provenance": {
             "pubchem": pb_state,

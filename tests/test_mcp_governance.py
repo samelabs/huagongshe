@@ -135,11 +135,13 @@ def tearDownModule() -> None:  # noqa: N802 (unittest 约定)
     restore_runtime()
 
 
-def patch_runtime(row=None, deny=False, enforce_503=False, forbid_fake_sql=None, auth=False):
-    """替换 rate_limit / mol / async_session, 记录调用顺序。
+def patch_runtime(row=None, deny=False, redis_down=False, forbid_fake_sql=None, auth=False):
+    """替换 rate_limit / mol / async_session, 记录调用顺序.
 
     auth=True 模拟带合法 Authorization 头的 MCP 请求(认证 actor 上下文);
-    auth=False 模拟匿名上下文。两者都只替换测试桩, 不改产品代码。
+    auth=False 模拟匿名上下文。redis_down=True 模拟限流后端整体不可用:
+    enforce 与 acquire_lease 都抛 LimiterUnavailable。两者都只替换测试桩,
+    不改产品代码。
     """
     _save_originals()
     ORDER.clear()
@@ -150,12 +152,15 @@ def patch_runtime(row=None, deny=False, enforce_503=False, forbid_fake_sql=None,
 
     async def fake_enforce(bucket, identity, limit, window):
         ORDER.append(("enforce", bucket, identity, limit))
-        if enforce_503:
+        if redis_down:
             from api.core.rate_limit import LimiterUnavailable
             raise LimiterUnavailable("rate limit backend unavailable")
 
     async def fake_acquire(bucket, identity, limit, ttl=None):
         ORDER.append(("acquire", bucket, identity, limit))
+        if redis_down:
+            from api.core.rate_limit import LimiterUnavailable
+            raise LimiterUnavailable("lease backend unavailable")
         return not deny
 
     async def fake_release_leases(held, bucket):
@@ -364,37 +369,45 @@ class RenderResourceGate(unittest.TestCase):
                 self.assertEqual(kinds[-1], "release_leases", "租约必须 finally 释放")
 
     def test_both_tools_share_single_pool(self):
-        """两工具共用同一资源池; 匿名限流为两层: 600/min 全局兜底 → 120/min 按IP。"""
+        """两工具共用同一资源池; 速率桶按真实身份拆:
+        匿名按来源 IP 120/min, 已认证按用户 120/min; 并发租约独立于速率桶。"""
         for tool, args, row in self.CASES:
-            with self.subTest(tool=f"{tool}/anonymous"):
+            with self.subTest(tool=f"{tool}/anonymous+real-ip"):
                 patch_runtime(row=row)
-                asyncio.run(build_server().call_tool(tool, args, context=FakeCtx()))
+                asyncio.run(build_server().call_tool(
+                    tool, args, context=FakeCtx({"x-real-ip": "203.0.113.9"})))
                 buckets = {step[1] for step in ORDER
                            if step[0] in ("enforce", "acquire", "release_leases")}
                 self.assertEqual(buckets, {mcp_server.MCP_RENDER_BUCKET})
                 self.assertEqual(mcp_server.MCP_RENDER_BUCKET, "mcp-render")
-                # 匿名: 600/min 全局兜底先执行, 120/min render gate 随后执行。
                 self.assertEqual(
-                    [(step[2], step[3]) for step in ORDER if step[0] == "enforce"],
-                    [("anon-global", 600), ("anon:unknown", 120)],
-                    "600 全局 gate 必须先于 120 render gate",
+                    [step[2] for step in ORDER if step[0] == "enforce"],
+                    ["anon:203.0.113.9"],
+                    "匿名按来源 IP 拆桶(读 nginx 覆盖写入的 x-real-ip)",
                 )
-                # 常量即外部契约: 不得为迁就旧断言把 600 改回 120。
-                self.assertEqual(mcp_server.MCP_RENDER_ANON_GLOBAL_LIMIT, 600)
+                self.assertFalse(hasattr(mcp_server, "MCP_RENDER_ANON_GLOBAL_LIMIT"),
+                                 "渲染限流不设全站共享兜底桶")
                 self.assertEqual(mcp_server.MCP_RENDER_RATE_LIMIT, 120)
                 kinds = [step[0] for step in ORDER]
                 self.assertLess(max(i for i, k in enumerate(kinds) if k == "enforce"),
                                 min(i for i, k in enumerate(kinds) if k == "acquire"),
                                 "限频必须先于租约")
                 self.assertEqual(kinds[-1], "release_leases", "租约必须 finally 释放")
-            with self.subTest(tool=f"{tool}/anonymous+forwarded-for"):
+            with self.subTest(tool=f"{tool}/forged-xff-ignored"):
+                # x-forwarded-for 是请求自带值可伪造, 不用于分桶 ——
+                # 只带 XFF 时按 IP 桶直接跳过, 不落任何桶; 并发租约照常执行。
                 patch_runtime(row=row)
                 asyncio.run(build_server().call_tool(
-                    tool, args, context=FakeCtx({"x-forwarded-for": "203.0.113.9, 10.0.0.1"})))
+                    tool, args,
+                    context=FakeCtx({"x-forwarded-for": "203.0.113.9, 10.0.0.1"})))
                 self.assertEqual(
                     [step[2] for step in ORDER if step[0] == "enforce"],
-                    ["anon-global", "anon:203.0.113.9"],
-                    "匿名按来源 IP 拆桶(取 x-forwarded-for 首段)",
+                    [],
+                    "伪造 XFF 不得参与分桶",
+                )
+                self.assertTrue(
+                    [step for step in ORDER if step[0] == "acquire"],
+                    "无可信来源 IP 时并发租约仍执行",
                 )
             with self.subTest(tool=f"{tool}/authenticated"):
                 patch_runtime(row=row, auth=True)
@@ -403,8 +416,29 @@ class RenderResourceGate(unittest.TestCase):
                 self.assertEqual(
                     [(step[2], step[3]) for step in ORDER if step[0] == "enforce"],
                     [("actor:7", 120)],
-                    "已认证身份不吃匿名全局兜底, 仍为 120 次/分钟",
+                    "已认证身份按用户分桶, 120 次/分钟",
                 )
+
+    def test_anonymous_without_ip_skips_rate_bucket_keeps_lease(self):
+        """拿不到来源 IP 的匿名渲染: 速率桶直接跳过(不落全站共用桶),
+        并发租约仍执行, 渲染照常完成。"""
+        for tool, args, row in self.CASES:
+            with self.subTest(tool=tool):
+                patch_runtime(row=row)
+                asyncio.run(build_server().call_tool(tool, args, context=FakeCtx()))
+                self.assertEqual(
+                    [step for step in ORDER if step[0] == "enforce"],
+                    [],
+                    "无来源 IP 不落任何限流桶(不设全站共享兜底)",
+                )
+                self.assertEqual(
+                    [(step[2], step[3]) for step in ORDER if step[0] == "acquire"],
+                    [("global", mcp_server.MCP_RENDER_GLOBAL_INFLIGHT)],
+                    "并发租约是资源保护, 有没有 IP 都执行",
+                )
+                kinds = [step[0] for step in ORDER]
+                self.assertEqual(kinds[-1], "release_leases", "租约必须 finally 释放")
+                self.assertIn("rdkit", kinds, "未超限时渲染照常进行")
 
     def test_actor_inflight_and_global_inflight_bounds(self):
         """认证身份持 actor 租约(≤2)+ global 租约(≤4); 匿名只持 global 租约。"""
@@ -444,12 +478,17 @@ class RenderResourceGate(unittest.TestCase):
         self.assertFalse([step for step in ORDER if step[0] == "rdkit"])
 
     def test_redis_failure_fails_closed_without_rdkit(self):
-        patch_runtime(enforce_503=True)
-        with self.assertRaises(Exception) as ctx:
-            asyncio.run(build_server().call_tool(
-                "render_molecule_svg", {"smiles": "CCO"}, context=FakeCtx()))
-        self.assertIn("unavailable", str(ctx.exception))
-        self.assertFalse([step for step in ORDER if step[0] == "rdkit"])
+        """限流后端不可用时拒绝渲染(fail-closed), 有没有来源 IP 都一样。"""
+        for label, headers in (("with-ip", {"x-real-ip": "203.0.113.9"}),
+                               ("without-ip", None)):
+            with self.subTest(label):
+                patch_runtime(redis_down=True)
+                with self.assertRaises(Exception) as ctx:
+                    asyncio.run(build_server().call_tool(
+                        "render_molecule_svg", {"smiles": "CCO"},
+                        context=FakeCtx(headers)))
+                self.assertIn("unavailable", str(ctx.exception))
+                self.assertFalse([step for step in ORDER if step[0] == "rdkit"])
 
     def test_renderer_exception_still_releases_lease(self):
         patch_runtime()

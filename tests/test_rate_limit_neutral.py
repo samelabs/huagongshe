@@ -101,6 +101,34 @@ class NeutralCoreStructureTests(unittest.TestCase):
         self.assertFalse(hasattr(exc, "headers"))
 
 
+class ClientIpTests(unittest.TestCase):
+    """R2: 分桶键统一读 x-real-ip(nginx 覆盖写入), XFF 可伪造不参与。"""
+
+    def test_reads_x_real_ip_case_insensitive(self):
+        self.assertEqual(rl.client_ip({"x-real-ip": "203.0.113.9"}),
+                         "203.0.113.9")
+        self.assertEqual(rl.client_ip({"X-Real-Ip": "198.51.100.1"}),
+                         "198.51.100.1")
+        self.assertEqual(rl.client_ip({"x-real-ip": "  203.0.113.9 "}),
+                         "203.0.113.9")
+
+    def test_forged_xff_alone_yields_none(self):
+        self.assertIsNone(rl.client_ip(
+            {"x-forwarded-for": "1.2.3.4, 10.0.0.1"}))
+
+    def test_x_real_ip_wins_over_xff(self):
+        self.assertEqual(
+            rl.client_ip({"x-real-ip": "203.0.113.9",
+                          "x-forwarded-for": "1.2.3.4"}),
+            "203.0.113.9")
+
+    def test_missing_empty_or_falsy_headers_yield_none(self):
+        self.assertIsNone(rl.client_ip({}))
+        self.assertIsNone(rl.client_ip(None))
+        self.assertIsNone(rl.client_ip({"x-real-ip": ""}))
+        self.assertIsNone(rl.client_ip({"x-real-ip": "   "}))
+
+
 class NeutralCoreBehaviorTests(unittest.TestCase):
     def test_enforce_allowed_passes(self):
         with patch.object(rl, "consume", _consume_ok):

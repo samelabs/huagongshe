@@ -90,3 +90,32 @@ python -m ops.deploy --nginx-bootstrap
 
 流程：改写 site config 为固定 upstream → `nginx -t` → `nginx -s reload`。
 备份写入 `/etc/nginx/hgs/`（include 目录之外）。
+
+## 生产配置（只列出不自动变更的项，I-070）
+
+本节只是生产机配置的**记录与核对清单**——`ops.deploy` 不会自动修改这些参数；
+变更与核对由 PM 在生产执行。与仓库默认不同的 PG 参数（`ALTER SYSTEM` 级）：
+
+| 参数 | 生产值 | 说明 |
+| --- | --- | --- |
+| `work_mem` | 32MB | 结构检索/名称检索排序内存 |
+| `jit` | off | 稳定计划延迟（OLTP 场景禁用 JIT 编译开销） |
+| `log_min_duration_statement` | 1s | 慢查询日志阈值 |
+| `effective_io_concurrency` | 200 | NVMe 语境的预读并发 |
+| `track_io_timing` | on | I/O 计时（`pg_stat_statements` I/O 归因） |
+| `shared_buffers` | 2GB | 实例内存配额下的 PG 共享缓冲 |
+
+`ALTER SYSTEM` 参数存放于 `postgresql.auto.conf`；`shared_buffers` 调整需重启
+PG 方能生效，其余为 reload 级。
+
+**needrestart**（Debian/Ubuntu 自动重启策略）：生产配置为**只列出、不自动重启**
+的模式——包升级后需要重启的服务（含 PG major 升级后的 `postgresql`、`nginx` 等）
+只出现在 needrestart 报告里，由 PM 按维护窗口人工决定；`ops.deploy` 的 pm2 托管
+应用不经过 needrestart。
+
+### 公网冒烟（部署后必过，任一失败 deploy 非零退出）
+
+1. `GET https://huagongshe.com/api/health` → 200 + `status=ok`
+2. 五种语言首页 `/{zh-CN,en,ja,ko,de}` → 各 200
+3. `GET https://huagongshe.com/en/chemical/4`（HCID 4 详情页）→ 200
+4. `POST /mcp` initialize → `serverInfo.version` 必须等于仓库 `VERSION` 文件

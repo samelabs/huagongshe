@@ -177,7 +177,7 @@ class SearchSystemGovernanceTests(unittest.TestCase):
             async def commit(self):
                 pass
 
-        async def fetch_chemicals_stub(db, sql, params=None):
+        async def fetch_chemicals_stub(db, sql, params=None, locale=None):
             executed.append(str(sql))
             ids = params.get("ids") if params else None
             return [{"id": i} for i in (ids or [])]

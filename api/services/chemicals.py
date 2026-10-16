@@ -120,6 +120,8 @@ def chemical_dict(row: Any, score: float | None = None) -> dict[str, Any]:
         # locale 名称(name_index kind='name_cn'): 由 attach_localized_names 批量填充;
         # 保持槽位稳定, 任何 payload 形状一致。
         "name_cn": None,
+        # 当前 locale 的 CB 当地名(I-086): 由 attach_local_names 批量填充。
+        "name_local": None,
         "molecular_formula": row[6],
         "average_mass": clean_float(row[7]),
         "monoisotopic_mass": clean_float(row[8]),
@@ -166,10 +168,50 @@ async def attach_localized_names(db: Any, items: list[dict[str, Any]]) -> list[d
     return items
 
 
-async def fetch_chemicals(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+async def attach_local_names(
+    db: Any, items: list[dict[str, Any]], locale: str | None,
+) -> list[dict[str, Any]]:
+    """I-086: 批量补当前 locale 的 CB 当地名(name_local), 一次查询覆盖整页。
+
+    只读 chemistry.chemical_cb 一张表(零 provider 访问, core 的约定不变):
+    取该 locale、last_status='ok' 的行, 多条时按 cb_number 取第一条。
+    zh-CN 时 name_local 与 name_cn 一致(同值直填, 不再查表)。
+    locale 未指定或不在 CB locale 白名单 → name_local 恒 null。
+    """
+    if not items or not locale:
+        return items
+    from .cb import CB_LOCALES
+
+    if locale not in CB_LOCALES:
+        return items
+    if locale == "zh-CN":
+        for row in items:
+            row["name_local"] = row.get("name_cn")
+        return items
+    ids = [row["id"] for row in items if row.get("id") is not None]
+    if not ids:
+        return items
+    rows = (await db.execute(text("""
+        SELECT DISTINCT ON (chemical_id) chemical_id, entry->'identity'->>'cn'
+        FROM chemistry.chemical_cb
+        WHERE chemical_id = ANY(:ids) AND locale = :locale AND last_status='ok'
+        ORDER BY chemical_id, cb_number ASC NULLS LAST
+    """), {"ids": ids, "locale": locale})).fetchall()
+    names = {row[0]: row[1] for row in rows}
+    for row in items:
+        row["name_local"] = names.get(row.get("id"))
+    return items
+
+
+async def fetch_chemicals(
+    db: Any, sql: str, params: dict[str, Any], *, locale: str | None = None,
+) -> list[dict[str, Any]]:
     rows = (await db.execute(text(sql), params)).fetchall()
     items = [chemical_dict(row, row[17] if len(row) > 17 else None) for row in rows]
-    return await attach_localized_names(db, items)
+    items = await attach_localized_names(db, items)
+    if locale:
+        items = await attach_local_names(db, items, locale)
+    return items
 
 
 async def reaction_summaries(
@@ -539,15 +581,19 @@ async def substructure_snapshot(db: Any, smiles: str,
     return ids
 
 
-async def hydrate_chemicals(db: Any, ids: list[int]) -> list[dict[str, Any]]:
-    """按给定 ID 顺序 hydrate 化学行(snapshot 分页用; 主键点查, 无 OFFSET 扫描)。"""
+async def hydrate_chemicals(
+    db: Any, ids: list[int], *, locale: str | None = None,
+) -> list[dict[str, Any]]:
+    """按给定 ID 顺序 hydrate 化学行(snapshot 分页用; 主键点查, 无 OFFSET 扫描)。
+
+    locale: 请求语言 — 化合物条目附该语言的当地名(name_local), 缺失时英文兜底。"""
     if not ids:
         return []
     items = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT}
         FROM chemistry.chemicals c
         WHERE c.id = ANY(:ids)
-    """, {"ids": list(ids)})
+    """, {"ids": list(ids)}, locale=locale)
     order = {value: index for index, value in enumerate(ids)}
     items.sort(key=lambda item: order.get(item["id"], len(order)))
     return items
@@ -662,7 +708,7 @@ async def get_chemical_detail(
 
     rows = await fetch_chemicals(db, f"""
         SELECT {CHEMICAL_SELECT} FROM chemistry.chemicals c WHERE c.id=:id
-    """, {"id": chemical_id})
+    """, {"id": chemical_id}, locale=locale)
     if not rows:
         raise ChemicalNotFoundError("化合物不存在")
     result = rows[0]

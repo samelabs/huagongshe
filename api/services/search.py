@@ -8,6 +8,7 @@ G2.3 final: transport-neutral 化 —— SearchError(kind, detail) 语义类别,
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from sqlalchemy import text
@@ -23,6 +24,8 @@ from .chemicals import (
 )
 from ..core.text import like_literal
 from .name_index import normalize_name
+
+logger = logging.getLogger(__name__)
 
 
 # 语义类别(G2.3 final): service 只表达业务语义, 不含 HTTP status/header。
@@ -95,6 +98,7 @@ def candidate_window(offset: int, page_size: int) -> int:
 
 async def run_name_search(
     db: Any, query: str, page_size: int, offset: int,
+    *, locale: str | None = None,
 ) -> tuple[list[dict[str, Any]], bool]:
     """统一名称候选流: exact 聚合短路 → fuzzy deterministic 统一分页。
 
@@ -158,7 +162,7 @@ async def run_name_search(
                 SELECT {CHEMICAL_SELECT}
                 FROM chemistry.chemicals c
                 WHERE c.id = ANY(:ids)
-            """, {"ids": page_rows})
+            """, {"ids": page_rows}, locale=locale)
             by_id = {row["id"]: row for row in rows}
             hydrated = [by_id[cid] for cid in page_rows if cid in by_id]
             return hydrated, has_more
@@ -209,7 +213,7 @@ async def run_name_search(
             SELECT {CHEMICAL_SELECT}
             FROM chemistry.chemicals c
             WHERE c.id = ANY(:ids)
-        """, {"ids": page_rows})
+        """, {"ids": page_rows}, locale=locale)
         by_id = {row["id"]: row for row in rows}
         hydrated = [by_id[cid] for cid in page_rows if cid in by_id]
         return hydrated, has_more
@@ -227,7 +231,7 @@ def _exact_variants(query: str) -> list[str]:
 
 async def execute_search(
     db, query: str, mode: str, *, threshold: float, page: int, page_size: int,
-    actor_id: int | None,
+    actor_id: int | None, locale: str | None = None, client_ip: str | None = None,
 ):
     """共享搜索编排(G2.3 final): HTTP/MCP 唯一 application pipeline。
 
@@ -253,8 +257,10 @@ async def execute_search(
     )
 
     offset = (page - 1) * page_size
+    # 缓存键带 locale: 结果里的化合物名称随请求语言变化(当地名兜底英文),
+    # 不带 locale 会出现 TTL 内跨语言串值。
     cache_key = (f"v2:unified-search:{mode}:{round(threshold, 3)}"
-                 f":{page}:{page_size}:{query}")
+                 f":{page}:{page_size}:{locale or ''}:{query}")
     held: list[str] | None = None  # 结构检索闸门句柄(exact 模式不取)
     canonical: Any = None
     chemicals: list[dict[str, Any]] = []
@@ -276,7 +282,8 @@ async def execute_search(
         (chemicals, total, reactions, cas_fetch_pending, canonical,
          cas_fetch_hit_id, has_more, capped) = await run_search_query(
             db, query, mode, canonical, page, page_size, offset,
-            actor_id=actor_id, threshold=threshold,
+            actor_id=actor_id, threshold=threshold, locale=locale,
+            client_ip=client_ip,
         )
         data: dict[str, Any] = {
             "query": query, "mode": mode, "canonical_smiles": canonical,
@@ -307,6 +314,7 @@ async def run_search_query(
     db: Any, query: str, mode: str, canonical: Any, page: int, page_size: int,
     offset: int,
     *, actor_id: int | None = None, threshold: float = 0.7,
+    locale: str | None = None, client_ip: str | None = None,
 ) -> tuple[list[dict[str, Any]], int | None, list[dict[str, Any]], bool, Any, int | None, bool, bool]:
     """执行搜索主体(化合物命中/total/反应/cas_fetch_pending/canonical 回写)。
 
@@ -323,7 +331,9 @@ async def run_search_query(
         substructure/similarity = 本轮前语义(total!=None 按 total/page,
         total=None 当前页满则可能还有);
         其余 False。
-    actor_id: 鉴权用户 id(匿名=None) — 仅用于 CAS-miss 入队限流身份。
+    actor_id: 鉴权用户 id(匿名=None) — 用于 CAS-miss 入队与匿名建行的
+        限流身份；匿名建行按来源 IP 分桶(缺 IP 不设限流并记警)。
+    client_ip: 匿名请求的来源 IP(x-real-ip), 匿名建行限流分桶用。
     threshold: similarity 模式阈值(0.4-1.0, 默认 0.7)。similarity 唯一入口
         是本 search 端点(/chemicals/{id}/similarity 已随 20dfdbc 剥离)。
     """
@@ -349,7 +359,7 @@ async def run_search_query(
             ids = await substructure_snapshot(db, canonical)
             total = _snapshot_total(ids, offset, page_size)
             capped = len(ids) >= SUBSTRUCTURE_SNAPSHOT_CAP
-            chemicals = await hydrate_chemicals(db, ids[offset:offset + page_size])
+            chemicals = await hydrate_chemicals(db, ids[offset:offset + page_size], locale=locale)
         elif mode == "similarity":
             if not canonical:
                 raise SearchError(INVALID_STRUCTURE, "无法识别该 SMILES 结构")
@@ -363,7 +373,7 @@ async def run_search_query(
                 WHERE c.mol IS NOT NULL
                 ORDER BY c.morgan_bfp <%> morganbv_fp(mol_from_smiles(:smiles))
                 LIMIT :window
-            """, {"smiles": canonical, "window": window})
+            """, {"smiles": canonical, "window": window}, locale=locale)
             qualifying = [item for item in chemicals if (item.get("similarity") or 0) >= threshold]
             qualifying.sort(key=lambda item: item.get("similarity") or 0, reverse=True)
             # total 语义(0912): prefix 内已跌破 threshold/prefix 未满 ⇒ 精确总数;
@@ -421,30 +431,32 @@ async def run_search_query(
                     FROM chemistry.chemicals c
                     WHERE {' OR '.join(clauses)}
                     ORDER BY c.id LIMIT :limit OFFSET :offset
-                """, params)
-                # CAS miss -> standalone CB 任务(2026-08-27): 只入队不同步拉。
+                """, params, locale=locale)
+                # CAS miss -> standalone CB 任务: 只入队不同步拉。
                 # 三态: pending=在途 / miss=CB负缓存 / 新入队也返回 pending。
-                # 鉴权用户按 actor.id 限流; 匿名(BFF/SSR=loopback)共享全局桶
-                # 30/min(BFF 后无真实IP可用, 靠 dedupe+深度闸门兜底)。
-                # 限流/入队失败一律降级为不入队, 绝不阻塞搜索响应。
+                # 鉴权用户按 actor.id 限流; 匿名按来源 IP 限流(拿不到来源
+                # IP 时不设限流并记警)。限流/入队失败一律降级为不入队,
+                # 绝不阻塞搜索响应。
                 if (
                     not chemicals and page == 1 and CAS_RE.fullmatch(query)
                 ):
-                    # 0904 敞口收口: 分支注释宣称限流但无 enforce 调用(匿名可
-                    # 无限建占位行+触发外部链)。按注释原口径补齐: 鉴权用户
-                    # 10/min/actor; 匿名(BFF/SSR=loopback, 无真实IP)共享全局桶
-                    # 30/min。超限/限速服务异常一律降级为不入队(state=miss),
-                    # 绝不阻塞搜索响应(注释原语义); 只挡占行+入队副作用面。
+                    # 限流只挡占行+入队副作用面: 鉴权用户 10/min; 匿名按
+                    # 来源 IP 30/min。超限/限速服务异常一律降级为不入队
+                    # (state=miss), 绝不阻塞搜索响应。
                     rate_state = "ok"
                     try:
                         from ..core.rate_limit import enforce as _enforce_cas
                         from ..core.rate_limit import RateLimitError as _RateLimitError
                         if actor_id is not None:
                             await _enforce_cas("cas-search-fetch", str(actor_id), 10, 60)
+                        elif client_ip:
+                            await _enforce_cas("cas-search-fetch", f"ip:{client_ip}", 30, 60)
                         else:
-                            await _enforce_cas("cas-search-fetch", "anonymous-global", 30, 60)
+                            logger.warning(
+                                "anonymous CAS miss enqueue without client IP "
+                                "(no x-real-ip): rate limit skipped")
                     except _RateLimitError:
-                        # G2.R: 只降级限流语义异常(超限/限流不可用→不入队)。
+                        # 只降级限流语义异常(超限/限流不可用→不入队)。
                         # 该 try 块仅含 enforce 调用, 无业务副作用需要兜底。
                         rate_state = "miss"
                     try:
@@ -472,12 +484,12 @@ async def run_search_query(
                         state = "new"
                     if state == "pending":
                         cas_fetch_pending = True
-            # SMILES miss -> 建行入库(2026-08-29): canonical 校验通过但库内无行时,
+            # SMILES miss -> 建行入库: canonical 校验通过但库内无行时,
             # 复用反应侧 resolve_or_create_chemical 同套逻辑(本地 RDKit 算结构三件),
             # 本次响应即返回该行. 结构行与反应创建同形态, 延伸字段留 PB/CB 自然演进.
             # 建行失败降级为空结果, 不阻塞.
-            # 副作用闸门(0914 #5): 建行=写 chemistry.chemicals + discovery 入队,
-            # 与 CAS miss 同口径限流(鉴权 10/min/actor, 匿名共享 30/min);
+            # 副作用闸门: 建行=写 chemistry.chemicals + discovery 入队,
+            # 与 CAS miss 同口径限流(鉴权 10/min/actor, 匿名按来源 IP 30/min);
             # 超限/限速服务异常降级为不建行(返回空结果), 不阻塞搜索响应。
             if not chemicals and page == 1 and canonical and len(query) <= 4000:
                 from ..core.rate_limit import RateLimitError as _RateLimitError
@@ -485,10 +497,14 @@ async def run_search_query(
                 try:
                     if actor_id is not None:
                         await enforce("smiles-create", str(actor_id), 10, 60)
+                    elif client_ip:
+                        await enforce("smiles-create", f"ip:{client_ip}", 30, 60)
                     else:
-                        await enforce("smiles-create", "anonymous-global", 30, 60)
+                        logger.warning(
+                            "anonymous SMILES row creation without client IP "
+                            "(no x-real-ip): rate limit skipped")
                 except _RateLimitError:
-                    # G2.R: 限流语义异常显式降级为不建行(原 except Exception 语义)。
+                    # 限流服务超限语义显式降级为不建行(返回空结果, 不阻塞搜索响应)。
                     _rate_limited = True
                 if not _rate_limited:
                     try:
@@ -497,7 +513,7 @@ async def run_search_query(
                         created = await fetch_chemicals(db, f"""
                             SELECT {CHEMICAL_SELECT}
                             FROM chemistry.chemicals c WHERE c.id = :id
-                        """, {"id": chemical_id})
+                        """, {"id": chemical_id}, locale=locale)
                         if created:
                             await db.commit()
                             chemicals = created
@@ -517,7 +533,7 @@ async def run_search_query(
                 # 三来源统一候选流分页(无 per-tier OFFSET / 无 offset==0 闸门),
                 # has_more 来自同一窗口(offset+page_size+1), 名称面零 count SQL。
                 chemicals, name_has_more = await run_name_search(
-                    db, query, page_size, offset,
+                    db, query, page_size, offset, locale=locale,
                 )
             elif not chemicals and not canonical and name_query_width(query) < MIN_FUZZY_NAME_LENGTH:
                 raise SearchError(QUERY_TOO_SHORT, "名称查询至少需要 3 个字符（中文至少 2 个字）")
