@@ -165,6 +165,11 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         if tail.isdigit():
             key = "hrid" if "/reactions/" in path else "hcid"
             kwargs[key] = int(tail)
+        elif path.endswith("/reactions"):
+            # /chemicals/{hcid}/reactions —— 实体 id 在倒数第二段
+            second = path.rstrip("/").rsplit("/", 2)[-2]
+            if second.isdigit():
+                kwargs.setdefault("hcid", int(second))
         async with (db or self.Session()) as s:
             return await endpoint(request, db=s, **kwargs)
 
@@ -368,6 +373,44 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
             self._auth_headers(client_id, TOKEN, path))
         self.assertEqual(self._status(response), 404)
         self.assertEqual(self._json(response)["error"]["code"], "not_found")
+
+    async def test_dual_role_reaction_counted_once(self):
+        """同一反应中同一化合物双角色（反应物+产物）：只计一次、不占页位。"""
+        async with self.Session() as db:
+            owner = (await db.execute(text(
+                "SELECT id FROM community.users LIMIT 1"))).scalar()
+            rid = (await db.execute(text("""
+                INSERT INTO chemistry.reactions
+                    (reaction_smiles, visibility, moderation_status,
+                     created_by_user_id, source_type)
+                VALUES ('A>>A', 'public', 'visible', :owner, 'self')
+                RETURNING id
+            """), {"owner": owner})).scalar()
+            await db.execute(text("""
+                INSERT INTO chemistry.reaction_chemicals(
+                    reaction_id, chemical_id, role, occurrence_count)
+                VALUES (:rid, :cid, 'REACTANT', 1), (:rid, :cid, 'PRODUCT', 1)
+            """), {"rid": rid, "cid": self.hcid})
+            await db.commit()
+        try:
+            client_id = await self._make_client(scopes=[CHEMICAL_READ_SCOPE])
+            path = f"/data/v1/chemicals/{self.hcid}/reactions"
+            response = await self._call(
+                data_api.chemical_reactions, path, "page=1&page_size=50",
+                self._auth_headers(client_id, TOKEN, path, "page=1&page_size=50"))
+            self.assertEqual(self._status(response), 200)
+            payload = self._json(response)
+            ids = [item["hrid"] for item in payload["items"]]
+            self.assertEqual(ids.count(rid), 1, "同一反应只能出现一次")
+            self.assertEqual(payload["total"], len(set(ids)), "total 为去重后反应数")
+        finally:
+            async with self.Session() as db:
+                await db.execute(text(
+                    "DELETE FROM chemistry.reaction_chemicals WHERE reaction_id=:rid"),
+                    {"rid": rid})
+                await db.execute(text(
+                    "DELETE FROM chemistry.reactions WHERE id=:rid"), {"rid": rid})
+                await db.commit()
 
     async def test_private_reaction_invisible(self):
         async with self.Session() as db:

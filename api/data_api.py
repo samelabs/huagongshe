@@ -228,8 +228,10 @@ async def chemical_reactions(
     try:
         client = await _authenticate(request, db, "/data/v1/chemicals/{hcid}/reactions")
         offset = (page - 1) * page_size
+        # 关联表主键含 role：同一反应里同一化合物可多角色并存，先按反应
+        # 去重再分页 —— 否则同 HRID 重复出现、total 高估、页边界被重复占位
         rows = (await db.execute(text("""
-            SELECT rx.id, rx.reaction_smiles, rx.visibility, rx.updated_at,
+            SELECT DISTINCT rx.id, rx.reaction_smiles, rx.visibility, rx.updated_at,
                    (SELECT count(*) FROM chemistry.reaction_chemicals rc2
                      WHERE rc2.reaction_id = rx.id)
             FROM chemistry.reaction_chemicals rc
@@ -240,7 +242,7 @@ async def chemical_reactions(
             LIMIT :n OFFSET :offset
         """), {"cid": hcid, "n": page_size + 1, "offset": offset})).fetchall()
         total_row = (await db.execute(text("""
-            SELECT count(*)
+            SELECT count(DISTINCT rx.id)
             FROM chemistry.reaction_chemicals rc
             JOIN chemistry.reactions rx ON rx.id = rc.reaction_id
             WHERE rc.chemical_id = :cid
