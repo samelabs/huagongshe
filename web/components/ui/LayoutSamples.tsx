@@ -325,7 +325,7 @@ export function LayoutSamplesClient() {
     SAMPLE_TABS.some((s) => s.value === initial) ? initial : "chemical",
   );
   return (
-    <div className="content-page du-samples">
+    <div className="du-samples">
       <Segmented
         options={SAMPLE_TABS.map((s) => ({ value: s.value, label: s.label }))}
         value={tab}

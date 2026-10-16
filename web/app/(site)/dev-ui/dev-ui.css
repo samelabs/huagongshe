@@ -64,6 +64,7 @@
 }
 
 /* ── 版式基准预览页（/dev-ui/layout-samples）的组合辅助 ── */
+.du-samples { padding-block: var(--sp-6) var(--tabbar-clear); }
 .du-samples .hg-seg-wrap { margin-block: var(--sp-6); }
 .du-sample-stack .hg-card-panel + .hg-card-panel,
 .du-sample-stack > .hg-card-panel { margin-block-start: var(--sp-4); }
