@@ -6,6 +6,7 @@ import t from "@/lib/i18n";
 import { Button } from "@/components/ui/Button";
 import { TextLink } from "@/components/ui/TextLink";
 import { Input } from "@/components/ui/Field";
+import { copyText } from "@/lib/clipboard";
 
 type WorkerRow = {
   worker_id: string;
@@ -139,12 +140,10 @@ export function SamelabsWorkers() {
     const text = Object.entries(issued.env)
       .map(([k, v]) => `${k}=${v}`)
       .join("\n");
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      if (resetTimer.current) clearTimeout(resetTimer.current);
-      resetTimer.current = setTimeout(() => setCopied(false), 2000);
-    } catch { /* 剪贴板不可用时用户手动复制 */ }
+    if (!(await copyText(text))) return; /* 复制失败时用户手动复制 */
+    setCopied(true);
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    resetTimer.current = setTimeout(() => setCopied(false), 2000);
   }
 
   useEffect(() => () => { if (resetTimer.current) clearTimeout(resetTimer.current); }, []);

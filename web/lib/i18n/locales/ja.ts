@@ -291,6 +291,8 @@ const ja: Dictionary = {
 
   /* ── 反応詳細 ───────────────────────────────────────── */
   reaction: {
+    publishedOn: (date: string) => `${date} 公開`,
+    hiddenNotice: 'この反応は管理運営により非表示にされています。一般には公開されず、あなた（と管理者）のみが閲覧できます。誤りだと思われる場合はサポートページからご連絡ください。',
     detail: '反応詳細',
     category: '反応',
     reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,
@@ -306,20 +308,12 @@ const ja: Dictionary = {
     notes: '補足',
     reagentsCatalystsSolvents: '試薬・触媒・溶媒',
     sources: '出典と根拠',
-    creator: '作成者',
     participants: '参加物',
-    fieldHrid: 'HRID',
-    fieldVisibility: '公開範囲',
-    fieldCreated: '作成日時',
-    fieldUpdated: '更新日時',
-    hiddenRecord: '非表示',
     summaryReactants: (n: number) => `反応物 ${n} 個`,
     summaryProducts: (n: number) => `生成物 ${n} 個`,
     summaryCatalysts: (n: number) => `触媒 ${n} 個`,
     summarySolvents: (n: number) => `溶媒 ${n} 個`,
     summaryMore: (n: number) => `ほか ${n} 個`,
-    publicReaction: '公開反応',
-    privateReaction: '非公開反応',
     smiles: '反応SMILES',
     errProcedure: '手順は記録されていません',
     conditionFields: {
@@ -837,8 +831,6 @@ const ja: Dictionary = {
   skills: {
     openLibrary: 'オープンスキルライブラリ',
     heroTitle: '科学 AI オープンスキルライブラリ',
-    heroSubtitle: (n: number) => `${n} 件のオープンソース科学 AI エージェントスキル — 化学・生物学・機械学習・研究執筆などをカバー。必要に応じてダウンロードして利用できます。`,
-    heroSource: 'データソース：オープンソース科学 AI エージェントスキルと化工社公式スキル · 化工社が整理して提供',
     metaDesc: (count: string) => `${count}オープンソース科学 AI エージェントスキル — 化学・生物学・機械学習・研究執筆などをカバー。データはオープンソース科学 AI エージェントスキルと化工社公式スキルによるものです。`,
     metaOgDesc: (count: string) => `${count}オープンソース科学 AI エージェントスキル。化学・生物学・機械学習などの研究分野をカバー。`,
     metaOgTitle: (name: string) => `科学 AI オープンスキルライブラリ｜${name}`,
@@ -1230,7 +1222,7 @@ const ja: Dictionary = {
   /* ── 印刷レポート（I-078） ───────────────────────────── */
   print: {
     title: '印刷レポート',
-    printAction: '印刷',
+    printAction: '印刷 / PDF 保存',
     backAction: '戻る',
     reportNotice: '化工社 化学情報印刷レポート · 研究参考用',
     colName: '名称',

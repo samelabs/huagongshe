@@ -107,7 +107,7 @@ export default async function TermsPage() {
 
     <section className="guide-section">
       <h2>Contact</h2>
-      <p>Questions about these terms: <a className="footer-link" href="mailto:mail@huagongshe.com">mail@huagongshe.com</a>.</p>
+      <p>Questions about these terms: <a className="legal-link" href="mailto:mail@huagongshe.com">mail@huagongshe.com</a>.</p>
     </section>
   </article>;
 }

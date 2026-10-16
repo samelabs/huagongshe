@@ -290,6 +290,8 @@ const en: Dictionary = {
 
   /* ── Reaction detail ───────────────────────────────── */
   reaction: {
+    publishedOn: (date: string) => `Published ${date}`,
+    hiddenNotice: 'This reaction has been hidden by moderation: it is no longer publicly visible, only you (and admins) can see it. If you believe this is a mistake, contact us via the support page.',
     detail: 'Reaction detail',
     category: 'Reaction',
     reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,
@@ -305,20 +307,12 @@ const en: Dictionary = {
     notes: 'Notes',
     reagentsCatalystsSolvents: 'Reagents, catalysts & solvents',
     sources: 'Sources & evidence',
-    creator: 'Created by',
     participants: 'Participants',
-    fieldHrid: 'HRID',
-    fieldVisibility: 'Visibility',
-    fieldCreated: 'Created',
-    fieldUpdated: 'Updated',
-    hiddenRecord: 'Hidden',
     summaryReactants: (n: number) => `${n} reactants`,
     summaryProducts: (n: number) => `${n} products`,
     summaryCatalysts: (n: number) => `${n} catalysts`,
     summarySolvents: (n: number) => `${n} solvents`,
     summaryMore: (n: number) => `${n} more`,
-    publicReaction: 'Public reaction',
-    privateReaction: 'Private reaction',
     smiles: 'Reaction SMILES',
     errProcedure: 'No procedure recorded',
     conditionFields: {
@@ -836,8 +830,6 @@ const en: Dictionary = {
   skills: {
     openLibrary: 'Open skill library',
     heroTitle: 'Open Library of Scientific AI Skills',
-    heroSubtitle: (n: number) => `${n} open-source scientific AI agent skills — chemistry, biology, machine learning, research writing, and more. Download and use on demand.`,
-    heroSource: 'Data sources: Open-source scientific AI agent skills and official Huagongshe skills · curated by Huagongshe',
     metaDesc: (count: string) => `${count} open-source scientific AI agent skills — covering chemistry, biology, machine learning, research writing, and more. Data from open-source scientific AI agent skills and official Huagongshe skills.`,
     metaOgDesc: (count: string) => `${count} open-source scientific AI agent skills across chemistry, biology, machine learning, and related fields.`,
     metaOgTitle: (name: string) => `Open Library of Scientific AI Skills｜${name}`,
@@ -1229,7 +1221,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
   /* ── Print report (I-078) ───────────────────────────── */
   print: {
     title: 'Print Report',
-    printAction: 'Print',
+    printAction: 'Print / Save as PDF',
     backAction: 'Back',
     reportNotice: 'Huagongshe Chemistry Print Report · For research reference only',
     colName: 'Name',

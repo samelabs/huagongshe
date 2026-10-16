@@ -113,6 +113,7 @@ async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
         JOIN chemistry.chemical_supplier_profile p ON p.cbsid=l.cbsid
         WHERE l.chemical_id=:chemical_id
         ORDER BY p.cbsid
+        LIMIT 200  -- 供应商载荷有界(CB 单品供应商实际十几到几十)
     """), {"chemical_id": chemical_id})).fetchall()
     return [
         {"ref": supplier_ref(row.cbsid), "name": row.name, "phone": row.phone,

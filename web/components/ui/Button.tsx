@@ -32,6 +32,8 @@ export type ButtonProps = {
   href?: string;
   /** 下载文件名或布尔值（配合 href 渲染原生 <a>） */
   download?: boolean | string;
+  /** 配合 href：在新窗口打开（target=_blank + rel=noopener） */
+  newWindow?: boolean;
   /** 克隆 children（单个元素）注入按钮类与状态属性 */
   asChild?: boolean;
   "aria-label"?: string;
@@ -67,7 +69,7 @@ function useFixedWidthWhileLoading<T extends HTMLElement>(loading: boolean) {
 }
 
 export function Button(props: ButtonProps) {
-  const { variant, size, iconOnly, loading = false, disabled, className, children, onClick, asChild, href, download, type, ref, ...rest } = props;
+  const { variant, size, iconOnly, loading = false, disabled, className, children, onClick, asChild, href, download, newWindow, type, ref, ...rest } = props;
 
   if (process.env.NODE_ENV !== "production" && iconOnly && !rest["aria-label"]) {
     console.error("<Button iconOnly> requires an aria-label");
@@ -113,7 +115,7 @@ export function Button(props: ButtonProps) {
       );
     }
     return (
-      <Link href={href} className={classes(props)} onClick={onClick} ref={setRef} {...stateProps} {...rest}>
+      <Link href={href} className={classes(props)} onClick={onClick} ref={setRef} {...(newWindow ? { target: "_blank", rel: "noopener" } : {})} {...stateProps} {...rest}>
         {loading && <i className="hg-spin" aria-hidden="true" />}
         {children}
       </Link>

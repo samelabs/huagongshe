@@ -46,7 +46,10 @@ async def load_reaction_detail(
                u.username,u.display_name,u.avatar_path,(u.status='active'),
                (SELECT count(*) FROM community.reaction_follows WHERE reaction_id=rx.id),
                EXISTS(SELECT 1 FROM community.reaction_follows
-                      WHERE reaction_id=rx.id AND user_id=:viewer_id)
+                      WHERE reaction_id=rx.id AND user_id=:viewer_id),
+               EXISTS(SELECT 1 FROM community.user_follows
+                      WHERE followed_user_id=rx.created_by_user_id
+                        AND follower_user_id=:viewer_id)
         FROM chemistry.reactions rx
         LEFT JOIN community.users u ON u.id=rx.created_by_user_id
         LEFT JOIN ord.reaction_map lm ON lm.reaction_id=rx.id
@@ -142,8 +145,11 @@ async def load_reaction_detail(
         "workup_details": base[18], "note": base[24],
         # HGS-ACCOUNT-CONTENT-01: 停用作者的公开反应保留可见, active 供
         # 前端渲染「已停用」标记并隐藏关注按钮(关注端点本就拒绝停用目标)。
+        # creator.is_following: 访客对作者的用户级关注态，供反应页署名行
+        # 的关注入口使用；MCP 投影在 _public_reaction 剥除，工具契约不动
         "creator": ({"username": base[28], "display_name": base[29],
-                     "avatar_url": base[30], "active": bool(base[31])}
+                     "avatar_url": base[30], "active": bool(base[31]),
+                     "is_following": bool(base[34])}
                     if base[28] else None),
         "is_owner": base[4] == viewer_id and base[4] is not None,
         "follower_count": int(base[32]), "is_following": bool(base[33]),

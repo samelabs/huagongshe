@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -13,7 +14,8 @@ import { Tag } from "@/components/ui/Tag";
 import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
-import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
+import { localeAlternates, ogLocaleTag, SITE_ORIGIN } from "@/lib/alternates";
+import { buildShareMetadata } from "@/lib/shareMeta";
 import { noteHeadline } from "@/lib/noteHeadline";
 
 type Profile = {
@@ -24,8 +26,8 @@ type Profile = {
   followers: number; following: number; public_reactions: number;
   is_following: boolean; is_followed_by: boolean; is_mutual: boolean; is_me: boolean;
   /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用账号主页不再 404 ——
-     is_active=false 时仅渲染停用态卡片（无关注/分享/内容列表）。 */
-  is_active?: boolean;
+     active=false 时仅渲染停用态卡片（无关注/分享/内容列表）。 */
+  active?: boolean;
 };
 type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
 type NoteCard = { id: number; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
@@ -33,16 +35,39 @@ type NotesBlock = { items: NoteCard[]; total: number };
 
 const REACTIONS_PAGE_SIZE = 20;
 
+/** 同请求内 metadata 与页面体共享的同一次取数（此前各拉一次后端，
+ *  cookie 内置 —— metadata 与页面看到同一份 is_me 投影）。 */
+const loadProfile = cache(async (username: string): Promise<Profile> => {
+  const cookieStore = await cookies();
+  const headers = cookieStore.has("hgs_session") ? { Cookie: cookieStore.toString() } : undefined;
+  return apiGet<Profile>(`/users/${encodeURIComponent(username)}`, headers);
+});
+
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
   const { username } = await params;
   const canonical = `/user/${encodeURIComponent(username)}`;
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
+  // og:image 用头像（512×512 方图，api 上传管线固定产 512 变体）；无头像退全局兜底横版品牌图
+  const profile = await loadProfile(username).catch(() => null);
+  const hasAvatar = Boolean(profile?.avatar_url);
+  const pageTitle = `${profile?.display_name ?? username}｜${t.brand.name}`;
+  const shareMeta = buildShareMetadata({
+    title: pageTitle,
+    description: t.user.desc,
+    path: canonical,
+    locale,
+    siteName: t.brand.name,
+    ogImage: hasAvatar
+      ? { url: `${SITE_ORIGIN}${profile!.avatar_url}`, width: 512, height: 512, alt: pageTitle }
+      : { url: "/og.png", width: 1200, height: 630, alt: t.brand.ogAlt },
+    twitterCard: hasAvatar ? "summary" : "summary_large_image",
+  });
   return {
-    title: t.user.title.replace("{username}", username),
+    title: `${profile?.display_name ?? username}`,
     description: t.user.desc,
     alternates: localeAlternates(canonical, locale),
-    openGraph: { url: withLocale(canonical, locale), title: `${t.user.title.replace("{username}", username)}｜${t.brand.name}`, description: t.user.desc, locale: ogLocaleTag(locale) },
+    ...shareMeta,
   };
 }
 
@@ -54,16 +79,14 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const tab = query.tab === "notes" ? "notes" : "reactions";
   const requestedPage = typeof query.page === "string" ? Number.parseInt(query.page, 10) : 1;
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const hasSession = (await cookies()).has("hgs_session");
-  const headers = hasSession ? { Cookie: (await cookies()).toString() } : undefined;
   let profile: Profile;
-  try { profile = await apiGet<Profile>(`/users/${encodeURIComponent(username)}`, headers); }
+  try { profile = await loadProfile(username); }
   catch (error) { if (isApiNotFound(error)) notFound(); throw error; }
 
   /* ── 停用态（4.1 / 6.11 状态页）：头像 + 名字 + Tag「账号已停用」+ 事实说明。
      不显示关注、分享和内容列表（列表接口对停用用户本就 404）；
      已公开的反应/笔记/技能在各自详情页保留可见并带「已停用」标记。 ── */
-  if (profile.is_active === false) {
+  if (profile.active === false) {
     const joined = new Date(profile.created_at).toLocaleDateString(locale);
     return <div className="content-page profile-page">
       <div className="pf-deactivated">
@@ -91,13 +114,14 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   try { notesBlock = await apiGet<NotesBlock>(`/users/${encodeURIComponent(username)}/notes?page=1&page_size=8`); }
   catch { notesUnavailable = true; }
 
-  /* 反应卡收藏初始态：登录时取已收藏反应 id 集（失败按空集处理，乐观更新兜底） */
+  /* 反应卡收藏初始态：登录访客取自己的已收藏反应 id 集（失败按空集，乐观更新兜底） */
   let favoredReactionIds = new Set<number>();
-  if (hasSession) {
+  const cookieStore = await cookies();
+  if (cookieStore.has("hgs_session")) {
     try {
       // FX-8a（SMK-011 / HGS-PROFILE-FAVOR-SSR-01）：SSR 预取转发会话 Cookie，
       // 否则永远按匿名渲染为未收藏，首击发出重复 POST
-      const followed = await apiGet<{ items: { id: number }[] }>(`/users/me/follows/reactions?page=1&page_size=100`, headers);
+      const followed = await apiGet<{ items: { id: number }[] }>(`/users/me/follows/reactions?page=1&page_size=100`, { Cookie: cookieStore.toString() });
       favoredReactionIds = new Set(followed.items.map((item) => item.id));
     } catch { /* 保持空集 */ }
   }

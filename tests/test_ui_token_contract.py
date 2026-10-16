@@ -204,9 +204,10 @@ class BorderRadiusTests(unittest.TestCase):
 class WorkbenchAliasTests(unittest.TestCase):
     def test_wb_tokens_are_pure_aliases(self):
         path = WEB / "app/(workbench)/aichem-tokens.css"
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf8")
         defs = WB_DEF_RE.findall(text)
-        self.assertGreater(len(defs), 50, "alias block unexpectedly small")
+        # 下限是防整个别名块被误清的哨兵；删除无引用的别名不受此限
+        self.assertGreater(len(defs), 45, "alias block unexpectedly small")
         bad = [(name, value.strip()) for name, value in defs
                if not value.strip().startswith("var(--")]
         self.assertEqual([], bad, "--wb-* values must all alias tokens.css vars")
@@ -324,10 +325,8 @@ NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
      "头像/更多菜单触发器：焦点管理需 ref（ui Button 不转发 ref），sh-menu 键盘体系自有"),
     ("components/shell/SiteHeader.tsx", "sh-menu-logout",
      "菜单项行按钮：ui 无 Menu 原语，菜单行自有样式体系"),
-    ("components/shell/MobileTabBar.tsx", "triggerRef",
-     "手机底部「我的」菜单触发器：焦点管理需 ref（ui Button 不转发 ref）"),
-    ("components/shell/MobileTabBar.tsx", "sh-menu-logout",
-     "手机底部「我的」菜单项行按钮：ui 无 Menu 原语，菜单行自有样式体系"),
+    ("components/workbench/WbMobileNav.tsx", "wb-drawer-logout",
+     "手机抽屉底部登出钮：与 SiteHeader sh-menu-logout 同为菜单行按钮（useLogout 共用实现）"),
     ("components/workbench/WbCreateMenu.tsx", "triggerRef",
      "「+ 新建」菜单触发器：焦点管理需 ref（ui Button 不转发 ref）"),
     ("components/workbench/EntityReferencePicker.tsx", "key={`c-${chemical.id}`}",
@@ -340,10 +339,8 @@ NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
      "已选实体 chip：ui 无可关闭 Chip 原语"),
     ("components/workbench/panels/StoichPanel.tsx", "wb-stoich",
      "投料计算器紧凑网格（6.7）：单元格级密度需求，hg-input 标准控件尺寸会破坏表格布局；含 radio（ui 无 Radio 原语）"),
-    ("app/(site)/chemical/[id]/print/page.tsx", 'data-print-btn="true"',
-     "打印报告工具栏按钮：服务端组件不能传 onClick，window.print 由页内脚本经 data 属性注入"),
-    ("app/(site)/reaction/[id]/print/page.tsx", 'data-print-btn="true"',
-     "打印报告工具栏按钮：服务端组件不能传 onClick，window.print 由页内脚本经 data 属性注入"),
+    ("components/PrintButton.tsx", 'className="pr-btn"',
+     "打印报告工具栏按钮：打印页自有报告版式（pr-btn），不进 hg-btn 体系"),
     ("components/SearchHero.tsx", "inputRef",
      "首页大搜索框内层 input：srch-box-wrap 提供边框/焦点体系，内层必须裸置"),
 ]

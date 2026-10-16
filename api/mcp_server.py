@@ -689,7 +689,8 @@ def _public_reaction(r: dict[str, Any]) -> dict[str, Any]:
                         "follower_count", "dataset_name")}
     creator = out.get("creator")
     if isinstance(creator, dict):
-        out["creator"] = {k: v for k, v in creator.items() if k != "avatar_url"}
+        out["creator"] = {k: v for k, v in creator.items()
+                          if k not in ("avatar_url", "is_following")}
     if "participants" in r:
         out["participants"] = [_public_compound(p) for p in r.get("participants") or []]
     return out

@@ -7,7 +7,11 @@
    每个别名的值都以 var(-- 开头）。
    ═══════════════════════════════════════════════════════════════ */
 
-:where(.wb-shell) {
+/* 作用域：.wb-shell（工作台布局）+ .sh-header（根布局顶栏）。
+   WbMobileNav 抽屉 / WbCreateMenu 挂在 SiteHeader 的 mobileActions 插槽，
+   DOM 上是 .wb-shell 的兄弟子树 —— 不加 .sh-header 时其内 var(--wb-*) 全部
+   解析为空，抽屉面板与遮罩透明、布局散架。 */
+:where(.wb-shell, .sh-header) {
 
   /* ═══ 色阶 ════════════════════════════════════════════════════ */
 
@@ -15,7 +19,6 @@
   --wb-blue:        var(--action);
   --wb-blue-deep:   var(--action-hover);
   --wb-blue-strong: var(--action-ink);
-  --wb-blue-pale:   var(--action-subtle);
   --wb-blue-tint:   var(--bg-subtle);
   --wb-blue-border: var(--action-border);
 
@@ -24,7 +27,6 @@
   --wb-heading:     var(--text);
   --wb-muted:       var(--text-muted);
   --wb-quiet:       var(--text-muted);
-  --wb-faint:       var(--text-disabled);
   --wb-line:        var(--border);
   --wb-line-strong: var(--border-strong);
   --wb-wash:        var(--bg-page);
@@ -32,25 +34,19 @@
   --wb-inverse:     var(--text-inverse);  /* 反色文本：品牌蓝/墨色底上的文字 */
 
   /* 反应色（实体标识） */
-  --wb-reaction:      var(--entity-rx-line);
   --wb-reaction-ink:  var(--entity-rx);
   --wb-reaction-bg:   var(--entity-rx-bg);
 
   /* 语义色 */
   --wb-danger:        var(--err);
-  --wb-success:       var(--ok);
-  --wb-warning:       var(--warn);
   --wb-warning-border:var(--warn-border);
 
   /* 交互反馈 */
   --wb-glow:   var(--focus-halo);
-  --wb-hover:  var(--bg-hover);
-  --wb-active: var(--bg-pressed);
   --wb-overlay:var(--overlay);
 
   /* ═══ 字体族 ══════════════════════════════════════════════════ */
   --wb-font-ui: var(--font-ui);
-  --wb-font-mono: var(--font-mono);
 
   /* ═══ 字号阶梯 — 7 级并回 tokens 8 档 ══════════════════════════
      micro 7px / xs 11px 提升到 12px 可读下限；lg 15→16；stat 24→28 */
@@ -80,32 +76,24 @@
   --wb-sp-5: var(--sp-6);
   --wb-sp-6: var(--sp-6);
   --wb-sp-7: var(--sp-8);
-  --wb-sp-8: var(--sp-12);
   --wb-sp-9: var(--sp-12);
 
   /* ═══ 尺寸 ════════════════════════════════════════════════════
      sidebar 200→232；topbar 56→60；tabbar 50→64；btn 38→40；
      avatar 并入控件高度档（36→40）；content-max 760→720 */
   --wb-sidebar:    var(--sidebar-w);
-  --wb-topbar-h:   var(--header-h);
   --wb-tabbar-h:   var(--tabbar-h);
   --wb-btn-h:      var(--h-md);
-  --wb-avatar-sm:  var(--h-md);
-  --wb-avatar-md:  var(--h-md);
-  --wb-content-max: var(--w-reading);
 
   /* ═══ 圆角阶梯 — r-xs 3→6、r-sm 6→8、r-md 8→12、r-lg 10→12 ═══ */
   --wb-r-xs:   var(--r-xs);
   --wb-r-sm:   var(--r-sm);
   --wb-r-md:   var(--r-md);
-  --wb-r-lg:   var(--r-md);
   --wb-r-pill: var(--r-pill);
 
   /* ═══ 动画 ════════════════════════════════════════════════════ */
   --wb-transition: var(--dur-fast) var(--ease);
 
   /* ═══ 行高 ════════════════════════════════════════════════════ */
-  --wb-lh-tight:   var(--lh-tight);
   --wb-lh-normal:  var(--lh-ui);
-  --wb-lh-relaxed: var(--lh-prose);
 }

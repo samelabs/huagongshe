@@ -174,7 +174,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
 
     return (
       <article className="wb-feed-item wb-feed-note">
-        <Avatar id={item.actor_username} name={actorName} size={32} />
+        <Avatar id={item.actor_username} name={actorName} src={item.actor_avatar_url || undefined} size={32} />
         <div className="wb-feed-body">
           <div className="wb-feed-author-row">
             <Link className="wb-feed-author-name" href={withLocale(`/user/${encodeURIComponent(item.actor_username)}`, locale)}>
@@ -205,7 +205,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
 
   return (
     <article className="wb-feed-item">
-      <Avatar id={item.actor_username} name={actorName} size={32} />
+      <Avatar id={item.actor_username} name={actorName} src={item.actor_avatar_url || undefined} size={32} />
       <div className="wb-feed-body">
         <p className="wb-feed-line">
           {t.me.feedActor(actorName)}

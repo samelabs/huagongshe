@@ -124,7 +124,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-btn.danger.is-active { background: var(--err-pressed); }
 .hg-btn.danger-quiet { background: var(--bg-surface); color: var(--err); border-color: var(--err-border); }
 .hg-btn.danger-quiet:hover, .hg-btn.danger-quiet.is-hover { background: var(--err-bg); }
-.hg-btn:disabled, .hg-btn.is-disabled { background: var(--bg-subtle); color: var(--text-disabled); border-color: transparent; cursor: not-allowed; transform: none; }
+.hg-btn:disabled { background: var(--bg-subtle); color: var(--text-disabled); border-color: transparent; cursor: not-allowed; transform: none; }
 .hg-btn.is-focus { outline: 2px solid var(--focus); outline-offset: 2px; }
 .hg-btn.icon { width: var(--bh); padding: 0; }
 .hg-btn[aria-busy="true"] { cursor: progress; opacity: .85; }
@@ -277,8 +277,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-tabs {
   display: flex;
   gap: var(--sp-6);
-  border-bottom: 1px solid var(--border);
+  /* 底线画成背景而非 border：选中下划线可落在容器内（bottom: 0）盖住它。
+     只许横向滚动 —— overflow-x: auto 会把 overflow-y 连带算成 auto，
+     任何超出容器的像素都会让 tab 条能上下滚动。 */
+  background: linear-gradient(var(--border), var(--border)) left bottom / 100% 1px no-repeat;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   white-space: nowrap;
   min-width: 0;
@@ -303,7 +307,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-tabs button[aria-selected="true"]::after {
   content: "";
   position: absolute;
-  left: 0; right: 0; bottom: -1px;
+  left: 0; right: 0; bottom: 0;
   height: 2px;
   border-radius: var(--r-xs);
   background: var(--action);
@@ -311,15 +315,15 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-tabs .ct { font-size: var(--fs-12); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
 /* 溢出 24px 渐隐（DESIGN_SYSTEM 3.7） */
-.hg-fade-r, [data-fade="right"] {
+[data-fade="right"] {
   mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
 }
-.hg-fade-l, [data-fade="left"] {
+[data-fade="left"] {
   mask-image: linear-gradient(to right, transparent 0, black 24px, black 100%);
   -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px, black 100%);
 }
-.hg-fade-b, [data-fade="both"] {
+[data-fade="both"] {
   mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
   -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
 }
@@ -450,17 +454,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 }
 .hg-modal h3 { font-size: var(--fs-18); font-weight: 600; margin: 0; }
 .hg-modal p { margin: 0; color: var(--text-2); }
-/* 覆盖 globals.css 的全局 <footer> 元素规则（border-top + 大内边距 + min-height）：
-   弹窗正文与按钮之间没有分隔线，按钮右对齐（与 DESIGN_SYSTEM 3.10 一致） */
+/* 弹窗正文与按钮之间没有分隔线，按钮右对齐（与 DESIGN_SYSTEM 3.10 一致） */
 .hg-modal footer {
   display: flex;
   justify-content: flex-end;
   gap: var(--sp-2);
   margin-top: var(--sp-3);
-  min-height: 0;
-  padding: 0;
-  border-top: 0;
-  background: none;
 }
 
 .hg-breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-13); color: var(--text-muted); margin-bottom: var(--sp-6); }
@@ -493,7 +492,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-sk.card { height: 96px; border-radius: var(--r-md); }
 .hg-sk.row { height: 14px; }
 
-.hg-avatar { border-radius: 50%; display: grid; place-items: center; font-weight: 600; flex: none; color: var(--text-inverse); object-fit: cover; }
+.hg-avatar { border-radius: 50%; display: grid; place-items: center; font-weight: 600; flex: none; color: var(--text-inverse); object-fit: cover; max-width: none; }
 .hg-avatar.s24 { width: 24px; height: 24px; font-size: var(--fs-12); }
 .hg-avatar.s32 { width: 32px; height: 32px; font-size: var(--fs-13); }
 .hg-avatar.s40 { width: 40px; height: 40px; font-size: var(--fs-14); }
@@ -528,26 +527,8 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   .hg-input { min-height: 44px; height: auto; }
 }
 @media (max-width: 640px) {
-  /* 手机端复制钮：外观 28×28，可点击区域 ≥44 */
-  .hg-copy { position: relative; }
-  .hg-copy::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: var(--touch-min);
-    height: var(--touch-min);
-  }
-}
-
-/* ══ ActionGroup & Menu（DESIGN_SYSTEM 5.5 / IX-10 / IX-11） ══ */
-.hg-action-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2);
-  min-width: 0;
+  /* 手机端复制钮按真实尺寸落到触控下限（任何位置一致，不用伪元素扩热区） */
+  .hg-copy { width: var(--touch-min); height: var(--touch-min); }
 }
 .hg-menu-wrap {
   position: relative;
@@ -577,11 +558,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 }
 
 /* ══ DataRow（DESIGN_SYSTEM 3.14） ════════════════════════════ */
+/* 值在左、复制钮靠行尾：各行复制钮落在同一竖线上；标签与值按文字基线对齐（.chem-dl） */
 .hg-datarow-copy {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--sp-2);
-  flex-wrap: wrap;
 }
 .hg-datarow-copy code {
   font-family: var(--font-mono);
@@ -590,3 +572,116 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   overflow-wrap: anywhere;
 }
 
+
+/* ══ 版式件 —— 页面框架/页头/分区/卡片/信息行/署名（全站唯一基准） ════════ */
+.hg-page-frame {
+  width: min(var(--w-wide), calc(100% - 40px));
+  margin-inline: auto;
+  min-width: 0;
+}
+.hg-page-frame--reading {
+  max-width: var(--w-reading);
+  margin-left: max(20px, calc((100% - var(--w-wide)) / 2));
+  margin-right: auto;
+}
+.hg-page-frame--form {
+  max-width: var(--w-form);
+  margin-left: max(20px, calc((100% - var(--w-wide)) / 2));
+  margin-right: auto;
+}
+
+.hg-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  margin-block: var(--sp-6);
+}
+.hg-page-head .hg-breadcrumb { flex-basis: 100%; margin-block-end: var(--sp-3); }
+.hg-page-head-main { min-width: 0; }
+.hg-page-head h1 {
+  margin: 0;
+  font-size: var(--fs-28);
+  font-weight: var(--fw-display);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-title);
+  overflow-wrap: anywhere;
+}
+.hg-page-head--hero h1 { font-size: var(--fs-40); letter-spacing: var(--ls-display); }
+.hg-page-head-meta { margin-block-start: var(--sp-3); }
+.hg-page-head-sub {
+  margin: var(--sp-2) 0 0;
+  max-width: var(--w-reading);
+  color: var(--text-muted);
+  font-size: var(--fs-16);
+  line-height: var(--lh-prose);
+}
+.hg-page-head-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+.hg-section { margin-block-start: var(--sp-section); }
+.hg-section-title {
+  margin: 0;
+  font-size: var(--fs-22);
+  font-weight: var(--fw-display);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-heading);
+}
+.hg-section-desc {
+  margin: var(--sp-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-ui);
+}
+.hg-section-body { margin-block-start: var(--sp-section-gap); }
+
+.hg-card-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--pad-card);
+  background: var(--bg-surface);
+}
+
+.hg-info-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: var(--sp-2) var(--sp-4);
+  margin: 0;
+  padding-block: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+.hg-info-row:last-child { border-bottom: 0; }
+.hg-info-row dt { color: var(--text-muted); font-size: var(--fs-13); line-height: var(--lh-ui); }
+.hg-info-row dd { margin: 0; font-size: var(--fs-14); line-height: var(--lh-ui); overflow-wrap: anywhere; }
+.hg-info-row dd.mono { font-family: var(--font-mono); }
+@media (max-width: 640px) {
+  .hg-info-row { grid-template-columns: 96px minmax(0, 1fr); }
+}
+
+.hg-byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+  color: var(--text-2);
+  font-size: var(--fs-13);
+  line-height: var(--lh-ui);
+  min-width: 0;
+}
+.hg-byline-main, .hg-byline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.hg-byline-link { color: var(--text-2); text-decoration: none; }
+.hg-byline-link:hover .hg-byline-name { color: var(--action); }
+.hg-byline-name {
+  font-weight: var(--fw-medium);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hg-byline-handle { color: var(--text-muted); }
+.hg-byline-time { color: var(--text-muted); }

@@ -7,6 +7,7 @@ import { WbQuickActions } from "./WbQuickActions";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { useLogout } from "@/components/shared/useLogout";
 import type { Counts } from "./types";
 import type { User } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
@@ -24,6 +25,7 @@ export function WbMobileNav({ counts, user }: {
   user: User;
 }) {
   const t = useDictionary();
+  const logout = useLogout();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -108,6 +110,18 @@ export function WbMobileNav({ counts, user }: {
           </div>
 
           <WorkbenchNav counts={counts} variant="drawer" />
+        </div>
+
+        {/* 退出登录 — 与桌面头像菜单共用 useLogout（失败语义同源）。
+            移除 MobileTabBar「我的」浮层后，这里是手机端唯一的登出入口。 */}
+        <div className="wb-drawer-foot">
+          <button
+            type="button"
+            className="wb-drawer-logout"
+            onClick={() => { setOpen(false); void logout(); }}
+          >
+            {t.nav.logout}
+          </button>
         </div>
       </aside>
     </>

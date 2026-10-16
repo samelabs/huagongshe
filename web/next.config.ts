@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { execSync } from "node:child_process";
+import { networkInterfaces } from "node:os";
 
 /**
  * 线上只读截图的 build 标记（Step 8 纪律）：dev 环境把当前 commit 短哈希
@@ -19,9 +20,31 @@ function devBuildSha(): string {
 
 const buildSha = devBuildSha();
 
+/** 开发服务器放行本机局域网地址：手机经局域网访问时，Next 默认拦截跨源的开发资源，页面脚本不执行。 */
+function devLanOrigins(): string[] {
+  if (process.env.NODE_ENV !== "development") return [];
+  return Object.values(networkInterfaces())
+    .flat()
+    .filter((n) => n && n.family === "IPv4" && !n.internal)
+    .map((n) => n!.address);
+}
+
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  allowedDevOrigins: devLanOrigins(),
   ...(buildSha ? { env: { HGS_BUILD_SHA: buildSha } } : {}),
+  // 本地 dev 的 /uploads 静态服务（生产由 nginx 承担）：
+  // 上传文件落 local/uploads（与 hgs_local_api 容器同 bind），由
+  // local/stack/uploads_server.py 提供；仅 development 生效，生产零配置。
+  ...(process.env.NODE_ENV === "development"
+    ? {
+        async rewrites() {
+          // 目的端去 /uploads 前缀：静态服务以 local/uploads 为根直挂
+          return [{ source: "/uploads/:path*", destination: "http://127.0.0.1:3010/:path*" }];
+        },
+      }
+    : {}),
   async headers() {
     return [{
       source: "/:path*",

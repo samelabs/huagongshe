@@ -10,8 +10,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { Button } from "@/components/ui/Button";
 import { IconPrinter } from "@/components/ui/icons";
 import { FollowButton } from "@/components/shared/FollowButton";
-import { CreatorFollow } from "@/components/CreatorFollow";
-import { Avatar } from "@/components/ui/Avatar";
+import { Byline } from "@/components/ui/Byline";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { CodeField } from "@/components/ui/CodeField";
@@ -190,7 +189,6 @@ export default async function ReactionPage({ params }: {
         items={[
           { label: t.chemical.home, href: withLocale("/", locale) },
           { label: t.reaction.category },
-          { label: reactionTitleText },
         ]}
         ariaLabel={t.common.breadcrumb}
       />
@@ -206,11 +204,36 @@ export default async function ReactionPage({ params }: {
             ariaLabel={t.common.hridLabel(reaction.id)}
           />
           <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
-          <Button variant="ghost" size="sm" iconOnly href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
+          <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
             <IconPrinter />
           </Button>
         </div>
         <h1 className="rx-head-title">{reactionTitleText}</h1>
+        {reaction.creator && (
+          <div className="rx-head-byline">
+            <Byline
+              user={reaction.creator}
+              time={t.reaction.publishedOn(new Date(reaction.created_at).toLocaleDateString(locale))}
+              privateMark={reaction.visibility === "private"}
+              size={32}
+            />
+            {/* 非作者关注作者的入口（停用账号不出，关注端点本就拒绝停用目标） */}
+            {!reaction.is_owner && reaction.creator.active !== false && (
+              <FollowButton
+                endpoint={`/users/${encodeURIComponent(reaction.creator.username)}/follow`}
+                initial={reaction.creator.is_following ?? false}
+                showCount={false}
+                size="sm"
+                activeVariant="secondary"
+                activeHoverText={t.follow.unfollow}
+              />
+            )}
+          </div>
+        )}
+        {reaction.is_owner && reaction.moderation_status === "hidden" && (
+          /* 作者可见的隐藏提示 —— 内容被治理隐藏时明确告知，不再是「无声」 */
+          <Notice tone="warn">{t.reaction.hiddenNotice}</Notice>
+        )}
         {factualSummary && <p className="rx-head-summary">{factualSummary}</p>}
         <div className="rx-head-actions">
           {reaction.is_owner ? (
@@ -315,35 +338,6 @@ export default async function ReactionPage({ params }: {
         {/* ── Secondary rail (desktop；≤900 移到正文末尾) ── */}
         <aside className="chemical-aside">
           <ChemPageNav sections={tocSections} variant="rail" />
-          {reaction.creator && !reaction.is_owner && (
-            <section className="rx-creator">
-              <h2>{t.reaction.creator}</h2>
-              <div className="rx-creator-row">
-                <Avatar id={reaction.creator.username} name={reaction.creator.display_name} src={reaction.creator.avatar_url} size={40} />
-                <div className="rx-creator-id">
-                  <Link href={withLocale(`/user/${reaction.creator.username}`, locale)}>{reaction.creator.display_name}</Link>
-                  <small>@{reaction.creator.username}</small>
-                </div>
-                {/* HGS-ACCOUNT-CONTENT-01: 停用作者的公开反应保留可见，作者名旁
-                    带「已停用」标记；关注端点本就拒绝停用目标 → 关注按钮不出现 */}
-                {reaction.creator.active === false
-                  ? <Tag tone="neutral" dot>{t.user.authorDeactivated}</Tag>
-                  : <CreatorFollow username={reaction.creator.username} loggedIn={hasSession} />}
-              </div>
-            </section>
-          )}
-          <section className="chem-record">
-            <h2>{t.chemical.page.record}</h2>
-            <dl>
-              <div><dt>{t.reaction.fieldHrid}</dt><dd><EntityBadge kind="reaction" id={reaction.id} ariaLabel={t.common.hridLabel(reaction.id)} /></dd></div>
-              <div><dt>{t.reaction.fieldVisibility}</dt><dd>
-                {reaction.visibility === "public" ? <Tag tone="blue">{t.reaction.publicReaction}</Tag> : <Tag tone="neutral" icon={<LockInline />}>{t.reaction.privateReaction}</Tag>}
-                {reaction.moderation_status !== "visible" && ` · ${t.reaction.hiddenRecord}`}
-              </dd></div>
-              <div><dt>{t.reaction.fieldCreated}</dt><dd>{formatDate(reaction.created_at, locale)}</dd></div>
-              <div><dt>{t.reaction.fieldUpdated}</dt><dd>{formatDate(reaction.updated_at, locale)}</dd></div>
-            </dl>
-          </section>
         </aside>
       </div>
     </div>
@@ -351,11 +345,6 @@ export default async function ReactionPage({ params }: {
 }
 
 /* ── 小组件 ── */
-
-/** 创建者卡片/可见性 Tag 的小锁图标（12px，跟随文字色） */
-function LockInline() {
-  return <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true" focusable="false"><rect x="3" y="7" width="10" height="7" rx="1.5" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>;
-}
 
 /** 结构化字段拼出的一行事实摘要; 没有值的部分不显示, 不推断命名反应/反应类别。 */
 function buildSummary(reactants: Chemical[], products: Chemical[], auxiliaries: Chemical[], reaction: ReactionDetail, t: Dictionary, locale: Locale): string {
@@ -421,11 +410,6 @@ function ParticipantRoleGroup({ title, items, showRole = false, t, locale }: {
       })}</div> : <p className="quiet-empty">{t.chemical.knowledge.noData(title)}</p>}
     </section>
   );
-}
-
-function formatDate(value: string | null | undefined, locale: string) {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString(locale);
 }
 
 function formatYield(value: number, locale: string) {

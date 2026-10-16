@@ -65,7 +65,7 @@ export default async function SupportPage() {
 
     <section className="guide-section">
       <h2>Contact</h2>
-      <p>Email <span className="inline-copy-target"><a className="footer-link" href="mailto:mail@huagongshe.com">mail@huagongshe.com</a><CopyButton value="mail@huagongshe.com" ariaLabel="Copy email address" /></span>. Include the feature you were using, the relevant HCID or HRID when applicable, and a concise description of the problem. Never send passwords, AI Keys, OAuth access or refresh tokens, MFA codes, or other authentication secrets.</p>
+      <p>Email <span className="inline-copy-target"><a className="legal-link" href="mailto:mail@huagongshe.com">mail@huagongshe.com</a><CopyButton value="mail@huagongshe.com" ariaLabel="Copy email address" /></span>. Include the feature you were using, the relevant HCID or HRID when applicable, and a concise description of the problem. Never send passwords, AI Keys, OAuth access or refresh tokens, MFA codes, or other authentication secrets.</p>
     </section>
 
     <section className="guide-section">

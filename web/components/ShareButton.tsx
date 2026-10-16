@@ -12,8 +12,9 @@ import { useDictionary } from "@/components/shared/I18nContext";
 import { Button, type ButtonVariant, type ButtonSize } from "@/components/ui/Button";
 import { IconShare } from "@/components/ui/icons";
 import { useToast } from "@/components/ui/Toast";
+import { copyText } from "@/lib/clipboard";
 
-export function ShareButton({ url: customUrl, title, iconOnly = false, label, variant, size, className, ariaLabel, feedback = "text" }: {
+export function ShareButton({ url: customUrl, title, iconOnly = false, label, variant, size, className, ariaLabel, feedback = "text", copiedToast }: {
   url?: string;
   title?: string;
   iconOnly?: boolean;
@@ -27,6 +28,8 @@ export function ShareButton({ url: customUrl, title, iconOnly = false, label, va
   ariaLabel?: string;
   /** 文字形态的复制反馈：text 原地切换「已复制」（默认）；toast 弹 Toast 不变文案 */
   feedback?: "text" | "toast";
+  /** 复制退回时 Toast 文案（默认 t.guide.shareCopied；主页卡片等场景传更具体的「已复制主页链接」） */
+  copiedToast?: string;
 }) {
   const t = useDictionary();
   const toast = useToast();
@@ -37,18 +40,16 @@ export function ShareButton({ url: customUrl, title, iconOnly = false, label, va
     if (navigator.share) {
       try {
         await navigator.share({ title: shareTitle, url });
-        return;
-      } catch { /* user cancelled, fall through to copy */ }
+      } catch { /* 用户取消系统分享面板：不改做复制 */ }
+      return;
     }
-    try {
-      await navigator.clipboard.writeText(url);
-      if (iconOnly || feedback === "toast") toast.success(t.guide.shareCopied);
-      else { setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
-    } catch { /* clipboard blocked */ }
+    if (!(await copyText(url))) { toast.error(t.common.copyFailed); return; }
+    if (iconOnly || feedback === "toast") toast.success(copiedToast ?? t.guide.shareCopied);
+    else { setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
   }
   if (iconOnly) {
     return (
-      <Button variant={variant ?? "ghost"} iconOnly className={className} aria-label={ariaLabel ?? t.guide.share} onClick={() => void share()}>
+      <Button variant={variant ?? "ghost"} size={size} iconOnly className={className} aria-label={ariaLabel ?? t.guide.share} onClick={() => void share()}>
         <IconShare />
       </Button>
     );

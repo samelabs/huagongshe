@@ -20,7 +20,7 @@ from api.services import reactions as reactions_service
 
 
 class _BaseRow:
-    """load_reaction_detail 的 base 行替身(33 列, 按 SQL 列序)。"""
+    """load_reaction_detail 的 base 行替身(35 列, 按 SQL 列序)。"""
 
     def __init__(self, rid=1, visibility="public", moderation="visible",
                  creator=None):
@@ -35,6 +35,7 @@ class _BaseRow:
             "creator-user", "Creator Name", "/a.png",      # 28-30
             True,                                          # 31 creator.active
             3, False,                                      # 32-33
+            False,                                         # 34 creator.is_following
         ]
 
     def __iter__(self):

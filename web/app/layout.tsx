@@ -99,16 +99,23 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <ConfirmProvider>
                 {/* 全站唯一外壳（顶栏 + 手机底栏）：在根 layout 挂一次，
                     公开页与工作台之间切换路由不卸载重建。
-                    工作台路由时把手机动作与未读数作为插槽交给外壳。 */}
-                <AppShell />
-                {children}
+                    工作台路由时把手机动作与未读数作为插槽交给外壳。
+                    顶栏与页面同在一个满屏框架内：框架占满视口，页面填满顶栏以下的剩余高度。 */}
+                <div className="sh-frame">
+                  <AppShell />
+                  {children}
+                </div>
                 {/* 水合哨兵：挂载后 <html data-hydrated=1>，截图工具等待它（Step 9 Part A.1） */}
                 <HydrationMarker />
               </ConfirmProvider>
             </ToastProvider>
           </I18nProvider>
         </AccountProvider>
-        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}` }} />
+        {/* sw.js 对 /_next/static 缓存优先，前提是文件名带内容哈希 —— 只有生产构建满足；
+            开发服务器的文件名不随内容变，注册会把旧样式永久钉在缓存里，故开发时注销。 */}
+        <script dangerouslySetInnerHTML={{ __html: process.env.NODE_ENV === "production"
+          ? `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}`
+          : `if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister()})});if(window.caches){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k)})})}}` }} />
       </body>
     </html>
   );

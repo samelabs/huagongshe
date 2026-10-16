@@ -96,10 +96,13 @@ class PublicReactionTests(unittest.TestCase):
         raw = {"id": 5, "visibility": "public", "moderation_status": "visible", "ord_record_id": 9,
                "ord_id": "ord-1", "dataset_name": "uspto", "source_citation": "uspto",
                "is_owner": False, "is_following": False, "follower_count": 2,
-               "creator": {"username": "u", "display_name": "U", "avatar_url": "/a.png", "active": True},
+               "creator": {"username": "u", "display_name": "U", "avatar_url": "/a.png", "active": True, "is_following": True},
                "participants": [{"id": 1, "role": "REACTANT", "similarity": None}]}
         out = _public_reaction(raw)
         _assert_clean(self, out)
+        # 契约冻结：HTTP 详情新增的 creator.is_following 不得进入 MCP 输出
+        self.assertNotIn("is_following", out["creator"])
+        self.assertNotIn("avatar_url", out["creator"])
         self.assertEqual(out["ord_id"], "ord-1")
         self.assertEqual(out["source_citation"], "uspto")
         self.assertEqual(out["participants"], [{"id": 1, "role": "REACTANT"}])

@@ -14,8 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Tabs } from "@/components/ui/Tabs";
-import { IconNote, IconPlus, IconSearch, IconCalc, IconSparkle, IconPlug, IconShare, GlyphChem, GlyphRx } from "@/components/ui/icons";
-import { useToast } from "@/components/ui/Toast";
+import { IconNote, IconPlus, IconSearch, IconCalc, IconSparkle, IconPlug, GlyphChem, GlyphRx } from "@/components/ui/icons";
 import { ActivityFeedCard, PanelError, PanelLoading, ReactionRow, SlowNotice, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
 import type { Counts, LoadState, NoteResponse, PageResponse, Reaction, ReactionResponse } from "../types";
 import type { ChemicalFollow, Notice } from "../types";
@@ -52,7 +51,6 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
   const locale: Locale = useLocale();
   const { user } = useAccount();
   const router = useRouter();
-  const toast = useToast();
   const [recentNotes, setRecentNotes] = useState<NoteResponse | null>(initialNotes ?? null);
   const [recent, setRecent] = useState<ReactionResponse | null>(initialReactions ?? null);
   const [favorites, setFavorites] = useState<PageResponse<ChemicalFollow> | null>(initialFavorites ?? null);
@@ -119,12 +117,6 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
     const q = query.trim();
     if (!q) return;
     router.push(withLocale(`/search?q=${encodeURIComponent(q)}`, locale));
-  }
-
-  function shareProfile() {
-    const link = `${window.location.origin}${withLocale(`/user/${encodeURIComponent(user!.username)}`, locale)}`;
-    void navigator.clipboard?.writeText(link);
-    toast.success(t.me.profileLinkCopied);
   }
 
   const mineTabs = [

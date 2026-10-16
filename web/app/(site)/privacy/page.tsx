@@ -107,7 +107,7 @@ export default async function PrivacyPage() {
 
     <section className="guide-section">
       <h2>Contact</h2>
-      <p>Privacy and data requests: <a className="footer-link" href="mailto:mail@huagongshe.com">mail@huagongshe.com</a>.</p>
+      <p>Privacy and data requests: <a className="legal-link" href="mailto:mail@huagongshe.com">mail@huagongshe.com</a>.</p>
     </section>
   </article>;
 }

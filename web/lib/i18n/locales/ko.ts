@@ -293,6 +293,8 @@ const ko: Dictionary = {
 
   /* ── 반응 상세 ──────────────────────────────────────── */
   reaction: {
+    publishedOn: (date: string) => `${date} 게시`,
+    hiddenNotice: '이 반응은 운영 정책에 따라 숨겨졌습니다: 더 이상 공개되지 않으며 본인(과 관리자)만 볼 수 있습니다. 잘못되었다고 생각되면 지원 페이지로 연락해 주세요.',
     detail: '반응 상세',
     category: '반응',
     reactionTitle: (reactant: string, product: string) => `${reactant} → ${product}`,
@@ -308,20 +310,12 @@ const ko: Dictionary = {
     notes: '참고 사항',
     reagentsCatalystsSolvents: '시약·촉매·용매',
     sources: '출처 및 근거',
-    creator: '작성자',
     participants: '참가 물질',
-    fieldHrid: 'HRID',
-    fieldVisibility: '공개 범위',
-    fieldCreated: '생성일',
-    fieldUpdated: '수정일',
-    hiddenRecord: '숨김',
     summaryReactants: (n: number) => `반응물 ${n}개`,
     summaryProducts: (n: number) => `생성물 ${n}개`,
     summaryCatalysts: (n: number) => `촉매 ${n}개`,
     summarySolvents: (n: number) => `용매 ${n}개`,
     summaryMore: (n: number) => `외 ${n}개`,
-    publicReaction: '공개 반응',
-    privateReaction: '비공개 반응',
     smiles: '반응 SMILES',
     errProcedure: '기록된 절차가 없습니다',
     conditionFields: {
@@ -839,8 +833,6 @@ const ko: Dictionary = {
   skills: {
     openLibrary: '오픈 스킬 라이브러리',
     heroTitle: '과학 AI 오픈 스킬 라이브러리',
-    heroSubtitle: (n: number) => `${n}개의 오픈소스 과학 AI 에이전트 스킬 — 화학·생물학·머신러닝·연구 작성 등을 아우릅니다. 필요할 때 내려받아 사용하세요.`,
-    heroSource: '데이터 출처: 오픈소스 과학 AI 에이전트 스킬 및 Huagongshe 공식 스킬 · Huagongshe가 정리하여 제공',
     metaDesc: (count: string) => `${count}오픈소스 과학 AI 에이전트 스킬 — 화학·생물학·머신러닝·연구 작성 등을 아우릅니다. 데이터는 오픈소스 과학 AI 에이전트 스킬과 Huagongshe 공식 스킬에서 제공됩니다.`,
     metaOgDesc: (count: string) => `${count}오픈소스 과학 AI 에이전트 스킬. 화학·생물학·머신러닝 등의 연구 분야를 아우룹니다.`,
     metaOgTitle: (name: string) => `과학 AI 오픈 스킬 라이브러리｜${name}`,
@@ -1232,7 +1224,7 @@ const ko: Dictionary = {
   /* ── 인쇄 보고서（I-078） ───────────────────────────── */
   print: {
     title: '인쇄 보고서',
-    printAction: '인쇄',
+    printAction: '인쇄 / PDF 저장',
     backAction: '돌아가기',
     reportNotice: '화공사 화학 정보 인쇄 보고서 · 연구 참고용',
     colName: '이름',

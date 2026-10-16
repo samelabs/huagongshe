@@ -87,7 +87,7 @@
             {
               "description": "Notes are not exposed as MCP tools.",
               "prompt": "Save this conversation as a private Note attached to HCID 123.",
-              "expected_behavior": "Do not create a reaction or skill as a substitute. Explain that Notes are not exposed as MCP tools in this version."
+              "expected_behavior": "Do not create a reaction or skill as a substitute. Explain that Notes are not exposed as MCP tools."
             },
             {
               "description": "Missing scientific facts must not be invented for a write action.",

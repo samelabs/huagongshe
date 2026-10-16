@@ -11,13 +11,10 @@
   --blue-50:  #EEF5FF;
   --blue-100: #DCEBFF;
   --blue-200: #B8D7FF;
-  --blue-300: #86BBFF;
-  --blue-400: #4FA2FF;   /* 深色底上的标志 */
   --blue-500: #1E90FF;   /* 品牌蓝：标志、焦点环、选中指示（非文字） */
   --blue-600: #1468D0;   /* 操作蓝：按钮、链接（白底 5.4:1） */
   --blue-700: #0F56AD;
   --blue-800: #0C4489;
-  --blue-900: #0A2F5E;
 
   /* ── 原始色阶 · 墨蓝中性 ─────────────────────────────────── */
   --n-0:   #FFFFFF;
@@ -34,7 +31,6 @@
   /* ── 原始色阶 · 反应灰蓝 / 状态 ───────────────────────────── */
   --rx-50:  #EEF2F7;
   --rx-200: #C9D5E2;
-  --rx-500: #5B7A99;
   --rx-700: #3D5878;
   --ok-50:  #ECF8F0;  --ok-200:  #B7E2C4;  --ok-600: #15803D;
   --warn-50:#FFF7E8;  --warn-200:#F5D9A3;  --warn-700:#A15C07;
@@ -165,8 +161,9 @@
   /* 布局 */
   --header-h:   60px;
   --header-h-m: 52px;
+  --header-clear: calc(var(--header-h) + 1px + env(safe-area-inset-top)); /* 吸顶顶栏占位（含 1px 底边与顶部安全区）：页内吸顶元素与锚点让位 */
   --tabbar-h:   56px;   /* 内容区高度；总高 = --tabbar-h + safe-area */
-  --tabbar-clear: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); /* 手机底栏让位（公开页页脚与工作台正文共用此一条） */
+  --tabbar-clear: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); /* 手机底栏让位（公开页正文与工作台正文共用此一条） */
   --sidebar-w:  232px;
   --rail-w:     260px;
   --rail-w-wide:320px;
@@ -174,8 +171,24 @@
   --w-content:  1040px;
   --w-wide:     1200px;
   --w-form:     400px;  /* 框架 E 单卡 */
-  /* 全站顶栏毛玻璃底（DESIGN_SYSTEM 2.3：白色 86% 透明 + backdrop 模糊） */
-  --header-glass: rgba(255, 255, 255, .86);
+
+  /* ── 版式层 token ─────────────────────────────────────────── */
+  /* z-index 阶梯：内容 < 粘性侧栏 < 顶栏 < 菜单/浮层 < Toast */
+  --z-content: 1;
+  --z-sticky:  20;
+  --z-header:  40;
+  --z-float:   50;   /* 菜单、抽屉、弹窗（配 --shadow-float） */
+  --z-toast:   60;
+
+  /* 断点档位。媒体查询条件里 var() 不可用，@media 条件仍写 640/1024
+     字面量（棘轮基线只认这两档）；token 供 JS 与文档引用同一档位。 */
+  --bp-s: 640px;
+  --bp-m: 1024px;
+
+  /* 卡片内边距与分区纵向节奏（手机档见文件末尾的覆盖） */
+  --pad-card: 24px;
+  --sp-section: 48px;     /* 分区间距 */
+  --sp-section-gap: 16px; /* 分区标题到内容 */
 
   /* 动效 */
   --dur-fast: 120ms;
@@ -185,4 +198,14 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-fast: 0ms; --dur: 0ms; }
+}
+
+/* 手机档的卡片内边距与分区节奏降档（与 --bp-s 同一断点） */
+@media (max-width: 640px) {
+  :root {
+    --header-clear: calc(var(--header-h-m) + 1px + env(safe-area-inset-top));
+    --pad-card: 16px;
+    --sp-section: 32px;
+    --sp-section-gap: 12px;
+  }
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PrintButton } from "@/components/PrintButton";
 import { notFound } from "next/navigation";
 import { apiGet, isApiGone, isEntityId, type Chemical, type SemanticDetail, type ProseItem, type EvidenceBlock } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
@@ -245,16 +246,7 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
     <div className="pr-root">
       {/* ── Toolbar (screen only, hidden on print) ── */}
       <div className="pr-toolbar no-print">
-        <button
-          // window.print() injected via data-print-btn in a <script> for CSR
-          data-print-btn="true"
-          className="pr-btn"
-          onClick={undefined}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          suppressHydrationWarning
-        >
-          {t.print.printAction}
-        </button>
+        <PrintButton label={t.print.printAction} />
         <Link href={withLocale(`/chemical/${id}`, locale)} className="pr-btn pr-btn-ghost">
           {t.print.backAction}
         </Link>
@@ -350,12 +342,6 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
         )}
       </article>
 
-      {/* Print trigger script */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `document.querySelectorAll('[data-print-btn]').forEach(function(b){b.addEventListener('click',function(){window.print();});});`,
-        }}
-      />
     </div>
   );
 }

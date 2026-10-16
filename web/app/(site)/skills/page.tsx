@@ -76,7 +76,7 @@ async function loadSkills(): Promise<{ skills: Skill[]; error: boolean }> {
 
 export default async function SkillsPage() {
   const t = await getRequestDictionary();
-  // I-090: 并行请求分类与技能列表；分开处理错误
+  // 分类与技能列表并行请求；错误分开处理（分类失败只隐藏导航，不整页报错）
   const [cats, skillsResult, totalCount] = await Promise.all([
     loadCategories(),
     loadSkills(),
