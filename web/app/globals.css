@@ -3,6 +3,8 @@
 
 * { box-sizing: border-box; }
 html {
+  /* 锚点跳转让出吸顶顶栏 */
+  scroll-padding-top: var(--header-clear);
   scrollbar-gutter: stable;
   max-width: 100%;
   color-scheme: light;
@@ -282,13 +284,13 @@ footer { min-height: 64px; padding: 20px max(20px, calc((100vw - var(--w-wide)) 
 
 /* DataRow（DESIGN_SYSTEM 3.14 / 6.3）：dl 两列，标签列 140（手机 96），13px muted / fs-14 / 1px 分割线 */
 .chem-dl { margin: 0; min-width: 0; }
-.chem-dl > div { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: var(--sp-4); padding: 12px 0; border-bottom: 1px solid var(--border); min-width: 0; }
+.chem-dl > div { display: grid; grid-template-columns: 140px minmax(0, 1fr); align-items: baseline; gap: var(--sp-4); padding: 12px 0; border-bottom: 1px solid var(--border); min-width: 0; }
 .chem-dl dt { color: var(--text-muted); font-size: var(--fs-13); }
 .chem-dl dd { margin: 0; color: var(--text); font-size: var(--fs-14); line-height: 1.6; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
 
 .chemical-layout { margin-top: 48px; display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); gap: 64px; align-items: start; }
 .chemical-main { min-width: 0; display: grid; gap: 52px; }
-.chemical-aside { position: sticky; top: var(--sp-6); display: grid; gap: 16px; }
+.chemical-aside { position: sticky; top: calc(var(--header-clear) + var(--sp-6)); display: grid; gap: 16px; }
 .chemical-aside section { border: 1px solid var(--border); padding: 19px; }
 .chemical-aside h2 { margin: 0 0 15px; font-size: var(--fs-16); }
 .chemical-aside dl { margin: 0; }
@@ -339,7 +341,7 @@ details.chem-group[open] > summary::after { content: "▴"; }
 @media (max-width: 1023px) {
   .chem-tabs-nav {
     display: flex; gap: var(--sp-4);
-    position: sticky; top: 0; z-index: 20;
+    position: sticky; top: var(--header-clear); z-index: 20;
     overflow-x: auto; scrollbar-width: none;
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border);
@@ -1099,7 +1101,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 /* ── samelabs 后台壳：布局级侧栏导航（admin-* 语义前缀） ── */
 .admin-shell { display: grid; grid-template-columns: 216px minmax(0, 1fr); gap: 30px; align-items: start; }
-.admin-nav { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 1px; padding: 10px; border-radius: var(--r-lg); background: var(--bg-inverse); }
+.admin-nav { position: sticky; top: calc(var(--header-clear) + var(--sp-6)); display: flex; flex-direction: column; gap: 1px; padding: 10px; border-radius: var(--r-lg); background: var(--bg-inverse); }
 .admin-nav::before { content: "管理控制台"; padding: 6px 12px 10px; color: var(--text-inverse-muted); font-size: var(--fs-12); font-weight: 800; letter-spacing: .18em; }
 .admin-nav a { padding: 10px 12px; border-radius: var(--r-sm); color: var(--text-inverse-2); font-size: var(--fs-12); line-height: 1.4; text-decoration: none; transition: background .12s, color .12s; }
 /* active = 结构性位置指示, 不是按钮按下/功能卡: 透明底+左侧 2px 蓝线 */

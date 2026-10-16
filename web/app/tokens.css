@@ -161,8 +161,9 @@
   /* 布局 */
   --header-h:   60px;
   --header-h-m: 52px;
+  --header-clear: calc(var(--header-h) + 1px + env(safe-area-inset-top)); /* 吸顶顶栏占位（含 1px 底边与顶部安全区）：页内吸顶元素与锚点让位 */
   --tabbar-h:   56px;   /* 内容区高度；总高 = --tabbar-h + safe-area */
-  --tabbar-clear: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); /* 手机底栏让位（公开页页脚与工作台正文共用此一条） */
+  --tabbar-clear: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); /* 手机底栏让位（公开页正文与工作台正文共用此一条） */
   --sidebar-w:  232px;
   --rail-w:     260px;
   --rail-w-wide:320px;
@@ -170,8 +171,6 @@
   --w-content:  1040px;
   --w-wide:     1200px;
   --w-form:     400px;  /* 框架 E 单卡 */
-  /* 全站顶栏毛玻璃底（DESIGN_SYSTEM 2.3：白色 86% 透明 + backdrop 模糊） */
-  --header-glass: rgba(255, 255, 255, .86);
 
   /* ── 版式层 token ─────────────────────────────────────────── */
   /* z-index 阶梯：内容 < 粘性侧栏 < 顶栏 < 菜单/浮层 < Toast */
@@ -204,6 +203,7 @@
 /* 手机档的卡片内边距与分区节奏降档（与 --bp-s 同一断点） */
 @media (max-width: 640px) {
   :root {
+    --header-clear: calc(var(--header-h-m) + 1px + env(safe-area-inset-top));
     --pad-card: 16px;
     --sp-section: 32px;
     --sp-section-gap: 12px;

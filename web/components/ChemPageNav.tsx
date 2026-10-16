@@ -4,9 +4,9 @@
  * ChemPageNav — 化合物详情页内导航（DESIGN_SYSTEM 6.3）。
  *
  * 两个形态共用一份 section 列表与高亮逻辑（IntersectionObserver）：
- * - variant="rail"：桌面右侧栏列表，sticky top var(--sp-6)，当前项
+ * - variant="rail"：桌面右侧栏列表，sticky 在顶栏下方，当前项
  *   var(--action) + 2px 左边线（参考 .rail nav）。
- * - variant="tabs"：≤900 顶部横向 Tabs，position:sticky; top:0，可横向滚动，
+ * - variant="tabs"：≤900 顶部横向 Tabs，吸顶在顶栏下方（top: var(--header-clear)），可横向滚动，
  *   点击跳锚点（目标 section 由 CSS scroll-margin-top 让位）。
  *
  * sections 由服务端传入——只包含页面上实际渲染的节。

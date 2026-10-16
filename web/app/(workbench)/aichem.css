@@ -8,9 +8,8 @@
    L2 — Shell
    ═══════════════════════════════════════════════════════════════ */
 .wb-shell {
-  /* 工作台独立壳(手机端 fixed inset:0, 桌面 md+ 静态), 与主站滚动模型独立 */
-  position: fixed;
-  inset: 0;
+  /* 工作台壳：在满屏框架（shell.css .sh-frame）内填满顶栏以下的剩余高度，随文档滚动 */
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1273,36 +1272,23 @@
    v1.7 Step 5：手机断点与全站统一为 ≤640（SiteHeader 手机态 + MobileTabBar）。
    641–1024 平板区间：顶栏主导航进「更多」菜单，工作台保持桌面布局。 */
 @media (min-width: 641px) {
-  /* 桌面为静态文档流: 短内容时壳高度需至少覆盖视口, 否则露出 body 异色断层 */
-  .wb-shell { position: static; min-height: 100dvh; background: var(--wb-paper); }
   .wb-burger { display: none; }
 }
 
 /* ── 手机 ≤640px ──
-   Step 10：改为文档滚动 —— 壳脱离 fixed inset:0，.wb-body/.wb-main 不再
-   自持 overflow；页面由 document 整体滚动，底部 tab（shell.css .sh-tabbar）
+   文档滚动：.wb-body/.wb-main 不自持 overflow；页面由 document 整体滚动，底部 tab（shell.css .sh-tabbar）
    保持 fixed。.wb-main 底部让出 tabbar 高度（含安全区），最后一项不被遮挡。
-   全站 sticky 元素核查：工作台域内无 sticky（顶栏本就不吸顶、无本页导航），
+   全站 sticky 元素核查：工作台域内只有全站顶栏吸顶（无本页导航），
    化合物页 ChemPageNav 在 (site) 域不受影响。 */
 @media (max-width: 640px) {
-  .wb-shell {
-    position: static;
-    overflow: visible;
-    min-height: 100dvh;
-    /* 让位改由 .wb-main 底部 padding 提供（fixed 底栏叠加在文档滚动之上） */
-    padding-bottom: 0;
-  }
+  .wb-shell { overflow: visible; }
   .wb-body { overflow: visible; }
   .wb-main {
     overflow: visible;
     padding: var(--wb-sp-4);
-    /* 底栏让位全站一条规则：--tabbar-clear（含安全区），与公开页页脚共用；
+    /* 底栏让位全站一条规则：--tabbar-clear（含安全区），与公开页正文共用；
        触控行高增大后末项距底栏余量不足，另加 sp-6 呼吸 */
     padding-bottom: calc(var(--tabbar-clear) + var(--wb-sp-6));
-  }
-  /* PWA 独立窗口：让位含安全区（叠加在 .wb-main padding 之上，此处不再重复） */
-  @media (display-mode: standalone) {
-    .wb-shell { padding-bottom: 0; }
   }
 
   /* 隐藏桌面侧栏，用抽屉替代（汉堡按钮在 SiteHeader mobileActions 插槽，
