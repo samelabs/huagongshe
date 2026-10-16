@@ -47,6 +47,8 @@ def password_matches(password: str, encoded: str) -> bool:
 
 
 def actor_payload(actor: Actor) -> dict:
+    # 会话/API Key 只在在用账号上成立(停用即全部撤销) —— active 恒为真,
+    # 与其余用户投影的四字段口径一致。
     return {
         "id": actor.id,
         "username": actor.username,
@@ -54,6 +56,7 @@ def actor_payload(actor: Actor) -> dict:
         "email": actor.email,
         "role": actor.role,
         "avatar_url": actor.avatar_path,
+        "active": True,
         "auth_kind": actor.auth_kind,
     }
 

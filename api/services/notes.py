@@ -288,12 +288,12 @@ async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
     # G2/P-1: hidden notes 404 for everyone (including the owner); private
     # notes only for the owning session; public+visible notes anonymously.
     # HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用作者的公开笔记保留可见 ——
-    # 不再经 users join 的 status='active' 过滤, 由 owner_active 标记
+    # 不再经 users join 的 status='active' 过滤, 由 active 标记
     # 让前端渲染「已停用」; 私有笔记仍实际不可达(停用即撤销全部会话)。
     row = (await db.execute(text("""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
                n.created_at,n.updated_at,u.username,u.display_name,
-               (u.status='active') AS owner_active
+               u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
         JOIN community.users u ON u.id=n.owner_user_id
         WHERE n.id=:id
@@ -434,7 +434,8 @@ async def list_my_notes(
     """), params)).scalar() or 0)
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
-               n.created_at,n.updated_at,u.username,u.display_name
+               n.created_at,n.updated_at,u.username,u.display_name,
+               u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
         JOIN community.users u ON u.id=n.owner_user_id
         WHERE {where}
@@ -475,7 +476,8 @@ async def list_public_user_notes(
     """), params)).scalar() or 0)
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
-               n.created_at,n.updated_at,u.username,u.display_name
+               n.created_at,n.updated_at,u.username,u.display_name,
+               u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
         JOIN community.users u ON u.id=n.owner_user_id AND u.status='active'
         WHERE {base_where}
@@ -528,11 +530,11 @@ async def list_entity_notes(
           AND n.moderation_status='visible'
     """), params)).scalar() or 0)
     # HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用作者的公开笔记保留可见,
-    # owner_active 供前端渲染「已停用」标记。
+    # active 供前端渲染「已停用」标记。
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
                n.created_at,n.updated_at,u.username,u.display_name,
-               (u.status='active') AS owner_active
+               u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
         {join}
         JOIN community.users u ON u.id=n.owner_user_id
