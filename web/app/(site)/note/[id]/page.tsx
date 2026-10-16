@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { NoteOwnerActions } from "@/components/NoteOwnerActions";
-import { Avatar } from "@/components/ui/Avatar";
+import { Byline } from "@/components/ui/Byline";
 import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { IconLock } from "@/components/ui/icons";
@@ -122,10 +121,7 @@ export default async function NoteDetailPage({ params }: Params) {
         <header className="note-detail-head">
           <h1>{title}</h1>
           <div className="note-detail-meta">
-            <Avatar id={note.owner_user_id} name={authorLine} src={note.avatar_url || undefined} size={24} />
-            <Link href={withLocale(`/user/${encodeURIComponent(note.username)}`, locale)}>{authorLine}</Link>
-            {note.active === false && <Tag tone="neutral" dot>{t.user.authorDeactivated}</Tag>}
-            <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
+            <Byline user={note} time={new Date(note.updated_at).toLocaleDateString(locale)} size={32} />
             {note.visibility === "public"
               ? <Tag tone="blue">{t.notes.visibilityPublic}</Tag>
               : <Tag icon={<IconLock />}>{t.notes.visibilityPrivate}</Tag>}

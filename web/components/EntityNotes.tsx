@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Avatar } from "@/components/ui/Avatar";
+import { Byline } from "@/components/ui/Byline";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { apiGet, isApiNotFound, type NoteResponse } from "@/lib/api";
@@ -100,11 +100,7 @@ export function EntityNotes({ entity, entityId, canAdd, privateContext }: {
         <div className="entity-note-list">
           {data.items.map((note) => (
             <article className="entity-note-card" key={note.id}>
-              <header className="entity-note-meta">
-                <Avatar id={note.owner_user_id} name={note.display_name || note.username} src={note.avatar_url || undefined} size={24} />
-                <Link href={withLocale(`/user/${note.username}`, locale)}>{note.display_name || `@${note.username}`}</Link>
-                <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
-              </header>
+              <Byline user={note} time={new Date(note.updated_at).toLocaleDateString(locale)} />
               <p className="note-clamp-2">{note.content}</p>
               {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
                 <div className="entity-note-links">

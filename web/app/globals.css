@@ -1304,17 +1304,11 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
 .entity-notes-heading{display:flex;align-items:end;justify-content:space-between;gap:16px}
 .entity-note-list{display:grid;gap:12px;min-width:0;max-width:100%}
 .entity-note-card{border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;background:var(--bg-surface);min-width:0;max-width:100%}
-.entity-note-card>header{display:flex;justify-content:space-between;gap:12px;font-size:var(--fs-13);color:var(--text-muted)}
-.entity-note-card>header a{font-weight:600;color:inherit;text-decoration:none}
 .entity-note-card>p{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.65;margin:10px 0 0;min-width:0}
 .entity-note-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 /* v1.7 EntityBadge 自带边框/底色 —— 外层链接只负责布局,不再画胶囊(避免双层边框) */
 .entity-note-links>a{display:inline-flex;text-decoration:none}
-/* v1.7 Step 6：公开笔记卡头部（Avatar 24 + 名字 + 日期）与两行摘要 */
-.entity-note-meta{display:flex;align-items:center;gap:var(--sp-2)}
-.entity-note-meta .hg-avatar{flex:none}
-.entity-note-meta a{color:var(--text);font-weight:500}
-.entity-note-meta time{color:var(--text-muted)}
+/* 公开笔记卡两行摘要（署名用 ui/Byline） */
 .note-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;min-width:0}
 
 /* ── Phase 1c: Notes 产品闭环 ── */
@@ -1324,10 +1318,7 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
 /* P-1: Note 详情页（6.5：外层容器 wide，正文限 reading 宽度左对齐） */
 .note-detail-page .note-detail{max-width:var(--w-reading)}
 .note-detail-head h1{font-size:var(--fs-28);font-weight:650;letter-spacing:var(--ls-title);line-height:1.25;margin:0 0 var(--sp-2);overflow-wrap:anywhere}
-.note-detail-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);font-size:var(--fs-13);color:var(--text-muted)}
-.note-detail-meta .hg-avatar{flex:none}
-.note-detail-meta a{font-weight:500;color:var(--text)}
-.note-detail-meta a:hover{color:var(--action)}
+.note-detail-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2) var(--sp-3)}
 .note-owner-actions{display:flex;gap:var(--sp-2);margin-top:var(--sp-6)}
 .note-detail-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:var(--lh-prose);margin:var(--sp-4) 0 0;font-size:var(--fs-16)}
 .note-detail-links{margin-top:var(--sp-3)}
