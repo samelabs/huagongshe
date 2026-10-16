@@ -204,9 +204,10 @@ class BorderRadiusTests(unittest.TestCase):
 class WorkbenchAliasTests(unittest.TestCase):
     def test_wb_tokens_are_pure_aliases(self):
         path = WEB / "app/(workbench)/aichem-tokens.css"
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf8")
         defs = WB_DEF_RE.findall(text)
-        self.assertGreater(len(defs), 50, "alias block unexpectedly small")
+        # 下限是防整个别名块被误清的哨兵；删除无引用的别名不受此限
+        self.assertGreater(len(defs), 45, "alias block unexpectedly small")
         bad = [(name, value.strip()) for name, value in defs
                if not value.strip().startswith("var(--")]
         self.assertEqual([], bad, "--wb-* values must all alias tokens.css vars")

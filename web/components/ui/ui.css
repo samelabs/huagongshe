@@ -124,7 +124,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-btn.danger.is-active { background: var(--err-pressed); }
 .hg-btn.danger-quiet { background: var(--bg-surface); color: var(--err); border-color: var(--err-border); }
 .hg-btn.danger-quiet:hover, .hg-btn.danger-quiet.is-hover { background: var(--err-bg); }
-.hg-btn:disabled, .hg-btn.is-disabled { background: var(--bg-subtle); color: var(--text-disabled); border-color: transparent; cursor: not-allowed; transform: none; }
+.hg-btn:disabled { background: var(--bg-subtle); color: var(--text-disabled); border-color: transparent; cursor: not-allowed; transform: none; }
 .hg-btn.is-focus { outline: 2px solid var(--focus); outline-offset: 2px; }
 .hg-btn.icon { width: var(--bh); padding: 0; }
 .hg-btn[aria-busy="true"] { cursor: progress; opacity: .85; }
@@ -311,15 +311,15 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-tabs .ct { font-size: var(--fs-12); color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
 /* 溢出 24px 渐隐（DESIGN_SYSTEM 3.7） */
-.hg-fade-r, [data-fade="right"] {
+[data-fade="right"] {
   mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
 }
-.hg-fade-l, [data-fade="left"] {
+[data-fade="left"] {
   mask-image: linear-gradient(to right, transparent 0, black 24px, black 100%);
   -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px, black 100%);
 }
-.hg-fade-b, [data-fade="both"] {
+[data-fade="both"] {
   mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
   -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
 }
@@ -539,15 +539,6 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
     width: var(--touch-min);
     height: var(--touch-min);
   }
-}
-
-/* ══ ActionGroup & Menu（DESIGN_SYSTEM 5.5 / IX-10 / IX-11） ══ */
-.hg-action-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2);
-  min-width: 0;
 }
 .hg-menu-wrap {
   position: relative;

@@ -61,5 +61,4 @@
   .du-box { padding: var(--sp-4); }
   .du-g2, .du-g3 { grid-template-columns: minmax(0, 1fr); }
   .du-eb-grid { grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1fr); }
-  .chem-kv > div { grid-template-columns: 96px minmax(0, 1fr) !important; }
 }
