@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * LayoutSamples — 版式样张的四张页面组合（/dev-ui/layout-samples，noindex）。
+ * LayoutSamples — 版式基准预览的四张页面组合（/dev-ui/layout-samples，noindex）。
  *
  * 只用版式件（PageFrame/PageHead/Section/CardPanel/InfoRow/Byline）与现有
  * 原子组件；数据全部来自真实后端（化合物 996 详情、用户发布的公开反应、
- * 真实检索结果、MCP 指南同款文案）。用于视觉基准定稿，定稿前这些版式件
+ * 真实检索结果、MCP 指南同款文案）。用于视觉基准评审，基准未经确认前这些版式件
  * 不得用于正式页面。
  */
 import { useEffect, useState } from "react";
@@ -38,7 +38,7 @@ const SAMPLE_TABS: ReadonlyArray<{ value: SampleKey; label: string }> = [
   { value: "mcp", label: "MCP 指南" },
 ];
 
-/* ── 化合物详情样张（HCID 996）────────────────────────────────── */
+/* ── 化合物详情（HCID 996）────────────────────────────────── */
 
 function ChemicalSample() {
   const [chem, setChem] = useState<Chemical | null>(null);
@@ -149,7 +149,7 @@ function ChemicalSample() {
   );
 }
 
-/* ── 反应详情样张（用户发布的公开反应 + 私有头部示意）────────── */
+/* ── 反应详情（用户发布的公开反应 + 私有头部示意）────────── */
 
 function ReactionSample() {
   const [rx, setRx] = useState<ReactionDetail | null>(null);
@@ -236,7 +236,7 @@ function ReactionSample() {
   );
 }
 
-/* ── 搜索结果样张 ─────────────────────────────────────────────── */
+/* ── 搜索结果 ─────────────────────────────────────────────── */
 
 function SearchSample() {
   const [res, setRes] = useState<SearchResponse | null>(null);
@@ -271,7 +271,7 @@ function SearchSample() {
   );
 }
 
-/* ── MCP 指南样张 ─────────────────────────────────────────────── */
+/* ── MCP 指南 ─────────────────────────────────────────────── */
 
 function McpSample() {
   const t = useDictionary();
@@ -330,7 +330,7 @@ export function LayoutSamplesClient() {
         options={SAMPLE_TABS.map((s) => ({ value: s.value, label: s.label }))}
         value={tab}
         onChange={(v) => setTab(v)}
-        ariaLabel="样张切换"
+        ariaLabel="页面切换"
       />
       {tab === "chemical" && <ChemicalSample />}
       {tab === "reaction" && <ReactionSample />}

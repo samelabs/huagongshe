@@ -63,7 +63,7 @@
   .du-eb-grid { grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1fr); }
 }
 
-/* ── 版式样张页（/dev-ui/layout-samples）的组合辅助 ── */
+/* ── 版式基准预览页（/dev-ui/layout-samples）的组合辅助 ── */
 .du-samples .hg-seg-wrap { margin-block: var(--sp-6); }
 .du-sample-stack .hg-card-panel + .hg-card-panel,
 .du-sample-stack > .hg-card-panel { margin-block-start: var(--sp-4); }
