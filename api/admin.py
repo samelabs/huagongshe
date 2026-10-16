@@ -440,6 +440,7 @@ async def list_categories(actor: Actor = Depends(admin), db=Depends(get_db)):
         SELECT id,name,abbr,color,sort_order,active,
                (SELECT count(*) FROM community.skills s WHERE s.category=c.name) AS skill_count
         FROM community.skill_categories c ORDER BY sort_order, id
+        LIMIT 200  -- I-083: 接口有界(管理端维护的分类清单, 实际规模个位到十位)
     """))).mappings().all()
     return [dict(r) for r in rows]
 
