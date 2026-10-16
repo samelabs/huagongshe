@@ -863,19 +863,8 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .skills-hero h1 {
   /* 对齐公共 page-head 标度(guide/mcp-guide 同款), 不再自成一套 */
   font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); color: var(--text);
-  margin: 0 0 10px; letter-spacing: -.008em; line-height: 1.28;
+  margin: 0 0 var(--sp-4); letter-spacing: -.008em; line-height: 1.28;
 }
-
-/* 副标题与来源:统一字号,避免大小不一 */
-.skills-subtitle {
-  font-size: var(--fs-16); color: var(--text-2);
-  margin: 0 0 6px; line-height: 1.6; max-width: 680px;
-}
-.skills-source {
-  font-size: var(--fs-16); color: var(--text-muted);
-  margin: 0 0 18px; line-height: 1.6;
-}
-.skills-source a { color: var(--action); }
 
 /* 搜索框 */
 .skills-search-bar { max-width: 480px; }
@@ -1023,8 +1012,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .skills-hero { padding: 24px 0 20px; }
   .skills-hero-inner { width: calc(100% - 24px); }
   .skills-hero h1 { font-size: var(--fs-28); }
-  .skills-subtitle { font-size: var(--fs-12); }
-  .skills-source { font-size: var(--fs-12); }
   .skills-cats { width: calc(100% - 24px); padding: 12px 0; gap: 6px; }
   .skills-cat { padding: 5px 10px; font-size: var(--fs-12); }
   .skills-content { width: calc(100% - 24px); padding: 16px 0 32px; }

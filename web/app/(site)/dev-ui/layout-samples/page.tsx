@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { LayoutSamplesClient } from "@/components/ui/LayoutSamples";
+import "../dev-ui.css";
 
 /**
  * /dev-ui/layout-samples —— 版式基准预览页（noindex，非 production 界面）。

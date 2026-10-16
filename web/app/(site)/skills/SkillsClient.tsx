@@ -118,12 +118,6 @@ export function SkillsClient({
             ariaLabel={t.common.breadcrumb}
           />
           <h1>{t.skills.heroTitle}</h1>
-          <p className="skills-subtitle">
-            {t.skills.heroSubtitle(skills.length)}
-          </p>
-          <p className="skills-source">
-            {t.skills.heroSource}
-          </p>
           <div className="skills-search-bar">
             <Input
               type="text"
