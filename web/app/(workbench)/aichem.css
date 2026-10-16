@@ -603,22 +603,15 @@
   .wb-row-side .wb-row-actions { margin-left: auto; }
 }
 
-/* 我的主页卡片 */
-.wb-profile-top { display: flex; align-items: center; gap: var(--wb-sp-3); }
-.wb-profile-id { flex: 1; min-width: 0; display: grid; }
-.wb-profile-id strong { font-size: var(--wb-fs); color: var(--wb-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wb-profile-id small { font-size: var(--wb-fs-sm); color: var(--wb-quiet); }
-.wb-profile-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-top: 1px solid var(--wb-line);
-  border-bottom: 1px solid var(--wb-line);
-  padding: var(--wb-sp-2) 0;
+/* 抽屉底部：退出登录（手机端唯一登出入口，与桌面头像菜单共用 useLogout） */
+.wb-drawer-foot { border-top: 1px solid var(--wb-line); padding: var(--wb-sp-2) var(--wb-sp-3); }
+.wb-drawer-logout {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: var(--touch-min);
+  border: 0; border-radius: var(--wb-r-sm); background: none;
+  font-size: var(--wb-fs); color: var(--err); cursor: pointer;
 }
-.wb-profile-stats a { display: grid; justify-items: center; gap: 2px; }
-.wb-profile-stats strong { font-size: var(--fs-22); font-weight: 650; color: var(--wb-ink); font-variant-numeric: tabular-nums; }
-.wb-profile-stats span { font-size: var(--wb-fs-sm); color: var(--wb-quiet); }
-.wb-profile-cta { width: 100%; }
+.wb-drawer-logout:hover { background: var(--err-bg); }
 
 /* 关注动态（v1.7 只有 new_reaction） */
 .wb-feed-list { display: flex; flex-direction: column; gap: var(--wb-sp-4); }

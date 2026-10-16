@@ -4,28 +4,25 @@
  * MobileTabBar — 手机底部 4 tab（DESIGN_SYSTEM 2.3）。
  *
  * 首页 / · 工作台 /aichem · 动态 /aichem?tab=activity（未读徽标，
- * 未登录跳登录）· 我的（已登录弹菜单：我的主页/工作台/设置/退出；未登录跳 /login）。
+ * 未登录跳登录）· 我的（直接落「我的主页」/user/{username}——公开主页
+ * 区分主人态/游客态，主人态承载设置入口与身份操作；未登录跳 /login）。
  * 高度 var(--tabbar-h) + safe-area 底部内边距；当前 tab 用 var(--action)。
  * 内容区 56，safe-area 作为下方 padding，图标 20，文字和图标垂直居中。
  * 未读数来自 SiteHeader 的 ShellUnreadContext（/users/me/dashboard，同一来源）。
  * ≤640px 显示。
  */
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale, stripLocalePrefix } from "@/lib/localePath";
 import { useShellUnread } from "./ShellUnread";
-import { useToast } from "@/components/ui/Toast";
-import { useDismissableMenu } from "@/lib/useDismissableMenu";
 import { IconHome, IconWorkbench, IconBell, IconUser } from "@/components/ui/icons";
 
 export function MobileTabBar() {
-  const { user, clear } = useAccount();
+  const { user } = useAccount();
   const t = useDictionary();
   const locale = useLocale();
-  const router = useRouter();
-  const toast = useToast();
   const unread = useShellUnread();
   const pathname = usePathname();
   const routePath = stripLocalePrefix(pathname ?? "/");
@@ -45,23 +42,6 @@ export function MobileTabBar() {
   const isMeActive = isOwnProfile || routePath.startsWith("/me/settings") || isAuthPage;
   const isHomeActive = (routePath === "/" || routePath === "")
     || (!isAuthPage && !isWorkbench && !isActivity && !isMeActive);
-
-  const menu = useDismissableMenu();
-  const { open, setOpen, close } = menu;
-
-  async function logout() {
-    setOpen(false);
-    try {
-      const res = await fetch("/api/auth/logout", { method: "POST" });
-      if (!res.ok) throw new Error(`logout ${res.status}`);
-    } catch {
-      toast.error(t.nav.logoutFailed);
-      return;
-    }
-    clear();
-    router.push(withLocale("/", locale));
-    router.refresh();
-  }
 
   return (
     <nav className="sh-tabbar" aria-label={t.nav.bottomNav}>
@@ -91,39 +71,14 @@ export function MobileTabBar() {
         {user && unread > 0 && <i className="sh-tab-badge" aria-label={t.nav.unreadCount(unread)}>{unread}</i>}
       </Link>
       {user ? (
-        <div className="sh-tab-wrap" ref={menu.rootRef} onKeyDown={menu.onKeyDown}>
-          <button
-            ref={menu.triggerRef}
-            type="button"
-            className={`sh-tab${isMeActive || open ? " on" : ""}`}
-            aria-haspopup="menu"
-            aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
-          >
-            <IconUser />
-            {t.nav.tabMe}
-          </button>
-          {open && (
-            <div className="sh-tab-panel" role="menu">
-              <div className="sh-menu-head">
-                <strong>{user.display_name}</strong>
-                <span>@{user.username}</span>
-              </div>
-              <Link role="menuitem" data-menu-item href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)} onClick={close}>
-                {t.nav.myProfile}
-              </Link>
-              <Link role="menuitem" data-menu-item href={withLocale("/aichem", locale)} onClick={close}>
-                {t.nav.tabWorkbench}
-              </Link>
-              <Link role="menuitem" data-menu-item href={withLocale("/me/settings/profile", locale)} onClick={close}>
-                {t.nav.settings}
-              </Link>
-              <button role="menuitem" data-menu-item type="button" className="sh-menu-logout" onClick={() => void logout()}>
-                {t.nav.logout}
-              </button>
-            </div>
-          )}
-        </div>
+        <Link
+          href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)}
+          className={`sh-tab${isMeActive ? " on" : ""}`}
+          aria-current={isMeActive ? "page" : undefined}
+        >
+          <IconUser />
+          {t.nav.tabMe}
+        </Link>
       ) : (
         <Link
           href={withLocale("/login", locale)}

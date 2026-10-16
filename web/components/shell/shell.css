@@ -141,7 +141,6 @@
 @media (max-width: 640px) {
   .sh-tabbar { display: grid; }
 }
-.sh-tab-wrap { position: relative; width: 100%; height: var(--tabbar-h); display: flex; }
 .sh-tab {
   position: relative;
   display: flex;
@@ -175,39 +174,6 @@
   border-radius: var(--r-pill);
   padding: 2px 5px;
 }
-.sh-tab-panel {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  right: 8px;
-  z-index: 60;
-  min-width: 200px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-float);
-  padding: var(--sp-1);
-  display: grid;
-  text-align: left;
-}
-.sh-tab-panel a, .sh-tab-panel button {
-  display: flex; align-items: center; gap: var(--sp-2);
-  padding: 8px var(--sp-3);
-  border-radius: var(--r-xs);
-  font-size: var(--fs-14);
-  color: var(--text-2);
-  text-decoration: none;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
-  white-space: nowrap;
-  width: 100%;
-}
-.sh-tab-panel a:hover, .sh-tab-panel button:hover { background: var(--bg-hover); color: var(--text); }
-.sh-tab-panel a.on { color: var(--text); background: var(--bg-subtle); font-weight: 500; }
-.sh-tab-panel a:focus-visible, .sh-tab-panel button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.sh-tab-panel .sh-menu-logout { color: var(--err); }
-.sh-tab-panel .sh-menu-logout:hover { background: var(--err-bg); color: var(--err); }
 
 @media (prefers-reduced-motion: reduce) {
   .sh-menu-trigger .sh-chev { transition: none; }

@@ -32,6 +32,7 @@ import { IconBell, IconChevron } from "@/components/ui/icons";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { ShellUnreadProvider, useShellUnread } from "./ShellUnread";
 import { useToast } from "@/components/ui/Toast";
+import { useLogout } from "@/components/shared/useLogout";
 import { MobileTabBar } from "./MobileTabBar";
 
 type NavItem = { href: string; label: string; match: (routePath: string) => boolean };
@@ -137,27 +138,9 @@ function HeaderBell({ user }: { user: User | null }) {
 function UserMenu({ user }: { user: User }) {
   const t = useDictionary();
   const locale = useLocale();
-  const router = useRouter();
-  const toast = useToast();
-  const { clear } = useAccount();
   const menu = useDismissableMenu();
   const { open, setOpen, close } = menu;
-
-  async function logout() {
-    setOpen(false);
-    // FX-12（SMK-010 / HGS-LOGOUT-FAIL-01）：登出失败（500/网关错误）不得
-    // 清空本地会话假装成功 —— Toast err、保持登录态、不跳转（IX-12）
-    try {
-      const res = await fetch("/api/auth/logout", { method: "POST" });
-      if (!res.ok) throw new Error(`logout ${res.status}`);
-    } catch {
-      toast.error(t.nav.logoutFailed);
-      return;
-    }
-    clear();
-    router.push(withLocale("/", locale));
-    router.refresh();
-  }
+  const logout = useLogout();
 
   return (
     <div className={`sh-menu${open ? " open" : ""}`} ref={menu.rootRef} onKeyDown={menu.onKeyDown}>
@@ -191,7 +174,7 @@ function UserMenu({ user }: { user: User }) {
           <Link role="menuitem" data-menu-item href={withLocale("/me/settings/profile", locale)} onClick={close}>
             {t.nav.settings}
           </Link>
-          <button role="menuitem" data-menu-item type="button" className="sh-menu-logout" onClick={() => void logout()}>
+          <button role="menuitem" data-menu-item type="button" className="sh-menu-logout" onClick={() => { close(); void logout(); }}>
             {t.nav.logout}
           </button>
         </div>

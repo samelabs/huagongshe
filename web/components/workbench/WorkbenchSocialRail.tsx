@@ -3,14 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAccount } from "@/components/shared/AccountContext";
-import { useWorkbenchCounts } from "./WorkbenchCountsContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
-import { Avatar } from "@/components/ui/Avatar";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { IconShare, GlyphRx } from "@/components/ui/icons";
-import { useToast } from "@/components/ui/Toast";
+import { GlyphRx } from "@/components/ui/icons";
 import { apiGet } from "@/lib/api";
 import { ActivityFeedCard } from "./shared";
 import type { Notice, NoticeResponse, PageResponse, Reaction } from "./types";
@@ -28,10 +24,8 @@ export function WorkbenchSocialRail({
   initialFavoredIds?: number[] | null;
 }) {
   const { user } = useAccount();
-  const { counts } = useWorkbenchCounts();
   const t = useDictionary();
   const locale = useLocale();
-  const toast = useToast();
 
   const [feedItems, setFeedItems] = useState<Notice[]>(() => initialNotices?.items.slice(0, 5) ?? []);
   const [favoredIds, setFavoredIds] = useState<Set<number>>(() => new Set(initialFavoredIds ?? []));
@@ -62,43 +56,10 @@ export function WorkbenchSocialRail({
 
   if (!user) return null;
 
-  function shareProfile() {
-    const link = `https://huagongshe.com/u/${encodeURIComponent(user!.username)}`;
-    void navigator.clipboard?.writeText(link);
-    toast.success(t.me.profileLinkCopied);
-  }
-
   return (
     <div className="wb-home2-col-side">
-      {/* ── 我的主页卡片 ── */}
-      <section className="wb-card wb-profile-card" data-area="profile">
-        <div className="wb-profile-top">
-          <Avatar id={user.id} name={user.display_name} src={user.avatar_url} size={40} />
-          <div className="wb-profile-id">
-            <strong>{user.display_name}</strong>
-            <small>@{user.username}</small>
-          </div>
-          <Button variant="ghost" iconOnly aria-label={t.me.profileShareLabel} onClick={shareProfile}>
-            <IconShare />
-          </Button>
-        </div>
-        <div className="wb-profile-stats">
-          <Link href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)}>
-            <strong>{counts?.public_reactions ?? 0}</strong><span>{t.user.publicReactions}</span>
-          </Link>
-          <Link href={withLocale("/aichem?tab=followers", locale)}>
-            <strong>{counts?.followers ?? 0}</strong><span>{t.user.followers}</span>
-          </Link>
-          <Link href={withLocale("/aichem?tab=following", locale)}>
-            <strong>{counts?.following ?? 0}</strong><span>{t.user.following}</span>
-          </Link>
-        </div>
-        <Button variant="secondary" size="sm" className="wb-profile-cta" href={withLocale(`/user/${encodeURIComponent(user.username)}`, locale)}>
-          {t.me.profileViewPublic}
-        </Button>
-      </section>
-
-      {/* ── 关注动态 ── */}
+      {/* ── 关注动态（6.7 社交列；「我的主页卡片」已移除 —— 身份与分享
+          由顶栏头像菜单、手机抽屉与个人主页承载，卡片在每个 Tab 重复出现属冗余） ── */}
       <section className="wb-card wb-feed-card" data-area="feed">
         <div className="wb-card-head">
           <h3>{t.me.tabActivity}</h3>
