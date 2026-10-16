@@ -17,7 +17,7 @@
 
 ```bash
 cd local/stack
-cp .env.local.example .env.local 2>/dev/null || true   # 已随目录带出则跳过
+cp .env.local.example .env.local   # 模板已入库；改掉两处 change-me 即可
 docker compose --env-file .env.local up -d --build      # db/redis/api
 ./seed.py 2>/dev/null || true                          # 可选：演示数据
 ```

@@ -259,7 +259,7 @@ def main() -> None:
     # 不出现在任何生产迁移/部署脚本；幂等（重复 UPDATE 同值）。
     promote_admin = subprocess.run(
         ["docker", "compose", "--env-file", ".env.local", "exec", "-T", "db", "su", "postgres", "-s", "/bin/bash", "-c",
-         "/usr/lib/postgresql/16/bin/psql -d hgs_local -c \"UPDATE community.users SET role='admin' WHERE username='hgs_admin'\""],
+         f"/usr/lib/postgresql/16/bin/psql -d {ENV.get('HGS_DB_NAME', 'hgs_local')} -c \"UPDATE community.users SET role='admin' WHERE username='hgs_admin'\""],
         cwd=str(STACK), capture_output=True, text=True)
     if promote_admin.returncode != 0:
         sys.exit(f"promote hgs_admin failed: {promote_admin.stderr[:200]}")

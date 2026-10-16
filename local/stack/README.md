@@ -18,7 +18,7 @@
 ## 起停
 
 ```bash
-cd _(已收编至 local/stack)_/tools/stack
+cd local/stack
 docker compose --env-file .env.local up -d          # 起（首次会 build + initdb + pip install，几分钟）
 docker compose --env-file .env.local ps             # 状态
 docker compose --env-file .env.local logs -f api    # 看 api 日志（迁移/uvicorn）
@@ -75,7 +75,7 @@ runtime 用 localhost 是故意的，跑测试时覆盖回来）、**干净的 t
 venv python、HGS_PUBLIC_BASE_URL 对齐 CI、pristine test_hgs）：**
 
 ```bash
-cd _(已收编至 local/stack)_/tools/stack
+cd local/stack
 PW=$(grep HGS_DB_PASSWORD .env.local | cut -d= -f2)
 
 # 1) 重置 test_hgs 到 pristine（baseline + bootstrap + migrate）
