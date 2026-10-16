@@ -110,7 +110,7 @@ PG 方能生效，其余为 reload 级。
 
 **needrestart**（Debian/Ubuntu 自动重启策略）：生产配置为**只列出、不自动重启**
 的模式——包升级后需要重启的服务（含 PG major 升级后的 `postgresql`、`nginx` 等）
-只出现在 needrestart 报告里，由 PM 按维护窗口人工决定；`ops.deploy` 的 pm2 托管
+只出现在 needrestart 报告里，由值班人按维护窗口人工决定；`ops.deploy` 的 pm2 托管
 应用不经过 needrestart。
 
 ### 公网冒烟（部署后必过，任一失败 deploy 非零退出）
