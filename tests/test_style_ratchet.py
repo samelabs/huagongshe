@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unittest
 
-from . import style_ratchet
+from tests import style_ratchet
 
 
 class StyleLiteralRatchetTests(unittest.TestCase):

@@ -13,6 +13,7 @@ import { useSearchParams } from "next/navigation";
 
 import { apiGet, molSvgUrl, reactionSvgUrl, type Chemical, type NoteItem, type ReactionDetail, type SearchResponse } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
+import { resolveChemicalName } from "@/lib/chemicalName";
 import { Avatar } from "./Avatar";
 import { Breadcrumb } from "./Breadcrumb";
 import { Button } from "./Button";
@@ -41,6 +42,7 @@ const SAMPLE_TABS: ReadonlyArray<{ value: SampleKey; label: string }> = [
 /* ── 化合物详情（HCID 996）────────────────────────────────── */
 
 function ChemicalSample() {
+  const t = useDictionary();
   const [chem, setChem] = useState<Chemical | null>(null);
   const [notes, setNotes] = useState<NoteItem[]>([]);
   useEffect(() => {
@@ -55,7 +57,7 @@ function ChemicalSample() {
     ?.entries ?? {});
   const ghsValues = Object.values(ghs).flat().slice(0, 4).map((e) => e.value);
   const safety = det?.safety?.cb_safety ?? null;
-  const name = chem.name_cn || chem.preferred_name || "HCID 996";
+  const name = resolveChemicalName(chem, t.common.hcidLabel).title;
   return (
     <PageFrame>
       <PageHead
@@ -239,6 +241,7 @@ function ReactionSample() {
 /* ── 搜索结果 ─────────────────────────────────────────────── */
 
 function SearchSample() {
+  const t = useDictionary();
   const [res, setRes] = useState<SearchResponse | null>(null);
   useEffect(() => {
     apiGet<SearchResponse>("/search?q=phenol&mode=exact&page=1&page_size=20").then(setRes).catch(() => setRes(null));
@@ -257,7 +260,7 @@ function SearchSample() {
             <CardPanel key={c.id} className="du-sample-search-card">
               <span className="du-sample-search-title">
                 <EntityBadge kind="chemical" id={c.id} size="sm" href={`/chemical/${c.id}`} />
-                <TextLink href={`/chemical/${c.id}`}>{c.name_cn || c.preferred_name || `化合物 ${c.id}`}</TextLink>
+                <TextLink href={`/chemical/${c.id}`}>{resolveChemicalName(c, t.common.hcidLabel).title}</TextLink>
                 {c.molecular_formula && <Tag>{c.molecular_formula}</Tag>}
               </span>
               {c.cas_numbers && c.cas_numbers.length > 0 && (
