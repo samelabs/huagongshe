@@ -10,7 +10,7 @@
 /* 作用域：.wb-shell（工作台布局）+ .sh-header（根布局顶栏）。
    WbMobileNav 抽屉 / WbCreateMenu 挂在 SiteHeader 的 mobileActions 插槽，
    DOM 上是 .wb-shell 的兄弟子树 —— 不加 .sh-header 时其内 var(--wb-*) 全部
-   解析为空，抽屉面板与遮罩透明、布局散架（真机首报「抽屉无样式」）。 */
+   解析为空，抽屉面板与遮罩透明、布局散架。 */
 :where(.wb-shell, .sh-header) {
 
   /* ═══ 色阶 ════════════════════════════════════════════════════ */

@@ -35,7 +35,7 @@ type NotesBlock = { items: NoteCard[]; total: number };
 
 const REACTIONS_PAGE_SIZE = 20;
 
-/** 同请求内 metadata 与页面体共享的同一次取数（I-128：此前各拉一次后端；
+/** 同请求内 metadata 与页面体共享的同一次取数（此前各拉一次后端，
  *  cookie 内置 —— metadata 与页面看到同一份 is_me 投影）。 */
 const loadProfile = cache(async (username: string): Promise<Profile> => {
   const cookieStore = await cookies();

@@ -112,7 +112,7 @@ export function WbMobileNav({ counts, user }: {
           <WorkbenchNav counts={counts} variant="drawer" />
         </div>
 
-        {/* 退出登录 — 与桌面头像菜单共用 useLogout（FX-12 失败语义同源）。
+        {/* 退出登录 — 与桌面头像菜单共用 useLogout（失败语义同源）。
             移除 MobileTabBar「我的」浮层后，这里是手机端唯一的登出入口。 */}
         <div className="wb-drawer-foot">
           <button

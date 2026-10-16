@@ -219,7 +219,7 @@ export default async function ReactionPage({ params }: {
               privateMark={reaction.visibility === "private"}
               size={32}
             />
-            {/* I-119：非作者关注作者的入口（停用账号不出，关注端点本就拒绝停用目标） */}
+            {/* 非作者关注作者的入口（停用账号不出，关注端点本就拒绝停用目标） */}
             {!reaction.is_owner && reaction.creator.active !== false && (
               <FollowButton
                 endpoint={`/users/${encodeURIComponent(reaction.creator.username)}/follow`}
@@ -233,7 +233,7 @@ export default async function ReactionPage({ params }: {
           </div>
         )}
         {reaction.is_owner && reaction.moderation_status === "hidden" && (
-          /* I-119：作者可见的隐藏提示 —— 内容被治理隐藏时明确告知，不再是「无声」 */
+          /* 作者可见的隐藏提示 —— 内容被治理隐藏时明确告知，不再是「无声」 */
           <Notice tone="warn">{t.reaction.hiddenNotice}</Notice>
         )}
         {factualSummary && <p className="rx-head-summary">{factualSummary}</p>}

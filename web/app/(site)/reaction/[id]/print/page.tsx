@@ -46,7 +46,7 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
 
-  // 与详情页同范式：带会话 Cookie 取反应 —— 作者打印自己的私有反应不能按匿名处理（I-078/109）
+  // 与详情页同范式：带会话 Cookie 取反应 —— 作者打印自己的私有反应不能按匿名处理
   const cookieStore = await cookies();
   const cookie = cookieStore.toString();
   const reaction = await apiGet<ReactionDetail>(`/reactions/${id}`, cookieStore.has("hgs_session") ? { Cookie: cookie } : undefined).catch((e: unknown) => {

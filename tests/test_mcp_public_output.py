@@ -100,7 +100,7 @@ class PublicReactionTests(unittest.TestCase):
                "participants": [{"id": 1, "role": "REACTANT", "similarity": None}]}
         out = _public_reaction(raw)
         _assert_clean(self, out)
-        # I-19 契约冻结：HTTP 详情新增的 creator.is_following 不得进入 MCP 输出
+        # 契约冻结：HTTP 详情新增的 creator.is_following 不得进入 MCP 输出
         self.assertNotIn("is_following", out["creator"])
         self.assertNotIn("avatar_url", out["creator"])
         self.assertEqual(out["ord_id"], "ord-1")

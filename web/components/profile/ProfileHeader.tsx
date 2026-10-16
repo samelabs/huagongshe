@@ -69,7 +69,7 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
   // 本人：粉丝/关注链接到工作台列表页；他人无公开列表页 → 纯展示
   const followersHref = profile.is_me ? withLocale("/aichem?tab=followers", locale) : null;
   const followingHref = profile.is_me ? withLocale("/aichem?tab=following", locale) : null;
-  // 分享目标：I-084 规范短链；og:image 由页面 generateMetadata 按头像/兜底图生成
+  // 分享目标：规范短链（不带 locale，307 到协商语言的主页）；og:image 由页面按头像/兜底图生成
   const shareUrl = `${SITE_ORIGIN}/u/${encodeURIComponent(profile.username)}`;
   const shareTitle = `${profile.display_name}｜${t.brand.name}`;
 

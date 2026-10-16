@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 
 # api.core.config 在模块层实例化 Settings()（版本号读取等），import 即需要
-# HGS_DATABASE_URL —— 本文件自带 CI synthetic 值，使测试脱离外部环境可跑（I-129）。
+# HGS_DATABASE_URL —— 本文件自带 CI synthetic 值，使测试脱离外部环境可跑。
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://ci:ci@127.0.0.1:5432/unused")
 
 
