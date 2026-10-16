@@ -1,0 +1,85 @@
+# 本地完整后端栈 — 只与本机 Docker 通信, 与生产环境(huagongshe.com)零连接。
+# 做法 .github/workflows/ci.yml integration job:
+#   db  = ubuntu 24.04 + postgresql-16 + postgresql-16-rdkit + baseline/bootstrap 迁移
+#   api = python:3.12-slim + requirements.txt, 启动前跑 scripts/migrate.py
+# 端口全部绑定 127.0.0.1: db 55433 / redis 56380 / api 8000
+# (55432/56379 已被本机其他容器占用, 故取相邻端口)
+#
+# 起停/重置见 ../README.md。凭据在 .env.local(随机生成, 不入库)。
+# 头像等上传文件落 ../uploads(宿主机 bind, gitignore) —
+# web dev 经 local/stack/uploads_server.py 读取同一目录提供 /uploads 静态服务。
+
+name: hgs-local
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: db.Dockerfile
+    image: hgs-local/db:pg16-rdkit
+    container_name: hgs_local_db
+    environment:
+      HGS_DB_USER: ${HGS_DB_USER}
+      HGS_DB_PASSWORD: ${HGS_DB_PASSWORD}
+      HGS_DB_NAME: ${HGS_DB_NAME}
+      HGS_TEST_DB_NAME: ${HGS_TEST_DB_NAME}
+    volumes:
+      - hgs_local_pgdata:/var/lib/postgresql
+      # 只读挂载: 仅为读取 migrations/0000_baseline.sql 与 0001_bootstrap_reference_data.sql
+      - ../..:/repo:ro
+    ports:
+      - "127.0.0.1:55433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "su postgres -s /bin/bash -c '/usr/lib/postgresql/16/bin/pg_isready -q' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: hgs_local_redis
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:56380:6379"
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: api.Dockerfile
+    image: hgs-local/api:py312
+    container_name: hgs_local_api
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      HGS_DATABASE_URL: postgresql+asyncpg://${HGS_DB_USER}:${HGS_DB_PASSWORD}@db:5432/${HGS_DB_NAME}
+      HGS_REDIS_URL: redis://redis:6379/0
+      HGS_PUBLIC_BASE_URL: http://localhost:8000
+      HGS_SESSION_COOKIE_SECURE: "false"
+      # 上传目录 bind 到宿主机 local/uploads(跨容器重建持久, 供 uploads_server 静态服务)
+      HGS_AVATAR_ROOT: /var/lib/huagongshe/uploads/avatars
+      HGS_SKILL_ROOT: /var/lib/huagongshe/skills
+      # 供容器内跑完整测试套件使用(../README.md)
+      HGS_DB_USER: ${HGS_DB_USER}
+      HGS_DB_PASSWORD: ${HGS_DB_PASSWORD}
+      HGS_DB_NAME: ${HGS_DB_NAME}
+      HGS_TEST_DB_NAME: ${HGS_TEST_DB_NAME}
+    volumes:
+      - ../..:/repo:ro
+      - hgs_local_venv:/opt/venv
+      - hgs_local_pipcache:/root/.cache/pip
+      - ../uploads:/var/lib/huagongshe/uploads
+      - hgs_local_skills:/var/lib/huagongshe/skills
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+
+volumes:
+  hgs_local_pgdata:
+  hgs_local_venv:
+  hgs_local_pipcache:
+  hgs_local_skills:

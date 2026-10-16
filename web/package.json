@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "test:locale": "tsx --test lib/localePath.test.mjs lib/languageSwitcher.test.mjs lib/proxy.test.mjs lib/runtimeI18n.test.mjs lib/alternates.test.mjs lib/hcidTemplate.test.mjs lib/localeCheck.test.mjs",
