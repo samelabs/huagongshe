@@ -239,6 +239,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="http://127.0.0.1:8000")
     args = parser.parse_args()
+    # 本地演示数据的硬边界：目标只允许回环地址 —— 由代码保证，不靠说明文字
+    from urllib.parse import urlsplit
+    host = (urlsplit(args.base).hostname or "").lower()
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        sys.exit(f"seed 只允许本机地址（得到 {host}）；本地演示数据不得写入远端")
     global API
     API = args.base.rstrip("/") + "/api"
 
