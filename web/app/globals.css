@@ -423,8 +423,9 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 /* 反应式：满宽白底卡片（手机 overflow-x 滚动不压缩）+ SMILES CodeField */
 .rx-equation { display: grid; gap: var(--sp-3); margin: var(--sp-6) 0 var(--sp-8); }
-.rx-equation-card { width: 100%; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); padding: var(--sp-4) var(--sp-3); overflow-x: auto; }
-.rx-equation-card img { display: block; width: 100%; min-width: 640px; height: auto; max-height: 340px; object-fit: contain; }
+/* 方程式整体缩放到卡片宽度: 反应物到产物一屏看全, 不在卡片内横向滚动(滚动时产物藏在右侧、无提示) */
+.rx-equation-card { width: 100%; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); padding: var(--sp-4) var(--sp-3); }
+.rx-equation-card img { display: block; width: 100%; height: auto; max-height: 340px; object-fit: contain; }
 .rx-equation-unavailable { min-height: 140px; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-14); text-align: center; border-radius: var(--r-sm); }
 .rx-smiles-code { margin-top: var(--sp-1); }
 
@@ -807,8 +808,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .reaction-result-head, .reaction-result-foot { flex-direction: column; }
   .reaction-badges { justify-content: start; }
   .reaction-badges span, .reaction-result-foot p { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
-  /* 保持结构图可读: 容器内部滚动, 不缩到不可读; document 仍不横向溢出 */
-  .rx-equation-card img { min-width: 640px; max-height: 250px; }
   .participant-rows { grid-template-columns: 1fr; }
   .reaction-sides .participant-rows { grid-template-columns: 1fr; }
   .workup-list li { grid-template-columns: 1fr; gap: 5px; }
