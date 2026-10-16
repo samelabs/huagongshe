@@ -11,7 +11,7 @@
  *   3. 固定协议名、化学标识符（MCP、CAS、SMILES、InChIKey 等）与固定英文搜索提示等技术词允许组件内直接使用，不为形式制造语言 key
  *   4. 新增文案先在此文件对应 domain 下添加 key
  *   5. key 用 camelCase，按场景 domain 分组
- *   6. 函数类型用于含变量的文案：t.skills.heroSubtitle(159)
+ *   6. 函数类型用于含变量的文案：t.reaction.publishedOn(date)
  *   7. en/ja/ko/de 字典(待补齐)必须与本文件结构一致, 类型以本文件推导的
  *      Dictionary 为准(lib/i18n/index.ts), 不另写 interface
  */
@@ -316,20 +316,12 @@ const t = {
     notes: '补充说明',
     reagentsCatalystsSolvents: '试剂、催化剂与溶剂',
     sources: '来源与证据',
-    creator: '创建者',
     participants: '参与物',
-    fieldHrid: 'HRID',
-    fieldVisibility: '可见性',
-    fieldCreated: '创建于',
-    fieldUpdated: '更新于',
-    hiddenRecord: '已隐藏',
     summaryReactants: (n: number) => `${n} 个反应物`,
     summaryProducts: (n: number) => `${n} 个产物`,
     summaryCatalysts: (n: number) => `${n} 个催化剂`,
     summarySolvents: (n: number) => `${n} 个溶剂`,
     summaryMore: (n: number) => `等 ${n} 个`,
-    publicReaction: '公开反应',
-    privateReaction: '私有反应',
     smiles: '反应SMILES',
     errProcedure: '未记录说明',
     conditionFields: {
@@ -848,8 +840,6 @@ const t = {
   skills: {
     openLibrary: '开放技能库',
     heroTitle: '科学 AI 开放技能库',
-    heroSubtitle: (n: number) => `${n} 个开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域，可按需下载使用。`,
-    heroSource: '数据来源：开源科学 AI Agent 技能与化工社官方技能 · 由化工社整理提供',
     metaDesc: (count: string) => `${count}开源科学 AI Agent 技能 —— 覆盖化学、生物、机器学习、科研写作等领域。数据来自开源科学 AI Agent 技能与化工社官方技能。`,
     metaOgDesc: (count: string) => `${count}开源科学 AI Agent 技能，覆盖化学、生物、机器学习等研究领域。`,
     metaOgTitle: (name: string) => `科学 AI 开放技能库｜${name}`,
@@ -1241,7 +1231,7 @@ const t = {
   /* ── 打印报告（I-078） ─────────────────────────────────── */
   print: {
     title: '打印报告',
-    printAction: '打印',
+    printAction: '打印 / 保存 PDF',
     backAction: '返回',
     reportNotice: '化工社化学信息打印报告 · 仅供科研参考',
     colName: '名称',

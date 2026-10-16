@@ -311,20 +311,12 @@ const de: Dictionary = {
     notes: 'Anmerkungen',
     reagentsCatalystsSolvents: 'Reagenzien, Katalysatoren, Lösungsmittel',
     sources: 'Quellen und Nachweise',
-    creator: 'Erstellt von',
     participants: 'Komponenten',
-    fieldHrid: 'HRID',
-    fieldVisibility: 'Sichtbarkeit',
-    fieldCreated: 'Erstellt am',
-    fieldUpdated: 'Geändert am',
-    hiddenRecord: 'Ausgeblendet',
     summaryReactants: (n: number) => `Edukte: ${n}`,
     summaryProducts: (n: number) => `Produkte: ${n}`,
     summaryCatalysts: (n: number) => `Katalysatoren: ${n}`,
     summarySolvents: (n: number) => `Lösungsmittel: ${n}`,
     summaryMore: (n: number) => `+${n} weitere`,
-    publicReaction: 'Öffentliche Reaktion',
-    privateReaction: 'Private Reaktion',
     smiles: 'Reaktions-SMILES',
     errProcedure: 'Keine Vorschrift aufgezeichnet',
     conditionFields: {
@@ -842,8 +834,6 @@ const de: Dictionary = {
   skills: {
     openLibrary: 'Offene Skill-Bibliothek',
     heroTitle: 'Offene Bibliothek wissenschaftlicher KI-Skills',
-    heroSubtitle: (n: number) => `${n} Open-Source-Skills für wissenschaftliche KI-Agenten — Chemie, Biologie, Machine Learning, wissenschaftliches Schreiben und mehr. Bei Bedarf herunterladen und nutzen.`,
-    heroSource: 'Datenquellen: Open-Source wissenschaftliche AI-Agent-Skills und offizielle Huagongshe-Skills · kuratiert von Huagongshe',
     metaDesc: (count: string) => `${count}Open-Source-Skills für wissenschaftliche KI-Agenten — Chemie, Biologie, Machine Learning, wissenschaftliches Schreiben und mehr. Daten aus Open-Source wissenschaftlichen AI-Agent-Skills und offiziellen Huagongshe-Skills.`,
     metaOgDesc: (count: string) => `${count}Open-Source-Skills für wissenschaftliche KI-Agenten aus Chemie, Biologie, Machine Learning und weiteren Forschungsfeldern.`,
     metaOgTitle: (name: string) => `Offene Bibliothek wissenschaftlicher KI-Skills｜${name}`,
@@ -1235,7 +1225,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
   /* ── Print report (I-078) ───────────────────────────── */
   print: {
     title: 'Druckbericht',
-    printAction: 'Drucken',
+    printAction: 'Drucken / Als PDF speichern',
     backAction: 'Zurück',
     reportNotice: 'Huagongshe Chemie-Druckbericht · Nur für Forschungszwecke',
     colName: 'Name',

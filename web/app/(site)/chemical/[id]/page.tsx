@@ -228,7 +228,6 @@ export default async function ChemicalPage({ params }: {
         items={[
           { label: t.chemical.home, href: withLocale("/", locale) },
           { label: t.chemical.category },
-          { label: title },
         ]}
         ariaLabel={t.common.breadcrumb}
       />
