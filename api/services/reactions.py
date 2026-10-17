@@ -373,7 +373,9 @@ class UnresolvedIdentityError(Exception):
         self.detail = detail
 
 
-async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
+async def resolve_or_create_chemical(
+    db, smiles: str, *, discovery_priority: int = 60,
+) -> tuple[int, bool]:
     # 锁键用 canonical 形式: 同一分子的不同写法(CCO/OCC)必须落在同一把锁上,
     # 否则并发双写可各建一行(缝只开一次, 但没有必要留). 入参已是 canonical 时零开销.
     # RDKit 解析是 CPU-bound, 下沉线程池防卡事件循环(与 :50 chemical_properties 同口径).
@@ -417,6 +419,7 @@ async def resolve_or_create_chemical(db, smiles: str) -> tuple[int, bool]:
             async with db.begin_nested():
                 await enqueue_discovery(
                     db, chemical_id=chemical_id, inchikey=inchikey,
+                    priority=discovery_priority,
                     request_context={"origin": "reaction_insert"})
         except Exception:
             logger.warning("identity discovery enqueue failed chemical_id=%s",

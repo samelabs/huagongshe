@@ -33,7 +33,6 @@ except Exception:
 TOKEN = "hgsd_endpoint_test_token"
 SECOND_TOKEN = "hgsd_endpoint_second_token"
 EXPIRY_TOKEN = "hgsd_endpoint_expiry_token"
-INGEST_TOKEN = "hgsd_endpoint_ingest_token"
 
 
 class FakeHeaders:
@@ -81,8 +80,7 @@ def signed_headers(token, path, query=""):
 if ASYNC_URL:
     import api.data_api as data_api
     from api.services.data_api.auth import (
-        CHEMICAL_READ_SCOPE, CHEMICAL_INGEST_SCOPE,
-        REACTION_READ_SCOPE, token_hash)
+        CHEMICAL_READ_SCOPE, REACTION_READ_SCOPE, token_hash)
 
 
 @unittest.skipUnless(ASYNC_URL, "测试库闸")
@@ -527,33 +525,60 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
                     {"a": private_id, "b": public_id})
                 await db.commit()
 
-    async def test_readonly_lookup_smiles_miss_writes_nothing(self):
-        """只读凭证 lookup 未收录 SMILES：不建行（化合物计数不变）。"""
+    async def test_lookup_smiles_miss_creates_row(self):
+        """read 凭证 lookup 未收录 SMILES：按站内规则建行并返回 updating 候选。"""
         from sqlalchemy import text as _t
         async with self.Session() as db:
             before = (await db.execute(_t(
                 "SELECT count(*) FROM chemistry.chemicals"))).scalar_one()
         client_id = await self._make_client(scopes=[CHEMICAL_READ_SCOPE])
-        query = "smiles=" + "C" * 18 + "O"  # 稀有长链醇, 库内不存在
+        # 链长取自 run 标识 → 每轮唯一，重跑不撞已有行
+        chain = "C" * (22 + int(self.run[-2], 16) % 6) + "O"
+        query = "smiles=" + chain
         response = await self._call(
             data_api.chemicals_lookup, "/data/v1/chemicals/lookup", query,
             self._auth_headers(client_id, TOKEN, "/data/v1/chemicals/lookup", query))
         self.assertEqual(self._status(response), 200)
         payload = self._json(response)
-        self.assertEqual(payload["candidates"], [])
-        self.assertEqual(payload["pending"]["status"], "not_found")
+        self.assertTrue(payload["candidates"], "应建行并返回候选")
+        self.assertEqual(payload["candidates"][0]["data_status"], "updating")
+        hcid = payload["candidates"][0]["hcid"]
         async with self.Session() as db:
             after = (await db.execute(_t(
                 "SELECT count(*) FROM chemistry.chemicals"))).scalar_one()
-        self.assertEqual(after, before, "只读凭证不得创建化合物行")
+            # 建行触发的 discovery 采集入队走后台优先级档(不占用户优先级)
+            disc = (await db.execute(_t("""
+                SELECT priority FROM maintenance.pubchem_identity_jobs
+                WHERE chemical_id=:hcid ORDER BY id DESC LIMIT 1
+            """), {"hcid": hcid})).scalar_one_or_none()
+            await db.execute(_t(
+                "DELETE FROM maintenance.pubchem_identity_jobs WHERE chemical_id=:hcid",
+                ), {"hcid": hcid})
+            await db.execute(_t(
+                "DELETE FROM chemistry.name_index WHERE chemical_id=:hcid"),
+                {"hcid": hcid})
+            await db.execute(_t(
+                "DELETE FROM chemistry.chemical_pubchem WHERE chemical_id=:hcid"),
+                {"hcid": hcid})
+            await db.execute(_t(
+                "DELETE FROM chemistry.chemicals WHERE id=:hcid"), {"hcid": hcid})
+            await db.commit()
+        self.assertEqual(after, before + 1)
+        self.assertIsNotNone(disc, "建行应触发 discovery 采集入队")
+        self.assertEqual(disc, 40, "服务接口触发的采集入队必须走后台优先级档")
 
-    async def test_readonly_lookup_cas_miss_enqueues_nothing(self):
-        """只读凭证 lookup 未收录 CAS：不入列采集（pubchem 任务表不变）。"""
+    async def _unique_cas(self) -> str:
+        """按 run 标识造一个校验位合法的库外 CAS（重跑不撞已有任务）。"""
+        digits = f"{int(self.run[:6], 16) % 10_000_000:07d}"[-7:]
+        middle = f"{int(self.run[-2:], 16) % 100:02d}"
+        body = digits + middle
+        check = sum(int(d) * i for i, d in enumerate(reversed(body), start=1)) % 10
+        return f"{digits}-{middle}-{check}"
+
+    async def test_lookup_cas_miss_enqueues_background(self):
+        """read 凭证 lookup 未收录 CAS：按站内规则入列采集，优先级为后台档。"""
         from sqlalchemy import text as _t
-        cas = "99999-77-6"  # 校验位合法(7+14+27+36+45+54+63=246→6)且库内不存在
-        async with self.Session() as db:
-            before = (await db.execute(_t(
-                "SELECT count(*) FROM chemistry.chemical_pubchem"))).scalar_one()
+        cas = await self._unique_cas()
         client_id = await self._make_client(scopes=[CHEMICAL_READ_SCOPE])
         query = f"cas={cas}"
         response = await self._call(
@@ -562,46 +587,28 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self._status(response), 200)
         payload = self._json(response)
         self.assertEqual(payload["candidates"], [])
-        self.assertIn(payload["pending"]["status"], ("not_found", "updating"))
+        self.assertEqual(payload["pending"]["status"], "updating")
         async with self.Session() as db:
-            after = (await db.execute(_t(
-                "SELECT count(*) FROM chemistry.chemical_pubchem"))).scalar_one()
-        self.assertEqual(after, before, "只读凭证不得提交采集任务")
-
-    async def test_ingest_scope_lookup_smiles_miss_creates(self):
-        """带采集能力位的凭证保持站内规则：未收录 SMILES 建行。"""
-        from sqlalchemy import text as _t
-        async with self.Session() as db:
-            before = (await db.execute(_t(
-                "SELECT count(*) FROM chemistry.chemicals"))).scalar_one()
-        client_id = await self._make_client(
-            scopes=[CHEMICAL_READ_SCOPE, CHEMICAL_INGEST_SCOPE], token=INGEST_TOKEN)
-        # 链长取自 run 标识 → 每轮唯一，重跑不撞已有行
-        chain = "C" * (22 + int(self.run[-2], 16) % 6) + "O"
-        query = "smiles=" + chain
-        response = await self._call(
-            data_api.chemicals_lookup, "/data/v1/chemicals/lookup", query,
-            self._auth_headers(client_id, INGEST_TOKEN,
-                               "/data/v1/chemicals/lookup", query))
-        self.assertEqual(self._status(response), 200)
-        payload = self._json(response)
-        self.assertTrue(payload["candidates"], "应建行并返回候选")
-        self.assertEqual(payload["candidates"][0]["data_status"], "updating")
-        async with self.Session() as db:
-            after = (await db.execute(_t(
-                "SELECT count(*) FROM chemistry.chemicals"))).scalar_one()
+            job = (await db.execute(_t("""
+                SELECT chemical_id, priority FROM maintenance.cas_jobs
+                WHERE cas_number=:cas ORDER BY id DESC LIMIT 1
+            """), {"cas": cas})).fetchone()
             await db.execute(_t(
-                "DELETE FROM chemistry.name_index WHERE chemical_id IN "
-                "(SELECT id FROM chemistry.chemicals WHERE smiles=:sm)"),
-                {"sm": chain})
-            await db.execute(_t(
-                "DELETE FROM chemistry.chemical_pubchem WHERE chemical_id IN "
-                "(SELECT id FROM chemistry.chemicals WHERE smiles=:sm)"),
-                {"sm": chain})
-            await db.execute(_t(
-                "DELETE FROM chemistry.chemicals WHERE smiles=:sm"), {"sm": chain})
+                "DELETE FROM maintenance.cas_jobs WHERE cas_number=:cas"), {"cas": cas})
+            if job is not None and job[0] is not None:
+                await db.execute(_t(
+                    "DELETE FROM chemistry.name_index WHERE chemical_id=:hcid"),
+                    {"hcid": job[0]})
+                await db.execute(_t(
+                    "DELETE FROM chemistry.chemical_pubchem WHERE chemical_id=:hcid"),
+                    {"hcid": job[0]})
+                await db.execute(_t(
+                    "DELETE FROM chemistry.chemicals WHERE id=:hcid"
+                    " AND cas_numbers @> ARRAY[:cas] AND smiles IS NULL"),
+                    {"hcid": job[0], "cas": cas})
             await db.commit()
-        self.assertEqual(after, before + 1)
+        self.assertIsNotNone(job, "未收录 CAS 应入列采集")
+        self.assertEqual(job[1], 40, "服务接口触发的采集入队必须走后台优先级档")
 
     async def test_lookup_requires_single_selector(self):
         client_id = await self._make_client(scopes=[CHEMICAL_READ_SCOPE])

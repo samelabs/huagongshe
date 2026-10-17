@@ -22,7 +22,6 @@ from .core import rate_limit
 from .services.chemicals import ChemicalNotFoundError, get_chemical_detail
 from .services.data_api.auth import (
     DataApiAuthError, authorize_scope, body_sha256_hex, check_nonce,
-    CHEMICAL_INGEST_SCOPE,
     load_client, sign_message, verify_signature,
 )
 from .services.data_api.lookup import DataApiInvalidParameter, lookup
@@ -30,6 +29,7 @@ from .services.data_api.metering import enforce_quota, record_usage
 from .services.data_api.projections import (
     project_chemical, project_reaction, project_reaction_summary,
 )
+from .services.cb import PRIORITY_BACKGROUND
 from .services.reactions import load_reaction_detail
 
 logger = logging.getLogger(__name__)
@@ -44,8 +44,6 @@ CHEMICAL_BATCH_BUDGET_SECONDS = 30.0
 REACTION_BATCH_MAX = 20
 REACTION_PAGE_MAX = 50
 REACTION_PAGE_SIZE_DEFAULT = 20
-# 采集/刷新入队走后台优先级(与站内后台刷新同档), 不占用户优先级。
-ENRICH_PRIORITY_BACKGROUND = 40
 SITE_ORIGIN = "https://huagongshe.com"
 # 鉴权失败 per-IP 桶: 无效凭证的请求不占凭证额度(enforce_quota 在鉴权
 # 之后), 不设桶则每次失败都实打实查一次库。失败才计数(check 只读预检,
@@ -150,8 +148,7 @@ async def chemicals_lookup(
     try:
         client = await _authenticate(request, db, "/data/v1/chemicals/lookup")
         result = await lookup(db, locale=locale, hcid=hcid, cas=cas,
-                              smiles=smiles, inchikey=inchikey, name=name,
-                              allow_ingest=CHEMICAL_INGEST_SCOPE in client.scopes)
+                              smiles=smiles, inchikey=inchikey, name=name)
         await record_usage(db, client.id)
         return _payload(request_id, **result)
     except (DataApiAuthError, DataApiInvalidParameter) as exc:
@@ -182,7 +179,7 @@ async def chemical_detail(
     try:
         client = await _authenticate(request, db, "/data/v1/chemicals/{hcid}")
         detail = await get_chemical_detail(
-            db, hcid, actor_id=None, priority=ENRICH_PRIORITY_BACKGROUND,
+            db, hcid, actor_id=None, priority=PRIORITY_BACKGROUND,
             enrich="full", locale=locale, pb_display_limit=True)
         await record_usage(db, client.id)
         return _payload(request_id, chemical=project_chemical(detail, locale or "en", site_origin=SITE_ORIGIN))
@@ -238,7 +235,7 @@ async def chemicals_batch(
                 continue
             try:
                 detail = await get_chemical_detail(
-                    db, hcid, actor_id=None, priority=ENRICH_PRIORITY_BACKGROUND,
+                    db, hcid, actor_id=None, priority=PRIORITY_BACKGROUND,
                     enrich="full", locale=locale, pb_display_limit=True)
                 items.append(project_chemical(detail, locale or "en", site_origin=SITE_ORIGIN))
             except ChemicalNotFoundError:

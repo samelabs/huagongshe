@@ -40,10 +40,6 @@ NONCE_TTL_SECONDS = TIMESTAMP_TOLERANCE_SECONDS * 2
 
 CHEMICAL_READ_SCOPE = "data:chemical:read"
 REACTION_READ_SCOPE = "data:reaction:read"
-# 能力位（不映射路径）：允许 lookup 未收录时触发采集/建行。只读凭证
-# （仅 data:chemical:read）的 lookup 是纯读 —— 未收录即 not_found，
-# 不创建化合物行、不提交采集任务。需触发采集的凭证另授此 scope。
-CHEMICAL_INGEST_SCOPE = "data:chemical:ingest"
 
 # scope → 允许的 (method, path) 精确映射; 未登记的路径一律拒绝。
 SCOPE_PATHS: dict[str, set[tuple[str, str]]] = {

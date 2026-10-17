@@ -424,6 +424,9 @@ async def enqueue_cas_job(
 # PubChem侧只update不insert(sync_chemical_core coalesce), 天然补全无重复。
 
 SEARCH_MISS_PRIORITY = 80       # 用户触发 > 后台刷新(30/50)
+# 后台优先级档: 站内后台刷新与服务接口(数据 API)触发的采集入队共用,
+# 不占用户触发档 —— 服务接口的采集压力由每凭证额度约束, 队列侧不抬档。
+PRIORITY_BACKGROUND = 40
 # 2026-08-30: SEARCH_MISS_MAX_QUEUE 深度闸门拆除(用户裁定: 治理交互不治理
 # 总量, 队列深度无害, 消化靠 worker 水平扩)。入队无水位上限。
 
@@ -779,14 +782,14 @@ async def cas_search_state(db: Any, cas_number: str) -> str:
         # 与详情路径 stale→enqueue 同逻辑(审计修复①, 2026-08-30)
         enqueued = await enqueue_cas_job(
             db, chemical_id=int(chemical_id), cas_number=cas_number,
-            priority=40, request_context={"reason": "search_stale"},
+            priority=PRIORITY_BACKGROUND, request_context={"reason": "search_stale"},
         )
         return "pending" if enqueued else "miss"
     return "new"
 
 
 async def enqueue_cas_search_fetch(
-    db: Any, *, cas_number: str
+    db: Any, *, cas_number: str, priority: int = SEARCH_MISS_PRIORITY
 ) -> tuple[bool, str | None, int | None]:
     """搜索miss: 占主表行(CAS登记, 只落 cas_numbers) + 入队(带行id)。
 
@@ -832,7 +835,7 @@ async def enqueue_cas_search_fetch(
     """), {
         "chemical_id": int(chemical_id) if chemical_id is not None else None,
         "cas_number": cas,
-        "priority": SEARCH_MISS_PRIORITY,
+        "priority": priority,
         "dedupe_key": f"cas:new:{digest}",
         "context": json.dumps(
             {"reason": "search_miss",
