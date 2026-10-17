@@ -5,7 +5,7 @@ Production site: https://huagongshe.com
 
 ## [1.7.3] — 2026-10-17
 
-**上线前收口（审计修复）**
+**对外数据服务与发布加固**
 - /data/v1：SMILES 解析丢线程池（不卡事件循环）；鉴权失败加 per-IP 失败桶（30 次/分钟，桶满查库前即拒），nginx /data/ 文档补 limit_req
 - /api/search：locale 参数加长度上限并按 CB locale 白名单归一后再拼缓存键（键空间有界）
 - 校验错误处理器补 request 空值守卫（契约测试直调不再炸）；发布流程写入「先迁移后部署」顺序（docs/DEPLOYMENT.md）

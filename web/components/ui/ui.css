@@ -27,9 +27,9 @@
   --eb-h: 24px;
   /* 组件级尺寸变量取自 tokens（xs 前缀 10.5 为设计允许的唯一 <12 例外，
      见 tokens.css 字号注释）；字面量只存在于此，不进入 font-size 声明。
-     BX-A4：xs 编号从 11.5px 收进 12px 档（DESIGN_SYSTEM 7.2 只豁免 xs 前缀，不豁免编号）。 */
+     xs 编号从 11.5px 收进 12px 档（DESIGN_SYSTEM 7.2 只豁免 xs 前缀，不豁免编号）。 */
   --eb-fs: var(--fs-12);
-  /* BX-A4/DESIGN_SYSTEM 7.2：前缀同样 ≥12（唯一豁免只剩 xs 前缀 10.5） */
+  /* /DESIGN_SYSTEM 7.2：前缀同样 ≥12（唯一豁免只剩 xs 前缀 10.5） */
   --fs-eb-prefix: var(--fs-12);
   --eb-ic: 12px;
   display: inline-flex;
@@ -546,12 +546,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 /* ══ 演示舞台（dev-ui / 文档用：浅灰底居中容器） ════════════ */
 .hg-stage { background: var(--bg-pressed); border-radius: var(--r-md); padding: var(--sp-8) var(--sp-4); display: grid; place-items: center; gap: var(--sp-3); }
 
-/* ══ 悬停换文案（IX-6：已关注 hover → 取消关注）════════════ */
+/* ══ 悬停换文案（已关注 hover → 取消关注）════════════ */
 .hg-hover-swap .when-hover { display: none; }
 .hg-btn:hover .hg-hover-swap .when-idle, .hg-btn.is-hover .hg-hover-swap .when-idle { display: none; }
 .hg-btn:hover .hg-hover-swap .when-hover, .hg-btn.is-hover .hg-hover-swap .when-hover { display: inline; }
 
-/* ══ 星标激活态（IX-6：已收藏 → 实心）══ */
+/* ══ 星标激活态（已收藏 → 实心）══ */
 .hg-star-on svg { fill: currentColor; }
 
 @media (prefers-reduced-motion: reduce) {

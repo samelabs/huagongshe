@@ -360,7 +360,7 @@ const de: Dictionary = {
     yieldLabel: (v: string) => `Ausbeute ${v} %`,
     internalStandard: 'Interner Standard',
     otherRole: 'Sonstige',
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'Diese Reaktion löschen?',
     deleteLabel: 'Reaktion löschen',
     deleted: 'Reaktion gelöscht',
@@ -554,11 +554,11 @@ const de: Dictionary = {
     createReaction: 'Neue Reaktion',
     writeNote: 'Notiz schreiben',
 
-    /* R6 */
+    /* */
     profileLoadFailed: 'Öffentliche Notizen konnten nicht geladen werden',
     deleteFailed: 'Löschen fehlgeschlagen, bitte erneut versuchen',
 
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'Diese Notiz löschen?',
     deleteLabel: 'Notiz löschen',
     deleted: 'Notiz gelöscht',
@@ -1211,7 +1211,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     viewProfile: 'Profil ansehen',
   },
 
-  /* ── Editor (IX-5 Speicherstatus / ungespeichert) ───── */
+  /* ── Editor (Speicherstatus / ungespeichert) ───── */
   editor: {
     saved: 'Gespeichert',
     saving: 'Speichern…',
@@ -1222,7 +1222,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     unsavedBody: 'Deine Änderungen wurden noch nicht gespeichert und gehen beim Verlassen verloren.',
     unsavedConfirm: 'Änderungen verwerfen',
     unsavedCancel: 'Weiter bearbeiten',
-    /* BX-A1: Editor-Kontext wechseln, während gespeichert wird — ehrlicher Wortlaut */
+    /* Editor-Kontext wechseln, während gespeichert wird — ehrlicher Wortlaut */
     savingTitle: 'Notiz wird gerade gespeichert. Trotzdem wechseln?',
     savingBody: 'Das Speichern läuft weiter und geht nichts verloren; nach Abschluss wird die Liste automatisch aktualisiert.',
     savingConfirm: 'Trotzdem wechseln',
@@ -1243,7 +1243,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     notFoundAction: 'Zur Suche',
   },
 
-  /* ── Print report (I-078) ───────────────────────────── */
+  /* ── Print report ───────────────────────────── */
   print: {
     title: 'Druckbericht',
     printAction: 'Drucken / Als PDF speichern',

@@ -13,7 +13,7 @@
    多出一个顶栏（含安全区）高度的滚动。 */
 .sh-frame { min-height: 100dvh; display: flex; flex-direction: column; }
 
-/* ══ 桌面顶栏（>1024） ═══════════════════════════════════════ */
+/* ══ 桌面顶栏（>） ═══════════════════════════════════════ */
 .sh-header {
   /* 吸顶、不透明：顶栏是独立于正文滚动的一条，iOS 据此用顶栏底色绘制屏幕顶边，
      不再把底下滚动的内容模糊着透出来。页内吸顶元素与锚点按 --header-clear 让位。
@@ -109,7 +109,7 @@
 .sh-menu-panel .sh-menu-logout { color: var(--err); }
 .sh-menu-panel .sh-menu-logout:hover { background: var(--err-bg); color: var(--err); }
 
-/* ══ 平板（641–1023）：主导航收进「更多」 ═══════════════════ */
+/* ══ 平板（641–）：主导航收进「更多」 ═══════════════════ */
 .sh-more { display: none; }
 @media (min-width: 641px) and (max-width: 1023px) {
   .sh-nav { display: none; }

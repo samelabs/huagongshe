@@ -22,7 +22,7 @@
 }
 
 /* ── 顶栏 ──
-   v1.7 Step 5：工作台不再有自己的顶栏 —— 全站共用 components/shell/SiteHeader。
+   v1.7 ：工作台不再有自己的顶栏 —— 全站共用 components/shell/SiteHeader。
    旧 .wb-topbar / .wb-topbar-inner / .wb-logo / .wb-topnav* / .wb-topbar-user 已删除。 */
 
 /* ── 汉堡按钮（挂 SiteHeader mobileActions 插槽；视觉走 .hg-btn ghost icon，
@@ -53,7 +53,7 @@
 .wb-create-panel a:hover { background: var(--bg-hover); color: var(--text); }
 .wb-create-panel a:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
-/* ── 快捷操作（Part D 临时安置：Step 8 起桌面入口移概览标题行，
+/* ── 快捷操作(临时安置： 起桌面入口移概览标题行，
       只保留抽屉顶部（手机）一份） ── */
 .wb-quick-actions {
   display: flex;
@@ -152,7 +152,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   L4 — Grid & Panel（DESIGN_SYSTEM 2.4 框架 D / I-085 / I-047）
+   L4 — Grid & Panel（DESIGN_SYSTEM 2.4 框架 D / /)
    所有工作台页面（各 Tab 与 /me 设置页）共用同一个栅格，主列左边缘与宽度恒定。
    桌面保留右栏社交列，平板及以下统一下沉或隐藏。
    ═══════════════════════════════════════════════════════════════ */
@@ -244,7 +244,7 @@
 }
 .wb-panel-head-side { display: inline-flex; align-items: center; gap: var(--wb-sp-2); flex: none; margin-left: auto; }
 
-/* ── 按钮（BX-B1）── 旧 wb-btn 家族删除：工作台按钮统一 components/ui Button（hg-btn）。 */
+/* ── 按钮── 旧 wb-btn 家族删除：工作台按钮统一 components/ui Button（hg-btn）。 */
 
 /* ── 搜索框（工作台自有）── */
 .wb-search-form {
@@ -552,7 +552,7 @@
 }
 /* 行内操作按钮：层级高于整行链接，点击不触发行跳转 */
 .wb-row-actions { position: relative; z-index: 1; display: inline-flex; gap: var(--wb-sp-1); }
-/* 收藏面板「取消收藏」图标按钮：当前已收藏（action 色），hover 变 err（IX-6） */
+/* 收藏面板「取消收藏」图标按钮：当前已收藏（action 色），hover 变 err */
 .wb-unfavor { color: var(--action); }
 .wb-unfavor:hover, .wb-unfavor.is-hover { background: var(--err-bg); color: var(--err); }
 /* 已收藏的星标为实心（fill 压过 svg 的 fill="none" 属性） */
@@ -574,7 +574,7 @@
   white-space: pre-line;
 }
 
-/* Step 10 Part A.1：≤640 列表行改纵向三行布局 —
+/* ：≤640 列表行改纵向三行布局 —
    ①类型图标+标题（最多 2 行省略） ②Tag+徽标（可换行） ③时间（左）+操作（右）。
    .wb-row-main / .wb-row-side 提升为 display:contents，让 title/meta/side
    直接成为行的 grid item（DOM 不动，纯 CSS 重排）。 */
@@ -669,7 +669,7 @@
 .wb-feed-actions { display: flex; gap: var(--wb-sp-2); }
 .wb-feed-all { text-align: center; font-size: var(--wb-fs-sm); color: var(--wb-blue); }
 
-/* 动态笔记卡片（I-080） */
+/* 动态笔记卡片 */
 .wb-feed-author-row {
   display: flex;
   align-items: center;
@@ -713,7 +713,7 @@
 
 /* 手机 ≤640：标题行 fs-22、创建按钮收进顶栏「+」、
    快速检索脱离卡片框（48 高、图标入框左侧）＋ 2×2 快捷入口、
-   Segmented 切换 我的内容/关注动态、主页卡最后（Step 9 A.3 顺序） */
+   Segmented 切换 我的内容/关注动态、主页卡最后(A.3 顺序） */
 @media (max-width: 640px) {
   .wb-panel-head h2 { font-size: var(--fs-22); }
   .wb-home2-head h2 { font-size: var(--fs-22); }
@@ -814,7 +814,7 @@
 }
 .wb-person-row {
   display: grid;
-  /* Step 9 Part B.5：Avatar 40 | 信息 | 关系标签 | 操作 */
+  /* ：Avatar 40 | 信息 | 关系标签 | 操作 */
   grid-template-columns: 40px minmax(0,1fr) auto auto;
   gap: var(--wb-sp-3);
   align-items: center;
@@ -974,7 +974,7 @@
   cursor: pointer;
 }
 
-/* 设置页表单按钮（I-050）：按钮宽度一律按内容自适应，任何场景都不撑满 */
+/* 设置页表单按钮：按钮宽度一律按内容自适应，任何场景都不撑满 */
 .wb-panel .form-fields > .hg-btn,
 .wb-panel .form-fields button[type="submit"],
 .wb-panel .avatar-upload > .hg-btn,
@@ -1060,7 +1060,7 @@
     gap: var(--wb-sp-3);
   }
 }
-/* BX-B1：旧 token-actions text-button 危险色规则删除（已迁 ui Button danger-quiet）。 */
+/* 旧 token-actions text-button 危险色规则删除（已迁 ui Button danger-quiet）。 */
 .wb-panel .api-guide-link {
   margin-top: var(--wb-sp-4);
   display: inline-block;
@@ -1194,11 +1194,11 @@
   padding-top: 2px;
 }
 
-/* 人员列表里的紧凑关注按钮（Step 9：FollowButton 已是 ui/Button hg-btn sm） */
+/* 人员列表里的紧凑关注按钮（：FollowButton 已是 ui/Button hg-btn sm） */
 .wb-shell .wb-person-actions .hg-btn { min-height: var(--h-sm); }
 
 /* ── MobileTabBar ──
-   v1.7 Step 5：底栏统一为 components/shell/MobileTabBar（.sh-tabbar，样式在
+   v1.7 ：底栏统一为 components/shell/MobileTabBar（.sh-tabbar，样式在
    components/shell/shell.css）；本文件旧 .mobile-tab-bar 块已删除。
    PWA 安全区让位由 .sh-tabbar 的 padding-bottom(env(safe-area-inset-bottom)) 处理。 */
 
@@ -1295,7 +1295,7 @@
 }
 
 /* ── 桌面 >640px ──
-   v1.7 Step 5：手机断点与全站统一为 ≤640（SiteHeader 手机态 + MobileTabBar）。
+   v1.7 ：手机断点与全站统一为 ≤640（SiteHeader 手机态 + MobileTabBar）。
    641–1024 平板区间：顶栏主导航进「更多」菜单，工作台保持桌面布局。 */
 @media (min-width: 641px) {
   .wb-burger { display: none; }
@@ -1548,7 +1548,7 @@
 @media (max-width:680px){.wb-skill-row{flex-direction:column;align-items:stretch}.wb-skill-actions{justify-content:flex-end}}
 
 /* ── Notes ─────────────────────────────────────────── */
-/* IX-5 保存状态指示（NoteEditor / SubmissionForm 共用） */
+/* 保存状态指示（NoteEditor / SubmissionForm 共用） */
 .wb-save-status{
   display:inline-flex;
   align-items:center;
@@ -1587,7 +1587,7 @@
   gap:var(--wb-sp-3);
 }
 .wb-note-editor-head strong{color:var(--wb-heading);font-weight:var(--wb-w-semibold)}
-/* IX-5：标题行右侧 = 保存状态 + 可见性 Field（紧凑） */
+/* 标题行右侧 = 保存状态 + 可见性 Field（紧凑） */
 .wb-note-editor-head-side{display:flex;align-items:flex-end;gap:var(--wb-sp-3);flex-wrap:wrap}
 .wb-note-editor-head-side .hg-field{display:grid;gap:2px}
 .wb-note-editor-head-side .hg-label{font-size:var(--wb-fs-sm);color:var(--wb-muted)}

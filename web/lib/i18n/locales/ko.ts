@@ -359,7 +359,7 @@ const ko: Dictionary = {
     yieldLabel: (v: string) => `수율 ${v}%`,
     internalStandard: '내부 표준',
     otherRole: '기타',
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: '이 반응을 삭제할까요?',
     deleteLabel: '반응 삭제',
     deleted: '반응이 삭제되었습니다',
@@ -553,11 +553,11 @@ const ko: Dictionary = {
     createReaction: '반응 만들기',
     writeNote: '노트 쓰기',
 
-    /* R6 */
+    /* */
     profileLoadFailed: '공개 노트를 불러오지 못했습니다',
     deleteFailed: '삭제에 실패했습니다. 다시 시도해 주세요',
 
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: '이 노트를 삭제할까요?',
     deleteLabel: '노트 삭제',
     deleted: '노트가 삭제되었습니다',
@@ -1210,7 +1210,7 @@ const ko: Dictionary = {
     viewProfile: '프로필 보기',
   },
 
-  /* ── 편집기(IX-5 저장 상태 / 미저장 가드) ─────────────── */
+  /* ── 편집기(저장 상태 / 미저장 가드) ─────────────── */
   editor: {
     saved: '저장됨',
     saving: '저장 중…',
@@ -1221,7 +1221,7 @@ const ko: Dictionary = {
     unsavedBody: '변경 사항이 아직 저장되지 않았습니다. 떠나면 사라집니다.',
     unsavedConfirm: '변경 사항 버리기',
     unsavedCancel: '계속 편집',
-    /* BX-A1: 저장 중 편집 컨텍스트 전환 — 정직한 문구 */
+    /* 저장 중 편집 컨텍스트 전환 — 정직한 문구 */
     savingTitle: '노트를 저장하는 중입니다. 전환할까요?',
     savingBody: '저장은 계속 완료되며 내용은 사라지지 않습니다. 완료 후 목록이 자동으로 새로 고쳐집니다.',
     savingConfirm: '전환하기',
@@ -1242,7 +1242,7 @@ const ko: Dictionary = {
     notFoundAction: '검색으로 이동',
   },
 
-  /* ── 인쇄 보고서（I-078） ───────────────────────────── */
+  /* ── 인쇄 보고서 ───────────────────────────── */
   print: {
     title: '인쇄 보고서',
     printAction: '인쇄 / PDF 저장',

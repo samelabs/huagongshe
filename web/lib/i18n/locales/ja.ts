@@ -357,7 +357,7 @@ const ja: Dictionary = {
     yieldLabel: (v: string) => `収率 ${v}%`,
     internalStandard: '内部標準',
     otherRole: 'その他',
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'この反応を削除しますか？',
     deleteLabel: '反応を削除',
     deleted: '反応を削除しました',
@@ -551,11 +551,11 @@ const ja: Dictionary = {
     createReaction: '反応を作成',
     writeNote: 'ノートを書く',
 
-    /* R6 */
+    /* */
     profileLoadFailed: '公開ノートの読み込みに失敗しました',
     deleteFailed: '削除に失敗しました。もう一度お試しください',
 
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'このノートを削除しますか？',
     deleteLabel: 'ノートを削除',
     deleted: 'ノートを削除しました',
@@ -1030,7 +1030,7 @@ const ja: Dictionary = {
     emptyNotesVisitor: '公開されているノートはまだありません。',
     emptyNotesSelf: '公開されているノートはまだありません。',
     enterWorkbench: 'ワークベンチへ',
-    /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停止アカウントのプロフィール状態（DESIGN_SYSTEM 6.6）と作成者表示 */
+    /* HGS-ACCOUNT-CONTENT-01: 停止アカウントのプロフィール状態（DESIGN_SYSTEM 6.6）と作成者表示 */
     deactivatedTag: 'アカウント停止中',
     deactivatedTitle: 'このアカウントは停止されています',
     deactivatedBody: 'このアカウントは停止されました。公開済みの内容はリンクから閲覧できますが、一覧には表示されずフォローもできません。',
@@ -1208,7 +1208,7 @@ const ja: Dictionary = {
     viewProfile: 'プロフィールを見る',
   },
 
-  /* ── エディター（IX-5 保存状態 / 未保存ガード） ──────── */
+  /* ── エディター(保存状態 / 未保存ガード） ──────── */
   editor: {
     saved: '保存済み',
     saving: '保存中…',
@@ -1219,7 +1219,7 @@ const ja: Dictionary = {
     unsavedBody: 'このまま離れると変更が失われます。',
     unsavedConfirm: '変更を破棄',
     unsavedCancel: '編集を続ける',
-    /* BX-A1: 保存中に編集コンテキストを切り替える際の正直な文案 */
+    /* 保存中に編集コンテキストを切り替える際の正直な文案 */
     savingTitle: 'ノートを保存中です。切り替えますか？',
     savingBody: '保存はそのまま完了し、失われることはありません。完了後、リストが自動更新されます。',
     savingConfirm: '切り替える',
@@ -1240,7 +1240,7 @@ const ja: Dictionary = {
     notFoundAction: '検索へ',
   },
 
-  /* ── 印刷レポート（I-078） ───────────────────────────── */
+  /* ── 印刷レポート ───────────────────────────── */
   print: {
     title: '印刷レポート',
     printAction: '印刷 / PDF 保存',

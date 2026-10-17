@@ -356,7 +356,7 @@ const en: Dictionary = {
     yieldLabel: (v: string) => `Yield ${v}%`,
     internalStandard: 'Internal standard',
     otherRole: 'Other',
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'Delete this reaction?',
     deleteLabel: 'Delete reaction',
     deleted: 'Reaction deleted',
@@ -550,11 +550,11 @@ const en: Dictionary = {
     createReaction: 'New reaction',
     writeNote: 'Write a note',
 
-    /* R6 */
+    /* */
     profileLoadFailed: 'Failed to load public notes',
     deleteFailed: 'Delete failed, please retry',
 
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'Delete this note?',
     deleteLabel: 'Delete note',
     deleted: 'Note deleted',
@@ -1207,7 +1207,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     viewProfile: 'View profile',
   },
 
-  /* ── Editor (IX-5 save status / unsaved guard) ───────── */
+  /* ── Editor (save status / unsaved guard) ───────── */
   editor: {
     saved: 'Saved',
     saving: 'Saving…',
@@ -1218,7 +1218,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     unsavedBody: 'Your edits have not been saved and will be lost if you leave.',
     unsavedConfirm: 'Discard changes',
     unsavedCancel: 'Keep editing',
-    /* BX-A1: switching editor context while a save is in flight — honest copy */
+    /* switching editor context while a save is in flight — honest copy */
     savingTitle: 'This note is still saving. Switch anyway?',
     savingBody: 'The save keeps running and nothing is lost; the list refreshes once it completes.',
     savingConfirm: 'Switch anyway',
@@ -1239,7 +1239,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     notFoundAction: 'Go to search',
   },
 
-  /* ── Print report (I-078) ───────────────────────────── */
+  /* ── Print report ───────────────────────────── */
   print: {
     title: 'Print Report',
     printAction: 'Print / Save as PDF',

@@ -1,19 +1,19 @@
 /**
  * zh-CN 语言包 · 站点默认语言(现唯一完整字典)
  *
- * 使用：  import t from '@/lib/i18n'
- *         <h1>{t.home.hero}</h1>
- *         动态: getDictionary(locale)(见 lib/i18n/index.ts)
+ * 使用： import t from '@/lib/i18n'
+ * <h1>{t.home.hero}</h1>
+ * 动态: getDictionary(locale)(见 lib/i18n/index.ts)
  *
  * 规则：
- *   1. 可本地化、会变化的产品文案集中在 t，通过 t.xxx 引用；同一产品文案禁止在多个组件各自维护不同版本
- *   2. 品牌名称集中在 t.brand，确保全站一致
- *   3. 固定协议名、化学标识符（MCP、CAS、SMILES、InChIKey 等）与固定英文搜索提示等技术词允许组件内直接使用，不为形式制造语言 key
- *   4. 新增文案先在此文件对应 domain 下添加 key
- *   5. key 用 camelCase，按场景 domain 分组
- *   6. 函数类型用于含变量的文案：t.reaction.publishedOn(date)
- *   7. en/ja/ko/de 字典(待补齐)必须与本文件结构一致, 类型以本文件推导的
- *      Dictionary 为准(lib/i18n/index.ts), 不另写 interface
+ * 1. 可本地化、会变化的产品文案集中在 t，通过 t.xxx 引用；同一产品文案禁止在多个组件各自维护不同版本
+ * 2. 品牌名称集中在 t.brand，确保全站一致
+ * 3. 固定协议名、化学标识符（MCP、CAS、SMILES、InChIKey 等）与固定英文搜索提示等技术词允许组件内直接使用，不为形式制造语言 key
+ * 4. 新增文案先在此文件对应 domain 下添加 key
+ * 5. key 用 camelCase，按场景 domain 分组
+ * 6. 函数类型用于含变量的文案：t.reaction.publishedOn(date)
+ * 7. en/ja/ko/de 字典(待补齐)必须与本文件结构一致, 类型以本文件推导的
+ * Dictionary 为准(lib/i18n/index.ts), 不另写 interface
  */
 
 const t = {
@@ -151,7 +151,7 @@ const t = {
     entryWorkbench: '网页工作台',
     entrySkills: 'Skills',
     entryPlugin: "Agent Plugin",
-    /* Step 10：MCP 地址复制按钮 aria / Plugin 状态说明 + Tag warn 文案 */
+    /* ：MCP 地址复制按钮 aria / Plugin 状态说明 + Tag warn 文案 */
     entryMcpCopy: '复制 MCP 服务器地址',
   },
 
@@ -365,7 +365,7 @@ const t = {
     yieldLabel: (v: string) => `收率 ${v}%`,
     internalStandard: '内标',
     otherRole: '其他',
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: '删除这个反应？',
     deleteBody: (id: number) => `HRID ${id} 将被永久删除，关联的化合物不会被删除。此操作无法撤销。`,
     deleteLabel: '删除反应',
@@ -561,11 +561,11 @@ const t = {
     createReaction: '新建反应',
     writeNote: '写笔记',
 
-    /* R6 */
+    /* */
     profileLoadFailed: '公开笔记加载失败',
     deleteFailed: '删除失败,请重试',
 
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: '删除这条笔记？',
     deleteBody: (excerpt: string) => `「${excerpt}」将被永久删除。此操作无法撤销。`,
     deleteLabel: '删除笔记',
@@ -1039,7 +1039,7 @@ const t = {
     emptyNotesVisitor: 'TA 还没有公开笔记',
     emptyNotesSelf: '你还没有公开笔记',
     enterWorkbench: '进入工作台',
-    /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用账号主页停用态（DESIGN_SYSTEM 6.6）与作者标记 */
+    /* HGS-ACCOUNT-CONTENT-01: 停用账号主页停用态（DESIGN_SYSTEM 6.6）与作者标记 */
     deactivatedTag: '账号已停用',
     deactivatedTitle: '该账号已停用',
     deactivatedBody: '该账号已被停用。已发布的公开内容仍可通过链接访问，但主页不再展示列表，也无法关注。',
@@ -1217,7 +1217,7 @@ const t = {
     viewProfile: '查看主页',
   },
 
-  /* ── 编辑器（IX-5 保存状态 / 未保存拦截） ─────────────── */
+  /* ── 编辑器(保存状态 / 未保存拦截） ─────────────── */
   editor: {
     saved: '已保存',
     saving: '保存中…',
@@ -1228,7 +1228,7 @@ const t = {
     unsavedBody: '离开后将丢失本次修改。',
     unsavedConfirm: '放弃修改',
     unsavedCancel: '继续编辑',
-    /* BX-A1：保存进行中切换编辑上下文 —— 保存不会中断，文案如实 */
+    /* 保存进行中切换编辑上下文 —— 保存不会中断，文案如实 */
     savingTitle: '笔记正在保存，确定切换吗？',
     savingBody: '保存会继续完成，不会丢失；完成后列表会自动刷新。',
     savingConfirm: '仍要切换',
@@ -1249,7 +1249,7 @@ const t = {
     notFoundAction: '去搜索',
   },
 
-  /* ── 打印报告（I-078） ─────────────────────────────────── */
+  /* ── 打印报告 ─────────────────────────────────── */
   print: {
     title: '打印报告',
     printAction: '打印 / 保存 PDF',
@@ -1276,15 +1276,15 @@ const t = {
  * 字典 schema 类型 · 从 zh-CN 字典自动推导, 不手写第二份 interface
  *
  * 递归规则(按真实值类型, 不机械照抄):
- *   - 函数: 保留全部参数签名(...args 推导), 返回值 widen 为 string ——
- *     模板文案返回的字符串因 as const 是字面量类型, 不同语言包返回各自的
- *     字面量, 统一放宽为 string 才能互换
- *   - string: widen 为 string(同上, 中文字面量类型不应约束英文/日文包)
- *   - readonly array(如 features/qwenSteps/noResultsHints): 元素递归 widen,
- *     长度保持 exact(缺/多一条都是错), 得 readonly string[]
- *   - number 等原始值: 原样保留
- *   - 嵌套 object(含 readonly): 逐 key 递归 —— 缺 key / 多余 key 均不满足
- *     映射类型而编译报错
+ * - 函数: 保留全部参数签名(...args 推导), 返回值 widen 为 string ——
+ * 模板文案返回的字符串因 as const 是字面量类型, 不同语言包返回各自的
+ * 字面量, 统一放宽为 string 才能互换
+ * - string: widen 为 string(同上, 中文字面量类型不应约束英文/日文包)
+ * - readonly array(如 features/qwenSteps/noResultsHints): 元素递归 widen,
+ * 长度保持 exact(缺/多一条都是错), 得 readonly string[]
+ * - number 等原始值: 原样保留
+ * - 嵌套 object(含 readonly): 逐 key 递归 —— 缺 key / 多余 key 均不满足
+ * 映射类型而编译报错
  */
 type DictionaryShape<T> =
   T extends (...args: infer A) => unknown
