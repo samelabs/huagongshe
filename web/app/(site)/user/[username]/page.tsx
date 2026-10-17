@@ -10,6 +10,8 @@ import { FollowButton } from "@/components/shared/FollowButton";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EntityBadge } from "@/components/ui/EntityBadge";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
 import { apiGet } from "@/lib/api.server";
 import { isApiNotFound, reactionSvgUrl } from "@/lib/api";
@@ -89,7 +91,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
      已公开的反应/笔记/技能在各自详情页保留可见并带「已停用」标记。 ── */
   if (profile.active === false) {
     const joined = new Date(profile.created_at).toLocaleDateString(locale);
-    return <div className="content-page profile-page">
+    return <PageFrame className="profile-page">
       <div className="pf-deactivated">
         <Avatar id={profile.username} name={profile.display_name || profile.username} src={profile.avatar_url} size={80} />
         <div className="pf-deactivated-id">
@@ -100,7 +102,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
       </div>
       <EmptyState title={t.user.deactivatedTitle}>{t.user.deactivatedBody}</EmptyState>
       <p className="pf-deactivated-joined">{t.user.joinedAt(joined)}</p>
-    </div>;
+    </PageFrame>;
   }
 
   /* 正文数据：反应分页（tab=reactions）；笔记第一页 8 条（计数 + tab=notes 列表）。
@@ -132,7 +134,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const joined = new Date(profile.created_at).toLocaleDateString(locale);
 
   /* 主页场景：名片区直接置顶（无面包屑），内容区随后。 */
-  return <div className="content-page profile-page">
+  return <PageFrame className="profile-page">
     <ProfileHeader profile={{
       id: profile.id, username: profile.username, display_name: profile.display_name,
       bio: profile.bio, avatar_url: profile.avatar_url, created_at: profile.created_at,
@@ -146,10 +148,10 @@ export default async function UserPage({ params, searchParams }: { params: Promi
 
     <ProfileTabs username={profile.username} tab={tab} reactionCount={profile.public_reactions} noteCount={notesTotal} />
 
-    <div className="pf-body">
-      <div className="pf-main">
-        {/* ── 反应 tab：两列卡片（手机一列），分页沿用 page 参数 ── */}
-        {tab === "reactions" && (reactionsUnavailable ? <RetryNotice>{t.user.contentError}</RetryNotice> : reactions.length ? (
+    {/* ── 反应 tab：两列卡片（手机一列），分页沿用 page 参数 ── */}
+    {tab === "reactions" && (
+      <Section title={t.user.tabReactions}>
+        {reactionsUnavailable ? <RetryNotice>{t.user.contentError}</RetryNotice> : reactions.length ? (
           <>
             <div className="pf-rx-grid">
               {reactions.map((item) => (
@@ -191,44 +193,48 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             title={profile.is_me ? t.user.emptyReactionsSelf : t.user.emptyReactionsVisitor}
             action={profile.is_me ? { label: t.notes.createReaction, href: withLocale("/submit", locale) } : undefined}
           />
-        ))}
+        )}
+      </Section>
+    )}
 
-        {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
-            R6/P2 源码契约（tests/test_p1c_*）：加载失败 ≠ total=0 —— 失败渲染
-            错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
-            total=0 只渲染 tab 空状态（下方 EmptyState）。 ── */}
-        {tab === "notes" && notesUnavailable && (
+    {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
+        源码契约（tests/test_p1c_*）：加载失败 ≠ total=0 —— 失败渲染
+        错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
+        total=0 只渲染 tab 空状态（下方 EmptyState）。 ── */}
+    {tab === "notes" && (
+      <Section title={t.user.tabNotes}>
+        {notesUnavailable && (
           <RetryNotice>{t.notes.profileLoadFailed}</RetryNotice>
         )}
-        {tab === "notes" && !notesUnavailable && notesBlock && notesBlock.total > 0 && (
+        {!notesUnavailable && notesBlock && notesBlock.total > 0 && (
           <div className="pf-note-list">
             {notesBlock.items.map((note) => {
               const pres = noteListPresentation(note);
               return (
-              <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
-                <div className="pf-note-head">
-                  {pres.title && <h3>{pres.title}</h3>}
-                  <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
-                </div>
-                <p className="pf-note-summary">{pres.body}</p>
-                {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
-                  <div className="pf-note-refs">
-                    {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
-                    {note.reaction_ids.slice(0, 3).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
+                <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
+                  <div className="pf-note-head">
+                    {pres.title && <h3>{pres.title}</h3>}
+                    <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
                   </div>
-                )}
-              </Link>
+                  <p className="pf-note-summary">{pres.body}</p>
+                  {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
+                    <div className="pf-note-refs">
+                      {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
+                      {note.reaction_ids.slice(0, 3).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
+                    </div>
+                  )}
+                </Link>
               );
             })}
           </div>
         )}
-        {tab === "notes" && !notesUnavailable && notesBlock && notesBlock.total === 0 && (
+        {!notesUnavailable && notesBlock && notesBlock.total === 0 && (
           <EmptyState
             title={profile.is_me ? t.user.emptyNotesSelf : t.user.emptyNotesVisitor}
             action={profile.is_me ? { label: t.notes.writeNote, href: withLocale("/aichem?tab=notes&new=1", locale) } : undefined}
           />
         )}
-      </div>
-    </div>
-  </div>;
+      </Section>
+    )}
+  </PageFrame>;
 }

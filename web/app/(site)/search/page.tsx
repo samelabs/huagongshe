@@ -7,6 +7,9 @@ import { SearchHero } from "@/components/SearchHero";
 import { UrlTabs } from "@/components/UrlTabs";
 import { Notice } from "@/components/ui/Notice";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { PageHead } from "@/components/ui/PageHead";
+import { Section } from "@/components/ui/Section";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { GlyphChem } from "@/components/ui/icons";
 import { apiGet } from "@/lib/api.server";
@@ -178,20 +181,18 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   if (redirectTarget) redirect(redirectTarget);  // try 外: NEXT_REDIRECT 异常直穿
   return (
-    <div className="content-page search-page">
-      <header className="search-head">
-        <h1>{relationLabel ? `${relationLabel}${t.search.resultSuffix}` : t.search.title}</h1>
-        <SearchHero initial={q} initialMode={urlMode} authed={authed} autoFocus={params.focus === "1"} contextLabel={t.search.title} />
-        {relationLabel && q && (
-          <p className="context-line">
-            {t.search.queryStructurePrefix}<code>{q}</code>{t.search.queryStructure}{relationLabel}{urlMode === "similarity" && similarityThreshold !== null ? t.search.similarityThreshold(similarityThreshold) : ""}{capped ? t.search.cappedHint : ""}
-          </p>
-        )}
-      </header>
+    <PageFrame className="search-page">
+      <PageHead
+        title={relationLabel ? `${relationLabel}${t.search.resultSuffix}` : t.search.title}
+        subtitle={relationLabel && q ? (
+          <>{t.search.queryStructurePrefix}<code>{q}</code>{t.search.queryStructure}{relationLabel}{urlMode === "similarity" && similarityThreshold !== null ? t.search.similarityThreshold(similarityThreshold) : ""}{capped ? t.search.cappedHint : ""}</>
+        ) : undefined}
+      />
+      <SearchHero initial={q} initialMode={urlMode} authed={authed} autoFocus={params.focus === "1"} contextLabel={t.search.title} />
       {error && <Notice tone="err">{error}</Notice>}
       {(hasChemicals || hasReactions) && (
-        <section className="results-section">
-          {hasBoth ? (
+        hasBoth ? (
+          <section className="results-section">
             <UrlTabs
               ariaLabel={t.search.resultTabsLabel}
               value={activeType}
@@ -200,36 +201,50 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 { id: "reactions", label: t.search.reactionResults, count: reactions.length, href: typeHref("reactions") },
               ]}
             />
-          ) : (
-            <div className="section-heading">
-              <div><h2>{hasReactions ? t.search.reactionResults : (relationLabel ?? t.search.chemicalResults)}</h2></div>
-              <span>
-                {hasReactions
-                  ? t.search.showingResults(reactions.length)
-                  : (capped
-                      ? t.search.showingCappedRange(start, shown)
-                      : total !== null
-                        ? t.search.showingRange(start, shown, total)
-                        : t.search.showingResults(chemicals.length))}
-              </span>
-            </div>
-          )}
-          {activeType === "chemicals" && hasChemicals && (
-            <>
-              <div className="entity-card-grid">{chemicals.map((chemical) => <EntityCard chemical={chemical} key={chemical.id} favored={favoredSet.has(chemical.id)} />)}</div>
-              {hasMore && (
-                <div className="load-more">
-                  <Link className="hg-btn secondary" href={withLocale(loadMoreHref(q, urlMode, page), locale)}>
-                    {t.search.loadMore}
-                  </Link>
-                </div>
-              )}
-            </>
-          )}
-          {activeType === "reactions" && hasReactions && (
-            <div className="reaction-results">{reactions.map((reaction) => <ReactionResult reaction={reaction} key={reaction.id} />)}</div>
-          )}
-        </section>
+            {activeType === "chemicals" && hasChemicals && (
+              <>
+                <div className="entity-card-grid">{chemicals.map((chemical) => <EntityCard chemical={chemical} key={chemical.id} favored={favoredSet.has(chemical.id)} />)}</div>
+                {hasMore && (
+                  <div className="load-more">
+                    <Link className="hg-btn secondary" href={withLocale(loadMoreHref(q, urlMode, page), locale)}>
+                      {t.search.loadMore}
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
+            {activeType === "reactions" && hasReactions && (
+              <div className="reaction-results">{reactions.map((reaction) => <ReactionResult reaction={reaction} key={reaction.id} />)}</div>
+            )}
+          </section>
+        ) : (
+          <Section
+            title={hasReactions ? t.search.reactionResults : (relationLabel ?? t.search.chemicalResults)}
+            note={hasReactions
+              ? t.search.showingResults(reactions.length)
+              : (capped
+                ? t.search.showingCappedRange(start, shown)
+                : total !== null
+                  ? t.search.showingRange(start, shown, total)
+                  : t.search.showingResults(chemicals.length))}
+          >
+            {activeType === "chemicals" && hasChemicals && (
+              <>
+                <div className="entity-card-grid">{chemicals.map((chemical) => <EntityCard chemical={chemical} key={chemical.id} favored={favoredSet.has(chemical.id)} />)}</div>
+                {hasMore && (
+                  <div className="load-more">
+                    <Link className="hg-btn secondary" href={withLocale(loadMoreHref(q, urlMode, page), locale)}>
+                      {t.search.loadMore}
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
+            {activeType === "reactions" && hasReactions && (
+              <div className="reaction-results">{reactions.map((reaction) => <ReactionResult reaction={reaction} key={reaction.id} />)}</div>
+            )}
+          </Section>
+        )
       )}
       {!error && q && !hasChemicals && !hasReactions && (
         fetchPending ? (
@@ -252,6 +267,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           </div>
         )
       )}
-    </div>
+    </PageFrame>
   );
 }

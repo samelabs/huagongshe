@@ -3,11 +3,12 @@
 import { useState, useMemo } from "react";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
-import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Field";
 import { IconSparkle } from "@/components/ui/icons";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { PageHead } from "@/components/ui/PageHead";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 export type Skill = {
@@ -106,30 +107,25 @@ export function SkillsClient({
   }, [visible, catMap, t.skills.defaultCategory]);
 
   return (
-    <div className="skills-page">
-      {/* Hero */}
-      <section className="skills-hero">
-        <div className="skills-hero-inner">
-          <Breadcrumb
-            items={[
-              { label: t.chemical.home, href: withLocale("/", locale) },
-              { label: t.skills.openLibrary },
-            ]}
-            ariaLabel={t.common.breadcrumb}
-          />
-          <h1>{t.skills.heroTitle}</h1>
-          <div className="skills-search-bar">
-            <Input
-              type="text"
-              enterKeyHint="search"
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setShowAll(false); }}
-              placeholder={t.skills.searchPlaceholder}
-              aria-label={t.skills.searchPlaceholder}
-            />
-          </div>
-        </div>
-      </section>
+    <PageFrame className="skills-page">
+      {/* 页头（版式件 default）：面包屑 + 标题；检索框紧随页头 */}
+      <PageHead
+        breadcrumb={[
+          { label: t.chemical.home, href: withLocale("/", locale) },
+          { label: t.skills.openLibrary },
+        ]}
+        title={t.skills.heroTitle}
+      />
+      <div className="skills-search-bar">
+        <Input
+          type="text"
+          enterKeyHint="search"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setShowAll(false); }}
+          placeholder={t.skills.searchPlaceholder}
+          aria-label={t.skills.searchPlaceholder}
+        />
+      </div>
 
       {/* Category nav - 仅当分类成功返回时展示；分类失败时仅隐藏本条，不整页报错 */}
       {cats && cats.length > 0 && (
@@ -192,7 +188,7 @@ export function SkillsClient({
           </>
         )}
       </div>
-    </div>
+    </PageFrame>
   );
 }
 
