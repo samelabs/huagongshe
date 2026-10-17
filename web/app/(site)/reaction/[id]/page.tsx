@@ -183,7 +183,7 @@ export default async function ReactionPage({ params }: {
 
   return (
     <div className="content-page reaction-page">
-      {/* 0904 P0收口: JSON.stringify 不转义 '<', </script> 可闭合标签注入脚本
+      {/* 安全收口: JSON.stringify 不转义 '<', </script> 可闭合标签注入脚本
           (存储型XSS)。规范做法: < 与 U+2028/2029 转义为 JSON 等价形式。 */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
       <Breadcrumb

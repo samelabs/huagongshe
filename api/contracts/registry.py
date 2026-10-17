@@ -381,7 +381,7 @@ def _fams() -> list[Family]:
                 I(T.HTTP, "POST /api/users/{username}/follow"),
                 I(T.HTTP, "DELETE /api/users/{username}/follow")),
               contract=Contract(frozenset({C.WEB}), X.NONE),
-              note="G1A 冻结: 无 MCP 面, 禁止因技术可行规划(P4)"),
+              note="冻结: 无 MCP 面, 禁止因技术可行规划"),
             S("follow_reaction", A.SESSION, entrypoints=(
                 I(T.HTTP, "POST /api/reactions/{reaction_id}/follow"),
                 I(T.HTTP, "DELETE /api/reactions/{reaction_id}/follow")),
@@ -409,7 +409,7 @@ def _fams() -> list[Family]:
             S("users_search", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/users/search"),),
               contract=Contract(frozenset({C.WEB}), X.NONE),
-              note="I-082: 用户搜索(前缀/包含, 公开字段, 限流); 仅 web 面"),
+              note="用户搜索(前缀/包含, 公开字段, 限流); 仅 web 面"),
             S("profile", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/users/{username}"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
@@ -438,7 +438,7 @@ def _fams() -> list[Family]:
                 I(T.HTTP, "GET /api/datasets"),),
               # llms.txt 为弱承诺简介, 无稳定兼容承诺 → NONE(仍是 DISCOVERY consumer)
               contract=Contract(frozenset({C.DISCOVERY}), X.NONE),
-              note="P3 裁定升入 guide 与否"),
+              note="是否升入 guide 待定"),
         )),
         Family("discovery.sitemap", E.READ, scenarios=(
             S("reactions", A.PUBLIC_OR_ACTOR, entrypoints=(
@@ -600,7 +600,7 @@ def _fams() -> list[Family]:
             S("lease", A.WORKER_HMAC, required_scope=("pubchem",), entrypoints=(
                 I(T.WORKAPI, "POST /workapi/v1/identity/jobs/lease"),),
               contract=Contract(frozenset({C.WORKER}), X.NONE),
-              note="identity 沿用 pubchem scope(0912 P0-1 裁定; P1 维持)"),
+              note="identity 沿用 pubchem scope(维持现状)"),
             S("complete", A.WORKER_HMAC, required_scope=("pubchem",), entrypoints=(
                 I(T.WORKAPI, "POST /workapi/v1/identity/jobs/complete"),),
               contract=Contract(frozenset({C.WORKER}), X.NONE)),

@@ -6,8 +6,8 @@ cd "$(dirname "$(readlink -f "$0")")/.."
 # venv 只在生产树存在, worktree 复用之
 PY=/var/www/huagongshe/venv/bin/python
 export $(grep -v '^#' /etc/huagongshe.env | xargs)
-# B5-05: 端点清单对齐现行路由 —— /chemicals/{id}/externals 与 /details
-# 已随 E9-B 统一详情收口删除(唯一公开 detail = GET /chemicals/{id},
+# 端点清单对齐现行路由 —— /chemicals/{id}/externals 与 /details
+# 已随统一详情收口删除(唯一公开 detail = GET /chemicals/{id},
 # enrich=core|full 查询参数); 冒烟改为现行形态。
 PATHS=(
  '/api/health:200' '/api/config:200'

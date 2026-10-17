@@ -70,7 +70,7 @@ export default function McpPage() {
       </div>
     </section>
 
-    {/* Agent Plugin：agent-plugins.org 规范插件包下载入口，MCP 端点只在下方出现一次（I-005） */}
+    {/* Agent Plugin：agent-plugins.org 规范插件包下载入口，MCP 端点只在下方出现一次 */}
     <section className="guide-section" id="agent-plugin">
       <div className="section-heading"><div><h2>{t.mcp.pluginTitle}</h2></div></div>
       <p className="guide-section-intro">{t.mcp.pluginStatus}</p>

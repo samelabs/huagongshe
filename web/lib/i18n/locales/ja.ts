@@ -150,7 +150,7 @@ const ja: Dictionary = {
 
   /* ── 検索 ───────────────────────────────────────────── */
   search: {
-    seoResultsLabel: '検索',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
+    seoResultsLabel: '検索',  /* 结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: '名称、CAS番号、InChIKey、SMILES、構造で化工社のケミストリーデータを検索。',
     title: 'ケミストリーデータを検索',
     noResultsFor: (query: string) => `「${query}」に一致する記録は見つかりませんでした`,
@@ -335,7 +335,7 @@ const ja: Dictionary = {
       other: 'その他',
       unknown: '記載なし',
     },
-    userSubmitted: 'ユーザー投稿',  /* BX-A2：API user_submitted 标记的本地化 */
+    userSubmitted: 'ユーザー投稿',  /* API user_submitted 标记的本地化 */
     sourceFields: {
       type: '出典タイプ',
       ord: 'ORDレコード',

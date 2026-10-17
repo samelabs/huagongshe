@@ -152,7 +152,7 @@ const ko: Dictionary = {
 
   /* ── 검색 ───────────────────────────────────────────── */
   search: {
-    seoResultsLabel: '검색',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
+    seoResultsLabel: '검색',  /* 结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: '이름, CAS 번호, InChIKey, SMILES 또는 구조로 화공사의 화학 데이터를 검색.',
     title: '화학 데이터 검색',
     noResultsFor: (query: string) => `"${query}"에 대한 일치 기록을 찾지 못했습니다`,
@@ -337,7 +337,7 @@ const ko: Dictionary = {
       other: '기타',
       unknown: '미표기',
     },
-    userSubmitted: '사용자 제출',  /* BX-A2：API user_submitted 标记的本地化 */
+    userSubmitted: '사용자 제출',  /* API user_submitted 标记的本地化 */
     sourceFields: {
       type: '출처 유형',
       ord: 'ORD 기록',

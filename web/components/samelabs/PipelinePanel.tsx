@@ -331,7 +331,7 @@ export function SamelabsPipeline() {
           {negWrap && !negWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}（来源未命中）{negWrap.error ? `（${negWrap.error}）` : ""}</div>}
         </div>
         <div className="dashboard-card pipe-chain">
-          <Group title="说明" note="E9-B 收口">
+          <Group title="说明" note="收口">
             <p className="pipe-metric-label">上游账本(seed)与供应侧(supplier)历史总量已移至数据治理口径, 不在运行时刷新。</p>
           </Group>
         </div>

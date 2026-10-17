@@ -120,7 +120,7 @@ class TokenPlaintextContractTests(unittest.TestCase):
         comment = (row[1] or "")
         for phrase in ("明文", "有意", "项目负责人", "再次查看"):
             self.assertIn(phrase, comment,
-                          f"列注释必须写明裁定（缺「{phrase}」）: {comment!r}")
+                          f"列注释必须写明该决策（缺「{phrase}」）: {comment!r}")
         for required in ("id", "user_id", "name", "token_hash", "token_prefix"):
             self.assertIn(required, columns, f"鉴权依赖列 {required} 必须仍在")
 
@@ -149,7 +149,7 @@ class TokenPlaintextContractTests(unittest.TestCase):
         comment = (row[1] or "")
         for phrase in ("预留", "邮箱验证", "项目负责人"):
             self.assertIn(phrase, comment,
-                          f"列注释必须写明预留裁定（缺「{phrase}」）: {comment!r}")
+                          f"列注释必须写明预留决策（缺「{phrase}」）: {comment!r}")
 
     def test_create_stores_plaintext_in_db(self):
         """新建 Key: 201 响应返回明文, 且落库行 token_plain 即该明文。"""

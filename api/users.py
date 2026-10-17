@@ -446,7 +446,7 @@ async def list_tokens(response: Response, actor: Actor = Depends(current_session
         FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL
         ORDER BY id DESC
-        LIMIT 5  -- I-083: 与创建上限(5 个有效 Key)一致的有界防御
+        LIMIT 5  -- 与创建上限(5 个有效 Key)一致的有界防御
     """), {"id": actor.id})).mappings().all()
     return [dict(row) for row in rows]
 

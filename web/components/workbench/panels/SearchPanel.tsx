@@ -77,7 +77,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
     <section className="wb-panel wb-search">
       <PanelHeading title={t.me.tabSearch} subtitle={t.me.searchHint} />
 
-      {/* 搜索框 — 工作台自有布局，控件用 ui 库（Step 9） */}
+      {/* 搜索框 — 工作台自有布局，控件用 ui 库 */}
       <form method="post" className="wb-search-form" onSubmit={(e) => { e.preventDefault(); doSearch(query, mode); }}>
         <div className="wb-search-field">
           <Input

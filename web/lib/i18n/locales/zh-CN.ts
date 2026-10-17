@@ -157,7 +157,7 @@ const t = {
 
   /* ── 搜索 ────────────────────────────────────────────── */
   search: {
-    seoResultsLabel: '搜索',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
+    seoResultsLabel: '搜索',  /* 结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: '在化工社按名称、CAS 号、InChIKey、SMILES 或结构检索化学数据。',
     title: '查询化学数据',
     noResultsFor: (query: string) => `没有找到与「${query}」匹配的记录`,
@@ -343,7 +343,7 @@ const t = {
       other: '其他',
       unknown: '未注明',
     },
-    userSubmitted: '用户发布',  /* BX-A2：API user_submitted 标记的本地化 */
+    userSubmitted: '用户发布',  /* API user_submitted 标记的本地化 */
     sourceFields: {
       type: '来源类型',
       ord: 'ORD记录',

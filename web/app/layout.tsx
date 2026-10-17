@@ -105,7 +105,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                   <AppShell />
                   {children}
                 </div>
-                {/* 水合哨兵：挂载后 <html data-hydrated=1>，截图工具等待它（Step 9 Part A.1） */}
+                {/* 水合哨兵：挂载后 <html data-hydrated=1>，截图工具等待它 */}
                 <HydrationMarker />
               </ConfirmProvider>
             </ToastProvider>

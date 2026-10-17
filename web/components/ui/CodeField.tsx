@@ -22,7 +22,7 @@ export function CodeField({ value, copyLabel, multiline, className }: {
   const codeRef = useRef<HTMLElement>(null);
   return (
     <div className={["hg-code", multiline ? "multiline" : "", className ?? ""].filter(Boolean).join(" ")}>
-      {/* FX-15c（SMK-020 / axe scrollable-region-focusable）：滚动区可键盘聚焦 */}
+      {/* 可访问性（axe scrollable-region-focusable）：滚动区可键盘聚焦 */}
       <code ref={codeRef} tabIndex={0} role="region" aria-label={copyLabel ?? t.common.copy}>{value}</code>
       <CopyButton value={value} ariaLabel={copyLabel ?? `${t.common.copy}`} textRef={codeRef} />
     </div>

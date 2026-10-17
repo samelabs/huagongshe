@@ -474,7 +474,7 @@ export default async function ChemicalPage({ params }: {
         {/* ── Secondary rail (desktop；≤900 移到正文末尾) ── */}
         <aside className="chemical-aside">
           <ChemPageNav sections={tocSections} variant="rail" />
-          {/* 新建相关反应（PM 决策保留；Step 7 紧凑版：标题 + 一句说明 + tonal sm 按钮） */}
+          {/* 新建相关反应（紧凑版：标题 + 一句说明 + tonal sm 按钮） */}
           <section className="contribute-panel">
             <h2 className="contribute-title">{t.chemical.newRelated}</h2>
             <p>{t.chemical.newRelatedHint}</p>

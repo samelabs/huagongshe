@@ -74,7 +74,7 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
         else:
             # legacy fallback(步骤 3/4): 同 locale 多个非-imprint source row 时,
             # ORDER BY cb_number ASC 建立稳定 tie-break — 只消除数据库随机性,
-            # 不把时间/热度解释成 source 优先级, 不参与身份, 数据零修改
+            # 不把时间/热度解释成 source 优先级, 不参与身份判定, 数据零修改
             # (v1.6.0: 生产 84 组 no-imprint-match 暴露面实证需要确定性)。
             row = (await db.execute(text("""
                 SELECT chemical_id,cas_number,entry,last_status,fetched_at,cb_number,locale
@@ -101,7 +101,7 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
 async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
     # 收口: 老表迁移完成(profile 6,417/listing 449k), 双读回退桥拆除,
     # 只读两新表。旧表 chemical_supplier 已摘除。
-    # (v1.7.1): 对外 ref 一律为 caslib/redact.supplier_ref 不透明哈希。
+    # 对外 ref 一律为 caslib/redact.supplier_ref 不透明哈希(v1.7.1 起)。
     # 库内 ref 列保存原站标识形态(cb-supplier:{cbsid}), 属 DB 身份字段不出
     # 公开详情/MCP; 库内键与数据不变, 哈希在此出口计算。输出不含 cbsid 键。
     from caslib.redact import supplier_ref
@@ -124,7 +124,7 @@ async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
 
 
 def _strip_nul(value):
-    """P0收口: CB上游页面字段可含 U+0000, PG text/jsonb 拒绝 \u0000 转义
+    """数据安全收口: CB上游页面字段可含 U+0000, PG text/jsonb 拒绝 \u0000 转义
     (UntranslatableCharacterError 实锤于 error.log)。递归剔除, 仅处理 str,
     其他类型原样返回。entry/suppliers 全部过这一道 — 写库前的唯一清洗点。
     """
@@ -400,7 +400,7 @@ async def enqueue_cas_job(
              CAST(:context AS jsonb))
         ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','error')
         DO UPDATE SET
-            -- 0904 P1收口: error 行复活=同请求翻态(与 PB 链 enrichment.py 同构)。
+            -- 收口: error 行复活=同请求翻态(与 PB 链 enrichment.py 同构)。
             -- 原实现只 bump priority 不翻 queued, error 行卡死后用户重试永远
             -- "正在获取"(cas_search_state 只认 queued/leased 活跃窗)。
             status=CASE WHEN maintenance.cas_jobs.status='error'
@@ -825,7 +825,7 @@ async def enqueue_cas_search_fetch(
              CAST(:context AS jsonb))
         ON CONFLICT (dedupe_key) WHERE status IN ('queued','leased','error')
         DO UPDATE SET
-            -- 0904 P1收口: 同上, error 复活=同请求翻态(search_miss 入口)。
+            -- 收口: 同上, error 复活=同请求翻态(search_miss 入口)。
             status=CASE WHEN maintenance.cas_jobs.status='error'
                      THEN 'queued' ELSE maintenance.cas_jobs.status END,
             priority=greatest(maintenance.cas_jobs.priority,excluded.priority),

@@ -153,7 +153,7 @@ const de: Dictionary = {
 
   /* ── Suche ──────────────────────────────────────────── */
   search: {
-    seoResultsLabel: 'Suche',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
+    seoResultsLabel: 'Suche',  /* 结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: 'Durchsuche Huagongshe-Chemiedaten nach Name, CAS-Nummer, InChIKey, SMILES oder Struktur.',
     title: 'Chemiedaten durchsuchen',
     noResultsFor: (query: string) => `Keine Einträge für „${query}“ gefunden`,
@@ -338,7 +338,7 @@ const de: Dictionary = {
       other: 'Sonstiges',
       unknown: 'Ohne Angabe',
     },
-    userSubmitted: 'Von Nutzern eingereicht',  /* BX-A2：API user_submitted 标记的本地化 */
+    userSubmitted: 'Von Nutzern eingereicht',  /* API user_submitted 标记的本地化 */
     sourceFields: {
       type: 'Quellentyp',
       ord: 'ORD-Eintrag',

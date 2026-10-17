@@ -149,7 +149,7 @@ const en: Dictionary = {
 
   /* ── Search ────────────────────────────────────────── */
   search: {
-    seoResultsLabel: 'Search',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
+    seoResultsLabel: 'Search',  /* 结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: 'Search chemistry data by name, CAS number, InChIKey, SMILES, or structure across Huagongshe.',
     title: 'Search chemistry data',
     noResultsFor: (query: string) => `No records match "${query}"`,
@@ -334,7 +334,7 @@ const en: Dictionary = {
       other: 'Other',
       unknown: 'Unspecified',
     },
-    userSubmitted: 'User submitted',  /* BX-A2：API user_submitted 标记的本地化 */
+    userSubmitted: 'User submitted',  /* API user_submitted 标记的本地化 */
     sourceFields: {
       type: 'Source type',
       ord: 'ORD record',

@@ -685,7 +685,7 @@ async def complete_cas_job(
             )
         except ValueError as exc:
             # 载荷异常: 不打死 — 留 error 行占位。
-            # P1收口: 此前分支 commit 会把 apply_structure_fill 的主表结构
+            # 收口: 此前分支 commit 会把 apply_structure_fill 的主表结构
             # 半截写入一并落库(有结构无CB数据行, 违反"error=不写数据层"口径)。
             # 改 rollback 整事务废弃 → 单独事务写 error 行再 commit。
             await db.rollback()

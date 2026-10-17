@@ -43,7 +43,7 @@ async def _get(
     timeout_s: float,
     rate: Any = None,
 ) -> tuple[int | None, str]:
-    # P1收口: 限速下沉到请求级 — 此前 worker 只在 job 级 acquire 一次,
+    # 收口: 限速下沉到请求级 — 此前 worker 只在 job 级 acquire 一次,
     # 一个 zh-CN job 内部 CAS页+CPP页+mol 最多 3 个请求全绕过限速器(实际峰值
     # 可达配置 3 倍, 喂上游风控)。rate=None(如 API 同步路径)不限制, 行为不变。
     if rate is not None:

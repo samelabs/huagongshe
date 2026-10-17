@@ -119,7 +119,7 @@ async def patch_worker(
     actor: Actor = Depends(admin), db=Depends(get_db),
 ):
     """编辑 Worker 元数据/停权. 停权后 worker 下次 lease 即 401; 不提供 DELETE(保留审计轨迹).
-    P1 三态(): enabled=false → 写 disabled_at; enabled=true → 清 disabled_at;
+    启停三态: enabled=false → 写 disabled_at; enabled=true → 清 disabled_at;
     enabled=None → 两者不动。auth 要求 enabled AND disabled_at IS NULL。"""
     scopes = _validated_scopes(body.scopes) if body.scopes is not None else None
     result = (await db.execute(text("""
@@ -128,7 +128,7 @@ async def patch_worker(
             scopes=coalesce(CAST(:scopes AS text[]),scopes),
             max_lease_jobs=coalesce(:max_lease_jobs,max_lease_jobs),
             enabled=coalesce(:enabled,enabled),
-            -- P1 三态(0912 correction): 不依赖 coalesce 推导。
+            -- 启停三态: 不依赖 coalesce 推导。
             -- :enabled IS FALSE 且当前 disabled_at IS NULL → 首次停权时刻 now();
             -- 重复 disable(disabled_at 已有值) 保持原值, 不重置首次停权时间。
             -- :enabled IS TRUE → 清 NULL(恢复)。 :enabled IS NULL → 两者完全不动。

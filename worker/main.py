@@ -433,7 +433,7 @@ async def _cb_loop(
 
     请求节奏由 rps 限速器统一控制(: 礼仪sleep退役, 与 PB 同构);
     两条 CB 链各持有独立限速器实例 → 对上游各出口恒定 rps。
-    P1收口: lease 批量 10→1。批量+串行处理下, heartbeat 只在 job
+    收口: lease 批量 10→1。批量+串行处理下, heartbeat 只在 job
     开跑时启动, 排队中的 job 无人续租(lease=180s, 单 job 最坏 ~50s,
     第 4 条起未开跑租约已过期)→ 服务端回队重抓(上游双重打击)+原 worker
     complete 409 落 cas_fetch_error 假错误行污染闸门。逐条 lease 即取即跑,

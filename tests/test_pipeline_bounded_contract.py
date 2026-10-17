@@ -85,7 +85,7 @@ class GovernanceRemovedCapabilityTests(unittest.TestCase):
         self.assertNotIn("async def seed_enqueued_no_job", src)
         self.assertNotIn('"resolver_events":', src)
         self.assertNotIn("resolver_events_note", src)
-        self.assertNotIn('"seed_enqueued_no_job"', src.split("# E9-B")[0])
+        self.assertNotIn('"seed_enqueued_no_job"', src)
 
     def test_drilldown_removed(self):
         import api.services.pipeline_governance as gov
