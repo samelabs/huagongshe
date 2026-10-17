@@ -37,7 +37,10 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ALLOW_PHRASES = ("需人工裁定", "身份裁定", "身份未裁定", "参与裁定", "裁决")
 
 # 不检查的路径：历史迁移档案（内容冻结）、验收工作区、依赖产物
-EXCLUDED_PARTS = ("migrations/history/", ".rc-acceptance/", "node_modules/", "package-lock.json")
+# 不检查的路径：历史迁移档案（内容冻结）、验收工作区、依赖产物、
+# 本脚本自身（词表模式定义必须包含被禁词）
+EXCLUDED_PARTS = ("migrations/history/", ".rc-acceptance/", "node_modules/",
+                  "package-lock.json", "scripts/check_comment_vocabulary.py")
 
 
 def merge_base(base: str) -> str:

@@ -34,7 +34,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Comment vocabulary lint (new lines only)
-        # 词表检查: 新增行禁止编号代号/轮次/裁定类过程语言(存量已清理, 不追溯)
+        # 词表检查: 新增行禁止编号代号与决策过程用语(存量已清理, 不追溯)
         run: |
           git fetch origin main --quiet || true
           python scripts/check_comment_vocabulary.py --base origin/main
