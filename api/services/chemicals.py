@@ -75,6 +75,15 @@ CHEMICAL_SELECT = """
     c.cas_numbers, c.nikkaji_numbers, c.chembl_ids, c.ec_numbers,
     c.unii_codes, c.chebi_ids
 """
+# CHEMICAL_SELECT 的列名清单（同一顺序）—— 供 mappings 取值处按列名访问。
+# 两份清单必须同步修改；mappings 键缺失时直接 KeyError，不会静默错位。
+CHEMICAL_PROJECTION_NAMES = (
+    "id", "pubchem_cid", "smiles", "pubchem_smiles",
+    "preferred_name", "iupac_name", "molecular_formula",
+    "average_mass", "monoisotopic_mass", "inchikey", "dtxsid",
+    "cas_numbers", "nikkaji_numbers", "chembl_ids", "ec_numbers",
+    "unii_codes", "chebi_ids",
+)
 # Smaller motifs match too much of the 124M-compound corpus and can remain inside
 # RDKit's PostgreSQL extension after the client-side statement timeout expires.
 MIN_SUBSTRUCTURE_HEAVY_ATOMS = 10

@@ -176,7 +176,8 @@ async def user_reactions(
     # 规则在前端解析，需要角色与收率及化合物的名称字段。
     if items:
         from .services.chemicals import (
-            CHEMICAL_SELECT, attach_localized_names, chemical_dict, clean_float,
+            CHEMICAL_PROJECTION_NAMES, CHEMICAL_SELECT, attach_localized_names,
+            chemical_dict, clean_float,
         )
         prow = (await db.execute(text(f"""
             SELECT rc.reaction_id, {CHEMICAL_SELECT}, rc.role, rc.yield_percent
@@ -186,14 +187,14 @@ async def user_reactions(
             ORDER BY CASE rc.role WHEN 'REACTANT' THEN 1 WHEN 'REAGENT' THEN 2
                      WHEN 'CATALYST' THEN 3 WHEN 'SOLVENT' THEN 4 WHEN 'PRODUCT' THEN 5 ELSE 6 END,
                      c.id
-        """), {"ids": [item["id"] for item in items]})).fetchall()
+        """), {"ids": [item["id"] for item in items]})).mappings()
         by_reaction: dict[int, list[dict[str, Any]]] = {}
         flat: list[dict[str, Any]] = []
         for row in prow:
-            chemical = chemical_dict(row[1:])
-            chemical["role"] = row[18]
-            chemical["yield_percent"] = clean_float(row[19])
-            by_reaction.setdefault(row[0], []).append(chemical)
+            chemical = chemical_dict(tuple(row[name] for name in CHEMICAL_PROJECTION_NAMES))
+            chemical["role"] = row["role"]
+            chemical["yield_percent"] = clean_float(row["yield_percent"])
+            by_reaction.setdefault(row["reaction_id"], []).append(chemical)
             flat.append(chemical)
         await attach_localized_names(db, flat)
         for item in items:
