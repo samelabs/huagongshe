@@ -237,7 +237,8 @@ class S3LegalPagesTests(unittest.TestCase):
                               ("privacy", "Privacy Policy"),
                               ("support", "Support")):
             src = (REPO / f"web/app/(site)/{slug}/page.tsx").read_text(encoding="utf-8")
-            self.assertIn(f"<h1>{heading}</h1>", src)
+            # 版式件 PageHead 承担 h1：标题以 props 表达（渲染仍是唯一 h1）
+            self.assertIn(f'title="{heading}"', src)
             self.assertIn("Effective October 6, 2026", src) if slug == "terms" else None
 
     def test_no_hreflang_claims_for_translations(self):
@@ -249,7 +250,7 @@ class S3LegalPagesTests(unittest.TestCase):
         # A2-3: 英文正文根内容容器显式 lang="en"(不动全站 <html lang>)
         for slug in self.PAGES:
             src = (REPO / f"web/app/(site)/{slug}/page.tsx").read_text(encoding="utf-8")
-            self.assertIn('<article lang="en" className="content-page guide-page legal-page">',
+            self.assertIn('<article lang="en" className="guide-page legal-page">',
                           src, f"{slug} root content container missing lang=\"en\"")
 
 

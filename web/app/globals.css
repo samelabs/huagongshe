@@ -119,8 +119,6 @@ main { flex: 1; background: var(--bg-page); }
 .srch-modes { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .srch-modes::-webkit-scrollbar { display: none; }
 
-.page-title, .guide-hero { max-width: var(--w-reading); margin-bottom: 36px; }
-
 .content-page { width: min(var(--w-wide), calc(100% - 40px)); margin: 0 auto; padding: 42px 0 90px; }
 
 /* ── 页面标题统一体系 ──────────────────────────────
@@ -133,11 +131,6 @@ main { flex: 1; background: var(--bg-page); }
 .page-head > p:not(.page-kicker) { margin: 14px 0 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.75; }
 .page-head > .hg-text { margin-top: 12px; display: inline-block; }
 
-/* 兼容旧类名 → 新体系（渐进迁移，后续删除旧类名） */
-.page-title, .guide-hero { max-width: var(--w-reading); margin-bottom: 36px; }
-.page-title h1, .guide-hero h1 { margin: 0; font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); line-height: 1.28; letter-spacing: -.008em; }
-.page-title > p:not(.page-kicker), .guide-hero > p:not(.page-kicker) { margin: 14px 0 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.75; }
-.page-title > .hg-text, .guide-hero > .hg-text { margin-top: 12px; display: inline-block; }
 .section-heading { margin-bottom: 16px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
 .section-heading h2 { margin: 0; font-size: var(--fs-18); font-weight: var(--fw-semibold); letter-spacing: -.01em; color: var(--text); }
 .section-heading > span { color: var(--text-muted); font-size: var(--fs-13); }
@@ -280,9 +273,6 @@ main { flex: 1; background: var(--bg-page); }
 .contribute-panel p { margin: 0 0 var(--sp-3); color: var(--text-muted); font-size: var(--fs-13); line-height: 1.55; }
 .description-panel { border-left: 3px solid var(--brand); padding: 0 0 0 18px; }
 .description-panel p { margin: 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.85; }
-/* Chemical Detail semantic v2: 语义 section 为一级 IA; 详情页版式（间距/标题）
-   走版式件 Section（.hg-section）。本规则只服务 data-api 文档页（待文档族批次迁移）。 */
-.chem-section { display: grid; gap: var(--sp-4); min-width: 0; max-width: 100%; }
 .chem-subhead { margin: var(--sp-3) 0 0; font-size: var(--fs-18); font-weight: var(--fw-semibold); color: var(--text); }
 .chem-subhead-note { margin-left: var(--sp-2); color: var(--text-muted); font-size: var(--fs-13); font-weight: 400; }
 .chem-names-block { display: grid; gap: var(--sp-2); }
@@ -633,15 +623,17 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .token-list article { flex-direction: column; align-items: flex-start; }
 }
 
-/* ── 文档页（6.10）：阅读版式 --w-reading 720；h2 与实体页分区同规格 ── */
-.guide-hero { max-width: var(--w-reading); padding: 30px 0 34px; }
-.guide-hero-top { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
-.guide-hero > p:not(.page-kicker) { max-width: var(--w-reading); margin: 18px 0 0; line-height: 1.8; }
-.guide-section { max-width: var(--w-reading); border-top: 1px solid var(--border); padding: 40px 0; }
-.guide-section .section-heading h2,
-.guide-section > h2 { margin: 0 0 16px; font-size: var(--fs-22); font-weight: 600; letter-spacing: var(--ls-heading); color: var(--text); }
-.guide-section-intro { margin: 0 0 16px; color: var(--text-muted); font-size: var(--fs-14); line-height: 1.75; }
+/* samelabs 管理端页头（版式件不进管理端，本组规则保留在此、只服务 .samelabs-page） */
+.samelabs-page .page-title { max-width: var(--w-reading); margin-bottom: 36px; }
+.samelabs-page .page-title h1 { margin: 0; font-size: clamp(var(--fs-22), 3.5vw, var(--fs-28)); font-weight: var(--fw-medium); line-height: 1.28; letter-spacing: -.008em; }
+.samelabs-page .page-title > p:not(.page-kicker) { margin: 14px 0 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.75; }
+.samelabs-page .page-title > .hg-text { margin-top: 12px; display: inline-block; }
+
+/* ── 文档页（6.10）：页框/页头/分区走版式件（reading 档 + Section），
+   这里只剩文档内容样式 ── */
 .guide-actions { margin-top: 22px; display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+/* data-api 文档的正文段：阅读宽度内、文档体 */
+.doc-prose { margin: 0 0 var(--sp-3); max-width: var(--w-reading); color: var(--text-2); font-size: var(--fs-14); line-height: 1.8; overflow-wrap: anywhere; }
 
 /* 段落 + 小标题为主(去卡片化）：h3 + p 直排 */
 .guide-prose-list { display: grid; gap: 6px; }
@@ -668,11 +660,11 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 /* ── 法务/支持页（）：更新日期 meta 行 + 条款编号 + 阅读版式正文 ── */
 .legal-meta { margin: 10px 0 0; color: var(--text-muted); font-size: var(--fs-13); font-variant-numeric: tabular-nums; }
 .legal-page { counter-reset: legalsec; }
-.legal-page .guide-section { counter-increment: legalsec; }
-.legal-page .guide-section > h2::before { content: counter(legalsec) ".\00a0"; color: var(--text-muted); font-weight: 600; }
-.legal-page .guide-section p,
-.legal-page .guide-section li { color: var(--text-2); font-size: var(--fs-14); line-height: 1.8; }
-.legal-page .guide-section ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.legal-page .hg-section { counter-increment: legalsec; }
+.legal-page .hg-section-title::before { content: counter(legalsec) ".\00a0"; color: var(--text-muted); font-weight: 600; }
+.legal-page .hg-section p,
+.legal-page .hg-section li { color: var(--text-2); font-size: var(--fs-14); line-height: 1.8; }
+.legal-page .hg-section ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
 .legal-link { color: var(--action); }
 
 .admin-table { border-top: 1px solid var(--border); }
@@ -777,8 +769,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .participant-measures { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .auth-required { align-items: flex-start; flex-direction: column; gap: 12px; }
   .auth-required a { min-height: 40px; display: inline-flex; align-items: center; }
-  .guide-hero { padding-top: 10px; }
-  .guide-section { padding: 32px 0; }
   .guide-ref-table td { padding: 12px 0; }
   .guide-ref-name { width: 100px; }
   .token-create { grid-template-columns: 1fr; }
@@ -797,11 +787,11 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 }
 @media (max-width: 420px) {
+  .samelabs-page .page-title h1 { font-size: var(--fs-22); overflow-wrap: anywhere; }
   .content-page { width: calc(100% - 24px); }
   .auth-page { width: min(400px, 100% - 24px); }
   .hero h1 { font-size: var(--fs-22); }
   /* 6vw 在 375 下得 22.5px 等非阶梯字号 —— 直接落 token */
-  .page-title h1 { font-size: var(--fs-22); overflow-wrap: anywhere; }
   .participant-rows { grid-template-columns: 1fr; }
   .reaction-sides { grid-template-columns: 1fr; }
   .participant-input-main { grid-template-columns: minmax(0,1fr) auto; }
