@@ -37,6 +37,13 @@ logger = logging.getLogger(__name__)
 CLIENT_ID_MAX_LENGTH = 300  # 与 oauth_clients.client_id 现有上限一致
 DOCUMENT_MAX_BYTES = 5 * 1024
 FETCH_TIMEOUT_SECONDS = 5.0
+# 手写 HTTP 读取的上限: 行缓冲(asyncio StreamReader 的 limit, 状态行/头
+# 单行超限抛 ValueError)、头区块行数与总字节数。合法响应远低于这些值;
+# 恶意或损坏端点返回超长无换行走廊时按协议错误拒绝, 不让任何形态逃成
+# 未分类异常(500 且 host 失败桶不计数)。
+READ_LINE_LIMIT_BYTES = 16 * 1024
+HEADER_MAX_LINES = 100
+HEADER_MAX_BYTES = 32 * 1024
 CACHE_AGE_MIN_SECONDS = 300        # 5 分钟
 CACHE_AGE_MAX_SECONDS = 24 * 3600  # 24 小时
 CACHE_AGE_DEFAULT_SECONDS = 3600   # 无 Cache-Control 时的缺省
@@ -193,6 +200,7 @@ async def _fetch_document(url: str) -> FetchedDocument:
             address, port,
             ssl=ssl.create_default_context(),
             server_hostname=host,
+            limit=READ_LINE_LIMIT_BYTES,
         )
         try:
             writer.write(request)
@@ -206,10 +214,19 @@ async def _fetch_document(url: str) -> FetchedDocument:
                     "Client ID Metadata Document response was malformed.",
                 ) from exc
             headers: dict[str, str] = {}
+            header_lines = 0
+            header_bytes = 0
             while True:
                 line = await reader.readline()
                 if line in (b"\r\n", b"\n", b""):
                     break
+                header_lines += 1
+                header_bytes += len(line)
+                if header_lines > HEADER_MAX_LINES or header_bytes > HEADER_MAX_BYTES:
+                    raise OAuthProtocolError(
+                        "invalid_request",
+                        "Client ID Metadata Document response was malformed.",
+                    )
                 name, _, value = line.partition(b":")
                 headers[name.decode("latin-1").strip().lower()] = (
                     value.decode("latin-1").strip()
@@ -249,7 +266,7 @@ async def _fetch_document(url: str) -> FetchedDocument:
         document = await asyncio.wait_for(_do_fetch(), FETCH_TIMEOUT_SECONDS)
     except OAuthProtocolError:
         raise
-    except (OSError, asyncio.TimeoutError) as exc:
+    except (OSError, asyncio.TimeoutError, ValueError) as exc:
         raise OAuthProtocolError(
             "invalid_request",
             "Client ID Metadata Document could not be fetched.",
@@ -540,7 +557,13 @@ async def ensure_client_for_authorize(
             raise rate_limit.RateLimited("该站点近期文档拉取失败过多，请稍后再试")
         try:
             fetch = fetcher or _fetch_document
-            document = await fetch(client_id)
+            try:
+                document = await fetch(client_id)
+            except ValueError as exc:
+                raise OAuthProtocolError(
+                    "invalid_request",
+                    "Client ID Metadata Document response was malformed.",
+                ) from exc
             # 状态码/大小/类型校验放在消费侧, 对任何 fetcher(含测试桩)一致生效。
             if document.status != 200:
                 raise OAuthProtocolError(
