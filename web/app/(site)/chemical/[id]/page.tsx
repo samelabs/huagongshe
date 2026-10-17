@@ -50,12 +50,12 @@ const UPDOWN_TAG_LIMIT = 12; // 上下游 Tag 每向默认显示数
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  // FX-3（SMK-002）：非法 ID 在 metadata 层同样 404，不给 422/500 留通道
+  // ：非法 ID 在 metadata 层同样 404，不给 422/500 留通道
   if (!isEntityId(id)) notFound();
   const canonical = `/chemical/${id}`;
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
-  // metadata 只需要 canonical 投影 —— enrich=core(零 provider 访问, E9-B 1.6)
+  // metadata 只需要 canonical 投影 —— enrich=core(零 provider 访问, 1.6)
   const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=core`).catch((error: unknown) => {
     if (isApiGone(error)) notFound();
     return null; // 后端暂不可用：退化为通用标题，不让 metadata 500
@@ -99,13 +99,13 @@ export default async function ChemicalPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // FX-3（SMK-002 / HGS-WEB-DETAIL-ID-01）：ID 不满足 ^\d+$ 直接 404；
+  // (/ HGS-WEB-DETAIL-ID-01）：ID 不满足 ^\d+$ 直接 404；
   // 后端 422（int-Path 校验拒绝，如超大数）同样按 404 呈现
   if (!isEntityId(id)) notFound();
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   const hasSession = (await cookies()).has("hgs_session");
-  // 0902 P0: SSR 透传用户凭证(详情页 QPS 低可接受, 沿用)
+  // : SSR 透传用户凭证(详情页 QPS 低可接受, 沿用)
   const sessionHeaders = hasSession
     ? { cookie: `hgs_session=${(await cookies()).get("hgs_session")?.value ?? ""}` }
     : undefined;
@@ -531,7 +531,7 @@ function ChemGroup({ gid, title, total, dict, children, note }: {
 }
 
 /** 证据列表：短数值行直接可见；超过 2 条或单条 >240 字折叠为「条目名 · N 条」。
- *  组级折叠：limit 之后的条目（含 details）hidden + data-overflow。 */
+ * 组级折叠：limit 之后的条目（含 details）hidden + data-overflow。 */
 function EvidenceList({ entries, dict, limit = Infinity }: { entries: EvidenceEntry[]; dict: Dictionary; limit?: number }) {
   return (
     <div className="evidence-list">
@@ -574,8 +574,8 @@ function ProseGroup({ gid, title, prose, dict }: { gid: string; title: string; p
 }
 
 /** 上下游 Tag 列表：每向最多 UPDOWN_TAG_LIMIT 个，超出 data-overflow + 「展开」
- * I-079: GroupToggle 不放入 flex-wrap 行，避免撑变形同行胶囊。
- * I-088: 每个品名可点击，跳到名称搜索。
+ * GroupToggle 不放入 flex-wrap 行，避免撑变形同行胶囊。
+ * 每个品名可点击，跳到名称搜索。
  */
 function UpdownTags({ gid, direction, items, dict, locale }: { gid: string; direction: string; items: { name: string }[]; dict: Dictionary; locale: Locale }) {
   return (
@@ -601,7 +601,7 @@ function UpdownTags({ gid, direction, items, dict, locale }: { gid: string; dire
   );
 }
 
-/** 供应商（Step 7 紧凑行）：公司名 + 电话 + 邮箱，默认 5 家，「查看全部 N 家」 */
+/** 供应商(紧凑行）：公司名 + 电话 + 邮箱，默认 5 家，「查看全部 N 家」 */
 function SupplierList({ gid, items, dict, locale }: { gid: string; items: CasSupplier[]; dict: Dictionary; locale: string }) {
   return (
     <div className="chem-group">

@@ -4,12 +4,12 @@
  * SiteHeader — 全站唯一顶栏（DESIGN_SYSTEM 2.3）。
  *
  * 公开页 (site) 与工作台 (workbench) 两个 layout 共用；桌面 / 平板 / 手机三态：
- * - 桌面（≥1024）：标志 · 主导航（查询/Skills/MCP/工作台）·
- *   铃铛（未读红点，链接 /aichem?tab=activity）· 语言 · 头像菜单。无搜索框。
- * - 平板（641–1023）：主导航收进「更多」菜单。
+ * - 桌面（≥）：标志 · 主导航（查询/Skills/MCP/工作台）·
+ * 铃铛（未读红点，链接 /aichem?tab=activity）· 语言 · 头像菜单。无搜索框。
+ * - 平板（641–）：主导航收进「更多」菜单。
  * - 手机（≤640）：高 --header-h-m，标志 + 工作台动作插槽（工作台 layout 传
- *   抽屉菜单与创建入口；公开页不传，顶栏只有标志和语言）+ 语言切换；
- *   头像菜单内容并入底部「我的」。
+ * 抽屉菜单与创建入口；公开页不传，顶栏只有标志和语言）+ 语言切换；
+ * 头像菜单内容并入底部「我的」。
  *
  * 未读数来源 = 工作台计数同一接口 /users/me/dashboard（counts.unread），
  * 只在已登录时请求，不新增 API；工作台 layout 通过 initialUnread 直传
@@ -183,7 +183,7 @@ function UserMenu({ user }: { user: User }) {
   );
 }
 
-/* ── 平板「更多」菜单（641–1024，主导航收纳于此） ───────────── */
+/* ── 平板「更多」菜单（641–，主导航收纳于此） ───────────── */
 function MoreMenu({ items, routePath }: { items: NavItem[]; routePath: string }) {
   const t = useDictionary();
   const locale = useLocale();

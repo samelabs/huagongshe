@@ -74,7 +74,7 @@ export function WorkbenchLayout({
   initialSkills: PageResponse<SkillItem> | null;
   searchQuery?: string;
   createNote?: boolean;
-  /** Step 7 Part C: /aichem?tab=notes&edit=<id> 直接打开该笔记编辑器 */
+  /** : /aichem?tab=notes&edit=<id> 直接打开该笔记编辑器 */
   editNoteId?: number;
   initialChemicalId?: number;
   initialReactionId?: number;

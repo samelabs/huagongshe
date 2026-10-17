@@ -7,9 +7,9 @@
  * 不新增 API。两种供给方式：
  * - 工作台 layout SSR 已取 dashboard → 经 SiteHeader 的 initialUnread 直传；
  * - 公开页 → 由本 Provider 在已登录时客户端请求（失败静默，未读数是
- *   装饰性信息）。
+ * 装饰性信息）。
  *
- * 节流（v1.7 Step 6）：同一会话内最多 60 秒请求一次——时间戳存
+ * 节流（v1.7)：同一会话内最多 60 秒请求一次——时间戳存
  * sessionStorage（整页加载后依旧生效，真正按"会话"而非按模块实例计时）；
  * window 重新获得焦点时，距上次请求超过 60 秒才再取。
  */
@@ -51,7 +51,7 @@ export function ShellUnreadProvider({ initial = null, children }: {
   const [unread, setUnread] = useState(initial ?? 0);
   const shouldFetch = user != null && initial == null;
 
-  /* Step 9 Part B.4：进入动态面板标记已读后，WorkbenchCounts.refresh 触发
+  /* ：进入动态面板标记已读后，WorkbenchCounts.refresh 触发
      router.refresh()，layout 重取 dashboard 并把新的 initialUnread 传下来。
      useState 初值只认首次挂载 —— 不跟随 prop 的话底部 tab 的未读徽标会一直
      停在旧值。SSR 值变化时同步进 state（null = 客户端自取模式不动）。 */

@@ -8,15 +8,15 @@
  * 在进入带前缀 URL 时同步写入(见 web/proxy.ts), 登录 cookie 不受影响。
  *
  * 规则:
- *  - 语言名称恒用各语言自称(zh-CN 简体中文 / en English / ja 日本語 /
- *    ko 한국어 / de Deutsch), 不随界面语言翻译; 无国旗/无地球图标
- *  - 触发器视觉 = ghost sm 文字按钮（顶栏右侧，DESIGN_SYSTEM 2.3）
- *  - /samelabs/* 下不渲染(路径检测, 该区域不在 locale 治理范围)
- *  - locale 列表复用 SUPPORTED_LOCALES, 不建第二份
- *  - query 直接取当前路由状态(useSearchParams), 无挂载后快照 ——
- *    客户端搜索导航后切换语言携带的是当前 query, 而非初始 URL 的
- *  - 浮层回收走站内统一规则(useDismissableMenu): 外部点击、焦点移出、
- *    Esc、路由变化
+ * - 语言名称恒用各语言自称(zh-CN 简体中文 / en English / ja 日本語 /
+ * ko 한국어 / de Deutsch), 不随界面语言翻译; 无国旗/无地球图标
+ * - 触发器视觉 = ghost sm 文字按钮（顶栏右侧，DESIGN_SYSTEM 2.3）
+ * - /samelabs/* 下不渲染(路径检测, 该区域不在 locale 治理范围)
+ * - locale 列表复用 SUPPORTED_LOCALES, 不建第二份
+ * - query 直接取当前路由状态(useSearchParams), 无挂载后快照 ——
+ * 客户端搜索导航后切换语言携带的是当前 query, 而非初始 URL 的
+ * - 浮层回收走站内统一规则(useDismissableMenu): 外部点击、焦点移出、
+ * Esc、路由变化
  */
 
 import { usePathname, useSearchParams } from "next/navigation";
@@ -40,7 +40,7 @@ export function LanguageSwitcher() {
   const pathname = usePathname() ?? "/";
   const searchParams = useSearchParams();
   const search = searchParams.toString();
-  // BX-A6：next 回跳参数里的语言前缀同步换成目标语言 —— 登录页切语言后
+  // next 回跳参数里的语言前缀同步换成目标语言 —— 登录页切语言后
   // 登录成功必须落在所选语言，而不是跳回旧语言的 next。
   const suffixFor = (target: Locale) => {
     const rewritten = rewriteNextParam(search, target);

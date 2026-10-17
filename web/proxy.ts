@@ -2,12 +2,12 @@
  * proxy.ts · 公开 Web 的 locale URL 路由骨架(Next.js 16 proxy, 无 middleware.ts)
  *
  * 只做两件事, 不切换页面字典、不改文案:
- *  1. 已带 locale 前缀的公开路径(/ja/chemical/123)→ rewrite 到现有路由
- *     (/chemical/123), 浏览器地址保持 /ja/chemical/123; 内部请求附带
- *     x-site-locale header 传递明确 locale;/ja → /。
- *  2. 未带 locale 的公开路径 → 按 cookie(site_locale) > Accept-Language >
- *     en 的顺序协商, 307 redirect 到带 locale 前缀的 URL(pathname 与
- *     query string 完整保留); 进入明确 locale URL 时同步 cookie。
+ * 1. 已带 locale 前缀的公开路径(/ja/chemical/123)→ rewrite 到现有路由
+ * (/chemical/123), 浏览器地址保持 /ja/chemical/123; 内部请求附带
+ * x-site-locale header 传递明确 locale;/ja → /。
+ * 2. 未带 locale 的公开路径 → 按 cookie(site_locale) > Accept-Language >
+ * en 的顺序协商, 307 redirect 到带 locale 前缀的 URL(pathname 与
+ * query string 完整保留); 进入明确 locale URL 时同步 cookie。
  *
  * 排除路径完全不参与(行为不变): /api/* /mcp /.well-known/* /_next/*
  * /samelabs/* 以及 favicon/robots/sitemap/manifest/service worker/
@@ -114,7 +114,7 @@ function detectLocale(cookieHeader: string | null, acceptLanguage: string | null
 }
 
 /**
- * 判断已剥离 locale 前缀的路径是否属于支持匿名边缘缓存的公开页面（Round 13 Cloudflare 方案 1）：
+ * 判断已剥离 locale 前缀的路径是否属于支持匿名边缘缓存的公开页面(Cloudflare 方案 1）：
  * 首页、搜索、化合物、反应、笔记、公开主页、Skills、guide、mcp-guide、privacy、terms、support。
  * 不缓存：工作台(/aichem)、设置(/me)、登录(/login)、提交(/submit)、管理端(/samelabs)等。
  */
@@ -133,7 +133,7 @@ function isPublicEdgeCacheablePage(rest: string): boolean {
 }
 
 /**
- * 判断请求是否为 RSC 数据请求或 Next Router 预取请求（Round 14）：
+ * 判断请求是否为 RSC 数据请求或 Next Router 预取请求（）：
  * Next 的客户端跳转和预取用同一 URL 取 RSC 数据（带 rsc / next-router-prefetch /
  * next-router-segment-prefetch 请求头、_rsc 查询参数或 text/x-component accept），
  * Cloudflare 不识别 Vary: rsc。
@@ -192,7 +192,7 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
     requestHeaders.set(LOCALE_PATH_HEADER, pathname + request.nextUrl.search);
     const response = NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } });
 
-    // Round 13/14 边缘缓存与 Set-Cookie 规则：
+    // /14 边缘缓存与 Set-Cookie 规则：
     const hasSession = request.cookies.has("hgs_session") ||
       Boolean(request.headers.get("cookie")?.split(";").some((c) => c.trim().startsWith("hgs_session=")));
     const isPublic = isPublicEdgeCacheablePage(prefixed.rest);

@@ -36,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** 文档页（6.10）：阅读版式 --w-reading 720；段落 + 小标题为主，
- *  代码/配置片段走 CodeField（IX-7 复制播报），无英文 eyebrow。 */
+ * 代码/配置片段走 CodeField(复制播报），无英文 eyebrow。 */
 export default async function GuidePage() {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();

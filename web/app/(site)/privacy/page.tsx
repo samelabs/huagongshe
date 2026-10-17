@@ -7,10 +7,10 @@ import { withLocale } from "@/lib/localePath";
 import { buildShareMetadata } from "@/lib/shareMeta";
 
 /**
- * S3 (G1.5-A): 法律/支持页正文只有英文权威版。
+ * S3 (-A): 法律/支持页正文只有英文权威版。
  * - 英文路径 (/en/privacy): canonical + 可索引。
  * - 非英文路径: noindex,follow(正文仍是英文, 不宣称存在译文),
- *   不声明语言互备(没有真实对应译文页面)。
+ * 不声明语言互备(没有真实对应译文页面)。
  */
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();

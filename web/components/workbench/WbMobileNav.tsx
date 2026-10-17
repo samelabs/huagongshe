@@ -13,12 +13,12 @@ import type { User } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
 
 /**
- * 移动端抽屉导航（v1.7 Step 5 起挂到 SiteHeader 的 mobileActions 插槽）。
+ * 移动端抽屉导航（v1.7 起挂到 SiteHeader 的 mobileActions 插槽）。
  * - 常驻 DOM，CSS transform 控制滑入/滑出（不走条件渲染）
  * - pathname 或 searchParams 变化时自动关闭（解决 tab 切换不收起）
  * - Escape / overlay 点击 / close 按钮均可关闭
  * - 内容 = 侧栏入口的镜像：快捷操作（新建反应/新建笔记）+ 语言 + 工作台导航；
- *   身份菜单在顶栏头像（UserMenu），底部四 tab 由 MobileTabBar 承担，互不重复
+ * 身份菜单在顶栏头像（UserMenu），底部四 tab 由 MobileTabBar 承担，互不重复
  */
 export function WbMobileNav({ counts, user }: {
   counts?: Counts | null;

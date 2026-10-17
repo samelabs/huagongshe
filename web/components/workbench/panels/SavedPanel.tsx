@@ -37,7 +37,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
   const mounted = useRef(false);
   const latestLoad = useRef(0);
 
-  /** FX-16：客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
+  /** 客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
   async function load() {
     const requestId = ++latestLoad.current;
     setState("loading");
@@ -69,7 +69,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, page]);
 
-  /** FX-9a（SMK-013 / HGS-SAVED-REACTION-PAGE-01）：按当前 URL 页码重拉；
+  /** (/ HGS-SAVED-REACTION-PAGE-01）：按当前 URL 页码重拉；
    * 当前页没有数据了才退回上一页（router.replace 同步 URL）。 */
   function savedHrefFor(targetPage: number, kindValue: SavedKind): string {
     const params = new URLSearchParams({ tab: "saved" });
@@ -108,7 +108,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
     router.push(withLocale(next === "reactions" ? "/aichem?tab=saved&kind=reactions" : "/aichem?tab=saved", locale));
   }
 
-  /** IX-6：取消收藏即时生效（乐观移除），Toast 带「撤销」；失败回滚 + err Toast。
+  /** 取消收藏即时生效（乐观移除），Toast 带「撤销」；失败回滚 + err Toast。
    * 撤销 = 重新 POST follow 并把行放回原位。 */
   function unfollowChemical(item: ChemicalFollow) {
     setChemicals((current) => ({

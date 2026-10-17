@@ -19,7 +19,7 @@ const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, pa
 /**
  * v1.7.0 L3(+补正): 上传/删除失败提示按真实状态分类 —
  * 401 会话失效 / 403 权限不足 / 429 限流各自专用文案(不挪用搜索专用
- * 的"结构检索需要登录"); 400/409 按后端业务校验机器码(BX-A2 起 detail
+ * 的"结构检索需要登录"); 400/409 按后端业务校验机器码(起 detail
  * = {message, kind})映射五语言文案(zip 结构/slug 冲突/大小上限等可行动
  * 信息); 5xx 与网络错误落本地化通用失败, 不暴露内部 API 路径, 也不再
  * 透传服务端 message 原文(中文)。
@@ -55,7 +55,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
   const mounted = useRef(false);
   const latestLoad = useRef(0);
 
-  /** FX-16：客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
+  /** 客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
   async function load() {
     const requestId = ++latestLoad.current;
     setState("loading");
@@ -100,7 +100,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
         const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=1&page_size=20`);
         setSkills(value);
         setState("ready");
-        // FX-9b（SMK-014）：上传成功落到第 1 页时同步 URL，避免「看第 1 页、URL 第 N 页」
+        // ：上传成功落到第 1 页时同步 URL，避免「看第 1 页、URL 第 N 页」
         if (page !== 1) router.replace(withLocale("/aichem?tab=skills", locale));
       } catch {
         setUploadNotice(t.me.skillUploaded(created.slug) + warn + " " + t.me.skillRefreshFailed);
@@ -114,7 +114,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
   }
 
   async function handleDelete(id: number, slug: string) {
-    // FX-5（SMK-004 / HGS-A3-01）：不可逆删除必须二次确认（IX-3），
+    // (/ HGS-A3-01）：不可逆删除必须二次确认，
     // 全站唯一漏接确认的删除操作补齐
     const ok = await confirm({
       title: t.me.skillDeleteTitle,
@@ -130,7 +130,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
       // v1.7.0 L3 补正: 删除成功即成功 — 刷新失败单独提示, 不报"删除失败",
       // 不重复提交删除。
       setUploadNotice(t.me.skillDeleted(slug));
-      // FX-9a（SMK-013）：按当前页刷新；当前页被删空则退回上一页并同步 URL
+      // ：按当前页刷新；当前页被删空则退回上一页并同步 URL
       const lastPage = Math.max(1, Math.ceil((skills.total - 1) / 20));
       const target = Math.min(page, lastPage);
       try {

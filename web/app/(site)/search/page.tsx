@@ -21,16 +21,16 @@ import { buildShareMetadata } from "@/lib/shareMeta";
 type SearchParams = { q?: string; mode?: string; page?: string; focus?: string; type?: string };
 
 /**
- * S2 (G1.5-A): 搜索页 metadata。
+ * S2 (-A): 搜索页 metadata。
  * - 无参数入口 /search: 各语言独立 title/description/canonical/hreflang, 可索引。
  * - 带查询参数(q/mode/page)的内部结果页: noindex,follow —— 不为无限查询词
- *   生成 canonical/hreflang 集合, 也不进入 Sitemap。
+ * 生成 canonical/hreflang 集合, 也不进入 Sitemap。
  */
 export async function generateMetadata({ searchParams }: { searchParams: Promise<SearchParams> }): Promise<Metadata> {
   const params = await searchParams;
   const hasQuery = Boolean(params.q || params.mode || params.page || params.focus);
   if (hasQuery) {
-    // BX-A5：结果页有自己的 title「<查询词>｜搜索」(+ layout 模板 ｜品牌)；
+    // 结果页有自己的 title「<查询词>｜搜索」(+ layout 模板 ｜品牌)；
     // 无 q（mode/page/focus 内部参数）时不给查询词段。
     const q = Array.isArray(params.q) ? params.q[0] : params.q;
     if (q) {
@@ -65,15 +65,15 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 
 const PAGE_SIZE = 30;
 /** URL 模式 ⊃ API 模式：structure（精确结构）无独立 API mode，请求时映射回 exact。
- *  urlMode 保留 structure 用于 Segmented 回显/结果分类链接；mode 是 API 请求
- *  模式变量（tests/test_structure_search_final.py 钉住 `/search?q=…&mode=${mode}`
- *  与翻页模板，变量名不可改）。 */
+ * urlMode 保留 structure 用于 Segmented 回显/结果分类链接；mode 是 API 请求
+ * 模式变量（tests/test_structure_search_final.py 钉住 `/search?q=…&mode=${mode}`
+ * 与翻页模板，变量名不可改）。 */
 type UrlMode = "exact" | "structure" | "substructure" | "similarity";
 const URL_MODES: UrlMode[] = ["exact", "structure", "substructure", "similarity"];
 
 /** 翻页链接（load-more）：吃 URL 模式（urlMode）而非 API 模式 —— structure
- *  （精确结构）翻页时不得回退成 exact，否则 Segmented 回显错成「名称/CAS」。
- *  模板字符串被 tests/test_structure_search_final.py 逐字钉住。 */
+ * （精确结构）翻页时不得回退成 exact，否则 Segmented 回显错成「名称/CAS」。
+ * 模板字符串被 tests/test_structure_search_final.py 逐字钉住。 */
 function loadMoreHref(q: string, mode: UrlMode, page: number) {
   return `/search?q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}&page=${page + 1}`;
 }
@@ -96,7 +96,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   let capped = false;
   let redirectTarget: string | null = null;
   // 结构检索登录墙: mode!=exact 需要会话, SSR 转发浏览器 cookie 供 API 鉴权
-  // P0(0902): exact 也透传 — 登录用户 CB miss 入列拿 80 分(此前 exact 匿名 50 分)
+  // : exact 也透传 — 登录用户 CB miss 入列拿 80 分(此前 exact 匿名 50 分)
   const cookieValue = (await headers()).get("cookie") || "";
   const sessionHeaders = cookieValue
     ? { cookie: cookieValue }
@@ -117,13 +117,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       // Search System Governance: 翻页入口只消费 API 的权威 has_more,
       // 不再用 total===null && len===PAGE_SIZE 猜测。
       hasMore = data.has_more === true;
-      // capped(0915): substructure snapshot 达到产品上限 — 展示层禁把 total
+      // capped(): substructure snapshot 达到产品上限 — 展示层禁把 total
       // 冒充数据库真实总数, 文案切 capped 语义。
       capped = data.capped === true;
       fetchPending = data.cas_fetch_pending === true;
-      // 0902 P3b: 库外 CAS 同步拉命中 — 数据已落库, 服务端直达详情页(零轮询)
+      // : 库外 CAS 同步拉命中 — 数据已落库, 服务端直达详情页(零轮询)
       // redirect() 以抛 NEXT_REDIRECT 异常实现, 必须在 try 外执行,
-      // 否则被下方 catch 吞成 networkError(0902 实测翻车: 列表+错误横幅同屏)。
+      // 否则被下方 catch 吞成 networkError(实测翻车: 列表+错误横幅同屏)。
       if (data.cas_fetch_chemical_id && page === 1) {
         redirectTarget = withLocale(`/chemical/${data.cas_fetch_chemical_id}`, locale);
       }

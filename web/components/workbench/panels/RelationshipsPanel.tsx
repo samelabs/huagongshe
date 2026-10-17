@@ -28,7 +28,7 @@ export function RelationshipsPanel({ kind, page, initialData, username }: PanelP
   const mounted = useRef(false);
   const latestLoad = useRef(0);
 
-  /** FX-16：客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
+  /** 客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
   async function load() {
     if (!targetUser) return;
     const requestId = ++latestLoad.current;

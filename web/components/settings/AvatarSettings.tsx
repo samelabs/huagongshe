@@ -11,8 +11,8 @@ import { Field } from "@/components/ui/Field";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { useToast } from "@/components/ui/Toast";
 
-/** 头像设置（Step 11 Part D）：预览统一 ui/Avatar（无图首字回退）；
- *  上传/移除 primary loading 宽度锁定（IX-4）；结果 Toast（IX-2）。 */
+/** 头像设置（）：预览统一 ui/Avatar（无图首字回退）；
+ * 上传/移除 primary loading 宽度锁定；结果 Toast。 */
 export function AvatarSettings() {
   const t = useDictionary();
   const toast = useToast();

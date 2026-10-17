@@ -21,11 +21,11 @@ import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 type Token = { id: number; name: string; token_prefix: string; token: string | null; created_at: string; expires_at: string | null; last_used_at: string | null };
 type CreatedToken = { token: string };
 
-/** AI Key 管理（2026-10-14 项目负责人裁定恢复明文）：
- *  - AI Key 明文保存，本人可随时在设置页查看、复制（每账号最多 5 个）。
- *  - 列表行内默认遮罩（前缀 + ••••），提供「显示/隐藏」和 CopyButton。
- *  - 历史无明文 Key（null）不显示复制，行内提示无法再次查看。
- *  - 撤销走 ConfirmDialog（IX-3：危险操作确认 + Esc 回焦触发按钮）。 */
+/** AI Key 管理：
+ * - AI Key 明文保存，本人可随时在设置页查看、复制（每账号最多 5 个）。
+ * - 列表行内默认遮罩（前缀 + ••••），提供「显示/隐藏」和 CopyButton。
+ * - 历史无明文 Key（null）不显示复制，行内提示无法再次查看。
+ * - 撤销走 ConfirmDialog（危险操作确认 + Esc 回焦触发按钮）。 */
 export function ApiTokenSettings() {
   const t = useDictionary();
   const locale = useLocale();
@@ -174,7 +174,7 @@ export function ApiTokenSettings() {
               loading={revokingId === token.id}
               disabled={revokingId !== null && revokingId !== token.id}
               onClick={async () => {
-                // IX-3：不可逆操作二次确认（默认焦点「取消」，Esc 回焦到此按钮）
+                // 不可逆操作二次确认（默认焦点「取消」，Esc 回焦到此按钮）
                 const ok = await confirm({
                   title: t.settings.ai.revokeConfirmTitle,
                   body: t.settings.ai.revokeConfirmBody(token.name, token.token_prefix),

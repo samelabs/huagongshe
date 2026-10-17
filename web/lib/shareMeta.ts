@@ -4,7 +4,7 @@
  * 只输出一套标准协议：OpenGraph + Twitter Card。
  * - 化合物页：og:image 用 1:1 结构图（/img/chemical/{id}.png），twitter:card 用 summary。
  * - 反应页与其余页面：og:image 用横版图（/img/reaction/{id}.png 或 /og.png，
- *   1200×630），twitter:card 用 summary_large_image。
+ * 1200×630），twitter:card 用 summary_large_image。
  * - og:image 一律写绝对地址，width/height 与实际图片一致。
  * - alt 文案走五语言字典，不写死中文。
  */

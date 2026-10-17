@@ -6,7 +6,7 @@
  *
  * v1.6.0: tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
  * (tsx --test 直接加载真实 .ts SUT, 不再使用 tsc 临时编译到 /tmp 的人工协议):
- *   npx tsx --test lib/languageSwitcher.test.mjs
+ * npx tsx --test lib/languageSwitcher.test.mjs
  *
  * 断言装载点: 通过 require("./localePath.ts") 取真实 SUT,
  * 找不到时显式 fail, 禁止静默回退到镜像实现。
@@ -60,7 +60,7 @@ test("非 locale 首段(samelabs 等)不误替换", () => {
   assert.equal(replaceLocalePrefix("/samelabs/reactions", "en"), "/en/samelabs/reactions");
 });
 
-// ── BX-A6：语言切换时 next 回跳参数的前缀同步 ──────────────────
+// ── 语言切换时 next 回跳参数的前缀同步 ──────────────────
 test("rewriteNextParam: next 的 locale 前缀换成目标语言", () => {
   const search = `next=${encodeURIComponent("/zh-CN/me/settings")}`;
   const out = rewriteNextParam(search, "en");

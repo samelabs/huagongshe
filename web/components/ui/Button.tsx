@@ -17,7 +17,7 @@ export type ButtonSize = "sm" | "md" | "lg";
 export type ButtonProps = {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  /** 图标按钮：true 时按方块渲染，必须同时传 aria-label（IX-10） */
+  /** 图标按钮：true 时按方块渲染，必须同时传 aria-label */
   iconOnly?: boolean;
   /** 异步进行中：转圈 + 宽度不变 + 禁点 */
   loading?: boolean;

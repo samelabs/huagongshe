@@ -7,8 +7,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { withLocale } from "@/lib/localePath";
 import { TextLink } from "@/components/ui/TextLink";
 
-/** 工作台错误边界（FX-4 / SMK 遗漏）：ui 组件 + 如实文案 + 重试；
- *  旧类名 wb-btn 与英文 eyebrow 一并清除。 */
+/** 工作台错误边界(/ SMK 遗漏）：ui 组件 + 如实文案 + 重试；
+ * 旧类名 wb-btn 与英文 eyebrow 一并清除。 */
 export default function WorkbenchError({ error, unstable_retry }: {
   error: Error & { digest?: string };
   unstable_retry: () => void;

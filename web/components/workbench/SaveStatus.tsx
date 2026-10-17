@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * SaveStatus — IX-5 保存状态指示（NoteEditor / SubmissionForm 共用）：
+ * SaveStatus — 保存状态指示（NoteEditor / SubmissionForm 共用）：
  * 已保存（ok 点）/ 保存中（转圈）/ 未保存的修改（warn 点）/ 保存失败
  * （err 点 + 「重试」）。aria-live 播报状态变化。
  */

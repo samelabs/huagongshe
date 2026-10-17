@@ -166,7 +166,7 @@ test("/ja/mcp、/ja/oauth/*、/ja/api/*、/ja/samelabs/*、/ja/.well-known/* 均
   }
 });
 
-/* ─────── P2/P3: malformed site_locale cookie 不再 500, 正常协商 redirect ─────── */
+/* ─────── P2/: malformed site_locale cookie 不再 500, 正常协商 redirect ─────── */
 
 test("malformed cookie + Accept-Language ja → 307 /ja/(不再 URIError)", () => {
   const r = proxy(nextReq("/", { cookie: "site_locale=%E0%A4%A", al: "ja-JP,ja;q=0.9" }));
@@ -180,7 +180,7 @@ test("malformed cookie + 无支持语言 → 307 /en/", () => {
   assert.equal(getRedirectUrl(r), ORIGIN + "/en/chemical/123");
 });
 
-/* ─────── Round 13: 匿名访问公开页面边缘缓存契约 ─────── */
+/* ─────── : 匿名访问公开页面边缘缓存契约 ─────── */
 
 test("匿名访问公开页面: public 300s 边缘缓存", () => {
   for (const p of [
@@ -246,7 +246,7 @@ test("未带 locale 的 307 redirect 响应: 保持 private, no-store", () => {
   assert.equal(r.headers.get("cache-control"), "private, no-store");
 });
 
-/* ─────── Round 14: 边缘缓存修复（可缓存响应禁 Set-Cookie、RSC/预取不进共享缓存） ─────── */
+/* ─────── : 边缘缓存修复（可缓存响应禁 Set-Cookie、RSC/预取不进共享缓存） ─────── */
 
 test("可缓存的匿名公开响应一定没有 Set-Cookie", () => {
   for (const p of [
@@ -320,7 +320,7 @@ test("RSC 与预取请求不进共享缓存 (private, no-store 且无 Set-Cookie
   assert.equal(r5.headers.getSetCookie().length, 0);
 });
 
-/* ─────── I-084: /u/{username} 短地址跳转 ─────── */
+/* ─────── /u/{username} 短地址跳转 ─────── */
 
 test("合法用户名跳转: /u/{username} → 307 到 /{locale}/user/{username}，Cache-Control: private, no-store", () => {
   const r1 = proxy(nextReq("/u/alice_01"));

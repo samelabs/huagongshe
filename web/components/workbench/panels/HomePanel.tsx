@@ -24,10 +24,10 @@ import { Input } from "@/components/ui/Field";
  * 工作台概览（DESIGN_SYSTEM 6.7：工具在左，社交在右）。
  *
  * 数据全部来自现有读接口（SSR 预取传入，失败的流客户端补拉）：
- *  - 我的内容：/users/me/notes、/users/me/reactions、/users/me/follows/chemicals
- *  - 「最近」= 三个流按时间合并取前 8
- *  - 关注动态：/users/me/notifications（v1.7 只有 new_reaction 事件）
- *  - 动态卡片收藏初始态：/users/me/follows/reactions 的 id 集
+ * - 我的内容：/users/me/notes、/users/me/reactions、/users/me/follows/chemicals
+ * - 「最近」= 三个流按时间合并取前 8
+ * - 关注动态：/users/me/notifications（v1.7 只有 new_reaction 事件）
+ * - 动态卡片收藏初始态：/users/me/follows/reactions 的 id 集
  * 统计/问候用 counts + 本地时间；删除旧版三个统计卡与「连接 AI 助手」
  * 大提示框（入口收进快捷入口）。
  */
@@ -70,7 +70,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
   }, [t]);
 
   // SSR 流失败时客户端补拉（与旧版 Home 相同的降级策略）；
-  // FX-16：重试 nonce 重新触发补拉（effect 内部对已有数据做空跳过，幂等）
+  // 重试 nonce 重新触发补拉（effect 内部对已有数据做空跳过，幂等）
   const [reloadNonce, setReloadNonce] = useState(0);
   useEffect(() => {
     let active = true;

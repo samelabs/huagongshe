@@ -37,7 +37,7 @@ function CategoryIcon({ cat, size = 28 }: { cat: Category | undefined; size?: nu
   );
 }
 
-// I-083: 默认渲染进 DOM 的技能卡上限; 超出经「查看全部」展开。
+// 默认渲染进 DOM 的技能卡上限; 超出经「查看全部」展开。
 const SKILL_PREVIEW = 24;
 
 export function SkillsClient({

@@ -86,7 +86,7 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const searchQuery = typeof query.q === "string" ? query.q : undefined;
   const createNote = activeTab === "notes" && query.new === "1";
-  // Step 7 Part C: ?edit=<id> 直接打开该笔记的编辑器（笔记详情页「编辑」入口）
+  // : ?edit=<id> 直接打开该笔记的编辑器（笔记详情页「编辑」入口）
   const editNoteId = activeTab === "notes" && typeof query.edit === "string" && /^\d+$/.test(query.edit)
     ? Number(query.edit) : undefined;
   const initialChemicalId = typeof query.chemical === "string" && /^\d+$/.test(query.chemical)

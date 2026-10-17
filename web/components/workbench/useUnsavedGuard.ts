@@ -1,25 +1,25 @@
 "use client";
 
 /**
- * useUnsavedGuard — IX-5：有未保存的修改时拦截离开。
+ * useUnsavedGuard — 有未保存的修改时拦截离开。
  *
  * 三层：
- *  1. beforeunload：刷新 / 关闭标签页由浏览器原生确认（不弹自定义 UI，
- *     浏览器安全模型不允许）。
- *  2. 站内路由（next/link 的 <a> 点击）：document 捕获阶段拦截 —— 先于
- *     React 根容器的合成 click 运行，preventDefault + stopPropagation 后
- *     next/link 不会导航；弹 useConfirm（danger「放弃修改」），确认才
- *     router.push 放行，取消则原地不动（编辑器与内容保持挂载）。
- *  3. 浏览器后退/前进（popstate，SMK-001）：popstate 本身不可取消 —— 在
- *     active 变真时向历史栈压一条同 URL 哨兵（history.pushState）。用户按
- *     后退先弹出的是哨兵（URL 不变、视图不动），此时弹确认；取消则把哨兵
- *     压回去（原地保留），确认则连退两步（哨兵 + 用户真正要离开的那一步）。
- *     编辑器卸载时若哨兵仍在栈上则补一次 history.back() 清掉，不留「空后退」。
+ * 1. beforeunload：刷新 / 关闭标签页由浏览器原生确认（不弹自定义 UI，
+ * 浏览器安全模型不允许）。
+ * 2. 站内路由（next/link 的 <a> 点击）：document 捕获阶段拦截 —— 先于
+ * React 根容器的合成 click 运行，preventDefault + stopPropagation 后
+ * next/link 不会导航；弹 useConfirm（danger「放弃修改」），确认才
+ * router.push 放行，取消则原地不动（编辑器与内容保持挂载）。
+ * 3. 浏览器后退/前进（popstate)：popstate 本身不可取消 —— 在
+ * active 变真时向历史栈压一条同 URL 哨兵（history.pushState）。用户按
+ * 后退先弹出的是哨兵（URL 不变、视图不动），此时弹确认；取消则把哨兵
+ * 压回去（原地保留），确认则连退两步（哨兵 + 用户真正要离开的那一步）。
+ * 编辑器卸载时若哨兵仍在栈上则补一次 history.back() 清掉，不留「空后退」。
  *
- * active 语义 = 有不可丢失的状态：草稿脏态 **或 保存请求进行中**（SMK-001：
+ * active 语义 = 有不可丢失的状态：草稿脏态 **或 保存请求进行中**（
  * 保存在途时拦截保护不得被撤掉）。调用方传 dirty || busy。
  *
- * BX-A1：texts 可覆盖确认文案 —— 保存进行中离开时用「保存会继续完成」的
+ * texts 可覆盖确认文案 —— 保存进行中离开时用「保存会继续完成」的
  * 如实文案，而非「放弃未保存的修改」。texts 变化只影响下一次弹窗。
  */
 import { useEffect, useRef } from "react";
@@ -41,7 +41,7 @@ export function useUnsavedGuard(active: boolean, texts?: {
   activeRef.current = active;
   /** 哨兵是否在历史栈顶 */
   const sentinelRef = useRef(false);
-  /** BX-A1：弹窗文案走 ref —— <a>/popstate 监听只挂一次，文案取最新 */
+  /** 弹窗文案走 ref —— <a>/popstate 监听只挂一次，文案取最新 */
   const textsRef = useRef(texts);
   textsRef.current = texts;
   function dialogCopy() {

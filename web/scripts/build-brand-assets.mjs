@@ -2,24 +2,24 @@
 /**
  * build-brand-assets.mjs — 从 web/public/brand/*.svg 生成全站图标（DESIGN_SYSTEM 2.2）。
  *
- *   cd web && node scripts/build-brand-assets.mjs
+ * cd web && node scripts/build-brand-assets.mjs
  *
  * 依赖仓库内的 sharp（web/node_modules），不新增依赖。SVG 源文件与产物都入库；
  * 改品牌先改 public/brand/ 源文件，再重跑本脚本。产物清单：
  *
- *   ⚠ og.png 的文字（“化工社 · AI 化学工作台”）由 librsvg 按本机字体渲染，
- *   依赖 macOS 自带的 PingFang SC——只在 macOS 上重新生成；生成的 PNG 入库，
- *   CI 不重跑本脚本（其他机器的 fontconfig 会渲染出不同字形）。
+ * ⚠ og.png 的文字（“化工社 · AI 化学工作台”）由 librsvg 按本机字体渲染，
+ * 依赖 macOS 自带的 PingFang SC——只在 macOS 上重新生成；生成的 PNG 入库，
+ * CI 不重跑本脚本（其他机器的 fontconfig 会渲染出不同字形）。
  *
- *   public/favicon.ico            16(mark-16)/32(mark)/48(mark)，PNG-in-ICO
- *   app/icon.png                  512 透明底 hgs-mark.svg
- *   app/apple-icon.png            180 直角满底渐变 + 白色线框图形标 62% 宽
- *                                 （iOS 自己加圆角，这里必须直角满底）
- *   public/icon-192.png           192 hgs-app-icon.svg（带圆角）
- *   public/icon-512.png           512 hgs-app-icon.svg（带圆角）
- *   public/icon-maskable-512.png  512 直角满底渐变 + 图形标 50% 宽（maskable 安全区）
- *   public/og.png                 1200×630 白底竖版组合 + “化工社 · AI 化学工作台”
- *   public/logo.png               512 透明底 hgs-mark.svg（保留文件名兼容外部引用）
+ * public/favicon.ico 16(mark-16)/32(mark)/48(mark)，PNG-in-ICO
+ * app/icon.png 512 透明底 hgs-mark.svg
+ * app/apple-icon.png 180 直角满底渐变 + 白色线框图形标 62% 宽
+ * （iOS 自己加圆角，这里必须直角满底）
+ * public/icon-192.png 192 hgs-app-icon.svg（带圆角）
+ * public/icon-512.png 512 hgs-app-icon.svg（带圆角）
+ * public/icon-maskable-512.png 512 直角满底渐变 + 图形标 50% 宽（maskable 安全区）
+ * public/og.png 1200×630 白底竖版组合 + “化工社 · AI 化学工作台”
+ * public/logo.png 512 透明底 hgs-mark.svg（保留文件名兼容外部引用）
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -110,7 +110,7 @@ function ogSvg() {
     `<g transform="translate(${(1200 - MARK) / 2} ${y0}) scale(${MARK / 32})">` +
     read("hgs-mark.svg").replace(/<\/?svg[^>]*>|<title>.*?<\/title>/g, "") +
     `</g>` +
-    // 字标：currentColor → 包一层 color=n-900(#16263A, 同 hgs-lockup.svg)
+    // 字标：currentColor → 包一层 color=n-900
     `<g transform="translate(${(1200 - WORD_W) / 2} ${wordY.toFixed(2)}) scale(${wordScale.toFixed(6)})" color="#16263A">${wordmarkInner}</g>` +
     `<text x="600" y="${textBaseline}" text-anchor="middle" font-family="${FONT_UI}" font-size="28" fill="#33475D">化工社 · AI 化学工作台</text>` +
     `</svg>`

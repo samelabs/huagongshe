@@ -24,7 +24,7 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
   const mounted = useRef(false);
   const latestLoad = useRef(0);
 
-  /** FX-16：客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
+  /** 客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
   async function load() {
     const requestId = ++latestLoad.current;
     setState("loading");

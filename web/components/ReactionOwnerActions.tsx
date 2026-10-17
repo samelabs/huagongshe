@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/Button";
  * ReactionOwnerActions — 本人反应操作行（DESIGN_SYSTEM 6.4）。
  *
  * 编辑 / 删除（danger-quiet，经 useConfirm）。原「可见性切换」按钮同样跳
- * /submit 编辑表单（无独立切换端点），与「编辑」完全重复——Step 8 删除，
+ * /submit 编辑表单（无独立切换端点），与「编辑」完全重复—— 删除，
  * 可见性在编辑表单内修改。
  */
 export function ReactionOwnerActions({ reactionId }: { reactionId: number }) {
@@ -24,7 +24,7 @@ export function ReactionOwnerActions({ reactionId }: { reactionId: number }) {
   const confirm = useConfirm();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  /** IX-3：确认弹窗（问句标题 + HRID 与后果 + 具体动作按钮）；成功 Toast 后回工作台，失败 Toast 保留页面 */
+  /** 确认弹窗（问句标题 + HRID 与后果 + 具体动作按钮）；成功 Toast 后回工作台，失败 Toast 保留页面 */
   async function remove() {
     const ok = await confirm({
       title: t.reaction.deleteTitle,

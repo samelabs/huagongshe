@@ -6,7 +6,7 @@ import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale, stripLocalePrefix } from "@/lib/localePath";
 
 /**
- * 设置页 Tabs（DESIGN_SYSTEM 6.8 / I-016）：
+ * 设置页 Tabs（DESIGN_SYSTEM 6.8 /)：
  * 个人资料 / 头像 / 账号安全 / AI Key
  * 链接与键盘交互基于 ui/Tabs（UrlTabs 包装）。
  */

@@ -12,7 +12,7 @@ import { ActivityFeedCard } from "./shared";
 import type { Notice, NoticeResponse, PageResponse, Reaction } from "./types";
 
 /**
- * 工作台右侧社交栏（DESIGN_SYSTEM 2.1 / 6.7 / I-047 / I-085）：
+ * 工作台右侧社交栏（DESIGN_SYSTEM 2.1 / 6.7 / /)：
  * 桌面宽度下所有工作台页面均保留本栏，确保栅格主列宽度与位置稳定。
  * 平板及以下下沉或隐藏，各 Tab 表现一致。
  */

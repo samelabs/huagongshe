@@ -35,7 +35,7 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
     return () => { active = false; };
   }, [page]);
 
-  /** FX-16：客户端重载（请求序号防串台）；SSR 命中时只补标记已读 */
+  /** 客户端重载（请求序号防串台）；SSR 命中时只补标记已读 */
   async function load() {
     const requestId = ++latestLoad.current;
     setState("loading");

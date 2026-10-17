@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * ShareButton — 分享（v1.7 Step 7 支持 iconOnly ghost 图标形态）。
+ * ShareButton — 分享（v1.7 支持 iconOnly ghost 图标形态）。
  * navigator.share 退回复制链接；复制成功用 Toast 反馈（图标形态 / feedback="toast"）
  * 或原地文案切换（默认文字形态，guide 页沿用）。
- * Step 10 Part E：label/variant/size/className/ariaLabel 可覆盖 —— 公开主页
+ * ：label/variant/size/className/ariaLabel 可覆盖 —— 公开主页
  * 手机端用「分享主页」secondary lg 文字按钮（DESIGN_SYSTEM 6.6），桌面保持 iconOnly。
  */
 import { useState } from "react";

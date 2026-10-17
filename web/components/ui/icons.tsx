@@ -260,7 +260,7 @@ export function GlyphRx(props: P) {
   );
 }
 
-/** 更多操作（三个水平圆点） — DESIGN_SYSTEM 5.5 / IX-11 手机操作组 */
+/** 更多操作（三个水平圆点） — DESIGN_SYSTEM 5.5 / 手机操作组 */
 export function IconMore(props: P) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false" {...props}>
@@ -271,7 +271,7 @@ export function IconMore(props: P) {
   );
 }
 
-/** 打印预览图标 — DESIGN_SYSTEM 6.3 / I-078 */
+/** 打印预览图标 — DESIGN_SYSTEM 6.3 / */
 export function IconPrinter(props: P) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" {...props}>

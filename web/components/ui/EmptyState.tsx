@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * EmptyState — 空状态（DESIGN_SYSTEM 3.11，IX-8）：图标 + 一句标题 + 一句说明 + 一个
+ * EmptyState — 空状态（DESIGN_SYSTEM 3.11)：图标 + 一句标题 + 一句说明 + 一个
  * 下一步操作。禁止只写「暂无数据」。
  */
 import type { ReactNode } from "react";

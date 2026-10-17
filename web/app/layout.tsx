@@ -37,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: t.brand.seoTitle, template: `%s｜${t.brand.name}` },
     description: t.brand.seoDesc,
     keywords: [...t.brand.keywords, "AI Chemistry Workspace", "Chemical Knowledge Base", "Reaction Library"],
-    // BX-A5：不再全局输出 robots=index,follow —— 缺席即默认可索引；
+    // 不再全局输出 robots=index,follow —— 缺席即默认可索引；
     // 404 页由 Next 自动注入唯一一条 noindex（此前会与本条叠加成两条）。
   };
 }
@@ -47,7 +47,7 @@ type SiteConfig = {
   ads?: { adsense?: { enabled?: boolean; client?: string } };
 };
 
-// A档缓存：config 低频变更（admin 改 system_config），最迟 300s 生效
+// 缓存：config 低频变更（admin 改 system_config），最迟 300s 生效
 async function getSiteConfig(): Promise<SiteConfig> {
   try { return await apiGet<SiteConfig>("/config", undefined, { revalidate: 300 }); }
   catch { return {}; }

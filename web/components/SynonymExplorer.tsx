@@ -11,7 +11,7 @@ import { TextLink } from "@/components/ui/TextLink";
  * 页面 IA 归 Names & Identifiers; 本组件只负责 preview 之外的展开与 load-more。
  * 关键约束: preview 已有前 N 条, 这里**不得重复渲染** —— 只渲染 items.slice(shown) 起。
  *
- * SMK-015 / HGS-SYNONYM-PAGE-01：分页终止不再用「去重后条数 vs 原始 total」
+ * / HGS-SYNONYM-PAGE-01：分页终止不再用「去重后条数 vs 原始 total」
  * （同义词含重复时去重数永远追不上 total → 同一页被无限重拉）。改按**已请求的
  * 原始 offset** 判断：loaded 记录累计拉取的原始条数，页码 = floor(loaded/100)+1，
  * loaded ≥ total 或接口返回空页即停；另有 50 次请求的硬上限保护。

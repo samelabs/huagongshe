@@ -4,7 +4,7 @@ import { getRequestDictionary } from "@/lib/serverI18n";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
-  // S4 (G1.5-A): 登录页不参与索引(鉴权入口无索引价值), 仍可跟随回跳链接
+  // S4 (-A): 登录页不参与索引(鉴权入口无索引价值), 仍可跟随回跳链接
   return { title: t.auth.title, robots: { index: false, follow: true } };
 }
 /** 6.9 登录/注册（框架 E）：单卡 ≤400，next 回跳逻辑不动。 */

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { TextLink } from "@/components/ui/TextLink";
 
 /* ── A1 数据契约 ──────────────────────────────────────────
-   optional sections 形状: E9-B 后仅 negative(今日有界)留在运行时; seed/supplier 已移除:
+   optional sections 形状: 后仅 negative(今日有界)留在运行时; seed/supplier 已移除:
    { available: boolean; error: string | null; value: T | null }
    available=false → 渲染"暂不可用", 绝不把 0 冒充数据。 */
 
@@ -28,7 +28,7 @@ type LocaleRow = { locale: string; today: number; last_1h: number };
 type LatestRow = { chain: string; chemical_id: number; source: string; ref: string; title: string; at: string | null };
 type Pipeline = {
   cb: ChainBlock & {
-    rows: { today: number };  // E9-B: 有界化 — 仅 today, 无 all-time total
+    rows: { today: number };  // 有界化 — 仅 today, 无 all-time total
     locales: LocaleRow[];
     negative: Optional<{ today: number }>;
   };

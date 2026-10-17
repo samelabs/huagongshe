@@ -4,21 +4,21 @@ import { SITE_ORIGIN, localizedAbsoluteUrl } from "@/lib/alternates";
 import { SUPPORTED_LOCALES, FALLBACK_LOCALE } from "@/lib/i18n/locales";
 
 /**
- * S1 (G1.5-A/A2-1): 基础静态 Sitemap —— 只收录确实存在、公开可索引、
+ * S1 (-A/A2-1): 基础静态 Sitemap —— 只收录确实存在、公开可索引、
  * 有明确 canonical 的静态页面。
  *
  * 收录一致性(A2-1):
- *  - Home/Search/Guide/MCP Guide/Skills: 五语言版本(各有独立 canonical)。
- *  - Terms/Privacy/Support: 仅英文正式版本(唯一 canonical = /en/*,
- *    非英文路径 noindex, 不进入 Sitemap)。
+ * - Home/Search/Guide/MCP Guide/Skills: 五语言版本(各有独立 canonical)。
+ * - Terms/Privacy/Support: 仅英文正式版本(唯一 canonical = /en/*,
+ * 非英文路径 noindex, 不进入 Sitemap)。
  *
  * 边界(与管理端指令一致):
- *  - 不收录工作台(/aichem)、登录、后台、账户、参数化检索页(/search?q=)。
- *  - 不收录动态 HCID/HRID/Note(动态实体 Sitemap 属后续批次, 禁止在
- *    构建期枚举数字 ID、全表扫描或无界 API 分页)。
- *  - 不伪造 lastModified: 本批全部为无可靠修改时间的静态页, 不输出该字段。
- *  - origin 与 URL 构建复用 lib/alternates SSOT(SITE_ORIGIN/withLocale),
- *    不出现第二份域名/前缀逻辑。
+ * - 不收录工作台(/aichem)、登录、后台、账户、参数化检索页(/search?q=)。
+ * - 不收录动态 HCID/HRID/Note(动态实体 Sitemap 属后续批次, 禁止在
+ * 构建期枚举数字 ID、全表扫描或无界 API 分页)。
+ * - 不伪造 lastModified: 本批全部为无可靠修改时间的静态页, 不输出该字段。
+ * - origin 与 URL 构建复用 lib/alternates SSOT(SITE_ORIGIN/withLocale),
+ * 不出现第二份域名/前缀逻辑。
  */
 
 /** 白名单: 无前缀公开静态路径(不存在动态段, 不含任何参数化页面)。 */

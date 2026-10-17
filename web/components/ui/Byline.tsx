@@ -23,7 +23,7 @@ export type BylineUser = {
 
 export const Byline = forwardRef<HTMLDivElement, {
   user: BylineUser;
-  /** 已格式化的时间文案（如“发布于 2026-10-01”），由调用方按 locale 组织 */
+  /** 已格式化的时间文案（如“发布于 ”），由调用方按 locale 组织 */
   time?: string;
   /** 私有标记（随数据出现，不在此组件判断） */
   privateMark?: boolean;

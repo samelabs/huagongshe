@@ -1,11 +1,11 @@
 /** 客户端取数走同源 BFF（app/api/[...path]）。服务端取数（page/layout/
- *  route handler）一律用 lib/api.server.ts —— 那一层带访客身份直连后端；
- *  本文件的服务端 base 已移除，服务端误用会在运行时立刻失败并被
- *  scripts/checkApiLayer.mjs 在提交前拦下。 */
+ * route handler）一律用 lib/api.server.ts —— 那一层带访客身份直连后端；
+ * 本文件的服务端 base 已移除，服务端误用会在运行时立刻失败并被
+ * scripts/checkApiLayer.mjs 在提交前拦下。 */
 const BASE = "/api";
 
-/** BX-A2：用户创建且未填来源引用的反应，dataset_name 返回此稳定枚举标记
- *  （后端不再返回中文「用户发布」）—— 前端按语言渲染（t.reaction.userSubmitted）。 */
+/** 用户创建且未填来源引用的反应，dataset_name 返回此稳定枚举标记
+ * （后端不再返回中文「用户发布」）—— 前端按语言渲染（t.reaction.userSubmitted）。 */
 export const USER_SUBMITTED_SOURCE = "user_submitted";
 
 export class ApiError extends Error {
@@ -80,8 +80,8 @@ export function isApiNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 404;
 }
 
-/** FX-3（SMK-002）：记录不存在的错误形态 —— 404（无此记录）与 422（ID 非法，
- *  FastAPI int-Path 校验拒绝）都应落到前端 404 页，而不是 500。 */
+/** ：记录不存在的错误形态 —— 404（无此记录）与 422（ID 非法，
+ * FastAPI int-Path 校验拒绝）都应落到前端 404 页，而不是 500。 */
 export function isApiGone(error: unknown): error is ApiError {
   return error instanceof ApiError && (error.status === 404 || error.status === 422);
 }
@@ -101,7 +101,7 @@ async function safeDetail(response: Response): Promise<unknown> {
   }
 }
 
-// SSR服务端数据缓存层（A档）：仅用于低频、无用户态的读（如 /config）。
+// SSR服务端数据缓存层：仅用于低频、无用户态的读（如 /config）。
 // 失效语义：revalidate 秒数内允许过期；admin 改 system_config 后最迟 revalidate 秒生效。
 // 带 headers（cookie等用户态）的请求禁缓存，误用即抛错，不静默降级。
 export async function apiGet<T>(path: string, headers?: HeadersInit, opts?: { revalidate?: number }): Promise<T> {
@@ -211,7 +211,7 @@ export type Chemical = {
 
 export type ChemicalDetails = SemanticDetail;
 
-/** E9-B semantic detail — 一级语义 section, PB/CB 不是一级 namespace。 */
+/** semantic detail — 一级语义 section, PB/CB 不是一级 namespace。 */
 export type SemanticDetail = {
   description: { source: string; record_description?: string | null };
   names: {
@@ -329,9 +329,9 @@ export type SearchResponse = {
   capped?: boolean;
   chemicals: Chemical[];
   reactions: ReactionLookup[];
-  /** CAS 未命中且已入队自动获取时为 true（2026-08-27 起后端返回） */
+  /** CAS 未命中且已入队自动获取时为 true(起后端返回） */
   cas_fetch_pending?: boolean;
-  /** 0902 P3b: 同步拉命中 — CB 数据已落库, 前端直接跳详情页 */
+  /** : 同步拉命中 — CB 数据已落库, 前端直接跳详情页 */
   cas_fetch_chemical_id?: number;
 };
 

@@ -26,7 +26,7 @@ type Profile = {
   website: string | null; orcid: string | null;
   followers: number; following: number; public_reactions: number;
   is_following: boolean; is_followed_by: boolean; is_mutual: boolean; is_me: boolean;
-  /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用账号主页不再 404 ——
+  /* HGS-ACCOUNT-CONTENT-01: 停用账号主页不再 404 ——
      active=false 时仅渲染停用态卡片（无关注/分享/内容列表）。 */
   active?: boolean;
 };
@@ -37,7 +37,7 @@ type NotesBlock = { items: NoteCard[]; total: number };
 const REACTIONS_PAGE_SIZE = 20;
 
 /** 同请求内 metadata 与页面体共享的同一次取数（此前各拉一次后端，
- *  cookie 内置 —— metadata 与页面看到同一份 is_me 投影）。 */
+ * cookie 内置 —— metadata 与页面看到同一份 is_me 投影）。 */
 const loadProfile = cache(async (username: string): Promise<Profile> => {
   const cookieStore = await cookies();
   const headers = cookieStore.has("hgs_session") ? { Cookie: cookieStore.toString() } : undefined;
@@ -120,7 +120,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const cookieStore = await cookies();
   if (cookieStore.has("hgs_session")) {
     try {
-      // FX-8a（SMK-011 / HGS-PROFILE-FAVOR-SSR-01）：SSR 预取转发会话 Cookie，
+      // (/ HGS-PROFILE-FAVOR-SSR-01）：SSR 预取转发会话 Cookie，
       // 否则永远按匿名渲染为未收藏，首击发出重复 POST
       const followed = await apiGet<{ items: { id: number }[] }>(`/users/me/follows/reactions?page=1&page_size=100`, { Cookie: cookieStore.toString() });
       favoredReactionIds = new Set(followed.items.map((item) => item.id));

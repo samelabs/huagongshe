@@ -14,7 +14,7 @@ import { TextLink } from "@/components/ui/TextLink";
 const roles = ["any", "reactant", "product", "reagent", "catalyst", "solvent"] as const;
 type Role = (typeof roles)[number];
 
-/** 手机默认展示的相关反应卡数（Step 8 Part A：其余 hidden，「显示更多」展开） */
+/** 手机默认展示的相关反应卡数（：其余 hidden，「显示更多」展开） */
 const MOBILE_PREVIEW = 4;
 
 export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId: number; initial: ReactionSummary[]; initialTotal: number }) {
@@ -38,8 +38,8 @@ export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId
     let active = true;
     setLoading(true);
     setLoadError(false);
-    // 0904 P1收口: 此前 .catch(()=>{}) 静默吞错 — 页码已前进但展示旧页数据,
-    // 化学数据场景下是误导性正确性风险。修正(二稿): 失败时保持当前筛选与页码、
+    // P1收口: 此前 .catch(=>{}) 静默吞错 — 页码已前进但展示旧页数据,
+    // 化学数据场景下是误导性正确性风险。修正(): 失败时保持当前筛选与页码、
     // 数据不换(仍展示上一屏), 只出错误提示行; 不再强制回退 (any,1) 丢用户位置。
     apiGet<{ total: number; reactions: ReactionSummary[] }>(`/chemicals/${chemicalId}/reactions?page=${page}&page_size=8&role=${role}`)
       .then((result) => { if (active) setData({ total: result.total, reactions: result.reactions }); })

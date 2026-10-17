@@ -50,7 +50,7 @@ function roleNames(t: Dictionary): Record<string, string> {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  // FX-3（SMK-002）：非法 ID 与页面同一口径 → 404
+  // ：非法 ID 与页面同一口径 → 404
   if (!isEntityId(id)) notFound();
   const canonical = `/reaction/${id}`;
   const locale = await getRequestLocale();
@@ -92,7 +92,7 @@ export default async function ReactionPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // FX-3（SMK-002 / HGS-WEB-DETAIL-ID-01）：非法 ID 直接 404；后端 422 同 404
+  // (/ HGS-WEB-DETAIL-ID-01）：非法 ID 直接 404；后端 422 同 404
   if (!isEntityId(id)) notFound();
   const locale: Locale = await getRequestLocale();
   const t = await getRequestDictionary();
@@ -369,8 +369,8 @@ function namedTail(items: Chemical[], t: Dictionary, locale: Locale): string {
   return ` ${names.join("、")}${items.length > names.length ? ` ${t.reaction.summaryMore(items.length - names.length)}` : ""}`;
 }
 
-/** Step 8 Part A：名称自带「外名 (内名)」且两者相同（忽略大小写与首尾空格）时
- *  只显示括号外部分（数据源 name_cn 与 preferred_name 同值时曾渲染「水杨酸 (水杨酸)」）。 */
+/** ：名称自带「外名 (内名)」且两者相同（忽略大小写与首尾空格）时
+ * 只显示括号外部分（数据源 name_cn 与 preferred_name 同值时曾渲染「水杨酸 (水杨酸)」）。 */
 function dedupeParens(name: string): string {
   const match = name.match(/^(.+?)\s*[（(](.+)[)）]\s*$/);
   if (!match) return name;
