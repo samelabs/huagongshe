@@ -56,8 +56,9 @@ def _validation_error_response(request, exc: RequestValidationError) -> JSONResp
     message = f"{field}：{reason}" if field else reason
     # 对外数据服务的统一错误契约：{"error":{code,message},"request_id"}；
     # 参数校验发生在路由函数体之前，须在此处就按契约包络，否则消费方
-    # 要处理两种错误格式
-    if request.url.path.startswith("/data/v1"):
+    # 要处理两种错误格式。request 由 FastAPI 异常处理器传入恒非空；
+    # 契约测试直调本函数传 None 时按站内形状处理。
+    if request is not None and request.url.path.startswith("/data/v1"):
         import uuid as _uuid
         return JSONResponse(status_code=422, content={
             "error": {"code": "invalid_parameter", "message": message},
