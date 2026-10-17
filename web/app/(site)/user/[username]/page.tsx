@@ -20,6 +20,7 @@ import { withLocale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, SITE_ORIGIN } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
 import { noteListPresentation } from "@/lib/noteHeadline";
+import { reactionTitleText, type TitledParticipant } from "@/lib/reactionTitle";
 
 type Profile = {
   id: number; username: string; display_name: string; bio: string | null;
@@ -32,7 +33,11 @@ type Profile = {
      active=false 时仅渲染停用态卡片（无关注/分享/内容列表）。 */
   active?: boolean;
 };
-type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
+type Reaction = {
+  id: number; reaction_smiles: string; followers: number; updated_at: string;
+  /* 参与物投影（与详情接口同形状）：卡片标题按「主反应物 → 主产物」解析 */
+  participants?: TitledParticipant[];
+};
 type NoteCard = { id: number; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
 type NotesBlock = { items: NoteCard[]; total: number };
 
@@ -156,6 +161,9 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             <div className="pf-rx-grid">
               {reactions.map((item) => (
                 <article className="pf-rx-card" key={item.id}>
+                  <h3 className="pf-rx-title">
+                    <Link href={withLocale(`/reaction/${item.id}`, locale)}>{reactionTitleText(item.participants ?? [], { t, locale, reactionId: item.id })}</Link>
+                  </h3>
                   <Link className="pf-rx-eq" href={withLocale(`/reaction/${item.id}`, locale)}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={reactionSvgUrl(item.id)} alt={t.reaction.equationAlt(item.id)} loading="lazy" />

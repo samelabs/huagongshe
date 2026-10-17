@@ -171,4 +171,31 @@ async def user_reactions(
           AND r.visibility='public' AND r.moderation_status='visible'
         ORDER BY r.id DESC LIMIT :limit OFFSET :offset
     """), {"username": username, "limit": page_size, "offset": (page-1)*page_size})).mappings().all()
-    return [dict(row) for row in rows]
+    items = [dict(row) for row in rows]
+    # 参与物投影（与详情接口同形状）：列表卡标题按「主反应物 → 主产物」
+    # 规则在前端解析，需要角色与收率及化合物的名称字段。
+    if items:
+        from .services.chemicals import (
+            CHEMICAL_SELECT, attach_localized_names, chemical_dict, clean_float,
+        )
+        prow = (await db.execute(text(f"""
+            SELECT rc.reaction_id, {CHEMICAL_SELECT}, rc.role, rc.yield_percent
+            FROM chemistry.reaction_chemicals rc
+            JOIN chemistry.chemicals c ON c.id = rc.chemical_id
+            WHERE rc.reaction_id = ANY(:ids)
+            ORDER BY CASE rc.role WHEN 'REACTANT' THEN 1 WHEN 'REAGENT' THEN 2
+                     WHEN 'CATALYST' THEN 3 WHEN 'SOLVENT' THEN 4 WHEN 'PRODUCT' THEN 5 ELSE 6 END,
+                     c.id
+        """), {"ids": [item["id"] for item in items]})).fetchall()
+        by_reaction: dict[int, list[dict[str, Any]]] = {}
+        flat: list[dict[str, Any]] = []
+        for row in prow:
+            chemical = chemical_dict(row[1:])
+            chemical["role"] = row[18]
+            chemical["yield_percent"] = clean_float(row[19])
+            by_reaction.setdefault(row[0], []).append(chemical)
+            flat.append(chemical)
+        await attach_localized_names(db, flat)
+        for item in items:
+            item["participants"] = by_reaction.get(item["id"], [])
+    return items

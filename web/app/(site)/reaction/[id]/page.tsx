@@ -23,6 +23,7 @@ import { apiGet } from "@/lib/api.server";
 import { isApiGone, isEntityId, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
+import { reactionTitleText } from "@/lib/reactionTitle";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
@@ -111,22 +112,10 @@ export default async function ReactionPage({ params }: {
   const products = reaction.participants.filter((item) => item.role === "PRODUCT");
   const auxiliaries = reaction.participants.filter((item) => item.role !== "REACTANT" && item.role !== "PRODUCT");
 
-  // 主要反应物取第一个反应物；主要产物取有收率中最高的一个，都没有收率时取第一个产物（DESIGN_SYSTEM 5.1）
-  const primaryReactantParticipant = reactants[0];
-  const productsWithYield = products.filter((p) => typeof p.yield_percent === "number" && !isNaN(p.yield_percent));
-  const primaryProductParticipant = productsWithYield.length > 0
-    ? productsWithYield.reduce((max, cur) => ((cur.yield_percent ?? 0) > (max.yield_percent ?? 0) ? cur : max))
-    : products[0];
-
-  const primaryReactant = primaryReactantParticipant ? resolveChemicalName(primaryReactantParticipant, t.common.hcidLabel, locale).title : "";
-  const primaryProduct = primaryProductParticipant ? resolveChemicalName(primaryProductParticipant, t.common.hcidLabel, locale).title : "";
-  const reactionTitleText = (primaryReactant && primaryProduct)
-    ? t.reaction.reactionTitle(primaryReactant, primaryProduct)
-    : primaryReactant
-      ? `${primaryReactant} →`
-      : primaryProduct
-        ? `→ ${primaryProduct}`
-        : t.reaction.reactionTitleFallback(reaction.id);
+  // 标题规则（主反应物 → 主产物）唯一实现在 lib/reactionTitle，与用户主页卡标题共用
+  const reactionTitle = reactionTitleText(reaction.participants, {
+    t, locale, reactionId: reaction.id,
+  });
 
   // 条件 = structured facts(独立字段); conditions_detail 只作补充说明, 不与 facts 混成一段。
   const conditions = [
@@ -197,7 +186,7 @@ export default async function ReactionPage({ params }: {
           { label: t.chemical.home, href: withLocale("/", locale) },
           { label: t.reaction.category },
         ]}
-        title={<>{reactionTitleText}<EntityBadge
+        title={<>{reactionTitle}<EntityBadge
           kind="reaction"
           id={reaction.id}
           size="md"
