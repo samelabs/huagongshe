@@ -1,6 +1,9 @@
 # PM2 ecosystem — secrets come from /etc/huagongshe.env, never committed.
 # Copy to /etc/huagongshe.env and fill in real values; chmod 600.
 HGS_DATABASE_URL=postgresql+asyncpg://CHANGEME@127.0.0.1:5432/huagongshe
+# Redis 是限流/缓存/nonce 的硬依赖(缺失时限流 fail-closed 503); 生产为
+# 本机回环, DB 1 为运行库(默认), DB 15 为测试。
+HGS_REDIS_URL=redis://127.0.0.1:6379/1
 HGS_WORKER_TOKEN=CHANGEME
 # Optional: OpenAI submission portal domain-verification challenge served at
 # /.well-known/openai-apps-challenge. Leave unset (or empty) to keep the route

@@ -1,0 +1,21 @@
+# /etc/systemd/system/xray-pb.service
+[Unit]
+Description=Xray SOCKS egress for Huagongshe PB and CB proxy chains
+After=network-online.target
+Wants=network-online.target
+Before=pm2-ubuntu.service
+
+[Service]
+Type=simple
+User=ubuntu
+ExecStartPre=/home/ubuntu/ops/xray-bin/xray run -test -c /home/ubuntu/ops/xray-bin/config.json
+ExecStart=/home/ubuntu/ops/xray-bin/xray run -c /home/ubuntu/ops/xray-bin/config.json
+ExecStartPost=/bin/bash -c 'for i in {1..50}; do if exec 3<>/dev/tcp/127.0.0.1/12345 && exec 4<>/dev/tcp/127.0.0.1/12346; then exit 0; fi; sleep 0.1; done; exit 1'
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target
