@@ -167,8 +167,11 @@ class PipelineIndexContract(unittest.TestCase):
         engine = _engine()
         try:
             async with engine.connect() as conn:
-                # 只锁"存在可用访问路径": 关掉顺序扫, 避免小表/冷热差异造成假红
+                # 只锁"存在可用访问路径": 关掉顺序扫与排序选择, 避免小表/
+                # 冷热差异让 planner 选主键索引+显式排序这类假红 —— 本测试
+                # 关心的是目标索引存在且可被选为访问路径, 与数据量无关
                 await conn.execute(text("SET enable_seqscan = off"))
+                await conn.execute(text("SET enable_sort = off"))
 
                 q1 = "\n".join(str(r[0]) for r in (await conn.execute(text(
                     "EXPLAIN SELECT locale, count(*) FROM chemistry.chemical_cb "
