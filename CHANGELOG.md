@@ -3,7 +3,14 @@
 All notable changes to huagongshe are documented here.
 Production site: https://huagongshe.com
 
-## [Unreleased]
+## [1.7.3] — 2026-10-17
+
+**上线前收口（审计修复）**
+- /data/v1：SMILES 解析丢线程池（不卡事件循环）；鉴权失败加 per-IP 失败桶（30 次/分钟，桶满查库前即拒），nginx /data/ 文档补 limit_req
+- /api/search：locale 参数加长度上限并按 CB locale 白名单归一后再拼缓存键（键空间有界）
+- 校验错误处理器补 request 空值守卫（契约测试直调不再炸）；发布流程写入「先迁移后部署」顺序（docs/DEPLOYMENT.md）
+- 「找人」更名「发现作者」：工作台社交组 tab、搜索落地页与各空态文案去内部沟通语；动态/关注空态的下一步动作改为明确的「去发现作者」直达入口
+- 工作台笔记列表行收口：行内操作改图标按钮（与收藏面板同范式）、空内容标题用「无标题笔记」、空态补一句说明；搜索结果空态的「清空查询」并入空态动作位；发现作者行去掉内联样式
 
 **化合物名称多语言（I-086 / I-087）**
 - name_index 的 CB 镜像推广到全部 locale：任意 locale 行落库（含转 error）都触发按"该化合物全部 locale ok 行并集"重建，日文、韩文、德文名可被搜索命中；供应商名改为镜像 supplier listing ⋈ profile（与刷新顺序无关）；lang 列放宽（zh-CN 沿用 'cn'，其余 ja/ko/de，迁移 20261015_03）
