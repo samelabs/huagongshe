@@ -675,8 +675,16 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   line-height: var(--lh-prose);
 }
 .hg-page-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-left: auto; }
-/* 本人操作（编辑/可见性/删除）在这行的右端 */
+/* 本人操作（编辑/可见性/删除）在桌面行的右端；手机另起一行靠左 */
 .hg-page-head-actions .owner-actions { margin-inline-start: auto; }
+/* 操作区分两组：标识 + 分享 + 打印 / 其余操作。桌面两组并入同一行，
+   手机各占一行、靠左。 */
+.hg-head-row { display: contents; }
+@media (max-width: 640px) {
+  .hg-page-head-actions { flex-direction: column; align-items: flex-start; margin-left: 0; }
+  .hg-head-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+  .hg-page-head-actions .hg-head-row > * { margin-inline-start: 0; }
+}
 .hg-page-head-aside { flex: none; max-width: 100%; }
 
 .hg-section { margin-block-start: var(--sp-section); }
@@ -758,9 +766,3 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 }
 .hg-byline-handle { color: var(--text-muted); }
 .hg-byline-time { color: var(--text-muted); }
-
-/* 手机操作行收紧间距：徽标+收藏/更多+分享+打印 五语言 375 单行
-   （置文件末尾，压过同文件在前的 --sp-2 基础规则） */
-@media (max-width: 640px) {
-  .hg-page-head-actions { gap: var(--sp-1); }
-}

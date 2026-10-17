@@ -206,22 +206,26 @@ export default async function ReactionPage({ params }: {
           </div>
         )}
         actions={<>
-          <EntityBadge
-            kind="reaction"
-            id={reaction.id}
-            size="md"
-            state={reaction.visibility === "private" ? "private" : undefined}
-            ariaLabel={t.common.hridLabel(reaction.id)}
-          />
-          <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
-          <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
-            <IconPrinter />
-          </Button>
-          {reaction.is_owner ? (
-            <ReactionOwnerActions reactionId={reaction.id} />
-          ) : (
-            <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" />
-          )}
+          <div className="hg-head-row">
+            <EntityBadge
+              kind="reaction"
+              id={reaction.id}
+              size="md"
+              state={reaction.visibility === "private" ? "private" : undefined}
+              ariaLabel={t.common.hridLabel(reaction.id)}
+            />
+            <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
+            <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
+              <IconPrinter />
+            </Button>
+          </div>
+          <div className="hg-head-row">
+            {reaction.is_owner ? (
+              <ReactionOwnerActions reactionId={reaction.id} />
+            ) : (
+              <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" />
+            )}
+          </div>
         </>}
       />
 

@@ -254,19 +254,23 @@ export default async function ChemicalPage({ params }: {
           </>
         }
         actions={<>
-          <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
-          <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
-          <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
-            <IconPrinter />
-          </Button>
-          <ChemicalActions
-            chemicalId={chemical.id}
-            smiles={chemical.smiles}
-            initialFollowing={Boolean(chemical.is_following)}
-            initialCount={chemical.follower_count || 0}
-            authed={hasSession}
-            title={title}
-          />
+          <div className="hg-head-row">
+            <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
+            <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
+            <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
+              <IconPrinter />
+            </Button>
+          </div>
+          <div className="hg-head-row">
+            <ChemicalActions
+              chemicalId={chemical.id}
+              smiles={chemical.smiles}
+              initialFollowing={Boolean(chemical.is_following)}
+              initialCount={chemical.follower_count || 0}
+              authed={hasSession}
+              title={title}
+            />
+          </div>
         </>}
         aside={
           <figure className="chem-struct">

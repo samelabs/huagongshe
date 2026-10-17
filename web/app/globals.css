@@ -335,11 +335,8 @@ details.chem-group[open] > summary::after { content: "▴"; }
   .hg-page-head-aside { flex-basis: 100%; width: 100%; }
   .chem-struct { width: 100%; min-height: 180px; }
   .chem-struct img { max-height: 180px; }
-  .hg-page-head-actions .hg-eb { order: -2; }
-  .hg-page-head-actions .chem-actions { order: -1; }
-  /* 操作行内徽标收窄为字形+编号（aria-label 全称保留在根上），五语言 375 单行 */
-  .hg-page-head-actions .hg-eb .k > span { display: none; }
-  .chem-substruct-btn { display: none !important; }
+  /* 手机端子结构检索收进“更多” */
+  .chem-actions .chem-substruct-btn { display: none; }
   /* 操作行（DESIGN_SYSTEM 5.5 / 6.3）：收藏 + 子结构检索并排，相似结构进更多 */
   .chem-actions-desktop { display: none !important; }
   .chem-actions-more { display: inline-flex !important; flex: none; }
