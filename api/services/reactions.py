@@ -244,10 +244,13 @@ class ReactionValidationError(Exception):
     DUPLICATE_PARTICIPANT = "duplicate_participant"
     INVALID_REACTION = "invalid_reaction"
 
-    def __init__(self, kind: str, detail: str):
+    def __init__(self, kind: str, detail: str, field: str | None = None):
         super().__init__(detail)
         self.kind = kind
         self.detail = detail
+        # 出错字段路径(如 participants.2.smiles): 供传输层带回前端定位到
+        # 具体输入; 无明确字段归属时为 None。
+        self.field = field
 
 
 def canonical_participants(
@@ -268,12 +271,15 @@ def canonical_participants(
         if not canonical:
             raise ReactionValidationError(
                 ReactionValidationError.INVALID_STRUCTURE,
-                f"无法解析参与物结构：{item.smiles[:80]}")
+                f"第 {position + 1} 个参与物的结构无法解析：{item.smiles[:80]}",
+                field=f"participants.{position}.smiles")
         key = (item.role, canonical)
         if key in seen:
             raise ReactionValidationError(
                 ReactionValidationError.DUPLICATE_PARTICIPANT,
-                "同一化合物和角色请合并为一项，并填写出现次数")
+                f"第 {position + 1} 个参与物与前面的参与物重复："
+                "同一化合物和角色请合并为一项，并填写出现次数",
+                field=f"participants.{position}")
         seen.add(key)
         record = {"position": position, "canonical_smiles": canonical, **item.model_dump(exclude={"smiles"})}
         participants.append(record)

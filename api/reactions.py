@@ -30,10 +30,14 @@ ROLES = ("REACTANT", "REAGENT", "CATALYST", "SOLVENT", "PRODUCT")
 
 
 def _reaction_validation_http(exc: ReactionValidationError) -> HTTPException:
-    """G3.1B: neutral validation kind → 原 HTTP status(400/409), detail 原文。"""
+    """G3.1B: neutral validation kind → 原 HTTP status(400/409), detail 原文;
+    参与物级错误带字段路径, 前端据此定位到具体行与输入。"""
+    payload = {"message": exc.detail, "kind": exc.kind}
+    if exc.field:
+        payload["field"] = exc.field
     if exc.kind == ReactionValidationError.DUPLICATE_PARTICIPANT:
-        return HTTPException(409, {"message": exc.detail, "kind": exc.kind})
-    return HTTPException(400, {"message": exc.detail, "kind": exc.kind})
+        return HTTPException(409, payload)
+    return HTTPException(400, payload)
 
 
 def _reaction_access_http(exc: ReactionAccessError) -> HTTPException:
@@ -91,8 +95,12 @@ async def create_reaction(
     except RateLimitError as exc:
         raise to_http_exception(exc) from exc
     except _UnresolvedIdentityError as exc:
-        # E9-B: CONFLICT/AMBIGUOUS → 409, 未创建任何行
-        raise HTTPException(409, exc.detail) from exc
+        # E9-B: CONFLICT/AMBIGUOUS → 409, 未创建任何行; 与 validate 端点
+        # 同形带 kind(前端五语言字典已有对应文案)。
+        raise HTTPException(409, {
+            "message": exc.detail,
+            "kind": f"chemical_identity_{exc.status.lower()}",
+        }) from exc
 
 
 @router.put("/reactions/{reaction_id}")
@@ -113,8 +121,12 @@ async def update_reaction(
     except RateLimitError as exc:
         raise to_http_exception(exc) from exc
     except _UnresolvedIdentityError as exc:
-        # E9-B: CONFLICT/AMBIGUOUS → 409, 参与者/反应行零写入
-        raise HTTPException(409, exc.detail) from exc
+        # E9-B: CONFLICT/AMBIGUOUS → 409, 参与者/反应行零写入; 与 validate
+        # 端点同形带 kind(前端五语言字典已有对应文案)。
+        raise HTTPException(409, {
+            "message": exc.detail,
+            "kind": f"chemical_identity_{exc.status.lower()}",
+        }) from exc
 
 
 @router.delete("/reactions/{reaction_id}", status_code=204)

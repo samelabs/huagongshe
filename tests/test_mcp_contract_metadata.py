@@ -88,7 +88,7 @@ class McpMetadataContractTests(unittest.TestCase):
 
         class ReactionError(Exception):
             kind = "invalid_structure"
-            detail = "无法解析参与物结构：$$"
+            detail = "第 1 个参与物的结构无法解析：$$"
 
         self.assertEqual(
             mcp._reaction_error_message(ReactionError()),

@@ -57,7 +57,8 @@ class KernelTests(unittest.TestCase):
         self.assertEqual(ctx.exception.kind,
                          ReactionValidationError.INVALID_STRUCTURE)
         self.assertEqual(ctx.exception.detail,
-                         "无法解析参与物结构：not-a-smiles-$$$")
+                         "第 1 个参与物的结构无法解析：not-a-smiles-$$$")
+        self.assertEqual(ctx.exception.field, "participants.0.smiles")
 
     def test_duplicate_participant_kind_and_detail(self):
         with self.assertRaises(ReactionValidationError) as ctx:
@@ -68,8 +69,11 @@ class KernelTests(unittest.TestCase):
             ]))
         self.assertEqual(ctx.exception.kind,
                          ReactionValidationError.DUPLICATE_PARTICIPANT)
-        self.assertEqual(ctx.exception.detail,
-                         "同一化合物和角色请合并为一项，并填写出现次数")
+        self.assertEqual(
+            ctx.exception.detail,
+            "第 2 个参与物与前面的参与物重复："
+            "同一化合物和角色请合并为一项，并填写出现次数")
+        self.assertEqual(ctx.exception.field, "participants.1")
 
     def test_invalid_reaction_kind_and_detail(self):
         # schema 前置要求 reactant+product; 用 model_construct 绕开
@@ -318,7 +322,8 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         async def fake_service(*, actor_id, body):
             if reaction == "RAISE_VALIDATION":
                 raise ReactionValidationError(
-                    ReactionValidationError.INVALID_STRUCTURE, "无法解析参与物结构：$$$")
+                    ReactionValidationError.INVALID_STRUCTURE,
+                    "第 1 个参与物的结构无法解析：$$$")
             if reaction == "RAISE_RATE":
                 raise RateLimited("请求过于频繁，请稍后重试", retry_after=9)
             return {"valid": True, "reaction_smiles": "CCO>>CC=O",

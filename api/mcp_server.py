@@ -222,7 +222,7 @@ def _reaction_error_message(exc: Exception) -> str:
     kind = getattr(exc, "kind", "")
     detail = str(getattr(exc, "detail", "") or "")
     if kind == "invalid_structure":
-        value = _detail_tail(detail, "无法解析参与物结构：")
+        value = _detail_tail(detail, "的结构无法解析：")
         return (
             f"Could not parse reaction participant structure: {value}"
             if value else "Could not parse a reaction participant structure."

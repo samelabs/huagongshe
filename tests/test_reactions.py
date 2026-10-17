@@ -69,8 +69,10 @@ class ReactionContractTests(unittest.TestCase):
             canonical_participants(value)
         self.assertEqual(raised.exception.kind,
                          ReactionValidationError.DUPLICATE_PARTICIPANT)
-        self.assertEqual(raised.exception.detail,
-                         "同一化合物和角色请合并为一项，并填写出现次数")
+        self.assertEqual(
+            raised.exception.detail,
+            "第 2 个参与物与前面的参与物重复："
+            "同一化合物和角色请合并为一项，并填写出现次数")
 
     def test_occurrence_count_preserves_stoichiometric_repetition(self) -> None:
         _, expression = canonical_participants(body(participants=[
