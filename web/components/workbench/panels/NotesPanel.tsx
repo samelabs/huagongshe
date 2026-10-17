@@ -352,13 +352,16 @@ export function NotesPanel({
       )}
       {state === "ready" && (data.items.length ? (
         <div className="wb-row-list">
-          {data.items.map((note) => (
+          {data.items.map((note) => {
+            const pres = noteListPresentation(note);
+            return (
             <WbListRow
               key={note.id}
               href={`/note/${note.id}`}
               icon={<IconNote />}
-              title={noteListPresentation(note, t).title}
-              summary={noteListPresentation(note, t).summary}
+              title={pres.title ?? pres.body}
+              titleMultiline={pres.title == null}
+              summary={pres.title ? pres.body : undefined}
               meta={
                 <>
                   <VisibilityTag visibility={note.visibility} t={t} />
@@ -382,7 +385,8 @@ export function NotesPanel({
                 </>
               }
             />
-          ))}
+            );
+          })}
         </div>
       ) : (
         <EmptyState

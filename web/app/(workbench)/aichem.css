@@ -522,6 +522,15 @@
 /* 整行点击：标题链接 ::after 铺满行（近邻定位祖先 = .wb-row） */
 .wb-row-title::after { content: ""; position: absolute; inset: 0; }
 .wb-row-title:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: var(--wb-r-xs); }
+/* 无标题笔记：正文即主文本，两行截断（替代默认的单行省略） */
+.wb-row-title.is-multiline {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  align-items: start;
+  line-height: 1.45;
+}
 .wb-row-meta {
   display: flex;
   align-items: center;

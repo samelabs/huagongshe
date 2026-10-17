@@ -229,12 +229,14 @@ function RecentRow({ item, t, locale }: { item: RecentItem; t: ReturnType<typeof
 }
 
 function NoteRow({ note, t, locale }: { note: NoteResponse["items"][number]; t: ReturnType<typeof useDictionary>; locale: Locale }) {
+  const pres = noteListPresentation(note);
   return (
     <WbListRow
       href={`/note/${note.id}`}
       icon={<IconNote />}
-      title={noteListPresentation(note, t).title}
-      summary={noteListPresentation(note, t).summary}
+      title={pres.title ?? pres.body}
+      titleMultiline={pres.title == null}
+      summary={pres.title ? pres.body : undefined}
       meta={
         <>
           <VisibilityTag visibility={note.visibility} t={t} />

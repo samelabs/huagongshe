@@ -75,33 +75,32 @@ export function noteHeadline(content: string, options?: Parameters<typeof resolv
 }
 
 /**
- * 笔记列表行（工作台列表、首页面板、公开主页）共用的呈现派生：
- * 标题按上面的规则；摘要恒为正文（自定义标题时是余下正文，中性标题时
- * 是整段），由各列表用两行截断渲染。有关联实体时中性标题指名首个关联
- * 实体（徽标同款的 HCID/HRID 标签），无关联时落到作者名。
+ * 笔记列表行（工作台列表、概览面板、公开主页）共用的呈现派生。
+ * 列表接口拿不到关联实体的真实名称，不造模板标题：
+ * - 多行且首行不超过 60 字：首行作标题，其余作摘要（各列表两行截断）；
+ * - 其他（单行，或首行超长）：没有标题，正文整段即行主文本（两行截断），
+ *   不出现"关于…的笔记"这类占位文字；
+ * - 关联实体只由行内实体徽标表达。
+ * 详情页标题规则（resolveNotePresentation）不受本函数影响。
  */
-/** 列表呈现所需的最小字典面（Dictionary 结构满足） */
-type NoteListDictionary = {
-  common: { hcidLabel: (id: number) => string; hridLabel: (id: number) => string };
-  notes?: { aboutEntityNote?: (name: string) => string; authorNote?: (author: string) => string };
-};
+export type NoteListPresentation = { title: string | null; body: string };
 
-export function noteListPresentation(
-  note: {
-    content: string;
-    username?: string;
-    display_name?: string | null;
-    chemical_ids?: number[];
-    reaction_ids?: number[];
-  },
-  t: NoteListDictionary,
-): { title: string; summary: string } {
-  const linkedEntityName = note.chemical_ids?.length
-    ? t.common.hcidLabel(note.chemical_ids[0])
-    : note.reaction_ids?.length
-      ? t.common.hridLabel(note.reaction_ids[0])
-      : null;
-  const authorName = note.display_name || (note.username ? `@${note.username}` : null);
-  const presentation = resolveNotePresentation(note.content, { authorName, linkedEntityName, t });
-  return { title: presentation.title, summary: presentation.body };
+export function noteListPresentation(note: { content: string }): NoteListPresentation {
+  const lines = (note.content || "").split("\n");
+  let firstIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim().length > 0) {
+      firstIdx = i;
+      break;
+    }
+  }
+  if (firstIdx === -1) {
+    return { title: null, body: "" };
+  }
+  const firstLine = lines[firstIdx].trim();
+  const remaining = lines.slice(firstIdx + 1).join("\n").trim();
+  if (remaining.length > 0 && firstLine.length <= 60) {
+    return { title: firstLine, body: remaining };
+  }
+  return { title: null, body: (note.content || "").trim() };
 }

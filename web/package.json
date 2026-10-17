@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test:locale": "tsx --conditions=react-server --test lib/localePath.test.mjs lib/languageSwitcher.test.mjs lib/proxy.test.mjs lib/runtimeI18n.test.mjs lib/alternates.test.mjs lib/hcidTemplate.test.mjs lib/localeCheck.test.mjs lib/api.server.test.mjs",
-    "test:unit": "node --test --experimental-strip-types lib/govSeverity.test.mjs lib/profileMerge.test.mjs",
+    "test:unit": "node --test --experimental-strip-types lib/govSeverity.test.mjs lib/profileMerge.test.mjs lib/noteHeadline.test.mjs",
     "check:api-layer": "node scripts/checkApiLayer.mjs"
   },
   "dependencies": {

@@ -202,13 +202,15 @@ export default async function UserPage({ params, searchParams }: { params: Promi
         )}
         {tab === "notes" && !notesUnavailable && notesBlock && notesBlock.total > 0 && (
           <div className="pf-note-list">
-            {notesBlock.items.map((note) => (
+            {notesBlock.items.map((note) => {
+              const pres = noteListPresentation(note);
+              return (
               <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
                 <div className="pf-note-head">
-                  <h3>{noteListPresentation(note, t).title}</h3>
+                  {pres.title && <h3>{pres.title}</h3>}
                   <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
                 </div>
-                <p className="pf-note-summary">{noteListPresentation(note, t).summary}</p>
+                <p className="pf-note-summary">{pres.body}</p>
                 {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
                   <div className="pf-note-refs">
                     {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
@@ -216,7 +218,8 @@ export default async function UserPage({ params, searchParams }: { params: Promi
                   </div>
                 )}
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
         {tab === "notes" && !notesUnavailable && notesBlock && notesBlock.total === 0 && (
