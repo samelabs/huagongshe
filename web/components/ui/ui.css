@@ -629,6 +629,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-left: max(20px, calc((100% - var(--w-wide)) / 2));
   margin-right: auto;
 }
+/* 手机档与顶栏 .sh-inner 同一公式（calc(100% - 24px)，两侧 12px）——
+   左缘对齐检查在 375 下同样要求 H1 与 logo 像素差为 0 */
+@media (max-width: 640px) {
+  .hg-page-frame { width: calc(100% - 24px); }
+  .hg-page-frame--reading, .hg-page-frame--form { margin-left: 12px; }
+}
 
 .hg-page-head {
   display: flex;
@@ -639,6 +645,8 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-block: var(--sp-6);
 }
 .hg-page-head .hg-breadcrumb { flex-basis: 100%; margin-block-end: var(--sp-3); }
+/* 带右侧视觉位（aside）时改为顶端对齐：标题区与卡片各自从顶排起 */
+.hg-page-head:has(.hg-page-head-aside) { align-items: flex-start; }
 .hg-page-head-main { min-width: 0; }
 .hg-page-head h1 {
   margin: 0;
@@ -649,6 +657,10 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   overflow-wrap: anywhere;
 }
 .hg-page-head--hero h1 { font-size: var(--fs-40); letter-spacing: var(--ls-display); }
+/* 手机档 hero 降档：实体名 40 → 28（token 注释的既定阶梯） */
+@media (max-width: 640px) {
+  .hg-page-head--hero h1 { font-size: var(--fs-28); }
+}
 .hg-page-head-meta { margin-block-start: var(--sp-3); }
 .hg-page-head-sub {
   margin: var(--sp-2) 0 0;
@@ -657,15 +669,29 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   font-size: var(--fs-16);
   line-height: var(--lh-prose);
 }
-.hg-page-head-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.hg-page-head-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-left: auto; }
+.hg-page-head-aside { flex: none; max-width: 100%; }
 
 .hg-section { margin-block-start: var(--sp-section); }
+.hg-section-head {
+  display: flex;
+  align-items: last baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
 .hg-section-title {
   margin: 0;
   font-size: var(--fs-22);
   font-weight: var(--fw-display);
   line-height: var(--lh-heading);
   letter-spacing: var(--ls-heading);
+}
+.hg-section-note {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--fs-13);
+  line-height: var(--lh-ui);
+  font-variant-numeric: tabular-nums;
 }
 .hg-section-desc {
   margin: var(--sp-1) 0 0;

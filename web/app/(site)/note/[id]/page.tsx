@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { NoteOwnerActions } from "@/components/NoteOwnerActions";
 import { Byline } from "@/components/ui/Byline";
-import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { IconLock } from "@/components/ui/icons";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { PageHead } from "@/components/ui/PageHead";
+import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
 import { apiGet } from "@/lib/api.server";
 import { isApiNotFound, isApiGone, isEntityId, type Chemical, type NoteItem } from "@/lib/api";
@@ -109,34 +111,35 @@ export default async function NoteDetailPage({ params }: Params) {
   const hasLinkedEntities = note.chemical_ids.length > 0 || note.reaction_ids.length > 0;
 
   return (
-    <div className="content-page note-detail-page">
-      <Breadcrumb
-        items={[
+    <PageFrame tier="reading" className="note-detail-page">
+      <PageHead
+        breadcrumb={[
           { label: t.chemical.home, href: withLocale("/", locale) },
           { label: t.notes.category },
           { label: title },
         ]}
-        ariaLabel={t.common.breadcrumb}
-      />
-      <article className="note-detail">
-        <header className="note-detail-head">
-          <h1>{title}</h1>
+        title={title}
+        meta={
           <div className="note-detail-meta">
             <Byline user={note} time={new Date(note.updated_at).toLocaleDateString(locale)} size={32} />
             {note.visibility === "public"
               ? <Tag tone="blue">{t.notes.visibilityPublic}</Tag>
               : <Tag icon={<IconLock />}>{t.notes.visibilityPrivate}</Tag>}
           </div>
-        </header>
+        }
+        actions={hasSession ? (
+          <NoteOwnerActions noteId={note.id} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />
+        ) : undefined}
+      />
 
+      <article className="note-detail">
         {/* 正文以阅读体排版，阅读宽度（reading 720） */}
         {body && <div className="note-detail-content">{body}</div>}
 
         {/* 关联实体放在正文后面 */}
         {hasLinkedEntities && (
-          <div className="note-detail-links entity-note-links">
-            <h3 className="note-links-title">{t.notes.linkedTitle}</h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+          <Section id="linked-entities" title={t.notes.linkedTitle} className="note-detail-links-section">
+            <div className="entity-note-links">
               {note.chemical_ids.map((cid) => (
                 <EntityBadge
                   key={`c-${cid}`}
@@ -158,14 +161,9 @@ export default async function NoteDetailPage({ params }: Params) {
                 />
               ))}
             </div>
-          </div>
-        )}
-
-        {/* 本人操作：编辑（secondary）、删除（danger-quiet） */}
-        {hasSession && (
-          <NoteOwnerActions noteId={note.id} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />
+          </Section>
         )}
       </article>
-    </div>
+    </PageFrame>
   );
 }

@@ -75,7 +75,7 @@ export function ChemicalActions({ chemicalId, smiles, initialFollowing, initialC
   }
 
   return (
-    <div className="chem-head-actions">
+    <div className="chem-actions">
       <Button
         variant="primary"
         aria-pressed={following}

@@ -13,6 +13,7 @@ export function PageHead({
   subtitle,
   meta,
   actions,
+  aside,
   hero = false,
   className,
 }: {
@@ -22,6 +23,8 @@ export function PageHead({
   /** 标题行的块级元信息（如作者署名），与纯文本副标题并列 */
   meta?: ReactNode;
   actions?: ReactNode;
+  /** 页头右侧的视觉位（如实体详情的结构件卡片），与正文左缘同框右置 */
+  aside?: ReactNode;
   /** 实体详情用 40 档 H1 */
   hero?: boolean;
   className?: string;
@@ -35,6 +38,7 @@ export function PageHead({
         {subtitle != null && <p className="hg-page-head-sub">{subtitle}</p>}
       </div>
       {actions && <div className="hg-page-head-actions">{actions}</div>}
+      {aside && <div className="hg-page-head-aside">{aside}</div>}
     </header>
   );
 }

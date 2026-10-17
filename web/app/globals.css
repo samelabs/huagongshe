@@ -244,36 +244,18 @@ main { flex: 1; background: var(--bg-page); }
   .reaction-mini-more { display: inline-block; }
 }
 
-/* ══ Chemical Detail 头部（DESIGN_SYSTEM 6.3）：左内容 + 右 300 结构图卡片 ══ */
-.chem-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  grid-template-areas:
-    "badge struct"
-    "title struct"
-    "alt struct"
-    "iupac struct"
-    "chips struct"
-    "actions struct";
-  column-gap: var(--sp-8);
-  align-items: start;
-  padding: var(--sp-6) 0 var(--sp-8);
-  border-bottom: 1px solid var(--border);
-}
-.chem-head .chem-badge-row,
-.chem-head .hg-eb-copy { grid-area: badge; display: inline-flex; align-items: center; gap: var(--sp-2); }
-.chem-head-name { grid-area: title; margin: var(--sp-4) 0 var(--sp-1); font-size: clamp(var(--fs-28), 3.7vw, var(--fs-40)); font-weight: 650; line-height: 1.15; letter-spacing: var(--ls-display); overflow-wrap: anywhere; }
-.chem-head-alt { grid-area: alt; margin: 0; color: var(--text-2); font-size: var(--fs-18); }
-.chem-head-iupac { grid-area: iupac; margin: 2px 0 0; color: var(--text-muted); font-size: var(--fs-14); }
-.chem-head-chips { grid-area: chips; display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-4) 0 var(--sp-6); }
+/* ══ Chemical Detail 头部内容件（版式由 PageHead/PageFrame 承担）══
+   这里只剩标题区内容样式：IUPAC 行 / 事实 Tag 行 / 右侧结构件卡片。 */
+.chem-iupac { margin: 0; color: var(--text-muted); font-size: var(--fs-14); }
+.chem-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .chem-cas-chip { display: inline-flex; align-items: center; gap: 2px; }
-.chem-head-actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+.chem-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
 .chem-actions-desktop { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .chem-actions-more { display: none !important; }
 .chem-favor-count { font-weight: 600; font-variant-numeric: tabular-nums; }
-.chem-head-struct { grid-area: struct; align-self: start; position: relative; display: grid; place-items: center; min-height: 220px; margin: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); }
-.chem-head-struct img { max-width: 100%; max-height: 220px; object-fit: contain; }
-.chem-head-struct figcaption { position: absolute; left: var(--sp-3); bottom: var(--sp-2); color: var(--text-muted); font-size: var(--fs-12); }
+.chem-struct { align-self: start; position: relative; display: grid; place-items: center; width: 300px; min-height: 220px; margin: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); }
+.chem-struct img { max-width: 100%; max-height: 220px; object-fit: contain; }
+.chem-struct figcaption { position: absolute; left: var(--sp-3); bottom: var(--sp-2); color: var(--text-muted); font-size: var(--fs-12); }
 .mol-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2); color: var(--text-muted); font-size: var(--fs-13); text-align: center; width: 100%; height: 100%; user-select: none; }
 .mol-placeholder svg { width: var(--icon-lg); height: var(--icon-lg); color: var(--text-muted); flex-shrink: 0; }
 /* 补全中 Notice（DetailRefresher 渲染，头部下方） */
@@ -285,8 +267,10 @@ main { flex: 1; background: var(--bg-page); }
 .chem-dl dt { color: var(--text-muted); font-size: var(--fs-13); }
 .chem-dl dd { margin: 0; color: var(--text); font-size: var(--fs-14); line-height: 1.6; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
 
-.chemical-layout { margin-top: 48px; display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); gap: 64px; align-items: start; }
-.chemical-main { min-width: 0; display: grid; gap: 52px; }
+.chemical-layout { margin-top: var(--sp-12); display: grid; grid-template-columns: minmax(0, 1fr) var(--rail-w); gap: 64px; align-items: start; }
+/* 分区间距由 .hg-section 自带；首分区贴顶让右栏与第一个分区标题对齐 */
+.chemical-main { min-width: 0; display: block; }
+.chemical-main > :first-child { margin-block-start: 0; }
 .chemical-aside { position: sticky; top: calc(var(--header-clear) + var(--sp-6)); display: grid; gap: 16px; }
 .chemical-aside section { border: 1px solid var(--border); padding: 19px; }
 .chemical-aside h2 { margin: 0 0 15px; font-size: var(--fs-16); }
@@ -301,11 +285,9 @@ main { flex: 1; background: var(--bg-page); }
 .contribute-panel p { margin: 0 0 var(--sp-3); color: var(--text-muted); font-size: var(--fs-13); line-height: 1.55; }
 .description-panel { border-left: 3px solid var(--brand); padding: 0 0 0 18px; }
 .description-panel p { margin: 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.85; }
-/* Chemical Detail semantic v2 (Issue #4):
-   语义 section 为一级 IA, source 只是 evidence tag; token 用 #3 Foundation。 */
+/* Chemical Detail semantic v2: 语义 section 为一级 IA; 详情页版式（间距/标题）
+   走版式件 Section（.hg-section）。本规则只服务 data-api 文档页（待文档族批次迁移）。 */
 .chem-section { display: grid; gap: var(--sp-4); min-width: 0; max-width: 100%; }
-/* 仅 Chemical Detail: 一级 section H2 用 v2 规范字号(22px); 共享 .section-heading 不动 */
-.chem-section .section-heading h2 { font-size: var(--fs-22); font-weight: 600; letter-spacing: var(--ls-heading); }
 .chem-subhead { margin: var(--sp-3) 0 0; font-size: var(--fs-18); font-weight: var(--fw-semibold); color: var(--text); }
 .chem-subhead-note { margin-left: var(--sp-2); color: var(--text-muted); font-size: var(--fs-13); font-weight: 400; }
 .chem-names-block { display: grid; gap: var(--sp-2); }
@@ -353,25 +335,17 @@ details.chem-group[open] > summary::after { content: "▴"; }
   .chemical-layout { grid-template-columns: minmax(0, 1fr); gap: 40px; }
   .chemical-aside { position: static; }
   .chemical-aside .chem-rail-nav { display: none; }
-  .chem-section { scroll-margin-top: 62px; }
+  .hg-section { scroll-margin-top: calc(var(--header-clear) + var(--sp-2)); }
 }
 @media (max-width: 640px) {
-  /* 篇幅收敛（DESIGN_SYSTEM 6.3）：手机分区距 sp-8、组距 sp-6 */
-  .chemical-main { gap: var(--sp-8); }
+  /* 篇幅收敛（DESIGN_SYSTEM 6.3）：手机分区距与数据行列距降档 */
   .chem-dl > div { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); }
   .evidence-flat { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); }
-  /* 头部手机序（DESIGN_SYSTEM 2.4 框架 B）：徽标 md → h1 28 → 英文名 → 结构图满宽 → Tag 行 → 操作行 */
-  .chem-head { grid-template-columns: minmax(0, 1fr); grid-template-areas: "badge" "title" "alt" "struct" "chips" "actions"; padding: var(--sp-4) 0 var(--sp-6); }
-  .chem-head .hg-eb.lg { --eb-h: 28px; --eb-fs: var(--fs-13); --fs-eb-prefix: var(--fs-12); --eb-ic: 14px; }
-  .chem-head .hg-eb.lg .k { padding: 0 7px; }
-  .chem-head .hg-eb.lg .v { padding: 0 7px; }
-  .chem-head-name { margin: var(--sp-3) 0 2px; font-size: var(--fs-28); }
-  .chem-head-iupac { display: none; }
-  .chem-head-chips { margin: var(--sp-3) 0 var(--sp-4); }
-  .chem-head-struct { min-height: 180px; }
-  .chem-head-struct img { max-height: 180px; }
+  /* 头部手机序：标题块在前，IUPAC 隐藏，结构件满宽居下 */
+  .chem-iupac { display: none; }
+  .chem-struct { width: 100%; min-height: 180px; }
+  .chem-struct img { max-height: 180px; }
   /* 操作行（DESIGN_SYSTEM 5.5 / 6.3）：收藏 + 子结构检索并排，相似结构进更多 */
-  .chem-head-actions { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-width: 0; }
   .chem-actions-desktop { display: none !important; }
   .chem-actions-more { display: inline-flex !important; flex: none; }
 }
@@ -383,7 +357,7 @@ details.chem-group[open] > summary::after { content: "▴"; }
 .alias-list { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 7px; margin-bottom: 14px; }
 .alias-list span { border: 1px solid var(--border); border-radius: var(--r-xs); padding: 6px 8px; color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-12); }
 /* 相关反应：角色筛选 Segmented（手机横向滚动）+ 卡片角色标签 */
-/* min-width:0 —— Segmented 是 chem-section 的 grid item，min-width:auto 会把
+/* min-width:0 —— Segmented 是 hg-section 的 grid item，min-width:auto 会把
    未滚动的整排按钮内容宽度(>375)灌进页面 scrollWidth，fullPage 截图横向变宽 */
 .reaction-role-seg { min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .reaction-role-seg::-webkit-scrollbar { display: none; }
@@ -410,24 +384,17 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .inline-error { margin: 0; color: var(--err); font-size: var(--fs-13); }
 .inline-error a { text-decoration: underline; }
 
-/* ══ Reaction Detail（6.4）：头部 / 反应式卡片 / 参与物紧凑行 ══ */
-.rx-head { display: grid; justify-items: start; gap: var(--sp-2); padding: var(--sp-6) 0 var(--sp-8); border-bottom: 1px solid var(--border); }
-.rx-badge-row { display: inline-flex; align-items: center; gap: var(--sp-2); }
-.rx-head-title { margin: var(--sp-3) 0 0; font-size: clamp(var(--fs-28), 3.7vw, var(--fs-40)); font-weight: 650; line-height: 1.15; letter-spacing: var(--ls-display); overflow-wrap: anywhere; }
-/* 事实摘要: 只由结构化字段拼出(反应物→产物 · 催化剂/溶剂 · 温度 · 时间), 无值不出 */
-.rx-head-byline { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
-.rx-head-summary { margin: 0; color: var(--text-2); font-size: var(--fs-16); overflow-wrap: anywhere; }
-.rx-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-top: var(--sp-3); }
+/* ══ Reaction Detail（6.4）内容件：署名行 / 反应式卡片 / 参与物紧凑行 ══
+   头部版式由 PageHead hero 承担（标题/署名/摘要/操作）。 */
+.rx-byline-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
 .owner-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .follow-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* 反应式：满宽白底卡片（手机 overflow-x 滚动不压缩）+ SMILES CodeField */
-.rx-equation { display: grid; gap: var(--sp-3); margin: var(--sp-6) 0 var(--sp-8); }
-/* 方程式整体缩放到卡片宽度: 反应物到产物一屏看全, 不在卡片内横向滚动(滚动时产物藏在右侧、无提示) */
 .rx-equation-card { width: 100%; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); padding: var(--sp-4) var(--sp-3); }
 .rx-equation-card img { display: block; width: 100%; height: auto; max-height: 340px; object-fit: contain; }
 .rx-equation-unavailable { min-height: 140px; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-14); text-align: center; border-radius: var(--r-sm); }
-.rx-smiles-code { margin-top: var(--sp-1); }
+.rx-smiles-code { margin-top: var(--sp-3); }
 
 /* 参与物（3.4 / 5.4 / 6.4 紧凑行）：缩略图 64×48 + 徽标 sm + 名称 + 用量；桌面两列手机一列 */
 .reaction-sides { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-6); }
@@ -457,8 +424,8 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .structured-form { display: grid; gap: 18px; }
 .form-section { border: 1px solid var(--border); padding: 26px; }
 .settings-preview-link { display: inline-block; margin: -8px 0 20px; font-size: var(--fs-12); color: var(--action); }
-/* 去掉英文 eyebrow 列，只保留分区标题；h2 字号同实体页
-   分区（.chem-section .section-heading h2：fs-22 / 600 / ls-heading） */
+/* 去掉英文 eyebrow 列，只保留分区标题；h2 字号同版式件分区
+   （.hg-section-title：fs-22 / 600 / ls-heading） */
 .form-section-head { margin-bottom: 24px; display: grid; gap: 0; }
 .form-section-head > span { display: none; }
 .form-section-head h2 { margin: 0; font-size: var(--fs-22); font-weight: 600; letter-spacing: var(--ls-heading); }
@@ -1320,18 +1287,11 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
 /* P-3: 卡片 6 行截断(保留 pre-wrap/anywhere; 30000 字符不横溢不无限长) */
 .note-clamp{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;min-width:0}
 .note-view-full{display:inline-block;margin-top:8px}
-/* P-1: Note 详情页（6.5：外层容器 wide，正文限 reading 宽度左对齐） */
-.note-detail-page .note-detail{max-width:var(--w-reading)}
-.note-detail-head h1{font-size:var(--fs-28);font-weight:650;letter-spacing:var(--ls-title);line-height:1.25;margin:0 0 var(--sp-2);overflow-wrap:anywhere}
+/* Note 详情页：版式走 PageFrame reading + PageHead default + Section，
+   这里只剩署名行、本人操作行与正文阅读体内容样式 */
 .note-detail-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2) var(--sp-3)}
-.note-owner-actions{display:flex;gap:var(--sp-2);margin-top:var(--sp-6)}
+.note-owner-actions{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
 .note-detail-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:var(--lh-prose);margin:var(--sp-4) 0 0;font-size:var(--fs-16)}
-.note-detail-links{margin-top:var(--sp-3)}
-/* 笔记标题字号：桌面 fs-28 / 手机 fs-22（） */
-@media (max-width: 640px) {
-  .note-detail-head h1{font-size:var(--fs-22)}
-}
-.note-links-title{margin:0 0 var(--sp-2);font-size:var(--fs-14);font-weight:600;color:var(--text)}
 /* P-6: 实体页私有区块(公开区块上方, 只读) */
 .entity-note-private{border:1px dashed var(--border);border-radius:var(--r-md);padding:12px 16px;margin-bottom:16px}
 .entity-note-private-head{display:flex;justify-content:space-between;align-items:center;gap:12px}

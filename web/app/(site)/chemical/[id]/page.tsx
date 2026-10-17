@@ -11,8 +11,10 @@ import { GroupToggle } from "@/components/GroupToggle";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { EntityNotes } from "@/components/EntityNotes";
 import { Button } from "@/components/ui/Button";
-import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { CopyButton } from "@/components/ui/CopyButton";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { PageHead } from "@/components/ui/PageHead";
+import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
 import { Molecule } from "@/components/Molecule";
 import { ReactionList } from "@/components/ReactionList";
@@ -223,51 +225,54 @@ export default async function ChemicalPage({ params }: {
   ];
 
   return (
-    <div className="content-page chemical-page">
+    <PageFrame className="chemical-page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
-      <Breadcrumb
-        items={[
+
+      {/* ── Entity Header：左标题区 + 右结构图卡片（版式件 PageHead hero） ── */}
+      <PageHead
+        hero
+        breadcrumb={[
           { label: t.chemical.home, href: withLocale("/", locale) },
           { label: t.chemical.category },
         ]}
-        ariaLabel={t.common.breadcrumb}
-      />
-
-      {/* ── Entity Header（5.1 / 6.3：左内容 + 右 300 结构图卡片） ── */}
-      <header className="chem-head">
-        <div className="chem-badge-row">
-          <EntityBadge kind="chemical" id={chemical.id} size="lg" ariaLabel={t.common.hcidLabel(chemical.id)} />
+        title={<>{title}<EntityBadge kind="chemical" id={chemical.id} size="md" copyable ariaLabel={t.common.hcidLabel(chemical.id)} /></>}
+        subtitle={secondary || undefined}
+        meta={
+          <>
+            {iupacShow && <p className="chem-iupac">{iupacShow}</p>}
+            <div className="chem-chips">
+              {chemical.cas_numbers[0] && source !== "cas" && (
+                <span className="chem-cas-chip">
+                  <Tag>CAS {chemical.cas_numbers[0]}</Tag>
+                  <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
+                </span>
+              )}
+              {chemical.molecular_formula && source !== "molecular_formula" && <Tag>{chemical.molecular_formula}</Tag>}
+              {chemical.average_mass != null && <Tag>{formatNumber(chemical.average_mass, locale)} g/mol</Tag>}
+              {chemical.pubchem_cid != null && <Tag>PubChem CID {chemical.pubchem_cid}</Tag>}
+            </div>
+          </>
+        }
+        actions={<>
           <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
           <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
             <IconPrinter />
           </Button>
-        </div>
-        <h1 className="chem-head-name">{title}</h1>
-        {secondary && <p className="chem-head-alt">{secondary}</p>}
-        {iupacShow && <p className="chem-head-iupac">{iupacShow}</p>}
-        <div className="chem-head-chips">
-          {chemical.cas_numbers[0] && source !== "cas" && (
-            <span className="chem-cas-chip">
-              <Tag>CAS {chemical.cas_numbers[0]}</Tag>
-              <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
-            </span>
-          )}
-          {chemical.molecular_formula && source !== "molecular_formula" && <Tag>{chemical.molecular_formula}</Tag>}
-          {chemical.average_mass != null && <Tag>{formatNumber(chemical.average_mass, locale)} g/mol</Tag>}
-          {chemical.pubchem_cid != null && <Tag>PubChem CID {chemical.pubchem_cid}</Tag>}
-        </div>
-        <ChemicalActions
-          chemicalId={chemical.id}
-          smiles={chemical.smiles}
-          initialFollowing={Boolean(chemical.is_following)}
-          initialCount={chemical.follower_count || 0}
-          authed={hasSession}
-          title={title}
-        />
-        <figure className="chem-head-struct">
-          <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} />
-        </figure>
-      </header>
+          <ChemicalActions
+            chemicalId={chemical.id}
+            smiles={chemical.smiles}
+            initialFollowing={Boolean(chemical.is_following)}
+            initialCount={chemical.follower_count || 0}
+            authed={hasSession}
+            title={title}
+          />
+        </>}
+        aside={
+          <figure className="chem-struct">
+            <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} />
+          </figure>
+        }
+      />
 
       {/* 补全中（enrichment queued / CB 在途）：头部下方 Notice + 原轮询逻辑 */}
       <DetailRefresher active={refreshActive} />
@@ -280,8 +285,7 @@ export default async function ChemicalPage({ params }: {
 
           {/* ── 1. Overview ── */}
           {hasOverview && (
-          <section className="chem-section" id="overview">
-            <SectionHead title={t.chemical.page.overview} />
+          <Section id="overview" title={t.chemical.page.overview}>
             {detail?.description.record_description && <div className="description-panel"><p>{detail.description.record_description}</p></div>}
             <dl className="chem-dl">
               <DataRow label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono copyable copyLabel={`${t.common.copy} SMILES`} />
@@ -290,13 +294,12 @@ export default async function ChemicalPage({ params }: {
               <DataRow label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass, locale)} g/mol` : null} />
               <DataRow label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, locale, 8) : null} />
             </dl>
-          </section>
+          </Section>
           )}
 
           {/* ── 2. Names & Identifiers ── */}
           {hasNames && (
-          <section className="chem-section" id="names">
-            <SectionHead title={t.chemical.page.names} />
+          <Section id="names" title={t.chemical.page.names}>
             <dl className="chem-dl">
               <DataRow label={t.chemical.names.preferred} value={chemical.preferred_name} />
               <DataRow label="IUPAC" value={chemical.iupac_name} />
@@ -340,13 +343,12 @@ export default async function ChemicalPage({ params }: {
                 </dl>
               </div>
             )}
-          </section>
+          </Section>
           )}
 
           {/* ── 3. Properties（分区内分组；组头一行 + 组级折叠） ── */}
           {hasProperties && (
-            <section className="chem-section" id="properties">
-              <SectionHead title={t.chemical.page.properties} />
+            <Section id="properties" title={t.chemical.page.properties}>
               {hasComputed && pbComputed && (
                 <ChemGroup gid="grp-prop-descriptors" title={t.chemical.knowledge.descriptors} total={8} dict={t}
                   note={enrichment.status !== "current" && enrichment.status !== "degraded" ? (enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued) : undefined}>
@@ -383,13 +385,12 @@ export default async function ChemicalPage({ params }: {
               {(props?.cb_prose?.length ?? 0) > 0 && (
                 <ProseGroup gid="grp-prop-prose" title={t.chemical.casext.chemicalProps} prose={props?.cb_prose ?? []} dict={t} />
               )}
-            </section>
+            </Section>
           )}
 
           {/* ── 4. Safety & Regulatory ── */}
           {hasSafetyReal && (
-            <section className="chem-section" id="safety">
-              <SectionHead title={t.chemical.page.safety} />
+            <Section id="safety" title={t.chemical.page.safety}>
               {Object.entries(pbSafetySections).map(([key, block]) => {
                 const entries = evidenceEntries(block);
                 return entries.length > 0 ? (
@@ -411,13 +412,12 @@ export default async function ChemicalPage({ params }: {
               {(safety?.cb_packaging?.length ?? 0) > 0 && (
                 <ProseGroup gid="grp-packaging" title={t.chemical.casext.packaging} prose={safety?.cb_packaging ?? []} dict={t} />
               )}
-            </section>
+            </Section>
           )}
 
           {/* ── 5. Chemistry & Industry ── */}
           {hasIndustry && (
-            <section className="chem-section" id="industry">
-              <SectionHead title={t.chemical.page.industry} />
+            <Section id="industry" title={t.chemical.page.industry}>
               {Object.entries(pbIndustrySections).map(([key, block]) => {
                 const entries = evidenceEntries(block);
                 return entries.length > 0 ? (
@@ -457,15 +457,14 @@ export default async function ChemicalPage({ params }: {
               {(industry?.cb_notes?.length ?? 0) > 0 && (
                 <ProseGroup gid="grp-notes" title={t.chemical.casext.safetyNotes} prose={industry?.cb_notes ?? []} dict={t} />
               )}
-            </section>
+            </Section>
           )}
 
           {/* ── 6. Reactions ── */}
-          <section className="chem-section" id="reactions">
-            <SectionHead title={t.chemical.relatedReactions}
-              note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined} />
+          <Section id="reactions" title={t.chemical.relatedReactions}
+            note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined}>
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
-          </section>
+          </Section>
 
           <EntityNotes entity="chemical" entityId={chemical.id} canAdd={hasSession} privateContext={hasSession ? { chemical: chemical.id } : undefined} />
 
@@ -482,21 +481,11 @@ export default async function ChemicalPage({ params }: {
           </section>
         </aside>
       </div>
-    </div>
+    </PageFrame>
   );
 }
 
 /* ── 小组件 ── */
-
-/** 一级 section 标题：h2 22/600/--ls-heading，右侧可选计数注记（5.3 / 6.3 去 eyebrow） */
-function SectionHead({ title, note }: { title: string; note?: string }) {
-  return (
-    <div className="section-heading chem-section-head">
-      <h2>{title}</h2>
-      {note && <span>{note}</span>}
-    </div>
-  );
-}
 
 /** DataRow 已提取为共享组件 components/DataRow（3.14 / 6.3 / 6.4 统一数据行） */
 
