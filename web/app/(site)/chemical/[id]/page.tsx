@@ -235,17 +235,18 @@ export default async function ChemicalPage({ params }: {
           { label: t.chemical.home, href: withLocale("/", locale) },
           { label: t.chemical.category },
         ]}
-        title={<>{title}<EntityBadge kind="chemical" id={chemical.id} size="md" copyable ariaLabel={t.common.hcidLabel(chemical.id)} /></>}
+        title={title}
         subtitle={secondary || undefined}
         meta={
           <>
             {iupacShow && <p className="chem-iupac">{iupacShow}</p>}
             <div className="chem-chips">
+              <EntityBadge kind="chemical" id={chemical.id} size="sm" copyable ariaLabel={t.common.hcidLabel(chemical.id)} />
               {chemical.cas_numbers[0] && source !== "cas" && (
-                <span className="chem-cas-chip">
-                  <Tag>CAS {chemical.cas_numbers[0]}</Tag>
+                <Tag className="chem-cas-chip">
+                  CAS {chemical.cas_numbers[0]}
                   <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
-                </span>
+                </Tag>
               )}
               {chemical.molecular_formula && source !== "molecular_formula" && <Tag>{chemical.molecular_formula}</Tag>}
               {chemical.average_mass != null && <Tag>{formatNumber(chemical.average_mass, locale)} g/mol</Tag>}

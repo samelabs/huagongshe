@@ -235,8 +235,12 @@ main { flex: 1; background: var(--bg-page); }
 /* ══ Chemical Detail 头部内容件（版式由 PageHead/PageFrame 承担）══
    这里只剩标题区内容样式：IUPAC 行 / 事实 Tag 行 / 右侧结构件卡片。 */
 .chem-iupac { margin: 0; color: var(--text-muted); font-size: var(--fs-14); }
-.chem-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-.chem-cas-chip { display: inline-flex; align-items: center; gap: 2px; }
+/* 胶囊行：全部同高 28px 居中；HCID 徽标与 CAS 复制钮在此行内收紧 */
+.chem-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.chem-chips .hg-tag { height: 28px; }
+.chem-chips .hg-eb { --eb-h: 28px; }
+.chem-chips .hg-copy { width: 22px; height: 22px; }
+.chem-chips .hg-copy svg { width: 14px; height: 14px; }
 .chem-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
 .chem-actions-desktop { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .chem-actions-more { display: none !important; }

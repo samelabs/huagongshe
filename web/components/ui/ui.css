@@ -656,10 +656,15 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   letter-spacing: var(--ls-title);
   overflow-wrap: anywhere;
 }
-.hg-page-head--hero h1 { font-size: var(--fs-40); letter-spacing: var(--ls-display); }
-/* 手机档 hero 降档：实体名 40 → 28（token 注释的既定阶梯） */
+.hg-page-head--hero h1 {
+  font-size: var(--fs-28);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-heading);
+  letter-spacing: 0;
+}
+/* 手机档 hero：22 */
 @media (max-width: 640px) {
-  .hg-page-head--hero h1 { font-size: var(--fs-28); }
+  .hg-page-head--hero h1 { font-size: var(--fs-22); }
 }
 .hg-page-head-meta { margin-block-start: var(--sp-3); }
 .hg-page-head-sub {

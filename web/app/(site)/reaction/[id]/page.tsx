@@ -127,9 +127,6 @@ export default async function ReactionPage({ params }: {
     reaction.reflux ? [t.reaction.conditionFields.reflux, t.common.yes] : null,
   ].filter(Boolean) as string[][];
 
-  // 结构化字段只来自当前 reaction (不推断命名反应/reaction class)
-  const factualSummary = buildSummary(reactants, products, auxiliaries, reaction, t, locale);
-
   // Provenance: ORD 身份只认 ord_id; dataset_name / source_citation 在 API 中同源(见 services.reactions),
   // 只表达一次: 有 ORD 时是 ORD 数据集名, 否则是用户提供的来源说明。
   const hasOrd = Boolean(reaction.ord_id);
@@ -215,7 +212,6 @@ export default async function ReactionPage({ params }: {
             )}
           </div>
         )}
-        subtitle={factualSummary || undefined}
         actions={<>
           <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
           <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
@@ -327,37 +323,6 @@ export default async function ReactionPage({ params }: {
 }
 
 /* ── 小组件 ── */
-
-/** 结构化字段拼出的一行事实摘要; 没有值的部分不显示, 不推断命名反应/反应类别。 */
-function buildSummary(reactants: Chemical[], products: Chemical[], auxiliaries: Chemical[], reaction: ReactionDetail, t: Dictionary, locale: Locale): string {
-  const parts: string[] = [];
-  if (reactants.length > 0 || products.length > 0) {
-    parts.push(`${t.reaction.summaryReactants(reactants.length)} → ${t.reaction.summaryProducts(products.length)}`);
-  }
-  const catalysts = auxiliaries.filter((item) => item.role === "CATALYST");
-  const solvents = auxiliaries.filter((item) => item.role === "SOLVENT");
-  if (catalysts.length > 0) parts.push(`${t.reaction.summaryCatalysts(catalysts.length)}${namedTail(catalysts, t, locale)}`);
-  if (solvents.length > 0) parts.push(`${t.reaction.summarySolvents(solvents.length)}${namedTail(solvents, t, locale)}`);
-  if (reaction.temperature) parts.push(`${reaction.temperature.value} ${unitName(reaction.temperature.unit, t)}`);
-  if (reaction.duration) parts.push(`${reaction.duration.value} ${unitName(reaction.duration.unit, t)}`);
-  return parts.join(" · ");
-}
-
-/** 最多带 2 个名字, 更多时只保留计数(不臆造 kind 名)。 */
-function namedTail(items: Chemical[], t: Dictionary, locale: Locale): string {
-  const names = items.slice(0, 2).map((item) => dedupeParens(resolveChemicalName(item, t.common.hcidLabel, locale).title));
-  if (names.length === 0) return "";
-  return ` ${names.join("、")}${items.length > names.length ? ` ${t.reaction.summaryMore(items.length - names.length)}` : ""}`;
-}
-
-/** ：名称自带「外名 (内名)」且两者相同（忽略大小写与首尾空格）时
- * 只显示括号外部分（数据源 name_cn 与 preferred_name 同值时曾渲染「水杨酸 (水杨酸)」）。 */
-function dedupeParens(name: string): string {
-  const match = name.match(/^(.+?)\s*[（(](.+)[)）]\s*$/);
-  if (!match) return name;
-  const [, outer, inner] = match;
-  return outer.trim().toLowerCase() === inner.trim().toLowerCase() ? outer.trim() : name;
-}
 
 /** 参与物（3.4 / 5.4 / 6.4 紧凑行）：64×48 缩略图 + 徽标 sm + 名称 + 用量/当量；桌面两列、手机一列 */
 function ParticipantRoleGroup({ title, items, showRole = false, t, locale }: {

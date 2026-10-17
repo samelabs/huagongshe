@@ -4,8 +4,8 @@ import { Breadcrumb, type BreadcrumbItem } from "./Breadcrumb";
 /**
  * PageHead — 页头（版式基准）：面包屑 + H1 + 副标题 + 操作区。
  *
- * H1 两档：default 28（列表/文章页）、hero 40（实体详情页）；
- * 字重恒 --fw-display，行高 --lh-tight。
+ * H1 两档：default 28（列表/文章页）、hero 28/22（实体详情页，手机 22）；
+ * 字重恒 --fw-semibold，行高 --lh-heading，字距 0。
  */
 export function PageHead({
   breadcrumb,
