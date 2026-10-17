@@ -241,10 +241,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           </div>
         ) : (
           <div className="search-empty">
-            <EmptyState icon={<GlyphChem />} title={t.search.noResultsFor(q)}>
+            <EmptyState
+              icon={<GlyphChem />}
+              title={t.search.noResultsFor(q)}
+              action={{ label: t.search.clearQuery, href: withLocale("/search", locale) }}
+            >
               {t.search.noResultsTryHint}
             </EmptyState>
-            <Link className="hg-btn secondary" href={withLocale("/search", locale)}>{t.search.clearQuery}</Link>
           </div>
         )
       )}

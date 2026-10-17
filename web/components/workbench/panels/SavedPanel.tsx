@@ -179,7 +179,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
 
   return (
     <section className="wb-panel">
-      <PanelHeading title={t.me.tabSaved} subtitle={t.me.savedHint} count={state === "ready" ? data.total : "—"} unit={kind === "chemicals" ? t.me.unitChemical : t.me.unitReaction} />
+      <PanelHeading title={t.me.tabSaved} subtitle={t.me.savedHint} count={state === "ready" ? data.total : undefined} unit={kind === "chemicals" ? t.me.unitChemical : t.me.unitReaction} />
       <Tabs tabs={tabs} value={kind} onChange={switchKind} ariaLabel={t.me.filterSaved} />
       {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}

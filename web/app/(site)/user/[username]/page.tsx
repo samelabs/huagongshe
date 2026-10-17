@@ -204,7 +204,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             {notesBlock.items.map((note) => (
               <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
                 <div className="pf-note-head">
-                  <h3>{noteHeadline(note.content) || t.notes.detailTitle}</h3>
+                  <h3>{noteHeadline(note.content, { fallbackTitle: t.notes.untitled })}</h3>
                   <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
                 </div>
                 <p className="pf-note-summary">{note.content}</p>

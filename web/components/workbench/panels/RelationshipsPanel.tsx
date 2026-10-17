@@ -68,7 +68,7 @@ export function RelationshipsPanel({ kind, page, initialData, username }: PanelP
 
   return (
     <section className="wb-panel">
-      <PanelHeading title={title} subtitle={kind === "followers" ? t.me.followersHint : t.me.followingHint} count={state === "ready" ? data.total : "—"} unit={t.me.unitPerson} />
+      <PanelHeading title={title} subtitle={kind === "followers" ? t.me.followersHint : t.me.followingHint} count={state === "ready" ? data.total : undefined} unit={t.me.unitPerson} />
       {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && (data.items.length ? (
@@ -77,8 +77,10 @@ export function RelationshipsPanel({ kind, page, initialData, username }: PanelP
         <EmptyState
           icon={kind === "followers" ? <IconUser /> : <IconUsers />}
           title={kind === "followers" ? t.me.emptyFollowers : t.me.emptyFollowing}
-          action={{ label: t.me.tabPeople, href: withLocale("/aichem?tab=people", locale) }}
-        />
+          action={{ label: t.me.discoverCta, href: withLocale("/aichem?tab=people", locale) }}
+        >
+          {kind === "followers" ? t.me.emptyFollowersDesc : t.me.emptyFollowingDesc}
+        </EmptyState>
       ))}
       {state === "ready" && data.total > data.page_size && (
         <Pagination page={page} pageSize={data.page_size} total={data.total} href={(value) => withLocale(`/aichem?tab=${kind}${value > 1 ? `&page=${value}` : ""}`, locale)} />

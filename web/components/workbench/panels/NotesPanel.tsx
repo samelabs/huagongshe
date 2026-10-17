@@ -10,7 +10,7 @@ import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Segmented } from "@/components/ui/Segmented";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
-import { IconNote } from "@/components/ui/icons";
+import { IconNote, IconPencil, IconTrash } from "@/components/ui/icons";
 import { apiDelete, apiGet } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
@@ -305,7 +305,7 @@ export function NotesPanel({
       <PanelHeading
         title={t.nav.tabNotes}
         subtitle={t.me.notesHint}
-        count={state === "ready" ? data.total : "—"}
+        count={state === "ready" ? data.total : undefined}
         unit={t.me.unitNote}
         action={<Button variant="primary" size="sm" onClick={openCreate}>{t.me.notesNew}</Button>}
       />
@@ -357,7 +357,7 @@ export function NotesPanel({
               key={note.id}
               href={`/note/${note.id}`}
               icon={<IconNote />}
-              title={noteHeadline(note.content) || t.notes.detailTitle}
+              title={noteHeadline(note.content, { fallbackTitle: t.notes.untitled })}
               meta={
                 <>
                   <VisibilityTag visibility={note.visibility} t={t} />
@@ -369,14 +369,14 @@ export function NotesPanel({
                 <>
                   <time dateTime={note.updated_at}>{relativeTime(note.updated_at, locale)}</time>
                   <span className="wb-row-actions">
-                    <Button variant="ghost" size="sm" onClick={() => { void (async () => {
+                    <Button variant="ghost" size="sm" iconOnly aria-label={t.common.edit} onClick={() => { void (async () => {
                       if (!(await guardDraft())) return;
                       setCreating(false);
                       setEditing(note);
                       setEditorNonce((n) => n + 1);
                       beginEditorSession();
-                    })(); }}>{t.common.edit}</Button>
-                    <Button variant="danger-quiet" size="sm" onClick={() => void remove(note)}>{t.common.delete}</Button>
+                    })(); }}><IconPencil /></Button>
+                    <Button variant="danger-quiet" size="sm" iconOnly aria-label={t.common.delete} onClick={() => void remove(note)}><IconTrash /></Button>
                   </span>
                 </>
               }
@@ -388,7 +388,9 @@ export function NotesPanel({
           icon={<IconNote />}
           title={filterKey ? t.notes.filterEmpty : t.me.notesEmpty}
           action={{ label: t.me.notesNew, onClick: openCreate }}
-        />
+        >
+          {filterKey ? undefined : t.me.notesEmptyDesc}
+        </EmptyState>
       ))}
 
       {state === "ready" && data.total > data.page_size && (

@@ -233,7 +233,7 @@ function NoteRow({ note, t, locale }: { note: NoteResponse["items"][number]; t: 
     <WbListRow
       href={`/note/${note.id}`}
       icon={<IconNote />}
-      title={noteHeadline(note.content)}
+      title={noteHeadline(note.content, { fallbackTitle: t.notes.untitled })}
       meta={
         <>
           <VisibilityTag visibility={note.visibility} t={t} />

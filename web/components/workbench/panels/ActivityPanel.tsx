@@ -77,7 +77,7 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
 
   return (
     <section className="wb-panel">
-      <PanelHeading title={t.me.tabActivity} count={state === "ready" ? notices.total : "—"} />
+      <PanelHeading title={t.me.tabActivity} count={state === "ready" ? notices.total : undefined} />
       {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && (notices.items.length
@@ -86,7 +86,7 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
               <ActivityFeedCard key={item.id} item={item} favored={item.reaction_id != null ? favoredIds.has(item.reaction_id) : false} t={t} locale={locale} />
             ))}
           </div>
-        : <EmptyState icon={<GlyphRx />} title={t.me.feedEmptyTitle} action={{ label: t.me.tabFollowing, href: withLocale("/aichem?tab=following", locale) }}>{t.me.feedEmptyDesc}</EmptyState>)}
+        : <EmptyState icon={<GlyphRx />} title={t.me.feedEmptyTitle} action={{ label: t.me.discoverCta, href: withLocale("/aichem?tab=people", locale) }}>{t.me.feedEmptyDesc}</EmptyState>)}
       {state === "ready" && notices.total > notices.page_size && (
         <Pagination page={page} pageSize={notices.page_size} total={notices.total} href={(value) => withLocale(`/aichem?tab=activity${value > 1 ? `&page=${value}` : ""}`, locale)} />
       )}

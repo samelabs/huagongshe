@@ -63,7 +63,7 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
       <PanelHeading
         title={t.me.tabReactions}
         subtitle={subtitle[visibility]}
-        count={state === "ready" ? total : "—"}
+        count={state === "ready" ? total : undefined}
         unit={t.me.unitReaction}
         action={<Button variant="primary" size="sm" href={withLocale("/submit", locale)}>{t.me.navNewReaction}</Button>}
       />

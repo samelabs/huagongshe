@@ -841,6 +841,14 @@
   gap: var(--wb-sp-2);
   flex-shrink: 0;
 }
+.wb-person-followers-tag {
+  flex-shrink: 0;
+}
+.wb-person-followers-tag small {
+  color: var(--wb-quiet);
+  font-size: var(--wb-fs-xs);
+  white-space: nowrap;
+}
 
 /* ═══════════════════════════════════════════════════════════════
    L7 — Settings（form-section 在 wb-panel 内的覆盖）

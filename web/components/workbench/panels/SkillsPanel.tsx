@@ -149,7 +149,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
 
   return (
     <section className="wb-panel">
-      <PanelHeading title={t.me.navSkills} subtitle={t.me.skillsHint} count={state === "ready" ? skills.total : "—"} unit={t.me.unitSkill} />
+      <PanelHeading title={t.me.navSkills} subtitle={t.me.skillsHint} count={state === "ready" ? skills.total : undefined} unit={t.me.unitSkill} />
       <div className="wb-skills-upload">
         <div className="wb-skills-upload-row">
           <input ref={fileRef} type="file" accept=".zip" aria-label={t.me.skillsPickZip} />

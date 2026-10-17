@@ -74,7 +74,11 @@ export function WorkbenchSocialRail({
             <Link className="wb-feed-all" href={withLocale("/aichem?tab=activity", locale)}>{t.me.feedViewAll}</Link>
           </>
         ) : (
-          <EmptyState icon={<GlyphRx />} title={t.me.feedEmptyTitle}>
+          <EmptyState
+            icon={<GlyphRx />}
+            title={t.me.feedEmptyTitle}
+            action={{ label: t.me.discoverCta, href: withLocale("/aichem?tab=people", locale) }}
+          >
             {t.me.feedEmptyDesc}
           </EmptyState>
         )}
