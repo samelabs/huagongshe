@@ -736,7 +736,9 @@ def _clean_doc(doc: str | None) -> str | None:
 def build_mcp_server() -> MCPServer:
     server = MCPServer(
         name="huagongshe-aichem",
-        title="HGS AIchem MCP",
+        # title 是客户端 UI 里展示的服务名(不带协议后缀); name 是机器标识,
+        # 已被接入方当作稳定 ID 引用, 不得变更。
+        title="HGS AIchem",
         # serverInfo.version = 产品发布版本(仓库根 VERSION); v1.7.2 起
         # settings.api_version 读同一文件, 版本号单一来源。
         version=_release_version(),

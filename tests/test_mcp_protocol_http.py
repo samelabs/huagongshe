@@ -49,6 +49,8 @@ class McpStreamableHttpProtocolTests(unittest.IsolatedAsyncioTestCase):
                 # SDK's newer server/discover probe.
                 async with Client(transport, mode="legacy") as client:
                     self.assertEqual(client.session.server_info.name, "huagongshe-aichem")
+                    # 显示名不带协议后缀(客户端 UI 自带 MCP 语境); 机器标识 name 不变
+                    self.assertEqual(client.session.server_info.title, "HGS AIchem")
                     self.assertEqual(client.session.server_info.version, server.version)
 
                     listed = await client.list_tools(cache_mode="refresh")
