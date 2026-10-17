@@ -149,7 +149,7 @@ def run(database_url: str, migrations_dir: str, *,
 def _run_locked(database_url: str, migrations_dir: str, *,
                 apply: bool = True) -> int:
     # 1. tracking table(幂等, 不算 migration; 持锁中执行)。
-    # HGS-MIG-DRYRUN-01: --dry-run 零 DDL —— 不建表(工具契约"只列 pending
+    # --dry-run 零 DDL —— 不建表(工具契约"只列 pending
     # 不执行"; 此前 dry-run 也会真实 CREATE TABLE, 只读库直接报错)。
     if apply:
         proc = _psql(database_url, TRACKING_DDL)

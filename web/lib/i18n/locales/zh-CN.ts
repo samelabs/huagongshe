@@ -1039,7 +1039,7 @@ const t = {
     emptyNotesVisitor: 'TA 还没有公开笔记',
     emptyNotesSelf: '你还没有公开笔记',
     enterWorkbench: '进入工作台',
-    /* HGS-ACCOUNT-CONTENT-01: 停用账号主页停用态（DESIGN_SYSTEM 6.6）与作者标记 */
+    /* 停用账号主页停用态（DESIGN_SYSTEM 6.6）与作者标记 */
     deactivatedTag: '账号已停用',
     deactivatedTitle: '该账号已停用',
     deactivatedBody: '该账号已被停用。已发布的公开内容仍可通过链接访问，但主页不再展示列表，也无法关注。',

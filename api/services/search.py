@@ -173,7 +173,7 @@ async def run_name_search(
         return [], False
 
     # ID-only deterministic 前缀: 每来源 ORDER BY id + 动态窗口(≤cap), 不取宽行。
-    # HGS-SEARCH-LIKE-LITERAL-01: 用户输入按字面匹配 —— %/_/反斜杠是数据
+    # 用户输入按字面匹配 —— %/_/反斜杠是数据
     # 不是通配符, 转义后语义才是"包含这些字符的串"(此前搜含 % 或 _ 的
     # 查询词会放大成通配符匹配, 命中无关行)。
     like_q = like_literal(query)

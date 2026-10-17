@@ -250,7 +250,7 @@ async def validate_skill(
 ):
     # REST 已不接受 AI Key, agent-only 的 require_scope 分支退役;
     # MCP 侧 scope 检查在 mcp_server。
-    # HGS-A4-01: 网页 REST 校验入口的交互预算(与创建 20/h 同维度)。
+    # 网页 REST 校验入口的交互预算(与创建 20/h 同维度)。
     # MCP validate_skill 不经此桶(MCP 侧走其自身调用路径), 不是全入口 CPU 防刷。
     await enforce_http("skill-validate-hour", str(actor.id),
                        settings.api_skill_write_limit_per_hour, 3600)

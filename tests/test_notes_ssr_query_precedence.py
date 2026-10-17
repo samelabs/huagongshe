@@ -17,7 +17,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 
 # ---------------------------------------------------------------------------
-# F1 harness: run the real ssrNotesQuery from the SSR page
+# harness: run the real ssrNotesQuery from the SSR page
 # ---------------------------------------------------------------------------
 F1_HARNESS = r'''
 "use strict";
@@ -175,7 +175,7 @@ def run_node(harness_src: str, target: Path, out_name: str) -> dict:
     return json.loads(out.read_text(encoding="utf-8"))
 
 
-class F1SsrPrecedenceTests(unittest.TestCase):
+class SsrPrecedenceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.ssr = run_node(
@@ -219,7 +219,7 @@ class F1SsrPrecedenceTests(unittest.TestCase):
         self.assertEqual(self.ssr["reaction_only"], self.client["reaction_only"])
 
 
-class F2SaveLandingUrlTests(unittest.TestCase):
+class SaveLandingUrlTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.results = run_node(

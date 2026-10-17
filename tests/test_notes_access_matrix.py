@@ -23,7 +23,7 @@ EMOJI = "reaction done ✅🧪"
 ZWJ_EMOJI = "family 👨‍👩‍👧‍👦"
 
 
-class P5SanitizerUnitTests(unittest.TestCase):
+class NoteSanitizerUnitTests(unittest.TestCase):
     def test_crlf_and_cr_normalize_to_lf(self):
         self.assertEqual(sanitize_note_content("a\r\nb\rc\nd"), "a\nb\nc\nd")
 
@@ -96,7 +96,7 @@ if ASYNC_URL:
 
 
 @unittest.skipUnless(ASYNC_URL, "测试库闸: TEST_DATABASE_URL 未过 tests/db_gate.py")
-class P1AccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
+class NoteAccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.engine = create_async_engine(ASYNC_URL, pool_size=5, max_overflow=0)
         self.Session = async_sessionmaker(self.engine, expire_on_commit=False)
@@ -180,7 +180,7 @@ class P1AccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
             for nid in (hidden_pub, hidden_priv):
                 with self.assertRaises(svc.NoteNotAccessibleError):
                     await svc.get_note(db, note_id=nid, actor_id=self.owner)
-            # HGS-ACCOUNT-CONTENT-01: 停用作者的公开
+            # 停用作者的公开
             # 笔记保留可见(此前 404) —— 停用态只影响作者主页/关注, 不撤内容;
             # active=False 供前端渲染「已停用」标记。
             inactive_row = await svc.get_note(db, note_id=inactive_pub, actor_id=None)

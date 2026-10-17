@@ -101,7 +101,7 @@ export default async function ChemicalPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // (/ HGS-WEB-DETAIL-ID-01）：ID 不满足 ^\d+$ 直接 404；
+  // ID 不满足 ^\d+$ 直接 404；
   // 后端 422（int-Path 校验拒绝，如超大数）同样按 404 呈现
   if (!isEntityId(id)) notFound();
   const locale = await getRequestLocale();

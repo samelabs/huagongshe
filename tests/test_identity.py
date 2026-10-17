@@ -1115,7 +1115,7 @@ class GateCoverageTests(IdentityResolutionTests):
                     {"c": CID_A})).scalar()
                 return rid, out, n
         rid, out, n = self._run(go())
-        # HGS-A5-07: 原断言 assertEqual(out, out) 恒真 — 改为真实契约:
+        # 原断言 assertEqual(out, out) 恒真 — 改为真实契约:
         # 行 CID 空 + 新 CID 无他行 → 返回原行 id(不 merge 不建行不跳行)
         self.assertEqual(out, rid)
         self.assertEqual(n, 0)      # reconcile 不写 CID(sync 已写), 不建行

@@ -69,7 +69,7 @@ export function SavedPanel({ kind, page, initialChemicals, initialReactions }: P
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, page]);
 
-  /** (/ HGS-SAVED-REACTION-PAGE-01）：按当前 URL 页码重拉；
+  /** 按当前 URL 页码重拉；
    * 当前页没有数据了才退回上一页（router.replace 同步 URL）。 */
   function savedHrefFor(targetPage: number, kindValue: SavedKind): string {
     const params = new URLSearchParams({ tab: "saved" });

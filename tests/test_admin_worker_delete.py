@@ -7,7 +7,7 @@
   - 三表均无 active lease → 删除成功 (200, worker_clients 行消失)
   - 不存在 → 404
   - completion receipts 不删除; enabled/scopes 原行为不变(runtime 语义另行由
-    test_admin_pipeline_a1 覆盖)
+    test_admin_pipeline_health 覆盖)
 
 运行: . /tmp/hgs_test_env.sh && ./venv/bin/python -m unittest tests.test_admin_worker_delete
 """

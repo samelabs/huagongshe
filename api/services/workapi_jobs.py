@@ -70,7 +70,7 @@ async def lease_pubchem_jobs(
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
-        # HGS-GATE-HALFOPEN-01: 停档期满半开, 只放行一个探测任务
+        # 停档期满半开, 只放行一个探测任务
         limit = await gate_halfopen_admit(redis, "pubchem", limit)
         if limit <= 0:
             await db.commit()
@@ -324,7 +324,7 @@ async def lease_cas_jobs(
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
-        # HGS-GATE-HALFOPEN-01: 停档期满半开, 只放行一个探测任务
+        # 停档期满半开, 只放行一个探测任务
         limit = await gate_halfopen_admit(redis, "cb", limit)
         if limit <= 0:
             await db.commit()
@@ -418,7 +418,7 @@ async def heartbeat_cas_job(
 ) -> dict[str, Any]:
     try:
         await verified_cas_lease(db, LeaseProof(job_id=job_id, lease_token=lease_token), worker_id, lock=False)
-        # HGS-CAS-HEARTBEAT-LEASE-RACE-01: UPDATE 本身带全部租约条件并核对
+        # 心跳续租与领取竞争同语句收口: UPDATE 本身带全部租约条件并核对
         # 影响行数 —— 无锁校验(lock=False)与 UPDATE 之间存在毫秒窗, 租约
         # 可能已过期被回收/被他人接管, 旧写法按 id 续租会延长别人的租约。
         result = await db.execute(text("""
@@ -628,7 +628,7 @@ async def complete_cas_job(
             structure = resolve_structure(entry, payload.mol)
             # 异步执行期间行可能已被合并(旧id已删) — redirect 兜底
             job_chemical_id = await canonicalize_id(db, chemical_id)
-            # HGS-CB-STRUCT-03: 回调侧解析永远 create=False — 占位行机制下
+            # 回调侧解析永远 create=False — 占位行机制下
             # "无主行建行分支已删除", 双 miss(IK miss + CAS miss)时 create=True
             # 会 INSERT 幽灵行并吸走本任务的落库目标。回调只定位不建行。
             res = await resolve_chemical(
@@ -849,7 +849,7 @@ async def lease_identity_jobs(
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
-        # HGS-GATE-HALFOPEN-01: 停档期满半开, 只放行一个探测任务
+        # 停档期满半开, 只放行一个探测任务
         limit = await gate_halfopen_admit(redis, "pubchem", limit)
         if limit <= 0:
             await db.commit()

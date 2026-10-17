@@ -522,7 +522,7 @@ async def revoke_oauth_connection(
 @router.get("/{username}")
 async def public_profile(username: str, actor: Actor | None = Depends(public_or_actor), db=Depends(get_db)):
     viewer_id = actor.id if actor else 0
-    # HGS-ACCOUNT-CONTENT-01: 停用账号主页不再 404 ——
+    # 停用账号主页不再 404 ——
     # 返回停用态最小档案(is_active=false), 前端渲染停用态卡片(无关注/分享/
     # 内容列表); 公开内容在各自详情页保留可见并带「已停用」标记。
     row = (await db.execute(text("""

@@ -65,7 +65,7 @@ fs.writeFileSync(process.argv[3], JSON.stringify(out, null, 2));
 '''
 
 
-class R2ParamSerializationTests(unittest.TestCase):
+class FilterParamSerializationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.src = REPO / "web/components/workbench/panels/NotesPanel.tsx"
@@ -164,7 +164,7 @@ fs.writeFileSync(process.argv[3], JSON.stringify(cases, null, 2));
 '''
 
 
-class R3SaveLandingTests(unittest.TestCase):
+class SaveLandingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.src = REPO / "web/components/workbench/panels/NotesPanel.tsx"
@@ -202,7 +202,7 @@ class R3SaveLandingTests(unittest.TestCase):
             self.results["created_inside_entity_filter"], "refresh-in-place")
 
 
-class R6UiCloseoutTests(unittest.TestCase):
+class NotesListUiCloseoutTests(unittest.TestCase):
     def test_home_card_has_view_full_hint(self):
         """ 查看全文提示：概览重做（）后 HomePanel 笔记行改为单行标题行
         （链接直达详情页），note-view-full 提示在 EntityNotes 摘录卡上保留。"""

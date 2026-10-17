@@ -1030,7 +1030,7 @@ const ja: Dictionary = {
     emptyNotesVisitor: '公開されているノートはまだありません。',
     emptyNotesSelf: '公開されているノートはまだありません。',
     enterWorkbench: 'ワークベンチへ',
-    /* HGS-ACCOUNT-CONTENT-01: 停止アカウントのプロフィール状態（DESIGN_SYSTEM 6.6）と作成者表示 */
+    /* 停止アカウントのプロフィール状態（DESIGN_SYSTEM 6.6）と作成者表示 */
     deactivatedTag: 'アカウント停止中',
     deactivatedTitle: 'このアカウントは停止されています',
     deactivatedBody: 'このアカウントは停止されました。公開済みの内容はリンクから閲覧できますが、一覧には表示されずフォローもできません。',

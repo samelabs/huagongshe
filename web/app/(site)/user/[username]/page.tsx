@@ -29,7 +29,7 @@ type Profile = {
   website: string | null; orcid: string | null;
   followers: number; following: number; public_reactions: number;
   is_following: boolean; is_followed_by: boolean; is_mutual: boolean; is_me: boolean;
-  /* HGS-ACCOUNT-CONTENT-01: 停用账号主页不再 404 ——
+  /* 停用账号主页不再 404 ——
      active=false 时仅渲染停用态卡片（无关注/分享/内容列表）。 */
   active?: boolean;
 };
@@ -127,7 +127,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const cookieStore = await cookies();
   if (cookieStore.has("hgs_session")) {
     try {
-      // (/ HGS-PROFILE-FAVOR-SSR-01）：SSR 预取转发会话 Cookie，
+      // SSR 预取转发会话 Cookie，
       // 否则永远按匿名渲染为未收藏，首击发出重复 POST
       const followed = await apiGet<{ items: { id: number }[] }>(`/users/me/follows/reactions?page=1&page_size=100`, { Cookie: cookieStore.toString() });
       favoredReactionIds = new Set(followed.items.map((item) => item.id));
@@ -206,7 +206,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
     )}
 
     {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
-        源码契约（tests/test_p1c_*）：加载失败 ≠ total=0 —— 失败渲染
+        源码契约（tests/test_notes_ui_regression.py 等）：加载失败 ≠ total=0 —— 失败渲染
         错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
         total=0 只渲染 tab 空状态（下方 EmptyState）。 ── */}
     {tab === "notes" && (

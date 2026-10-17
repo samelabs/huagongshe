@@ -165,7 +165,7 @@ async def delete_worker(
     worker_id 是无 FK 的协议事实文本, 保留不动; pubchem_jobs.lease_owner /
     pubchem_job_events.worker_id 的 FK 为 ON DELETE SET NULL, 不阻塞。
     """
-    # HGS-WORKER-DELETE-RACE-01: 单条 CTE —— 同一语句内先数活跃租约, 零租约
+    # 删除与租约竞争同语句收口: 单条 CTE —— 同一语句内先数活跃租约, 零租约
     # 才 DELETE, 缩小"检查与删除之间"的窗口。注意: WorkAPI 认证查询与 lease
     # 不锁 worker_clients 行, 已通过认证的在途请求仍可能在删除后领到租约;
     # 运维规程是先停该 worker 进程再删除。leases 结构与 409 契约不变。
@@ -219,7 +219,7 @@ async def list_users(
     actor: Actor = Depends(admin), db=Depends(get_db),
 ):
     search = (q or "").strip()
-    # HGS-SEARCH-LIKE-LITERAL-01: 字面匹配, %/_ 不作通配符
+    # 字面匹配, %/_ 不作通配符
     like_q = like_literal(search)
     if search:
         # total 与 items 必须使用完全相同的 WHERE (username/email ILIKE OR),
@@ -487,7 +487,7 @@ async def update_category(
         raise HTTPException(400, {"message": "缩写为 1-4 个英文字母", "kind": "category_abbr"})
     if not re.fullmatch(r"#[0-9a-f]{6}", color):
         raise HTTPException(400, {"message": "色值格式 #rrggbb", "kind": "category_color"})
-    # HGS-ADMIN-CATEGORY-RACE-01: 行锁串行化并发改名 —— skills.category 是
+    # 行锁串行化并发改名 —— skills.category 是
     # 文字引用无 FK, 两个并发改名交错时 UPDATE 引用与改字典的顺序不再确定,
     # 引用可能指向已消失的旧名。FOR UPDATE 后同一分类的改名在此序列化。
     row = await db.execute(text("""

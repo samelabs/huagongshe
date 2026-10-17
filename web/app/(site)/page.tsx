@@ -54,7 +54,7 @@ export default async function Home() {
       </section>
 
       {/* ── AI 接入入口: 第一屏直接给出地址与主入口 MCP / Skills / 工作台 /
-          Agent Plugin（tests/test_v170_release_governance.py）。Agent Plugin
+          Agent Plugin（tests/test_release_governance.py）。Agent Plugin
           直接下载随代码部署的插件包（web/public/downloads，见
           scripts/build_plugin_package.py）。 ── */}
       <Section title={t.home.entryLabel} className="home-entry-section">

@@ -1,17 +1,17 @@
-"""CX 批 —— P2 修复的行为锁定测试。
+"""字面转义 / 技能包路径 / 半开闸门 / 通道复活的行为锁定测试。
 
 覆盖(与回执 状态表逐项对应):
 - F-01: notes 写入限流桶 + 每用户存量上限(NoteQuotaExceededError)
-- HGS-SEARCH-LIKE-LITERAL-01: like_literal 转义 + 检索按字面命中
-- HGS-SKILL-PATH-01: 连续两点文件名在 zip 校验层被拒(与 DB CHECK 对齐)
-- HGS-GATE-HALFOPEN-01: 停档后半开只放行一个探测名额
-- HGS-IDENTITY-ERROR-REVIVE-01: pubchem 通道解锁含 pubchem_identity_jobs
+- like_literal 转义 + 检索按字面命中
+- 连续两点文件名在 zip 校验层被拒(与 DB CHECK 对齐)
+- 停档后半开只放行一个探测名额
+- pubchem 通道解锁含 pubchem_identity_jobs
 - F-06: prune_oauth_credentials 契约(过期/撤销各表清理, 未到期保留)
 - P2c-tombstone: 清扫只动 grace 外的 .deleted-* 目录
 - notes 超大 ID: int32 上界 → 422(此前 500)
 - DOI 双源: 同反应 rx.doi 与 provenance 同 DOI 命中只出一行
 
-运行: TEST_DATABASE_URL=… python -m unittest tests.test_p2c_cx
+运行: TEST_DATABASE_URL=… python -m unittest tests.test_literal_and_gate_semantics
 """
 from __future__ import annotations
 
@@ -194,7 +194,7 @@ class TombstoneSweepTests(unittest.TestCase):
 
 
 @unittest.skipIf(DB_URL is None, "no test DB")
-class DbP2cTests(unittest.TestCase):
+class DbLiteralGateTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from sqlalchemy.ext.asyncio import create_async_engine
@@ -265,7 +265,7 @@ class DbP2cTests(unittest.TestCase):
         s1, s2 = _run(go())
         self.assertEqual((s1, s2), ("queued", "queued"),
                          "通道解锁必须连 pubchem_identity_jobs 一起复活"
-                         "(HGS-IDENTITY-ERROR-REVIVE-01)")
+                         "(通道解锁应复活错误行)")
 
     def test_note_quota_exceeded(self):
         from api.services.notes import NoteQuotaExceededError, create_note

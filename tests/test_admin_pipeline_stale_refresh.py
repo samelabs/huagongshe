@@ -1,4 +1,4 @@
-"""P1 : stale-while-revalidate 契约 — pipeline / governance 双侧。
+"""stale-while-revalidate 契约 — pipeline / governance 双侧。
 
 规则来源(任务书):
 - 已有 snapshot 后, 任何用户请求都不得因 TTL 过期同步等待昂贵统计刷新
@@ -11,7 +11,7 @@
 并发测试纪律: 每个 task 独立 AsyncSession(AsyncSession 禁并发 execute),
 不改变生产 session 设计。
 
-运行: . /tmp/hgs_test_env.sh && /var/www/huagongshe/venv/bin/python -m unittest tests.test_admin_pipeline_p1
+运行: . /tmp/hgs_test_env.sh && /var/www/huagongshe/venv/bin/python -m unittest tests.test_admin_pipeline_stale_refresh
 """
 
 from __future__ import annotations

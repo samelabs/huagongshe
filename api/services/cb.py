@@ -435,7 +435,7 @@ PRIORITY_BACKGROUND = 40
 # 依据: 详情页"物理化学性质"区 xztr 自带 SMILES/InChI/InChIKey(已入 props),
 # mol 文件是 worker 同趟附带。口径: 页面三件优先, mol 派生兜底; 主表宁缺勿错
 # —— RDKit 校验不过的值整字段丢弃, 绝不把脏值写进 chemicals。
-# HGS-CB-STRUCT-01/02(交叉校验): 三种结构表示互为独立来源, 全部可解析时
+# 结构交叉校验: 三种结构表示互为独立来源, 全部可解析时
 # 必须指向同一分子 — 以标准 InChIKey 为归一判据(page IK / mol 派生 IK /
 # SMILES 派生 IK), 任何两份不一致 → 整组拒写 + 结构化 warning 留痕,
 # 不允许把语义不一致的结构写进同一化合物分喂三条下游。
@@ -467,7 +467,7 @@ def _validate_smiles(smiles: str | None) -> str | None:
 
 
 def _ik_from_smiles(smiles: str | None) -> str | None:
-    """HGS-CB-STRUCT-02: 合法 SMILES → 标准 InChIKey(RDKit)。"""
+    """合法 SMILES → 标准 InChIKey(RDKit)。"""
     if not smiles:
         return None
     try:
@@ -509,7 +509,7 @@ def resolve_structure(
     - 页面 IK 格式非法(非 14-10-1)不作结构表示, 整字段丢弃(不写脏值);
     - 三源 IK 交叉校验: 两份及以上可解析且不一致 → 整组拒写(None)+留痕;
     - smiles 校验失败时 mol 仍可独立派生(连接表本身有效);
-    - 只有 SMILES 时推导 IK(HGS-CB-STRUCT-02), 进入发现流程。
+    - 只有 SMILES 时推导 IK, 进入发现流程。
     """
     from ..pubchem_core import INCHIKEY_RE
     smiles = None
@@ -527,7 +527,7 @@ def resolve_structure(
         logger.warning(
             "event=cb_structure_cross_validation_failed "
             "page_ik=%s mol_ik=%s smiles_ik=%s — representations disagree, "
-            "structure write refused (HGS-CB-STRUCT-01)",
+            "structure write refused: representations disagree",
             page_ik, mol_ik, smiles_ik)
         return {"smiles": None, "inchikey": None, "mol": None}
     inchikey = next(iter(known_iks), None)

@@ -817,7 +817,7 @@ async def get_chemical_detail(
     )
     pb_norm = normalize_source_state(pb_raw_state)
     cb_norm = normalize_source_state(cb_raw_state)
-    # HGS-A2-02 → ZX: display_details(12 entries/6 values)是网页展示的
+    # display_details(12 entries/6 values)是网页展示的
     # 页面级投影, 不再无差别套在共享路径上 —— 默认完整证据(MCP full);
     # REST 网页展示 adapter 传 pb_display_limit=True 保持原截断口径。
     # 存储证据树不受影响(投影不改源)。

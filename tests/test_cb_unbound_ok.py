@@ -41,7 +41,7 @@ def _run(coro):
 def _ik(tag: str) -> str:
     """合法 14-10-1 InChIKey, RUN+tag 派生保证跨用例唯一。
 
-    HGS-CB-STRUCT-01 交叉校验后, entry 的 smiles/inchikey 必须化学一致
+    结构交叉校验后, entry 的 smiles/inchikey 必须化学一致
     (同一分子), 合成 IK 配真 SMILES 会被整组拒写 — 改用真实结构对池,
     tag 稳定散列到池槽(crc32 与 RUN 无关, 映射确定; T5-row/T5-incoming
     两槽已核对不相撞)。"""
@@ -99,7 +99,7 @@ class CbUnboundOkTests(unittest.TestCase):
 
         # 跨 RUN 清理: ut4-p1- 前缀与 8 位首段 CAS(真实 CAS 首段 ≤7 位)
         # 只可能是本文件的行 — 崩溃运行残留不随 RUN 匹配泄漏; 真实 IK 池
-        # (HGS-CB-STRUCT-01 后夹具)使 IK 序位全局检索, 残留即污染。
+        # (结构交叉校验后夹具)使 IK 序位全局检索, 残留即污染。
         async def clean():
             async with self.engine.begin() as db:
                 await db.execute(text("""

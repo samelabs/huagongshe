@@ -319,7 +319,7 @@ class FullOrchestrationTests(unittest.TestCase):
                           f"一级 key 必须是语义 section, 不允许 provider namespace: {key}")
 
     def test_full_pb_ghs_classification_survives(self):
-        """HGS-A2-01 回归：REST full 的 safety.pb_sections 必须含 GHS 分类。
+        """REST full 的 safety.pb_sections 必须含 GHS 分类。
 
         事故：chemical_semantic 白名单键名曾被提交成占位符字面量
         «redacted:ghs_…»（f1b8788），GHS 分类在 detail 投影里静默丢失。
@@ -332,7 +332,7 @@ class FullOrchestrationTests(unittest.TestCase):
             "fetched_at": "2026-09-01T00:00:00+00:00",
         }, cb_row=None, cas=None, pb_display_limit=True)
         sections = result["details"]["safety"]["pb_sections"]
-        # HGS-A2-02: REST 网页展示经 display_details 限幅投影, 证据块统一
+        # REST 网页展示经 display_details 限幅投影, 证据块统一
         # 归一为 {entries: …} 渲染形态(与前端 chemicalEvidence 同构)
         self.assertEqual(sections.get("ghs_classification"), {"entries": ghs},
                          "REST full 丢失 GHS 分类（白名单键名回归？）")

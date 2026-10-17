@@ -8,7 +8,7 @@ layout 源码不变量 + 现有 /users/me 机制断言)。
   → WORKER_STALE_S=300 / WORKER_OFFLINE_S=600
 - lease 180s(worker_job_lease_seconds), CB 心跳 interval=max(20, 180//3)=60s
 
-运行: . /tmp/hgs_test_env.sh && ./venv/bin/python -m unittest tests.test_admin_pipeline_a1
+运行: . /tmp/hgs_test_env.sh && ./venv/bin/python -m unittest tests.test_admin_pipeline_health
 """
 
 from __future__ import annotations

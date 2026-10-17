@@ -21,6 +21,7 @@ REPO = Path(__file__).resolve().parents[1]
 # 按门禁词表：编号系、轮次、裁定与「日期+裁定」组合
 PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("问题单编号", re.compile(r"\bI-\d{2,4}\b")),
+    ("审计条目编号", re.compile(r"\bHGS-[A-Z0-9]+(?:-[A-Z0-9]+)*-[0-9]{2}\b")),
     ("PR 编号", re.compile(r"\bPR\d+-")),
     ("批次编号 P数字-数字", re.compile(r"\bP\d+-\d+\b")),
     ("批次编号 B数字-数字", re.compile(r"\bB\d+-\d+\b")),

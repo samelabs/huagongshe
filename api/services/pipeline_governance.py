@@ -182,7 +182,7 @@ async def supplier_listing_orphan(db: AsyncSession) -> dict:
 async def pb_canonical_sync_gap(db: AsyncSession) -> dict:
     """chemical_pubchem 有行但 canonical 同步字段空(preferred/formula/IK)。
 
-    HGS-GOV-PB-GAP-01: 按字段判断来源是否有值 —— preferred 的证据是
+    按字段判断来源是否有值 —— preferred 的证据是
     record_title; formula/IK 的证据是 computed_properties 证据树里对应
     描述符条目(旧实现只看 record_title 一项, record_title 有值而证据树
     里根本没有该描述符时, 会把"来源本来就无此字段"误报成同步缺口)。

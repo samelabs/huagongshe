@@ -1032,7 +1032,7 @@ const ko: Dictionary = {
     emptyNotesVisitor: '아직 공개 노트가 없습니다.',
     emptyNotesSelf: '아직 공개 노트가 없습니다.',
     enterWorkbench: '워크벤치 열기',
-    /* HGS-ACCOUNT-CONTENT-01 (PM 판정): 비활성 계정 프로필 상태(DESIGN_SYSTEM 6.6)와 작성자 표시 */
+    /* 비활성 계정 프로필 상태(DESIGN_SYSTEM 6.6)와 작성자 표시 */
     deactivatedTag: '계정 비활성화됨',
     deactivatedTitle: '비활성화된 계정입니다',
     deactivatedBody: '이 계정은 비활성화되었습니다. 공개된 내용은 링크로 계속 확인할 수 있지만, 여기에는 표시되지 않으며 팔로우할 수도 없습니다.',

@@ -534,7 +534,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pf-pagination .hg-btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
 .pf-pagination-page { min-width: 64px; text-align: center; color: var(--text-muted); font-size: var(--fs-13); font-variant-numeric: tabular-nums; }
 
-/* 停用态（HGS-ACCOUNT-CONTENT-01, 4.1 / 6.11）：头像 + 名字 + Tag 的状态卡，
+/* 停用态：头像 + 名字 + Tag 的状态卡，
    不渲染关注/分享/内容列表 */
 .pf-deactivated { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-6); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); }
 .pf-deactivated-id { display: grid; gap: var(--sp-1); justify-items: start; }

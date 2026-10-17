@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { getRequestLocale } from "@/lib/serverI18n";
 import { withLocale, splitLocalePrefix } from "@/lib/localePath";
 
-// HGS-A3-02: /me 是个人工作台入口(匿名 307 到登录), 与 /aichem 一致不进索引
+// /me 是个人工作台入口(匿名 307 到登录), 与 /aichem 一致不进索引
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function MePage() {

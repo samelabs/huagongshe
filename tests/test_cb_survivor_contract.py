@@ -54,7 +54,7 @@ def _run(coro):
 def _ik(tag: str) -> str:
     """合法 14-10-1 InChIKey。
 
-    HGS-CB-STRUCT-01 交叉校验后, entry 的 smiles/inchikey 必须化学一致
+    结构交叉校验后, entry 的 smiles/inchikey 必须化学一致
     (同一分子), 合成 IK 配 CCO 会被整组拒写 → structure fill 不再执行,
     survivor 契约断言全灭。改用真实结构对池, tag 稳定散列(crc32 确定,
     与 RUN 无关); 本文件每测试单 IK, 无槽位互斥需求。"""

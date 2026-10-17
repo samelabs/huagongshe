@@ -120,7 +120,7 @@ Production site: https://huagongshe.com
 
 **文档与测试**
 - README 如实化：合并后旧 HCID 不再可访问（反应参与关系改指保留行）；AI Key 说明改为可在设置页再次查看和复制（随下方明文恢复裁定，撤销 I-060 的「只显示一次」改动）
-- tests/test_migration_runner.py 与 tests/test_admin_pipeline_a1.py 改经 db_gate 双闸（库名模式 + sentinel）取测试库，不再直读 `TEST_DATABASE_URL`
+- tests/test_migration_runner.py 与 tests/test_admin_pipeline_health.py 改经 db_gate 双闸（库名模式 + sentinel）取测试库，不再直读 `TEST_DATABASE_URL`
 
 **AI Key 恢复明文保存与再次查看（2026-10-14 项目负责人裁定）**
 - 撤销 1.7.0「AI Key 明文不再落库、不再回传」收口：新建 Key 重新写入 `token_plain`，本人网页会话的 `GET /users/me/tokens` 重新返回明文（`token` 字段；无明文的旧 Key 返回 null）；鉴权仍按哈希，改密码删除全部 Key、MCP/日志/错误信息不含明文、列表 `no-store` 与只认网页会话均不变

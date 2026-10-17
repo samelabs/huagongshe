@@ -48,7 +48,7 @@ async def gate_silence_remaining(redis, channel: str) -> float:
 
 
 async def gate_halfopen_admit(redis, channel: str, limit: int) -> int:
-    """HGS-GATE-HALFOPEN-01: 停档期满的半开探测互斥。
+    """停档期满的半开探测互斥。
 
     停止档(LADDER 末档, streak ≥ 9)的静默窗自然到期后, 不再整批放行
     (积压 ≥2 时会并发放行多个任务打上游, 背离"到点放行一发"合同):
@@ -100,7 +100,7 @@ async def gate_record_success(redis, channel: str) -> None:
 
 
 # 通道 → 错误行所在表。pubchem 通道含 discovery(identity)链 —— 同通道
-# 连击计数, 错误行必须同随通道恢复复活(HGS-IDENTITY-ERROR-REVIVE-01:
+# 连击计数, 错误行必须同随通道恢复复活(通道解锁即错误复活:
 # 此前只翻 pubchem_jobs/cas_jobs, pubchem_identity_jobs 的 error 行
 # 不随通道恢复复活, 与"通道成功解锁"的注释语义相悖)。
 _CHANNEL_ERROR_TABLES: dict[str, tuple[str, ...]] = {

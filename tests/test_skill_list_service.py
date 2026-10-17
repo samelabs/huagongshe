@@ -46,7 +46,7 @@ def _row(**over):
         "has_scripts": False, "file_count": 3, "size_bytes": 100,
         "updated_at": "2026-01-01", "username": "u1", "display_name": "U1",
         "avatar_url": None,
-        "active": True,  # HGS-ACCOUNT-CONTENT-01: 停用作者标记
+        "active": True,  # 停用作者标记
     }
     base.update(over)
     return base

@@ -1,4 +1,4 @@
-"""HGS-A2-01 回归 —— GHS 分类投影键名 ghs_classification。
+"""GHS 分类投影键名 ghs_classification。
 
 事故（f1b8788 引入）：api/services/chemical_semantic.py 的投影白名单键名
 被提交成占位符字面量 «redacted:ghs_…»，PB 的 GHS 危险性分类在化合物

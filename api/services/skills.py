@@ -80,7 +80,7 @@ async def list_skills(
         params["owner"] = owner_id
     if q.strip():
         conditions.append("(s.slug ILIKE :q OR s.title ILIKE :q OR s.description ILIKE :q)")
-        # HGS-SEARCH-LIKE-LITERAL-01: 字面匹配, %/_ 不作通配符
+        # 字面匹配, %/_ 不作通配符
         params["q"] = f"%{like_literal(q.strip())}%"
     if category.strip():
         conditions.append("s.category=:category")
@@ -372,7 +372,7 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
         if name.startswith("/") or "\\" in name or ".." in Path(name).parts:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.UNSAFE_PATH, f"非法路径：{name}")
-        # HGS-SKILL-PATH-01: 与 baseline skill_files CHECK 对齐 ——
+        # 与 baseline skill_files CHECK 对齐 ——
         # path !~~ '%..%' 拒绝任意位置连续两点(guide..md 这种文件名也拒),
         # 此前只查 Path.parts 里的 ".." 段, validate 过了 create 撞 CHECK 500。
         if ".." in name:

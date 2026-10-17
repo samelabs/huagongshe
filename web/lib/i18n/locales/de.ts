@@ -1033,7 +1033,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     emptyNotesVisitor: 'Noch keine öffentlichen Notizen.',
     emptyNotesSelf: 'Du hast noch keine öffentlichen Notizen.',
     enterWorkbench: 'Zur Werkbank',
-    /* HGS-ACCOUNT-CONTENT-01 (PM-Entscheid): deaktivierter Profilzustand (DESIGN_SYSTEM 6.6) + Autorenkennzeichnung */
+    /* deaktivierter Profilzustand (DESIGN_SYSTEM 6.6) + Autorenkennzeichnung */
     deactivatedTag: 'Konto deaktiviert',
     deactivatedTitle: 'Dieses Konto ist deaktiviert',
     deactivatedBody: 'Dieses Konto wurde deaktiviert. Öffentlich geteilte Inhalte bleiben per Direktlink abrufbar, werden hier jedoch nicht gelistet und Folgen ist nicht möglich.',

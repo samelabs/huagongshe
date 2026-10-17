@@ -117,7 +117,7 @@ ONE_TO_ONE_MERGE_COLUMNS: dict[tuple[str, str], tuple[str, ...]] = {
 }
 
 # ---------------------------------------------------------------------------
-# HGS-MERGE-CORE-01: absorb 主表核心字段迁移清单。
+# absorb 主表核心字段迁移清单。
 # 空值语义按列类型: 标量 NULL 为空; 数组 NULL/空数组为空; synonyms '{}'
 # 为空。双侧非空且不同 → survivor 保留 + merge_log.evidence.core_conflicts
 # 留痕(CORE_TRACE_COLUMNS)。mol/指纹是可再生的结构载体, 只补空不留痕。
@@ -641,7 +641,7 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
     (含去重与活动任务 dedupe_key rekey) → redirect 落表 → absorbed 行
     DELETE。同事务。
     """
-    # HGS-MERGE-CORE-01: 主表核心字段冲突留痕(双侧非空且不同 → survivor
+    # 主表核心字段冲突留痕(双侧非空且不同 → survivor
     # 保留, differing 值记入 evidence, 不随行删除无痕蒸发)
     core_conflicts = _core_conflicts(tgt_snap, src_snap)
     evidence: dict[str, Any] = {"gate": reason}
@@ -662,7 +662,7 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
            "trig": trigger})).scalar()
 
     # 2. 键并集 + 核心字段并入 survivor。
-    # cas 并集去重; 其余核心字段补空语义(HGS-MERGE-CORE-01): 标量
+    # cas 并集去重; 其余核心字段补空语义: 标量
     # coalesce, 数组 NULL/空才算空, synonyms '{}' 算空; 双侧非空 →
     # survivor 保留(冲突已在 evidence.core_conflicts 留痕)。
     def scalar(c: str) -> str:

@@ -66,7 +66,7 @@ class StructureResolveTests(unittest.TestCase):
     def test_resolve_structure_garbage_smiles_dropped(self) -> None:
         """页面 SMILES 非标(RDKit 解析不过): 整字段丢弃, 从 mol 兜底。
 
-        HGS-CB-STRUCT-01 后: malformed 页面 IK(非 14-10-1)不作结构表示
+        结构交叉校验后: malformed 页面 IK(非 14-10-1)不作结构表示
         (整字段丢弃, 不再原样写进 chemicals.inchikey), 与 mol 兜底交叉
         校验后取 mol 派生值。"""
         from api.services.cb import resolve_structure

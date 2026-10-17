@@ -287,7 +287,7 @@ async def create_note(
 async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
     # /P-1: hidden notes 404 for everyone (including the owner); private
     # notes only for the owning session; public+visible notes anonymously.
-    # HGS-ACCOUNT-CONTENT-01: 停用作者的公开笔记保留可见 ——
+    # 停用作者的公开笔记保留可见 ——
     # 不再经 users join 的 status='active' 过滤, 由 active 标记
     # 让前端渲染「已停用」; 私有笔记仍实际不可达(停用即撤销全部会话)。
     row = (await db.execute(text("""
@@ -529,7 +529,7 @@ async def list_entity_notes(
           AND n.visibility='public'
           AND n.moderation_status='visible'
     """), params)).scalar() or 0)
-    # HGS-ACCOUNT-CONTENT-01: 停用作者的公开笔记保留可见,
+    # 停用作者的公开笔记保留可见,
     # active 供前端渲染「已停用」标记。
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,

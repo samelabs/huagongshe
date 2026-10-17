@@ -128,7 +128,7 @@ def run_sitemap_harness() -> dict:
     return data
 
 
-class S1SitemapTests(unittest.TestCase):
+class SitemapTests(unittest.TestCase):
     # A2-1: 通用静态页五语言; 法律/支持页仅英文正式版
     MULTILINGUAL_PATHS = {"/", "/search", "/guide", "/mcp-guide", "/skills"}
     ENGLISH_ONLY_PATHS = {"/terms", "/privacy", "/support"}
@@ -185,7 +185,7 @@ class S1SitemapTests(unittest.TestCase):
         self.assertTrue(self.data["sitemapUrl"].startswith(self.data["origin"]))
 
 
-class S2SearchMetadataTests(unittest.TestCase):
+class SearchMetadataTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.src = (REPO / "web/app/(site)/search/page.tsx").read_text(encoding="utf-8")
@@ -219,7 +219,7 @@ class S2SearchMetadataTests(unittest.TestCase):
                           f"search.seoDesc missing in {loc}")
 
 
-class S3LegalPagesTests(unittest.TestCase):
+class LegalPagesTests(unittest.TestCase):
     PAGES = ("terms", "privacy", "support")
 
     def test_en_is_sole_canonical_non_en_noindex(self):
@@ -254,7 +254,7 @@ class S3LegalPagesTests(unittest.TestCase):
                           src, f"{slug} root content container missing lang=\"en\"")
 
 
-class A2McpGuideMetadataTests(unittest.TestCase):
+class McpGuideMetadataTests(unittest.TestCase):
     def test_mcp_guide_layout_metadata_via_server_layout(self):
         # A2-2: Client Component 页面由同级 server layout 提供 metadata,
         # 不改 page.tsx 的 "use client" 与交互
@@ -269,7 +269,7 @@ class A2McpGuideMetadataTests(unittest.TestCase):
         self.assertIn('"use client"', page)
 
 
-class S4LoginTests(unittest.TestCase):
+class LoginMetadataTests(unittest.TestCase):
     def test_login_noindex_follow(self):
         src = (REPO / "web/app/(site)/login/page.tsx").read_text(encoding="utf-8")
         self.assertIn("robots: { index: false, follow: true }", src)

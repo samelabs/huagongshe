@@ -242,7 +242,7 @@ async def _identity_loop(
             jobs = leased.get("jobs") or []
             if not jobs:
                 wait = float(leased.get("retry_after_seconds", 5))
-                # HGS-WORKER-POLL-IDLE-01: 同 PB 链 —— 空闲自增上限 60s,
+                # 同 PB 链 —— 空闲自增上限 60s,
                 # 服务端 wait(闸门静默窗)不截断
                 idle = min(60.0, idle * 1.5)
                 await asyncio.sleep(max(wait, idle) + random.random())
@@ -406,7 +406,7 @@ async def _pb_loop(
             jobs = leased.get("jobs") or []
             if not jobs:
                 wait = float(leased.get("retry_after_seconds", 5))
-                # HGS-WORKER-POLL-IDLE-01: 空闲退避上限 30min → 60s。
+                # 空闲退避上限 30min → 60s。
                 # 无唤醒机制下, 新任务最长要等一个完整退避周期才被领取;
                 # 60s 上限把最坏领取延迟压到约一分钟, 代价是空闲期每链
                 # 每分钟 1 次 lease 空查询(服务端零上游外呼, 可忽略)。

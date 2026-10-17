@@ -22,7 +22,7 @@ from api.mcp_server import build_mcp_server
 REPO = Path(__file__).resolve().parents[1]
 
 
-class V170IntegrationContractTests(unittest.TestCase):
+class CrossDomainIntegrationContractTests(unittest.TestCase):
     def test_notes_exist_without_expanding_mcp_surface(self):
         tools = {
             tool.name for tool in asyncio.run(build_mcp_server().list_tools())

@@ -1,4 +1,4 @@
-"""R4/ audit-fix tests: sanitize-before-length-cap and hidden-note write
+"""note sanitization and hidden-note write semantics
 semantics (no-side-effect update/delete, owner list excludes hidden)."""
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from api.schemas.notes import MAX_NOTE_CONTENT_LENGTH, NoteBody, sanitize_note_c
 # ---------------------------------------------------------------------------
 
 
-class R4SanitizeBeforeLengthTests(unittest.TestCase):
+class SanitizeBeforeLengthTests(unittest.TestCase):
     def test_raw_over_limit_accepted_when_sanitized_fits(self):
         # 30050 raw chars: 100 visible + 29950 Cf → sanitized = 100 ≤ 30000
         raw = "a" * 100 + "\u200d" * 29950

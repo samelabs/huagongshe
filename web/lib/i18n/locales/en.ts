@@ -1029,7 +1029,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     emptyNotesVisitor: 'No public notes yet.',
     emptyNotesSelf: 'You have no public notes yet.',
     enterWorkbench: 'Open workbench',
-    /* HGS-ACCOUNT-CONTENT-01 (PM ruling): disabled-account profile state (DESIGN_SYSTEM 6.6) + author mark */
+    /* disabled-account profile state (DESIGN_SYSTEM 6.6) + author mark */
     deactivatedTag: 'Account disabled',
     deactivatedTitle: 'This account is disabled',
     deactivatedBody: 'This account has been deactivated. Public content remains accessible via direct link, but is not listed here and cannot be followed.',

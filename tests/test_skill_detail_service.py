@@ -22,7 +22,7 @@ from api.services.skills import SkillNotAccessibleError
 
 
 def _skill_row(rid=1, owner_id=7, visibility="public"):
-    # 末两列 owner avatar_url 与 active(HGS-ACCOUNT-CONTENT-01: 停用作者标记)
+    # 末两列 owner avatar_url 与 active(停用作者标记)
     return [rid, owner_id, "slug", "T", "D", "MIT", "chem", "user",
             visibility, False, 3, 100, "2026-01-01", "2026-01-02",
             "u1", "U1", None, True]
@@ -127,7 +127,7 @@ class AccessKernelTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_16_field_shape_unchanged(self):
         """16 基础字段不变; owner 子对象新增 active(停用作者标记,
-        HGS-ACCOUNT-CONTENT-01) — 顶层字段数不变。内部 kernel 保留 origin
+        停用作者标记) — 顶层字段数不变。内部 kernel 保留 origin
         (admin 语义); is_official 投影发生在 detail 编排层。"""
         d = await self._load(_skill_row(), None)
         self.assertEqual(

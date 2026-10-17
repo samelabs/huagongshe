@@ -143,7 +143,7 @@ async def load_reaction_detail(
         "atmosphere": base[15],
         "pressure": ({"value": base[16], "unit": base[17]} if base[16] is not None else None),
         "workup_details": base[18], "note": base[24],
-        # HGS-ACCOUNT-CONTENT-01: 停用作者的公开反应保留可见, active 供
+        # 停用作者的公开反应保留可见, active 供
         # 前端渲染「已停用」标记并隐藏关注按钮(关注端点本就拒绝停用目标)。
         # creator.is_following: 访客对作者的用户级关注态，供反应页署名行
         # 的关注入口使用；MCP 投影在 _public_reaction 剥除，工具契约不动

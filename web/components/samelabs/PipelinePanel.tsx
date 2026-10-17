@@ -135,7 +135,7 @@ function LatestTable({ rows, chain }: { rows: LatestRow[]; chain: string }) {
 function ErrorRow({ block, onRevive, reviving, reviveNote }: {
   block: ChainBlock; onRevive: () => void; reviving: boolean; reviveNote: string | null;
 }) {
-  /* HGS-PIPE-REVIVE-COUNT-01: 真实行数 = queue.error(status 计数);
+  /* 真实行数 = queue.error(status 计数);
      error_buckets 只是 Top10 诊断分桶, >10 类时求和会低报。 */
   const total = block.queue.error;
   return (

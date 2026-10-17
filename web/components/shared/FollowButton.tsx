@@ -54,7 +54,7 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   /** 用户操作过（touched）就不再跟随 props —— 异步回填只同步初始态 */
   const touchedRef = useRef(false);
 
-  // （HGS-ACTIVITY-FAVOR-INIT-01）：初始 props 迟到变化时同步（用户未操作前）
+  // 初始 props 迟到变化时同步（用户未操作前）
   useEffect(() => {
     if (touchedRef.current) return;
     setFollowing(initial);

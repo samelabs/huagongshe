@@ -1,4 +1,4 @@
-"""A2 数据治理验收测试 。
+"""管理端数据治理下钻验收测试。
 
 任务书 11 条验收中的可自动化项:
 2. optional governance metric 失败不拖垮整体(独立端点+section 容错)
@@ -12,7 +12,7 @@
 
 fixture 全部建在 test_hgs, teardown 清理。
 
-运行: . /tmp/hgs_test_env.sh && ./venv/bin/python -m unittest tests.test_admin_governance_a2
+运行: . /tmp/hgs_test_env.sh && ./venv/bin/python -m unittest tests.test_admin_governance_drilldown
 """
 
 from __future__ import annotations

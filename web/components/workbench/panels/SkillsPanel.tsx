@@ -114,7 +114,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
   }
 
   async function handleDelete(id: number, slug: string) {
-    // (/ HGS-A3-01）：不可逆删除必须二次确认，
+    // 不可逆删除必须二次确认，
     // 全站唯一漏接确认的删除操作补齐
     const ok = await confirm({
       title: t.me.skillDeleteTitle,

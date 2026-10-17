@@ -96,7 +96,7 @@ export default async function ReactionPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // (/ HGS-WEB-DETAIL-ID-01）：非法 ID 直接 404；后端 422 同 404
+  // 非法 ID 直接 404；后端 422 同 404
   if (!isEntityId(id)) notFound();
   const locale: Locale = await getRequestLocale();
   const t = await getRequestDictionary();
