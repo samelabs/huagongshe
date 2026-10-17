@@ -4,7 +4,7 @@
 - CBSID -> 不透明 ref (sha256 前16hex); cbsid 原值随供应商字典保留(DB身份列)
 - CB 号随 FetchResult.cb_number 保留(DB身份列)
 - 丢弃原站品牌/URL
-边界口径(2026-08-28 用户定案): 原站标识(cbsid/cb_number)落 DB 作身份字段,
+边界口径(用户定案): 原站标识(cbsid/cb_number)落 DB 作身份字段,
 但任何 API/DOM 输出零标识 — 公开引用一律用 ref 哈希。
 """
 from __future__ import annotations

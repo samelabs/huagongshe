@@ -104,7 +104,7 @@ button.primary{background:#111827;color:white;border-color:#111827}
 
 
 def _authorize_error_page(exc: svc.OAuthProtocolError) -> HTMLResponse:
-    """I-071: client_id/redirect_uri 无效时, 不重定向到未校验地址, 也不返回
+    """client_id/redirect_uri 无效时, 不重定向到未校验地址, 也不返回
     裸 JSON —— 沿用授权页样式的英文错误页, 说明是哪一项无效。
     本函数只服务于登录前校验: 除 redirect_uri 相关错误外, 其余均归为
     client_id 无效(含 CIMD 文档无法拉取/校验)。"""
@@ -140,7 +140,7 @@ async def _resolve_client_for_authorize(
     actor: Actor | None,
     request: Request,
 ) -> dict:
-    """登录跳转之前先校验 client_id + redirect_uri (I-071)。
+    """登录跳转之前先校验 client_id + redirect_uri 。
 
     CIMD client_id(https URL)按缓存/拉取解析; 其余按 oauth_clients 登记
     内容校验。返回 {client_name, host, source_type, ...}; 无效时抛
@@ -187,7 +187,7 @@ async def authorize(
     actor: Actor | None = Depends(optional_actor),
     db: AsyncSession = Depends(get_db),
 ):
-    # I-071: client_id / redirect_uri (CIMD 含文档拉取) 先于登录判断校验,
+    # client_id / redirect_uri (CIMD 含文档拉取) 先于登录判断校验,
     # 未登录用户直接得到错误页而不是被带去登录后再失败。
     try:
         client = await _resolve_client_for_authorize(

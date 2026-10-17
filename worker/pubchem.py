@@ -1,4 +1,4 @@
-"""PubChem PUG View client: 整记录化(0901)后的唯一活路径 = whole_record + request_json."""
+"""PubChem PUG View client: 整记录化()后的唯一活路径 = whole_record + request_json."""
 
 from __future__ import annotations
 
@@ -75,7 +75,7 @@ def throttle_status(header: str | None) -> str:
 
 
 class PubChemClient:
-    # (0901 整记录化) PB 唯一数据请求: PUG View 整包 + gzip。
+    # (整记录化) PB 唯一数据请求: PUG View 整包 + gzip。
     # resolve/properties/synonyms/view(逐 heading) 全部退役。
 
     async def whole_record(self, cid: int) -> dict[str, Any] | None:
@@ -89,7 +89,7 @@ class PubChemClient:
     async def cids_by_inchikey(self, inchikey: str) -> list[int]:
         """§3 identity discovery: InChIKey → CID 集合(PUG REST /cids)。
 
-        只取原始集合零裁剪 — 0/1/>1 的裁定全在服务端 discovery.complete。
+        只取原始集合零裁剪 — 0/1/>1 的全在服务端 discovery.complete。
         404=空列表; 其余失败形态走 request_json 单趟制定义(PubChemError)。
         与 whole_record 共用同一 RateController(总 cap 3rps 不翻倍)。
         """
@@ -114,7 +114,7 @@ class PubChemClient:
         # 8-29 规范: 单趟制 — 无内部重试循环。任何失败形态一次定型:
         # miss(404)=None / 拒绝(403|302跳转|封禁页|4xx)=refused 终态 /
         # 上游5xx|网络错=终态。lease 过期回队是任务级唯一合法重试路径。
-        # gzip_ok(0901): 整包请求带 Accept-Encoding (实测 1.8MB→185KB)。
+        # gzip_ok(): 整包请求带 Accept-Encoding (实测 1.8MB→185KB)。
         await self.rate.acquire()
         try:
             headers = {
@@ -136,7 +136,7 @@ class PubChemClient:
                 allow_redirects=False,
             ) as response:
                 raw = await response.read()
-                # 302 → misuse/abuse 页 = NCBI 封禁形态之一(2026-08-28 实测
+                # 302 → misuse/abuse 页 = NCBI 封禁形态之一(实测
                 # 解封探测口径), 不跟随重定向, 直接按拒绝终态。
                 if response.status in (301, 302, 303, 307, 308):
                     location = response.headers.get("Location", "")

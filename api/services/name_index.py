@@ -1,8 +1,8 @@
 """name_index 摄入: 唯一写入方, 全量替换语义。
 
 name_index 是纯派生镜像:
-- source='cb'      镜像 chemical_cb.entry 全部 locale 的名称/别名
-                  (I-087: ja/ko/de/en 与 zh-CN 平等) + 供应商档案名
+- source='cb' 镜像 chemical_cb.entry 全部 locale 的名称/别名
+                  (ja/ko/de/en 与 zh-CN 平等) + 供应商档案名
 - source='pubchem' 镜像 chemicals.synonyms
 
 每次摄入按 (chemical_id, source) 删旧插新, 无独立状态, 与源表永不漂移。
@@ -86,10 +86,10 @@ async def ingest_chemical_names(
 
 
 async def ingest_from_cb_locales(db: Any, chemical_id: int) -> int:
-    """CB 挂点: chemical_cb 落库同事务调用(0905 canonical schema)。
+    """CB 挂点: chemical_cb 落库同事务调用(canonical schema)。
 
-    I-087: 名称镜像取该化合物**全部 locale**、last_status='ok' 的
-    chemical_cb 行的并集(I-055 的"并集+固定排序"语义推广到所有 locale;
+    名称镜像取该化合物**全部 locale**、last_status='ok' 的
+    chemical_cb 行的并集(的"并集+固定排序"语义推广到所有 locale;
     本事务刚 UPSERT 的行同事务可见, 已在并集内), 按 cb_number、locale
     固定排序 + (kind,lang,normalized) 首现去重 —— 结果与各行的刷新先后
     无关。每个 locale 收 identity.cn(当地名)与当地语言别名(alias_cn);
@@ -107,7 +107,7 @@ async def ingest_from_cb_locales(db: Any, chemical_id: int) -> int:
     listing 镜像保留, 镜像语义不变。
     """
     items: list[tuple[str, str, str]] = []
-    # R4: 每个 cb_number 内 zh-CN 永远第一个处理。name_index 的 PK 不含
+    # 每个 cb_number 内 zh-CN 永远第一个处理。name_index 的 PK 不含
     # lang, 其他语言当地名归一化后与中文名相同时先到先得 —— de/en/ja/ko
     # 按字母序都在 zh-CN 前面, 会抢走 (name_cn, 'cn') 行, attach_localized_
     # names 就解析不出中文主标题(生产抽样约 1/5600 受影响)。zh-CN 优先后

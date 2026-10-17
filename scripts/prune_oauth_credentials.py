@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""F-06 / B5-09: OAuth 过期凭证定期清理 executor。
+"""F-06 / OAuth 过期凭证定期清理 executor。
 
 无清理任务的后果(审计实证): oauth_authorization_requests / codes /
 access_tokens / refresh_tokens 只增不删, 过期凭证无限堆积。

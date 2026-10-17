@@ -1,4 +1,4 @@
-"""chemicals 身份裁定机制 (2026-09-06 规范冻结版)。
+"""chemicals 身份机制 (规范冻结版)。
 
 规范: docs/CHEMICALS_IDENTITY_GOVERNANCE.md — 实现与规范冲突时修实现。
 
@@ -7,10 +7,10 @@
   candidates?, evidence, reason}。五状态: EXACT / EQUIVALENT / AMBIGUOUS /
   CONFLICT / NEW。**不承诺"一定选出一行"** — AMBIGUOUS/CONFLICT 是合法返回。
 - 候选定位序位: cid → inchikey(mol非空) → cas。cb_number 是源标识,
-  永不参与身份裁定(不定位、不裁_equiv、不建 merge 证据)。
+  永不参与身份(不定位、不裁_equiv、不建 merge 证据)。
 - 硬原则: AMBIGUOUS 不猜(禁止无证据 hottest-row 选择写入目标),
   CONFLICT 不吞(强键冲突不覆盖不合并), NEW 才建行。
-- can_merge(): 独立硬闸 (0906 终审收紧版)。destructive merge 唯一
+- can_merge(): 独立硬闸 。destructive merge 唯一
   entity proof = 一致非空 CID: 同 CID 可并; 不同非空 CID 禁止;
   不同非空 IK 禁止; 仅同 IK 而无 CID entity proof 禁止
   (same_inchikey_without_entity_proof); CAS/CB 单独永不构成 merge 证据;
@@ -18,7 +18,7 @@
 - absorb(): 公开入口, 内部强制过 can_merge(), 不过闸抛 MergeBlockedError;
   真正执行删除的是 _absorb_verified(), 不对外导出 — 调用方无法绕闸。
 - survivor selection 与 identity judgement 分离: 热度分只在已证明等价后
-  用于选保留行(_survivor_pick), 永不用于裁定归属。
+  用于选保留行(_survivor_pick), 永不用于归属。
 - absorb 前置基建(规范3.6): 引用表注册 CHEMICAL_REFERENCE_TABLES(测试用
   PG FK 元数据断言全覆盖)、identity_merge_log(JSONB snapshot)、
   chemical_identity_redirect(旧id→canonical, canonicalize_id 查询)、
@@ -42,14 +42,13 @@ logger = logging.getLogger(__name__)
 # 引用表注册 (规范3.6.1): 所有含 chemical_id 指向 chemistry.chemicals 的表。
 # 硬 FK 的表由测试从 PG 元数据反查断言全覆盖(见 tests/test_identity.py);
 # 本清单必须与库内实际 FK 集一致, 漏一张测试即失败。
-#
-# 0906 canary 熔断后升级为带 merge strategy 的 registry (非纯表名清单):
-#   REKEY_MANY      — 1:N 引用, 直接 UPDATE chemical_id = survivor
-#   MERGE_ONE_TO_ONE — chemical_id 为 PK/UNIQUE 前缀的 1:1 子表,
-#                      两侧都有行时先 coalesce 补 survivor 空值再 DELETE old 行
-#                      (canary cid2273 撞 chemical_pubchem_pkey 实证)
-#   DEDUPE_REKEY    — 复合 PK 含 chemical_id 且行有独立语义(name_index),
-#                      先删键重合行再改指
+# canary 熔断后升级为带 merge strategy 的 registry (非纯表名清单):
+# REKEY_MANY — 1:N 引用, 直接 UPDATE chemical_id = survivor
+# MERGE_ONE_TO_ONE — chemical_id 为 PK/UNIQUE 前缀的 1:1 子表,
+# 两侧都有行时先 coalesce 补 survivor 空值再 DELETE old 行
+# (canary cid2273 撞 chemical_pubchem_pkey 实证)
+# DEDUPE_REKEY — 复合 PK 含 chemical_id 且行有独立语义(name_index),
+# 先删键重合行再改指
 # 策略完整性由测试锁定: 每张 FK 表必须有策略, 且 1:1 表与 PG 约束实查一致。
 ReferenceStrategy = tuple[str, str, dict]  # (schema, table, cfg)
 CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
@@ -64,7 +63,7 @@ CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
         "pharmacology", "uses_and_manufacturing", "identifier_evidence",
         "source_references", "pubchem_created_on", "pubchem_modified_on",
         "external_ids", "ghs_codes", "reactivity"),
-      # HGS-MERGE-02: JSONB 载荷列默认值 '{}'(upsert_details 的 obj() 空包
+      # JSONB 载荷列默认值 '{}'(upsert_details 的 obj() 空包
       # 形态)视为"空"—— survivor '{}' 时吸收对方非空证据, 不再被空对象挡住。
       "jsonb_merge_cols": (
         "computed_properties", "physical_properties", "ghs_classification",
@@ -73,7 +72,7 @@ CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
         "source_references", "external_ids", "ghs_codes", "reactivity")}),
     ("chemistry", "chemical_cb",
      {"strategy": "MERGE_ONE_TO_ONE", "key_extra": "locale",
-      # 0907 source grain: collision 键收窄 — cb_number 进比对(同 cb+locale 才
+      # source grain: collision 键收窄 — cb_number 进比对(同 cb+locale 才
       # 合并; 不同 cb 各自保留), 但 payload 补空白名单不含 cb_number(身份列)。
       "key_extra2": "cb_number", "merge_cols": (
         "cas_number", "entry", "last_status"),
@@ -95,7 +94,7 @@ CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
      {"strategy": "DEDUPE_REKEY", "dedupe_key": ("note_id",), "merge_cols": ()}),
     ("community", "notifications", {"strategy": "REKEY_MANY"}),
     ("maintenance", "cas_jobs",
-     # HGS-MERGE-03: 活动任务 dedupe_key 前缀带 chemical_id — 改指时同步
+     # 活动任务 dedupe_key 前缀带 chemical_id — 改指时同步
      # rekey, 否则 survivor 侧新入列撞不上旧前缀 → 同任务双活。前缀清单
      # 与 cb._dedupe_key / enrichment.enqueue_job 的格式约定同源维护。
      {"strategy": "REKEY_MANY", "rekey_dedupe_prefixes": ("cas",)}),
@@ -108,7 +107,7 @@ CHEMICAL_REFERENCE_TABLES: tuple[ReferenceStrategy, ...] = (
 # 1:1 子表允许 coalesce 的业务列(显式白名单; PK/chemical_id/created_at/
 # updated_at/fetched_at 等身份审计列绝不合并)。JSONB 只做顶层 survivor-null
 # 才整体采用, 不做深度 merge; 两侧非空不同 → 保留 survivor。
-# HGS-MERGE-02 收口: jsonb_merge_cols 里的列 '{}'(空对象)也视为空 —
+# 收口: jsonb_merge_cols 里的列 '{}'(空对象)也视为空 —
 # upsert_details 对缺席段落写 '{}', 老语义下 survivor 的空包会挡住对方的
 # 非空证据, 对方整行删除后证据直接蒸发。
 ONE_TO_ONE_MERGE_COLUMNS: dict[tuple[str, str], tuple[str, ...]] = {
@@ -201,7 +200,7 @@ def _lock_key(*keys: str | None) -> str:
 async def can_merge(db: Any, *, source_id: int, target_id: int,
                     evidence_ik: str | None = None,
                     evidence_cid: int | None = None) -> tuple[bool, str]:
-    """硬闸判定 (0906 终审收紧版)。返回 (可否合并, reason)。
+    """硬闸判定 。返回 (可否合并, reason)。
 
     entity proof 唯一来源 = 两行(或行+入站证据)存在一致的非空 pubchem_cid。
     Standard InChIKey 对互变异构归一, 同 IK 可对应多个 PubChem entity
@@ -248,7 +247,7 @@ async def can_merge(db: Any, *, source_id: int, target_id: int,
 
 
 # ---------------------------------------------------------------------------
-# resolve: 定位 + 裁定 (规范3.1–3.3)
+# resolve: 定位 +(规范3.1–3.3)
 # ---------------------------------------------------------------------------
 
 async def _row_keys(db: Any, row_id: int) -> dict[str, Any]:
@@ -265,13 +264,13 @@ async def resolve_chemical(
     cas: str | None = None,
     create: bool = True,
 ) -> ResolveResult:
-    """定位/裁定/建行单一入口 (规范3.2 五状态契约)。
+    """定位//建行单一入口 (规范3.2 五状态契约)。
 
-    EXACT      cid 命中(且无冲突信号); ik 命中且行 cid 与输入 cid 一致
+    EXACT cid 命中(且无冲突信号); ik 命中且行 cid 与输入 cid 一致
     EQUIVALENT ik 命中(结构行)且不触发 cid 冲突约束
-    AMBIGUOUS  cas 多候选且无结构判据 — 不建行、不写任何行
-    CONFLICT   强键冲突(cid vs cid / cid vs ik / ik vs ik)
-    NEW        全 miss 且 create=True → INSERT 占位行
+    AMBIGUOUS cas 多候选且无结构判据 — 不建行、不写任何行
+    CONFLICT 强键冲突(cid vs cid / cid vs ik / ik vs ik)
+    NEW 全 miss 且 create=True → INSERT 占位行
     """
     lock = _lock_key(str(cid) if cid else None, inchikey, cas)
     await db.execute(text(
@@ -308,7 +307,7 @@ async def resolve_chemical(
         """), {"ik": inchikey})).mappings().all()
         if rows:
             # 3.3 硬约束: ik 不得凌驾于两个已存在且不同的非空 CID。
-            # B1-02 补分支: ≥2 行同 IK 且同挂另一个 CID(≠输入 cid)同样
+            # 补分支: ≥2 行同 IK 且同挂另一个 CID(≠输入 cid)同样
             # 是强键互斥 — 旧判法只在 len(rows)==1 时核对输入 cid, 多行
             # 同挂时会静默 EQUIVALENT, 产生无告警的分叉。
             cids = {r["pubchem_cid"] for r in rows if r["pubchem_cid"] is not None}
@@ -335,7 +334,7 @@ async def resolve_chemical(
         """), {"cas": cas})).scalars()]
         if rows:
             if len(rows) == 1:
-                # B1-03: 单候选命中必须核对强键互斥 — 输入 cid/ik 与行上
+                # 单候选命中必须核对强键互斥 — 输入 cid/ik 与行上
                 # 非空 cid/ik 相斥即 CONFLICT(此前 cas-unique-hit 直接
                 # EQUIVALENT, 强键冲突被弱键吞掉)。强键一致或缺席 → 原行为。
                 r = (await db.execute(text("""
@@ -471,11 +470,11 @@ async def _coalesce_payload(db: Any, *, tbl: str, surv: int, ph: int,
                             jsonb_cols: tuple[str, ...] = ()) -> None:
     """同键 survivor 行 ← old 行补空(白名单列, 绝不覆盖非空)。内部共用。
 
-    HGS-MERGE-02: jsonb_cols 中的列, '{}'(空对象)与 NULL 同视为空 —
+    jsonb_cols 中的列, '{}'(空对象)与 NULL 同视为空 —
     否则 upsert_details 写下的空包会挡住对方的非空证据。"""
     if key_extra:
         km = f'AND {tbl}."{key_extra}" = a."{key_extra}"'
-        # 0907 source grain: 第二碰撞键(chemical_cb.cb_number) — NULL 安全比对
+        # source grain: 第二碰撞键(chemical_cb.cb_number) — NULL 安全比对
         if key_extra2:
             km += (f' AND {tbl}."{key_extra2}" IS NOT DISTINCT FROM'
                    f' a."{key_extra2}"')
@@ -506,7 +505,7 @@ async def _coalesce_payload(db: Any, *, tbl: str, surv: int, ph: int,
 async def _dedupe_conflicts(db: Any, *, tbl: str, surv: int, ph: int,
                             key_cols: tuple[str, ...],
                             merge_cols: tuple[str, ...]) -> list[dict]:
-    """HGS-MERGE-01: 同键双侧 payload 均非空且不同 → 冲突事实留痕材料。
+    """同键双侧 payload 均非空且不同 → 冲突事实留痕材料。
 
     coalesce 只补空, survivor 非空值原样保留 — 被吸收方 differing 值随行
     删除前必须记录, 不允许无痕蒸发。返回 [{"keys", "column",
@@ -597,7 +596,7 @@ async def _dedupe_rekey(db: Any, *, schema: str, table: str,
 
     碰撞键 dedupe_key = PK 去掉 chemical_id 的列 (如 reaction_chemicals
     为 (reaction_id, role), name_index 为 (source,kind,normalized))。
-    同 dedupe_key 双侧有行时统一 UPDATE 会撞 PK (0907 cid3883 实证):
+    同 dedupe_key 双侧有行时统一 UPDATE 会撞 PK (真实事故实证):
     1. 白名单 payload 列先补 survivor 空值(old 独有信息不静默丢)
     2. 删 old 侧同键行(survivor 行已承载合并内容)
     3. 剩余 old 行(键不冲突)改指
@@ -611,7 +610,7 @@ async def _dedupe_rekey(db: Any, *, schema: str, table: str,
     km = " AND ".join(f"a.{k} = b.{k}" for k in key_cols)
     conflicts: list[dict] = []
     if merge_cols:
-        # HGS-MERGE-01: 冲突事实先留痕(补空会保留 survivor 值, differing 值
+        # 冲突事实先留痕(补空会保留 survivor 值, differing 值
         # 随 old 行删除蒸发 — 删前记录进 merge_log evidence)
         conflicts = await _dedupe_conflicts(
             db, tbl=tbl, surv=survivor_id, ph=absorbed_id,
@@ -663,9 +662,9 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
            "trig": trigger})).scalar()
 
     # 2. 键并集 + 核心字段并入 survivor。
-    #    cas 并集去重; 其余核心字段补空语义(HGS-MERGE-CORE-01): 标量
-    #    coalesce, 数组 NULL/空才算空, synonyms '{}' 算空; 双侧非空 →
-    #    survivor 保留(冲突已在 evidence.core_conflicts 留痕)。
+    # cas 并集去重; 其余核心字段补空语义(HGS-MERGE-CORE-01): 标量
+    # coalesce, 数组 NULL/空才算空, synonyms '{}' 算空; 双侧非空 →
+    # survivor 保留(冲突已在 evidence.core_conflicts 留痕)。
     def scalar(c: str) -> str:
         return f"{c} = coalesce(t.{c}, p.{c})"
 
@@ -709,19 +708,19 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
            "p_dtxsid": src_snap.get("dtxsid") if migrate_dtxsid else None})
 
     # 3. 引用表按 registry cfg 声明的 strategy 迁移 (规范3.6.1);
-    #    碰撞键/补值白名单全部来自 cfg, 本函数不猜表结构。
+    # 碰撞键/补值白名单全部来自 cfg, 本函数不猜表结构。
     payload_conflicts: dict[str, list[dict]] = {}
     for schema, tbl, cfg in CHEMICAL_REFERENCE_TABLES:
         strategy = cfg["strategy"]
         if strategy == "MERGE_ONE_TO_ONE":
-            # 1:1 子表 (0906 cid2273): 同键双侧 → coalesce 补空后删 old;
+            # 1:1 子表: 同键双侧 → coalesce 补空后删 old;
             # old 独有键行改指。键定义在 cfg (chemical_id 或 chemical_id+key_extra)。
             await _merge_one_to_one(
                 db, schema=schema, table=tbl,
                 survivor_id=survivor_id, absorbed_id=absorbed_id,
                 cfg=cfg)
         elif strategy == "DEDUPE_REKEY":
-            # 复合键含 chemical_id (0907 cid3883 reaction_chemicals 实证):
+            # 复合键含 chemical_id (reaction_chemicals 真实事故实证):
             # 同 dedupe_key 双侧有行 → 先按白名单补 survivor 空值(payload
             # 不静默丢, 冲突留痕), 再删 old 同键行, 剩余 old 行改指。
             conflicts = await _dedupe_rekey(
@@ -747,7 +746,7 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
                 f"unknown reference strategy {strategy!r} for "
                 f"{schema}.{tbl} — refusing to migrate")
 
-    # 3b. HGS-MERGE-01: 引用表 payload 冲突留痕(写回 merge_log evidence)
+    # 3b. 引用表 payload 冲突留痕(写回 merge_log evidence)
     if payload_conflicts:
         await db.execute(text("""
             UPDATE maintenance.identity_merge_log
@@ -777,7 +776,7 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
 async def _rekey_many_with_dedupe(db: Any, *, schema: str, table: str,
                                   survivor_id: int, absorbed_id: int,
                                   prefixes: tuple[str, ...]) -> None:
-    """HGS-MERGE-03: 任务表(带 dedupe_key)的 REKEY_MANY。
+    """任务表(带 dedupe_key)的 REKEY_MANY。
 
     dedupe_key 前缀携带 chemical_id(cas:{id}:… / cid:{id}:…) — 只改
     chemical_id 不改 key 的话, survivor 侧新入列撞不上旧前缀, 同任务双活。

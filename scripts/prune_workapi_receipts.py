@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E9-B 5: WorkAPI completion receipt 时间保留 executor(P1-5 落地)。
+""" 5: WorkAPI completion receipt 时间保留 executor(落地)。
 
 契约:
   - 默认 retention = 30 天(completed_at < now()-30d 的行可删)
@@ -72,9 +72,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     # R4.1 2: 参数边界 fail-closed —— 零 DB 写入前拒绝非法参数。
-    #   batch < 1: DELETE ... LIMIT 0 恒删 0 行 → rowcount(0) < batch(0) 不成立
-    #   (0 < 0 为 False) → 无限空 DELETE loop。retention < 1: cutoff 落在
-    #   未来 → 语义为"删除未来完成的行", 契约外。
+    # batch < 1: DELETE ... LIMIT 0 恒删 0 行 → rowcount(0) < batch(0) 不成立
+    # (0 < 0 为 False) → 无限空 DELETE loop。retention < 1: cutoff 落在
+    # 未来 → 语义为"删除未来完成的行", 契约外。
     if args.batch < 1:
         parser.error(f"--batch must be >= 1 (got {args.batch})")
     if args.retention_days < 1:

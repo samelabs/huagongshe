@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 from .name_index import ingest_from_cb_locales
 
-CACHE_KEY = "v4:cas-ext:{chemical_id}"  # v4: 0905 CB entry schema 规范化(canonical)
+CACHE_KEY = "v4:cas-ext:{chemical_id}"  # v4: CB entry schema 规范化(canonical)
 MAX_ENTRY_JSON_BYTES = 2_000_000  # 双保险: workapi 载荷上限内的条目尺寸
 
 
@@ -34,7 +34,7 @@ MAX_ENTRY_JSON_BYTES = 2_000_000  # 双保险: workapi 载荷上限内的条目�
 # (API 侧唯一权威列表; 未列出的 locale 一律回落 en, 不做第二套协商)。
 # v1.6.0 收口: 此前 CB_DETAIL_LOCALES 与 CB_LOCALES 两份重复定义(silent drift 风险),
 # 现合并为单一权威 tuple; normalize/get_externals_row/cb_decide 全部消费同一份。
-# ru 已摘(0831 误加未实测, ru 页对爬虫全封)。
+# ru 已摘(误加未实测, ru 页对爬虫全封)。
 CB_LOCALES = ("zh-CN", "en", "ja", "de", "ko")
 CB_DETAIL_LOCALES = CB_LOCALES  # 历史别名, 保留引用面; 定义唯一
 CB_DETAIL_DEFAULT_LOCALE = "en"
@@ -74,7 +74,7 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
         else:
             # legacy fallback(步骤 3/4): 同 locale 多个非-imprint source row 时,
             # ORDER BY cb_number ASC 建立稳定 tie-break — 只消除数据库随机性,
-            # 不把时间/热度解释成 source 优先级, 不参与身份裁定, 数据零修改
+            # 不把时间/热度解释成 source 优先级, 不参与身份, 数据零修改
             # (v1.6.0: 生产 84 组 no-imprint-match 暴露面实证需要确定性)。
             row = (await db.execute(text("""
                 SELECT chemical_id,cas_number,entry,last_status,fetched_at,cb_number,locale
@@ -99,9 +99,9 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
 
 
 async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
-    # 2026-08-31 收口: 老表迁移完成(profile 6,417/listing 449k), 双读回退桥拆除,
+    # 收口: 老表迁移完成(profile 6,417/listing 449k), 双读回退桥拆除,
     # 只读两新表。旧表 chemical_supplier 已摘除。
-    # I-056(v1.7.1): 对外 ref 一律为 caslib/redact.supplier_ref 不透明哈希。
+    # (v1.7.1): 对外 ref 一律为 caslib/redact.supplier_ref 不透明哈希。
     # 库内 ref 列保存原站标识形态(cb-supplier:{cbsid}), 属 DB 身份字段不出
     # 公开详情/MCP; 库内键与数据不变, 哈希在此出口计算。输出不含 cbsid 键。
     from caslib.redact import supplier_ref
@@ -124,7 +124,7 @@ async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
 
 
 def _strip_nul(value):
-    """0904 P0收口: CB上游页面字段可含 U+0000, PG text/jsonb 拒绝 \u0000 转义
+    """P0收口: CB上游页面字段可含 U+0000, PG text/jsonb 拒绝 \u0000 转义
     (UntranslatableCharacterError 实锤于 error.log)。递归剔除, 仅处理 str,
     其他类型原样返回。entry/suppliers 全部过这一道 — 写库前的唯一清洗点。
     """
@@ -150,8 +150,8 @@ async def upsert_externals(
 ) -> None:
     """worker complete 与同步拉取共用的唯一写入口(事务由调用方管理)。
 
-    cb_number/cbsid 为原站身份标识: cb_number 落主表 chemicals(2026-08-28 上移,
-    2026-09-07 source grain: 亦随行写入 chemical_cb.cb_number — 一 chemical
+    cb_number/cbsid 为原站身份标识: cb_number 落主表 chemicals(上移,
+     source grain: 亦随行写入 chemical_cb.cb_number — 一 chemical
     多 CB record (CB001/CB002/...) 各自独立成行, 不再互相覆盖; 主表 cb_number
     收窄为 convenience/first-known imprint, 完整事实在 source 行);
     cbsid 落 supplier profile/listing 两表, 任何 API/DOM 输出零标识。
@@ -165,11 +165,11 @@ async def upsert_externals(
     # 数据链收口(§5): 数据层只有 ok/not_found — error 不落数据层(留在 job 表)。
     # fetched_at = 最近一次取到的时间; 刷新由读路径 cb_decide 按刷新窗
     # (cb.ok_refresh_days, 缺省 60 天)驱动入队, 见模块头注释。
-    # 0902 剥离定案: not_found 零写入 — complete 静默出列(job 层删行),
+    # 剥离: not_found 零写入 — complete 静默出列(job 层删行),
     # 收录与否由记录表本身表达(无行/主表 cb_number IS NULL)。
     if status == "not_found":
         return
-    # 0907 source grain: 冲突键 (chemical_id, cb_number, locale) —
+    # source grain: 冲突键 (chemical_id, cb_number, locale) —
     # 同 cb 同 locale 幂等 UPSERT; 不同 cb 各自成行不覆盖。
     # cb_number=NULL(线上无号路径): 回落 legacy (chemical_id, locale) 粒度,
     # 与旧行为一致。
@@ -219,7 +219,7 @@ async def upsert_externals(
             SET cb_number=coalesce(cb_number, :cb), updated_at=now()
             WHERE id=:chemical_id
         """), {"cb": cb_number, "chemical_id": chemical_id})
-    # 0905 规范化schema: identity 直取(canonical键), 无标签兼容。
+    # 规范化 schema: identity 直取(canonical键), 无标签兼容。
     # 分子量只接受有限正数; CAS 格式校验。仅 zh-CN ok 载荷。
     if status == "ok" and locale == "zh-CN" and entry:
         identity = entry.get("identity") or {}
@@ -243,7 +243,7 @@ async def upsert_externals(
             "nm": cb_name, "fm": cb_formula, "ms": cb_mass,
             "cs": cb_cas, "chemical_id": chemical_id,
         })
-    # 供应商两表写入(2026-08-30 准线§4): 档表(cbsid主键,过期才重拉)+映射表
+    # 供应商两表写入(准线§4): 档表(cbsid主键,过期才重拉)+映射表
     # (chemical_id+cbsid 全量替换)。仅 zh-CN 主行写。
     # locale 规范化(ISO 3166-1 alpha-2)。
     if locale == "zh-CN":
@@ -282,7 +282,7 @@ async def upsert_externals(
                     "websites": [suppliers[i].get("website") for i in with_profile],
                     "locales": [norm_locales[i] for i in with_profile],
                 })
-            # 2) 映射表: 按 (chemical_id, cbsid) 分行合并(HGS-CB-01)。
+            # 2) 映射表: 按 (chemical_id, cbsid) 分行合并。
             # cbsid 全局唯一标识一家供应商 — 不同 CB source(CB001/CB002)的
             # 供应商天然分行共存, 后到的 source 回调不再全删全写覆盖他源;
             # 同 cbsid 重复回调按最新载荷刷新。全删全写旧语义会把 CB001 的
@@ -312,7 +312,7 @@ async def upsert_externals(
         # 的供应商行(非权威信号不得抹掉他源数据; not_found 已在上方早退)。
 
     # name_index 摄入在函数尾(供应商两表写入之后): 镜像内供应商名取
-    # listing ⋈ profile 的落库结果, 必须在同事务更晚位置读。I-087: 任意
+    # listing ⋈ profile 的落库结果, 必须在同事务更晚位置读。任意
     # locale 行落库(含 error)都触发重建 —— 名称取全部 locale ok 行并集,
     # 某个 locale 转 error 后其名称随之移除
     # (见 name_index.ingest_from_cb_locales)。
@@ -340,7 +340,7 @@ _COUNTRY_CODE_MAP = {
 
 
 def _norm_country_code(raw: str | None) -> str | None:
-    """中文国名 → ISO 3166-1 alpha-2(2026-08-30 用户定: 供应商 locale 用国家简称
+    """中文国名 → ISO 3166-1 alpha-2(用户定: 供应商 locale 用国家简称
     英文字符)。已是两位大写字母原样通过; 未识别保留原值待补映射。"""
     if not raw:
         return None
@@ -350,8 +350,8 @@ def _norm_country_code(raw: str | None) -> str | None:
     return _COUNTRY_CODE_MAP.get(s, s)
 
 
-# CAS 校验(I-061): 往主表 cas_numbers 追加只收「格式+校验位」都合法的 CAS,
-# 统一走 api/chemistry.py valid_cas(原仅格式正则已于 2026-10-14 移除)。
+# CAS 校验: 往主表 cas_numbers 追加只收「格式+校验位」都合法的 CAS,
+# 统一走 api/chemistry.py valid_cas(原仅格式正则已于 移除)。
 
 
 def _dedupe_key(chemical_id: int, cas_number: str, locale: str = "zh-CN",
@@ -359,7 +359,7 @@ def _dedupe_key(chemical_id: int, cas_number: str, locale: str = "zh-CN",
     digest = hashlib.sha256(cas_number.strip().encode()).hexdigest()[:16]
     # locale 后缀: 语言行与主行各自独立去重(否则 en 任务会被 zh 活跃窗口吞掉)
     suffix = "" if locale == "zh-CN" else f":{locale}"
-    # source_cb 后缀(0907 source grain): 同 CAS 多 ChemicalBook record
+    # source_cb 后缀(source grain): 同 CAS 多 ChemicalBook record
     # (CB001/CB002/...) 各自独立 fetch, 不被主行活跃窗吞掉。传入方: 语言
     # 派发(workapi complete)、详情刷新的非 zh-CN-imprint 行。zh-CN imprint
     # 刷新与 search_stale 不传 → 无后缀 key, 同页同窗去重。
@@ -381,7 +381,7 @@ async def enqueue_cas_job(
     """活跃窗口去重入队; 已有活跃任务时返回 None。
 
     locale>zh-CN 为语言行任务: 租约端从 request_context->>'locale' 寻址。
-    source_cb_number (0907 source grain): source record 寻址键 —
+    source_cb_number (source grain): source record 寻址键 —
     同 CAS 多 cb_number 的 ChemicalBook source records 必须各自独立成 job,
     不得被 (chemical_id,cas) 活跃窗折叠。为 None 时 dedupe_key 无后缀, lease
     回落主表 cb_number(imprint)。该键只影响 source
@@ -420,14 +420,14 @@ async def enqueue_cas_job(
 
 
 # ---- 搜索miss -> CB建行 (standalone cas job) -------------------------------
-# 边界(2026-08-27定案): 不做建行比对(防污染既有行); 允许有/无CAS行同存;
+# 边界: 不做建行比对(防污染既有行); 允许有/无CAS行同存;
 # PubChem侧只update不insert(sync_chemical_core coalesce), 天然补全无重复。
 
 SEARCH_MISS_PRIORITY = 80       # 用户触发 > 后台刷新(30/50)
 # 后台优先级档: 站内后台刷新与服务接口(数据 API)触发的采集入队共用,
 # 不占用户触发档 —— 服务接口的采集压力由每凭证额度约束, 队列侧不抬档。
 PRIORITY_BACKGROUND = 40
-# 2026-08-30: SEARCH_MISS_MAX_QUEUE 深度闸门拆除(用户裁定: 治理交互不治理
+# : SEARCH_MISS_MAX_QUEUE 深度闸门拆除(治理交互不治理
 # 总量, 队列深度无害, 消化靠 worker 水平扩)。入队无水位上限。
 
 
@@ -435,7 +435,6 @@ PRIORITY_BACKGROUND = 40
 # 依据: 详情页"物理化学性质"区 xztr 自带 SMILES/InChI/InChIKey(已入 props),
 # mol 文件是 worker 同趟附带。口径: 页面三件优先, mol 派生兜底; 主表宁缺勿错
 # —— RDKit 校验不过的值整字段丢弃, 绝不把脏值写进 chemicals。
-#
 # HGS-CB-STRUCT-01/02(交叉校验): 三种结构表示互为独立来源, 全部可解析时
 # 必须指向同一分子 — 以标准 InChIKey 为归一判据(page IK / mol 派生 IK /
 # SMILES 派生 IK), 任何两份不一致 → 整组拒写 + 结构化 warning 留痕,
@@ -444,7 +443,7 @@ PRIORITY_BACKGROUND = 40
 
 
 def _props_field(entry: dict[str, Any], canonical_key: str) -> str | None:
-    """CB props 取字段(0905 canonical 键: smiles/inchikey)。"""
+    """CB props 取字段(canonical 键: smiles/inchikey)。"""
     for item in entry.get("props") or []:
         if isinstance(item, dict) and item.get("key") == canonical_key:
             value = str(item.get("text") or "").strip()
@@ -602,8 +601,7 @@ async def apply_structure_fill(
 
 
 # ---------------------------------------------------------------------------
-# B-minimal: CB negative observations (absence semantics, 2026-09-10 用户令)
-#
+# B-minimal: CB negative observations (absence semantics, 用户令)
 # 不变量:
 # - chemical_cb 只承载 positive data; 本机制绝不写 last_status='not_found'
 # - cas_jobs 继续只承载 queued/leased/error; 终态 complete 后 DELETE 不变
@@ -705,17 +703,17 @@ async def cb_decide(
     db: Any, chemical_id: int, locale: str = "zh-CN",
     *, has_cb_number: bool | None = None, cb_number: str | None = None,
 ) -> str:
-    """四态判定(0902 剥离: not 负缓存态已亡, 收录与否由行缺省表达)。返回:
-    - serve_fresh      ok 且未超刷新窗 → 直接出 entry
-    - enqueue_first    无行(首问; 未知状态防御性同此)
-    - enqueue_refresh  ok 超刷新窗 → 刷新(有 cb_number 直跳 CPP)
-    - skip             多语言前置 cb_number 缺失, 不可寻址不入列
+    """四态判定(剥离: not 负缓存态已亡, 收录与否由行缺省表达)。返回:
+    - serve_fresh ok 且未超刷新窗 → 直接出 entry
+    - enqueue_first 无行(首问; 未知状态防御性同此)
+    - enqueue_refresh ok 超刷新窗 → 刷新(有 cb_number 直跳 CPP)
+    - skip 多语言前置 cb_number 缺失, 不可寻址不入列
     """
     if locale not in CB_LOCALES:
         return "skip"
     if locale != "zh-CN" and has_cb_number is False:
         return "skip"  # 语言页靠 cb_number 寻址, 无号不可执行
-    # 0907 source grain: 有 cb_number 时按 source record 行判定
+    # source grain: 有 cb_number 时按 source record 行判定
     # (CB001/en 与 CB002/en 互不遮挡); 无 cb_number(普通线上路径)回落
     # 旧行为 — 兼容 legacy NULL-grain 行。
     if cb_number:
@@ -724,7 +722,7 @@ async def cb_decide(
             WHERE chemical_id=:id AND locale=:loc AND cb_number=:cb
         """), {"id": chemical_id, "loc": locale, "cb": cb_number})).first()
     else:
-        # source grain 收口(2026-09-10): 未显式传 cb_number 时按主表
+        # source grain 收口(): 未显式传 cb_number 时按主表
         # imprint 判定 — 与 get_externals_row 首选查询同一语义, 删除
         # 恒真 (cb_number IS NULL OR TRUE)。legacy(c.cb_number IS NULL)
         # 时唯一命中 NULL-grain 行(partial UNIQUE (chemical_id, locale)
@@ -779,7 +777,7 @@ async def cas_search_state(db: Any, cas_number: str) -> str:
                 db, "cas_locator", cas_number=cas_number):
             return "miss"
         # 五态判需再问(首问外的 超窗刷新/超窗重问): 真实入列 —
-        # 与详情路径 stale→enqueue 同逻辑(审计修复①, 2026-08-30)
+        # 与详情路径 stale→enqueue 同逻辑(审计修复①)
         enqueued = await enqueue_cas_job(
             db, chemical_id=int(chemical_id), cas_number=cas_number,
             priority=PRIORITY_BACKGROUND, request_context={"reason": "search_stale"},
@@ -793,19 +791,19 @@ async def enqueue_cas_search_fetch(
 ) -> tuple[bool, str | None, int | None]:
     """搜索miss: 占主表行(CAS登记, 只落 cas_numbers) + 入队(带行id)。
 
-    0905 治理机制: 定位/建行改走 api/services/identity.resolve_chemical
+    治理机制: 定位/建行改走 api/services/identity.resolve_chemical
     (身份序位 cid > inchikey > cas, 治理五条见该文件头注释)。原裸
     NOT EXISTS 只查 cas_numbers, 撞不上既有同物 SMILES 行(inchikey 行),
     双行并存 388 例的病根即此。resolve_chemical 内含 advisory 锁, 原
-    0904 锁代码随之移除。
+    早期的手工 advisory 锁代码随之移除。
 
-    0907 门禁收口: 返回 (enqueued, resolve_status, chemical_id) —
-    resolver 裁定结果必须穿透给调用方, 调用方禁止再按 CAS 自行重查
+    门禁收口: 返回 (enqueued, resolve_status, chemical_id) —
+    resolver结果必须穿透给调用方, 调用方禁止再按 CAS 自行重查
     任意行(旧 LIMIT 1 旁路已删, 全链路覆盖审计 BYPASS 项)。
     """
     cas = cas_number.strip()
     from .identity import resolve_chemical
-    # 0906 规范: 五状态契约。AMBIGUOUS/CONFLICT 不建行不写身份字段,
+    # 身份治理规范: 五状态契约。AMBIGUOUS/CONFLICT 不建行不写身份字段,
     # 仅入队等待结构判据后 re-resolve; EXACT/EQUIVALENT/NEW 占行入队。
     res = await resolve_chemical(db, cas=cas)
     chemical_id, created = res.chemical_id, (res.status == "NEW")

@@ -1,4 +1,4 @@
-"""A2 数据治理指标 (0912) — 只读诊断, 不修数据。
+"""A2 数据治理指标 — 只读诊断, 不修数据。
 
 设计纪律(与任务书对齐):
 - 语义三层分离: source_record / canonical_entity / derived_index, 禁止混称
@@ -10,22 +10,22 @@
 
 指标清单(每条: definition / why / cost / mode):
 CB:
-  cb_name_index_missing   identity.cn 有值但 name_index(name_cn,cn,cb) 缺失
+  cb_name_index_missing identity.cn 有值但 name_index(name_cn,cn,cb) 缺失
                          [sample→EXISTS 反查, pkey 命中, 便宜]
-  cb_canonical_cb_number_null  chemical_cb 有行但 canonical.cb_number 空
+  cb_canonical_cb_number_null chemical_cb 有行但 canonical.cb_number 空
                          [sample join pkey, 便宜]
-  cb_locale_gaps          有 zh-CN 行但 locale 数 <2 的 chemical
+  cb_locale_gaps 有 zh-CN 行但 locale 数 <2 的 chemical
                          [sample 聚合, 中等, 缓存]
-  supplier_listing_orphan  listing 指向不存在 chemical
+  supplier_listing_orphan listing 指向不存在 chemical
                          [sample→pkey 反查, 便宜; 理论 0]
 PB:
-  pb_canonical_sync_gap   chemical_pubchem 有行但 canonical 关键字段未同步
+  pb_canonical_sync_gap chemical_pubchem 有行但 canonical 关键字段未同步
                          (preferred_name/formula/inchikey 任一空且 source 有值)
                          [sample join pkey, 便宜]
   pb_cid_no_source_record canonical.pubchem_cid 有值但无 chemical_pubchem 行
                          [sample→pkey 反查, 便宜]
 INDEX:
-  name_index_orphan       name_index 指向不存在 chemical
+  name_index_orphan name_index 指向不存在 chemical
                          [sample→pkey 反查, 便宜; 理论 0]
 """
 
@@ -51,7 +51,7 @@ def _snapshot_stamp() -> str:
     """snapshot 生成时刻的 wall clock(格式沿用前端 hm() 既有解析)。"""
     return _time.strftime("%Y-%m-%dT%H:%M:%S%z")
 
-# P1 (0912) stale-while-revalidate: 与 admin._PIPELINE_STATS_* 同语义 —
+# P1 stale-while-revalidate: 与 admin._PIPELINE_STATS_* 同语义 —
 # TTL 过期但已有 last-known-good → 立即返回旧 snapshot, 后台独立 session
 # 补一次刷新(单飞锁共用); 只有冷启动同步等待首扫。
 _GOV_BG: set[asyncio.Task] = set()
@@ -174,7 +174,7 @@ async def supplier_listing_orphan(db: AsyncSession) -> dict:
     return _wrap(True, _sample_payload(SAMPLE_ROWS, len(rows)), mode="sample")
 
 
-# E9-B 4.1: seed_enqueued_no_job 已删除 —— seed 账本是 source assertion,
+# 4.1: seed_enqueued_no_job 已删除 —— seed 账本是 source assertion,
 # repo 内无 scheduler writer, 无可靠 repo-owned job relation(不得从 dedupe/hash 猜)。
 
 # ── PB 指标 ────────────────────────────────────────────────
@@ -277,7 +277,7 @@ async def identity_governance(db: AsyncSession) -> dict:
     """identity 治理分层(不互相顶替):
     - history: merge_log/redirect = 历史已执行 merge 记录
     - acquisition_pending: seed AMBIGUOUS = CB 采集/身份悬案(账本终态)
-    E9-B 4.2: resolver_events 伪指标已删除(无持久化事实即无展示面)。"""
+     4.2: resolver_events 伪指标已删除(无持久化事实即无展示面)。"""
     seed = {r[0]: int(r[1]) for r in await _q(db, """
         SELECT status, count(*) FROM ingestion.chemicalbook_seed GROUP BY status
     """)}
@@ -459,7 +459,7 @@ async def drill_down(db: AsyncSession, key: str) -> dict:
 
 
 # 不支持 drill-down 的(明确列出, 不猜):
-#   pb_canonical_sync_gap — 可加, 但语义与 fixture 测试重叠, A2 不扩
+# pb_canonical_sync_gap — 可加, 但语义与 fixture 测试重叠, A2 不扩
 DRILL_UNSUPPORTED = {
     "pb_canonical_sync_gap": "样本口径, drill-down 见 pb_cid_no_source_record",
     "cb_locale_gaps": "聚合口径, 样本行无单条异常语义",

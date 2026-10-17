@@ -46,7 +46,7 @@ def eprint(*a):
 
 def _env() -> dict:
     env = dict(os.environ)
-    # B5-03: 迁移是 DDL, statement_timeout=0(长索引构建不中断)但必须带
+    # 迁移是 DDL, statement_timeout=0(长索引构建不中断)但必须带
     # lock_timeout —— 旧大表上排队等锁时快速失败, 不在锁队列里无限阻塞
     # (也避免把后续所有访问者挡在本事务后面)。
     env["PGOPTIONS"] = "-c statement_timeout=0 -c lock_timeout=15000"
@@ -149,8 +149,8 @@ def run(database_url: str, migrations_dir: str, *,
 def _run_locked(database_url: str, migrations_dir: str, *,
                 apply: bool = True) -> int:
     # 1. tracking table(幂等, 不算 migration; 持锁中执行)。
-    #    HGS-MIG-DRYRUN-01: --dry-run 零 DDL —— 不建表(工具契约"只列 pending
-    #    不执行"; 此前 dry-run 也会真实 CREATE TABLE, 只读库直接报错)。
+    # HGS-MIG-DRYRUN-01: --dry-run 零 DDL —— 不建表(工具契约"只列 pending
+    # 不执行"; 此前 dry-run 也会真实 CREATE TABLE, 只读库直接报错)。
     if apply:
         proc = _psql(database_url, TRACKING_DDL)
         if proc.returncode != 0:

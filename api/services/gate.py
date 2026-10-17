@@ -1,7 +1,7 @@
 """闸门阶梯(数据链收口§4) — lease 派发口的通道保护。
 
 计数对象=通道(pubchem/cb), 信号源=worker 真实请求结果(error=进, complete=归零)。
-阶梯(定案): 连续 5 错→静默 5 分 → 再 2 错→静默 10 分 → 再 1 错→静默 30 分
+阶梯: 连续 5 错→静默 5 分 → 再 2 错→静默 10 分 → 再 1 错→静默 30 分
 → 再 1 错→停止(半开 30 分钟一发, 可自愈)。
 计时载体: redis 计数器(streak / silent_until / probe)。零新表。
 通道任一 complete → 归零 + gate_unlock_error_rows 整通道 error 行复活。
@@ -110,7 +110,7 @@ _CHANNEL_ERROR_TABLES: dict[str, tuple[str, ...]] = {
 
 
 async def gate_unlock_error_rows(db, channel: str) -> None:
-    """通道成功后: 该通道 error 行全部复活归队(0901 终版语义, 纯翻态无时间字段)。"""
+    """通道成功后: 该通道 error 行全部复活归队。"""
     from sqlalchemy import text
     for table in _CHANNEL_ERROR_TABLES[channel]:
         await db.execute(text(f"""

@@ -86,7 +86,7 @@ app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
     lifespan=lifespan,
-    # v1.7.1 PM 裁定: REST 只供网站内部使用, 对外接入唯一入口是 MCP(/mcp
+    # v1.7.1 REST 只供网站内部使用, 对外接入唯一入口是 MCP(/mcp
     # 自描述 + protected-resource metadata); OpenAPI/文档不对公网暴露
     docs_url=None,
     openapi_url=None,
@@ -115,8 +115,8 @@ app.include_router(data_api_router)
 
 app.add_exception_handler(RequestValidationError, _validation_error_response)
 
-# 0904: health 必须注册在 mount_mcp 之前 — MCP 子应用挂根会吞掉其后
-# 所有路由(0831 151307d 回归, 0903 体检发现 /api/health 404)
+# : health 必须注册在 mount_mcp 之前 — MCP 子应用挂根会吞掉其后
+# 所有路由(回归体检中曾发现 /api/health 404)
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "version": settings.api_version}

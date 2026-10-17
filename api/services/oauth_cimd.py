@@ -1,13 +1,13 @@
-"""Client ID Metadata Document (CIMD) support for MCP OAuth (I-072).
+"""Client ID Metadata Document (CIMD) support for MCP OAuth .
 
-MCP authorization spec 2025-11-25: when a client has no prior relationship
+MCP authorization spec : when a client has no prior relationship
 with this authorization server, its client_id is an HTTPS URL pointing at a
 JSON metadata document. The document is fetched, validated and cached as a
 row in community.oauth_clients, so foreign keys and the token chain keep
 working unchanged for all three client identity kinds:
 
-- CIMD       client_id is an HTTPS URL (recommended for unknown agents)
-- DCR        dynamically registered via /oauth/register (behavior unchanged)
+- CIMD client_id is an HTTPS URL (recommended for unknown agents)
+- DCR dynamically registered via /oauth/register (behavior unchanged)
 - registered pre-registered client_id rows (source_type default)
 
 Fetches are SSRF-hardened: DNS results must all be public addresses, the

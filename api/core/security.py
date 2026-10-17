@@ -105,7 +105,7 @@ async def optional_actor(
     db=Depends(get_db),
 ) -> Actor | None:
     actor = await resolve_actor(db, authorization, session_token)
-    # v1.7.1 PM 裁定: REST 只供网站内部使用, AI Key(agent)只能用于 MCP。
+    # v1.7.1 REST 只供网站内部使用, AI Key(agent)只能用于 MCP。
     # 在 HTTP 依赖层统一拒绝(本函数是 current_actor/public_or_actor 的共同
     # 上游, 覆盖全部 REST 路由); MCP 的 _actor_from_headers 直调
     # resolve_actor, 不经过这里, AI Key 接入 MCP 不受影响。

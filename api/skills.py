@@ -29,7 +29,7 @@ from .services.skills import (
 from .services.skills import create_skill as create_skill_service
 from .services.skills import extract_skill_zip
 from .services.skills import validate_category
-# E4 lifecycle owner(唯一 owner): adapter 只做 neutral error → HTTP 映射。
+# lifecycle owner(唯一 owner): adapter 只做 neutral error → HTTP 映射。
 from .services.skills import (SkillArchiveUnavailableError, SkillFileNotFoundError,
     SkillFilesystemError, SkillNotFoundError, SkillUpdateValidationError,
     build_skill_archive, delete_skill_lifecycle, read_skill_file,
@@ -120,7 +120,7 @@ def scan_danger(path: str, raw: bytes) -> list[str]:
 
 
 async def _load_accessible_skill_http(db, skill_id: int, actor: Actor | None) -> dict[str, Any]:
-    """HTTP bridge: neutral access kernel → HTTP 404 原文映射(G2.6C)。
+    """HTTP bridge: neutral access kernel → HTTP 404 原文映射。
 
     只做 transport 映射, 无 SQL / 无 access predicate 判定;
     canonical access invariant 在 services.skills.load_accessible_skill。
@@ -167,7 +167,7 @@ async def list_skills(
         owner_id: int | None = actor.id
     else:
         owner_id = None
-    # G2.6B: query kernel 下沉 services/skills.list_skills
+    # query kernel 下沉 services/skills.list_skills
     # (skill.query.list), adapter 只余 validation+登录墙。
     return await list_skills_service(
         db, scope=scope, owner_id=owner_id, q=q, category=category,
@@ -185,7 +185,7 @@ async def get_skill(
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
-    # G2.6C: detail orchestration 下沉 services.skills.get_skill_detail,
+    # detail orchestration 下沉 services.skills.get_skill_detail,
     # adapter 只余 neutral → 404 映射。
     try:
         return await get_skill_detail_service(
@@ -206,7 +206,7 @@ async def get_skill_file(
     db=Depends(get_db),
 ):
     await _load_accessible_skill_http(db, skill_id, actor)
-    # E4: manifest 行读取 + is_text 判定 + FS 读取归 services.skills.read_skill_file;
+    # manifest 行读取 + is_text 判定 + FS 读取归 services.skills.read_skill_file;
     # adapter 只余 access 404 桥 + neutral → 404 原文映射。
     try:
         return await read_skill_file(db, skill_id, file_path=file_path)
@@ -225,7 +225,7 @@ async def download_skill_archive(
     db=Depends(get_db),
 ):
     manifest = await _load_accessible_skill_http(db, skill_id, actor)
-    # E4: skill_files 查询 + 目录/文件缺失判定 + zip 组装归
+    # skill_files 查询 + 目录/文件缺失判定 + zip 组装归
     # services.skills.build_skill_archive; adapter 只余 access 404 桥 +
     # Response 构造(传输层: media_type / Content-Disposition)。
     try:
@@ -256,13 +256,13 @@ async def validate_skill(
                        settings.api_skill_write_limit_per_hour, 3600)
     raw = await file.read(settings.skill_zip_max_bytes + 1)
     if len(raw) > settings.skill_zip_max_bytes:
-        # BX-A2：detail 升级为 {message, kind}（与 notes 400 同一先例）——
+        # detail 升级为 {message, kind}（与 notes 400 同一先例）——
         # message 保留原文供 API 调试，kind 是稳定机器码（前端按语言渲染）。
         raise HTTPException(400, {
             "message": f"压缩包超过 {settings.skill_zip_max_bytes // (1024 * 1024)}MB 上限",
             "kind": "archive_too_large",
         })
-    # G3.1D: kernel owner 迁 services.skills; neutral → HTTP 400 原文。
+    # kernel owner 迁 services.skills; neutral → HTTP 400 原文。
     try:
         manifest = await asyncio.to_thread(extract_skill_zip, raw)
     except SkillArchiveValidationError as exc:
@@ -294,7 +294,7 @@ async def create_skill(
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):
-    # G3.1D: rate/category/幂等/size/extract/事务全部下沉
+    # rate/category/幂等/size/extract/事务全部下沉
     # services.skills.create_skill(payload loader); adapter 只余 auth/scope
     # + loader 构造 + neutral → HTTP 映射。读文件时机由 service 决定
     # (rate→category→key→预检 之后才 loader(max+1)), 保持原 ordering。
@@ -334,7 +334,7 @@ async def update_skill(
     current = await _load_accessible_skill_http(db, skill_id, actor)
     if current["owner_id"] != actor.id:
         raise HTTPException(403, {"message": "只能编辑自己创建的技能", "kind": "skill_not_owner"})
-    # E4: validation + DB mutation + commit + readback 归
+    # validation + DB mutation + commit + readback 归
     # services.skills.update_skill_metadata; adapter 只余授权判定 + neutral → HTTP 映射。
     try:
         return await update_skill_metadata(
@@ -359,7 +359,7 @@ async def delete_skill(
     current = await _load_accessible_skill_http(db, skill_id, actor)
     if current["owner_id"] != actor.id:
         raise HTTPException(403, {"message": "只能删除自己创建的技能", "kind": "skill_not_owner"})
-    # E4: 行锁 / DB 删除 / FS staging / 补偿 / 清理归
+    # 行锁 / DB 删除 / FS staging / 补偿 / 清理归
     # services.skills.delete_skill_lifecycle(user 与 admin 共用同一 owner)。
     # SkillNotFoundError = 授权检查与行锁之间的并发 delete 竞态 → 404(与重复删除同语义)。
     try:

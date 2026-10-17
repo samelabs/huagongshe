@@ -1,4 +1,4 @@
-"""反应详情查询/拼装服务层 — 自 api/routes.py 下沉, 逻辑零改动(批次5a)。
+"""反应详情查询/拼装服务层 — 自 api/routes.py 下沉, 逻辑零改动()。
 
 外部引用者: routes.reaction_detail, mcp_server(get_reaction 经 routes)。
 """
@@ -169,7 +169,7 @@ async def list_my_reactions(
     page: int,
     page_size: int,
 ) -> dict:
-    """我的反应列表(G2.5C 自 api/reactions.py::my_reactions 下沉)。
+    """我的反应列表(自 api/reactions.py::my_reactions 下沉)。
 
     transport-neutral: 只消费 adapter 已 validated/clamp 的
     visibility/page/page_size; offset 计算属 shared query semantics。
@@ -227,7 +227,7 @@ async def list_my_reactions(
 
 
 # ---------------------------------------------------------------------------
-# G3.1B — canonical validation kernel + shared validate orchestration
+# — canonical validation kernel + shared validate orchestration
 # (自 api/reactions.py 下沉; PURE COMPUTATION, RDKit only, 零 DB/事务副作用)
 # ---------------------------------------------------------------------------
 
@@ -259,9 +259,9 @@ def canonical_participants(
     """唯一 canonical 参与物/反应表达式校验 kernel(原实现逐字迁移)。
 
     原传输层异常语义 → ReactionValidationError(kind):
-      无法解析参与物结构   → INVALID_STRUCTURE   (原 400)
-      同一化合物+角色重复  → DUPLICATE_PARTICIPANT (原 409)
-      RDKit 反应结构解析   → INVALID_REACTION     (原 400)
+      无法解析参与物结构 → INVALID_STRUCTURE (原 400)
+      同一化合物+角色重复 → DUPLICATE_PARTICIPANT (原 409)
+      RDKit 反应结构解析 → INVALID_REACTION (原 400)
     """
     participants: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
@@ -301,7 +301,7 @@ def canonical_participants(
 
 
 class MissingIdempotencyKeyError(Exception):
-    """G3.1C: agent 提交缺 Idempotency-Key(原 HTTP 400 / MCP 在 adapter 前置拦截)。"""
+    """agent 提交缺 Idempotency-Key(原 HTTP 400 / MCP 在 adapter 前置拦截)。"""
 
     def __init__(self) -> None:
         super().__init__("使用 API Token 提交必须提供 Idempotency-Key")
@@ -309,7 +309,7 @@ class MissingIdempotencyKeyError(Exception):
 
 
 class IdempotencyKeyTooLongError(Exception):
-    """G3.1C: Idempotency-Key 超 200 字符(原 HTTP 400 / MCP 工具报错同文案)。"""
+    """Idempotency-Key 超 200 字符(原 HTTP 400 / MCP 工具报错同文案)。"""
 
     def __init__(self) -> None:
         super().__init__("Idempotency-Key 不能超过 200 个字符")
@@ -321,7 +321,7 @@ async def validate_reaction_draft(
     actor_id: int,
     body: ReactionBody,
 ) -> dict[str, Any]:
-    """shared validate orchestration(G3.1B; HTTP/MCP 共用)。
+    """shared validate orchestration(; HTTP/MCP 共用)。
 
     neutral rate enforce(reaction-validate / str(actor_id) / 20 / 60)
     → to_thread(canonical kernel, CPU-bound 不回 event loop)
@@ -342,7 +342,7 @@ async def validate_reaction_draft(
 
 
 def chemical_properties(smiles: str) -> dict[str, Any]:
-    # G3.1C: 原 adapter HTTP 400 → neutral error(kind 语义=结构不可解析)。
+    # 原 adapter HTTP 400 → neutral error(kind 语义=结构不可解析)。
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         raise ReactionValidationError(
@@ -361,11 +361,11 @@ def chemical_properties(smiles: str) -> dict[str, Any]:
 
 
 class UnresolvedIdentityError(Exception):
-    """resolver 五状态中 CONFLICT/AMBIGUOUS 的 transport-neutral 表达(E9-B)。
+    """resolver 五状态中 CONFLICT/AMBIGUOUS 的 transport-neutral 表达。
 
-    fail-closed: 未裁定的身份不得创建 chemical 行。调用方显式处理:
+    fail-closed: 未的身份不得创建 chemical 行。调用方显式处理:
     HTTP reaction create → 409; MCP → transport 错误; search 建行 → 降级不建行。
-    status/reason 携带 resolver 裁定事实(evidence 见 resolver 日志侧)。
+    status/reason 携带 resolver事实(evidence 见 resolver 日志侧)。
     """
 
     def __init__(self, status: str, reason: str = ""):
@@ -389,14 +389,14 @@ async def resolve_or_create_chemical(
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:smiles,0))"), {"smiles": canonical})
     props = await asyncio.to_thread(chemical_properties, canonical)
     inchikey = props.get("inchikey")
-    # 0906 治理机制: 定位/裁定改走 identity.resolve_chemical 五状态契约。
-    # E9-B fail-closed(取代 0906 注释里的"不可能出现"假设):
-    #   EXACT/EQUIVALENT → reuse; NEW → INSERT;
-    #   CONFLICT(ik 命中但两行非空 CID 互斥等) / AMBIGUOUS → 禁止 INSERT,
-    #   抛 UnresolvedIdentityError, 由调用方(reaction 409 / search 降级)显式处理。
+    # 治理机制: 定位/改走 identity.resolve_chemical 五状态契约。
+    # fail-closed(取代早期注释里的"不可能出现"假设):
+    # EXACT/EQUIVALENT → reuse; NEW → INSERT;
+    # CONFLICT(ik 命中但两行非空 CID 互斥等) / AMBIGUOUS → 禁止 INSERT,
+    # 抛 UnresolvedIdentityError, 由调用方(reaction 409 / search 降级)显式处理。
     from .identity import resolve_chemical
     # create=False: NEW 时不占行 — 完整行(带mol/指纹)由本函数下方 INSERT
-    # 一次性建, 避免 resolve 先建裸占位行再建完整行的双行缝(终审0906)
+    # 一次性建, 避免 resolve 先建裸占位行再建完整行的双行缝()
     res = await resolve_chemical(db, inchikey=inchikey, create=False)
     if res.chemical_id is not None and res.status in ("EQUIVALENT", "EXACT"):
         return int(res.chemical_id), False
@@ -519,7 +519,7 @@ async def create_reaction(
     body: ReactionBody,
     idempotency_key: str | None,
 ) -> dict[str, Any]:
-    """shared create orchestration(G3.1C; HTTP/MCP 共用)。
+    """shared create orchestration(; HTTP/MCP 共用)。
 
     共享 rate(reaction-write-minute/day, str(actor_id), settings 值, 先于 key 校验)
     → agent 缺 key 检查 → key 长度检查 → 幂等预检
@@ -535,7 +535,7 @@ async def create_reaction(
     if idempotency_key and len(idempotency_key) > 200:
         raise IdempotencyKeyTooLongError()
     if idempotency_key:
-        # P2c(审计): reactions.idempotency_key 无 UNIQUE 索引(加索引需
+        # (审计): reactions.idempotency_key 无 UNIQUE 索引(加索引需
         # migration, 本批不动) —— SELECT-then-INSERT 的毫秒窗内并发同键
         # 双 INSERT 都过预检。用 (user_id,key) 粒度的 advisory 事务锁把
         # 同键创建串行化: 第二个事务等锁后重读即可命中既有行。
@@ -556,7 +556,7 @@ async def create_reaction(
     try:
         resolved, created_chemicals = await resolve_participants(db, participants)
     except UnresolvedIdentityError:
-        # E9-B fail-closed: CONFLICT/AMBIGUOUS → 化学行+0, 反应+0,
+        # fail-closed: CONFLICT/AMBIGUOUS → 化学行+0, 反应+0,
         # reaction_chemicals +0, statistics 不推进, discovery 不入队。
         # resolve 阶段尚未发生任何本事务写入(INSERT 在其后), rollback
         # 清除 advisory lock/可能的 savepoint 后向上抛给 adapter 映射 409。
@@ -607,7 +607,7 @@ async def create_reaction(
 
 
 # ---------------------------------------------------------------------------
-# E3 — reaction update/delete application ownership
+# — reaction update/delete application ownership
 # (自 api/reactions.py 逐字下沉; adapter 只余 auth + neutral → HTTP 映射)
 # ---------------------------------------------------------------------------
 
@@ -630,10 +630,10 @@ class ReactionAccessError(Exception):
     """update/delete 的存在性/所有权 neutral 错误(不含传输层 status)。
 
     kind → 迁移前 HTTP 语义(逐条保留, 不合并文案):
-      NOT_FOUND        → 404 反应不存在
-      NOT_OWNER        → 403 只能维护自己创建的反应      (update 非 owner)
-      SYSTEM_IMPORT    → 403 系统导入反应不能由用户删除  (delete created_by_user_id IS NULL)
-      DELETE_NOT_OWNER → 403 只能删除自己创建的反应      (delete 非 owner)
+      NOT_FOUND → 404 反应不存在
+      NOT_OWNER → 403 只能维护自己创建的反应 (update 非 owner)
+      SYSTEM_IMPORT → 403 系统导入反应不能由用户删除 (delete created_by_user_id IS NULL)
+      DELETE_NOT_OWNER → 403 只能删除自己创建的反应 (delete 非 owner)
     """
 
     NOT_FOUND = "not_found"
@@ -655,7 +655,7 @@ async def update_reaction(
     reaction_id: int,
     body: ReactionBody,
 ) -> dict[str, Any]:
-    """reaction PUT 的唯一业务 owner(E3; 原 api/reactions.py 逐字迁移)。
+    """reaction PUT 的唯一业务 owner(; 原 api/reactions.py 逐字迁移)。
 
     顺序(与迁移前逐条一致): agent 403 → rate(reaction-write-minute)
     → row lock(FOR UPDATE) → 存在性/owner 检查 → canonical kernel(to_thread)
@@ -681,7 +681,7 @@ async def update_reaction(
         try:
             resolved, created_chemicals = await resolve_participants(db, participants)
         except UnresolvedIdentityError:
-            # E9-B fail-closed(与 create 同口径): FOR UPDATE 行锁随 rollback 释放,
+            # fail-closed(与 create 同口径): FOR UPDATE 行锁随 rollback 释放,
             # 未发生任何参与者/行写入。
             await db.rollback()
             raise
@@ -715,7 +715,7 @@ async def update_reaction(
             """))
         await db.commit()
     except Exception:
-        # E3: 显式 rollback 边界(迁移前依赖 session 关闭隐式回滚); 失败路径
+        # 显式 rollback 边界(迁移前依赖 session 关闭隐式回滚); 失败路径
         # 观测结果等价(零落库), 行锁在异常点即释放; commit 之后不再回滚。
         await db.rollback()
         raise
@@ -731,7 +731,7 @@ async def delete_reaction(
     auth_kind: str,
     reaction_id: int,
 ) -> None:
-    """reaction DELETE 的唯一业务 owner(E3; 原 api/reactions.py 逐字迁移)。
+    """reaction DELETE 的唯一业务 owner(; 原 api/reactions.py 逐字迁移)。
 
     顺序: agent 403 → row lock(FOR UPDATE) → 404 → 系统导入 403 → 非 owner 403
     → DELETE row(reaction_chemicals / reaction_follows 走 FK CASCADE)

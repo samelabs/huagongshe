@@ -1,6 +1,6 @@
-"""Skill read kernels(G2.6B)。
+"""Skill read kernels。
 
-本轮只含 Skill List read kernel(G1 kernel: skill.query.list):
+本轮只含 Skill List read kernel(kernel: skill.query.list):
 - public/mine 共用同一 query implementation, 仅 selector predicate 不同
   (public → visibility='public'; mine → owner_id=:owner)
 - transport-neutral: 零 Web 框架与传输层依赖(HTTP 异常类型/请求响应
@@ -67,7 +67,7 @@ async def list_skills(
     page: int,
     page_size: int,
 ) -> dict[str, Any]:
-    """skill.query.list kernel —— 自 api/skills.py::list_skills 下沉(G2.6B)。
+    """skill.query.list kernel —— 自 api/skills.py::list_skills 下沉。
 
     caller contract(adapter 已验证):
     - scope = "public" | "mine"(validation/422/工具报错 留 adapter)
@@ -106,7 +106,7 @@ async def list_skills(
             {
                 "id": row["id"], "slug": row["slug"], "title": row["title"],
                 "description": row["description"], "category": row["category"],
-                # I-024: 公开输出不暴露 origin 枚举值(含历史 'kdense'),
+                # 公开输出不暴露 origin 枚举值(含历史 'kdense'),
                 # 改出 is_official; admin 接口保留 origin, 数据库值不动。
                 "is_official": row["origin"] == "official",
                 "visibility": row["visibility"],
@@ -132,7 +132,7 @@ class SkillNotAccessibleError(Exception):
 
 
 def skill_fs_dir(skill_id: int) -> Path:
-    """skill_id → canonical skill filesystem directory(G2.6C 自
+    """skill_id → canonical skill filesystem directory(自
     api/skills.py::_skill_fs_dir 原样迁移; path formula/root 不变)。"""
     return Path(settings.skill_root) / str(skill_id)
 
@@ -144,7 +144,7 @@ async def load_accessible_skill(
     actor_id: int | None,
 ) -> dict[str, Any]:
     """单行 skill access kernel —— 自 api/skills.py::skill_accessible
-    逐字迁移(G2.6C)。
+    逐字迁移。
 
     invariant(与原 helper 零差异):
     - missing → SkillNotAccessibleError("技能不存在")
@@ -181,13 +181,13 @@ async def get_skill_detail(
     actor_id: int | None,
 ) -> dict[str, Any]:
     """skill detail orchestration —— 自 api/skills.py::get_skill 下沉
-    (G2.6C; HTTP/MCP 共用; slug 解析留 MCP adapter, 不在此层)。
+    (; HTTP/MCP 共用; slug 解析留 MCP adapter, 不在此层)。
 
     flow: load_accessible_skill → skill_files 查询 → SKILL.md 条件读取
     (missing → skill_md=None; decode errors="replace") → 组装。
     """
     manifest = await load_accessible_skill(db, skill_id, actor_id=actor_id)
-    # I-024: 公开 detail 输出同 list —— origin 换 is_official。
+    # 公开 detail 输出同 list —— origin 换 is_official。
     manifest["is_official"] = manifest.pop("origin") == "official"
     files = (await db.execute(text("""
         SELECT path,is_text,size_bytes,sha256,is_entry
@@ -209,11 +209,11 @@ async def get_skill_detail(
 
 
 # ---------------------------------------------------------------------------
-# G3.1D — neutral semantic errors(create/archive 域)
+# — neutral semantic errors(create/archive 域)
 # ---------------------------------------------------------------------------
 
 class SkillArchiveValidationError(Exception):
-    """技能 zip 校验失败的 neutral 语义错误(G3.1D; 原 18 类 HTTP 400 全集)。
+    """技能 zip 校验失败的 neutral 语义错误(; 原 18 类 HTTP 400 全集)。
 
     kind ∈ {ARCHIVE_TOO_LARGE, INVALID_ARCHIVE, UNSAFE_PATH, DECOMPRESSION,
              EMPTY_ARCHIVE, ARCHIVE_LIMIT, MANIFEST_INVALID};
@@ -346,7 +346,7 @@ def scan_danger(path: str, raw: bytes) -> list[str]:
 
 
 def extract_skill_zip(raw: bytes) -> dict[str, Any]:
-    """唯一 canonical 技能 zip 校验/安全 kernel(G3.1D 自 api/skills.py 迁移)。
+    """唯一 canonical 技能 zip 校验/安全 kernel(自 api/skills.py 迁移)。
 
     纯内存校验; 原 18 类传输层 400 → SkillArchiveValidationError(kind),
     detail 原文逐字保持。
@@ -538,7 +538,7 @@ async def _create_skill_record(
     db, actor_id: int, manifest: dict[str, Any],
     category: str | None, idempotency_key: str | None,
 ) -> dict[str, Any]:
-    """neutral lower-level create transaction helper(G3.1D 迁移)。
+    """neutral lower-level create transaction helper(迁移)。
 
     slug 撞名预检(409 原文案) → INSERT skills → fs write(to_thread)
     → INSERT skill_files → commit; 失败: rollback + rmtree 补偿 + re-raise。
@@ -581,8 +581,8 @@ async def _create_skill_record(
         await db.commit()
     except Exception:
         await db.rollback()
-        # E4: 补偿不再以 ignore_errors=True 静默吞掉清理失败。主异常(DB 失败)仍原样
-        # 抛出(E1 contract: create persistence failure leaves no DB residue 不变);
+        # 补偿不再以 ignore_errors=True 静默吞掉清理失败。主异常(DB 失败)仍原样
+        # 抛出(contract: create persistence failure leaves no DB residue 不变);
         # 补偿清理若失败, 残留 canonical 目录以结构化日志暴露给 owner —— 与 delete
         # 的差异是刻意的: create 已有主异常让调用方看到失败, delete 成功路径不允许
         # 静默成功, 故 delete 侧直接抛 SkillFilesystemError。
@@ -605,7 +605,7 @@ async def create_skill(
     idempotency_key: str | None,
     archive_loader: Callable[[int], Awaitable[bytes]],
 ) -> dict[str, Any]:
-    """shared skill create orchestration(G3.1D; HTTP/MCP 共用)。
+    """shared skill create orchestration(; HTTP/MCP 共用)。
 
     payload loader 为 transport-neutral contract: await loader(limit) -> bytes;
     service 只决定读取时机与上限。硬冻结顺序:
@@ -662,8 +662,7 @@ async def create_skill(
 
 
 # ---------------------------------------------------------------------------
-# E4 — Skill lifecycle ownership: delete / update / archive / file read
-#
+# — Skill lifecycle ownership: delete / update / archive / file read
 # 唯一 owner 规则: 一个 Skill lifecycle operation 只有一个 application owner。
 # adapter 只保留 auth context / HTTP parsing / neutral error → HTTP 映射 /
 # 传输层响应构造(zip 字节 → 下载响应对象、Content-Disposition 头)。
@@ -689,9 +688,9 @@ class SkillFilesystemError(Exception):
     """skill 文件系统生命周期失败(neutral; HTTP 边界 500 显式暴露根因)。
 
     kind:
-      STAGE_FAILED   — canonical → tombstone 原子 rename 失败(DB 与 canonical 均未动)
+      STAGE_FAILED — canonical → tombstone 原子 rename 失败(DB 与 canonical 均未动)
       RESTORE_FAILED — DB 失败后 tombstone → canonical 回滚失败(detail 同时带 DB 失败原文)
-      PURGE_FAILED   — 行已删除、canonical 已不存在, 但 tombstone 物理清理失败
+      PURGE_FAILED — 行已删除、canonical 已不存在, 但 tombstone 物理清理失败
     """
 
     STAGE_FAILED = "stage_failed"
@@ -769,7 +768,7 @@ def _purge_skill_dir(tombstone: Path) -> None:
 
 
 async def delete_skill_lifecycle(db, skill_id: int) -> None:
-    """skill delete lifecycle 唯一 owner(user delete / admin delete 共用; E4)。
+    """skill delete lifecycle 唯一 owner(user delete / admin delete 共用;)。
 
     Lifecycle policy = staged filesystem mutation + DB transaction + explicit
     compensation(不交换语句顺序, 也不接受"DB 已删 + FS 失败 = HTTP success"):
@@ -827,7 +826,7 @@ async def delete_skill_lifecycle(db, skill_id: int) -> None:
 async def update_skill_metadata(
     db, skill_id: int, *, title: Any, description: Any, actor_id: int,
 ) -> dict[str, Any]:
-    """skill metadata update 唯一 owner(PATCH /skills/{id}; E4)。
+    """skill metadata update 唯一 owner(PATCH /skills/{id};)。
 
     adapter 保留 agent 403 / access 404 桥 / owner 403 授权判定; 本函数拥有
     validation + DB mutation + commit + readback。update 只改 title/description,
@@ -855,7 +854,7 @@ async def update_skill_metadata(
 
 
 async def read_skill_file(db, skill_id: int, *, file_path: str) -> dict[str, Any]:
-    """技能内单文件读取唯一 owner(E4; access 判定仍由 adapter 的 404 映射桥承担)。
+    """技能内单文件读取唯一 owner(; access 判定仍由 adapter 的 404 映射桥承担)。
 
     行为与迁移前逐字一致: manifest 行缺失 → 404 "文件不存在"; 非文本行 →
     404 "二进制文件请通过 archive 端点获取 zip"; FS 文件缺失 → 404 "文件不存在"。
@@ -881,7 +880,7 @@ async def read_skill_file(db, skill_id: int, *, file_path: str) -> dict[str, Any
 
 
 async def build_skill_archive(db, skill_id: int) -> bytes:
-    """技能 zip 组装唯一 owner(E4; 响应构造 / Content-Disposition 留 adapter)。
+    """技能 zip 组装唯一 owner(; 响应构造 / Content-Disposition 留 adapter)。
 
     manifest 行读取 + 目录/文件缺失判定 + 压缩均在 owner 内; 失败以
     SkillArchiveUnavailableError 表达(DIR_MISSING / FILE_MISSING / UNREADABLE),

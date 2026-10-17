@@ -1,4 +1,4 @@
-"""化合物查询/拼装服务层 — 自 api/routes.py 下沉, 逻辑零改动(批次3c)。
+"""化合物查询/拼装服务层 — 自 api/routes.py 下沉, 逻辑零改动()。
 
 外部引用者: routes(13端点), tests/test_search.py。
 """
@@ -11,7 +11,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# --- Search-path 查询内核 neutral 异常(G2.3D) ---------------------------
+# --- Search-path 查询内核 neutral 异常 ---------------------------
 # transport-neutral: 只携带 detail, 无 status/header/HTTP 概念。
 # 映射唯一发生在 api/routes.py(HTTP)与 api/mcp_server.py(MCP)。
 # detail 文本为 c30dfe8 基线契约原文, 逐字保持。
@@ -47,7 +47,7 @@ def clean_float(value: Any, round_digits: int | None = None) -> float | None:
 
     Postgres float8 columns can hold NaN (e.g. ord.temperature.value).
     FastAPI's JSONResponse uses allow_nan=False, so a NaN reaching the
-    serializer raises ValueError → HTTP 500.  This function sanitizes
+    serializer raises ValueError → HTTP 500. This function sanitizes
     database values before they enter the response dict.
     """
     if value is None:
@@ -120,7 +120,7 @@ def chemical_dict(row: Any, score: float | None = None) -> dict[str, Any]:
         # locale 名称(name_index kind='name_cn'): 由 attach_localized_names 批量填充;
         # 保持槽位稳定, 任何 payload 形状一致。
         "name_cn": None,
-        # 当前 locale 的 CB 当地名(I-086): 由 attach_local_names 批量填充。
+        # 当前 locale 的 CB 当地名: 由 attach_local_names 批量填充。
         "name_local": None,
         "molecular_formula": row[6],
         "average_mass": clean_float(row[7]),
@@ -171,7 +171,7 @@ async def attach_localized_names(db: Any, items: list[dict[str, Any]]) -> list[d
 async def attach_local_names(
     db: Any, items: list[dict[str, Any]], locale: str | None,
 ) -> list[dict[str, Any]]:
-    """I-086: 批量补当前 locale 的 CB 当地名(name_local), 一次查询覆盖整页。
+    """批量补当前 locale 的 CB 当地名(name_local), 一次查询覆盖整页。
 
     只读 chemistry.chemical_cb 一张表(零 provider 访问, core 的约定不变):
     取该 locale、last_status='ok' 的行, 多条时按 cb_number 取第一条。
@@ -221,7 +221,7 @@ async def reaction_summaries(
     page: int,
     page_size: int,
 ) -> tuple[int, list[dict[str, Any]]]:
-    """dataset_name 的 'user_submitted' 是稳定枚举标记（BX-A2）：用户创建且
+    """dataset_name 的 'user_submitted' 是稳定枚举标记：用户创建且
     未填来源引用的反应 —— 后端不再返回中文「用户发布」，前端按语言渲染。"""
     if not chemical_ids:
         return 0, []
@@ -430,7 +430,7 @@ async def reaction_lookup(
 
 
 async def load_public_config(db: Any) -> dict[str, dict[str, Any]]:
-    """公开系统配置(analytics/ads/site/branding)。自 routes.public_config 下沉, 逻辑零改动(批次5a)。"""
+    """公开系统配置(analytics/ads/site/branding)。自 routes.public_config 下沉, 逻辑零改动()。"""
     rows = (await db.execute(text("""
         SELECT namespace, key, value FROM community.system_config
         WHERE namespace IN ('analytics', 'ads', 'site', 'branding')
@@ -447,7 +447,7 @@ async def load_public_config(db: Any) -> dict[str, dict[str, Any]]:
     return result
 
 async def load_datasets(db: Any, page: int, page_size: int) -> list[dict[str, Any]]:
-    """ORD 数据集分页。自 routes.datasets 下沉, 逻辑零改动(批次5a)。"""
+    """ORD 数据集分页。自 routes.datasets 下沉, 逻辑零改动()。"""
     rows = (await db.execute(text("""
         SELECT id, dataset_id, name, description, num_reactions, submitted_at
         FROM ord.dataset ORDER BY num_reactions DESC NULLS LAST, id
@@ -459,7 +459,7 @@ async def load_datasets(db: Any, page: int, page_size: int) -> list[dict[str, An
     } for row in rows]
 
 async def load_sitemap_reactions(db: Any, after_id: int, limit: int) -> dict[str, Any]:
-    """站点地图用公开反应ID keyset 分页。自 routes.sitemap_reactions 下沉, 逻辑零改动(批次5a)。"""
+    """站点地图用公开反应ID keyset 分页。自 routes.sitemap_reactions 下沉, 逻辑零改动()。"""
     rows = (await db.execute(text("""
         SELECT id, updated_at FROM chemistry.reactions
         WHERE id > :after_id AND visibility='public' AND moderation_status='visible'
@@ -472,7 +472,7 @@ async def load_sitemap_reactions(db: Any, after_id: int, limit: int) -> dict[str
 
 
 async def load_synonyms_page(db: Any, chemical_id: int, offset: int, page_size: int) -> tuple[int | None, Any]:
-    """同义词分页(total, values)。自 routes.chemical_synonyms 下沉, 逻辑零改动(批次5a)。"""
+    """同义词分页(total, values)。自 routes.chemical_synonyms 下沉, 逻辑零改动()。"""
     row = (await db.execute(text("""
         WITH source AS (
             SELECT CASE WHEN jsonb_typeof(synonyms)='array'
@@ -498,7 +498,7 @@ async def load_synonyms_page(db: Any, chemical_id: int, offset: int, page_size: 
 SUBSTRUCTURE_SNAPSHOT_CAP = 250
 
 SUBSTRUCTURE_SNAPSHOT_TTL = 300
-SUBSTRUCTURE_SNAPSHOT_SLOW_TTL = 60   # 0915: 超时负缓存窗口
+SUBSTRUCTURE_SNAPSHOT_SLOW_TTL = 60   # : 超时负缓存窗口
 
 
 def _is_statement_timeout(exc: Exception) -> bool:
@@ -518,10 +518,10 @@ def _is_statement_timeout(exc: Exception) -> bool:
 
 def _snapshot_total(ids: list[int], offset: int, page_size: int,
                     snapshot_capped: bool | None = None) -> int | None:
-    """snapshot 分页 total 语义(0912, 只修元数据):
+    """snapshot 分页 total 语义(, 只修元数据):
 
     - snapshot 未满 cap ⇒ 它就是本次检索的完整匹配集 → total 恒为 len(ids);
-      (0914 #4: cap 判定必须用排除自身前的 snapshot 长度 — 排除后 249 会被
+      (#4: cap 判定必须用排除自身前的 snapshot 长度 — 排除后 249 会被
       误判成"未触顶的精确总数", 而真实匹配可能远超 cap。)
     - snapshot 满 cap(=产品上限) ⇒ 中途页 None("更多结果" = 上限内还有);
       到 snapshot 尾部必须收敛: 最后一页给 len(ids), 即"本次结构检索返回的
@@ -541,11 +541,11 @@ async def substructure_snapshot(db: Any, smiles: str,
                                 cap: int = SUBSTRUCTURE_SNAPSHOT_CAP) -> list[int]:
     """有上限的子结构候选 ID snapshot(无序 GiST + Python 排序 + Redis 缓存)。
 
-    P0(0912 审计): 任何 `mol @> ... ORDER BY c.id` 形态都会被 planner 换成
+    审计发现: 任何 `mol @> ... ORDER BY c.id` 形态都会被 planner 换成
     pkey 顺序扫(1.24 亿行), GiST 失效 → 高选择性/深页 8s 超时。这里去掉 SQL
     排序: GiST 无 ORDER BY 必被选中(生产 EXPLAIN 实证), 排序在 Python 做。
 
-    分页语义随之改变(0912): 不再用 SQL OFFSET 逐页重扫候选集(深页必然重复
+    分页语义随之改变(): 不再用 SQL OFFSET 逐页重扫候选集(深页必然重复
     做昂贵计算), 而是首次 cache miss 取一次 snapshot 并整体缓存 TTL 300s,
     后续页只对同一 snapshot 切片 → 页间无重叠/无漏项, TTL 内分页完全确定。
     """
@@ -553,7 +553,7 @@ async def substructure_snapshot(db: Any, smiles: str,
     cached = await cache_get(key)
     if isinstance(cached, list):
         return [int(value) for value in cached]
-    # 0915 性能收口(超时负缓存): 稀疏/中低选择性查询在 1.24 亿行 GiST 上
+    # 性能收口(超时负缓存): 稀疏/中低选择性查询在 1.24 亿行 GiST 上
     # 凑满 cap 可能 >8s(生产 EXPLAIN 实证 6.5s@250, 冷缓存更差)。旧形态
     # 打满 8s → 503 且零缓存, TTL 300s 内同一 SMILES 每次请求都全价重扫,
     # 慢查询可连环占满结构租约(全局并发 4)。注意语句被 cancel 时已扫行全部
@@ -600,7 +600,7 @@ async def hydrate_chemicals(
 
 
 async def fill_detail_context(db: Any, result: dict[str, Any], chemical_id: int, user_id: int) -> None:
-    """详情页上下文填充(synonyms/reaction_count/follows)。自 routes.chemical_detail 下沉, 逻辑零改动(批次5a)。"""
+    """详情页上下文填充(synonyms/reaction_count/follows)。自 routes.chemical_detail 下沉, 逻辑零改动()。"""
     synonym_row = (await db.execute(text("""
         WITH source AS (
             SELECT CASE WHEN jsonb_typeof(synonyms)='array'
@@ -637,7 +637,7 @@ async def fill_detail_context(db: Any, result: dict[str, Any], chemical_id: int,
     result["is_following"] = bool(follow_row[1])
 
 
-# --- Chemical Detail 共享编排(G2.4B) ------------------------------------
+# --- Chemical Detail 共享编排 ------------------------------------
 # HTTP/MCP 唯一 application flow; adapter 只保留 transport 解析/auth/
 # projection/错误映射。fetch 顺序与 c30dfe8 基线逐字一致。
 
@@ -646,17 +646,17 @@ class ChemicalNotFoundError(Exception):
     """chemical_id 无对应行的 neutral 语义错误(detail 固定基线原文)。"""
 
 
-# --- enrich 契约(E9-B 1.2/1.3 重定义; E7 的"同语义"冻结由本批产品契约取代) --
+# --- enrich 契约(1.2/1.3 重定义; 的"同语义"冻结由本批产品契约取代) --
 # core = canonical projection + localized names/synonyms + 轻量上下文;
-#        禁止触碰 chemical_pubchem / chemical_cb / supplier / 任何 enqueue。
+# 禁止触碰 chemical_pubchem / chemical_cb / supplier / 任何 enqueue。
 # full = core + unified semantic detail(内部调用现有两条 provider owner:
-#        services/enrichment(PB) 与 services/cb(CB), 底层机制各自独立)。
+# services/enrichment(PB) 与 services/cb(CB), 底层机制各自独立)。
 ENRICH_CANONICAL = "core"
 ENRICH_VALUES = ("core", "full")
 
 
 def normalize_enrich(value: str | None) -> str:
-    """enrich 参数唯一归一入口(HTTP/MCP 共用, E9-B: full 不再是 core 别名)。
+    """enrich 参数唯一归一入口(HTTP/MCP 共用, full 不再是 core 别名)。
 
     空/缺省 → core; core/full 原样通过; 未知值原样返回(HTTP 由 query schema
     pattern 挡 422, MCP 由 ToolError 挡)—— 归一不静默改写。
@@ -682,13 +682,13 @@ async def get_chemical_detail(
     locale: str | None = None,
     pb_display_limit: bool = False,
 ) -> dict[str, Any]:
-    """返回 canonical business detail(E9-B 合流后唯一公开能力)。
+    """返回 canonical business detail(合流后唯一公开能力)。
 
-    core 流(E9-B 1.2 — 零 provider 访问):
+    core 流(1.2 — 零 provider 访问):
       fetch_chemicals(含 localized names) → not-found → fill_detail_context
       → 返回。不查 chemical_pubchem/chemical_cb/supplier, 不 enqueue。
 
-    full 流(E9-B 1.3 — core + unified semantic detail):
+    full 流(1.3 — core + unified semantic detail):
       core 流 + PB owner(services/enrichment) + CB owner(services/cb)。
       单 source 失败 → 该 source 标 unavailable, canonical 与另一 source
       照常返回(绝不 500); 404 只表示 chemical 本体不存在。
@@ -716,7 +716,7 @@ async def get_chemical_detail(
                               actor_id if actor_id is not None else 0)
 
     if enrich == "core":
-        # E9-B 1.2: core 禁止任何 provider 查询/enqueue —— 直接返回。
+        # 1.2: core 禁止任何 provider 查询/enqueue —— 直接返回。
         result["details"] = None
         result["enrichment"] = {"status": "current"}
         return result
@@ -759,7 +759,7 @@ async def get_chemical_detail(
                 if fresh_negative:
                     cb_raw_state = "negative"
                 else:
-                    # I-026: 判 absent 前先看在途 cas_job(状态取值 queued/leased;
+                    # 判 absent 前先看在途 cas_job(状态取值 queued/leased;
                     # error 是失败终态不算在途)。搜索 CAS-miss 等路径已入队时,
                     # 详情页应提示"获取中"而非"无 CB 数据"。
                     pending = (await db.execute(text("""
@@ -769,7 +769,7 @@ async def get_chemical_detail(
                     """), {"id": chemical_id})).first()
                     cb_raw_state = "queued" if pending else "absent"
             else:
-                # P1-1: 生命周期必须跟随实际命中的行(fallback en 行按 en 判定/刷新),
+                # 生命周期必须跟随实际命中的行(fallback en 行按 en 判定/刷新),
                 # 不能跟随 requested locale。
                 selected_locale = cb_row["locale"]
                 decision = await cb_module.cb_decide(
@@ -783,7 +783,7 @@ async def get_chemical_detail(
                     # 与旧 /externals stale 路径同语义: 出旧数据 + 入列。
                     # ZX(恢复 1.6): 网页详情访问同样入队刷新。absent
                     # (cb_row=None)不进本分支, 恒不首次采集。
-                    # source_cb(0907 source grain): 所选行是 zh-CN imprint
+                    # source_cb(source grain): 所选行是 zh-CN imprint
                     # 行时不传 — lease 回落主表 cb_number 即同一来源, dedupe
                     # key 与 search_stale 同为无后缀形态, 同页不双排队;
                     # 语言行/非 imprint 来源才带 source_cb 寻址。
@@ -811,7 +811,7 @@ async def get_chemical_detail(
                        chemical_id, exc_info=True)
         cb_raw_state = "unavailable"
 
-    # ── unified semantic projection + 状态归一(E9-B 1.4/1.5) ─────────
+    # ── unified semantic projection + 状态归一(1.4/1.5) ─────────
     from .chemical_semantic import (
         build_semantic_detail, normalize_source_state, overall_enrichment_status,
     )

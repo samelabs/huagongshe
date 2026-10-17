@@ -1,4 +1,4 @@
-"""Chemical detail semantic projection (E9-B 1.4).
+"""Chemical detail semantic projection (1.4).
 
 以后端实现机械承接 Design System v2 §6 已在 Web 验证过的 semantic-first
 组合(chemicalSections.ts / chemicalEvidence.ts): 公开 detail 一级语义固定为
@@ -37,7 +37,7 @@ PB_COMPUTED_KEYS = (
 )
 
 # CB prose 语义分组 —— 与 web/components/chemicalSections.ts PROSE_GROUPS
-# 白名单逐条同源(0905 解析层白名单), 不新增分组。
+# 白名单逐条同源(解析层白名单), 不新增分组。
 # 2026-10 CB locale 读取: 标题分类收口为单一规则源 caslib/parse_cpp.py
 # classify_prose_title(parser 与本模块共用; 此处不再维护语言标题表)。
 # caslib 位于仓库根(api 亦从根 sys.path 导入 caslib.fetch/parse_cpp)。
@@ -69,7 +69,7 @@ def _is_price_row(r: Any) -> bool:
     return isinstance(r, dict) and isinstance(r.get("code"), str)
 
 
-# I-083 详情嵌数组硬上限: 服务端有界, 并附各自总数字段(前端显示"共 N 条")。
+# 详情嵌数组硬上限: 服务端有界, 并附各自总数字段(前端显示"共 N 条")。
 # 供应商 50 / 同义词(cb_aliases) 200 / 价格 50 / 上下游每向 100 是工单定值;
 # CB 物性/文字组上限 100 为本批自定(工单未点名, 取宽松一致口径)。
 SUPPLIERS_CAP = 50
@@ -213,7 +213,7 @@ def build_semantic_detail(
     }
 
 
-# --- provider 状态归一(E9-B 1.5) -------------------------------------------
+# --- provider 状态归一(1.5) -------------------------------------------
 
 def normalize_source_state(raw: str | None) -> str:
     """单 source normalized state。no_cas/absent/fresh-negative → none(非 error)。
@@ -235,7 +235,7 @@ def normalize_source_state(raw: str | None) -> str:
 
 
 def overall_enrichment_status(pb_norm: str, cb_norm: str, cb_applicable: bool) -> str:
-    """overall 状态(E9-B 1.5 冻结序):
+    """overall 状态(1.5 冻结序):
     queued(任一 queued) > stale(无 queued 且任一 stale) >
     degraded(任一适用 source unavailable) > current。"""
     if "queued" in (pb_norm, cb_norm):

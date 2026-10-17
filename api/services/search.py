@@ -1,5 +1,5 @@
-"""统一搜索查询构造服务层 — 自 api/routes.py 下沉, 逻辑零改动(批次5a)。
-G2.3 final: transport-neutral 化 —— SearchError(kind, detail) 语义类别,
+"""统一搜索查询构造服务层 — 自 api/routes.py 下沉, 逻辑零改动()。
+ transport-neutral 化 —— SearchError(kind, detail) 语义类别,
       run_search_query 的 DB 查询/分页/领域校验主体不变。
 
 外部引用者: routes.search(HTTP adapter)/ mcp_server.search_chemistry_data(MCP)。
@@ -14,7 +14,7 @@ from typing import Any
 from sqlalchemy import text
 
 from ..chemistry import CAS_RE, DTXSID_RE, INCHIKEY_RE, cas_checkdigit_valid
-from ..core.rate_limit import enforce  # smiles-create 副作用闸门(0914 #5)
+from ..core.rate_limit import enforce  # smiles-create 副作用闸门
 from .chemicals import (
     CHEMICAL_SELECT, IDENTIFIER_ARRAYS, MIN_FUZZY_NAME_LENGTH,
     InvalidDoiError, InvalidSmilesError, SubstructureTooSmallError,
@@ -28,18 +28,18 @@ from .name_index import normalize_name
 logger = logging.getLogger(__name__)
 
 
-# 语义类别(G2.3 final): service 只表达业务语义, 不含 HTTP status/header。
+# 语义类别: service 只表达业务语义, 不含 HTTP status/header。
 # HTTP adapter 维护唯一映射 kind→HTTP status; MCP 只用 detail。
-SUBSTRUCTURE_TOO_SMALL = "substructure_too_small"  # G2.3D: 合法结构但重原子过小(422 语义)
-INVALID_DOI = "invalid_doi"  # G2.3D: DOI 前缀输入格式不合法(400 语义)
-INVALID_CAS = "invalid_cas"  # I-061: CAS 格式合法但校验位错误(400 语义, 不建行不入队)
+SUBSTRUCTURE_TOO_SMALL = "substructure_too_small"  # 合法结构但重原子过小(422 语义)
+INVALID_DOI = "invalid_doi"  # DOI 前缀输入格式不合法(400 语义)
+INVALID_CAS = "invalid_cas"  # CAS 格式合法但校验位错误(400 语义, 不建行不入队)
 INVALID_STRUCTURE = "invalid_structure"    # 无法识别该 SMILES 结构
 QUERY_TOO_SHORT = "query_too_short"        # 名称查询长度不足
 BACKEND_UNAVAILABLE = "backend_unavailable"  # 查询超时/后端不可用
 
 
 class SearchError(Exception):
-    """transport-neutral 搜索业务错误(G2.3 final): 只携带语义类别 + detail。
+    """transport-neutral 搜索业务错误: 只携带语义类别 + detail。
     HTTP adapter 映射 kind→HTTPException(detail 逐字);
     MCP adapter 映射 ToolError(detail)。不含 status/status_code/header。"""
 
@@ -70,14 +70,14 @@ def allows_substring_fallback(nq: str) -> bool:
     )
 
 
-# ---- 名称搜索统一契约(Search System Governance, 2026-09-13) ----
+# ---- 名称搜索统一契约(Search System Governance) ----
 # fuzzy substring 的 DB 侧资格: normalize 后实际字符数 >= 3(trigram 选择性下限)。
 # 与 query acceptance(name_query_width >= MIN_FUZZY_NAME_LENGTH)分开:
 # A甲/甲A/甲醇 合法但 exact-only; AB 在入口即拒; 苯甲酸/benzoic 可 fuzzy。
 MIN_FUZZY_SUBSTR_CHARS = 3
 
 # fuzzy/exact 候选窗口的绝对上限。
-# 推导自真实 API 上限(2026-09-13 取证): REST /search page≤20 × page_size≤100
+# 推导自真实 API 上限(取证): REST /search page≤20 × page_size≤100
 # → 最大 offset=1900, 最大翻页边界=2000; MCP search_chemistry_data 同钳制
 # (page≤20, page_size≤100)。上限 = 2000 + 1(has_more 探测) = 2001。
 # 实际每页窗口是动态 deterministic 前缀: window = min(offset+page_size+1,
@@ -233,17 +233,17 @@ async def execute_search(
     db, query: str, mode: str, *, threshold: float, page: int, page_size: int,
     actor_id: int | None, locale: str | None = None, client_ip: str | None = None,
 ):
-    """共享搜索编排(G2.3 final): HTTP/MCP 唯一 application pipeline。
+    """共享搜索编排: HTTP/MCP 唯一 application pipeline。
 
     职责: offset/缓存键/cache_get/结构闸门/canonicalize/run_search_query/
     cache_set(ttl=300)/structure_exit(finally)/has_more/capped/结果组装。
     adapter 只保留 transport 解析/校验/auth/会话获取/错误映射。
 
     顺序(与基线逐字一致):
-      exact          → 无 cache 无 gate, 直接 canonicalize+query(live);
+      exact → 无 cache 无 gate, 直接 canonicalize+query(live);
       结构模式 cache miss → cache_get → structure_enter → canonicalize
                        → run_search_query → cache_set(300) → structure_exit。
-    结构闸门异常(RateLimited/LimiterUnavailable/ResourceBusy, G2.R neutral)
+    结构闸门异常(RateLimited/LimiterUnavailable/ResourceBusy, .R neutral)
     原样冒泡, 由各 adapter 映射; 不得在 service 转 HTTP/ToolError。
     threshold 由 adapter 完成各自 transport 语义(HTTP 3位契约/MCP clamp)后传入。
     """
@@ -283,7 +283,7 @@ async def execute_search(
                 return cached
             held = await _structure_enter(actor_id)
         # RDKit 解析/canonical 化是 CPU 计算, 丢线程池避免卡事件循环
-        # (0915 裁定; 同款先例=resolve_or_create 的 chemical_properties)。
+        # 。
         canonical = await _asyncio.to_thread(_canonicalize_smiles, query)
         (chemicals, total, reactions, cas_fetch_pending, canonical,
          cas_fetch_hit_id, has_more, capped) = await run_search_query(
@@ -295,10 +295,10 @@ async def execute_search(
             "query": query, "mode": mode, "canonical_smiles": canonical,
             "threshold": threshold,
             "page": page, "page_size": page_size, "total": total,
-            # has_more 收口(0914 #2): page 已达契约上限(le=20)时无合法 page+1,
+            # has_more 收口: page 已达契约上限(le=20)时无合法 page+1,
             # has_more 必须 False — 否则 Web(页面 clamp 回 20)形成第 20 页自循环。
             "has_more": has_more and page < 20,
-            # capped(0915): substructure snapshot 达到产品上限 250 时 True。
+            # capped(): substructure snapshot 达到产品上限 250 时 True。
             # 语义: 达到产品返回上限, 数据库真实总匹配数未知 — total 不得被
             # 消费方当成数据库真实总数。
             "capped": capped,
@@ -307,7 +307,7 @@ async def execute_search(
         if cas_fetch_pending:
             data["cas_fetch_pending"] = True  # 前端提示: 正在获取该CAS数据
         if cas_fetch_hit_id:
-            # 0902 P3b: 同步拉命中 — 数据已落库, 前端直接跳详情页
+            # : 同步拉命中 — 数据已落库, 前端直接跳详情页
             data["cas_fetch_chemical_id"] = cas_fetch_hit_id
         if mode != "exact":
             await _cache_set(cache_key, data, ttl=300)
@@ -328,7 +328,7 @@ async def run_search_query(
         (chemicals, total, reactions, cas_fetch_pending, canonical,
          cas_fetch_hit_id, has_more, capped)
     canonical 可能被 substructure 分支重新赋值(bounded), 调用方需取回。
-    capped(0915): 仅 substructure 模式可能为 True — snapshot 达到产品上限
+    capped(): 仅 substructure 模式可能为 True — snapshot 达到产品上限
     SUBSTRUCTURE_SNAPSHOT_CAP(250)。语义: "达到产品返回上限; 数据库真实总匹配
     数未知", 消费方(UI/Agent)不得把 total 冒充数据库真实总数。
     has_more 按 mode:
@@ -346,8 +346,8 @@ async def run_search_query(
     chemicals: list[dict[str, Any]] = []
     total: int | None = None
     cas_fetch_pending = False
-    cas_fetch_hit_id: int | None = None  # 0902 P3b: 同步拉命中, 前端直跳详情页
-    capped = False  # 0915: substructure snapshot 达到产品上限(250)
+    cas_fetch_hit_id: int | None = None  # : 同步拉命中, 前端直跳详情页
+    capped = False  # : substructure snapshot 达到产品上限(250)
     clauses: list[str] = []
     params: dict[str, Any] = {}
     try:
@@ -357,7 +357,7 @@ async def run_search_query(
             if not canonical:
                 raise SearchError(INVALID_STRUCTURE, "无法识别该 SMILES 结构")
             canonical = bounded_substructure_smiles(canonical)
-            # P0(0912): 有上限 GiST snapshot + Redis(同 chemicals.substructure_page) —
+            # : 有上限 GiST snapshot + Redis(同 chemicals.substructure_page) —
             # 无序 GiST 必被 planner 选中, 深页不再重扫候选集, TTL 内分页确定。
             from .chemicals import (SUBSTRUCTURE_SNAPSHOT_CAP, hydrate_chemicals,
                                     substructure_snapshot)
@@ -382,7 +382,7 @@ async def run_search_query(
             """, {"smiles": canonical, "window": window}, locale=locale)
             qualifying = [item for item in chemicals if (item.get("similarity") or 0) >= threshold]
             qualifying.sort(key=lambda item: item.get("similarity") or 0, reverse=True)
-            # total 语义(0912): prefix 内已跌破 threshold/prefix 未满 ⇒ 精确总数;
+            # total 语义(): prefix 内已跌破 threshold/prefix 未满 ⇒ 精确总数;
             # 否则 None("更多结果")。禁止用本页条数冒充总数。
             # cut_inside ⇒ qualifying 已含全部合格项(检索无 SQL 偏移, 从第 1 条
             # 起的前缀) ⇒ 精确 total = len(qualifying), 与页码无关。
@@ -409,7 +409,7 @@ async def run_search_query(
                     clauses.extend(["c.id = :number", "c.pubchem_cid = :number"])
                     params["number"] = int(query)
                 if CAS_RE.fullmatch(query):
-                    # I-061: 格式匹配但校验位错误 → 400, 不当名称查询回退、
+                    # 格式匹配但校验位错误 → 400, 不当名称查询回退、
                     # 不触发 CAS-miss 占位行/入队(与 invalid_doi 同处理方式)。
                     if not cas_checkdigit_valid(query):
                         raise SearchError(INVALID_CAS, "CAS 号校验位不正确")
@@ -474,11 +474,11 @@ async def run_search_query(
                         # cas_search_state 的 miss=终态负缓存语义区分)。
                         state = "throttled" if rate_state == "miss" else await cas_search_state(db, query)
                         if state == "new":
-                            # Search System Governance(2026-09-13): CAS miss 保持
+                            # Search System Governance(): CAS miss 保持
                             # 受控入队(rate/dedupe/governance 原样), 但响应不再
                             # 同步等待外部 CB fetch —— 同步抓取的 3s
                             # 预算从 critical path 移除, 由后台 worker 消化队列。
-                            # 0907 门禁不变: resolver 裁定穿透, chemical_id 非空
+                            # 门禁不变: resolver穿透, chemical_id 非空
                             # 才占行; None(AMBIGUOUS/CONFLICT)不落任何候选行。
                             enqueued, _res_status, _row_id = await enqueue_cas_search_fetch(
                                 db, cas_number=query,
@@ -526,13 +526,13 @@ async def run_search_query(
                         else:
                             await db.rollback()
                     except UnresolvedIdentityError:
-                        # E9-B fail-closed: CONFLICT/AMBIGUOUS → 不建行、零副作用,
+                        # fail-closed: CONFLICT/AMBIGUOUS → 不建行、零副作用,
                         # 搜索本身正常返回"未创建/无命中"语义(不 500)。
                         await db.rollback()
                     except Exception:
                         await db.rollback()  # 建行失败不阻塞搜索响应(业务容错保持)
             if not chemicals and not canonical and name_query_width(query) >= MIN_FUZZY_NAME_LENGTH:
-                # Search System Governance(2026-09-13): 名称查询走统一候选服务
+                # Search System Governance(): 名称查询走统一候选服务
                 # run_name_search —— exact 短路(preferred>iupac>name_index 等值,
                 # benzoic acid 本体先于 substring 命中), exact 全 miss 才 fuzzy,
                 # fuzzy substring 仅当 normalize 后 >=3 字符(A甲/甲A/甲醇 exact-only),
@@ -543,7 +543,7 @@ async def run_search_query(
                 )
             elif not chemicals and not canonical and name_query_width(query) < MIN_FUZZY_NAME_LENGTH:
                 raise SearchError(QUERY_TOO_SHORT, "名称查询至少需要 3 个字符（中文至少 2 个字）")
-            # 搜索命中卡片 → 同时查 zh 记录态和时间(准线§1 统一触发, 2026-08-30):
+            # 搜索命中卡片 → 同时查 zh 记录态和时间(准线§1 统一触发):
             # 命中行六态判定, enqueue 态真实入列(超窗刷新/超窗重问/error)。
             # 首问/负缓存内不动作。命中多行只判第一页首行(卡片=代表行)。
             if (
@@ -572,7 +572,7 @@ async def run_search_query(
                         WHERE {' OR '.join(clauses)}
                     """), params)).scalar()
                 # 名称路径: 彻底删除 fuzzy/name exact 的 count(*)(Search System
-                # Governance 2026-09-13) —— total 保持 None, has_more 由
+                # Governance) —— total 保持 None, has_more 由
                 # run_name_search 的同一候选窗口给出, 不允许第二条 count SQL。
         except Exception:
             total = None
@@ -580,9 +580,9 @@ async def run_search_query(
         reactions = await reaction_lookup(
             db, query, page_size, actor_id=actor_id
         ) if mode == "exact" and page == 1 else []
-        # 0902 P2: 身份键唯一命中直达 — 无歧义身份键(CAS/InChIKey/canonical SMILES/
+        # : 身份键唯一命中直达 — 无歧义身份键(CAS/InChIKey/canonical SMILES/
         # 显式 id:/cid: 前缀)且恰 1 行化合物 0 反应 → 前端/API 跳详情页。
-        # 纯数字无前缀不直达: hcid/cid/hrid 三路天然歧义(格式不可控, 用户裁定)。
+        # 纯数字无前缀不直达: hcid/cid/hrid 三路天然歧义。
         if (
             mode == "exact" and page == 1
             and len(chemicals) == 1 and not reactions
@@ -599,7 +599,7 @@ async def run_search_query(
                 cas_fetch_hit_id = chemicals[0]["id"]
     except SearchError:
         raise
-    # G2.3D: chemicals 查询内核 neutral 异常 → 语义 kind, detail 原文
+    # chemicals 查询内核 neutral 异常 → 语义 kind, detail 原文
     # (c30dfe8 基线契约恢复; 禁止落入下方 generic 兜底被覆盖)。
     except InvalidSmilesError as exc:
         raise SearchError(INVALID_STRUCTURE, str(exc)) from exc
@@ -614,7 +614,7 @@ async def run_search_query(
     except Exception as exc:
         await db.rollback()
         raise SearchError(BACKEND_UNAVAILABLE, "查询超时，请使用更精确的名称、标识符或结构") from exc
-    # has_more 按 mode 收口(correction 2026-09-13): name_has_more 不得作为
+    # has_more 按 mode 收口(correction): name_has_more 不得作为
     # 全 mode 兜底 —— substructure/similarity 保留本轮前的分页语义。
     if mode == "exact":
         if clauses and total is not None:
@@ -626,8 +626,8 @@ async def run_search_query(
     elif mode in ("substructure", "similarity"):
         # structure search 算法/snapshot/threshold/total 定义不动;
         # has_more 恢复本轮前的推导语义:
-        #   total != None → page*page_size < total
-        #   total is None → 当前页满则可能还有(保守继续入口)
+        # total != None → page*page_size < total
+        # total is None → 当前页满则可能还有(保守继续入口)
         if total is not None:
             has_more = (page * page_size) < total
         else:

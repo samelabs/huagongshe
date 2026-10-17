@@ -23,7 +23,7 @@ from .core.config import settings
 from .core.database import async_session, get_db
 from .core.security import Actor, current_session
 from .schemas.admin import UserStatusBody, UserRoleBody, ModerationBody, WorkerCreateBody, WorkerPatchBody, SkillVisibilityBody, CategoryBody, WORKER_SCOPES
-# E4: skill delete lifecycle 唯一 owner(与 user delete 共用)。
+# skill delete lifecycle 唯一 owner(与 user delete 共用)。
 from .core.text import like_literal
 from .services.skills import (SkillFilesystemError, SkillNotFoundError,
     delete_skill_lifecycle)
@@ -53,8 +53,8 @@ async def list_workers(
 ):
     """Worker 客户端清单(不含 token hash)。运行状态复用 pipeline_health 投影。
 
-    I-083: SQL 加界(limit ≤ 200)。返回保持裸数组形状——管理端
-    WorkersPanel 按数组消费, 换 {items,total} 契约需与前端轮次协同,
+    SQL 加界(limit ≤ 200)。返回保持裸数组形状——管理端
+    WorkersPanel 按数组消费, 换 {items,total} 契约需与前端协同,
     本批不动(表为运维手工登记的小表, 200 上限远超实际规模)。
     """
     from .services.pipeline_health import build_worker_runtimes
@@ -119,7 +119,7 @@ async def patch_worker(
     actor: Actor = Depends(admin), db=Depends(get_db),
 ):
     """编辑 Worker 元数据/停权. 停权后 worker 下次 lease 即 401; 不提供 DELETE(保留审计轨迹).
-    P1 三态(0912): enabled=false → 写 disabled_at; enabled=true → 清 disabled_at;
+    P1 三态(): enabled=false → 写 disabled_at; enabled=true → 清 disabled_at;
     enabled=None → 两者不动。auth 要求 enabled AND disabled_at IS NULL。"""
     scopes = _validated_scopes(body.scopes) if body.scopes is not None else None
     result = (await db.execute(text("""
@@ -201,7 +201,7 @@ async def delete_worker(
     if not result["deleted"]:
         counts = {k: int(v) for k, v in (result["busy"] or {}).items()}
         detail = ", ".join(f"{t} {counts[t]} 条" for t in counts)
-        # BX-A2：{message, kind, leases}（notes 400 先例 + 结构化 leases 供
+        # {message, kind, leases}（notes 400 先例 + 结构化 leases 供
         # 管理端/脚本消费）—— 前端按 kind 五语言渲染，不再透传中文原文。
         raise HTTPException(409, {
             "message": f"该 worker 有进行中的任务({detail}), 不能删除",
@@ -417,7 +417,7 @@ async def set_skill_visibility(
 async def admin_delete_skill(
     skill_id: int, actor: Actor = Depends(admin), db=Depends(get_db),
 ):
-    """技能删除(admin 授权)。E4: lifecycle owner = services.skills.delete_skill_lifecycle。
+    """技能删除(admin 授权)。lifecycle owner = services.skills.delete_skill_lifecycle。
 
     与 user delete 共用同一 lifecycle owner —— user/admin 的业务差异只在
     授权判定(admin dep vs owner 检查)与响应 shape(200 {"id","deleted"} vs 204)。
@@ -452,7 +452,7 @@ async def create_category(
     name = body.name.strip()
     abbr = body.abbr.strip().upper()
     color = body.color.strip().lower()
-    # BX-A2：校验错误升级为 {message, kind}（notes 400 先例）—— 前端按 kind 渲染
+    # 校验错误升级为 {message, kind}（notes 400 先例）—— 前端按 kind 渲染
     if not (1 <= len(name) <= 40):
         raise HTTPException(400, {"message": "分类名长度 1-40", "kind": "category_name_length"})
     if not re.fullmatch(r"[A-Z]{1,4}", abbr):
@@ -549,7 +549,7 @@ async def dashboard(actor: Actor = Depends(admin), db=Depends(get_db)):
 
 # ── 数据管道运行时 ────────────────────────────────────────
 
-# A1 (0912) 统计缓存治理:
+# A1 统计缓存治理:
 # - last-known-good: 刷新失败继续返回旧 snapshot, 标 stale (绝不因刷新失败 500)
 # - 单飞: asyncio.Lock 防并发请求同时触发相同重扫描(全表扫 ~3s, 值得挡)
 # - 返回带 generated_at/stale/age_seconds, 前端如实显示统计时间
@@ -557,7 +557,7 @@ _PIPELINE_STATS_CACHE: dict = {}      # {"v": snapshot, "ts": monotonic, "wall":
 _PIPELINE_STATS_TTL = 60.0            # 秒: 管理端"总量"类精确统计的新鲜度
 _PIPELINE_STATS_LOCK = asyncio.Lock()  # 单飞: 同一进程内只允许一个刷新在跑
 
-# P1 (0912): stale-while-revalidate — TTL 过期但已有 last-known-good 时,
+# P1 : stale-while-revalidate — TTL 过期但已有 last-known-good 时,
 # 请求立即返回旧 snapshot 并只在后台触发一次刷新(独立 DB session, 绝不用
 # request-scoped session, 其生命周期在响应后结束)。刷新成功原子替换 cache,
 # 失败保留 last-known-good(下一请求可再触发)。只有冷启动(无任何 snapshot)
@@ -610,7 +610,7 @@ class _SectionFailure(RuntimeError):
 
 
 async def _scan_critical(db) -> tuple:
-    # E9-B 3: 有界化 — 全部统计先 WHERE fetched_at >= current_date 再分组,
+    # 3: 有界化 — 全部统计先 WHERE fetched_at >= current_date 再分组,
     # 删除无时间条件的全表聚合(locale total / cb total / PB all-time count)。
     # 索引(locale,fetched_at)/(fetched_at)上线后此形态即为索引范围扫。
     cb_locales = [
@@ -634,7 +634,7 @@ async def _scan_critical(db) -> tuple:
 
 async def _scan_negative(db) -> dict:
     # CB 负面观测账本 (无数据不落主表, 只落这里)。
-    # E9-B 3: 表量轻但只保留有界 today(observed_at >= current_date);
+    # 3: 表量轻但只保留有界 today(observed_at >= current_date);
     # total 全表 count 已删。
     neg = (await db.execute(text("""
         SELECT count(*) FILTER (WHERE observed_at >= current_date)
@@ -646,11 +646,11 @@ async def _scan_negative(db) -> dict:
 
 async def _pipeline_refresh_stats(db) -> dict:
     """全量重扫描(critical 串行 + optional 各自容错), 返回 snapshot dict。
-    P1 (0912): 提升为模块级 —— 同一段扫描逻辑供请求路径(冷启动同步)与
+    P1 : 提升为模块级 —— 同一段扫描逻辑供请求路径(冷启动同步)与
     后台刷新任务(stale-while-revalidate, 独立 session)共用, 单一实现无分叉。
     critical 失败向上抛(调用方决定降级路径); optional 失败埋 available=False。
 
-    E9-B 3: supplier exact totals 与 seed exact totals 已从 runtime stats
+     3: supplier exact totals 与 seed exact totals 已从 runtime stats
     移除 —— supplier 历史规模属 Governance/估算面(不做 8.67M 精确 count);
     seed 属 ingestion 账本(Governance 展示), 不参与 60s runtime refresh。"""
     snapshot: dict[str, Any] = {}
@@ -664,7 +664,7 @@ async def _pipeline_refresh_stats(db) -> dict:
                 "value": await fn(db),
             }
         except Exception as exc:  # noqa: BLE001 — 逐块降级, 必须吞
-            # P1 (0912 生产事故): 单 section 超时(SQLQueryCanceled)后事务进入
+            # P1 : 单 section 超时(SQLQueryCanceled)后事务进入
             # aborted 态, 不 rollback 会连锁炸掉后续所有 section + generated_at,
             # 导致后台 refresh 永远失败、缓存停在 LKG。rollback 后本 session
             # 开新事务继续, 该 section 单独降级 available=false。
@@ -681,7 +681,7 @@ async def _pipeline_refresh_stats(db) -> dict:
 
 
 
-# ── A2 数据治理 (0912): 只读诊断, 独立端点, 不塞主 pipeline ──
+# ── A2 数据治理 : 只读诊断, 独立端点, 不塞主 pipeline ──
 
 @router.get("/pipeline/governance")
 async def pipeline_governance(actor: Actor = Depends(admin), db=Depends(get_db)):
@@ -703,7 +703,7 @@ async def pipeline_governance_drilldown(
 
 @router.get("/pipeline")
 async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
-    """数据管道运行时(0911 定稿口径): CB/PB 分链独立展示。
+    """数据管道运行时: CB/PB 分链独立展示。
     数据源 → 归类: 上游账本(chemicalbook_seed) / 队列(cas_jobs·pubchem_jobs)
     / 落库(chemical_cb·chemical_pubchem·supplier_*) / 负面账本(cb_negative_observations)
     / 闸门(redis) / 运行时(worker_clients)。
@@ -732,15 +732,14 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     pb_queue = await chain_counts("pubchem_jobs")
     pb_errors = await error_buckets("pubchem_jobs")
 
-    # ── 数据口径 (0910 管理场景重构): 总量+今日新增成对; 无 not_found 维度
+    # ── 数据口径: 总量+今日新增成对; 无 not_found 维度
     # (negative 走 observations 账本, chemical_cb 只存 positive, 展示死维度已删)。
     # 性能: 每表一次聚合扫描, 串行 (AsyncSession 不允许并发 execute)。
     # 这些"总量"精确统计必须全表扫 (120万/290万行, 合计 ~3s), 管理员视角
     # 几十秒的新鲜度足够 → 60s 进程内 TTL 缓存。队列/闸门/最新条不走缓存。
-    #
-    # A1 (0912) 分区容错: 大表统计拆 critical / optional 两类 —
-    #   critical  cb_locales + pb (管道核心落库口径, 失败=整页不可信 → 抛出)
-    #   optional  negative (诊断性, 失败=available=false 降级)
+    # A1 分区容错: 大表统计拆 critical / optional 两类 —
+    # critical cb_locales + pb (管道核心落库口径, 失败=整页不可信 → 抛出)
+    # optional negative (诊断性, 失败=available=false 降级)
     # 每个 section 独立 try/except: 单块失败 log section+exception, 绝不 0 冒充。
     # 缓存治理: last-known-good + 单飞(asyncio.Lock) + stale 标记, 见模块头注释。
 
@@ -748,7 +747,7 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     stats_stale = False
     if cached is None or _time.monotonic() - cached["ts"] > _PIPELINE_STATS_TTL:
         if cached is not None:
-            # P1 (0912) stale-while-revalidate: 已有 last-known-good → 立即返回
+            # P1 stale-while-revalidate: 已有 last-known-good → 立即返回
             # 旧 snapshot 标 stale; 锁空闲则后台(独立 session)补一次刷新,
             # 本请求绝不等待。锁被占(后台刷新已在跑)则连任务都不建。
             stats_stale = True
@@ -788,11 +787,11 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     optional_meta = {k: {"available": v["available"],
                          "error": v.get("error")} for k, v in opt.items()}
 
-    # 落库口径(E9-B 3 有界化): 只有 today/last_1h, 无 all-time total。
+    # 落库口径(3 有界化): 只有 today/last_1h, 无 all-time total。
     cb_today = sum(x["today"] for x in cb_locales)
     cb_rate = sum(x["last_1h"] for x in cb_locales)
 
-    # ── 闸门(redis db1, 0902 口径) —— optional: 失败→available=False, 不炸页 ──
+    # ── 闸门(redis db1, 口径) —— optional: 失败→available=False, 不炸页 ──
     gates: dict = {}
     gates_available = True
     gates_error: str | None = None
@@ -900,7 +899,7 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
 
     return {
         # negative = CB secondary diagnostics(降级区), 不与 queue health 抢一级
-        # E9-B 3: supplier/seed runtime stats 已移除(无界/账本非运行时)
+        # 3: supplier/seed runtime stats 已移除(无界/账本非运行时)
         "cb": {
             "queue": cb_queue, "error_buckets": cb_errors,
             "rate_1h": cb_rate,
@@ -948,7 +947,7 @@ async def revive_errors(
     actor: Actor = Depends(admin),
     db=Depends(get_db),
 ):
-    """error 行手动复活(0902, 0911 复核): 一键把该链全部 error 态翻回 queued。
+    """error 行手动复活(, 复核): 一键把该链全部 error 态翻回 queued。
     与 worker 的"过期租约回收"同口径 —— error 行在入 error 态时已清空租约字段,
     故翻态只需改 status/updated_at; last_error_code 保留为留痕(下次派发失败会覆盖)。
     claim 只认 status='queued', 翻态后即可被 worker 正常认领。"""

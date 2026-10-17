@@ -53,7 +53,7 @@ async def create_note(
             reaction_ids=body.reaction_ids,
         )
     except RateLimitError as exc:
-        # I-057: 服务层 neutral 限流异常在 HTTP 边界统一映射
+        # 服务层 neutral 限流异常在 HTTP 边界统一映射
         # (RateLimited→429, LimiterUnavailable→503), 与 reactions 等同口径。
         raise to_http_exception(exc) from exc
     except NoteReferenceError as exc:
@@ -105,7 +105,7 @@ async def update_note(
             reaction_ids=body.reaction_ids,
         )
     except RateLimitError as exc:
-        # I-057: 同 create_note — 编辑限流同桶, HTTP 映射同口径。
+        # 同 create_note — 编辑限流同桶, HTTP 映射同口径。
         raise to_http_exception(exc) from exc
     except NoteNotAccessibleError as exc:
         raise _note_not_found(exc) from exc

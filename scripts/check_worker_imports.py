@@ -1,4 +1,4 @@
-"""B5-06 —— worker 干净环境导入检查。
+""" —— worker 干净环境导入检查。
 
 worker/main.py 的 aiohttp_socks 是函数级 import（启动时执行），纯
 `import worker.main` 抓不到缺依赖崩溃。本脚本在当前解释器里解析

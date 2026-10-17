@@ -1,4 +1,4 @@
-"""Molecule/reaction rendering — HTTP adapter (G2.2).
+"""Molecule/reaction rendering — HTTP adapter .
 
 领域 lookup/render 在 api/services/rendering.py(transport-neutral, 唯一一份);
 本文件只保留: path/query 解析、dependency、Cache-Control、media_type、

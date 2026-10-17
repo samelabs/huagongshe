@@ -11,7 +11,7 @@ from .services.chemicals import attach_localized_names
 
 router = APIRouter(tags=["follows"])
 
-# I-007: 动态(activity feed)过滤条件唯一事实源 —— 通知列表(social)与
+# 动态(activity feed)过滤条件唯一事实源 —— 通知列表(social)与
 # dashboard 未读数(users)共用, 保证「未读数 = 列表里未读的条数」。
 # 两类事件同构: 发布者 active、关注关系成立且通知晚于关注时间、客体
 # 公开可见(reaction: public+visible / note: public+visible)。
