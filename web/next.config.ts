@@ -20,13 +20,22 @@ function devBuildSha(): string {
 
 const buildSha = devBuildSha();
 
-/** 开发服务器放行本机局域网地址：手机经局域网访问时，Next 默认拦截跨源的开发资源，页面脚本不执行。 */
+/**
+ * 开发服务器放行的本机来源：手机经局域网访问时，Next 默认拦截跨源的开发资源
+ * （HMR 与脚本不执行、页面不水合）。回环地址同样要放行——用
+ * http://127.0.0.1:3000 打开时 Origin 与默认主机名 localhost 不同源，
+ * 不放行则 HMR websocket 被拒、页面不水合（localhost 打开则正常）。
+ * 仅 development 生效，生产恒为空名单。
+ */
 function devLanOrigins(): string[] {
   if (process.env.NODE_ENV !== "development") return [];
-  return Object.values(networkInterfaces())
-    .flat()
-    .filter((n) => n && n.family === "IPv4" && !n.internal)
-    .map((n) => n!.address);
+  return [
+    "127.0.0.1",
+    ...Object.values(networkInterfaces())
+      .flat()
+      .filter((n) => n && n.family === "IPv4" && !n.internal)
+      .map((n) => n!.address),
+  ];
 }
 
 
