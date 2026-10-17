@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from ...chemistry import CAS_RE, canonicalize_smiles, cas_checkdigit_valid
@@ -81,7 +82,10 @@ async def lookup(
                 "pending": {"cas": cas, "status": "updating" if state == "pending" else "not_found"}}
 
     if smiles is not None:
-        canonical = canonicalize_smiles(smiles.strip())
+        # RDKit 解析/canonicalize 是 CPU 计算, 丢线程池避免卡事件循环
+        # (与站内 search.py 的 canonicalize、resolve_or_create_chemical
+        # 的 chemical_properties 同款处理)。
+        canonical = await asyncio.to_thread(canonicalize_smiles, smiles.strip())
         if not canonical:
             raise DataApiInvalidParameter("SMILES 无法解析")
         rows = await fetch_chemicals(db, f"""
