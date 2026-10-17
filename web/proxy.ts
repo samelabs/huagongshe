@@ -151,20 +151,28 @@ function isRscOrPrefetchRequest(request: NextRequest): boolean {
 export default function proxy(request: NextRequest): NextResponse | undefined {
   const pathname = request.nextUrl.pathname;
 
-  // I-084: /u/{username} 短地址稳定入口（按现行规则校验 username, 307 到 /{locale}/user/{username}）
+  // /u/{username} 短地址稳定入口: 大小写先归一为小写（注册规则本身仅小写,
+  // 大写输入是手误/口播场景）, 307 到 /{locale}/user/{username}; 不合规名
+  // 不返回空白 body, 交给 Next 的 404 路由渲染站内 404 页（保留 404 状态）。
   if (isPathAtOrBelow(pathname, "/u")) {
-    const match = /^\/u\/([a-z0-9_]{4,30})$/.exec(pathname);
-    if (!match) {
-      return new NextResponse(null, { status: 404 });
+    const match = /^\/u\/([A-Za-z0-9_]{4,30})$/.exec(pathname);
+    if (match) {
+      const username = match[1].toLowerCase();
+      if (username !== match[1]) {
+        const canonical = NextResponse.redirect(
+          new URL(`/u/${username}${request.nextUrl.search}`, request.url), 307);
+        canonical.headers.set("Cache-Control", "private, no-store");
+        return canonical;
+      }
+      const locale = detectLocale(request.headers.get("cookie"), request.headers.get("accept-language"));
+      const response = NextResponse.redirect(
+        new URL(`/${locale}/user/${username}${request.nextUrl.search}`, request.url),
+        307,
+      );
+      response.headers.set("Cache-Control", "private, no-store");
+      return response;
     }
-    const username = match[1];
-    const locale = detectLocale(request.headers.get("cookie"), request.headers.get("accept-language"));
-    const response = NextResponse.redirect(
-      new URL(`/${locale}/user/${username}${request.nextUrl.search}`, request.url),
-      307,
-    );
-    response.headers.set("Cache-Control", "private, no-store");
-    return response;
+    return undefined;
   }
 
   if (isExcluded(pathname)) return undefined;

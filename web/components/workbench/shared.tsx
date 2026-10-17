@@ -66,7 +66,7 @@ export function Pagination({ page, pageSize, total, href }: {
    结构 = 类型图标/缩略图 ｜ 标题(整行点击目标)+元信息 ｜ 右侧展示+操作。
    整行点击靠标题链接的 ::after 铺满行（CSS）；actions 内按钮层级更高，
    不会误触发行跳转。 ──────────────────────────────────── */
-export function WbListRow({ href, icon, iconTone, thumb, title, meta, side, actions, ariaLabel }: {
+export function WbListRow({ href, icon, iconTone, thumb, title, summary, meta, side, actions, ariaLabel }: {
   /** 整行点击目标（标题链接铺满整行） */
   href: string;
   /** 36px 类型图标块（.wb-row-icon） */
@@ -75,6 +75,8 @@ export function WbListRow({ href, icon, iconTone, thumb, title, meta, side, acti
   /** 缩略图（结构式/方程式，替代 icon） */
   thumb?: ReactNode;
   title: ReactNode;
+  /** 标题下的正文摘要（两行截断，笔记行用） */
+  summary?: ReactNode;
   /** Tag / EntityBadge xs / time 等元信息 */
   meta?: ReactNode;
   /** 右侧静态信息（日期、人数…） */
@@ -90,6 +92,7 @@ export function WbListRow({ href, icon, iconTone, thumb, title, meta, side, acti
       {thumb && <span className="wb-row-thumb" aria-hidden="true">{thumb}</span>}
       <span className="wb-row-main">
         <Link href={withLocale(href, locale)} className="wb-row-title" aria-label={ariaLabel}>{title}</Link>
+        {summary != null && <span className="wb-row-summary">{summary}</span>}
         {meta && <span className="wb-row-meta">{meta}</span>}
       </span>
       {(side != null || actions) && (
@@ -139,7 +142,7 @@ export function relativeTime(value: string, locale: string): string {
 
 /** 笔记标题行：首个非空行（≤60 字）— 概览与笔记面板共用（实现在 lib，公开主页服务端同用） */
 import { resolveNotePresentation } from "@/lib/noteHeadline";
-export { noteHeadline, resolveNotePresentation } from "@/lib/noteHeadline";
+export { noteHeadline, noteListPresentation, resolveNotePresentation } from "@/lib/noteHeadline";
 
 /** FX-16（SMK-018 / IX-4）：客户端加载 >10s 的「仍在处理」Notice + 重试 */
 export { SlowNotice } from "./SlowNotice";

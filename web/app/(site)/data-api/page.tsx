@@ -22,11 +22,11 @@ function Section({ title, children }: SectionProps) {
 function FieldTable({ rows }: { rows: FieldRow[] }) {
   return (
     <div className="hg-code multiline" style={{ overflowX: "auto" }}>
-      <table className="pr-table" style={{ minWidth: 640 }}>
+      <table className="token-table">
         <tbody>
           {rows.map((row) => (
             <tr key={row.name}>
-              <th style={{ whiteSpace: "nowrap" }}>{row.name}</th>
+              <th>{row.name}</th>
               <td>
                 <code className="token-code">{row.type}</code>
                 <span style={{ display: "block", marginTop: 2 }}>{row.desc}</span>

@@ -17,7 +17,7 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, SITE_ORIGIN } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { noteHeadline } from "@/lib/noteHeadline";
+import { noteListPresentation } from "@/lib/noteHeadline";
 
 type Profile = {
   id: number; username: string; display_name: string; bio: string | null;
@@ -205,10 +205,10 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             {notesBlock.items.map((note) => (
               <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
                 <div className="pf-note-head">
-                  <h3>{noteHeadline(note.content, { fallbackTitle: t.notes.untitled })}</h3>
+                  <h3>{noteListPresentation(note, t).title}</h3>
                   <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
                 </div>
-                <p className="pf-note-summary">{note.content}</p>
+                <p className="pf-note-summary">{noteListPresentation(note, t).summary}</p>
                 {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
                   <div className="pf-note-refs">
                     {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}

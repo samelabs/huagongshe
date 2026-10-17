@@ -15,7 +15,7 @@ import { apiDelete, apiGet } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { NoteEditor } from "../NoteEditor";
-import { PanelError, PanelHeading, PanelLoading, Pagination, SlowNotice, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
+import { PanelError, PanelHeading, PanelLoading, Pagination, SlowNotice, VisibilityTag, WbListRow, noteListPresentation, relativeTime } from "../shared";
 import type { LoadState, NoteItem, NoteResponse, NoteVisibility, PanelProps } from "../types";
 import { TextLink } from "@/components/ui/TextLink";
 
@@ -357,7 +357,8 @@ export function NotesPanel({
               key={note.id}
               href={`/note/${note.id}`}
               icon={<IconNote />}
-              title={noteHeadline(note.content, { fallbackTitle: t.notes.untitled })}
+              title={noteListPresentation(note, t).title}
+              summary={noteListPresentation(note, t).summary}
               meta={
                 <>
                   <VisibilityTag visibility={note.visibility} t={t} />
@@ -376,7 +377,7 @@ export function NotesPanel({
                       setEditorNonce((n) => n + 1);
                       beginEditorSession();
                     })(); }}><IconPencil /></Button>
-                    <Button variant="danger-quiet" size="sm" iconOnly aria-label={t.common.delete} onClick={() => void remove(note)}><IconTrash /></Button>
+                    <Button variant="ghost" size="sm" iconOnly className="wb-action-danger" aria-label={t.common.delete} onClick={() => void remove(note)}><IconTrash /></Button>
                   </span>
                 </>
               }

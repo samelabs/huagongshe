@@ -64,7 +64,7 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
     reaction.temperature ? [t.reaction.conditionFields.temperature, `${reaction.temperature.value} ${unitName(reaction.temperature.unit, t)}`] : null,
     reaction.duration ? [t.reaction.conditionFields.time, `${reaction.duration.value} ${unitName(reaction.duration.unit, t)}`] : null,
     reaction.atmosphere ? [t.reaction.conditionFields.atmosphere, reaction.atmosphere] : null,
-    reaction.pressure ? [t.reaction.conditionFields.pressure, `${reaction.pressure.value} ${reaction.pressure.unit}`] : null,
+    reaction.pressure ? [t.reaction.conditionFields.pressure, `${reaction.pressure.value} ${unitName(reaction.pressure.unit, t)}`] : null,
     reaction.ph != null ? ["pH", String(reaction.ph)] : null,
     reaction.reflux ? [t.reaction.conditionFields.reflux, "✓"] : null,
   ].filter(Boolean) as [string, string][];
@@ -128,7 +128,7 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
                   return (
                     <tr key={p.id}>
                       <td>{roleLabel(p.role, t)}</td>
-                      <td>{pName}</td>
+                      <td className={/\S{25,}/.test(pName) ? "pr-breakany" : undefined}>{pName}</td>
                       <td className="pr-mono">{t.common.hcidLabel(p.id)}</td>
                       <td>{amount || "—"}</td>
                     </tr>

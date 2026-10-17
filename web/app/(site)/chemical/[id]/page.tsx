@@ -317,8 +317,8 @@ export default async function ChemicalPage({ params }: {
                     <summary>{t.chemical.synonyms.expandMore}</summary>
                     <div className="alias-list synonym-full">
                       {cbRest.map((a) => <span key={`cb-${a.value}`} className="casext-tag">{a.value}</span>)}
-                      <SynonymExplorer chemicalId={chemical.id} initial={synonyms} total={synTotal} shown={synShownInPreview} />
                     </div>
+                    <SynonymExplorer chemicalId={chemical.id} initial={synonyms} total={synTotal} shown={synShownInPreview} />
                   </details>
                 )}
               </div>

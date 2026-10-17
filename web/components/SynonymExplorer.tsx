@@ -58,9 +58,17 @@ export function SynonymExplorer({ chemicalId, initial, total, shown }: {
   const done = exhausted || requests >= MAX_REQUESTS;
   return (
     <>
-      {rest.map((item) => <span key={item}>{item}</span>)}
+      {rest.length > 0 && (
+        <div className="alias-list synonym-full">
+          {rest.map((item) => <span key={item}>{item}</span>)}
+        </div>
+      )}
       {!done && (
-        <TextLink className="synonym-more" onClick={loadMore} disabled={busy}>{busy ? t.common.loading : t.chemical.synonyms.loadMore(items.length)}</TextLink>
+        /* 与上下游品名的展开按钮同形态：按钮移出胶囊容器独立成行，
+           不再因 flex 拉伸撑高同排胶囊 */
+        <div className="casext-toggle-row">
+          <TextLink className="synonym-more" onClick={loadMore} disabled={busy}>{busy ? t.common.loading : t.chemical.synonyms.loadMore(items.length)}</TextLink>
+        </div>
       )}
       {failed && <p className="inline-error">{t.chemical.synonyms.error}</p>}
     </>

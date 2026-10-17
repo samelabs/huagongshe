@@ -555,8 +555,24 @@
 /* 收藏面板「取消收藏」图标按钮：当前已收藏（action 色），hover 变 err（IX-6） */
 .wb-unfavor { color: var(--action); }
 .wb-unfavor:hover, .wb-unfavor.is-hover { background: var(--err-bg); color: var(--err); }
-/* Step 10 Part A.2：已收藏的星标为实心（fill 压过 svg 的 fill="none" 属性） */
+/* 已收藏的星标为实心（fill 压过 svg 的 fill="none" 属性） */
 .wb-unfavor svg { fill: currentColor; }
+/* 行内危险操作（删除等）：与普通行内操作同一种无框图标按钮形态，
+   仅用颜色区分危险；触控尺寸沿用图标按钮的统一最小命中区 */
+.wb-action-danger { color: var(--err); }
+.wb-action-danger:hover, .wb-action-danger.is-hover { background: var(--err-bg); }
+/* 笔记行正文摘要：标题下两行截断 */
+.wb-row-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--wb-quiet);
+  font-size: var(--wb-fs-sm);
+  line-height: 1.5;
+  white-space: pre-line;
+}
 
 /* Step 10 Part A.1：≤640 列表行改纵向三行布局 —
    ①类型图标+标题（最多 2 行省略） ②Tag+徽标（可换行） ③时间（左）+操作（右）。
@@ -568,6 +584,7 @@
     grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
       "icon title"
+      "icon summary"
       "icon meta"
       "side side";
     align-items: start;
@@ -588,6 +605,7 @@
     overflow: hidden;
     line-height: 1.4;
   }
+  .wb-row-summary { grid-area: summary; }
   .wb-row-meta { grid-area: meta; }
   .wb-row-side {
     grid-area: side;

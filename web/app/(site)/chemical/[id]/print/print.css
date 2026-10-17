@@ -241,6 +241,12 @@
   color: var(--pr-muted);
 }
 
+/* 单元格长内容按词换行; 无空格长串（SMILES、长名）由 .pr-breakany 兜底
+   （化合物表同款规则） */
+.pr-participants-table td {
+  overflow-wrap: break-word;
+}
+
 /* ── 站点壳层隐藏（屏幕与纸张一致）───────────────────────
    打印预览页不显示站点顶栏、页脚、手机底栏；屏幕上只有工具栏。 */
 body:has(.pr-root) .sh-header,

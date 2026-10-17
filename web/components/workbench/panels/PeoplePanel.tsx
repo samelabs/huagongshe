@@ -71,7 +71,7 @@ export function PeoplePanel({
 
     try {
       const res = await apiGet<SearchUserResponse>(
-        `/users/search?q=${encodeURIComponent(trimmed)}&page=${targetPage}&limit=20`
+        `/users/search?q=${encodeURIComponent(trimmed)}&page=${targetPage}&page_size=20`
       );
       if (requestId !== latestLoad.current) return;
       setData(res);

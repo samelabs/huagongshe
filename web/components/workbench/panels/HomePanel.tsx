@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Tabs } from "@/components/ui/Tabs";
 import { IconNote, IconPlus, IconSearch, IconCalc, IconSparkle, IconPlug, GlyphChem, GlyphRx } from "@/components/ui/icons";
-import { ActivityFeedCard, PanelError, PanelLoading, ReactionRow, SlowNotice, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
+import { ActivityFeedCard, PanelError, PanelLoading, ReactionRow, SlowNotice, VisibilityTag, WbListRow, noteListPresentation, relativeTime } from "../shared";
 import type { Counts, LoadState, NoteResponse, PageResponse, Reaction, ReactionResponse } from "../types";
 import type { ChemicalFollow, Notice } from "../types";
 import { Input } from "@/components/ui/Field";
@@ -233,7 +233,8 @@ function NoteRow({ note, t, locale }: { note: NoteResponse["items"][number]; t: 
     <WbListRow
       href={`/note/${note.id}`}
       icon={<IconNote />}
-      title={noteHeadline(note.content, { fallbackTitle: t.notes.untitled })}
+      title={noteListPresentation(note, t).title}
+      summary={noteListPresentation(note, t).summary}
       meta={
         <>
           <VisibilityTag visibility={note.visibility} t={t} />

@@ -73,3 +73,35 @@ export function resolveNotePresentation(
 export function noteHeadline(content: string, options?: Parameters<typeof resolveNotePresentation>[1]): string {
   return resolveNotePresentation(content, options).title;
 }
+
+/**
+ * 笔记列表行（工作台列表、首页面板、公开主页）共用的呈现派生：
+ * 标题按上面的规则；摘要恒为正文（自定义标题时是余下正文，中性标题时
+ * 是整段），由各列表用两行截断渲染。有关联实体时中性标题指名首个关联
+ * 实体（徽标同款的 HCID/HRID 标签），无关联时落到作者名。
+ */
+/** 列表呈现所需的最小字典面（Dictionary 结构满足） */
+type NoteListDictionary = {
+  common: { hcidLabel: (id: number) => string; hridLabel: (id: number) => string };
+  notes?: { aboutEntityNote?: (name: string) => string; authorNote?: (author: string) => string };
+};
+
+export function noteListPresentation(
+  note: {
+    content: string;
+    username?: string;
+    display_name?: string | null;
+    chemical_ids?: number[];
+    reaction_ids?: number[];
+  },
+  t: NoteListDictionary,
+): { title: string; summary: string } {
+  const linkedEntityName = note.chemical_ids?.length
+    ? t.common.hcidLabel(note.chemical_ids[0])
+    : note.reaction_ids?.length
+      ? t.common.hridLabel(note.reaction_ids[0])
+      : null;
+  const authorName = note.display_name || (note.username ? `@${note.username}` : null);
+  const presentation = resolveNotePresentation(note.content, { authorName, linkedEntityName, t });
+  return { title: presentation.title, summary: presentation.body };
+}

@@ -340,25 +340,39 @@ test("合法用户名跳转: /u/{username} → 307 到 /{locale}/user/{username}
   assert.equal(getRedirectUrl(r3), ORIGIN + "/de/user/charlie?tab=notes");
 });
 
-test("非法用户名 404: /u/abc, /u/invalid-hyphen, /u, /u/", () => {
+test("非法用户名渲染站内 404 页: /u/abc, /u/invalid-hyphen, /u, /u/ 交给 Next 404 路由", () => {
+  // 不合规名不再返回空白 body 的裸 404 —— proxy 放行(undefined),
+  // 由 Next 按未匹配路由渲染站内 404 页并保留 404 状态
   // 长度 < 4
   const r1 = proxy(nextReq("/u/abc"));
-  assert.equal(r1.status, 404);
+  assert.equal(r1, undefined);
 
   // 包含非法字符（连字符）
   const r2 = proxy(nextReq("/u/invalid-user"));
-  assert.equal(r2.status, 404);
+  assert.equal(r2, undefined);
 
   // 超过 30 字符
   const r3 = proxy(nextReq("/u/" + "a".repeat(31)));
-  assert.equal(r3.status, 404);
+  assert.equal(r3, undefined);
 
   // 根路径 /u 与空用户名 /u/
   const r4 = proxy(nextReq("/u"));
-  assert.equal(r4.status, 404);
+  assert.equal(r4, undefined);
 
   const r5 = proxy(nextReq("/u/"));
-  assert.equal(r5.status, 404);
+  assert.equal(r5, undefined);
+});
+
+test("大小写归一: /u/HGS_Demo 307 到小写规范形 /u/hgs_demo", () => {
+  const r = proxy(nextReq("/u/HGS_Demo"));
+  assert.equal(r.status, 307);
+  assert.equal(getRedirectUrl(r), ORIGIN + "/u/hgs_demo");
+  assert.equal(r.headers.get("cache-control"), "private, no-store");
+
+  // query 保留
+  const r2 = proxy(nextReq("/u/Alice_01?tab=notes"));
+  assert.equal(r2.status, 307);
+  assert.equal(getRedirectUrl(r2), ORIGIN + "/u/alice_01?tab=notes");
 });
 
 test("带 locale 前缀的 /ja/u/x 不当作别名（按现有排除规则 404）", () => {

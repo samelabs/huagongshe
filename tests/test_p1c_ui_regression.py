@@ -137,11 +137,10 @@ class P3TruncationTests(unittest.TestCase):
         entity = read("components/EntityNotes.tsx")
         panel = read("components/workbench/panels/NotesPanel.tsx")
         detail = read("app/(site)/note/[id]/page.tsx")
-        # Step 8 概览重做：HomePanel 笔记行只取单行标题（CSS 省略号），不再用 clamp
-        # Step 9 笔记面板重做：列表行（WbListRow）标题用 noteHeadline 首行截断，
-        # 多行 clamp 只保留在实体页嵌入区（EntityNotes）
+        # 笔记列表行（概览/面板）标题与摘要统一走 noteListPresentation（首行
+        # 或中性标题 + 两行摘要），多行 clamp 只保留在实体页嵌入区（EntityNotes）
         self.assertIn('className="note-clamp"', entity)
-        self.assertIn("noteHeadline", panel)
+        self.assertIn("noteListPresentation", panel)
         self.assertNotIn("note-clamp", detail)
         self.assertIn("note-detail-content", detail)
 
