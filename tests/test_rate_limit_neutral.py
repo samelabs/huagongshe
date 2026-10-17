@@ -1,4 +1,4 @@
-"""G2.R rate-limit core neutralization tests.
+""".R rate-limit core neutralization tests.
 
 覆盖:
 - Neutral core: 无 FastAPI import(结构断言); enforce/lease/structure gate
@@ -102,7 +102,7 @@ class NeutralCoreStructureTests(unittest.TestCase):
 
 
 class ClientIpTests(unittest.TestCase):
-    """R2: 分桶键统一读 x-real-ip(nginx 覆盖写入), XFF 可伪造不参与。"""
+    """分桶键统一读 x-real-ip(nginx 覆盖写入), XFF 可伪造不参与。"""
 
     def test_reads_x_real_ip_case_insensitive(self):
         self.assertEqual(rl.client_ip({"x-real-ip": "203.0.113.9"}),

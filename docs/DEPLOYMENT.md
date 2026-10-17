@@ -29,6 +29,12 @@
 deployment user（非 root）执行：
 
 ```bash
+# 1) 先迁移（顺序不可倒）：对生产库应用未执行的 migrations/ 文件。
+#    本批及此前的迁移均对旧代码向后兼容，迁移先行零风险；
+#    反序（新代码 + 旧 schema）会导致 CB 摄入、OAuth 注册等落库路径直接故障。
+python scripts/migrate.py "<生产 DATABASE_URL>"   # 与 api 进程 HGS_DATABASE_URL 同一库
+
+# 2) 部署
 python -m ops.deploy                 # build → restart 三 app → readiness → smoke → pm2 save
 python -m ops.deploy --skip-build    # 跳过 Web 构建
 python -m ops.deploy --dry-run       # 只打印计划
@@ -99,7 +105,12 @@ python -m ops.deploy --nginx-bootstrap
 ```nginx
 # 对外数据服务(/data/v1)直接转发给 FastAPI;
 # 该接口自带凭证鉴权(HMAC 签名 + nonce 防重放)与按凭证计量。
+# limit_req 补齐"无效凭证刷鉴权"的边界: 鉴权失败不占凭证额度, 应用侧
+# 另有 per-IP 失败桶(api/data_api.py AUTH_FAIL_*), nginx 层先挡量级洪水。
+# $binary_remote_addr 经 cloudflare-realip 后即真实访客 IP。
+limit_req_zone $binary_remote_addr zone=hgs_data_api:10m rate=10r/s;  # http {} 级
 location /data/ {
+    limit_req zone=hgs_data_api burst=20 nodelay;
     proxy_pass http://hgs_api;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;

@@ -71,7 +71,7 @@ export function PeoplePanel({
 
     try {
       const res = await apiGet<SearchUserResponse>(
-        `/users/search?q=${encodeURIComponent(trimmed)}&page=${targetPage}&limit=20`
+        `/users/search?q=${encodeURIComponent(trimmed)}&page=${targetPage}&page_size=20`
       );
       if (requestId !== latestLoad.current) return;
       setData(res);
@@ -132,9 +132,7 @@ export function PeoplePanel({
     <section className="wb-panel">
       <PanelHeading
         title={t.me.tabPeople}
-        subtitle={t.me.peopleEmptyPrompt}
-        count={state === "ready" && submittedQuery ? data.total : "—"}
-        unit={t.me.unitPerson}
+        subtitle={t.me.peopleHint}
       />
 
       <form method="post" className="wb-search-form" onSubmit={handleSearchSubmit}>
@@ -158,7 +156,9 @@ export function PeoplePanel({
         <EmptyState
           icon={<IconUserSearch />}
           title={t.me.peopleEmptyPrompt}
-        />
+        >
+          {t.me.peopleIdleDesc}
+        </EmptyState>
       )}
 
       {state === "loading" && (
@@ -198,9 +198,7 @@ export function PeoplePanel({
                   {person.bio && <p className="wb-person-bio">{person.bio.split("\n")[0]}</p>}
                 </div>
                 <div className="wb-person-followers-tag">
-                  <small style={{ color: "var(--wb-quiet)", fontSize: "var(--wb-fs-xs)", whiteSpace: "nowrap" }}>
-                    {t.me.peopleFollowers(person.follower_count ?? 0)}
-                  </small>
+                  <small>{t.me.peopleFollowers(person.follower_count ?? 0)}</small>
                 </div>
                 <div className="wb-person-actions">
                   {!isMe && (

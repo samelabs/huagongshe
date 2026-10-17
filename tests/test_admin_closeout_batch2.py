@@ -6,7 +6,7 @@
    - entries 只允许两条写入路径: 初始 useEffect 加载 + updateValue 字段级合并
    - dead helper reload()/await reload() 必须保持删除 (回归闸门)
 
-2. Dashboard 收口 (E9-A 新契约)
+2. Dashboard 收口 (新契约)
    - 后端不再为首页计算 sessions/tokens/statistics/chemicals
    - 前端仅保留 用户 / 用户反应 / 磁盘 三卡
    - worker "最近活跃" 语义仍合法保留
@@ -115,7 +115,7 @@ class ConfigSaveDraftPreservationTests(unittest.TestCase):
 
 
 class DashboardScopeTests(unittest.TestCase):
-    """E9-A 契约: 首页轻量化 —— 无管理入口/决策用途的统计连查询一起删。"""
+    """ 契约: 首页轻量化 —— 无管理入口/决策用途的统计连查询一起删。"""
 
     def setUp(self):
         self.api = read(ADMIN_API)

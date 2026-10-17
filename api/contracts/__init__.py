@@ -1,4 +1,4 @@
-"""API governance contracts (G1 final): family/scenario model + contract ledger."""
+"""API governance contracts : family/scenario model + contract ledger."""
 
 from .model import (
     AuthPolicy,

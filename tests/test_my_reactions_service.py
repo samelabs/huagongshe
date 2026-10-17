@@ -1,4 +1,4 @@
-"""G2.5C — My Reactions List 共享 service 测试。
+""" — My Reactions List 共享 service 测试。
 
 锁:
 - services/reactions.list_my_reactions: bounded UNION ALL(all 分支) vs 单

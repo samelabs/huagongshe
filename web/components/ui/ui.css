@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   ui.css — v1.7 组件库样式（规则见 docs/DESIGN_SYSTEM.md 第三层）
+   ui.css — 组件库样式（规则见 docs/DESIGN_SYSTEM.md 第三层）
    ═══════════════════════════════════════════════════════════════
    - 视觉 / 尺寸 / 状态逐项照抄参考实现；取值只引用 tokens.css 语义 token。
    - 类名前缀 .hg-；.hg-eb 的内层 .k/.v/.x 与参考一致，只在 .hg-eb
@@ -27,9 +27,9 @@
   --eb-h: 24px;
   /* 组件级尺寸变量取自 tokens（xs 前缀 10.5 为设计允许的唯一 <12 例外，
      见 tokens.css 字号注释）；字面量只存在于此，不进入 font-size 声明。
-     BX-A4：xs 编号从 11.5px 收进 12px 档（DESIGN_SYSTEM 7.2 只豁免 xs 前缀，不豁免编号）。 */
+     xs 编号从 11.5px 收进 12px 档（DESIGN_SYSTEM 7.2 只豁免 xs 前缀，不豁免编号）。 */
   --eb-fs: var(--fs-12);
-  /* BX-A4/DESIGN_SYSTEM 7.2：前缀同样 ≥12（唯一豁免只剩 xs 前缀 10.5） */
+  /* /DESIGN_SYSTEM 7.2：前缀同样 ≥12（唯一豁免只剩 xs 前缀 10.5） */
   --fs-eb-prefix: var(--fs-12);
   --eb-ic: 12px;
   display: inline-flex;
@@ -546,12 +546,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 /* ══ 演示舞台（dev-ui / 文档用：浅灰底居中容器） ════════════ */
 .hg-stage { background: var(--bg-pressed); border-radius: var(--r-md); padding: var(--sp-8) var(--sp-4); display: grid; place-items: center; gap: var(--sp-3); }
 
-/* ══ 悬停换文案（IX-6：已关注 hover → 取消关注）════════════ */
+/* ══ 悬停换文案（已关注 hover → 取消关注）════════════ */
 .hg-hover-swap .when-hover { display: none; }
 .hg-btn:hover .hg-hover-swap .when-idle, .hg-btn.is-hover .hg-hover-swap .when-idle { display: none; }
 .hg-btn:hover .hg-hover-swap .when-hover, .hg-btn.is-hover .hg-hover-swap .when-hover { display: inline; }
 
-/* ══ 星标激活态（IX-6：已收藏 → 实心）══ */
+/* ══ 星标激活态（已收藏 → 实心）══ */
 .hg-star-on svg { fill: currentColor; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -629,6 +629,12 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-left: max(20px, calc((100% - var(--w-wide)) / 2));
   margin-right: auto;
 }
+/* 手机档与顶栏 .sh-inner 同一公式（calc(100% - 24px)，两侧 12px）——
+   左缘对齐检查在 375 下同样要求 H1 与 logo 像素差为 0 */
+@media (max-width: 640px) {
+  .hg-page-frame { width: calc(100% - 24px); }
+  .hg-page-frame--reading, .hg-page-frame--form { margin-left: 12px; }
+}
 
 .hg-page-head {
   display: flex;
@@ -639,6 +645,8 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-block: var(--sp-6);
 }
 .hg-page-head .hg-breadcrumb { flex-basis: 100%; margin-block-end: var(--sp-3); }
+/* 带右侧视觉位（aside）时改为顶端对齐：标题区与卡片各自从顶排起 */
+.hg-page-head:has(.hg-page-head-aside) { align-items: flex-start; }
 .hg-page-head-main { min-width: 0; }
 .hg-page-head h1 {
   margin: 0;
@@ -648,7 +656,16 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   letter-spacing: var(--ls-title);
   overflow-wrap: anywhere;
 }
-.hg-page-head--hero h1 { font-size: var(--fs-40); letter-spacing: var(--ls-display); }
+.hg-page-head--hero h1 {
+  font-size: var(--fs-28);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-heading);
+  letter-spacing: 0;
+}
+/* 手机档 hero：22 */
+@media (max-width: 640px) {
+  .hg-page-head--hero h1 { font-size: var(--fs-22); }
+}
 .hg-page-head-meta { margin-block-start: var(--sp-3); }
 .hg-page-head-sub {
   margin: var(--sp-2) 0 0;
@@ -657,15 +674,39 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   font-size: var(--fs-16);
   line-height: var(--lh-prose);
 }
-.hg-page-head-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.hg-page-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-left: auto; }
+/* 本人操作（编辑/可见性/删除）在桌面行的右端；手机另起一行靠左 */
+.hg-page-head-actions .owner-actions { margin-inline-start: auto; }
+/* 操作区分两组：标识 + 分享 + 打印 / 其余操作。桌面两组并入同一行，
+   手机各占一行、靠左。 */
+.hg-head-row { display: contents; }
+@media (max-width: 640px) {
+  .hg-page-head-actions { flex-direction: column; align-items: flex-start; margin-left: 0; }
+  .hg-head-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+  .hg-page-head-actions .hg-head-row > * { margin-inline-start: 0; }
+}
+.hg-page-head-aside { flex: none; max-width: 100%; }
 
 .hg-section { margin-block-start: var(--sp-section); }
+.hg-section-head {
+  display: flex;
+  align-items: last baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
 .hg-section-title {
   margin: 0;
   font-size: var(--fs-22);
   font-weight: var(--fw-display);
   line-height: var(--lh-heading);
   letter-spacing: var(--ls-heading);
+}
+.hg-section-note {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--fs-13);
+  line-height: var(--lh-ui);
+  font-variant-numeric: tabular-nums;
 }
 .hg-section-desc {
   margin: var(--sp-1) 0 0;

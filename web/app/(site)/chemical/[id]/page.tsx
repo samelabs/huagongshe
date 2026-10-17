@@ -11,15 +11,18 @@ import { GroupToggle } from "@/components/GroupToggle";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { EntityNotes } from "@/components/EntityNotes";
 import { Button } from "@/components/ui/Button";
-import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { CopyButton } from "@/components/ui/CopyButton";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { PageHead } from "@/components/ui/PageHead";
+import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
 import { Molecule } from "@/components/Molecule";
 import { ReactionList } from "@/components/ReactionList";
 import { SynonymExplorer } from "@/components/SynonymExplorer";
 import { cbInFlight } from "@/components/chemicalStatus";
 import { isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
-import { apiGet, isApiGone, isEntityId, type Chemical, type ReactionSummary, type SemanticDetail, type ProseItem, type CasSupplier } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
+import { isApiGone, isEntityId, type Chemical, type ReactionSummary, type SemanticDetail, type ProseItem, type CasSupplier } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale, type Locale } from "@/lib/localePath";
@@ -49,12 +52,12 @@ const UPDOWN_TAG_LIMIT = 12; // 上下游 Tag 每向默认显示数
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  // FX-3（SMK-002）：非法 ID 在 metadata 层同样 404，不给 422/500 留通道
+  // 非法 ID 在 metadata 层同样 404，不给 422/500 留通道
   if (!isEntityId(id)) notFound();
   const canonical = `/chemical/${id}`;
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
-  // metadata 只需要 canonical 投影 —— enrich=core(零 provider 访问, E9-B 1.6)
+  // metadata 只需要 canonical 投影 —— enrich=core(零 provider 访问, 1.6)
   const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=core`).catch((error: unknown) => {
     if (isApiGone(error)) notFound();
     return null; // 后端暂不可用：退化为通用标题，不让 metadata 500
@@ -98,13 +101,13 @@ export default async function ChemicalPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // FX-3（SMK-002 / HGS-WEB-DETAIL-ID-01）：ID 不满足 ^\d+$ 直接 404；
+  // ID 不满足 ^\d+$ 直接 404；
   // 后端 422（int-Path 校验拒绝，如超大数）同样按 404 呈现
   if (!isEntityId(id)) notFound();
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   const hasSession = (await cookies()).has("hgs_session");
-  // 0902 P0: SSR 透传用户凭证(详情页 QPS 低可接受, 沿用)
+  // SSR 透传用户凭证(详情页 QPS 低可接受, 沿用)
   const sessionHeaders = hasSession
     ? { cookie: `hgs_session=${(await cookies()).get("hgs_session")?.value ?? ""}` }
     : undefined;
@@ -222,51 +225,59 @@ export default async function ChemicalPage({ params }: {
   ];
 
   return (
-    <div className="content-page chemical-page">
+    <PageFrame className="chemical-page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
-      <Breadcrumb
-        items={[
+
+      {/* ── Entity Header：左标题区 + 右结构图卡片（版式件 PageHead hero） ── */}
+      <PageHead
+        hero
+        breadcrumb={[
           { label: t.chemical.home, href: withLocale("/", locale) },
           { label: t.chemical.category },
         ]}
-        ariaLabel={t.common.breadcrumb}
+        title={title}
+        subtitle={secondary || undefined}
+        meta={
+          <>
+            {iupacShow && <p className="chem-iupac">{iupacShow}</p>}
+            <div className="chem-chips">
+              {chemical.cas_numbers[0] && source !== "cas" && (
+                <Tag className="chem-cas-chip">
+                  CAS {chemical.cas_numbers[0]}
+                  <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
+                </Tag>
+              )}
+              {chemical.molecular_formula && source !== "molecular_formula" && <Tag>{chemical.molecular_formula}</Tag>}
+              {chemical.average_mass != null && <Tag>{formatNumber(chemical.average_mass, locale)} g/mol</Tag>}
+              {chemical.pubchem_cid != null && <Tag>PubChem CID {chemical.pubchem_cid}</Tag>}
+            </div>
+          </>
+        }
+        actions={<>
+          <div className="hg-head-row">
+            <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
+            <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
+            <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
+              <IconPrinter />
+            </Button>
+          </div>
+          <div className="hg-head-row">
+            <ChemicalActions
+              chemicalId={chemical.id}
+              smiles={chemical.smiles}
+              initialFollowing={Boolean(chemical.is_following)}
+              initialCount={chemical.follower_count || 0}
+              authed={hasSession}
+              title={title}
+            />
+          </div>
+        </>}
+        aside={
+          <figure className="chem-struct">
+            <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} />
+          </figure>
+        }
       />
-
-      {/* ── Entity Header（5.1 / 6.3：左内容 + 右 300 结构图卡片） ── */}
-      <header className="chem-head">
-        <div className="chem-badge-row">
-          <EntityBadge kind="chemical" id={chemical.id} size="lg" ariaLabel={t.common.hcidLabel(chemical.id)} />
-          <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
-          <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
-            <IconPrinter />
-          </Button>
-        </div>
-        <h1 className="chem-head-name">{title}</h1>
-        {secondary && <p className="chem-head-alt">{secondary}</p>}
-        {iupacShow && <p className="chem-head-iupac">{iupacShow}</p>}
-        <div className="chem-head-chips">
-          {chemical.cas_numbers[0] && source !== "cas" && (
-            <span className="chem-cas-chip">
-              <Tag>CAS {chemical.cas_numbers[0]}</Tag>
-              <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
-            </span>
-          )}
-          {chemical.molecular_formula && source !== "molecular_formula" && <Tag>{chemical.molecular_formula}</Tag>}
-          {chemical.average_mass != null && <Tag>{formatNumber(chemical.average_mass, locale)} g/mol</Tag>}
-          {chemical.pubchem_cid != null && <Tag>PubChem CID {chemical.pubchem_cid}</Tag>}
-        </div>
-        <ChemicalActions
-          chemicalId={chemical.id}
-          smiles={chemical.smiles}
-          initialFollowing={Boolean(chemical.is_following)}
-          initialCount={chemical.follower_count || 0}
-          authed={hasSession}
-          title={title}
-        />
-        <figure className="chem-head-struct">
-          <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} />
-        </figure>
-      </header>
 
       {/* 补全中（enrichment queued / CB 在途）：头部下方 Notice + 原轮询逻辑 */}
       <DetailRefresher active={refreshActive} />
@@ -279,8 +290,7 @@ export default async function ChemicalPage({ params }: {
 
           {/* ── 1. Overview ── */}
           {hasOverview && (
-          <section className="chem-section" id="overview">
-            <SectionHead title={t.chemical.page.overview} />
+          <Section id="overview" title={t.chemical.page.overview}>
             {detail?.description.record_description && <div className="description-panel"><p>{detail.description.record_description}</p></div>}
             <dl className="chem-dl">
               <DataRow label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono copyable copyLabel={`${t.common.copy} SMILES`} />
@@ -289,13 +299,12 @@ export default async function ChemicalPage({ params }: {
               <DataRow label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass, locale)} g/mol` : null} />
               <DataRow label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, locale, 8) : null} />
             </dl>
-          </section>
+          </Section>
           )}
 
           {/* ── 2. Names & Identifiers ── */}
           {hasNames && (
-          <section className="chem-section" id="names">
-            <SectionHead title={t.chemical.page.names} />
+          <Section id="names" title={t.chemical.page.names}>
             <dl className="chem-dl">
               <DataRow label={t.chemical.names.preferred} value={chemical.preferred_name} />
               <DataRow label="IUPAC" value={chemical.iupac_name} />
@@ -316,8 +325,8 @@ export default async function ChemicalPage({ params }: {
                     <summary>{t.chemical.synonyms.expandMore}</summary>
                     <div className="alias-list synonym-full">
                       {cbRest.map((a) => <span key={`cb-${a.value}`} className="casext-tag">{a.value}</span>)}
-                      <SynonymExplorer chemicalId={chemical.id} initial={synonyms} total={synTotal} shown={synShownInPreview} />
                     </div>
+                    <SynonymExplorer chemicalId={chemical.id} initial={synonyms} total={synTotal} shown={synShownInPreview} />
                   </details>
                 )}
               </div>
@@ -339,13 +348,12 @@ export default async function ChemicalPage({ params }: {
                 </dl>
               </div>
             )}
-          </section>
+          </Section>
           )}
 
           {/* ── 3. Properties（分区内分组；组头一行 + 组级折叠） ── */}
           {hasProperties && (
-            <section className="chem-section" id="properties">
-              <SectionHead title={t.chemical.page.properties} />
+            <Section id="properties" title={t.chemical.page.properties}>
               {hasComputed && pbComputed && (
                 <ChemGroup gid="grp-prop-descriptors" title={t.chemical.knowledge.descriptors} total={8} dict={t}
                   note={enrichment.status !== "current" && enrichment.status !== "degraded" ? (enrichment.status === "stale" ? t.chemical.page.statusStale : t.chemical.page.statusQueued) : undefined}>
@@ -382,13 +390,12 @@ export default async function ChemicalPage({ params }: {
               {(props?.cb_prose?.length ?? 0) > 0 && (
                 <ProseGroup gid="grp-prop-prose" title={t.chemical.casext.chemicalProps} prose={props?.cb_prose ?? []} dict={t} />
               )}
-            </section>
+            </Section>
           )}
 
           {/* ── 4. Safety & Regulatory ── */}
           {hasSafetyReal && (
-            <section className="chem-section" id="safety">
-              <SectionHead title={t.chemical.page.safety} />
+            <Section id="safety" title={t.chemical.page.safety}>
               {Object.entries(pbSafetySections).map(([key, block]) => {
                 const entries = evidenceEntries(block);
                 return entries.length > 0 ? (
@@ -410,13 +417,12 @@ export default async function ChemicalPage({ params }: {
               {(safety?.cb_packaging?.length ?? 0) > 0 && (
                 <ProseGroup gid="grp-packaging" title={t.chemical.casext.packaging} prose={safety?.cb_packaging ?? []} dict={t} />
               )}
-            </section>
+            </Section>
           )}
 
           {/* ── 5. Chemistry & Industry ── */}
           {hasIndustry && (
-            <section className="chem-section" id="industry">
-              <SectionHead title={t.chemical.page.industry} />
+            <Section id="industry" title={t.chemical.page.industry}>
               {Object.entries(pbIndustrySections).map(([key, block]) => {
                 const entries = evidenceEntries(block);
                 return entries.length > 0 ? (
@@ -456,15 +462,14 @@ export default async function ChemicalPage({ params }: {
               {(industry?.cb_notes?.length ?? 0) > 0 && (
                 <ProseGroup gid="grp-notes" title={t.chemical.casext.safetyNotes} prose={industry?.cb_notes ?? []} dict={t} />
               )}
-            </section>
+            </Section>
           )}
 
           {/* ── 6. Reactions ── */}
-          <section className="chem-section" id="reactions">
-            <SectionHead title={t.chemical.relatedReactions}
-              note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined} />
+          <Section id="reactions" title={t.chemical.relatedReactions}
+            note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined}>
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
-          </section>
+          </Section>
 
           <EntityNotes entity="chemical" entityId={chemical.id} canAdd={hasSession} privateContext={hasSession ? { chemical: chemical.id } : undefined} />
 
@@ -473,7 +478,7 @@ export default async function ChemicalPage({ params }: {
         {/* ── Secondary rail (desktop；≤900 移到正文末尾) ── */}
         <aside className="chemical-aside">
           <ChemPageNav sections={tocSections} variant="rail" />
-          {/* 新建相关反应（PM 决策保留；Step 7 紧凑版：标题 + 一句说明 + tonal sm 按钮） */}
+          {/* 新建相关反应（紧凑版：标题 + 一句说明 + tonal sm 按钮） */}
           <section className="contribute-panel">
             <h2 className="contribute-title">{t.chemical.newRelated}</h2>
             <p>{t.chemical.newRelatedHint}</p>
@@ -481,21 +486,11 @@ export default async function ChemicalPage({ params }: {
           </section>
         </aside>
       </div>
-    </div>
+    </PageFrame>
   );
 }
 
 /* ── 小组件 ── */
-
-/** 一级 section 标题：h2 22/600/--ls-heading，右侧可选计数注记（5.3 / 6.3 去 eyebrow） */
-function SectionHead({ title, note }: { title: string; note?: string }) {
-  return (
-    <div className="section-heading chem-section-head">
-      <h2>{title}</h2>
-      {note && <span>{note}</span>}
-    </div>
-  );
-}
 
 /** DataRow 已提取为共享组件 components/DataRow（3.14 / 6.3 / 6.4 统一数据行） */
 
@@ -530,7 +525,7 @@ function ChemGroup({ gid, title, total, dict, children, note }: {
 }
 
 /** 证据列表：短数值行直接可见；超过 2 条或单条 >240 字折叠为「条目名 · N 条」。
- *  组级折叠：limit 之后的条目（含 details）hidden + data-overflow。 */
+ * 组级折叠：limit 之后的条目（含 details）hidden + data-overflow。 */
 function EvidenceList({ entries, dict, limit = Infinity }: { entries: EvidenceEntry[]; dict: Dictionary; limit?: number }) {
   return (
     <div className="evidence-list">
@@ -573,8 +568,8 @@ function ProseGroup({ gid, title, prose, dict }: { gid: string; title: string; p
 }
 
 /** 上下游 Tag 列表：每向最多 UPDOWN_TAG_LIMIT 个，超出 data-overflow + 「展开」
- * I-079: GroupToggle 不放入 flex-wrap 行，避免撑变形同行胶囊。
- * I-088: 每个品名可点击，跳到名称搜索。
+ * GroupToggle 不放入 flex-wrap 行，避免撑变形同行胶囊。
+ * 每个品名可点击，跳到名称搜索。
  */
 function UpdownTags({ gid, direction, items, dict, locale }: { gid: string; direction: string; items: { name: string }[]; dict: Dictionary; locale: Locale }) {
   return (
@@ -600,7 +595,7 @@ function UpdownTags({ gid, direction, items, dict, locale }: { gid: string; dire
   );
 }
 
-/** 供应商（Step 7 紧凑行）：公司名 + 电话 + 邮箱，默认 5 家，「查看全部 N 家」 */
+/** 供应商(紧凑行）：公司名 + 电话 + 邮箱，默认 5 家，「查看全部 N 家」 */
 function SupplierList({ gid, items, dict, locale }: { gid: string; items: CasSupplier[]; dict: Dictionary; locale: string }) {
   return (
     <div className="chem-group">

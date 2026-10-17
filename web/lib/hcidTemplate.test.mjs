@@ -1,4 +1,4 @@
-// FX-13（SMK-008 / B4-01）：五语言字典模板不得含多余 $（HCID $${id} 回归钉子）。
+// (/)：五语言字典模板不得含多余 $（HCID $${id} 回归钉子）。
 // SUT: web/lib/i18n/locales/*.ts（真实实现）。入口 `npm run test:locale`。
 import test from "node:test";
 import assert from "node:assert/strict";

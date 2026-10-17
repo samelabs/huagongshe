@@ -91,7 +91,7 @@ const ko: Dictionary = {
     hridLabel: (id: number | string) => `HRID ${id}, 반응`,
     breadcrumb: '브레드크럼',
     close: '닫기',
-    /* v1.7 组件库 */
+    /* 组件库 */
     copy: '복사',
     copied: '복사됨',
     cancel: '취소',
@@ -152,7 +152,7 @@ const ko: Dictionary = {
 
   /* ── 검색 ───────────────────────────────────────────── */
   search: {
-    seoResultsLabel: '검색',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
+    seoResultsLabel: '검색',  /* 结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: '이름, CAS 번호, InChIKey, SMILES 또는 구조로 화공사의 화학 데이터를 검색.',
     title: '화학 데이터 검색',
     noResultsFor: (query: string) => `"${query}"에 대한 일치 기록을 찾지 못했습니다`,
@@ -337,7 +337,7 @@ const ko: Dictionary = {
       other: '기타',
       unknown: '미표기',
     },
-    userSubmitted: '사용자 제출',  /* BX-A2：API user_submitted 标记的本地化 */
+    userSubmitted: '사용자 제출',  /* API user_submitted 标记的本地化 */
     sourceFields: {
       type: '출처 유형',
       ord: 'ORD 기록',
@@ -359,7 +359,7 @@ const ko: Dictionary = {
     yieldLabel: (v: string) => `수율 ${v}%`,
     internalStandard: '내부 표준',
     otherRole: '기타',
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: '이 반응을 삭제할까요?',
     deleteLabel: '반응 삭제',
     deleted: '반응이 삭제되었습니다',
@@ -445,7 +445,8 @@ const ko: Dictionary = {
     feedActor: (name: string) => `${name} 님이 공개 반응을 올렸어요`,
     feedActorNote: (name: string) => `${name} 님이 공개 노트를 게시했습니다`,
     feedEmptyTitle: '아직 소식이 없습니다',
-    feedEmptyDesc: '팔로우한 사용자의 소식이 여기에 표시됩니다.',
+    feedEmptyDesc: '팔로우한 작성자의 공개 반응과 노트가 여기에 표시됩니다.',
+    discoverCta: '작성자 찾아보기',
     feedViewAll: '모든 소식 보기',
     feedOpen: '열기',
     profileViewPublic: '공개 프로필 보기',
@@ -486,6 +487,7 @@ const ko: Dictionary = {
     },
     notesSessionExpired: '로그인이 만료되었습니다. 다시 로그인한 후 저장해 주세요.',
     notesEmpty: '아직 노트가 없습니다.',
+    notesEmptyDesc: '관찰, 판단, 자료를 기록합니다. 화합물이나 반응을 연결할 수 있습니다',
     notesFilter: '노트 공개 범위 필터',
     unitNote: '건',
     followingHint: '팔로우하는 사용자. 프로필을 보거나 팔로우를 취소할 수 있습니다',
@@ -493,8 +495,10 @@ const ko: Dictionary = {
     emptyReactions: '저장된 반응 기록이 아직 없습니다.',
     emptyChemicals: '저장한 화합물이 아직 없습니다.',
     emptyReactionSaved: '저장한 반응이 아직 없습니다.',
-    emptyFollowing: '팔로우하는 사용자가 아직 없습니다.',
-    emptyFollowers: '팔로워가 아직 없습니다.',
+    emptyFollowing: '팔로우한 작성자가 아직 없습니다',
+    emptyFollowingDesc: '「작성자 찾기」에서 관심 있는 멤버를 팔로우하면 새 소식이 피드에 표시됩니다',
+    emptyFollowers: '아직 팔로워가 없습니다',
+    emptyFollowersDesc: '공개 반응과 노트를 게시하여 커뮤니티에 당신의 작업을 알리세요',
     visAll: '웹 또는 AI로 저장한 모든 반응 기록',
     visPrivate: '현재 계정만 볼 수 있습니다',
     visPublic: '공개 프로필에 표시됩니다',
@@ -514,10 +518,12 @@ const ko: Dictionary = {
     navSkills: '내 Skills',
     navMcpKey: 'MCP 및 AI Key',
     navSettings: '설정',
-    tabPeople: '사용자 찾기',
-    peopleSearchPlaceholder: '사용자명 또는 표시 이름으로 검색...',
-    peopleEmptyPrompt: '사용자명 또는 표시 이름을 입력하여 사용자를 찾습니다',
-    peopleNoResults: '일치하는 사용자를 찾을 수 없습니다',
+    tabPeople: '작성자 찾기',
+    peopleHint: '멤버를 검색하고 팔로우하면 새 소식이 피드에 표시됩니다',
+    peopleSearchPlaceholder: '사용자명 또는 표시 이름으로 검색…',
+    peopleEmptyPrompt: '사용자명 또는 표시 이름으로 멤버를 검색하세요',
+    peopleIdleDesc: '팔로우하면 상대의 공개 반응과 노트가 소식 피드에 표시됩니다',
+    peopleNoResults: '일치하는 멤버가 없습니다',
     peopleFollowers: (n: number) => `팔로워 ${n}명`,
   },
 
@@ -530,6 +536,7 @@ const ko: Dictionary = {
     authorNote: (author: string) => `${author}의 노트`,
     /* ── Phase 1c: 상세 페이지 / 프로필 / 비공개 / 필터 / 잘라내기 / Stoich ── */
     detailTitle: '노트',
+    untitled: '제목 없는 노트',
     category: '노트',
     updatedLabel: '업데이트',
     visibilityPublic: '공개',
@@ -546,11 +553,11 @@ const ko: Dictionary = {
     createReaction: '반응 만들기',
     writeNote: '노트 쓰기',
 
-    /* R6 */
+    /* */
     profileLoadFailed: '공개 노트를 불러오지 못했습니다',
     deleteFailed: '삭제에 실패했습니다. 다시 시도해 주세요',
 
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: '이 노트를 삭제할까요?',
     deleteLabel: '노트 삭제',
     deleted: '노트가 삭제되었습니다',
@@ -820,6 +827,17 @@ const ko: Dictionary = {
     errAmountUnit: '각 참가 물질의 투입량은 수치와 단위를 모두 입력해야 합니다.',
     errConcUnit: '각 참가 물질의 농도는 수치와 단위를 모두 입력해야 합니다.',
     errSourceMissing: '출처 유형에 맞는 출처 정보를 입력해 주세요.',
+    errOccurrenceCount: '출현 횟수는 1–20 사이의 정수여야 합니다.',
+    errNonNegative: '값은 0 미만일 수 없습니다.',
+    errYieldRange: '수율은 0–100 사이여야 합니다.',
+    errDurationRange: '반응 시간은 0보다 커야 합니다.',
+    errPhRange: 'pH는 0–14 사이여야 합니다.',
+    errPressureRange: '압력은 0보다 커야 합니다.',
+    errDoiFormat: 'DOI 형식이 올바르지 않습니다.',
+    errSourceUrlScheme: '출처 링크는 http:// 또는 https:// 로 시작해야 합니다.',
+    errTempPair: '온도는 수치와 단위를 모두 입력해야 합니다.',
+    errDurationPair: '반응 시간은 수치와 단위를 모두 입력해야 합니다.',
+    errPressurePair: '압력은 수치와 단위를 모두 입력해야 합니다.',
     errSave: '저장에 실패했습니다. 잠시 후 다시 시도해 주세요',
     errNetwork: '네트워크 연결에 실패했습니다. 입력 내용은 이 페이지에 그대로 남습니다. 잠시 후 다시 시도해 주세요.',
     roles: {
@@ -1014,7 +1032,7 @@ const ko: Dictionary = {
     emptyNotesVisitor: '아직 공개 노트가 없습니다.',
     emptyNotesSelf: '아직 공개 노트가 없습니다.',
     enterWorkbench: '워크벤치 열기',
-    /* HGS-ACCOUNT-CONTENT-01 (PM 판정): 비활성 계정 프로필 상태(DESIGN_SYSTEM 6.6)와 작성자 표시 */
+    /* 비활성 계정 프로필 상태(DESIGN_SYSTEM 6.6)와 작성자 표시 */
     deactivatedTag: '계정 비활성화됨',
     deactivatedTitle: '비활성화된 계정입니다',
     deactivatedBody: '이 계정은 비활성화되었습니다. 공개된 내용은 링크로 계속 확인할 수 있지만, 여기에는 표시되지 않으며 팔로우할 수도 없습니다.',
@@ -1192,7 +1210,7 @@ const ko: Dictionary = {
     viewProfile: '프로필 보기',
   },
 
-  /* ── 편집기(IX-5 저장 상태 / 미저장 가드) ─────────────── */
+  /* ── 편집기(저장 상태 / 미저장 가드) ─────────────── */
   editor: {
     saved: '저장됨',
     saving: '저장 중…',
@@ -1203,7 +1221,7 @@ const ko: Dictionary = {
     unsavedBody: '변경 사항이 아직 저장되지 않았습니다. 떠나면 사라집니다.',
     unsavedConfirm: '변경 사항 버리기',
     unsavedCancel: '계속 편집',
-    /* BX-A1: 저장 중 편집 컨텍스트 전환 — 정직한 문구 */
+    /* 저장 중 편집 컨텍스트 전환 — 정직한 문구 */
     savingTitle: '노트를 저장하는 중입니다. 전환할까요?',
     savingBody: '저장은 계속 완료되며 내용은 사라지지 않습니다. 완료 후 목록이 자동으로 새로 고쳐집니다.',
     savingConfirm: '전환하기',
@@ -1224,7 +1242,7 @@ const ko: Dictionary = {
     notFoundAction: '검색으로 이동',
   },
 
-  /* ── 인쇄 보고서（I-078） ───────────────────────────── */
+  /* ── 인쇄 보고서 ───────────────────────────── */
   print: {
     title: '인쇄 보고서',
     printAction: '인쇄 / PDF 저장',

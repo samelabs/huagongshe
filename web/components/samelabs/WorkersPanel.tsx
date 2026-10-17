@@ -127,7 +127,7 @@ export function SamelabsWorkers() {
       await reload();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        // BX-A2：detail = {message, kind, leases} —— 按机器码渲染，不再透传中文原文
+        // detail = {message, kind, leases} —— 按机器码渲染，不再透传中文原文
         setError(e.detailKind === "worker_busy" ? t.admin.workerDeleteBlocked : t.admin.workerDeleteBlockedFallback);
       } else {
         setError(t.admin.errOperation);

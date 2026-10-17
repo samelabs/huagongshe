@@ -1,4 +1,4 @@
-"""workapi 内部队列服务层 — 自 api/workapi.py 下沉, 逻辑零改动(批次3d)。
+"""workapi 内部队列服务层 — 自 api/workapi.py 下沉, 逻辑零改动()。
 
 包含: lease_hash/verified_lease(租约校验), as_json_object/sync_chemical_core/
 reject_completed_job/upsert_details(PB 完成写库),
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class LeaseConflictError(Exception):
-    """租约校验失败的 transport-neutral 表达(E5 transport neutrality)。
+    """租约校验失败的 transport-neutral 表达(transport neutrality)。
 
     只承载语义: ``kind`` + ``detail``。HTTP status/detail 由 adapter 独占映射
     (api/workapi.py ``_lease_conflict_http``) — 本 service 不 import 任何
@@ -39,7 +39,7 @@ class LeaseConflictError(Exception):
 
 
 class PayloadInvalidError(Exception):
-    """CAS complete 载荷语义无效的 transport-neutral 表达(E6 job 状态机归口)。
+    """CAS complete 载荷语义无效的 transport-neutral 表达(job 状态机归口)。
 
     只承载语义: ``kind`` + ``detail``。HTTP status(既有 422)/detail 由 adapter
     独占映射(api/workapi.py ``_payload_invalid_http``) — 本 service 不 import
@@ -57,7 +57,7 @@ def lease_hash(value: str) -> bytes:
     return hashlib.sha256(value.encode()).digest()
 
 
-# ── P0-2 completion receipt(0912 trusted plane): 幂等 ack + 最小成功归因 ──
+# ── completion receipt(trusted plane): 幂等 ack + 最小成功归因 ──
 # 与业务写入 + job terminal 同一事务提交; 只存协议事实, 无 payload/明文 token。
 
 RECEIPT_INSERT = text("""
@@ -131,16 +131,16 @@ async def sync_chemical_core(
 ) -> None:
     """Synchronize trusted PubChem core fields without changing identity/structure.
 
-    0909 §2 写前裁定收口: 强身份字段(pubchem_cid/inchikey)不再从 incoming
-    properties 直取 — 调用方(complete_job)必须先完成 identity 裁定, 把
-    **已裁定可落**的身份值经 identity_grant 传入; 本函数只按"补空不覆盖"
+    §2 写前收口: 强身份字段(pubchem_cid/inchikey)不再从 incoming
+    properties 直取 — 调用方(complete_job)必须先完成 identity, 把
+    **已可落**的身份值经 identity_grant 传入; 本函数只按"补空不覆盖"
     语义写入。identity_grant 缺省(兼容旧调用面)时 cid/ik 一律不写。
 
-    cas_numbers(0901 裁定): cb_number 为空才写(并集补空), 有 CB 印记归 CB 链。
-    main_table_ids: nikkaji/chembl/ec/unii/chebi/dtxsid 主表已有列补空(0901 方案§四)。
+    cas_numbers: cb_number 为空才写(并集补空), 有 CB 印记归 CB 链。
+    main_table_ids: nikkaji/chembl/ec/unii/chebi/dtxsid 主表已有列补空(方案§四)。
     """
     values = chemical_core_values(properties, record_title=record_title)
-    # §2 职责分离: identity 字段只来自裁定通道(grant), incoming payload 不再直写
+    # §2 职责分离: identity 字段只来自通道(grant), incoming payload 不再直写
     values["pubchem_cid"] = (identity_grant or {}).get("pubchem_cid")
     values["inchikey"] = (identity_grant or {}).get("inchikey")
     id_arrays = {
@@ -251,7 +251,7 @@ async def sync_chemical_core(
     """), {
         "chemical_id": chemical_id,
         "sync_synonyms": validated is not None,
-        # 0904: validate_synonyms 原是四层重构孤儿(全库零引用)。它是 PB
+        # validate_synonyms 是 PB
         # synonyms 上限防线(20万条/8MB), 接回写入口。校验 raise ValueError
         # → 此处捕获: 跳过 synonyms 写入(其余字段照写), log 留痕不静默。
         "synonyms": validated,
@@ -272,7 +272,7 @@ async def sync_chemical_core(
 async def reconcile_pubchem_identity(
     db: Any, chemical_id: int, new_cid: int | None
 ) -> int:
-    """0907 强身份回补 gate: enrichment 新获得 pubchem_cid 后的 re-resolution。
+    """强身份回补 gate: enrichment 新获得 pubchem_cid 后的 re-resolution。
 
     冻结规则: 任何 enrichment 新获得此前行上不存在的强 identity evidence,
     必须在最终落主表身份前重新经过 identity resolution (CID=entity proof,
@@ -285,7 +285,7 @@ async def reconcile_pubchem_identity(
     - absorb 被 gate 拒 → 保留两行 + structured warning, 返回原 id
     - CONFLICT → 不覆盖 + structured warning, 返回原 id
 
-    HGS-PB-02: 同 CID 候选循环收敛 — ≥3 行同 CID 时每轮 absorb 掉一行,
+    同 CID 候选循环收敛 — ≥3 行同 CID 时每轮 absorb 掉一行,
     直到 resolver 候选只剩当前行(旧实现只 absorb 第一个, 其余残留分叉)。
     """
     if new_cid is None:
@@ -302,7 +302,7 @@ async def reconcile_pubchem_identity(
             return chemical_id
         # cid 命中行的全体 candidates 中, 除当前行外还有他行 → 必须 reconcile。
         # 不用 res.chemical_id(picked): picked 可能恰为当前行而残留他行重复;
-        # reconcile 对象由 resolver candidates 决定, survivor 仍由 absorb 裁定。
+        # reconcile 对象由 resolver candidates 决定, survivor 仍由 absorb。
         others = [c for c in (res.candidates or []) if c != chemical_id]
         if not others:
             return chemical_id
@@ -327,16 +327,16 @@ async def adjudicate_pubchem_identity(
     db: Any, chemical_id: int,
     inc_cid: int | None, inc_ik: str | None,
 ) -> tuple[int, dict[str, Any], dict[str, Any] | None]:
-    """0909 §2 写前裁定: incoming CID/IK 先裁定, 后写入。
+    """§2 写前incoming CID/IK 先, 后写入。
 
     返回 (canonical_chemical_id, identity_grant, conflict):
-    - grant: 经裁定可落的强身份值(仅补空), 由 sync_chemical_core 写入
+    - grant: 经可落的强身份值(仅补空), 由 sync_chemical_core 写入
     - conflict: 行上强身份冲突事实 — 不吞、不覆盖、不吸收, 仅可观测
     顺序: 行上冲突判断 → 补空 grant → same-CID fork 收敛(reconcile/absorb)
     → fork 未收敛时撤回 CID grant(禁止制造 same-CID 分叉)。
     can_merge/absorb 冻结规则不变; 本函数只重排写序, 不新增任何合并权限。
 
-    F-NEW-02 / HGS-PB-01 收口: CID 是唯一身份锚(B1-01 撤销裁决) — 行上
+    F-NEW-02 / 收口: CID 是唯一身份锚(撤销裁决) — 行上
     CID 与可信入站 CID 一致时, IK 差异是**溯源事实**不是 CONFLICT: 事实
     照写, 行上 IK 按补空语义保留, 差异记结构化 warning(入站 IK 本身随
     整包落在 chemical_pubchem.identifier_evidence, 溯源链完整)。此前整包
@@ -385,7 +385,7 @@ async def adjudicate_pubchem_identity(
     if inc_cid is None:
         return chemical_id, grant, None
 
-    # --- §2.1 holder preflight: incoming CID+IK 先过现有 resolver 完整裁定 ---
+    # --- §2.1 holder preflight: incoming CID+IK 先过现有 resolver 完整---
     # same-CID anchor 时唯一"冲突"就是行 IK vs 入站 IK 的差异(已按溯源记录),
     # preflight 的 CONFLICT 只可能复述该差异 → 跳过, 收敛交给 reconcile/闸。
     if inc_ik is not None and not same_cid_anchor:
@@ -397,7 +397,7 @@ async def adjudicate_pubchem_identity(
                 "candidates": pre.candidates, "reason": "holder-ik-conflict",
                 **(pre.evidence or {})}
 
-    # --- same-CID fork 收敛(0907 gate 原逻辑): resolve → absorb, 不改闸 ---
+    # --- same-CID fork 收敛(gate 原逻辑): resolve → absorb, 不改闸 ---
     canonical = await reconcile_pubchem_identity(db, chemical_id, inc_cid)
     if canonical != chemical_id:
         # 已收敛: 以 survivor 落库后实际状态重算 grant(merge 白名单可能已带上)
@@ -428,7 +428,7 @@ async def upsert_details(
     chemical_id: int,
     payload: dict[str, Any],
 ) -> None:
-    """整包入库(0901 定案): 拉到就 update 全字段覆盖, fetched_at=now()。
+    """整包入库: 拉到就 update 全字段覆盖, fetched_at=now()。
     payload = worker 整包解析产物(结构化字段), 无 merge 无校验。"""
     def obj(key: str) -> str:
         return json.dumps(as_json_object(payload.get(key)), ensure_ascii=False, separators=(",", ":"))

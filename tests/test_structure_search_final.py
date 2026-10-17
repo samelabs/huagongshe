@@ -1,4 +1,4 @@
-"""Structure Search 收口回归(0915): q+mode 唯一路径 + capped 契约。
+"""Structure Search 收口回归(): q+mode 唯一路径 + capped 契约。
 
 审计背景: /api/chemicals/{id}/substructure|similarity 已删除, 前端不得再
 引用; capped=true 表示 substructure snapshot 达到产品上限 250, 数据库真实
@@ -148,7 +148,7 @@ class CappedContractTests(unittest.TestCase):
     def test_routes_response_includes_capped(self):
         from api import routes as routes_module
 
-        # G2.3 final: capped 组装唯一 owner = orchestration
+        # capped 组装唯一 owner = orchestration
         from api.services import search as search_service
         src = inspect.getsource(search_service.execute_search)
         self.assertIn('"capped": capped', src)
@@ -220,7 +220,7 @@ class StructurePaginationKeepsModeTests(unittest.TestCase):
 
 
 class StructureHasMorePage20Tests(unittest.TestCase):
-    """page20 has_more=false(0914 #2 收口) + similarity page2 total 回归。"""
+    """page20 has_more=false + similarity page2 total 回归。"""
 
     def test_routes_clamps_has_more_at_page_20(self):
         import asyncio
@@ -229,7 +229,7 @@ class StructureHasMorePage20Tests(unittest.TestCase):
 
         import api.routes as routes_module
 
-        # G2.3 final: has_more 公式唯一 owner = execute_search(orchestration)
+        # has_more 公式唯一 owner = execute_search(orchestration)
         async def fake_execute(db, query, mode, *, threshold, page, page_size,
                                actor_id, locale=None, client_ip=None):
             # 模拟 page=20 契约上限: has_more and page < 20

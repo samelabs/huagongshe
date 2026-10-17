@@ -122,7 +122,7 @@ async def register(
         }
     except IntegrityError as exc:
         await db.rollback()
-        # BX-A2：{message, kind}（notes 400 先例）—— 前端按 kind 五语言渲染
+        # {message, kind}（notes 400 先例）—— 前端按 kind 五语言渲染
         raise HTTPException(409, {
             "message": "用户名或邮箱已被使用",
             "kind": "username_or_email_taken",
@@ -144,7 +144,7 @@ async def login(body: LoginBody, request: Request, response: Response, db=Depend
         WHERE (lower(email)=:account OR lower(username)=:account) AND status='active'
     """), {"account": account})).fetchone()
     if not row or not await asyncio.to_thread(password_matches, body.password, row[5]):
-        # BX-A2：{message, kind}（notes 400 先例）—— 前端按 kind 五语言渲染
+        # {message, kind}（notes 400 先例）—— 前端按 kind 五语言渲染
         raise HTTPException(401, {
             "message": "账号或密码不正确",
             "kind": "invalid_credentials",
@@ -186,7 +186,7 @@ def _like_literal(value: str) -> str:
 
 
 def _client_ip(request) -> str | None:
-    # R2: 统一读 nginx 覆盖写入的 x-real-ip(x-forwarded-for 首段可伪造)。
+    # 统一读 nginx 覆盖写入的 x-real-ip(x-forwarded-for 首段可伪造)。
     # 返回 None 时调用方不落 "unknown" 全站共用桶。
     return rate_limit.client_ip(request.headers)
 
@@ -200,7 +200,7 @@ async def search_users(
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
-    """I-082: 用户搜索 —— username 前缀(不区分大小写)或 display_name 包含
+    """用户搜索 —— username 前缀(不区分大小写)或 display_name 包含
     (不区分大小写); username 完全匹配排第一。只返回 active 用户与公开字段。
     匿名按 IP 限流 60/min, 登录按用户限流(当前 545 用户, ILIKE 足够;
     将来量级上来再评估 pg_trgm GIN(username/display_name) + 前缀 opclass)。
@@ -215,7 +215,7 @@ async def search_users(
         if ip:
             await enforce_http("users-search", ip, 60, 60)
         else:
-            # R2: 拿不到来源 IP 不落 "unknown" 全站共用桶(那等于所有匿名
+            # 拿不到来源 IP 不落 "unknown" 全站共用桶(那等于所有匿名
             # 访客合用 60/min)。生产链路 nginx 必写 x-real-ip, 走到这里
             # 说明绕过了 nginx, 记警不当桶。
             logger.warning(
@@ -289,7 +289,7 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
           (u.status='active')
         FROM community.users u WHERE u.id=:id AND u.status='active'
     """), {"id": actor.id})).one()
-    # I-007: 未读数与 /users/me/notifications 同一过滤条件(含 new_note),
+    # 未读数与 /users/me/notifications 同一过滤条件(含 new_note),
     # 未读数恒等于列表里未读的条数。
     from .social import unread_activity_count
     unread = await unread_activity_count(db, actor.id)
@@ -322,7 +322,7 @@ async def update_profile(body: ProfileBody, actor: Actor = Depends(current_sessi
         """), {**body.model_dump(), "id": actor.id})
         await db.commit()
     except IntegrityError as exc:
-        # 0904 敞口收口: email 唯一索引(community_users_email_uidx)冲突此前
+        # 敞口收口: email 唯一索引(community_users_email_uidx)冲突此前
         # 未处理直接 500(对照 register 路径同款异常已有 409)。精确判定:
         # 只把 email 撞号转 409; 其余约束冲突(display_name/bio CHECK 已被
         # pydantic Field 等值挡住, 理论不可达)原样抛, 不吞成误导性 409。
@@ -350,7 +350,7 @@ async def change_password(
         UPDATE community.users SET password_hash=:password_hash,updated_at=now() WHERE id=:id
     """), {"id": actor.id, "password_hash": new_password_hash})
     await db.execute(text("DELETE FROM community.sessions WHERE user_id=:id"), {"id": actor.id})
-    # revoke = 物理 DELETE(2026-08-31 终局): 不保留 soft-revoke 两套语义
+    # revoke = 物理 DELETE: 不保留 soft-revoke 两套语义
     await db.execute(text("DELETE FROM community.user_api_tokens WHERE user_id=:id"), {"id": actor.id})
     # Password rotation invalidates every OAuth grant for this account. OAuth
     # clients themselves are shared registration metadata and remain registered.
@@ -432,10 +432,10 @@ async def delete_avatar(actor: Actor = Depends(current_session), db=Depends(get_
 
 @router.get("/me/tokens")
 async def list_tokens(response: Response, actor: Actor = Depends(current_session), db=Depends(get_db)):
-    # 2026-10-14 项目负责人裁定（有意为之，锁死，勿以安全为由改回）:
+    # （有意为之，锁死，勿以安全为由改回）:
     # AI Key 明文落库(token_plain)并在列表回传 token 字段, 供账号本人在
     # 设置页再次查看、复制 —— 每账号最多 5 个有效 Key, 可再次查看能降低
-    # 使用摩擦。2026-10-11「明文不落库、只显示一次」的收口是对通用安全
+    # 使用摩擦。「明文不落库、只显示一次」的收口是对通用安全
     # 规则的误套, 已撤销; 变更本行为须经项目负责人确认。
     # 边界: 本端点只认网页会话(current_session), AI Key/匿名一律 401/403;
     # 无明文的旧 Key 返回 null; MCP/日志/错误信息不得出现明文。
@@ -446,7 +446,7 @@ async def list_tokens(response: Response, actor: Actor = Depends(current_session
         FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL
         ORDER BY id DESC
-        LIMIT 5  -- I-083: 与创建上限(5 个有效 Key)一致的有界防御
+        LIMIT 5  -- 与创建上限(5 个有效 Key)一致的有界防御
     """), {"id": actor.id})).mappings().all()
     return [dict(row) for row in rows]
 
@@ -479,9 +479,9 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
     # P2 边界归一: Token 创建只返回 credential 与 token metadata。
     # api_base_url / agent_guide_url / agent_connection_text 已删除(前端零真实消费者,
     # onboarding 耦合由 /guide 与 /mcp-guide 平级入口承担)。
-    # 2026-10-14 项目负责人裁定（有意为之，锁死，勿以安全为由改回）: 创建时
+    # （有意为之，锁死，勿以安全为由改回）: 创建时
     # 同步把明文写入 token_plain, 供本人设置页再次查看、复制(每账号最多 5 个
-    # 有效 Key, 降低使用摩擦); 鉴权仍走 token_hash。撤销 2026-10-11
+    # 有效 Key, 降低使用摩擦); 鉴权仍走 token_hash。撤销
     # 「只在 201 响应返回一次、不落库」的收口; 变更须经项目负责人确认。
     return {
         **dict(row),
@@ -491,7 +491,7 @@ async def create_token(body: TokenBody, actor: Actor = Depends(current_session),
 
 @router.delete("/me/tokens/{token_id}", status_code=204)
 async def revoke_token(token_id: int, actor: Actor = Depends(current_session), db=Depends(get_db)):
-    # 2026-08-31 用户裁定: 撤销=物理删除, 留存无意义; 列表也不再展示已撤销
+    # 撤销=物理删除, 留存无意义; 列表也不再展示已撤销
     result = await db.execute(text("""
         DELETE FROM community.user_api_tokens
         WHERE id=:token_id AND user_id=:user_id
@@ -505,7 +505,7 @@ async def revoke_token(token_id: int, actor: Actor = Depends(current_session), d
 async def list_oauth_connections(
     response: Response, actor: Actor = Depends(current_session), db=Depends(get_db)
 ):
-    # I-016 第 2 轮收紧: 凭据管理与 /users/me/tokens 一致, 只认网页会话
+    # 收紧: 凭据管理与 /users/me/tokens 一致, 只认网页会话
     # (AI Key agent 调用 403)。账户私有数据, 明确禁缓存。
     response.headers["Cache-Control"] = "private, no-store"
     return {"items": await oauth_svc.list_connections(db, user_id=actor.id)}
@@ -522,7 +522,7 @@ async def revoke_oauth_connection(
 @router.get("/{username}")
 async def public_profile(username: str, actor: Actor | None = Depends(public_or_actor), db=Depends(get_db)):
     viewer_id = actor.id if actor else 0
-    # HGS-ACCOUNT-CONTENT-01（PM 裁定 2026-10-12）: 停用账号主页不再 404 ——
+    # 停用账号主页不再 404 ——
     # 返回停用态最小档案(is_active=false), 前端渲染停用态卡片(无关注/分享/
     # 内容列表); 公开内容在各自详情页保留可见并带「已停用」标记。
     row = (await db.execute(text("""

@@ -20,7 +20,7 @@ import type { LoadState } from "../types";
 type SearchMode = "exact" | "substructure" | "similarity";
 
 /**
- * 工作台查询面板（Step 9 Part B.6：组件换 ui 库 —— Input/Button/Segmented/
+ * 工作台查询面板：组件用 ui 库（Input/Button/Segmented/
  * Skeleton/Notice/EmptyState；计算与业务逻辑不变）。
  * 搜索框 + 模式切换（精确/子结构/相似）+ 结果区
  */
@@ -35,7 +35,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
   const [hasMore, setHasMore] = useState(false);
   const [state, setState] = useState<LoadState>(initialQuery ? "loading" : "idle");
   const [submitted, setSubmitted] = useState(!!initialQuery);
-  // HGS-WB-SEARCH-DRAFT-01: 「查看更多」与重试必须绑定已提交的查询 ——
+  // 「查看更多」与重试必须绑定已提交的查询 ——
   // 用输入框的当前值会在用户改草稿后把结果页带到另一个查询。
   const [submittedQuery, setSubmittedQuery] = useState(initialQuery ?? "");
   const [error, setError] = useState<unknown>(null);
@@ -77,7 +77,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
     <section className="wb-panel wb-search">
       <PanelHeading title={t.me.tabSearch} subtitle={t.me.searchHint} />
 
-      {/* 搜索框 — 工作台自有布局，控件用 ui 库（Step 9） */}
+      {/* 搜索框 — 工作台自有布局，控件用 ui 库 */}
       <form method="post" className="wb-search-form" onSubmit={(e) => { e.preventDefault(); doSearch(query, mode); }}>
         <div className="wb-search-field">
           <Input
@@ -157,7 +157,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
       )}
 
       {/* 更多结果跳主站搜索页: 只认 API has_more(名称搜索 total 恒 null)；
-          链接绑定已提交的查询(HGS-WB-SEARCH-DRAFT-01), 不随输入草稿漂移 */}
+          链接绑定已提交的查询, 不随输入草稿漂移 */}
       {submitted && state === "ready" && hasMore && (
         <Link className="wb-home-more-search" href={withLocale(`/search?q=${encodeURIComponent(submittedQuery)}&mode=${mode}`, locale)}>
           {t.me.homeViewAll}{total != null ? ` (${total})` : ""}

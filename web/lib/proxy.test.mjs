@@ -1,7 +1,7 @@
 // proxy.ts 最小单测: 用 Next 官方 testing 工具 (next/experimental/testing/server)
 // 的 isRewrite / getRewrittenUrl / getRedirectUrl 验证 rewrite/redirect,
 // 不用自建 fetch mock 证明正确性。
-// v1.6.0: tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
+// tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
 // (tsx --test 直接加载真实 .ts SUT)。malformed cookie / locale redirect 契约
 // 正式进入 CI 回归门禁。
 import test from "node:test";
@@ -166,7 +166,7 @@ test("/ja/mcp、/ja/oauth/*、/ja/api/*、/ja/samelabs/*、/ja/.well-known/* 均
   }
 });
 
-/* ─────── P2/P3: malformed site_locale cookie 不再 500, 正常协商 redirect ─────── */
+/* ─────── P2/: malformed site_locale cookie 不再 500, 正常协商 redirect ─────── */
 
 test("malformed cookie + Accept-Language ja → 307 /ja/(不再 URIError)", () => {
   const r = proxy(nextReq("/", { cookie: "site_locale=%E0%A4%A", al: "ja-JP,ja;q=0.9" }));
@@ -180,7 +180,7 @@ test("malformed cookie + 无支持语言 → 307 /en/", () => {
   assert.equal(getRedirectUrl(r), ORIGIN + "/en/chemical/123");
 });
 
-/* ─────── Round 13: 匿名访问公开页面边缘缓存契约 ─────── */
+/* ─────── : 匿名访问公开页面边缘缓存契约 ─────── */
 
 test("匿名访问公开页面: public 300s 边缘缓存", () => {
   for (const p of [
@@ -246,7 +246,7 @@ test("未带 locale 的 307 redirect 响应: 保持 private, no-store", () => {
   assert.equal(r.headers.get("cache-control"), "private, no-store");
 });
 
-/* ─────── Round 14: 边缘缓存修复（可缓存响应禁 Set-Cookie、RSC/预取不进共享缓存） ─────── */
+/* ─────── : 边缘缓存修复（可缓存响应禁 Set-Cookie、RSC/预取不进共享缓存） ─────── */
 
 test("可缓存的匿名公开响应一定没有 Set-Cookie", () => {
   for (const p of [
@@ -320,7 +320,7 @@ test("RSC 与预取请求不进共享缓存 (private, no-store 且无 Set-Cookie
   assert.equal(r5.headers.getSetCookie().length, 0);
 });
 
-/* ─────── I-084: /u/{username} 短地址跳转 ─────── */
+/* ─────── /u/{username} 短地址跳转 ─────── */
 
 test("合法用户名跳转: /u/{username} → 307 到 /{locale}/user/{username}，Cache-Control: private, no-store", () => {
   const r1 = proxy(nextReq("/u/alice_01"));
@@ -340,25 +340,39 @@ test("合法用户名跳转: /u/{username} → 307 到 /{locale}/user/{username}
   assert.equal(getRedirectUrl(r3), ORIGIN + "/de/user/charlie?tab=notes");
 });
 
-test("非法用户名 404: /u/abc, /u/invalid-hyphen, /u, /u/", () => {
+test("非法用户名渲染站内 404 页: /u/abc, /u/invalid-hyphen, /u, /u/ 交给 Next 404 路由", () => {
+  // 不合规名不再返回空白 body 的裸 404 —— proxy 放行(undefined),
+  // 由 Next 按未匹配路由渲染站内 404 页并保留 404 状态
   // 长度 < 4
   const r1 = proxy(nextReq("/u/abc"));
-  assert.equal(r1.status, 404);
+  assert.equal(r1, undefined);
 
   // 包含非法字符（连字符）
   const r2 = proxy(nextReq("/u/invalid-user"));
-  assert.equal(r2.status, 404);
+  assert.equal(r2, undefined);
 
   // 超过 30 字符
   const r3 = proxy(nextReq("/u/" + "a".repeat(31)));
-  assert.equal(r3.status, 404);
+  assert.equal(r3, undefined);
 
   // 根路径 /u 与空用户名 /u/
   const r4 = proxy(nextReq("/u"));
-  assert.equal(r4.status, 404);
+  assert.equal(r4, undefined);
 
   const r5 = proxy(nextReq("/u/"));
-  assert.equal(r5.status, 404);
+  assert.equal(r5, undefined);
+});
+
+test("大小写归一: /u/HGS_Demo 307 到小写规范形 /u/hgs_demo", () => {
+  const r = proxy(nextReq("/u/HGS_Demo"));
+  assert.equal(r.status, 307);
+  assert.equal(getRedirectUrl(r), ORIGIN + "/u/hgs_demo");
+  assert.equal(r.headers.get("cache-control"), "private, no-store");
+
+  // query 保留
+  const r2 = proxy(nextReq("/u/Alice_01?tab=notes"));
+  assert.equal(r2.status, 307);
+  assert.equal(getRedirectUrl(r2), ORIGIN + "/u/alice_01?tab=notes");
 });
 
 test("带 locale 前缀的 /ja/u/x 不当作别名（按现有排除规则 404）", () => {

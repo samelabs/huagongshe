@@ -1,4 +1,4 @@
-"""Transport-neutral stoichiometry calculation service (G2.1).
+"""Transport-neutral stoichiometry calculation service .
 
 自 api/stoichiometry.py 下沉, 业务计算逻辑零改动(逐行搬运)。
 禁止导入 fastapi/mcp/Request/Response/UploadFile/HTTPException ——

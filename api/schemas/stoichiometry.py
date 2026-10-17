@@ -1,4 +1,4 @@
-"""Pydantic 请求模型 — 自各路由文件集中, 逻辑零改动(批次2)。"""
+"""Pydantic 请求模型 — 自各路由文件集中, 逻辑零改动()。"""
 from typing import Literal
 from pydantic import BaseModel, Field
 

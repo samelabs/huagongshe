@@ -25,7 +25,7 @@ def cas_checkdigit_valid(value: str) -> bool:
 
 
 def valid_cas(value: str | None) -> bool:
-    """格式 + 校验位都合法的 CAS 才入库/入检索(I-061: 入口只挡格式不够)。"""
+    """格式 + 校验位都合法的 CAS 才入库/入检索(入口只挡格式不够)。"""
     normalized = (value or "").strip()
     return bool(CAS_RE.fullmatch(normalized)) and cas_checkdigit_valid(normalized)
 

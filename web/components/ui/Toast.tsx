@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * Toast — 全局轻提示（DESIGN_SYSTEM 3.9，IX-2）。
+ * Toast — 全局轻提示（DESIGN_SYSTEM 3.9)。
  *
  * ToastProvider 挂在 app/layout.tsx；useToast() 提供
- *   toast.success(msg, { action: { label, onClick } })  3s 自动消失
- *   toast.error(msg)                                    手动关闭
+ * toast.success(msg, { action: { label, onClick } }) 3s 自动消失
+ * toast.error(msg) 手动关闭
  * 最多同时显示 3 条；底部居中，手机上避开 tabbar 与 safe-area（ui.css）。
  */
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";

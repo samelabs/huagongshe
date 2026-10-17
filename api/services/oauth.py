@@ -2,7 +2,7 @@
 
 Opaque credentials are stored only as SHA-256 digests. The OAuth access-token
 family is intentionally separate from existing hgs_ API keys and is resolved
-only by the MCP adapter in v1.7.0.
+only by the MCP adapter.
 """
 from __future__ import annotations
 
@@ -553,7 +553,7 @@ async def list_connections(db, *, user_id: int) -> list[dict[str, Any]]:
           ON c.client_id=t.client_id AND c.disabled_at IS NULL
         LEFT JOIN scope_union s ON s.client_id=t.client_id
         ORDER BY COALESCE(t.last_used_at, t.authorized_at) DESC, c.client_id
-        LIMIT 100  -- I-083: 接口有界(实际规模=用户授权客户端数, 远小于 100)
+        LIMIT 100  -- 接口有界(实际规模=用户授权客户端数, 远小于 100)
     """), {"user_id": user_id})).mappings().all()
     return [
         {

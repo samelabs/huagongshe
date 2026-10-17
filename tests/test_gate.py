@@ -34,7 +34,7 @@ class FauxRedis:
 
 class TestLadder(unittest.TestCase):
     def test_ladder_shape(self):
-        # 定案: 5错→5分; +2(=7)→10分; +1(=8)→30分; +1(=9)→停(半开30分)
+        # 5错→5分; +2(=7)→10分; +1(=8)→30分; +1(=9)→停(半开30分)
         self.assertEqual(LADDER, ((5, 300), (7, 600), (8, 1800), (9, 1800)))
 
     def test_silence_mapping(self):
@@ -80,7 +80,7 @@ class TestFetchMapping(unittest.TestCase):
 
     def test_small_pages_are_error(self):
         from caslib.parse import cpp_page_state
-        # 0902 用户口径: <10KB 一律 error(系统忙/质询降级/空壳/网络错误页)
+        # 判定口径: <10KB 一律 error(系统忙/质询降级/空壳/网络错误页)
         self.assertEqual(cpp_page_state("SysTem ERROR！"), "error")
         self.assertEqual(cpp_page_state("尊敬的用户您好！系统忙。。。"), "error")
         self.assertEqual(cpp_page_state(""), "error")
@@ -94,7 +94,7 @@ class TestFetchMapping(unittest.TestCase):
         self.assertEqual(cpp_page_state(body), "ok")
 
     def test_big_alien_page_is_error(self):
-        # 0902 判定总览 Q2: >10KB 但无任何站内结构 = 大拦截页(验证码) → error
+        # 判定口径: >10KB 但无任何站内结构 = 大拦截页(验证码) → error
         from caslib.parse import cpp_page_state
         body = "<html>" + "x" * 30_000 + "</html>"
         self.assertEqual(cpp_page_state(body), "error")

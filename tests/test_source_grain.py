@@ -1,4 +1,4 @@
-# 0907 source grain 专项: (chemical_id, cb_number, locale) 存储/upsert/absorb/fan-out
+# source grain 专项: (chemical_id, cb_number, locale) 存储/upsert/absorb/fan-out
 import asyncio
 import os
 import re

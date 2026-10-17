@@ -58,7 +58,7 @@ class FakeRunner:
             if self.jlist_fail:
                 return _cp(1, "pm2 daemon unavailable")
             out = json.dumps([
-                # 标准 pm2 jlist 形态: pid 只在顶层(HGS-WORKER-READY-PID-01
+                # 标准 pm2 jlist 形态: pid 只在顶层
                 # 的旧假数据在 pm2_env 里镜像了 pid, 两处同值掩盖了实现读错键)
                 {"name": n, "pid": v.get("pid", 100),
                  "pm2_env": {"status": v["status"], "pm_id": v.get("pm_id", 0)}}
@@ -76,7 +76,7 @@ class FakeRunner:
                 self.apps[only] = {"status": "online",
                                    "pid": self._next_pid(), "pm_id": 0}
                 return _cp(0, f"started {only}")
-            # HGS-PM2-ENV-RELOAD-01: restart 现带 ecosystem 路径
+            # restart 现带 ecosystem 路径
             # (`restart <spec> --only <app> --update-env`) — 解析 --only 定位
             # 目标; 兼容旧裸 `restart <app>` 形态(按位置取 app 名)。
             if "--only" in args:

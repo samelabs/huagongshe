@@ -1,4 +1,4 @@
-"""测试库身份闸 (0909 规范收口 §1)。
+"""测试库身份闸 (规范收口 §1)。
 
 铁律:
 - DB integration tests 只允许连 TEST_DATABASE_URL, 绝不 fallback 生产 settings/env。
@@ -7,7 +7,7 @@
 
 用法 (测试文件):
     from tests.db_gate import require_test_db
-    DB_URL = require_test_db()   # 不合规直接抛异常, 不会连生产
+    DB_URL = require_test_db() # 不合规直接抛异常, 不会连生产
 """
 
 from __future__ import annotations

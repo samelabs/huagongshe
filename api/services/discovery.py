@@ -3,7 +3,7 @@
 职责边界(§3 立项令):
 - discovery 只产出候选证据, 绝不写 chemistry.chemicals 任何字段,
   绝不调用 absorb/merge;
-- 单 CID 返回 = CANDIDATE, 不是 identity 裁定; 最终 authority 是
+- 单 CID 返回 = CANDIDATE, 不是 identity; 最终 authority 是
   §2 frozen adjudication(enrichment callback 链);
 - 唯一出口 = candidate handoff: 同一事务内 canonicalize → 证据新鲜度
   复核 → 入既有 pubchem_jobs(query_value=CID) → identity job 置
@@ -105,7 +105,7 @@ async def complete_discovery(
     job_id: int,
     cid_list: list[int],
 ) -> str:
-    """discovery complete(§3 修正2+3): 单事务裁定 + candidate 原子 handoff。
+    """discovery complete(§3 修正2+3): 单事务+ candidate 原子 handoff。
 
     输入 cid_list = PubChem /cids 返回的原始 CID 集合(零裁剪):
     - 空 → not_found(负缓存: 绑定 evidence_hash, 同证据不重查);

@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { SearchHero } from "@/components/SearchHero";
 import { CodeField } from "@/components/ui/CodeField";
 import { Button } from "@/components/ui/Button";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
 import type { Metadata } from "next";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
@@ -43,7 +45,8 @@ export default async function Home() {
   const locale = await getRequestLocale();
   const authed = (await cookies()).has("hgs_session");
   return (
-    <div className="home">
+    <PageFrame className="home">
+      {/* 标题与搜索区按现行规则在框内居中 */}
       <section className="hero">
         <h1>{t.home.hero}</h1>
         <p className="hero-subtitle">{t.home.subtitle}</p>
@@ -51,21 +54,22 @@ export default async function Home() {
       </section>
 
       {/* ── AI 接入入口: 第一屏直接给出地址与主入口 MCP / Skills / 工作台 /
-          Agent Plugin（tests/test_v170_release_governance.py）。Agent Plugin
+          Agent Plugin（tests/test_release_governance.py）。Agent Plugin
           直接下载随代码部署的插件包（web/public/downloads，见
           scripts/build_plugin_package.py）。 ── */}
-      <section className="home-entry" aria-label={t.home.entryLabel}>
-        <p className="home-entry-kicker">{t.home.entryLabel}</p>
-        <CodeField value="https://huagongshe.com/mcp" copyLabel={t.home.entryMcpCopy} className="home-entry-code" />
-        <nav className="guide-actions home-entry-actions">
-          <Button variant="primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Button>
-          <Button variant="secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Button>
-          <Button variant="secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Button>
-          <Button variant="secondary" href={PLUGIN_PACKAGE_URL} download>
-            {t.home.entryPlugin}
-          </Button>
-        </nav>
-      </section>
-    </div>
+      <Section title={t.home.entryLabel} className="home-entry-section">
+        <div className="home-entry">
+          <CodeField value="https://huagongshe.com/mcp" copyLabel={t.home.entryMcpCopy} className="home-entry-code" />
+          <nav className="guide-actions home-entry-actions">
+            <Button variant="primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Button>
+            <Button variant="secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Button>
+            <Button variant="secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Button>
+            <Button variant="secondary" href={PLUGIN_PACKAGE_URL} download>
+              {t.home.entryPlugin}
+            </Button>
+          </nav>
+        </div>
+      </Section>
+    </PageFrame>
   );
 }

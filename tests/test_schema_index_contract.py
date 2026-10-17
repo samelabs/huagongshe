@@ -1,4 +1,4 @@
-"""schema 契约: chemical_cb 必须有可服务 `chemical_id = $1` 的非部分索引 (0911)。
+"""schema 契约: chemical_cb 必须有可服务 `chemical_id = $1` 的非部分索引 。
 
 锁的契约(防回退):
   1. chemistry.chemical_cb 上存在至少一个 **非 partial**、**有效** 的索引
@@ -88,7 +88,7 @@ class ChemicalCbFkIndexContract(unittest.TestCase):
 class ChemicalCbFetchedAtIndexContract(unittest.TestCase):
     """契约: chemical_cb 必须有可服务 `ORDER BY fetched_at DESC NULLS LAST` 的索引。
 
-    锁的是 /admin/pipeline latest-10 的计划形态 (0911, 实测 before = Parallel Seq Scan 1156.7ms)。
+    锁的是 /admin/pipeline latest-10 的计划形态 (实测 before = Parallel Seq Scan 1156.7ms)。
     indoption 位: 1 = DESC, 2 = NULLS FIRST —— 故 DESC NULLS LAST ⇒ indoption[0] & 1 = 1 且 & 2 = 0。
     """
 

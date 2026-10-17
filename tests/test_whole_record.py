@@ -1,4 +1,4 @@
-"""HGS-A5-06 —— PUG View 整包解析器 (worker/whole_record.py) 回归。
+"""PUG View 整包解析器 (worker/whole_record.py) 回归。
 
 该解析器是 PB 链唯一入库前解析点(390 行), 此前零测试引用(PB_ARCHITECTURE
 曾虚称"回归在案", 历史两次生产修复无回归锁)。本文件用合成 PUG View

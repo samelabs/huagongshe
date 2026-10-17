@@ -1,4 +1,4 @@
-"""I-082 — GET /users/search 针对性测试。
+""" — GET /users/search 针对性测试。
 
 覆盖: username 前缀(不区分大小写)、display_name 包含(不区分大小写)、
 username 完全匹配排第一、停用用户不出现、公开字段口径(bio 截断 120/
@@ -192,7 +192,7 @@ class UsersSearchTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_anonymous_rate_limit_per_ip(self):
         # 同一匿名 IP 连打 61 次 → 429(Redis 真实闸门); 分桶键是 nginx
-        # 覆盖写入的 x-real-ip(R2), 与请求自带的 x-forwarded-for 无关。
+        # 覆盖写入的 x-real-ip, 与请求自带的 x-forwarded-for 无关。
         limited = False
         for _ in range(61):
             try:
@@ -203,7 +203,7 @@ class UsersSearchTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(limited, "匿名 61 次/分钟必须被限流")
 
     async def test_forged_xff_does_not_affect_bucketing(self):
-        # R2: XFF 首段是客户端可伪造的值 —— 每次换一个伪造 XFF, 若分桶
+        # XFF 首段是客户端可伪造的值 —— 每次换一个伪造 XFF, 若分桶
         # 错误地读 XFF 则永不超限; 读 x-real-ip 时同一 IP 61 次必 429。
         limited = False
         for i in range(61):
@@ -217,7 +217,7 @@ class UsersSearchTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(limited, "伪造 XFF 不得绕过按 IP 限流")
 
     async def test_no_real_ip_skips_limit_without_shared_unknown_bucket(self):
-        # R2: 拿不到 x-real-ip 时不落 "unknown" 全站共用桶 —— 80 次(超过
+        # 拿不到 x-real-ip 时不落 "unknown" 全站共用桶 —— 80 次(超过
         # 单桶 60/min 上限)全部放行, 并记告警(生产 nginx 必写该头)。
         with self.assertLogs("api.users", level="WARNING") as logs:
             for _ in range(80):

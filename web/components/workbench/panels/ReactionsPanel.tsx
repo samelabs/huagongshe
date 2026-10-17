@@ -24,7 +24,7 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
   const mounted = useRef(false);
   const latestLoad = useRef(0);
 
-  /** FX-16：客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
+  /** 客户端重载（请求序号防串台）；SlowNotice 重试走这里 */
   async function load() {
     const requestId = ++latestLoad.current;
     setState("loading");
@@ -63,7 +63,7 @@ export function ReactionsPanel({ visibility, page, initialData }: PanelProps & {
       <PanelHeading
         title={t.me.tabReactions}
         subtitle={subtitle[visibility]}
-        count={state === "ready" ? total : "—"}
+        count={state === "ready" ? total : undefined}
         unit={t.me.unitReaction}
         action={<Button variant="primary" size="sm" href={withLocale("/submit", locale)}>{t.me.navNewReaction}</Button>}
       />

@@ -1,15 +1,15 @@
-"""Transport-neutral rendering services (G2.2) — molecule/reaction 渲染唯一 owner。
+"""Transport-neutral rendering services — molecule/reaction 渲染唯一 owner。
 
-G1A 冻结结论的机械落实:
+ 冻结结论的机械落实:
 - molecule SVG/PNG = shared kernel + 独立 scenario(共享 lookup/preparation,
   独立 representation/MIME/consumer surface)
 - reaction SVG = visibility-aware lookup + cache policy 独立于 molecule
 
 本文件职责(唯一 owner):
-- molecule lookup:            lookup_molecule_smiles
+- molecule lookup: lookup_molecule_smiles
 - reaction visibility lookup: lookup_reaction_render_source(领域事实:
   存在性/visibility/moderation/owner/admin 可达性/render source)
-- RDKit render kernel:        smiles_to_svg / smiles_to_png / reaction_to_svg
+- RDKit render kernel: smiles_to_svg / smiles_to_png / reaction_to_svg
   (自 api/mol.py 逐行搬运, 计算体零改动)
 
 不职责(全部留 transport adapter):

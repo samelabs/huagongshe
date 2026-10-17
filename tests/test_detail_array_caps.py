@@ -1,4 +1,4 @@
-"""I-083 — 详情嵌数组硬上限与总数字段(纯函数, 不触库)。
+""" — 详情嵌数组硬上限与总数字段(纯函数, 不触库)。
 
 build_semantic_detail 的 CB/PB 详情投影: 供应商 50、cb_aliases 200、
 cb_price 50、cb_updown 每向 100、CB 物性(cb_experimental)与文字组

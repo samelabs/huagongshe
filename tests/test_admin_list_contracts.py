@@ -1,7 +1,7 @@
 """Admin list contract tests: users + reactions (hermetic fixtures).
 
 契约 (Batch 1 起, 不保留旧裸数组 shape):
-  GET /admin/users?q=&limit=&offset=          -> {"total": N, "items": [...]}
+  GET /admin/users?q=&limit=&offset= -> {"total": N, "items": [...]}
   GET /admin/reactions?status=&limit=&offset= -> {"total": N, "items": [...]}
 
 Hermetic 原则 (本轮收口):
@@ -259,7 +259,7 @@ class UsersListContractTests(unittest.IsolatedAsyncioTestCase):
 
 @unittest.skipUnless(DB_URL, "需要 test DB")
 class ReactionsListContractTests(unittest.IsolatedAsyncioTestCase):
-    """R1-R4: reactions 窗口/total 口径/status filter/参数边界。
+    """R1-reactions 窗口/total 口径/status filter/参数边界。
 
     Hermetic: 自造 marker (owner + 7 user-reactions 5 visible/2 hidden + 1 system row)。
     total 断言 = DB 真实 count + marker 差值 (不依赖库存量, fresh/共享库都成立)。
@@ -281,7 +281,7 @@ class ReactionsListContractTests(unittest.IsolatedAsyncioTestCase):
         asyncio_run(_cleanup_reactions(cls.owner, cls.rids))
 
     async def test_r1_offset_window_stable(self):
-        """R1: API 窗口 = DB 同 WHERE/ORDER/LIMIT/OFFSET 直查结果 (fresh/共享库都成立)。"""
+        """API 窗口 = DB 同 WHERE/ORDER/LIMIT/OFFSET 直查结果 (fresh/共享库都成立)。"""
         from sqlalchemy import text as _t
         from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -312,7 +312,7 @@ class ReactionsListContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ids1, sorted(ids1, reverse=True), "ORDER BY id DESC")
 
     async def test_r2_total_excludes_system_rows(self):
-        """R2: status=all 的 total = DB 真实 user-reactions count (含 marker, 排除 system)。"""
+        """status=all 的 total = DB 真实 user-reactions count (含 marker, 排除 system)。"""
         expect = await _db_count("WHERE created_by_user_id IS NOT NULL")
         code, body = await _call_admin("/admin/reactions?status=all&limit=1", 0)
         self.assertEqual(200, code)
@@ -327,7 +327,7 @@ class ReactionsListContractTests(unittest.IsolatedAsyncioTestCase):
                          "marker user-reactions 应全部计入 total 口径")
 
     async def test_r3_status_filter_total_same_set(self):
-        """R3: visible/hidden total = DB 各自真实过滤集合; visible+hidden==all。"""
+        """visible/hidden total = DB 各自真实过滤集合; visible+hidden==all。"""
         exp_v = await _db_count(
             "WHERE created_by_user_id IS NOT NULL AND moderation_status='visible'")
         exp_h = await _db_count(

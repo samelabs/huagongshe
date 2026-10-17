@@ -11,15 +11,19 @@ import { Button } from "@/components/ui/Button";
 import { IconPrinter } from "@/components/ui/icons";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { Byline } from "@/components/ui/Byline";
-import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { CodeField } from "@/components/ui/CodeField";
 import { Notice } from "@/components/ui/Notice";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { PageHead } from "@/components/ui/PageHead";
+import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
 import { Molecule } from "@/components/Molecule";
-import { apiGet, isApiGone, isEntityId, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
+import { isApiGone, isEntityId, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
+import { reactionTitleText } from "@/lib/reactionTitle";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
@@ -29,9 +33,10 @@ import type { Locale } from "@/lib/i18n/locales";
 /**
  * Reaction Detail（DESIGN_SYSTEM 6.4 重排）。
  *
- * 头部：EntityBadge lg copyable（私有带锁）→ h1 中性「反应详情」（字号同化合物页）
- * → 结构化事实摘要（fs-16/text-2）→ 操作行（本人：编辑/可见性/删除；
- * 他人：关注 primary + 分享 ghost icon）。
+ * 头部（版式件 PageHead hero）：面包屑到分类 → h1 = 主反应物 → 主产物
+ * 徽标在操作行首位（私有带锁）→ 署名（Byline + 作者关注）入 meta
+ * → 结构化事实摘要为副标题 → 操作行（本人：编辑/可见性/删除；他人：关注
+ * + 分享 + 打印）入 actions。
  * 反应式：满宽白底卡片（手机可横向滚动不压缩）+ CodeField 反应 SMILES。
  * 参与物：按角色分组的紧凑行（64×48 缩略图 + 徽标 sm + 名称 + 用量）。
  * 数据行统一 DataRow；安全一节 Notice warn；右侧栏 = 本页导航（滚动高亮）
@@ -49,7 +54,7 @@ function roleNames(t: Dictionary): Record<string, string> {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  // FX-3（SMK-002）：非法 ID 与页面同一口径 → 404
+  // 非法 ID 与页面同一口径 → 404
   if (!isEntityId(id)) notFound();
   const canonical = `/reaction/${id}`;
   const locale = await getRequestLocale();
@@ -91,7 +96,7 @@ export default async function ReactionPage({ params }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // FX-3（SMK-002 / HGS-WEB-DETAIL-ID-01）：非法 ID 直接 404；后端 422 同 404
+  // 非法 ID 直接 404；后端 422 同 404
   if (!isEntityId(id)) notFound();
   const locale: Locale = await getRequestLocale();
   const t = await getRequestDictionary();
@@ -107,22 +112,10 @@ export default async function ReactionPage({ params }: {
   const products = reaction.participants.filter((item) => item.role === "PRODUCT");
   const auxiliaries = reaction.participants.filter((item) => item.role !== "REACTANT" && item.role !== "PRODUCT");
 
-  // 主要反应物取第一个反应物；主要产物取有收率中最高的一个，都没有收率时取第一个产物（DESIGN_SYSTEM 5.1）
-  const primaryReactantParticipant = reactants[0];
-  const productsWithYield = products.filter((p) => typeof p.yield_percent === "number" && !isNaN(p.yield_percent));
-  const primaryProductParticipant = productsWithYield.length > 0
-    ? productsWithYield.reduce((max, cur) => ((cur.yield_percent ?? 0) > (max.yield_percent ?? 0) ? cur : max))
-    : products[0];
-
-  const primaryReactant = primaryReactantParticipant ? resolveChemicalName(primaryReactantParticipant, t.common.hcidLabel, locale).title : "";
-  const primaryProduct = primaryProductParticipant ? resolveChemicalName(primaryProductParticipant, t.common.hcidLabel, locale).title : "";
-  const reactionTitleText = (primaryReactant && primaryProduct)
-    ? t.reaction.reactionTitle(primaryReactant, primaryProduct)
-    : primaryReactant
-      ? `${primaryReactant} →`
-      : primaryProduct
-        ? `→ ${primaryProduct}`
-        : t.reaction.reactionTitleFallback(reaction.id);
+  // 标题规则（主反应物 → 主产物）唯一实现在 lib/reactionTitle，与用户主页卡标题共用
+  const reactionTitle = reactionTitleText(reaction.participants, {
+    t, locale, reactionId: reaction.id,
+  });
 
   // 条件 = structured facts(独立字段); conditions_detail 只作补充说明, 不与 facts 混成一段。
   const conditions = [
@@ -133,9 +126,6 @@ export default async function ReactionPage({ params }: {
     reaction.ph != null ? ["pH", String(reaction.ph)] : null,
     reaction.reflux ? [t.reaction.conditionFields.reflux, t.common.yes] : null,
   ].filter(Boolean) as string[][];
-
-  // 结构化字段只来自当前 reaction (不推断命名反应/reaction class)
-  const factualSummary = buildSummary(reactants, products, auxiliaries, reaction, t, locale);
 
   // Provenance: ORD 身份只认 ord_id; dataset_name / source_citation 在 API 中同源(见 services.reactions),
   // 只表达一次: 有 ORD 时是 ORD 数据集名, 否则是用户提供的来源说明。
@@ -181,36 +171,21 @@ export default async function ReactionPage({ params }: {
   };
 
   return (
-    <div className="content-page reaction-page">
-      {/* 0904 P0收口: JSON.stringify 不转义 '<', </script> 可闭合标签注入脚本
+    <PageFrame className="reaction-page">
+      {/* 安全收口: JSON.stringify 不转义 '<', </script> 可闭合标签注入脚本
           (存储型XSS)。规范做法: < 与 U+2028/2029 转义为 JSON 等价形式。 */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
-      <Breadcrumb
-        items={[
+
+      {/* ── Reaction Entity Header：徽标入标题行 + 署名 meta + 事实摘要 + 操作行 ── */}
+      <PageHead
+        hero
+        breadcrumb={[
           { label: t.chemical.home, href: withLocale("/", locale) },
           { label: t.reaction.category },
         ]}
-        ariaLabel={t.common.breadcrumb}
-      />
-
-      {/* ── Reaction Entity Header（5.1 / 6.4：徽标 lg + 标题 + 事实摘要 + 操作行） ── */}
-      <header className="rx-head">
-        <div className="rx-badge-row">
-          <EntityBadge
-            kind="reaction"
-            id={reaction.id}
-            size="lg"
-            state={reaction.visibility === "private" ? "private" : undefined}
-            ariaLabel={t.common.hridLabel(reaction.id)}
-          />
-          <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
-          <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
-            <IconPrinter />
-          </Button>
-        </div>
-        <h1 className="rx-head-title">{reactionTitleText}</h1>
-        {reaction.creator && (
-          <div className="rx-head-byline">
+        title={reactionTitle}
+        meta={reaction.creator && (
+          <div className="rx-byline-row">
             <Byline
               user={reaction.creator}
               time={t.reaction.publishedOn(new Date(reaction.created_at).toLocaleDateString(locale))}
@@ -230,23 +205,37 @@ export default async function ReactionPage({ params }: {
             )}
           </div>
         )}
-        {reaction.is_owner && reaction.moderation_status === "hidden" && (
-          /* 作者可见的隐藏提示 —— 内容被治理隐藏时明确告知，不再是「无声」 */
-          <Notice tone="warn">{t.reaction.hiddenNotice}</Notice>
-        )}
-        {factualSummary && <p className="rx-head-summary">{factualSummary}</p>}
-        <div className="rx-head-actions">
-          {reaction.is_owner ? (
-            <ReactionOwnerActions reactionId={reaction.id} />
-          ) : (
-            <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" />
-          )}
-        </div>
-      </header>
+        actions={<>
+          <div className="hg-head-row">
+            <EntityBadge
+              kind="reaction"
+              id={reaction.id}
+              size="md"
+              state={reaction.visibility === "private" ? "private" : undefined}
+              ariaLabel={t.common.hridLabel(reaction.id)}
+            />
+            <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
+            <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
+              <IconPrinter />
+            </Button>
+          </div>
+          <div className="hg-head-row">
+            {reaction.is_owner ? (
+              <ReactionOwnerActions reactionId={reaction.id} />
+            ) : (
+              <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" />
+            )}
+          </div>
+        </>}
+      />
 
-      {/* ── Reaction Equation（满宽卡片 + CodeField SMILES；无 eyebrow） ── */}
-      <section className="rx-equation" aria-labelledby="equation-title">
-        <div className="section-heading chem-section-head"><h2 id="equation-title">{t.reaction.equation}</h2></div>
+      {/* 作者可见的隐藏提示 —— 内容被治理隐藏时明确告知，不再是「无声」 */}
+      {reaction.is_owner && reaction.moderation_status === "hidden" && (
+        <Notice tone="warn">{t.reaction.hiddenNotice}</Notice>
+      )}
+
+      {/* ── Reaction Equation（满宽卡片 + CodeField SMILES） ── */}
+      <Section id="equation" title={t.reaction.equation}>
         <div className="rx-equation-card">
           {reaction.reaction_smiles ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -256,7 +245,7 @@ export default async function ReactionPage({ params }: {
         {reaction.reaction_smiles && (
           <CodeField value={reaction.reaction_smiles} copyLabel={`${t.common.copy} SMILES`} className="rx-smiles-code" />
         )}
-      </section>
+      </Section>
 
       {/* ── ≤900 顶部横向 Tabs（桌面由右侧栏承担导航） ── */}
       <ChemPageNav sections={tocSections} variant="tabs" />
@@ -265,62 +254,55 @@ export default async function ReactionPage({ params }: {
         <main className="chemical-main">
 
           {hasParticipants && (
-            <section className="chem-section" id="participants">
-              <div className="section-heading chem-section-head"><h2>{t.reaction.participants}</h2><span>{reaction.participants.length}</span></div>
+            <Section id="participants" title={t.reaction.participants} note={reaction.participants.length}>
               <div className="reaction-sides">
                 <ParticipantRoleGroup title={t.submit.roles.reactant} items={reactants} t={t} locale={locale} />
                 <ParticipantRoleGroup title={t.submit.roles.product} items={products} t={t} locale={locale} />
               </div>
               {auxiliaries.length > 0 && <ParticipantRoleGroup title={t.reaction.reagentsCatalystsSolvents} items={auxiliaries} showRole t={t} locale={locale} />}
-            </section>
+            </Section>
           )}
 
           {hasConditions && (
-            <section className="chem-section" id="conditions">
-              <div className="section-heading chem-section-head"><h2>{t.reaction.conditions}</h2></div>
+            <Section id="conditions" title={t.reaction.conditions}>
               <dl className="chem-dl">
                 {conditions.map(([label, value]) => <DataRow key={label} label={label} value={value} />)}
                 {reaction.conditions_detail && (
                   <DataRow label={t.reaction.conditionFields.other} value={reaction.conditions_detail} />
                 )}
               </dl>
-            </section>
+            </Section>
           )}
 
           {hasProcedure && (
-            <section className="chem-section" id="procedure">
-              <div className="section-heading chem-section-head"><h2>{t.reaction.procedure}</h2></div>
+            <Section id="procedure" title={t.reaction.procedure}>
               <p className="document-text">{reaction.procedure_details}</p>
-            </section>
+            </Section>
           )}
 
           {hasWorkup && (
-            <section className="chem-section" id="workup">
-              <div className="section-heading chem-section-head"><h2>{t.reaction.workup}</h2></div>
+            <Section id="workup" title={t.reaction.workup}>
               {reaction.workup_details && <p className="document-text">{reaction.workup_details}</p>}
               {reaction.workup.length > 0 && <ol className="workup-list">{reaction.workup.map((step, index) => (
                 <li key={index}><strong>{step.type ? unitName(step.type, t) : t.reaction.stepLabel(index + 1)}</strong><span>{[step.details, step.keep_phase ? t.reaction.keepPhase(step.keep_phase) : null, step.target_ph != null ? t.reaction.targetPh(step.target_ph) : null].filter(Boolean).join(" · ") || t.reaction.errProcedure}</span></li>
               ))}</ol>}
-            </section>
+            </Section>
           )}
 
           {hasSafety && (
-            <section className="chem-section" id="safety">
-              <div className="section-heading chem-section-head"><h2>{t.reaction.safety}</h2></div>
+            <Section id="safety" title={t.reaction.safety}>
               <Notice tone="warn"><p className="document-text rx-safety-text">{reaction.safety_notes}</p></Notice>
-            </section>
+            </Section>
           )}
 
           {hasNotes && (
-            <section className="chem-section" id="notes">
-              <div className="section-heading chem-section-head"><h2>{t.reaction.notes}</h2></div>
+            <Section id="notes" title={t.reaction.notes}>
               <p className="document-text">{reaction.note}</p>
-            </section>
+            </Section>
           )}
 
           {hasSources && (
-            <section className="chem-section" id="sources">
-              <div className="section-heading chem-section-head"><h2>{t.reaction.sources}</h2></div>
+            <Section id="sources" title={t.reaction.sources}>
               <dl className="chem-dl">
                 {provenance.map((row) => (
                   <DataRow key={row.label} label={row.label} value={row.value}>
@@ -330,7 +312,7 @@ export default async function ReactionPage({ params }: {
                   </DataRow>
                 ))}
               </dl>
-            </section>
+            </Section>
           )}
           <EntityNotes entity="reaction" entityId={reaction.id} canAdd={hasSession} privateContext={hasSession ? { reaction: reaction.id } : undefined} />
         </main>
@@ -340,42 +322,11 @@ export default async function ReactionPage({ params }: {
           <ChemPageNav sections={tocSections} variant="rail" />
         </aside>
       </div>
-    </div>
+    </PageFrame>
   );
 }
 
 /* ── 小组件 ── */
-
-/** 结构化字段拼出的一行事实摘要; 没有值的部分不显示, 不推断命名反应/反应类别。 */
-function buildSummary(reactants: Chemical[], products: Chemical[], auxiliaries: Chemical[], reaction: ReactionDetail, t: Dictionary, locale: Locale): string {
-  const parts: string[] = [];
-  if (reactants.length > 0 || products.length > 0) {
-    parts.push(`${t.reaction.summaryReactants(reactants.length)} → ${t.reaction.summaryProducts(products.length)}`);
-  }
-  const catalysts = auxiliaries.filter((item) => item.role === "CATALYST");
-  const solvents = auxiliaries.filter((item) => item.role === "SOLVENT");
-  if (catalysts.length > 0) parts.push(`${t.reaction.summaryCatalysts(catalysts.length)}${namedTail(catalysts, t, locale)}`);
-  if (solvents.length > 0) parts.push(`${t.reaction.summarySolvents(solvents.length)}${namedTail(solvents, t, locale)}`);
-  if (reaction.temperature) parts.push(`${reaction.temperature.value} ${unitName(reaction.temperature.unit, t)}`);
-  if (reaction.duration) parts.push(`${reaction.duration.value} ${unitName(reaction.duration.unit, t)}`);
-  return parts.join(" · ");
-}
-
-/** 最多带 2 个名字, 更多时只保留计数(不臆造 kind 名)。 */
-function namedTail(items: Chemical[], t: Dictionary, locale: Locale): string {
-  const names = items.slice(0, 2).map((item) => dedupeParens(resolveChemicalName(item, t.common.hcidLabel, locale).title));
-  if (names.length === 0) return "";
-  return ` ${names.join("、")}${items.length > names.length ? ` ${t.reaction.summaryMore(items.length - names.length)}` : ""}`;
-}
-
-/** Step 8 Part A：名称自带「外名 (内名)」且两者相同（忽略大小写与首尾空格）时
- *  只显示括号外部分（数据源 name_cn 与 preferred_name 同值时曾渲染「水杨酸 (水杨酸)」）。 */
-function dedupeParens(name: string): string {
-  const match = name.match(/^(.+?)\s*[（(](.+)[)）]\s*$/);
-  if (!match) return name;
-  const [, outer, inner] = match;
-  return outer.trim().toLowerCase() === inner.trim().toLowerCase() ? outer.trim() : name;
-}
 
 /** 参与物（3.4 / 5.4 / 6.4 紧凑行）：64×48 缩略图 + 徽标 sm + 名称 + 用量/当量；桌面两列、手机一列 */
 function ParticipantRoleGroup({ title, items, showRole = false, t, locale }: {

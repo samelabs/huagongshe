@@ -1,8 +1,8 @@
-"""schema 契约: 名称搜索 exact B-tree 三件套必须存在 (0916 三阶段生产索引修复)。
+"""schema 契约: 名称搜索 exact B-tree 三件套必须存在 (生产索引三阶段修复)。
 
 锁的契约(防回退): baseline / migration 整理不得把 exact 搜索物理索引误删,
 也不得顺手删掉 fuzzy 用的 trigram GIN —— 两者服务于 run_name_search 的
-不同路径(exact 等值 vs fuzzy substring), 缺一即回退到 0916 修复前的
+不同路径(exact 等值 vs fuzzy substring), 缺一即回退到索引修复前的
 trgm 假阳性回表(生产实测 benzene 三路 952/991/410ms, 冷态 5-6s 撞
 statement_timeout → /api/search 503)。
 

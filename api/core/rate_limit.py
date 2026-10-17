@@ -1,6 +1,6 @@
 """Small Redis-backed fixed-window limits for people and their API tokens.
 
-G2.R(2026-09-17): transport-neutral 化 —— 本文件不再产生
+.R(): transport-neutral 化 —— 本文件不再产生
 transport-specific exception, 改抛 neutral 语义异常(RateLimited / LimiterUnavailable /
 ResourceBusy)。HTTP status/header 由 HTTP transport bridge
 (api/rate_limit_http.py)映射; MCP adapter 自行映射 ToolError。
@@ -24,7 +24,7 @@ from . import cache as _cache
 
 
 # ---------------------------------------------------------------------------
-# neutral 语义异常(G2.R): 只携带 detail + retry_after, 不含 HTTP status/header。
+# neutral 语义异常(.R): 只携带 detail + retry_after, 不含 HTTP status/header。
 # ---------------------------------------------------------------------------
 
 class RateLimitError(Exception):
@@ -100,7 +100,7 @@ async def check(bucket: str, identity: str, limit: int, window_seconds: int) -> 
 
 
 def client_ip(headers) -> str | None:
-    """按 IP 限流的统一分桶键(R2): 读 nginx 覆盖写入的 X-Real-IP。
+    """按 IP 限流的统一分桶键: 读 nginx 覆盖写入的 X-Real-IP。
 
     生产链路 Cloudflare → nginx(cloudflare-realip) → FastAPI: nginx 把
     $remote_addr(真实访客 IP)写入 X-Real-IP, 客户端无法伪造。X-Forwarded-For
@@ -149,7 +149,7 @@ async def acquire_lease(bucket: str, identity: str, limit: int,
                         ttl_seconds: int = LEASE_TTL_SECONDS) -> bool:
     """原子获取 in-flight 租约(INCR + PEXPIRE 同一 Lua)。
 
-    fail-closed(0912): Redis 异常时抛 LimiterUnavailable, 不放行 —
+    fail-closed(): Redis 异常时抛 LimiterUnavailable, 不放行 —
     限流/记账服务故障不能同时撤掉昂贵结构查询的最后一道 DB 并发保护
     (宁可结构检索不可用, 也不能让 1.24 亿行上的 GiST 扫描无上限涌进
     5+5 连接池)。release 侧相反: 异常只记日志, 靠 TTL 自愈(进程崩溃同理)。

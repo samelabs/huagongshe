@@ -1,4 +1,4 @@
-"""E4 — Skill lifecycle consistency & ownership(delete/update/archive/file read)。
+""" — Skill lifecycle consistency & ownership(delete/update/archive/file read)。
 
 锁的是**真实状态转换**, 不是调用形状。每个用例精确断言三件事与调用方看到的
 结果一致: DB 行状态 / canonical skill 目录 / tombstone 残留。
@@ -11,13 +11,13 @@
   DB 行状态与错误语义一致 —— 测试逐项断言, 不为过测试弱化断言;
 - §10 archive/file 域 8 态(含 path traversal / symlink 既有保护不退化);
 - §3 update: 真实实现只做 DB metadata mutation(无 FS 参与), 不虚构 FS fault;
-- §5 create E1 补偿: 主异常不得被 cleanup 失败覆盖, 只能留结构化 warning。
+- §5 create 补偿: 主异常不得被 cleanup 失败覆盖, 只能留结构化 warning。
 
 全部 hermetic: skill_root → tempdir; DB 为最小事务模型 stub(状态机, 非 SQL 文本
 匹配); FS 故障用真实 OS 权限语义(chmod 0o500/0o000 → EACCES), 非 mock。
 
 注: 故障注入依赖真实 OS 权限语义, 因此要求**非 root** 测试环境(本机与 CI 均为
-euid=1000)。若在 root 下运行, 这些用例会明确变红(而非静默 skip 或假绿)。
+euid=)。若在 root 下运行, 这些用例会明确变红(而非静默 skip 或假绿)。
 """
 
 from __future__ import annotations
@@ -125,7 +125,7 @@ class _FetchAll:
 
 
 def _access_row(title="T", description="D", owner_id=OWNER, visibility="private"):
-    # 末列 owner active(HGS-ACCOUNT-CONTENT-01)
+    # 末列 owner active(停用作者标记)
     return [SID, owner_id, "slug", title, description, "MIT", "chem", "user",
             visibility, False, 2, 20, "2026-01-01", "2026-01-02", "u1", "U1", None, True]
 
@@ -501,7 +501,7 @@ class UpdateMatrixTests(_LifecycleBase):
     async def test_commit_failure_rollback_fields_unchanged(self):
         """commit 失败 → 异常原样冒泡, 且不得留下半更新。
 
-        注: update 路径(与 E4 之前的 adapter 实现逐字一致)不自持显式 rollback ——
+        注: update 路径(与 之前的 adapter 实现逐字一致)不自持显式 rollback ——
         回滚保证来自 `get_db` 的 `async with async_session()`(异常时 session
         close 隐式回滚)。这里断言可观测契约; 真实 DB 上的回滚证明见
         tests/test_skill_lifecycle_persistence_db.py。
@@ -642,7 +642,7 @@ class ArchiveFileMatrixTests(_LifecycleBase):
         self.assertEqual(outside.read_bytes(), b"secret\n")
 
     def test_extractor_ingress_protections_not_degraded(self):
-        """既有 ingress 防护(E1/G3 kernel, E4 未改): traversal + symlink 拒绝。"""
+        """既有 ingress 防护(/ kernel, 未改): traversal + symlink 拒绝。"""
         trav = self._make_zip({"./../evil.txt": b"x\n"})
         with self.assertRaises(svc.SkillArchiveValidationError) as ctx:
             svc.extract_skill_zip(trav)
@@ -669,7 +669,7 @@ class ArchiveFileMatrixTests(_LifecycleBase):
 
 
 # ---------------------------------------------------------------------------
-# §5 create E1 补偿 contract
+# §5 create 补偿 contract
 # ---------------------------------------------------------------------------
 
 
@@ -770,7 +770,7 @@ class LifecycleOwnershipGateTests(unittest.TestCase):
         self.assertEqual(svc_src.count("def update_skill_metadata"), 1)
 
     def test_e1_create_contract_not_drifted(self):
-        """E4 只允许改 create compensation observability。"""
+        """ 只允许改 create compensation observability。"""
         src = self._src("api/services/skills.py")
         self.assertIn("def create_skill", src)
         self.assertIn("def _create_skill_record", src)

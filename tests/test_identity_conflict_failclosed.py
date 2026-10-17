@@ -1,4 +1,4 @@
-"""E9-B §2/§3 — Identity CONFLICT fail-closed 真库回归。
+""" §2/§3 — Identity CONFLICT fail-closed 真库回归。
 
 预置: 同一 InChIKey, 两个不同 non-null PubChem CID(合法双行并存,
 ik 不凌驾互斥 CID —— identity.py 3.3 硬约束)。

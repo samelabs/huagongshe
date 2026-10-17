@@ -1,5 +1,5 @@
 /**
- * print.css — Chemical / Reaction 打印报告专用样式（I-078）
+ * print.css — Chemical / Reaction 打印报告专用样式
  * 网页视图 + @media print 共用一套样式；屏幕上显示白卡 A4 预览。
  */
 
@@ -93,7 +93,7 @@
   /* 与报告正文同族无衬线(CJK/拉丁五语言一致); 纸质报告不混排衬线标题 */
   font-family: var(--pr-sans);
   font-size: var(--fs-22);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25;
   margin: 0 0 6px;
 }
@@ -239,6 +239,12 @@
   font-size: var(--fs-12);
   text-transform: uppercase;
   color: var(--pr-muted);
+}
+
+/* 单元格长内容按词换行; 无空格长串（SMILES、长名）由 .pr-breakany 兜底
+   （化合物表同款规则） */
+.pr-participants-table td {
+  overflow-wrap: break-word;
 }
 
 /* ── 站点壳层隐藏（屏幕与纸张一致）───────────────────────

@@ -81,11 +81,11 @@ class ListRefreshTests(unittest.TestCase):
         )
 
     def test_delete_failure_keeps_recoverable_state(self):
-        # R6: delete failure must NOT switch the panel to a fatal error
+        # delete failure must NOT switch the panel to a fatal error
         # state — the list stays mounted and an inline recoverable error
         # (dictionary-sourced) is shown instead.
         remove_fn = self.panel[self.panel.index("async function remove"):]
-        # Step 9 重设计：labels 块改为 filterOptions（Segmented 筛选）
+        # 重设计：labels 块改为 filterOptions（Segmented 筛选）
         remove_fn = remove_fn[:remove_fn.index("const filterOptions")]
         self.assertNotIn('setState("error")', remove_fn)
         self.assertIn("setActionError(t.notes.deleteFailed)", remove_fn)
@@ -137,11 +137,10 @@ class P3TruncationTests(unittest.TestCase):
         entity = read("components/EntityNotes.tsx")
         panel = read("components/workbench/panels/NotesPanel.tsx")
         detail = read("app/(site)/note/[id]/page.tsx")
-        # Step 8 概览重做：HomePanel 笔记行只取单行标题（CSS 省略号），不再用 clamp
-        # Step 9 笔记面板重做：列表行（WbListRow）标题用 noteHeadline 首行截断，
-        # 多行 clamp 只保留在实体页嵌入区（EntityNotes）
+        # 笔记列表行（概览/面板）标题与摘要统一走 noteListPresentation（首行
+        # 或中性标题 + 两行摘要），多行 clamp 只保留在实体页嵌入区（EntityNotes）
         self.assertIn('className="note-clamp"', entity)
-        self.assertIn("noteHeadline", panel)
+        self.assertIn("noteListPresentation", panel)
         self.assertNotIn("note-clamp", detail)
         self.assertIn("note-detail-content", detail)
 
@@ -149,7 +148,7 @@ class P3TruncationTests(unittest.TestCase):
         entity = read("components/EntityNotes.tsx")
         panel = read("components/workbench/panels/NotesPanel.tsx")
         self.assertIn('withLocale(`/note/${', entity)
-        # Step 9：笔记面板行链接经 WbListRow（shared.tsx）统一 withLocale
+        # 笔记面板行链接经 WbListRow（shared.tsx）统一 withLocale
         self.assertIn("`/note/${note.id}`", panel)
         self.assertIn("withLocale(href, locale)", read("components/workbench/shared.tsx"))
 
@@ -246,7 +245,7 @@ class P8FilterUITests(unittest.TestCase):
 
 
 class DictionaryTreeTests(unittest.TestCase):
-    """G1: 五语言键树完全一致(含新增 16 键)。"""
+    """五语言键树完全一致(含新增 16 键)。"""
 
     LOCALES = ["zh-CN", "en", "ja", "ko", "de"]
     NEW_KEYS = [

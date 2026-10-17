@@ -1,4 +1,4 @@
-"""workapi 契约测试 — 8 端点鉴权与响应形状(回归网, 批次4-2)。
+"""workapi 契约测试 — 8 端点鉴权与响应形状(回归网, -2)。
 
 用真实 HMAC 签名头打 TestClient; 断言状态码+响应键, 不断言业务细节。
 需要 DB 与 worker_clients 表中注册的测试 client(token_hash)。
@@ -13,7 +13,7 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-# 0909 测试库闸: DB 契约测试必须显式测试库; 未设置则整模块 skip
+# 测试库闸: DB 契约测试必须显式测试库; 未设置则整模块 skip
 import unittest as _ut
 try:
     from tests.db_gate import test_db_or_skip as _gate
@@ -106,7 +106,7 @@ class WorkApiContractTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # 测试凭据自清: 不在生产库留 it-contract-test-worker(2026-08-31 污染事故)
+        # 测试凭据自清: 不在生产库留 it-contract-test-worker(污染事故)
         try:
             # 独立临时 engine(避免与 TestClient portal 的 app engine 跨 loop)
             import asyncio as _aio, os as _os
@@ -163,15 +163,15 @@ class WorkApiContractTests(unittest.TestCase):
     # §9 T001: WorkAPI 真实端点 contract 收紧
     # 证据(逐条实测, 非推断): /tmp/e6_t001_probe.txt + /tmp/e6_t001_probe2.txt
     # 收紧原则:
-    #   1. 只锁实际存在的 path。旧版测的 /jobs/heartbeat、/jobs/fail、
-    #      /cas/jobs/fail 三个 path 根本不存在(真实为 /jobs/error、
-    #      /cas/jobs/error, 且 pubchem 无 heartbeat) → 旧断言靠宽泛 tuple
-    #      吞掉 404, 等于在测空气。现改为显式断言它们 404。
-    #   2. 明确场景锁 exact status + 逐字 detail。
-    #   3. scope 面实测: 身份合法但 scope 不含目标 family 时, worker 查询
-    #      (scopes @> :scope) 无行 → 401 "unknown or disabled worker"
-    #      (fail-closed 收敛进 401, 非 403); 403 仅用于 route 未映射的
-    #      fail-closed 分支, 由下方直调 dependency 用例覆盖。
+    # 1. 只锁实际存在的 path。旧版测的 /jobs/heartbeat、/jobs/fail、
+    # /cas/jobs/fail 三个 path 根本不存在(真实为 /jobs/error、
+    # /cas/jobs/error, 且 pubchem 无 heartbeat) → 旧断言靠宽泛 tuple
+    # 吞掉 404, 等于在测空气。现改为显式断言它们 404。
+    # 2. 明确场景锁 exact status + 逐字 detail。
+    # 3. scope 面实测: 身份合法但 scope 不含目标 family 时, worker 查询
+    # (scopes @> :scope) 无行 → 401 "unknown or disabled worker"
+    # (fail-closed 收敛进 401, 非 403); 403 仅用于 route 未映射的
+    # fail-closed 分支, 由下方直调 dependency 用例覆盖。
     # ------------------------------------------------------------------
     LEASE_CONFLICT = "lease is missing, expired, or owned by another worker"
     IDENTITY_CONFLICT = (
@@ -260,7 +260,7 @@ class WorkApiContractTests(unittest.TestCase):
                     self.assertEqual(r.json().get("detail"), want)
 
     def test_auth_ladder_exact_detail(self):
-        """401 阶梯逐字 detail(实测); 每个分支都必须 fail-closed 到 401。"""
+        """401 阶梯逐字 detail; 每个分支都必须 fail-closed 到 401。"""
         path = "/workapi/v1/jobs/lease"
         body = json.dumps(self.MIN_BODIES[path]).encode()
         good = sign("POST", path, body)

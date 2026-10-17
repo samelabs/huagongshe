@@ -1,9 +1,9 @@
-"""v1.7.0 release-candidate governance contract.
+"""Release-candidate governance contract.
 
 锁定本轮治理结论(全部走真实代码路径/文件结构, 非字符串堆砌):
 
 - HGS 产品版本(仓库根 VERSION)= 1.7.1, 且 MCP serverInfo 读取同一来源
-- v1.7.2: 版本号单一来源 —— settings.api_version 同样读 VERSION(旧
+- 版本号单一来源 —— settings.api_version 同样读 VERSION(旧
   "HTTP API contract version 1.0.0" 双版本轴约定已撤销)
 - 首页一级入口不再暴露 Agent API 与 AI Key; /api/agent-guide 与
   /me/settings/api-tokens 路由本身保留
@@ -81,7 +81,7 @@ class HomePageEntryContract(unittest.TestCase):
 
 class CompatibilitySurfaceKept(unittest.TestCase):
     def test_agent_guide_route_removed(self):
-        # v1.7.1 PM 裁定: REST 不再对外, /api/agent-guide 端点删除,
+        # REST 不再对外, /api/agent-guide 端点删除,
         # 对外接入唯一入口是 MCP。
         from api.main import app
 

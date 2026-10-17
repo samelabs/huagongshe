@@ -2,7 +2,7 @@
 
 守:
 1. web/public/llms.txt 声明的 MCP 工具数量 == 真实 MCP tool surface;
-2. v1.7.1 REST 收口后对外只走 MCP: llms.txt 逐个声明的 MCP 工具名
+2. REST 收口后对外只走 MCP: llms.txt 逐个声明的 MCP 工具名
    必须与 api/mcp_server.py 真实 tool surface 完全一致;
 3. llms.txt 不得再出现 REST 端点表 / HTTP API / agent-guide 提法;
 4. 解析必须真的解析到内容(空解析 = 失败, 不允许静默通过)。
@@ -43,7 +43,7 @@ class LlmsTxtDeclaredFactsTests(unittest.TestCase):
                          f"llms.txt 声明 {declared} 个, 实际 {len(actual)}: {sorted(actual)}")
 
     def test_declared_mcp_tool_names_match_actual_surface(self):
-        """v1.7.1: 对外只走 MCP —— 工具名逐个核对, 不再核对 HTTP 端点。"""
+        """对外只走 MCP —— 工具名逐个核对, 不再核对 HTTP 端点。"""
         declared = set(_TOOL_LIST_RE.findall(self.text))
         self.assertEqual(len(declared), 13,
                          f"llms.txt 工具名解析异常(应 13 个): {sorted(declared)}")
@@ -55,7 +55,7 @@ class LlmsTxtDeclaredFactsTests(unittest.TestCase):
             f"仅实现={sorted(actual - declared)}")
 
     def test_llms_txt_declares_no_rest_endpoints(self):
-        """v1.7.1 REST 收口: llms.txt 不出现 REST 端点表 / HTTP API / agent-guide。"""
+        """REST 收口: llms.txt 不出现 REST 端点表 / HTTP API / agent-guide。"""
         self.assertEqual(
             _ENDPOINT_RE.findall(self.text), [],
             "llms.txt 不得再声明 REST 端点(对外只走 MCP)")

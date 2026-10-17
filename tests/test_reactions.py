@@ -69,8 +69,10 @@ class ReactionContractTests(unittest.TestCase):
             canonical_participants(value)
         self.assertEqual(raised.exception.kind,
                          ReactionValidationError.DUPLICATE_PARTICIPANT)
-        self.assertEqual(raised.exception.detail,
-                         "同一化合物和角色请合并为一项，并填写出现次数")
+        self.assertEqual(
+            raised.exception.detail,
+            "第 2 个参与物与前面的参与物重复："
+            "同一化合物和角色请合并为一项，并填写出现次数")
 
     def test_occurrence_count_preserves_stoichiometric_repetition(self) -> None:
         _, expression = canonical_participants(body(participants=[
@@ -97,7 +99,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertLess(create_source.index("await db.commit()"), create_source.index("notify_new_reaction_safely"))
 
     def test_activity_feed_only_returns_current_visible_followed_reactions(self) -> None:
-        # I-007: feed 过滤条件提取为 social 模块级共享常量(notifications 端点
+        # feed 过滤条件提取为 social 模块级共享常量(notifications 端点
         # 与 unread_activity_count 同一过滤), 静态断言随之看模块源; dashboard
         # 未读数委托 unread_activity_count(不再自带 SQL)。
         social_source = inspect.getsource(social)
@@ -124,7 +126,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn("return await reaction_response(db, int(existing))", source)
 
     def test_all_owned_reactions_use_bounded_visibility_branches(self) -> None:
-        # G2.5C: SQL 下沉至 services/reactions.list_my_reactions(bounded
+        # SQL 下沉至 services/reactions.list_my_reactions(bounded
         # UNION ALL 是硬 contract), 断言迁新 owner。
         from api.services.reactions import list_my_reactions as _svc
         source = inspect.getsource(_svc)
@@ -140,7 +142,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn("list_my_reactions(", adapter_source)
 
     def test_api_version_matches_version_file(self) -> None:
-        # v1.7.2: 版本号单一来源(仓库根 VERSION); 旧的 "1.0.0 公共 API 版本"
+        # 版本号单一来源(仓库根 VERSION); 旧的 "1.0.0 公共 API 版本"
         # 约定已撤销
         from pathlib import Path as _Path
         version_file = (_Path(__file__).resolve().parents[1] / "VERSION")
@@ -149,7 +151,7 @@ class ReactionContractTests(unittest.TestCase):
 
         routes_source = inspect.getsource(__import__("api.routes", fromlist=["unified_search"]))
         self.assertNotIn('"v1:stats:exact"', routes_source)  # /api/stats 已剥离
-        # G2.3 final: unified-search cache key 唯一 owner = shared orchestration
+        # unified-search cache key 唯一 owner = shared orchestration
         search_source = inspect.getsource(
             __import__("api.services.search", fromlist=["execute_search"]))
         self.assertIn('f"v2:unified-search', search_source)
@@ -158,7 +160,7 @@ class ApiTokenBoundaryTests(unittest.TestCase):
     """P2 边界归一: Token = credential, 与 API/MCP onboarding 解耦。"""
 
     def test_machine_contract_uses_ai_key_wording(self) -> None:
-        # v1.7.1: /api/agent-guide 已删, 机器契约术语只剩 MCP 面
+        # /api/agent-guide 已删, 机器契约术语只剩 MCP 面
         mcp_source = Path(inspect.getsourcefile(__import__("api.mcp_server", fromlist=["x"]))).read_text()
         self.assertNotIn("API Token", mcp_source)
         self.assertIn("AI Key", mcp_source)
@@ -171,7 +173,7 @@ class ApiTokenBoundaryTests(unittest.TestCase):
         self.assertIn('"token": plain', return_source)
         for coupling in ("agent_connection_text", "agent_guide_url", "api_base_url"):
             self.assertNotIn(f'"{coupling}"', return_source)
-        # v1.7.1: api.agent 模块整体退役(REST 不再对外, guide 端点删除)
+        # api.agent 模块整体退役(REST 不再对外, guide 端点删除)
         import importlib.util
         self.assertIsNone(importlib.util.find_spec("api.agent"))
 

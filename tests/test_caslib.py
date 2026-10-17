@@ -1,10 +1,10 @@
 """caslib 测试 — fixture 驱动, 样本全部在库(tests/fixtures/, repo-relative)。
 
 覆盖: 页面判定(not_found/真页) + cb_number 提取 + 新解析器 parse_cpp_page
-(真页样本 tests/fixtures/cpp_cn.html = CB3459186 丁酸, 2026-09-05 实拉)。
+(真页样本 tests/fixtures/cpp_cn.html = CB3459186 丁酸, 实拉)。
 旧 CAS 页 entry 解析测试随退役函数剥除(parse_entry/parse_suppliers)。
 
-E7: 原先依赖仓库外路径(~/ops/cb-fixtures/)与 /tmp 预置文件 → 样本已全部
+原先依赖仓库外路径(~/ops/cb-fixtures/)与 /tmp 预置文件 → 样本已全部
 迁入 tests/fixtures/; 样本缺失不再 skip, 直接失败(路径问题不得藏成 skip)。
 """
 from __future__ import annotations
@@ -59,9 +59,9 @@ class NotFoundDetectionTests(unittest.TestCase):
         # 真页必须判定为非 not_found
         for cas in ("65-85-0", "69-72-7", "77-92-9"):
             self.assertFalse(looks_like_not_found(_fixture(f"CAS_{cas}.htm")), cas)
-        # 67-64-1(丙酮): 2026-09-19 实拉已是完整条目页(cb_number=3130928),
-        # 不再是 0905 样本中的"管制明示拒绝"页 —— 事实更新为真页判定。
-        # 该页类型当前无真实样本可采(不得自构模板), 见 E7 报告 O 段。
+        # 67-64-1(丙酮): 实拉已是完整条目页(cb_number=313),
+        # 不再是早期样本中的"管制明示拒绝"页 —— 事实更新为真页判定。
+        # 该页类型当前无真实样本可采(不得自构模板), 见 报告 O 段。
         self.assertFalse(looks_like_not_found(_fixture("CAS_67-64-1.htm")))
         self.assertEqual(page_identity(_fixture("CAS_67-64-1.htm")), "real")
 
@@ -75,7 +75,7 @@ class CppParseTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        # E7: 样本在库(repo-relative), 缺失即失败 —— 不再把路径问题 skip 掉
+        # 样本在库(repo-relative), 缺失即失败 —— 不再把路径问题 skip 掉
         with open(CPP_REAL, encoding="utf-8", errors="replace") as fh:
             cls.entry = parse_cpp_page(fh.read())
 
@@ -120,7 +120,7 @@ class CppParseTests(unittest.TestCase):
 
 
 class CppL10nTests(unittest.TestCase):
-    """语言页真页回归(en/de/ja/ko, 2026-09-05 实拉 fixtures)。
+    """语言页真页回归(en/de/ja/ko, 实拉 fixtures)。
 
     教训: 此前用自构模板验证语言页"通过"是幻觉——语言页与 CN 页是
     两套 DOM(en 物性在 table2, de/ja/ko 物性混在头区 dl, 安全区是
@@ -130,7 +130,7 @@ class CppL10nTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         missing = [v for v in CPP_L10N.values() if not os.path.exists(v)]
-        if missing:  # E7: 样本在库(repo-relative), 缺失即失败(不 skip)
+        if missing:  # 样本在库(repo-relative), 缺失即失败(不 skip)
             raise AssertionError(f"语言页 fixtures 缺失: {missing}")
         cls.entries = {
             loc: parse_cpp_page(open(p, encoding="utf-8", errors="replace").read(), locale=loc)
@@ -177,7 +177,7 @@ class CppL10nTests(unittest.TestCase):
             self.assertGreaterEqual(len(e["prose"]), 5, loc)
 
     def test_prose_no_leading_cas_list(self) -> None:
-        """0905: prose 正文首部不得有原料 CAS 罗列残留(导航残留, 非正文)。"""
+        """: prose 正文首部不得有原料 CAS 罗列残留(导航残留, 非正文)。"""
         for loc, e in self.entries.items():
             for seg in e.get("prose", []):
                 self.assertIsNone(
@@ -187,7 +187,7 @@ class CppL10nTests(unittest.TestCase):
 
 
 class StripLeadingCasListTests(unittest.TestCase):
-    """0905 prose 首部 CAS 罗列剥离: 边界矩阵(终审补)。"""
+    """prose 首部 CAS 罗列剥离: 边界矩阵(补)。"""
 
     def _f(self):
         from caslib.parse_cpp import _strip_leading_cas_list
@@ -242,7 +242,7 @@ class CitationGuardTests(unittest.TestCase):
     """引文年份守卫回归: '(NTP, 1992)' 的 1992 是来源年份不是量值。
 
     解析单源在 caslib/parse_cpp.py(CB 链 props canonical);
-    PB 派生链 exp_props/exp_limits 已废(0905 B案), 无 PB 侧守卫。
+    PB 派生链 exp_props/exp_limits 已废, 无 PB 侧守卫。
     """
 
     def test_guard_cb(self) -> None:

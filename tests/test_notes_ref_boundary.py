@@ -1,4 +1,4 @@
-"""v1.7.0 最后一处 Notes 权限边界收口 — 定向回归验证。
+"""Notes 权限边界 — 定向回归验证。
 
 仅针对 api/services/notes.py::_validate_references() 的权限判定:
 1. 非所有者引用他人私有 HRID 与引用不存在的 HRID 必须返回相同机器码

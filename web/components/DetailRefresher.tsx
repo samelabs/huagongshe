@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * DetailRefresher(0902 P1): 详情页在途数据自动刷新。
+ * DetailRefresher(): 详情页在途数据自动刷新。
  *
  * PB(enrichment.status==='queued')或 CB(externals state 待定但页面缺数据)在途时,
  * 每 4s router.refresh() 重走 SSR 拿新数据; 数据到/90s 超时停。
@@ -21,7 +21,7 @@ export function DetailRefresher({ active }: { active: boolean }) {
   useEffect(() => {
     if (!active) return;
     const started = Date.now();
-    // 0904 P1收口: 后台标签页停刷 — 此前无 visibility 守卫, 切走后仍持续
+    // 收口: 后台标签页停刷 — 此前无 visibility 守卫, 切走后仍持续
     // 4s×3 API 调用(含 externals 最长 3s 同步外抓)。回前台续刷, 总窗 90s 不变。
     const timer = setInterval(() => {
       if (document.visibilityState !== "visible") return;

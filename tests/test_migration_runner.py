@@ -218,7 +218,7 @@ class MigrationRunnerTests(unittest.TestCase):
         self.assertEqual(out.stdout.strip(), "2")
 
     def test_asyncpg_form_url_dry_run_works(self):
-        """HGS-MIG-DRYRUN-01 新契约: dry-run 零 DDL —— 连 tracking 表也不建
+        """dry-run 零 DDL 契约: 连 tracking 表也不建
         (此前会真实 CREATE TABLE, 只读库直接报错); pending 如实列出。"""
         self._write("20260911_01_runner_a.sql",
                     "CREATE TABLE IF NOT EXISTS chemistry.mig_a (id int PRIMARY KEY);")

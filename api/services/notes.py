@@ -23,7 +23,7 @@ class NoteNotAccessibleError(Exception):
 class NoteReferenceError(Exception):
     """One or more requested entity references are invalid or inaccessible.
 
-    kind 是稳定机器码(v1.7.0 L2: 前端按 kind 做五语言分类提示, 不解析
+    kind 是稳定机器码(前端按 kind 做五语言分类提示, 不解析
     中文 detail 原文); str(exc) 保持中文原文, adapter 层将 HTTP 400
     detail 升级为 {message, kind} 结构。
     - chemical_not_found: 部分 HCID 不存在
@@ -154,7 +154,7 @@ async def _validate_references(
             and row["moderation_status"] == "visible"
         )
         owned = row["created_by_user_id"] is not None and int(row["created_by_user_id"]) == actor_id
-        # v1.7.0 权限边界收口: 非所有者 + 非公开可见 → 统一
+        # 权限边界: 非所有者 + 非公开可见 → 统一
         # reaction_not_accessible, 与 HRID 不存在不可区分(不泄露存在性);
         # 无论笔记可见性与 HRID 是否真实存在。
         if not public_visible and not owned:
@@ -196,7 +196,7 @@ class NoteQuotaExceededError(Exception):
 
 
 async def notify_new_note(db, owner_id: int, note_id: int) -> None:
-    """I-007: 公开笔记 fan-out 到关注者(与 reactions.notify_new_reaction 同构)。
+    """公开笔记 fan-out 到关注者(与 reactions.notify_new_reaction 同构)。
 
     dedupe_key 挡重: 私有→公开→私有→公开 只通知一次; 笔记转回私有/被
     隐藏/删除时由动态查询的 join 条件(join notes visibility/moderation)
@@ -279,15 +279,15 @@ async def create_note(
         await db.rollback()
         raise
     if visibility == "public":
-        # I-007: 创建即公开 → 通知关注者(失败不影响笔记保存)。
+        # 创建即公开 → 通知关注者(失败不影响笔记保存)。
         await notify_new_note_safely(db, actor_id, note_id)
     return await get_note(db, note_id=note_id, actor_id=actor_id)
 
 
 async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
-    # G2/P-1: hidden notes 404 for everyone (including the owner); private
+    # /P-1: hidden notes 404 for everyone (including the owner); private
     # notes only for the owning session; public+visible notes anonymously.
-    # HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用作者的公开笔记保留可见 ——
+    # 停用作者的公开笔记保留可见 ——
     # 不再经 users join 的 status='active' 过滤, 由 active 标记
     # 让前端渲染「已停用」; 私有笔记仍实际不可达(停用即撤销全部会话)。
     row = (await db.execute(text("""
@@ -318,8 +318,8 @@ async def update_note(
     chemical_ids: list[int],
     reaction_ids: list[int],
 ) -> dict[str, Any]:
-    # R5: access check BEFORE any write. The row-locking read must apply the
-    # same G2 visibility rule as reads: hidden notes and inactive owners are
+    # access check BEFORE any write. The row-locking read must apply the
+    # same visibility rule as reads: hidden notes and inactive owners are
     # 404 for everyone, so an update can never commit and only then 404 —
     # and a hidden note can never be mutated back into visibility.
     # F-01: 编辑限流与创建同桶(不占存量上限)
@@ -366,14 +366,14 @@ async def update_note(
         await db.rollback()
         raise
     if visibility == "public" and current[1] == "private":
-        # I-007: 私有→公开才通知(与 update_reaction 触发口径一致;
+        # 私有→公开才通知(与 update_reaction 触发口径一致;
         # 一直公开的内容编辑不重复打扰, dedupe_key 再兜一层)。
         await notify_new_note_safely(db, actor_id, note_id)
     return await get_note(db, note_id=note_id, actor_id=actor_id)
 
 
 async def delete_note(db, *, note_id: int, actor_id: int) -> None:
-    # Same G2 rule as read/update (R5): hidden notes and inactive owners are
+    # Same rule as read/update : hidden notes and inactive owners are
     # 404 for everyone — the owner cannot delete a hidden note either.
     result = await db.execute(text("""
         DELETE FROM community.notes n
@@ -400,7 +400,7 @@ async def list_my_notes(
     page: int,
     page_size: int,
 ) -> dict[str, Any]:
-    # R5: hidden notes must not appear as unopenable cards in the owner's
+    # hidden notes must not appear as unopenable cards in the owner's
     # own list (reads 404 for everyone) — exclude them at the source.
     conditions = ["n.owner_user_id=:owner", "n.moderation_status='visible'"]
     params: dict[str, Any] = {
@@ -454,7 +454,7 @@ async def list_public_user_notes(
 ) -> dict[str, Any]:
     """Public notes of one active user, for the public profile page.
 
-    G2: only visibility='public' AND moderation_status='visible' AND
+    only visibility='public' AND moderation_status='visible' AND
     active owner rows are returned; reference serialization reuses the
     shared read-time privacy filtering (no private HRID leak).
     """
@@ -529,7 +529,7 @@ async def list_entity_notes(
           AND n.visibility='public'
           AND n.moderation_status='visible'
     """), params)).scalar() or 0)
-    # HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用作者的公开笔记保留可见,
+    # 停用作者的公开笔记保留可见,
     # active 供前端渲染「已停用」标记。
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,

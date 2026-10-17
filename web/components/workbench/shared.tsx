@@ -66,7 +66,7 @@ export function Pagination({ page, pageSize, total, href }: {
    结构 = 类型图标/缩略图 ｜ 标题(整行点击目标)+元信息 ｜ 右侧展示+操作。
    整行点击靠标题链接的 ::after 铺满行（CSS）；actions 内按钮层级更高，
    不会误触发行跳转。 ──────────────────────────────────── */
-export function WbListRow({ href, icon, iconTone, thumb, title, meta, side, actions, ariaLabel }: {
+export function WbListRow({ href, icon, iconTone, thumb, title, titleMultiline, summary, meta, side, actions, ariaLabel }: {
   /** 整行点击目标（标题链接铺满整行） */
   href: string;
   /** 36px 类型图标块（.wb-row-icon） */
@@ -75,6 +75,10 @@ export function WbListRow({ href, icon, iconTone, thumb, title, meta, side, acti
   /** 缩略图（结构式/方程式，替代 icon） */
   thumb?: ReactNode;
   title: ReactNode;
+  /** 主文本允许两行截断（笔记无标题时正文即主文本，用两行而非单行省略） */
+  titleMultiline?: boolean;
+  /** 标题下的正文摘要（两行截断，笔记行用） */
+  summary?: ReactNode;
   /** Tag / EntityBadge xs / time 等元信息 */
   meta?: ReactNode;
   /** 右侧静态信息（日期、人数…） */
@@ -89,7 +93,8 @@ export function WbListRow({ href, icon, iconTone, thumb, title, meta, side, acti
       {icon && <span className={`wb-row-icon${iconTone ? ` ${iconTone}` : ""}`} aria-hidden="true">{icon}</span>}
       {thumb && <span className="wb-row-thumb" aria-hidden="true">{thumb}</span>}
       <span className="wb-row-main">
-        <Link href={withLocale(href, locale)} className="wb-row-title" aria-label={ariaLabel}>{title}</Link>
+        <Link href={withLocale(href, locale)} className={titleMultiline ? "wb-row-title is-multiline" : "wb-row-title"} aria-label={ariaLabel}>{title}</Link>
+        {summary != null && <span className="wb-row-summary">{summary}</span>}
         {meta && <span className="wb-row-meta">{meta}</span>}
       </span>
       {(side != null || actions) && (
@@ -139,9 +144,9 @@ export function relativeTime(value: string, locale: string): string {
 
 /** 笔记标题行：首个非空行（≤60 字）— 概览与笔记面板共用（实现在 lib，公开主页服务端同用） */
 import { resolveNotePresentation } from "@/lib/noteHeadline";
-export { noteHeadline, resolveNotePresentation } from "@/lib/noteHeadline";
+export { noteHeadline, noteListPresentation, resolveNotePresentation } from "@/lib/noteHeadline";
 
-/** FX-16（SMK-018 / IX-4）：客户端加载 >10s 的「仍在处理」Notice + 重试 */
+/** (/)：客户端加载 >10s 的「仍在处理」Notice + 重试 */
 export { SlowNotice } from "./SlowNotice";
 
 /** 可见性 Tag（概览行与笔记/反应面板行共用） */
@@ -152,7 +157,7 @@ export function VisibilityTag({ visibility, t }: { visibility: "public" | "priva
 }
 
 /* ── 动态卡片（DESIGN_SYSTEM 6.7）：概览「关注动态」与动态面板（?tab=activity）同一个
-   组件（Step 9 Part B.4）。支持 new_reaction 与 new_note（I-007）。 ── */
+   组件（）。支持 new_reaction 与 new_note。 ── */
 export function ActivityFeedCard({ item, favored, t, locale }: {
   item: Notice;
   /** 收藏初始态（调用方从 /users/me/follows/reactions 的 id 集给出） */
@@ -244,7 +249,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
 }
 
 /* ── 反应行（DESIGN_SYSTEM 6.7）：方程式缩略图（高 48）+ HRID 徽标 sm（私有锁）+ 摘要 +
-   日期 + 关注人数 —— 「我的反应」与「收藏·反应」共用（Step 9 Part B）── */
+   日期 + 关注人数 —— 「我的反应」与「收藏·反应」共用（）── */
 export function ReactionRow({ item, t, locale, actions }: {
   item: Reaction;
   t: Dictionary;
@@ -294,7 +299,7 @@ export function panelErrorMessage(error: unknown, t: { errors?: Record<string, s
       return t.errors[error.detailKind];
     }
     switch (error.status) {
-      // 0904 P1收口: 401 此前落 errGeneric"稍后重试"误导 — 会话过期重试永远
+      // P1收口: 401 此前落 errGeneric"稍后重试"误导 — 会话过期重试永远
       // 失败, 应提示登录(主站 search/page.tsx 已有同款映射)。
       case 401: return t.search.errLoginRequired;
       case 429: return t.search.errRateLimit;

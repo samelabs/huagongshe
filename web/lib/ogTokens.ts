@@ -1,5 +1,5 @@
 /**
- * ogTokens — OG 品牌卡（G4）专用色值映射。
+ * ogTokens — OG 品牌卡专用色值映射。
  *
  * 唯一来源仍是 tokens.css；next/og 的 ImageResponse（satori）在无 DOM 的
  * canvas 上下文渲染，读不到 CSS 变量，故按 tokens.css 原值镜像一份。

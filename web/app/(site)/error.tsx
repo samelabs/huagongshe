@@ -7,9 +7,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { withLocale } from "@/lib/localePath";
 import { TextLink } from "@/components/ui/TextLink";
 
-/** 公开页错误边界（FX-4 / SMK 遗漏，新增）：公开页面出错时保留站点顶栏
- *  （本文件渲染在 (site) layout 内，SiteHeader/footer 不丢），ui 组件 +
- *  如实文案 + 重试/返回首页。 */
+/** 公开页错误边界(/ SMK 遗漏，新增）：公开页面出错时保留站点顶栏
+ * （本文件渲染在 (site) layout 内，SiteHeader/footer 不丢），ui 组件 +
+ * 如实文案 + 重试/返回首页。 */
 export default function SiteError({ error, unstable_retry }: {
   error: Error & { digest?: string };
   unstable_retry: () => void;

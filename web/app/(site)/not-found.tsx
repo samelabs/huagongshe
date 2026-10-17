@@ -10,8 +10,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t.error.notFoundTitle };
 }
 
-/** 公开路由 404（FX-4，新增）：notFound() 在 (site) 段内抛出时落到这里 ——
- *  站点顶栏/页脚保留（(site) layout 继续渲染），用户不会落到没有导航的空白页。 */
+/** 公开路由 404：notFound() 在 (site) 段内抛出时落到这里 ——
+ * 站点顶栏/页脚保留（(site) layout 继续渲染），用户不会落到没有导航的空白页。 */
 export default async function SiteNotFound() {
   const t = await getRequestDictionary();
   const locale = await getRequestLocale();

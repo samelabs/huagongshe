@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from ...chemistry import CAS_RE, canonicalize_smiles, cas_checkdigit_valid
-from ..cb import cas_search_state, enqueue_cas_search_fetch
+from ..cb import PRIORITY_BACKGROUND, cas_search_state, enqueue_cas_search_fetch
 from ..chemicals import fetch_chemicals, CHEMICAL_SELECT
 from ..name_index import normalize_name
 from .projections import resolve_title
@@ -51,7 +52,13 @@ async def lookup(
     hcid: int | None = None, cas: str | None = None, smiles: str | None = None,
     inchikey: str | None = None, name: str | None = None,
 ) -> dict[str, Any]:
-    """按唯一标识或名称查候选; 未收录的 SMILES 建行、CAS 入列采集。"""
+    """按唯一标识或名称查候选。
+
+    未收录的兜底与站内同一规则：SMILES 本地建行并触发采集（返回新建
+    HCID，数据状态 updating）；CAS 受控入列采集（返回 pending）。采集
+    入队走后台优先级档（PRIORITY_BACKGROUND），不占用户优先级 —— 采集
+    压力由每凭证额度约束，入队沿用站内去重。
+    """
     from sqlalchemy import text
 
     if cas is not None:
@@ -67,14 +74,18 @@ async def lookup(
         # 未收录: 与站内搜索同一规则 —— 受控入列采集, 不建占位行。
         state = await cas_search_state(db, cas)
         if state == "new":
-            enqueued, _status, _row = await enqueue_cas_search_fetch(db, cas_number=cas)
+            enqueued, _status, _row = await enqueue_cas_search_fetch(
+                db, cas_number=cas, priority=PRIORITY_BACKGROUND)
             await db.commit()
             state = "pending" if enqueued else "miss"
         return {"candidates": [],
                 "pending": {"cas": cas, "status": "updating" if state == "pending" else "not_found"}}
 
     if smiles is not None:
-        canonical = canonicalize_smiles(smiles.strip())
+        # RDKit 解析/canonicalize 是 CPU 计算, 丢线程池避免卡事件循环
+        # (与站内 search.py 的 canonicalize、resolve_or_create_chemical
+        # 的 chemical_properties 同款处理)。
+        canonical = await asyncio.to_thread(canonicalize_smiles, smiles.strip())
         if not canonical:
             raise DataApiInvalidParameter("SMILES 无法解析")
         rows = await fetch_chemicals(db, f"""
@@ -87,7 +98,8 @@ async def lookup(
         # 冲突/歧义时按站内口径不建行。
         from ..reactions import UnresolvedIdentityError, resolve_or_create_chemical
         try:
-            chemical_id, _created = await resolve_or_create_chemical(db, canonical)
+            chemical_id, _created = await resolve_or_create_chemical(
+                db, canonical, discovery_priority=PRIORITY_BACKGROUND)
             await db.commit()
         except UnresolvedIdentityError as exc:
             raise DataApiInvalidParameter("该 SMILES 存在身份冲突，暂不能建行") from exc

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SamelabsNav } from "@/components/SamelabsNav";
-import { apiGet, type User } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
+import { type User } from "@/lib/api";
 import t from "@/lib/i18n";
 
 export const metadata: Metadata = {

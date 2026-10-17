@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { headers } from "next/headers";
-import { apiGet } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
 import type { User } from "@/lib/api";
 import type { Summary } from "@/components/workbench/types";
 import { splitLocalePrefix } from "@/lib/localePath";

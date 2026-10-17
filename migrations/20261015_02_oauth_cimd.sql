@@ -1,4 +1,4 @@
--- B2 (I-072): OAuth Client ID Metadata Document (CIMD) 支持所需列。
+-- OAuth Client ID Metadata Document (CIMD) 支持所需列。
 -- 只加列、加注释; 不改不删已有数据。已有行 source_type 落默认值 'registered'。
 
 ALTER TABLE community.oauth_clients

@@ -239,6 +239,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="http://127.0.0.1:8000")
     args = parser.parse_args()
+    # 本地演示数据的硬边界：目标只允许回环地址 —— 由代码保证，不靠说明文字
+    from urllib.parse import urlsplit
+    host = (urlsplit(args.base).hostname or "").lower()
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        sys.exit(f"seed 只允许本机地址（得到 {host}）；本地演示数据不得写入远端")
     global API
     API = args.base.rstrip("/") + "/api"
 
@@ -259,7 +264,7 @@ def main() -> None:
     # 不出现在任何生产迁移/部署脚本；幂等（重复 UPDATE 同值）。
     promote_admin = subprocess.run(
         ["docker", "compose", "--env-file", ".env.local", "exec", "-T", "db", "su", "postgres", "-s", "/bin/bash", "-c",
-         "/usr/lib/postgresql/16/bin/psql -d hgs_local -c \"UPDATE community.users SET role='admin' WHERE username='hgs_admin'\""],
+         f"/usr/lib/postgresql/16/bin/psql -d {ENV.get('HGS_DB_NAME', 'hgs_local')} -c \"UPDATE community.users SET role='admin' WHERE username='hgs_admin'\""],
         cwd=str(STACK), capture_output=True, text=True)
     if promote_admin.returncode != 0:
         sys.exit(f"promote hgs_admin failed: {promote_admin.stderr[:200]}")

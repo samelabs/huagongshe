@@ -191,6 +191,21 @@ class PrivateReactionExposureTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn(self.private_rx, listed,
                              "用户主页反应列表不得出现私有(即使本人观看)")
 
+    async def test_user_reactions_participants_projected_by_name(self):
+        import api.reactions as reactions_api
+        async with self.Session() as db:
+            rows = await reactions_api.user_reactions(
+                username=f"expo_owner_{self.tag}", page=1, page_size=50,
+                actor=None, db=db)
+        target = next(r for r in rows if r["id"] == self.public_rx)
+        (participant,) = target["participants"]
+        # 参与物按列名投影：角色/收率来自 rc 列，化学品字段来自化学品列，
+        # 投影列的顺序或数量变化必须显式报错而不是静默错位
+        self.assertEqual(participant["role"], "REACTANT")
+        self.assertIsNone(participant["yield_percent"])
+        self.assertEqual(participant["id"], self.chemical)
+        self.assertEqual(participant["preferred_name"], f"expo-{self.tag}")
+
     # ── 化合物详情页相关反应 ─────────────────────────────────
 
     async def test_chemical_related_reactions_exclude_private(self):

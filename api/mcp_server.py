@@ -45,7 +45,7 @@ from .core.database import async_session
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# I-067: MCP 工具参数契约单一来源 —— tools/list 的 schema 约束与函数体内的
+# MCP 工具参数契约单一来源 —— tools/list 的 schema 约束与函数体内的
 # 运行时校验取同一组常量(漂移即测试失败)。schema 收紧后越界值在入参校验即
 # 报错(原先静默 clamp), clamp 语句保留为双保险。
 # ---------------------------------------------------------------------------
@@ -134,7 +134,7 @@ def _render_busy() -> ToolError:
     return ToolError("Rendering concurrency limit reached. Try again shortly.")
 
 
-# MCP validation translator (A-03, v1.7 agent-contract closeout):
+# MCP validation translator:
 # reaction schemas raise Chinese ValueError messages for the REST/Web surface.
 # The MCP boundary maps those known messages to English; unknown messages get a
 # safe neutral fallback instead of leaking raw text. Field locations are kept.
@@ -222,7 +222,7 @@ def _reaction_error_message(exc: Exception) -> str:
     kind = getattr(exc, "kind", "")
     detail = str(getattr(exc, "detail", "") or "")
     if kind == "invalid_structure":
-        value = _detail_tail(detail, "无法解析参与物结构：")
+        value = _detail_tail(detail, "的结构无法解析：")
         return (
             f"Could not parse reaction participant structure: {value}"
             if value else "Could not parse a reaction participant structure."
@@ -361,7 +361,7 @@ async def _render_enter(actor: Actor | None, headers: Any = None) -> list[str]:
         raise
     except RateLimitError as exc:
         # enforce/lease 侧 fail-closed 的 LimiterUnavailable 与 RateLimited
-        # 统一转成 MCP ToolError(G2.R: core 已 neutral, 此处捕语义异常)。
+        # 统一转成 MCP ToolError(.R: core 已 neutral, 此处捕语义异常)。
         await rate_limit.release_leases(held, MCP_RENDER_BUCKET)
         raise ToolError(_rate_error_message(exc)) from exc
 
@@ -377,8 +377,8 @@ async def _render_exit(held: list[str]) -> None:
 def _release_version() -> str:
     """MCP serverInfo.version = 仓库根 VERSION(产品发布版本)。
 
-    v1.7.2: 版本号只有一个来源 —— settings.api_version 同样读该文件
-    (api/core/config.py 的 _version_from_repo), 两处不再分版本轴。
+    版本号只有一个来源 —— settings.api_version 读同一文件
+    (api/core/config.py 的 _version_from_repo), 两处不分版本轴。
     这里只读文件, 不硬编码第二份版本号。
     """
     version_file = Path(__file__).resolve().parents[1] / "VERSION"
@@ -716,7 +716,7 @@ def _public_skill(s: dict[str, Any]) -> dict[str, Any]:
 
 
 def _clean_doc(doc: str | None) -> str | None:
-    """I-067: 工具描述去掉 docstring 缩进与首尾/行尾空白。
+    """工具描述去掉 docstring 缩进与首尾/行尾空白。
 
     嵌套定义的 docstring 首行贴着三引号(无缩进), 其余行带 8 空格缩进,
     textwrap.dedent 对这种形态的公共前缀是空串 —— 改为按"第二行起的
@@ -736,8 +736,10 @@ def _clean_doc(doc: str | None) -> str | None:
 def build_mcp_server() -> MCPServer:
     server = MCPServer(
         name="huagongshe-aichem",
-        title="HGS AIchem MCP",
-        # serverInfo.version = 产品发布版本(仓库根 VERSION); v1.7.2 起
+        # title 是客户端 UI 里展示的服务名(不带协议后缀); name 是机器标识,
+        # 已被接入方当作稳定 ID 引用, 不得变更。
+        title="HGS AIchem",
+        # serverInfo.version = 产品发布版本(仓库根 VERSION);
         # settings.api_version 读同一文件, 版本号单一来源。
         version=_release_version(),
         instructions=(
@@ -752,7 +754,7 @@ def build_mcp_server() -> MCPServer:
         ),
     )
 
-    # I-067: 包装 tool 注册 —— 描述统一 dedent+strip(docstring 原样带
+    # 包装 tool 注册 —— 描述统一 dedent+strip(docstring 原样带
     # 嵌套缩进与尾随空白进 tools/list), 其余参数透传。
     _register_tool = server.tool
 
@@ -807,7 +809,7 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("q is required and must not exceed 4000 characters.")
         page = min(max(page, 1), SEARCH_PAGE_MAX)
         page_size = min(max(page_size, 1), SEARCH_PAGE_SIZE_MAX)
-        # threshold 3位小数契约(与 REST routes.py 0914 #6 同口径): 不round则
+        # threshold 3位小数契约(与 REST routes.py #6 同口径): 不round则
         # 0.70004 穿透到 REST 层吃 422, 错误信息对 MCP 客户端不可解。
         threshold = round(min(max(threshold, THRESHOLD_MIN), THRESHOLD_MAX), 3)
         # 结构检索登录墙与 REST 一致: mode!=exact 需 Bearer token, 匿名 ToolError.
@@ -822,7 +824,7 @@ def build_mcp_server() -> MCPServer:
             if auth_result is not None:
                 return auth_result  # type: ignore[return-value]
             assert actor is not None
-        # G2.3 final: 直调 shared search orchestration(services/search.py
+        # 直调 shared search orchestration(services/search.py
         # execute_search)—— cache/结构闸门/canonicalize/查询/结果组装唯一 owner。
         # adapter 只保留: 参数验证/clamp、auth、会话获取、错误映射。
         from .services.search import SearchError as _SearchError
@@ -863,7 +865,7 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("enrich must be either core or full.")
         if not 1 <= chemical_id <= ID_MAX:
             raise ToolError("chemical_id is out of range.")
-        # G2.4B: 直调 shared detail orchestration(services/chemicals)。
+        # 直调 shared detail orchestration(services/chemicals)。
         # auth 行为冻结: 恒匿名(actor 不解析), priority=50 与基线一致。
         from .services.chemicals import (
             ChemicalNotFoundError as _ChemicalNotFoundError,
@@ -898,7 +900,7 @@ def build_mcp_server() -> MCPServer:
             return auth_result  # type: ignore[return-value]
         if not 1 <= reaction_id <= ID_MAX:
             raise ToolError("reaction_id is out of range.")
-        # G2.5B: 直调 transport-neutral service(None=不存在或不可见);
+        # 直调 transport-neutral service(None=不存在或不可见);
         # auth 行为冻结: 无/无效 credential → anonymous(viewer_id=0)。
         async with async_session() as session:
             data = await load_reaction_detail(
@@ -1055,7 +1057,7 @@ def build_mcp_server() -> MCPServer:
         category = (category or "")[:40]
         page = min(max(page, 1), LIST_PAGE_MAX)
         page_size = min(max(page_size, 1), SEARCH_PAGE_SIZE_MAX)
-        # G2.6B: 直调 shared service(skill.query.list kernel)。
+        # 直调 shared service(skill.query.list kernel)。
         async with async_session() as session:
             listed = await _list_service(
                 session, scope=scope, owner_id=actor.id if scope == "mine" else None,
@@ -1092,7 +1094,7 @@ def build_mcp_server() -> MCPServer:
             resolved_id = skill_id
         if not 1 <= resolved_id <= ID_MAX:
             raise ToolError("skill_id is out of range.")
-        # G2.6C: 直调 shared detail service(slug 解析留本 adapter);
+        # 直调 shared detail service(slug 解析留本 adapter);
         # missing/private-unreadable → 同一 ToolError 原文。
         async with async_session() as session:
             try:
@@ -1191,7 +1193,7 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("visibility must be one of: all, public, private.")
         page = min(max(page, 1), LIST_PAGE_MAX)
         page_size = min(max(page_size, 1), MY_REACTIONS_PAGE_SIZE_MAX)
-        # G2.5C: 直调 shared service(clamp 保持, 不改 ToolError/拒绝).
+        # 直调 shared service(clamp 保持, 不改 ToolError/拒绝).
         async with async_session() as session:
             listed = await _list_service(
                 session, actor_id=actor.id, visibility=visibility,
@@ -1228,7 +1230,7 @@ def build_mcp_server() -> MCPServer:
             body = ReactionBody(**reaction)
         except Exception as exc:
             raise ToolError(_validation_error_message("Invalid reaction draft fields", exc)) from exc
-        # G3.1B: 直调 shared validation service(A005 validate 关闭);
+        # 直调 shared validation service(A005 validate 关闭);
         # neutral validation/rate error → ToolError(detail)。
         try:
             return await validate_reaction_draft(
@@ -1328,7 +1330,7 @@ def build_mcp_server() -> MCPServer:
         if auth_result is not None:
             return auth_result  # type: ignore[return-value]
         assert actor is not None
-        # G3.1D 冻结 ordering: base64 decode 在 service/rate 之前
+        # 冻结 ordering: base64 decode 在 service/rate 之前
         # (非法 base64 不消耗 quota, service 零调用)。
         try:
             raw = _base64.b64decode(zip_base64, validate=True)
@@ -1340,7 +1342,7 @@ def build_mcp_server() -> MCPServer:
             return raw[:limit]
 
         try:
-            # G3.1D: 直调 shared create service(handler-call A005 关闭);
+            # 直调 shared create service(handler-call A005 关闭);
             # neutral errors → ToolError(detail)。
             async with async_session() as session:
                 return await _create_skill_service(
@@ -1389,7 +1391,7 @@ def build_mcp_server() -> MCPServer:
         if auth_result is not None:
             return auth_result  # type: ignore[return-value]
         assert actor is not None
-        # G3.1C 冻结差异: MCP 侧 idempotency_key 必填且 ≤200, 检查在
+        # 冻结差异: MCP 侧 idempotency_key 必填且 ≤200, 检查在
         # service/rate 之前(service 不被调, quota 不消耗)。
         if not idempotency_key or len(idempotency_key) > IDEMPOTENCY_KEY_MAX_LENGTH:
             raise ToolError("idempotency_key is required and must not exceed 200 characters.")
@@ -1398,7 +1400,7 @@ def build_mcp_server() -> MCPServer:
         except Exception as exc:
             raise ToolError(_validation_error_message("Invalid draft fields", exc)) from exc
         try:
-            # G3.1C: 直调 shared create service(A005 create 关闭);
+            # 直调 shared create service(A005 create 关闭);
             # neutral validation/rate/idempotency error → ToolError(detail)。
             async with async_session() as session:
                 return await _create_service(
@@ -1410,7 +1412,7 @@ def build_mcp_server() -> MCPServer:
                 MissingIdempotencyKeyError, IdempotencyKeyTooLongError) as exc:
             raise ToolError(_reaction_error_message(exc)) from exc
         except UnresolvedIdentityError as exc:
-            # E9-B: CONFLICT/AMBIGUOUS → no rows created.
+            # CONFLICT/AMBIGUOUS → no rows created.
             raise ToolError(_reaction_error_message(exc)) from exc
 
     return server
@@ -1435,7 +1437,7 @@ def mount_mcp(app: FastAPI) -> None:
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
         host="0.0.0.0",
     )
-    # 2026-08-31 终局: 挂根 + 子路径 /mcp → MCP 端点 = /mcp(规范路径, 关键路由锁死)。
+    # 终局: 挂根 + 子路径 /mcp → MCP 端点 = /mcp(规范路径, 关键路由锁死)。
     # 说明页让位至 /mcp-guide(Next)。原 /api/mcp 与 /api/mcp/mcp 由 nginx 308 兜底,
     # 已接入客户端不断连。挂根不影响 REST: 子应用只响应 /mcp, 其余路径穿透回父 404。
     app.mount("/", starlette_app)

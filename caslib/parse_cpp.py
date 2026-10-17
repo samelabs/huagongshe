@@ -1,16 +1,16 @@
-"""CPP 页统一解析器(2026-09-05 规范化定案) — 五语言同构, 一套解析。
+"""CPP 页统一解析器(规范化) — 五语言同构, 一套解析。
 
 目标页: ChemicalProductProperty_{CN,EN,JP,DE,KR}_CB{cb}.htm (唯一采集目标)。
 CAS 页职能只剩发现 cb_number, 不再解析内容。
 
 分区(按页面官方结构, 白名单之外不采):
-- identity   头区 dl<dt>键:</dt><dd>值</dd>: 中文名/英文名/别名/分子式/分子量/MOL链接
+- identity 头区 dl<dt>键:</dt><dd>值</dd>: 中文名/英文名/别名/分子式/分子量/MOL链接
 - properties ChemicalProperties 表, PropertyNameLabel_N ↔ PropertyValueLabel_N
              按 LabelID 配对(根治 dt/dd 顺序正则的配对漂移)
-- safety     SafetyInformation 外层表 th/td
-- price      ProductReagentPrice 表(更新日期/编号/名称/包装/价格固定列)
-- updown     上游原料/下游产品 h3 区, {name, cb_number}(对方CB号页面原生给出)
-- prose      h3 白名单标题区(用途/生产方法/化学性质等)
+- safety SafetyInformation 外层表 th/td
+- price ProductReagentPrice 表(更新日期/编号/名称/包装/价格固定列)
+- updown 上游原料/下游产品 h3 区, {name, cb_number}(对方CB号页面原生给出)
+- prose h3 白名单标题区(用途/生产方法/化学性质等)
 
 canonical 键: props 的页面标签 → 稳定英文键(键表见 _PROP_KEY); 未收录标签
 保原文 label 不强行归类。数值化 v/unit 单源函数(PB exp_props 派生链已废)。
@@ -174,11 +174,11 @@ _SAFETY_KEY_L10N = {
     "PackingGroup": "packing_group", "容器等級": "packing_group",
 }
 # prose 采集白名单: 2026-10 起由下方 _PROSE_GROUPED(SSOT)派生,
-# 标题集合与 0905 定案逐字一致 — 见 canonical prose SSOT 注释。
+# 标题集合与 逐字一致 — 见 canonical prose SSOT 注释。
 
 # 唯一定义: 标题 → semantic group。标题本身只维护这一次。
-#   1. _PROSE_TITLES(parser 采集白名单)由本 mapping 的 keys 自动生成;
-#   2. classify_prose_title()(semantic projection 分组)查同一 mapping。
+# 1. _PROSE_TITLES(parser 采集白名单)由本 mapping 的 keys 自动生成;
+# 2. classify_prose_title()(semantic projection 分组)查同一 mapping。
 # 分组键与 chemicalSections PROSE_GROUPS 同源: uses/preparation/properties/
 # toxicity/packaging/notes。注意 notes 组标题(定義/Definition 等)在白名单内
 # 但不归其他组 — mapping 显式收录, 保证"白名单内标题全部有明确归属"。
@@ -221,7 +221,7 @@ _PROSE_TITLE_GROUP: dict[str, str] = {
     for title in titles
 }
 # parser 采集白名单 — 从 SSOT keys 派生, 不再独立维护(标题集合与
-# 0905 定案逐字一致)。
+# 逐字一致)。
 _PROSE_TITLES = tuple(_PROSE_TITLE_GROUP)
 
 
@@ -251,7 +251,7 @@ _CAS_TOKEN_RE = re.compile(r"\d{2,7}-\d{2}-\d")
 
 
 def _strip_leading_cas_list(text: str) -> str:
-    r"""剥正文首部的连续裸CAS罗列(0905): "^209919-30-2 1570-64-5 一般步骤：…" → "一般步骤：…"。
+    r"""剥正文首部的连续裸CAS罗列(): "^209919-30-2 1570-64-5 一般步骤：…" → "一般步骤：…"。
 
     只剥开头由空白分隔、每段都是CAS号的序列(≥1段); 段后必须还有正文。
     文中引用(cas# …/CAS号：…)不在开头, 天然不受影响。
@@ -276,7 +276,7 @@ def _parse_number_from_text(text: str) -> tuple[float | None, str | None]:
     """'162 °C (lit.)' → (162.0, '°C')。单位=首数后首个非空白非数字 token
     (字母/°/%开头), 截到空白或括号。失败 (None, None)。与 PB 口径一致。
 
-    引文守卫(0905): 唯一数字若在引文括号内——'Insoluble (NTP, 1992)'、
+    引文守卫(): 唯一数字若在引文括号内——'Insoluble (NTP, 1992)'、
     'Pyrene is a solid. (EPA, 1998)'——那是来源年份不是量值, v 不存在。
     判据: 去掉所有 (...) 括号段后文本里不再含该数字。
     """
@@ -481,7 +481,7 @@ def parse_cpp_page(html: str | None, *, locale: str = "zh-CN") -> dict[str, Any]
         stop = re.search(r"<h[23][^>]*>|<table|<dl>", rest)
         seg = rest[: stop.start()] if stop else rest
         text = re.sub(r"\s+", " ", text_of(seg)).strip()
-        # 剥首部原料CAS列表(0905): 源站"生产方法"段前缀的原料CAS罗列(如
+        # 剥首部原料CAS列表(): 源站"生产方法"段前缀的原料CAS罗列(如
         # "209919-30-2 1570-64-5 一般步骤：…")是页面导航残留, 非正文——
         # 上游原料已有 updown 结构化承载。仅剥开头的连续裸CAS, 文中引用
         # (cas# 3068-34-6 / CAS号：29049-45-4)不动。

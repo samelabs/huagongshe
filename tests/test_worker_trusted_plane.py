@@ -1,4 +1,4 @@
-"""Worker trusted write plane 安全测试(0912 审计沉淀, 分支 fix/worker-trusted-plane)。
+"""Worker trusted write plane 安全测试(审计沉淀)。
 
 判别性断言(禁 assertIn 多值白名单):
 - Scope gate: 显式 route-family 映射, 未知 path 403 fail-closed
@@ -473,7 +473,7 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
         codes = sorted(r.status_code for r in self.post_concurrent(
             "/workapi/v1/jobs/complete", payload, times=2))
         # 恰一个 primary 成功; 另一个合法终态: 409(receipt 未及可见) /
-        # 200 idempotent(P0-2 幂等 ack) / 503(replay-protection Redis 瞬断,
+        # 200 idempotent(幂等 ack) / 503(replay-protection Redis 瞬断,
         # fail-closed 在鉴权层挡下, 零业务效应)。数据零重复(下方)才是硬判据。
         self.assertEqual(codes[0], 200)
         self.assertIn(codes[1], (200, 409, 503))
@@ -590,7 +590,7 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
         j = self._lease_one()
         # 注入: gate_record_success 抛错(模拟 Redis/gate 挂) — 但 monkeypatch 对
         # TestClient 同进程生效
-        # E6: post-commit 序列已归 application service 拥有 → patch service owner
+        # post-commit 序列已归 application service 拥有 → patch service owner
         from api.services import workapi_jobs as jobs
         orig = jobs.gate_record_success
         async def boom(*a, **k):
@@ -619,7 +619,7 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
         # 因此注入点选 sync_chemical_core 也走不到 — 用 job[1] 行存在但令 record
         # receipt 之前唯一必经的写路径失败: 注入 record_completion_receipt 自身无意义,
         # 选 DELETE 前的业务写: 对空 result 路径直接注入 canonicalize_id。
-        # E6: canonical 写路径归 application service 拥有 → patch service owner
+        # canonical 写路径归 application service 拥有 → patch service owner
         from api.services import workapi_jobs as jobs
         orig = jobs.sync_chemical_core
         async def boom(*a, **k):
@@ -679,9 +679,9 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
 
     # ════ 8. §12 事务故障注入(receipt 写失败 / job delete 失败) ════
     # §12 四项: (1) mutation fails before commit → rollback
-    #              = test_primary_failure_no_receipt
-    #           (4) post-commit Redis/cache 失败 → primary success 仍成功
-    #              = test_housekeeping_failure_does_not_flip_success
+    # = test_primary_failure_no_receipt
+    # (4) post-commit Redis/cache 失败 → primary success 仍成功
+    # = test_housekeeping_failure_does_not_flip_success
     # 本段补 (2)(3): 二者都是 primary completion transaction 的原子性证据。
     def _receipt_count(self, job_id):
         async def _q():
@@ -756,7 +756,7 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
             jobs.text = orig_text
             self._release_job(j["job_id"])
 
-    # ════ E5. Transport neutrality: 409 逐字 detail(真实 app + test_hgs) ════
+    # ════ . Transport neutrality: 409 逐字 detail(真实 app + test_hgs) ════
     # service 抛 neutral(LeaseConflictError), adapter 独占映射 → 既有 409 +
     # 逐字 detail。本段锁"HTTP status/detail 未漂移", 不覆盖 T001 的宽断言面。
     E5_LEASE_DETAIL = "lease is missing, expired, or owned by another worker"

@@ -11,7 +11,7 @@
  * 关注/取消时头部数据行的粉丝数同步 ±1（FollowButton onChange）。
  * 手机（≤640，参考 DESIGN_SYSTEM 6.6）：头像 64 + 反应/粉丝/关注 三数横排 → 名字+
  * 关系 Tag → 简介 → 职位·机构 → 关注 + 分享主页 两个 lg 文字按钮并排等宽
- * （分享桌面仍为 ghost 图标，CSS 切换，Part E）。
+ * （分享桌面仍为 ghost 图标，CSS 切换)。
  */
 import Link from "next/link";
 import { useState } from "react";

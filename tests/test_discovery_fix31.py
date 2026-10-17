@@ -239,7 +239,7 @@ class DiscoveryFix31Tests(unittest.TestCase):
         """SQL contract: verified_identity_lease 的语句必须含 FOR UPDATE
         且作用于 pubchem_identity_jobs(锁定行锁语义, 防漂移)。
 
-        E6: owner 从 adapter 迁至 application service(§3 裁定) → 直接检查
+        owner 从 adapter 迁至 application service → 直接检查
         api/services/workapi_jobs.py, 不在 adapter 留 shim。
         """
         import inspect
@@ -294,7 +294,7 @@ class DiscoveryFix31Tests(unittest.TestCase):
                             "P", (), {"job_id": jid, "lease_token": token})(),
                             "ut31w")
                     except LeaseConflictError as exc:
-                        # E6: service 抛 neutral(无 status) → 409 只能来自
+                        # service 抛 neutral(无 status) → 409 只能来自
                         # adapter 的独占映射点; 断言 HTTP 可见结果仍为 409。
                         from api.workapi import _lease_conflict_http
                         return _lease_conflict_http(exc).status_code

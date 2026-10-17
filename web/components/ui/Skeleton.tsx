@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Skeleton — 加载骨架（DESIGN_SYSTEM 3.11，IX-4）。
+ * Skeleton — 加载骨架（DESIGN_SYSTEM 3.11)。
  * card：卡片块占位；row：列表行占位。
  */
 export function Skeleton({ variant = "row", className, style }: {

@@ -3,7 +3,7 @@ import { execSync } from "node:child_process";
 import { networkInterfaces } from "node:os";
 
 /**
- * 线上只读截图的 build 标记（Step 8 纪律）：dev 环境把当前 commit 短哈希
+ * 线上只读截图的 build 标记(纪律）：dev 环境把当前 commit 短哈希
  * 经 env 注入为 HGS_BUILD_SHA，app/layout.tsx 在 <html data-build> 输出，
  * shoot.mjs 断言「渲染的 UI = 当前 commit」。只在 NODE_ENV=development
  * 注入；生产构建不带 build 指纹（避免按 sha 产生缓存分片）。
@@ -20,13 +20,22 @@ function devBuildSha(): string {
 
 const buildSha = devBuildSha();
 
-/** 开发服务器放行本机局域网地址：手机经局域网访问时，Next 默认拦截跨源的开发资源，页面脚本不执行。 */
+/**
+ * 开发服务器放行的本机来源：手机经局域网访问时，Next 默认拦截跨源的开发资源
+ * （HMR 与脚本不执行、页面不水合）。回环地址同样要放行——用
+ * http://127.0.0.1:3000 打开时 Origin 与默认主机名 localhost 不同源，
+ * 不放行则 HMR websocket 被拒、页面不水合（localhost 打开则正常）。
+ * 仅 development 生效，生产恒为空名单。
+ */
 function devLanOrigins(): string[] {
   if (process.env.NODE_ENV !== "development") return [];
-  return Object.values(networkInterfaces())
-    .flat()
-    .filter((n) => n && n.family === "IPv4" && !n.internal)
-    .map((n) => n!.address);
+  return [
+    "127.0.0.1",
+    ...Object.values(networkInterfaces())
+      .flat()
+      .filter((n) => n && n.family === "IPv4" && !n.internal)
+      .map((n) => n!.address),
+  ];
 }
 
 
@@ -52,14 +61,14 @@ const nextConfig: NextConfig = {
         { key: "X-Content-Type-Options", value: "nosniff" },
         { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-        // F-09（P2）: CSP 先 report-only —— 盘点后的 inline script 清单：
-        //   1. layout.tsx LA.init 统计初始化（dangerouslySetInnerHTML，id 经
-        //      语法白名单校验后插值）→ 需要 script-src 'unsafe-inline' 或改造为
-        //      nonce（收紧前置条件）；外部源 //sdk.51.la。
-        //   2. layout.tsx service worker 注册 inline 脚本 → 同上。
-        //   3. reaction/chemical 页 JSON-LD（type=application/ld+json，数据块
-        //      不执行，CSP 不约束）。
-        //   4. AdSense（可选开启）: pagead2.googlesyndication.com 及其加载链。
+        // F-09（）: CSP 先 report-only —— 盘点后的 inline script 清单：
+        // 1. layout.tsx LA.init 统计初始化（dangerouslySetInnerHTML，id 经
+        // 语法白名单校验后插值）→ 需要 script-src 'unsafe-inline' 或改造为
+        // nonce（收紧前置条件）；外部源 //sdk.51.la。
+        // 2. layout.tsx service worker 注册 inline 脚本 → 同上。
+        // 3. reaction/chemical 页 JSON-LD（type=application/ld+json，数据块
+        // 不执行，CSP 不约束）。
+        // 4. AdSense（可选开启）: pagead2.googlesyndication.com 及其加载链。
         // 收紧路径：观察线上 violation（浏览器 console / 未来接 report-uri）→
         // 统计与 SW 脚本改 nonce/移除内联 → 转 enforcing 头。
         {

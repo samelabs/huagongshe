@@ -87,9 +87,9 @@ export function EntityNotes({ entity, entityId, canAdd, privateContext }: {
     : `/aichem?tab=notes&new=1&reaction=${entityId}`;
 
   return (
-    <section className="chem-section entity-notes" id="linked-notes">
+    <section className="hg-section entity-notes" id="linked-notes">
       <div className="section-heading entity-notes-heading">
-        <h2>{t.notes.linkedTitle}</h2>
+        <h2 className="hg-section-title">{t.notes.linkedTitle}</h2>
         {canAdd && <TextLink href={withLocale(createHref, locale)}>{t.notes.add}</TextLink>}
       </div>
       {privateContext && <MyPrivateNotes context={privateContext} />}

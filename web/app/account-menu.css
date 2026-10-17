@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    account-menu.css — LanguageSwitcher
    ═══════════════════════════════════════════════════════════════
-   v1.7 Step 5：身份菜单统一进 SiteHeader 的 UserMenu（shell.css .sh-menu*），
+   身份菜单统一进 SiteHeader 的 UserMenu（shell.css .sh-menu*），
    AccountMenu 组件与其 am-* 样式已删除；本文件只保留语言切换器。
    触发器视觉 = ghost sm 文字按钮（DESIGN_SYSTEM 2.3 顶栏右侧）。 */
 

@@ -32,5 +32,9 @@ DEVLOG.md
 
 # 本地开发栈（local/）—— compose 凭据与上传文件不入库
 local/stack/.env.local
+!local/stack/.env.local.example
 local/uploads/
 local/.dev*.log
+
+# 品牌源文件与生成脚本（不入库；产物在 web/public 与 web/app）
+brand/

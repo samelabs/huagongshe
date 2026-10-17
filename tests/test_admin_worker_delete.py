@@ -1,4 +1,4 @@
-"""E9-A Worker 安全删除契约测试 (hermetic, 需 test DB)。
+""" Worker 安全删除契约测试 (hermetic, 需 test DB)。
 
 契约:
   DELETE /admin/workers/{worker_id}
@@ -7,7 +7,7 @@
   - 三表均无 active lease → 删除成功 (200, worker_clients 行消失)
   - 不存在 → 404
   - completion receipts 不删除; enabled/scopes 原行为不变(runtime 语义另行由
-    test_admin_pipeline_a1 覆盖)
+    test_admin_pipeline_health 覆盖)
 
 运行: . /tmp/hgs_test_env.sh && ./venv/bin/python -m unittest tests.test_admin_worker_delete
 """
@@ -193,7 +193,7 @@ class WorkerDeleteContractTests(unittest.IsolatedAsyncioTestCase):
         await self._grant_lease("pubchem_jobs")
         code, body = await _call("DELETE", f"/admin/workers/{self.WID}")
         self.assertEqual(409, code)
-        # BX-A2：detail 升级为 {message, kind, leases} —— 语义不变（哪个表挡了删除）
+        # detail 升级为 {message, kind, leases} —— 语义不变（哪个表挡了删除）
         self.assertEqual("worker_busy", body["detail"]["kind"])
         self.assertIn("pubchem_jobs", body["detail"]["leases"])
         self.assertIn("不能删除", body["detail"]["message"])

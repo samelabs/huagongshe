@@ -1,4 +1,4 @@
-"""R4/R5 audit-fix tests: sanitize-before-length-cap and hidden-note write
+"""note sanitization and hidden-note write semantics
 semantics (no-side-effect update/delete, owner list excludes hidden)."""
 
 from __future__ import annotations
@@ -13,11 +13,11 @@ from pydantic import ValidationError
 from api.schemas.notes import MAX_NOTE_CONTENT_LENGTH, NoteBody, sanitize_note_content
 
 # ---------------------------------------------------------------------------
-# R4: sanitize happens BEFORE the final length cap
+# sanitize happens BEFORE the final length cap
 # ---------------------------------------------------------------------------
 
 
-class R4SanitizeBeforeLengthTests(unittest.TestCase):
+class SanitizeBeforeLengthTests(unittest.TestCase):
     def test_raw_over_limit_accepted_when_sanitized_fits(self):
         # 30050 raw chars: 100 visible + 29950 Cf → sanitized = 100 ≤ 30000
         raw = "a" * 100 + "\u200d" * 29950
@@ -54,7 +54,7 @@ class R4SanitizeBeforeLengthTests(unittest.TestCase):
         self.assertEqual(again.content, "e" * 100)
 
     def test_no_field_max_length_precheck(self):
-        # R4: Field(max_length=...) would run BEFORE the sanitizer and wrongly
+        # Field(max_length=...) would run BEFORE the sanitizer and wrongly
         # reject raw>30000 whose sanitized form fits — it must be absent.
         source = open("api/schemas/notes.py", encoding="utf-8").read()
         self.assertIsNone(re.search(r"content:\s*str\s*=\s*Field\([^)]*max_length", source))

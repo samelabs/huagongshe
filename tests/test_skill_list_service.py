@@ -1,4 +1,4 @@
-"""G2.6B — Skill List 共享 service 测试(skill.query.list kernel)。
+""" — Skill List 共享 service 测试(skill.query.list kernel)。
 
 锁:
 - public/mine 共用同一 query implementation, 仅 selector predicate 不同
@@ -46,7 +46,7 @@ def _row(**over):
         "has_scripts": False, "file_count": 3, "size_bytes": 100,
         "updated_at": "2026-01-01", "username": "u1", "display_name": "U1",
         "avatar_url": None,
-        "active": True,  # HGS-ACCOUNT-CONTENT-01: 停用作者标记
+        "active": True,  # 停用作者标记
     }
     base.update(over)
     return base
@@ -89,7 +89,7 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(c["params"]["owner"], 42)
 
     async def test_public_and_mine_share_same_query_implementation(self):
-        """G1 kernel 物理实现: 两 scope 走同一函数同一 SQL 模板。"""
+        """ kernel 物理实现: 两 scope 走同一函数同一 SQL 模板。"""
         dbs = []
         for scope, owner in (("public", None), ("mine", 7)):
             db = _FakeDB()
@@ -161,7 +161,7 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
             ["id", "slug", "title", "description", "category", "is_official",
              "visibility", "has_scripts", "file_count", "size_bytes",
              "updated_at", "owner"])
-        self.assertFalse(item["is_official"])  # I-024: origin='user' → False
+        self.assertFalse(item["is_official"])  # origin='user' → False
         self.assertEqual(item["size_bytes"], 512)  # int() 转换保留
         self.assertEqual(item["owner"], {"username": "alice",
                                          "display_name": "Alice",

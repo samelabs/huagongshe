@@ -1,7 +1,7 @@
 """CB mol 拉取/解析的判别与行为测试(fixtures 全部在库 tests/fixtures/, repo-relative).
 
-样本: cb_65850.mol + CAS_65-85-0.htm (2026-08-28 实拉);
-      cpp_cb2234049_{cn,en}.html (CB2234049, 2026-09-19 实拉, 见 E7 §2)。
+样本: cb_65850.mol + CAS_65-85-0.htm (实拉);
+      cpp_cb2234049_{cn,en}.html (CB2234049, 实拉, 见 §2)。
 """
 from __future__ import annotations
 
@@ -21,10 +21,10 @@ class StructureResolveTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        # E7: 样本在库(repo-relative), 缺失即失败 —— 不再把路径问题 skip 掉
+        # 样本在库(repo-relative), 缺失即失败 —— 不再把路径问题 skip 掉
         if not os.path.exists(FIXTURE_HTML):
             raise AssertionError(f"仓库 fixture 缺失: {FIXTURE_HTML}")
-        # 旧 parse_entry 已退役(0905); fixture CAS 页不解析,
+        # 旧 parse_entry 已退役(); fixture CAS 页不解析,
         # props 直接用 canonical 形态内联(结构三件解析的判别逻辑不变)
         cls.entry = {
             "props": [
@@ -66,7 +66,7 @@ class StructureResolveTests(unittest.TestCase):
     def test_resolve_structure_garbage_smiles_dropped(self) -> None:
         """页面 SMILES 非标(RDKit 解析不过): 整字段丢弃, 从 mol 兜底。
 
-        HGS-CB-STRUCT-01 后: malformed 页面 IK(非 14-10-1)不作结构表示
+        结构交叉校验后: malformed 页面 IK(非 14-10-1)不作结构表示
         (整字段丢弃, 不再原样写进 chemicals.inchikey), 与 mol 兜底交叉
         校验后取 mol 派生值。"""
         from api.services.cb import resolve_structure
@@ -94,11 +94,11 @@ class StructureResolveTests(unittest.TestCase):
 
 
 class CppParseTests(unittest.TestCase):
-    """CPP 页解析(fixtures: CB2234049 CN/EN, 2026-09-19 实拉, CN 100家供应商)。"""
+    """CPP 页解析(fixtures: CB2234049 CN/EN, 实拉, CN 100家供应商)。"""
 
     @classmethod
     def setUpClass(cls) -> None:
-        # E7: 原先读 /tmp 预置 CPP 页 → 样本入库, 缺失即失败(不 skip)
+        # 原先读 /tmp 预置 CPP 页 → 样本入库, 缺失即失败(不 skip)
         for p in (FIXTURE_CPP_CN, FIXTURE_CPP_EN):
             if not os.path.exists(p):
                 raise AssertionError(f"仓库 fixture 缺失: {p}")
@@ -122,8 +122,8 @@ class CppParseTests(unittest.TestCase):
         self.assertEqual(first["name"], "南京苏如化工有限公司")
         self.assertEqual(first["email"], "sales@suruchem.com")
         self.assertRegex(first["cbsid"], r"^\d+$")
-        # ref 契约 = "cb-supplier:" + cbsid(2026-09-19 样本 cbsid=1436986 → 19 字符;
-        # 0905 样本的 16 是当时 cbsid 位数更短, 非契约常量)
+        # ref 契约 = "cb-supplier:" + cbsid(样本 cbsid=1436986 → 19 字符;
+        # 样本中的 16 是早期 cbsid 位数更短, 非契约常量)
         self.assertEqual(first["ref"], "cb-supplier:" + first["cbsid"])
 
     def test_cpp_suppliers_empty_or_garbage(self) -> None:

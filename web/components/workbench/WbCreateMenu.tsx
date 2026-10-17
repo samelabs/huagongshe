@@ -44,10 +44,10 @@ export function WbCreateMenu() {
     };
   }, [open]);
 
-  // 只在概览出现（Step 9 修复：早退必须在全部 hooks 之后 —— 此前写在
+  // 只在概览出现(修复：早退必须在全部 hooks 之后 —— 此前写在
   // useEffect 之前，切出概览 tab 时 hooks 数骤减，React 抛
   // "Rendered fewer hooks than expected" 并卸载整个工作台子树
-  // （手机端顶栏「+」/抽屉随之消失），是 Step 8 引入的隐藏崩溃）。
+  // （手机端顶栏「+」/抽屉随之消失），是 引入的隐藏崩溃）。
   if (tab !== "home") return null;
 
   return (

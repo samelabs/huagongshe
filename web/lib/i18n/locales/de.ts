@@ -92,7 +92,7 @@ const de: Dictionary = {
     hridLabel: (id: number | string) => `HRID ${id}, Reaktion`,
     breadcrumb: 'Brotkrumen-Navigation',
     close: 'Schließen',
-    /* v1.7 组件库 */
+    /* 组件库 */
     copy: 'Kopieren',
     copied: 'Kopiert',
     cancel: 'Abbrechen',
@@ -153,7 +153,7 @@ const de: Dictionary = {
 
   /* ── Suche ──────────────────────────────────────────── */
   search: {
-    seoResultsLabel: 'Suche',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
+    seoResultsLabel: 'Suche',  /* 结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: 'Durchsuche Huagongshe-Chemiedaten nach Name, CAS-Nummer, InChIKey, SMILES oder Struktur.',
     title: 'Chemiedaten durchsuchen',
     noResultsFor: (query: string) => `Keine Einträge für „${query}“ gefunden`,
@@ -338,7 +338,7 @@ const de: Dictionary = {
       other: 'Sonstiges',
       unknown: 'Ohne Angabe',
     },
-    userSubmitted: 'Von Nutzern eingereicht',  /* BX-A2：API user_submitted 标记的本地化 */
+    userSubmitted: 'Von Nutzern eingereicht',  /* API user_submitted 标记的本地化 */
     sourceFields: {
       type: 'Quellentyp',
       ord: 'ORD-Eintrag',
@@ -360,7 +360,7 @@ const de: Dictionary = {
     yieldLabel: (v: string) => `Ausbeute ${v} %`,
     internalStandard: 'Interner Standard',
     otherRole: 'Sonstige',
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'Diese Reaktion löschen?',
     deleteLabel: 'Reaktion löschen',
     deleted: 'Reaktion gelöscht',
@@ -446,7 +446,8 @@ const de: Dictionary = {
     feedActor: (name: string) => `${name} hat eine öffentliche Reaktion veröffentlicht`,
     feedActorNote: (name: string) => `${name} hat eine öffentliche Notiz veröffentlicht`,
     feedEmptyTitle: 'Noch keine Aktivitäten',
-    feedEmptyDesc: 'Wenn Personen, denen du folgst, öffentliche Reaktionen oder Notizen veröffentlichen, erscheinen sie hier.',
+    feedEmptyDesc: 'Öffentliche Reaktionen und Notizen von Autoren, denen du folgst, erscheinen hier.',
+    discoverCta: 'Jetzt Autoren entdecken',
     feedViewAll: 'Alle Aktivitäten ansehen',
     feedOpen: 'Öffnen',
     profileViewPublic: 'Mein öffentliches Profil ansehen',
@@ -487,6 +488,7 @@ const de: Dictionary = {
     },
     notesSessionExpired: 'Die Sitzung ist abgelaufen. Bitte erneut anmelden, bevor du speicherst.',
     notesEmpty: 'Noch keine Notizen.',
+    notesEmptyDesc: 'Halte Beobachtungen, Einschätzungen und Quellen fest — mit Verknüpfungen zu Stoffen oder Reaktionen.',
     notesFilter: 'Filter: Sichtbarkeit der Notizen',
     unitNote: 'Notizen',
     followingHint: 'Nutzer, denen du folgst. Profile ansehen oder entfolgen',
@@ -494,8 +496,10 @@ const de: Dictionary = {
     emptyReactions: 'Noch keine gespeicherten Reaktionsaufzeichnungen.',
     emptyChemicals: 'Noch keine gespeicherten Verbindungen.',
     emptyReactionSaved: 'Noch keine gespeicherten Reaktionen.',
-    emptyFollowing: 'Du folgst noch niemandem.',
+    emptyFollowing: 'Du folgst noch keinen Autoren.',
+    emptyFollowingDesc: 'Folge Mitgliedern unter „Autoren entdecken“ — ihre neuen Beiträge erscheinen in deinem Feed.',
     emptyFollowers: 'Noch keine Follower.',
+    emptyFollowersDesc: 'Veröffentliche Reaktionen und Notizen, damit die Community deine Arbeit findet.',
     visAll: 'Alle Reaktionsaufzeichnungen, gespeichert über Web oder KI',
     visPrivate: 'Nur für das aktuelle Konto sichtbar',
     visPublic: 'Im öffentlichen Profil sichtbar',
@@ -515,10 +519,12 @@ const de: Dictionary = {
     navSkills: 'Meine Skills',
     navMcpKey: 'MCP & AI Keys',
     navSettings: 'Einstellungen',
-    tabPeople: 'Personen finden',
-    peopleSearchPlaceholder: 'Nach Benutzername oder Anzeigename suchen...',
-    peopleEmptyPrompt: 'Geben Sie einen Benutzernamen oder Anzeigenamen ein, um Benutzer zu finden',
-    peopleNoResults: 'Keine Benutzer gefunden',
+    tabPeople: 'Autoren entdecken',
+    peopleHint: 'Mitglieder suchen und folgen — ihre neuen Beiträge erscheinen in deinem Feed',
+    peopleSearchPlaceholder: 'Nach Benutzername oder Anzeigename suchen…',
+    peopleEmptyPrompt: 'Mitglieder nach Benutzername oder Anzeigename suchen',
+    peopleIdleDesc: 'Wenn du jemandem folgst, erscheinen seine öffentlichen Reaktionen und Notizen in deinem Feed.',
+    peopleNoResults: 'Keine passenden Mitglieder gefunden',
     peopleFollowers: (n: number) => `${n} ${n === 1 ? 'Follower' : 'Follower'}`,
   },
 
@@ -531,6 +537,7 @@ const de: Dictionary = {
     authorNote: (author: string) => `Notiz von ${author}`,
     /* ── Phase 1c: Detailseite / Profil / privat / Filter / Kürzung / Stoich ── */
     detailTitle: 'Notiz',
+    untitled: 'Notiz ohne Titel',
     category: 'Notiz',
     updatedLabel: 'Aktualisiert',
     visibilityPublic: 'Öffentlich',
@@ -547,11 +554,11 @@ const de: Dictionary = {
     createReaction: 'Neue Reaktion',
     writeNote: 'Notiz schreiben',
 
-    /* R6 */
+    /* */
     profileLoadFailed: 'Öffentliche Notizen konnten nicht geladen werden',
     deleteFailed: 'Löschen fehlgeschlagen, bitte erneut versuchen',
 
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'Diese Notiz löschen?',
     deleteLabel: 'Notiz löschen',
     deleted: 'Notiz gelöscht',
@@ -821,6 +828,17 @@ const de: Dictionary = {
     errAmountUnit: 'Für jede Komponente bitte Menge und Einheit zusammen angeben.',
     errConcUnit: 'Für jede Komponente bitte Konzentration und Einheit zusammen angeben.',
     errSourceMissing: 'Bitte die zum Quellentyp passenden Quellenangaben eintragen.',
+    errOccurrenceCount: 'Die Häufigkeit muss eine ganze Zahl zwischen 1 und 20 sein.',
+    errNonNegative: 'Der Wert darf nicht unter 0 liegen.',
+    errYieldRange: 'Die Ausbeute muss zwischen 0 und 100 liegen.',
+    errDurationRange: 'Die Dauer muss größer als 0 sein.',
+    errPhRange: 'Der pH-Wert muss zwischen 0 und 14 liegen.',
+    errPressureRange: 'Der Druck muss größer als 0 sein.',
+    errDoiFormat: 'Das DOI-Format ist nicht korrekt.',
+    errSourceUrlScheme: 'Der Quellenlink muss mit http:// oder https:// beginnen.',
+    errTempPair: 'Temperatur braucht Wert und Einheit zusammen.',
+    errDurationPair: 'Dauer braucht Wert und Einheit zusammen.',
+    errPressurePair: 'Druck braucht Wert und Einheit zusammen.',
     errSave: 'Speichern fehlgeschlagen. Bitte später erneut versuchen',
     errNetwork: 'Netzwerkverbindung fehlgeschlagen. Deine Eingaben bleiben auf dieser Seite. Bitte später erneut versuchen.',
     roles: {
@@ -1015,7 +1033,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     emptyNotesVisitor: 'Noch keine öffentlichen Notizen.',
     emptyNotesSelf: 'Du hast noch keine öffentlichen Notizen.',
     enterWorkbench: 'Zur Werkbank',
-    /* HGS-ACCOUNT-CONTENT-01 (PM-Entscheid): deaktivierter Profilzustand (DESIGN_SYSTEM 6.6) + Autorenkennzeichnung */
+    /* deaktivierter Profilzustand (DESIGN_SYSTEM 6.6) + Autorenkennzeichnung */
     deactivatedTag: 'Konto deaktiviert',
     deactivatedTitle: 'Dieses Konto ist deaktiviert',
     deactivatedBody: 'Dieses Konto wurde deaktiviert. Öffentlich geteilte Inhalte bleiben per Direktlink abrufbar, werden hier jedoch nicht gelistet und Folgen ist nicht möglich.',
@@ -1193,7 +1211,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     viewProfile: 'Profil ansehen',
   },
 
-  /* ── Editor (IX-5 Speicherstatus / ungespeichert) ───── */
+  /* ── Editor (Speicherstatus / ungespeichert) ───── */
   editor: {
     saved: 'Gespeichert',
     saving: 'Speichern…',
@@ -1204,7 +1222,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     unsavedBody: 'Deine Änderungen wurden noch nicht gespeichert und gehen beim Verlassen verloren.',
     unsavedConfirm: 'Änderungen verwerfen',
     unsavedCancel: 'Weiter bearbeiten',
-    /* BX-A1: Editor-Kontext wechseln, während gespeichert wird — ehrlicher Wortlaut */
+    /* Editor-Kontext wechseln, während gespeichert wird — ehrlicher Wortlaut */
     savingTitle: 'Notiz wird gerade gespeichert. Trotzdem wechseln?',
     savingBody: 'Das Speichern läuft weiter und geht nichts verloren; nach Abschluss wird die Liste automatisch aktualisiert.',
     savingConfirm: 'Trotzdem wechseln',
@@ -1225,7 +1243,7 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     notFoundAction: 'Zur Suche',
   },
 
-  /* ── Print report (I-078) ───────────────────────────── */
+  /* ── Print report ───────────────────────────── */
   print: {
     title: 'Druckbericht',
     printAction: 'Drucken / Als PDF speichern',

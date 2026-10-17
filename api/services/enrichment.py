@@ -1,4 +1,4 @@
-"""PubChem 详情回补服务层 — 自 api/enrichment.py 下沉, 逻辑零改动(批次3b)。"""
+"""PubChem 详情回补服务层 — 自 api/enrichment.py 下沉, 逻辑零改动()。"""
 from __future__ import annotations
 
 import hashlib
@@ -71,7 +71,7 @@ async def enqueue_job(
     priority: int = 50,
     request_context: dict[str, Any] | None = None,
 ) -> int:
-    """入列(0901 整记录化): cid 唯一键, dedupe=chemical_id 维度。
+    """入列(整记录化): cid 唯一键, dedupe=chemical_id 维度。
     error 行复活 = 同请求到达时整行接管翻态(UPDATE queued), 不并存。"""
     digest = hashlib.sha256(str(cid).encode("utf-8")).hexdigest()
     dedupe_key = f"cid:{chemical_id}:{digest}"
@@ -105,7 +105,7 @@ async def enqueue_chemical_if_needed(
     allow_refresh: bool = True,
     actor: Any = None,
 ) -> tuple[dict[str, Any] | None, int | None, bool]:
-    """pb_decide(0901 整记录化, 对齐 cb_decide 形态):
+    """pb_decide(整记录化, 对齐 cb_decide 形态):
     无 cid=skip / 无行或 fetched_at 超 100 天窗=enqueue / 新鲜=serve_fresh。
 
     H1 方案 D: refresh 是产品 use-case policy, 不是 transport privilege ——
@@ -120,10 +120,10 @@ async def enqueue_chemical_if_needed(
     details = await fetch_details(db, chemical_id)
     cid = chemical[0]
     if cid is None:
-        # PB 仅 cid 维护(2026-08-29 收口): 无 cid 行不入队。
-        # 0902: 无cid=PB不适用, 无在途无待刷 → current(前端不宣称失败不轮询)
+        # PB 仅 cid 维护: 无 cid 行不入队。
+        # 无 cid=PB 不适用, 无在途无待刷 → current(前端不宣称失败不轮询)
         return details, None, False
-    # 判窗: fetched_at 一个字段(0901 定案)。100天=可完成周期, worker 扩容再收紧。
+    # 判窗: fetched_at 一个字段。100天=可完成周期, worker 扩容再收紧。
     fresh = False
     if details is not None:
         fetched_at = details.get("fetched_at")

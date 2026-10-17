@@ -1,4 +1,4 @@
-"""化合物显示名称 · 唯一解析规则 (0912 locale-chemical-name)。
+"""化合物显示名称 · 唯一解析规则 (locale-chemical-name)。
 
 背景(审计结论, 全部来自真实 schema 与数据):
 

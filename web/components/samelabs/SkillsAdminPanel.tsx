@@ -34,8 +34,8 @@ function fmtSize(n: number) {
   return `${n}B`;
 }
 
-/** BX-A2：分类保存失败按后端机器码（detail.kind）渲染五语言文案，
- *  不再透传服务端 message 中文原文。 */
+/** 分类保存失败按后端机器码（detail.kind）渲染五语言文案，
+ * 不再透传服务端 message 中文原文。 */
 function catErrorLabel(e: unknown, dict: typeof t): string {
   if (e instanceof ApiError && e.detailKind) {
     const byKind = dict.admin.catErrors[e.detailKind as keyof typeof dict.admin.catErrors];

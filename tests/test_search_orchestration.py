@@ -1,4 +1,4 @@
-"""G2.3 final — shared search orchestration tests.
+""" final — shared search orchestration tests.
 
 锁:
 - exact: 无 cache、无 gate、直接 canonicalize+query、结果组装
@@ -161,7 +161,7 @@ class OrchestrationStructureTests(unittest.TestCase):
             for p in patches:
                 p.stop()
         want_key = "v2:unified-search:similarity:0.55:2:50::CCO"
-        # 顺序(G2.3 final blocker 2): cache_get → structure_enter →
+        # 顺序(final blocker 2): cache_get → structure_enter →
         # canonicalize → run_search_query → cache_set(300) → structure_exit(finally)
         self.assertEqual(rec.calls, [
             f"cache_get:{want_key}",

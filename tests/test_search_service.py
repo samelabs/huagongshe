@@ -1,4 +1,4 @@
-"""G2.3 search vertical slice tests.
+""" search vertical slice tests.
 
 覆盖:
 - Service: 三 mode 直调 run_search_query(mock db)、SearchError 语义、invalid input
@@ -108,7 +108,7 @@ class ServiceTests(unittest.TestCase):
 
 
 class HttpContractTests(unittest.TestCase):
-    """HTTP adapter: 墙/错误映射/G1 selector 语义。"""
+    """HTTP adapter: 墙/错误映射/ selector 语义。"""
 
     def _search(self, actor, mode, **kw):
         from api import routes as routes_module

@@ -1,15 +1,15 @@
-"""Pipeline 健康模型 (A1 0912) — 唯一判定点, 前端只渲染不判定。
+"""Pipeline 健康模型 (A1) — 唯一判定点, 前端只渲染不判定。
 
 语义(输入全部来自真实数据, 不凭感觉):
 
-healthy    近期有成功写入 且 有近期心跳的 worker 覆盖该链 scope
-idle       无 backlog、无近期写入; 或近期有写入但当前无近期 worker 心跳 —— 如实降级
+healthy 近期有成功写入 且 有近期心跳的 worker 覆盖该链 scope
+idle 无 backlog、无近期写入; 或近期有写入但当前无近期 worker 心跳 —— 如实降级
 backlogged queued>0 且有近期心跳(enabled 且 runtime ∈ {online,stale})的 worker 覆盖
-stalled    queued>0 且 无近期心跳 worker 覆盖该链(或全 worker 离线)
-degraded   error>0 或 gate 静默中 或 该链关键指标不可用
+stalled queued>0 且 无近期心跳 worker 覆盖该链(或全 worker 离线)
+degraded error>0 或 gate 静默中 或 该链关键指标不可用
 unavailable 指标不可用
 
-优先级(0912 PM 修正): unavailable > stalled > degraded > backlogged > healthy/idle。
+优先级: unavailable > stalled > degraded > backlogged > healthy/idle。
 - 指标不可用 → unavailable
 - queued>0 且无可用 worker → stalled
 - error>0 或 gate 静默 → degraded(压过 backlogged: 异常必须显形)
@@ -146,7 +146,7 @@ def chain_health(
         recent_success = (nw - ls).total_seconds() <= RECENT_SUCCESS_S
 
     reasons: list[str] = []
-    # 优先级判定链(0912 PM 修正): unavailable > stalled > degraded >
+    # 优先级判定链: unavailable > stalled > degraded >
     # backlogged > healthy/idle。degraded 压过 backlogged 与 idle:
     # error/gate 异常必须显形, 不被"有积压/空闲"掩盖。
     if not metrics_available:

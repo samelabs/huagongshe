@@ -1,4 +1,4 @@
-"""I-007 — 动态(activity feed)加入公开笔记, 针对性测试。
+""" — 动态(activity feed)加入公开笔记, 针对性测试。
 
 覆盖:
 1. 公开发布通知关注者(创建即公开), note_id/note_excerpt 口径正确;

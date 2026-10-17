@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Notice — 页面级提示条（DESIGN_SYSTEM 3.9，IX-2）。
+ * Notice — 页面级提示条（DESIGN_SYSTEM 3.9)。
  * info / ok / warn / err，可带一个操作按钮（如「重试」）。
  */
 import type { ReactNode } from "react";

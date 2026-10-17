@@ -1,6 +1,6 @@
 """WorkAPI transport/security adapter (POST-only, HMAC-authenticated).
 
-E6 (WorkAPI State Machine Ownership Closure) 后本模块只负责:
+ (WorkAPI State Machine Ownership Closure) 后本模块只负责:
 - trusted-plane protocol/security: raw body / Bearer token / worker_id header /
   timestamp+skew / nonce 格式 / HMAC 签名 / body hash / route scope /
   worker scopes / replay protection。``authenticated_worker`` 属 adapter/security。
@@ -38,7 +38,7 @@ NONCE_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 
 
 def _lease_conflict_http(exc: LeaseConflictError) -> HTTPException:
-    """E5: service 的 neutral 租约冲突 → 既有 HTTP 409 + 逐字 detail。
+    """service 的 neutral 租约冲突 → 既有 HTTP 409 + 逐字 detail。
 
     映射归 adapter 独占: service 只表达语义, 不 import transport 框架。
     """
@@ -46,17 +46,17 @@ def _lease_conflict_http(exc: LeaseConflictError) -> HTTPException:
 
 
 def _payload_invalid_http(exc: PayloadInvalidError) -> HTTPException:
-    """E6: service 的 neutral payload_invalid → 既有 HTTP 422 + 逐字 detail。
+    """service 的 neutral payload_invalid → 既有 HTTP 422 + 逐字 detail。
 
     CAS complete 载荷语义无效(既有 422 路径)的唯一映射点。
     """
     return HTTPException(422, exc.detail)
 
 # ---------------------------------------------------------------------------
-# P0 fail-closed scope gate (0912 Worker trusted plane 审计 P0-1):
+# P0 fail-closed scope gate (Worker trusted plane 审计):
 # identity discovery 按业务定义走 pubchem scope(不新增 identity scope)。
 # ---------------------------------------------------------------------------
-# P0-1(0912 correction): 精确 (method, exact path) → scope 映射。
+# (修正): 精确 (method, exact path) → scope 映射。
 # 严禁 prefix/family 继承 — 未逐条列出的 path 一律 None(fail-closed 403)。
 ROUTE_SCOPE: dict[tuple[str, str], str] = {
     ("POST", "/workapi/v1/jobs/lease"): "pubchem",
@@ -126,7 +126,7 @@ async def authenticated_worker(
         raise HTTPException(401, "invalid worker signature")
 
     token_hash = hashlib.sha256(token.encode()).digest()
-    # P0-1: 显式 route-family → scope; 未知 path → 403(fail-closed)
+    # 显式 route-family → scope; 未知 path → 403(fail-closed)
     scope_needed = resolve_route_scope(request.method, request.url.path)
     if scope_needed is None:
         raise HTTPException(403, "workapi route is not mapped to any scope")
@@ -177,9 +177,9 @@ async def complete_job(
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
-    """整包入库(0901 定案): 拉到就 update, 全字段覆盖, 无校验。
+    """整包入库: 拉到就 update, 全字段覆盖, 无校验。
     result 空 → job 出表, 数据层零动作。
-    P0-2: active lease 缺失时查 completion receipt — 同 worker+同
+    active lease 缺失时查 completion receipt — 同 worker+同
     lease_token_hash 的重试返回幂等 ack, 不再 409(协议确认幂等)。"""
     try:
         return await jobs.complete_pubchem_job(
@@ -195,7 +195,7 @@ async def error_job(
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
-    """worker error(0901 终版): 行留 error 态占位(有人要过、没拿到),
+    """worker error: 行留 error 态占位(有人要过、没拿到),
     连击+1(网络类)。无时间调度字段 — 复活=同请求到达入列口 UPDATE 翻态。"""
     try:
         return await jobs.fail_pubchem_job(
@@ -258,7 +258,7 @@ async def cas_error_job(
     db=Depends(get_db),
     worker: WorkerContext = Depends(authenticated_worker),
 ):
-    """worker error(0901 终版): 行留 error 态占位, 连击+1。
+    """worker error: 行留 error 态占位, 连击+1。
     无时间调度字段 — 复活=同请求到达入列口 UPDATE 翻态。"""
     try:
         return await jobs.fail_cas_job(
@@ -291,7 +291,7 @@ async def complete_identity_job(
     """discovery complete: 0→not_found / >1→ambiguous / 1→candidate handoff
     (canonicalize → freshness recheck → 原子入 pubchem_jobs → candidate,
     任一步失败整事务 rollback — §3 修正3)。闸门成功归零与 pubchem 同源。
-    P0-2: 结果行保留(审计+负缓存), 另记 completion receipt 供重试幂等 ack。"""
+    结果行保留(审计+负缓存), 另记 completion receipt 供重试幂等 ack。"""
     try:
         return await jobs.complete_identity_job(
             db, job_id=body.job_id, worker_id=worker.worker_id,
@@ -301,12 +301,12 @@ async def complete_identity_job(
 
 
 # ---------------------------------------------------------------------------
-# P1-5 retention: completion receipt 简单时间保留。
+# retention: completion receipt 简单时间保留。
 # 保留窗 = 30 天(协议重试窗口 nonce TTL 600s × 安全余量 + 故障调查窗口)。
 # retention = 30 天, 由 ops/systemd/huagongshe-receipt-prune@.timer 每日
 # 执行 scripts/prune_workapi_receipts.py(见 docs/DEPLOYMENT.md)。
-#   DELETE FROM maintenance.workapi_completion_receipts
-#    WHERE completed_at < now() - interval '30 days';
+# DELETE FROM maintenance.workapi_completion_receipts
+# WHERE completed_at < now() - interval '30 days';
 # 行量级: 每完成一个 job 一行, 与队列吞吐同阶, 30 天窗内 ~百万行级以内。
 # ---------------------------------------------------------------------------
 

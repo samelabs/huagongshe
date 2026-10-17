@@ -1,4 +1,4 @@
-"""E9-B Chemical detail 合流契约测试。
+""" Chemical detail 合流契约测试。
 
 覆盖任务卡 §1/§7:
 - core: canonical 正常返回; PB/CB service 调用计数 = 0; enqueue = 0; 无 commit
@@ -81,7 +81,7 @@ def _make_db(rec: _Recorder | None = None, cas="7732-18-5", imprint=None):
         if rec is not None:
             rec.bump("db_execute")
         if a and "FROM maintenance.cas_jobs" in str(a[0]):
-            # I-026: 在途 cas_job 探测默认无在途(专项用例才注入)
+            # 在途 cas_job 探测默认无在途(专项用例才注入)
             return _Result(rows=[])
         if imprint is not None and a and "SELECT cb_number FROM chemistry.chemicals" in str(a[0]):
             return _Result(scalar=imprint)
@@ -319,7 +319,7 @@ class FullOrchestrationTests(unittest.TestCase):
                           f"一级 key 必须是语义 section, 不允许 provider namespace: {key}")
 
     def test_full_pb_ghs_classification_survives(self):
-        """HGS-A2-01 回归：REST full 的 safety.pb_sections 必须含 GHS 分类。
+        """REST full 的 safety.pb_sections 必须含 GHS 分类。
 
         事故：chemical_semantic 白名单键名曾被提交成占位符字面量
         «redacted:ghs_…»（f1b8788），GHS 分类在 detail 投影里静默丢失。
@@ -332,7 +332,7 @@ class FullOrchestrationTests(unittest.TestCase):
             "fetched_at": "2026-09-01T00:00:00+00:00",
         }, cb_row=None, cas=None, pb_display_limit=True)
         sections = result["details"]["safety"]["pb_sections"]
-        # HGS-A2-02: REST 网页展示经 display_details 限幅投影, 证据块统一
+        # REST 网页展示经 display_details 限幅投影, 证据块统一
         # 归一为 {entries: …} 渲染形态(与前端 chemicalEvidence 同构)
         self.assertEqual(sections.get("ghs_classification"), {"entries": ghs},
                          "REST full 丢失 GHS 分类（白名单键名回归？）")
@@ -349,7 +349,7 @@ class FullOrchestrationTests(unittest.TestCase):
 
 
 class LocaleLifecycleChainTests(unittest.TestCase):
-    """P1-1: 实际命中 locale 在 row selection → lifecycle decision →
+    """实际命中 locale 在 row selection → lifecycle decision →
     refresh enqueue 整条链不断(fake 记录收到的 locale, 锁死连接点)。"""
 
     def test_requested_ja_hit_ja_decides_ja(self):
@@ -602,7 +602,7 @@ class McpCbRefreshPreservedTests(unittest.TestCase):
         self.assertEqual(result["details"]["names"]["cb_identity"]["cn"], "水")
 
     def test_default_stale_locale_chain_unchanged(self):
-        # P1-1 语义保留: 命中 locale 贯穿 decide/enqueue
+        # 语义保留: 命中 locale 贯穿 decide/enqueue
         seen = {}
         FullOrchestrationTests()._full(
             cb_row={"entry": {"identity": {"cn": "x"}}, "cb_number": "CB1",

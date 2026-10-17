@@ -1,4 +1,4 @@
-"""Governance model (G1 final) — 按 G1A 冻结结论建立的治理词汇表。
+"""Governance model — 按 冻结结论建立的治理词汇表。
 
 纯 stdlib: 禁止导入 fastapi/mcp/sqlalchemy、Request/Response/UploadFile。
 描述性账本, 不是运行时引擎: 不扫描/生成/修改 route, 不控制 runtime
@@ -101,7 +101,7 @@ class Scenario:
 
     id: str                          # family 内唯一, 如 "svg" / "png" / "exact"
     auth: AuthPolicy
-    required_scope: tuple[str, ...] = ()   # 业务 scope, 如 ("reaction:write",)
+    required_scope: tuple[str, ...] = ()   # 业务 scope, 如 ("reaction:write")
     entrypoints: tuple[Entrypoint, ...] = ()
     contract: Contract | None = None
     note: str = ""                   # 事实注记
@@ -111,7 +111,7 @@ class Scenario:
 class KernelLink:
     """共享实现关系(target shared-implementation relationship)。
 
-    仅是 G1A 冻结的目标关系 annotation: 不导入生产代码验证、不构成
+    仅是 冻结的目标关系 annotation: 不导入生产代码验证、不构成
     runtime/code-sharing proof —— kernel 声明与实际实现可能暂时不一致
     (如 MCP 侧 SQL 复制, D008), 复用事实只能由代码审查/行为测试建立。
     """

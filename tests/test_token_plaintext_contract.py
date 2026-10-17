@@ -1,16 +1,16 @@
-"""AI Key 明文契约（2026-10-14 v1.7.1 项目负责人裁定，恢复并锁死）。
+"""AI Key 明文契约。
 
-token_plain 列有意存在、明文有意落库（撤销 2026-10-11「明文不落库」收口）：
-1. DB 列存在且带裁定注释（information_schema + pg_description 断言）；
+token_plain 列有意存在、明文有意落库（撤销 「明文不落库」收口）：
+1. DB 列存在且带注释（information_schema + pg_description 断言）；
 2. 新建 Key 落库明文：token_plain = 明文，token_hash = sha256(明文)；
 3. 本人网页会话的 GET /users/me/tokens 取回明文（token 字段，no-store）；
 4. AI Key（agent）与匿名调用拿不到：REST 对 agent 一律 401，匿名 401；
 5. 无明文的旧 Key（drop 期间创建或历史行）列表返回 null；
 6. 鉴权不受明文恢复影响：按 token_hash 解析存量 Key 继续有效；
 7. users.email_verified_at 预留列存在且带「项目负责人决定保留」注释
-   （20261014_03，同类裁定锁：无用列不得擅删）。
+   。
 
-裁定理由：每账号最多 5 个有效 Key，本人可在设置页再次查看、复制，降低
+理由：每账号最多 5 个有效 Key，本人可在设置页再次查看、复制，降低
 使用摩擦。禁止以安全为由删除本列或停止写入/回传 —— 变更须经项目负责人
 确认。明文只在设置页给本人：MCP、日志、错误信息不得出现。
 
@@ -91,7 +91,7 @@ async def _cleanup_user(engine, uid: int) -> None:
 @_GATE
 class TokenPlaintextContractTests(unittest.TestCase):
     def test_token_plain_column_exists_with_ruling_comment(self):
-        """20261014_02 之后 token_plain 列存在, 且带项目负责人裁定注释。"""
+        """20261014_02 之后 token_plain 列存在, 且带注释。"""
         from sqlalchemy import text
 
         async def go():
@@ -120,7 +120,7 @@ class TokenPlaintextContractTests(unittest.TestCase):
         comment = (row[1] or "")
         for phrase in ("明文", "有意", "项目负责人", "再次查看"):
             self.assertIn(phrase, comment,
-                          f"列注释必须写明裁定（缺「{phrase}」）: {comment!r}")
+                          f"列注释必须写明该决策（缺「{phrase}」）: {comment!r}")
         for required in ("id", "user_id", "name", "token_hash", "token_prefix"):
             self.assertIn(required, columns, f"鉴权依赖列 {required} 必须仍在")
 
@@ -149,7 +149,7 @@ class TokenPlaintextContractTests(unittest.TestCase):
         comment = (row[1] or "")
         for phrase in ("预留", "邮箱验证", "项目负责人"):
             self.assertIn(phrase, comment,
-                          f"列注释必须写明预留裁定（缺「{phrase}」）: {comment!r}")
+                          f"列注释必须写明预留决策（缺「{phrase}」）: {comment!r}")
 
     def test_create_stores_plaintext_in_db(self):
         """新建 Key: 201 响应返回明文, 且落库行 token_plain 即该明文。"""

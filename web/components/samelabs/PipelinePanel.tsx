@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { TextLink } from "@/components/ui/TextLink";
 
 /* ── A1 数据契约 ──────────────────────────────────────────
-   optional sections 形状: E9-B 后仅 negative(今日有界)留在运行时; seed/supplier 已移除:
+   optional sections 形状: 后仅 negative(今日有界)留在运行时; seed/supplier 已移除:
    { available: boolean; error: string | null; value: T | null }
    available=false → 渲染"暂不可用", 绝不把 0 冒充数据。 */
 
@@ -28,7 +28,7 @@ type LocaleRow = { locale: string; today: number; last_1h: number };
 type LatestRow = { chain: string; chemical_id: number; source: string; ref: string; title: string; at: string | null };
 type Pipeline = {
   cb: ChainBlock & {
-    rows: { today: number };  // E9-B: 有界化 — 仅 today, 无 all-time total
+    rows: { today: number };  // 有界化 — 仅 today, 无 all-time total
     locales: LocaleRow[];
     negative: Optional<{ today: number }>;
   };
@@ -135,7 +135,7 @@ function LatestTable({ rows, chain }: { rows: LatestRow[]; chain: string }) {
 function ErrorRow({ block, onRevive, reviving, reviveNote }: {
   block: ChainBlock; onRevive: () => void; reviving: boolean; reviveNote: string | null;
 }) {
-  /* HGS-PIPE-REVIVE-COUNT-01: 真实行数 = queue.error(status 计数);
+  /* 真实行数 = queue.error(status 计数);
      error_buckets 只是 Top10 诊断分桶, >10 类时求和会低报。 */
   const total = block.queue.error;
   return (
@@ -331,7 +331,7 @@ export function SamelabsPipeline() {
           {negWrap && !negWrap.available && <div className="pipe-section-unavailable">{t.admin.sectionUnavailable}（来源未命中）{negWrap.error ? `（${negWrap.error}）` : ""}</div>}
         </div>
         <div className="dashboard-card pipe-chain">
-          <Group title="说明" note="E9-B 收口">
+          <Group title="说明" note="收口">
             <p className="pipe-metric-label">上游账本(seed)与供应侧(supplier)历史总量已移至数据治理口径, 不在运行时刷新。</p>
           </Group>
         </div>

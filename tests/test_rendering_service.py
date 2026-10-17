@@ -1,4 +1,4 @@
-"""G2.2 rendering vertical slice tests.
+""" rendering vertical slice tests.
 
 覆盖:
 - Molecule service: SVG/PNG 正常 render、不存在 molecule、无 SMILES/非法 render source
@@ -215,7 +215,7 @@ class McpRenderingContractTests(unittest.TestCase):
         names = {t.name for t in tools}
         self.assertIn("render_molecule_svg", names)
         self.assertIn("render_reaction_svg", names)
-        self.assertEqual(len(names), 13)  # E9-B: get_chemical_externals 移除 → 13
+        self.assertEqual(len(names), 13)  # get_chemical_externals 移除 → 13
 
     def test_render_tools_call_rendering_service_not_mol_module(self):
         import api.mcp_server as m

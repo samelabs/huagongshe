@@ -1,15 +1,15 @@
 "use client";
 
 /**
- * ConfirmDialog — 不可逆操作的二次确认（DESIGN_SYSTEM 3.10，IX-3 / IX-10）。
+ * ConfirmDialog — 不可逆操作的二次确认（DESIGN_SYSTEM 3.10， /)。
  *
  * ConfirmProvider 挂在 app/layout.tsx；useConfirm() 返回
- *   const ok = await confirm({ title, body, confirmLabel, tone: "danger" })
+ * const ok = await confirm({ title, body, confirmLabel, tone: "danger" })
  *
  * 行为契约：role=alertdialog + aria-labelledby/describedby；焦点锁在弹窗内；
  * 默认焦点在「取消」；Esc / 点遮罩 = 取消；关闭后焦点回到触发元素；
  * 打开期间锁定 body 滚动。title 应为问句，body 写明对象名称与后果，
- * confirmLabel 写具体动作（由调用方按 IX-3 组织文案）。
+ * confirmLabel 写具体动作（由调用方按 组织文案）。
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";

@@ -16,7 +16,7 @@
 
 ## history/
 
-- **审计档案**：2026-09-10 cutover 前的全部 SQL（原 `/migrations` dated 33 个 + 原 `/api/migrations` 4 个加日期归档）
+- **审计档案**：cutover 前的全部 SQL（原 `/migrations` dated 33 个 + 原 `/api/migrations` 4 个加日期归档）
 - **永远不参与 bootstrap / deploy**；不允许任何 runner 扫描此目录
 - 内容冻结：只作历史记录，不修改、不重放
 
@@ -29,7 +29,7 @@
 - PostgreSQL host 需预装可用 extensions：**rdkit / pg_trgm / tsm_system_rows**（baseline 内 `CREATE EXTENSION IF NOT EXISTS`）
 - baseline 不含 owner/ACL/业务数据/test_sentinel
 
-## 索引迁移与 CONCURRENTLY（B1-04 裁定）
+## 索引迁移与 CONCURRENTLY
 
 - **已应用的索引迁移不改写为 CONCURRENTLY**：runner 的 immutable 契约
   （tracking sha256 变化即 fail-closed 中止）禁止修改任何已执行文件；
@@ -58,7 +58,7 @@ YYYYMMDD_02_description.sql
 - existing production：tracking 从 cutover 后第一条真实 forward migration 开始记录，不回填 history/0000/0001
 
 
-## Cutover reconciliation（2026-09-10）
+## Cutover reconciliation（）
 
 - cutover 只读核查证实：production 缺少 `maintenance.pubchem_identity_jobs`（其余 required schema 全部存在），即 baseline 声明的 schema state 与真实 production 并非完全一致
 - `20260910_01_reconcile_pubchem_identity_jobs.sql` 作为 cutover 后第一条 forward migration，把 existing production 与 baseline target state 对齐

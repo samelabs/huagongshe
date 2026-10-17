@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Button — v1.7 组件库按钮（docs/DESIGN_SYSTEM.md 3.1）。
+ * Button — 组件库按钮（docs/DESIGN_SYSTEM.md 3.1）。
  *
  * variant: primary（每区域一个）/ secondary / tonal / ghost / danger / danger-quiet
  * size: sm 32 / md 40（默认）/ lg 48；iconOnly 时按方块渲染（必须给 aria-label）。
@@ -17,7 +17,7 @@ export type ButtonSize = "sm" | "md" | "lg";
 export type ButtonProps = {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  /** 图标按钮：true 时按方块渲染，必须同时传 aria-label（IX-10） */
+  /** 图标按钮：true 时按方块渲染，必须同时传 aria-label */
   iconOnly?: boolean;
   /** 异步进行中：转圈 + 宽度不变 + 禁点 */
   loading?: boolean;

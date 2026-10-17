@@ -11,7 +11,7 @@ import { TextLink } from "@/components/ui/TextLink";
  * 页面 IA 归 Names & Identifiers; 本组件只负责 preview 之外的展开与 load-more。
  * 关键约束: preview 已有前 N 条, 这里**不得重复渲染** —— 只渲染 items.slice(shown) 起。
  *
- * SMK-015 / HGS-SYNONYM-PAGE-01：分页终止不再用「去重后条数 vs 原始 total」
+ * 分页终止不再用「去重后条数 vs 原始 total」
  * （同义词含重复时去重数永远追不上 total → 同一页被无限重拉）。改按**已请求的
  * 原始 offset** 判断：loaded 记录累计拉取的原始条数，页码 = floor(loaded/100)+1，
  * loaded ≥ total 或接口返回空页即停；另有 50 次请求的硬上限保护。
@@ -58,9 +58,17 @@ export function SynonymExplorer({ chemicalId, initial, total, shown }: {
   const done = exhausted || requests >= MAX_REQUESTS;
   return (
     <>
-      {rest.map((item) => <span key={item}>{item}</span>)}
+      {rest.length > 0 && (
+        <div className="alias-list synonym-full">
+          {rest.map((item) => <span key={item}>{item}</span>)}
+        </div>
+      )}
       {!done && (
-        <TextLink className="synonym-more" onClick={loadMore} disabled={busy}>{busy ? t.common.loading : t.chemical.synonyms.loadMore(items.length)}</TextLink>
+        /* 与上下游品名的展开按钮同形态：按钮移出胶囊容器独立成行，
+           不再因 flex 拉伸撑高同排胶囊 */
+        <div className="casext-toggle-row">
+          <TextLink className="synonym-more" onClick={loadMore} disabled={busy}>{busy ? t.common.loading : t.chemical.synonyms.loadMore(items.length)}</TextLink>
+        </div>
       )}
       {failed && <p className="inline-error">{t.chemical.synonyms.error}</p>}
     </>

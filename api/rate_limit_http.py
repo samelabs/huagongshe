@@ -1,13 +1,13 @@
-"""Rate-limit → HTTP transport bridge (G2.R).
+"""Rate-limit → HTTP transport bridge (.R).
 
 中性限流核心(api/core/rate_limit.py)不再产生 HTTPException; HTTP adapter
 统一经本桥映射。本模块是 transport bridge, 不是第二 limiter engine ——
 底层仍唯一调用 neutral core 的 enforce/structure_enter。
 
 契约逐字保持:
-  RateLimited        → 429 + Retry-After + X-RateLimit-Remaining: 0
+  RateLimited → 429 + Retry-After + X-RateLimit-Remaining: 0
   LimiterUnavailable → 503(无新 header)
-  ResourceBusy       → 429 + Retry-After: 5(旧 _over_limit 契约, 无 X-头)
+  ResourceBusy → 429 + Retry-After: 5(旧 _over_limit 契约, 无 X-头)
 """
 
 from __future__ import annotations

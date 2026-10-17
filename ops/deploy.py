@@ -1,4 +1,4 @@
-"""单实例部署 owner(v1.5.2 R4-SINGLE)。
+"""单实例部署 owner。
 
 职责(仅此而已):
   1. fail-closed 检查执行用户不是 root(mutating deploy 禁 root)
@@ -7,7 +7,7 @@
   4. restart/start API 与 Web → 等 API/Web health 就绪 → **就绪后**才
      restart/start worker(worker 启动 preflight 鉴权
      /workapi/v1/jobs/lease 依赖 API; API 未就绪时 worker 会 exit 1
-     crash-loop, 2026-10-14 21:32 部署事故即此因)
+     crash-loop, 21:32 部署事故即此因)
   5. readiness: worker online 稳定窗 + public smoke + `pm2 save`
 
 不承诺 zero-downtime: restart 存在短暂维护窗口(已接受)。
@@ -31,11 +31,11 @@ from typing import Callable
 REPO = Path(__file__).resolve().parent.parent
 
 CANONICAL_APPS = (
-    "huagongshe-api",       # API  127.0.0.1:8000
-    "huagongshe",           # Web  127.0.0.1:3001
+    "huagongshe-api",       # API 127.0.0.1:8000
+    "huagongshe",           # Web 127.0.0.1:3001
     "huagongshe-pubchem-worker",  # worker, HGS_WORKER_ID=server-local-1
 )
-# 部署顺序(2026-10-14 21:32 事故修复): 先重启前置的 API/Web, 等 API health
+# 部署顺序(21:32 事故修复): 先重启前置的 API/Web, 等 API health
 # 就绪后才重启 worker —— worker 启动 preflight 鉴权(/workapi/v1/jobs/lease)
 # 连不上 API 就 exit 1, 曾连续 crash-loop 5 次直到 API 就绪。
 FRONTING_APPS = CANONICAL_APPS[:2]
@@ -168,7 +168,7 @@ def start_canonical(runner: Runner, app: str) -> None:
             raise DeployError(f"pm2 start --only {app} 失败: exit={r.returncode}")
         _event("pm2.started", app=app)
     else:
-        # HGS-PM2-ENV-RELOAD-01: 已存在应用的重启必须带 ecosystem 路径 —
+        # 已存在应用的重启必须带 ecosystem 路径 —
         # 裸 `restart APP --update-env` 只刷新运行时 env, 不重读 spec,
         # 改配置/轮换 Token 后新值可能不生效且部署仍报成功。
         r = runner.run([pm2_argv(), "restart", str(SPEC), "--only", app,
@@ -198,7 +198,7 @@ def worker_online(runner: Runner, app: str = "huagongshe-pubchem-worker") -> boo
 def _worker_identity(jlist_entry: dict) -> tuple | None:
     """(pm_id, pid) — 用于稳定性判定。
 
-    HGS-WORKER-READY-PID-01: 标准 pm2 jlist 的 pid 在条目顶层, pm2_env 内
+    标准 pm2 jlist 的 pid 在条目顶层, pm2_env 内
     无此键 —— 旧实现读 pm2_env.pid 恒 None, restart 循环(同 pm_id、顶层
     pid 每次变)被误判为同一稳定进程。"""
     env = jlist_entry.get("pm2_env", {})
@@ -304,7 +304,7 @@ def _http_200(url: str, headers: dict[str, str], timeout: float = 10.0) -> tuple
 
 
 def public_smoke() -> bool:
-    """canonical HTTPS 公网冒烟(I-070 扩充), 任一项失败 → deploy 非零退出。
+    """canonical HTTPS 公网冒烟(扩充), 任一项失败 → deploy 非零退出。
 
     经公网 canonical ingress(https://huagongshe.com)验证:
     1. /api/health 200 + status=ok(nginx → TLS → API 127.0.0.1:8000 整链);
@@ -386,7 +386,7 @@ def deploy(runner: Runner | None = None,
 
     if not skip_build:
         _event("build.begin", target="web/.next")
-        # B5-01: 发布构建 fail-closed —— 只允许 npm ci（锁文件可重现）。
+        # 发布构建 fail-closed —— 只允许 npm ci（锁文件可重现）。
         # 不再回退 npm install：回退会让 lock 与实际安装树漂移，破坏可重现性。
         r = runner.run(["bash", "-lc",
                         "cd web && npm ci --no-audit --no-fund"
@@ -414,7 +414,7 @@ def deploy(runner: Runner | None = None,
     _event("ready.ok", target="web")
 
     # API 就绪后才重启 worker: 其启动 preflight 鉴权(/workapi/v1/jobs/lease)
-    # 依赖 API, 提前重启只会 crash-loop(2026-10-14 21:32 事故根因)。
+    # 依赖 API, 提前重启只会 crash-loop(21:32 事故根因)。
     try:
         start_canonical(runner, WORKER_APP)
     except DeployError as e:

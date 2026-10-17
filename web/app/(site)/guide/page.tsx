@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AiSubmissionPrompt } from "@/components/AiSubmissionPrompt";
-import { Breadcrumb } from "@/components/ui/Breadcrumb";
 import { ShareButton } from "@/components/ShareButton";
 import { CodeField } from "@/components/ui/CodeField";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { PageHead } from "@/components/ui/PageHead";
+import { Section } from "@/components/ui/Section";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates } from "@/lib/alternates";
@@ -36,29 +38,23 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** 文档页（6.10）：阅读版式 --w-reading 720；段落 + 小标题为主，
- *  代码/配置片段走 CodeField（IX-7 复制播报），无英文 eyebrow。 */
+ * 代码/配置片段走 CodeField(复制播报），无英文 eyebrow。 */
 export default async function GuidePage() {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
-  return <div className="content-page guide-page">
-    <Breadcrumb
-      items={[
+  return <PageFrame tier="reading" className="guide-page">
+    <PageHead
+      breadcrumb={[
         { label: t.chemical.home, href: withLocale("/", locale) },
         { label: t.guide.title },
       ]}
-      ariaLabel={t.common.breadcrumb}
+      title={t.guide.hero}
+      subtitle={t.guide.heroBody}
+      actions={<ShareButton />}
     />
-    <header className="page-head guide-hero">
-      <div className="guide-hero-top">
-        <ShareButton />
-      </div>
-      <h1>{t.guide.hero}</h1>
-      <p>{t.guide.heroBody}</p>
-    </header>
 
     {/* ── 接入入口: 第一屏直出 MCP 地址 / AI Key ── */}
-    <section className="guide-section">
-      <div className="section-heading"><div><h2>{t.guide.connectKicker}</h2></div></div>
+    <Section title={t.guide.connectKicker}>
       <div className="mcp-connect">
         <div className="mcp-connect-row">
           <span className="mcp-connect-label">{t.guide.connectMcpLabel}</span>
@@ -74,10 +70,9 @@ export default async function GuidePage() {
           <Link className="hg-btn secondary" href={withLocale("/me/settings/api-tokens", locale)}>{t.guide.keyCta}</Link>
         </div>
       </div>
-    </section>
+    </Section>
 
-    <section className="guide-section">
-      <div className="section-heading"><div><h2>{t.guide.capabilityKicker}</h2></div></div>
+    <Section title={t.guide.capabilityKicker}>
       <div className="guide-prose-list">
         <h3>{t.guide.cap1Title}</h3>
         <p>{t.guide.cap1Desc}</p>
@@ -88,21 +83,18 @@ export default async function GuidePage() {
         <h3>{t.guide.cap4Title} <span className="guide-inline-badge">{t.guide.cap4Badge}</span></h3>
         <p>{t.guide.cap4Desc}</p>
       </div>
-    </section>
+    </Section>
 
-    <section className="guide-section">
-      <h2>{t.guide.fallbackTitle}</h2>
-      <p className="guide-section-intro">{t.guide.fallbackDesc}</p>
+    <Section title={t.guide.fallbackTitle} description={t.guide.fallbackDesc}>
       <AiSubmissionPrompt />
-    </section>
+    </Section>
 
-    <section className="guide-section guide-trust">
-      <div className="section-heading"><div><h2>{t.guide.trustKicker}</h2></div></div>
+    <Section title={t.guide.trustKicker}>
       <ul className="guide-trust-list">
         <li>{t.guide.trust1}</li>
         <li>{t.guide.trust2}</li>
         <li>{t.guide.trust3}</li>
       </ul>
-    </section>
-  </div>;
+    </Section>
+  </PageFrame>;
 }

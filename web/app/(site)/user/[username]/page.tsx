@@ -10,13 +10,17 @@ import { FollowButton } from "@/components/shared/FollowButton";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EntityBadge } from "@/components/ui/EntityBadge";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
-import { apiGet, isApiNotFound, reactionSvgUrl } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
+import { isApiNotFound, reactionSvgUrl } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, SITE_ORIGIN } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { noteHeadline } from "@/lib/noteHeadline";
+import { noteListPresentation } from "@/lib/noteHeadline";
+import { reactionTitleText, type TitledParticipant } from "@/lib/reactionTitle";
 
 type Profile = {
   id: number; username: string; display_name: string; bio: string | null;
@@ -25,18 +29,22 @@ type Profile = {
   website: string | null; orcid: string | null;
   followers: number; following: number; public_reactions: number;
   is_following: boolean; is_followed_by: boolean; is_mutual: boolean; is_me: boolean;
-  /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用账号主页不再 404 ——
+  /* 停用账号主页不再 404 ——
      active=false 时仅渲染停用态卡片（无关注/分享/内容列表）。 */
   active?: boolean;
 };
-type Reaction = { id: number; reaction_smiles: string; followers: number; updated_at: string };
+type Reaction = {
+  id: number; reaction_smiles: string; followers: number; updated_at: string;
+  /* 参与物投影（与详情接口同形状）：卡片标题按「主反应物 → 主产物」解析 */
+  participants?: TitledParticipant[];
+};
 type NoteCard = { id: number; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
 type NotesBlock = { items: NoteCard[]; total: number };
 
 const REACTIONS_PAGE_SIZE = 20;
 
 /** 同请求内 metadata 与页面体共享的同一次取数（此前各拉一次后端，
- *  cookie 内置 —— metadata 与页面看到同一份 is_me 投影）。 */
+ * cookie 内置 —— metadata 与页面看到同一份 is_me 投影）。 */
 const loadProfile = cache(async (username: string): Promise<Profile> => {
   const cookieStore = await cookies();
   const headers = cookieStore.has("hgs_session") ? { Cookie: cookieStore.toString() } : undefined;
@@ -88,7 +96,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
      已公开的反应/笔记/技能在各自详情页保留可见并带「已停用」标记。 ── */
   if (profile.active === false) {
     const joined = new Date(profile.created_at).toLocaleDateString(locale);
-    return <div className="content-page profile-page">
+    return <PageFrame className="profile-page">
       <div className="pf-deactivated">
         <Avatar id={profile.username} name={profile.display_name || profile.username} src={profile.avatar_url} size={80} />
         <div className="pf-deactivated-id">
@@ -99,7 +107,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
       </div>
       <EmptyState title={t.user.deactivatedTitle}>{t.user.deactivatedBody}</EmptyState>
       <p className="pf-deactivated-joined">{t.user.joinedAt(joined)}</p>
-    </div>;
+    </PageFrame>;
   }
 
   /* 正文数据：反应分页（tab=reactions）；笔记第一页 8 条（计数 + tab=notes 列表）。
@@ -119,7 +127,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const cookieStore = await cookies();
   if (cookieStore.has("hgs_session")) {
     try {
-      // FX-8a（SMK-011 / HGS-PROFILE-FAVOR-SSR-01）：SSR 预取转发会话 Cookie，
+      // SSR 预取转发会话 Cookie，
       // 否则永远按匿名渲染为未收藏，首击发出重复 POST
       const followed = await apiGet<{ items: { id: number }[] }>(`/users/me/follows/reactions?page=1&page_size=100`, { Cookie: cookieStore.toString() });
       favoredReactionIds = new Set(followed.items.map((item) => item.id));
@@ -131,7 +139,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const joined = new Date(profile.created_at).toLocaleDateString(locale);
 
   /* 主页场景：名片区直接置顶（无面包屑），内容区随后。 */
-  return <div className="content-page profile-page">
+  return <PageFrame className="profile-page">
     <ProfileHeader profile={{
       id: profile.id, username: profile.username, display_name: profile.display_name,
       bio: profile.bio, avatar_url: profile.avatar_url, created_at: profile.created_at,
@@ -145,14 +153,17 @@ export default async function UserPage({ params, searchParams }: { params: Promi
 
     <ProfileTabs username={profile.username} tab={tab} reactionCount={profile.public_reactions} noteCount={notesTotal} />
 
-    <div className="pf-body">
-      <div className="pf-main">
-        {/* ── 反应 tab：两列卡片（手机一列），分页沿用 page 参数 ── */}
-        {tab === "reactions" && (reactionsUnavailable ? <RetryNotice>{t.user.contentError}</RetryNotice> : reactions.length ? (
+    {/* ── 反应 tab：两列卡片（手机一列），分页沿用 page 参数 ── */}
+    {tab === "reactions" && (
+      <Section title={t.user.tabReactions}>
+        {reactionsUnavailable ? <RetryNotice>{t.user.contentError}</RetryNotice> : reactions.length ? (
           <>
             <div className="pf-rx-grid">
               {reactions.map((item) => (
                 <article className="pf-rx-card" key={item.id}>
+                  <h3 className="pf-rx-title">
+                    <Link href={withLocale(`/reaction/${item.id}`, locale)}>{reactionTitleText(item.participants ?? [], { t, locale, reactionId: item.id })}</Link>
+                  </h3>
                   <Link className="pf-rx-eq" href={withLocale(`/reaction/${item.id}`, locale)}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={reactionSvgUrl(item.id)} alt={t.reaction.equationAlt(item.id)} loading="lazy" />
@@ -190,41 +201,48 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             title={profile.is_me ? t.user.emptyReactionsSelf : t.user.emptyReactionsVisitor}
             action={profile.is_me ? { label: t.notes.createReaction, href: withLocale("/submit", locale) } : undefined}
           />
-        ))}
+        )}
+      </Section>
+    )}
 
-        {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
-            R6/P2 源码契约（tests/test_p1c_*）：加载失败 ≠ total=0 —— 失败渲染
-            错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
-            total=0 只渲染 tab 空状态（下方 EmptyState）。 ── */}
-        {tab === "notes" && notesUnavailable && (
+    {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
+        源码契约（tests/test_notes_ui_regression.py 等）：加载失败 ≠ total=0 —— 失败渲染
+        错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
+        total=0 只渲染 tab 空状态（下方 EmptyState）。 ── */}
+    {tab === "notes" && (
+      <Section title={t.user.tabNotes}>
+        {notesUnavailable && (
           <RetryNotice>{t.notes.profileLoadFailed}</RetryNotice>
         )}
-        {tab === "notes" && !notesUnavailable && notesBlock && notesBlock.total > 0 && (
+        {!notesUnavailable && notesBlock && notesBlock.total > 0 && (
           <div className="pf-note-list">
-            {notesBlock.items.map((note) => (
-              <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
-                <div className="pf-note-head">
-                  <h3>{noteHeadline(note.content) || t.notes.detailTitle}</h3>
-                  <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
-                </div>
-                <p className="pf-note-summary">{note.content}</p>
-                {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
-                  <div className="pf-note-refs">
-                    {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
-                    {note.reaction_ids.slice(0, 3).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
+            {notesBlock.items.map((note) => {
+              const pres = noteListPresentation(note);
+              return (
+                <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
+                  <div className="pf-note-head">
+                    {pres.title && <h3>{pres.title}</h3>}
+                    <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
                   </div>
-                )}
-              </Link>
-            ))}
+                  <p className="pf-note-summary">{pres.body}</p>
+                  {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
+                    <div className="pf-note-refs">
+                      {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
+                      {note.reaction_ids.slice(0, 3).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         )}
-        {tab === "notes" && !notesUnavailable && notesBlock && notesBlock.total === 0 && (
+        {!notesUnavailable && notesBlock && notesBlock.total === 0 && (
           <EmptyState
             title={profile.is_me ? t.user.emptyNotesSelf : t.user.emptyNotesVisitor}
             action={profile.is_me ? { label: t.notes.writeNote, href: withLocale("/aichem?tab=notes&new=1", locale) } : undefined}
           />
         )}
-      </div>
-    </div>
-  </div>;
+      </Section>
+    )}
+  </PageFrame>;
 }

@@ -1,4 +1,4 @@
-"""G2.3D — Search 依赖 neutral 异常与契约恢复测试。
+""" — Search 依赖 neutral 异常与契约恢复测试。
 
 锁:
 - chemicals 查询内核五条 Search-path 异常 = transport-neutral(无 HTTP 属性),

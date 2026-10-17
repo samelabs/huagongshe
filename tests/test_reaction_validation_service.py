@@ -1,4 +1,4 @@
-"""G3.1B — reaction validation service 测试。
+""" — reaction validation service 测试。
 
 锁:
 - canonical kernel 错误矩阵: 3 种 neutral kind + exact detail(原 400/409 契约)
@@ -57,7 +57,8 @@ class KernelTests(unittest.TestCase):
         self.assertEqual(ctx.exception.kind,
                          ReactionValidationError.INVALID_STRUCTURE)
         self.assertEqual(ctx.exception.detail,
-                         "无法解析参与物结构：not-a-smiles-$$$")
+                         "第 1 个参与物的结构无法解析：not-a-smiles-$$$")
+        self.assertEqual(ctx.exception.field, "participants.0.smiles")
 
     def test_duplicate_participant_kind_and_detail(self):
         with self.assertRaises(ReactionValidationError) as ctx:
@@ -68,8 +69,11 @@ class KernelTests(unittest.TestCase):
             ]))
         self.assertEqual(ctx.exception.kind,
                          ReactionValidationError.DUPLICATE_PARTICIPANT)
-        self.assertEqual(ctx.exception.detail,
-                         "同一化合物和角色请合并为一项，并填写出现次数")
+        self.assertEqual(
+            ctx.exception.detail,
+            "第 2 个参与物与前面的参与物重复："
+            "同一化合物和角色请合并为一项，并填写出现次数")
+        self.assertEqual(ctx.exception.field, "participants.1")
 
     def test_invalid_reaction_kind_and_detail(self):
         # schema 前置要求 reactant+product; 用 model_construct 绕开
@@ -225,7 +229,7 @@ class HttpAdapterTests(unittest.TestCase):
             self.assertEqual(e.detail, {"message": detail, "kind": kind})
 
     def test_rate_bridge_via_enforce_neutral(self):
-        """service 冒泡 RateLimitError → handler G2.R bridge → 429。"""
+        """service 冒泡 RateLimitError → handler .R bridge → 429。"""
         import asyncio
 
         async def boom(*a, **k):
@@ -247,7 +251,7 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
     """§11: create/update kernel 适配位置与映射。"""
 
     def test_update_validation_after_owner_check(self):
-        # E3: update 全流程(行锁/owner/kernel/事务)在
+        # update 全流程(行锁/owner/kernel/事务)在
         # services.reactions.update_reaction。
         src = inspect.getsource(services_reactions.update_reaction)
         i_fupdate = src.index("FOR UPDATE")
@@ -257,7 +261,7 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
         self.assertLess(i_owner, i_kernel)
 
     def test_update_wraps_neutral_error(self):
-        # E3: kernel 消费 + neutral 错误在 service, HTTP adapter 映射。
+        # kernel 消费 + neutral 错误在 service, HTTP adapter 映射。
         svc_src = inspect.getsource(services_reactions.update_reaction)
         self.assertIn("to_thread(canonical_participants", svc_src)
         http_src = inspect.getsource(reactions_module.update_reaction)
@@ -265,7 +269,7 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
         self.assertIn("update_reaction_service", http_src)
 
     def test_create_wraps_neutral_error(self):
-        # G3.1C: create 全流程在 services.reactions.create_reaction;
+        # create 全流程在 services.reactions.create_reaction;
         # kernel 消费+neutral 错误在 service, HTTP adapter 映射。
         svc_src = inspect.getsource(services_reactions.create_reaction)
         self.assertIn("to_thread(canonical_participants", svc_src)
@@ -287,7 +291,7 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
         self.assertNotIn("_HTTPException", seg)
 
     def test_transaction_ordering_unchanged(self):
-        # E3: 事务序(行锁 → kernel → UPDATE)现由 service 持有。
+        # 事务序(行锁 → kernel → UPDATE)现由 service 持有。
         src = inspect.getsource(services_reactions.update_reaction)
         # validation 仍在 FOR UPDATE 之后、UPDATE 之前
         self.assertLess(src.index("FOR UPDATE"),
@@ -318,7 +322,8 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         async def fake_service(*, actor_id, body):
             if reaction == "RAISE_VALIDATION":
                 raise ReactionValidationError(
-                    ReactionValidationError.INVALID_STRUCTURE, "无法解析参与物结构：$$$")
+                    ReactionValidationError.INVALID_STRUCTURE,
+                    "第 1 个参与物的结构无法解析：$$$")
             if reaction == "RAISE_RATE":
                 raise RateLimited("请求过于频繁，请稍后重试", retry_after=9)
             return {"valid": True, "reaction_smiles": "CCO>>CC=O",

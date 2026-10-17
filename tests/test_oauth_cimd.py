@@ -1,4 +1,4 @@
-"""B (I-072/I-071/I-073) — OAuth Client ID Metadata Document (CIMD) 针对性测试.
+"""B (//) — OAuth Client ID Metadata Document (CIMD) 针对性测试.
 
 覆盖(B6):
 1. URL 语法闸: http/无 path/fragment/用户信息/非默认端口/超长 → 拒绝;
@@ -9,7 +9,7 @@
    (private_key_jwt → invalid_client_metadata)、grant/response 规则同 DCR;
 5. 缓存: 缓存期内不重复拉取、过期重拉、过期且拉取失败拒绝(不用过期缓存兜底);
 6. 正常流程: 拉取 → 授权确认页(host 来源 + localhost 提示) → 换 token → refresh;
-7. I-071: 无效 client_id / redirect_uri 未登录时直接得 400 错误页, 不跳登录;
+7. 无效 client_id / redirect_uri 未登录时直接得 400 错误页, 不跳登录;
 8. 来源标记: DCR 注册行 source_type='dcr'; 授权管理列表 CIMD 带可信 host。
 
 拉取全部走可注入 fetcher 或打桩(测试不访问外网); DB 用真链测试库。
@@ -343,7 +343,7 @@ class FetchRetryTests(unittest.TestCase):
     def test_first_address_failure_falls_through_to_next(self):
         attempts: list[str] = []
 
-        async def open_conn(address, port, ssl=None, server_hostname=None):
+        async def open_conn(address, port, ssl=None, server_hostname=None, limit=None):
             attempts.append(address)
             if len(attempts) == 1:
                 raise OSError("connection refused (v6 without egress)")
@@ -355,7 +355,7 @@ class FetchRetryTests(unittest.TestCase):
         self.assertEqual(attempts, ["93.184.216.34", "2606:4700::1111"])
 
     def test_all_addresses_failing_raises_fetch_error(self):
-        async def open_conn(address, port, ssl=None, server_hostname=None):
+        async def open_conn(address, port, ssl=None, server_hostname=None, limit=None):
             raise OSError("down")
 
         with self.assertRaises(svc.OAuthProtocolError) as raised:
@@ -368,7 +368,7 @@ class FetchRetryTests(unittest.TestCase):
 
         attempts: list[str] = []
 
-        async def open_conn(address, port, ssl=None, server_hostname=None):
+        async def open_conn(address, port, ssl=None, server_hostname=None, limit=None):
             attempts.append(address)
             if len(attempts) == 1:
                 raise _ssl.SSLError("certificate verify failed")
@@ -377,6 +377,50 @@ class FetchRetryTests(unittest.TestCase):
         document = self._fetch(open_conn, ["93.184.216.34", "1.2.3.4"])
         self.assertEqual(document.body, b'{"ok":2}')
         self.assertEqual(len(attempts), 2)
+
+
+class ReadLimitTests(unittest.TestCase):
+    """读取上限: 头区块行数/字节数超限、行缓冲 ValueError —— 一律归一为
+    协议错误(错误页 + host 失败桶), 不逃成未分类异常。"""
+
+    URL = "https://example.com/c.json"
+
+    def _fetch(self, reader, writer):
+        async def fake_open(*args, **kwargs):
+            return reader, writer
+
+        async def fake_resolve(host, port):
+            return ["203.0.113.10"]
+
+        async def go():
+            with patch.object(oauth_cimd, "_resolve_addresses", fake_resolve), \
+                 patch.object(asyncio, "open_connection", fake_open):
+                return await oauth_cimd._fetch_document(self.URL)
+
+        return asyncio.run(go())
+
+    def test_too_many_header_lines_is_protocol_error(self):
+        lines = [b"HTTP/1.1 200 OK\r\n"] + [
+            f"X-Pad-{i}: x\r\n".encode() for i in range(oauth_cimd.HEADER_MAX_LINES + 5)
+        ] + [b"\r\n"]
+        with self.assertRaises(svc.OAuthProtocolError):
+            self._fetch(_FakeStreamReader(lines, b"{}"), _FakeStreamWriter())
+
+    def test_header_bytes_overrun_is_protocol_error(self):
+        lines = [b"HTTP/1.1 200 OK\r\n"] + [
+            b"X-Pad: " + b"y" * 2048 + b"\r\n"
+            for _ in range(oauth_cimd.HEADER_MAX_BYTES // 2048 + 1)
+        ] + [b"\r\n"]
+        with self.assertRaises(svc.OAuthProtocolError):
+            self._fetch(_FakeStreamReader(lines, b"{}"), _FakeStreamWriter())
+
+    def test_stream_value_error_is_protocol_error(self):
+        class _ExplodingReader(_FakeStreamReader):
+            async def readline(self):
+                raise ValueError("Separator is not found, and chunk exceed the limit")
+
+        with self.assertRaises(svc.OAuthProtocolError):
+            self._fetch(_ExplodingReader([], b""), _FakeStreamWriter())
 
 
 class BodyReadTests(unittest.TestCase):
@@ -440,7 +484,7 @@ class BodyReadTests(unittest.TestCase):
 
 
 class RateLimitKeyTests(unittest.TestCase):
-    """1.3/1.4/R1: URL 桶每次尝试计; host 桶只计失败且拉取前预检;
+    """1.3/1.4/URL 桶每次尝试计; host 桶只计失败且拉取前预检;
     登录用户按人分桶; 无 IP 不落共用桶并告警。"""
 
     URL = "https://agent.example.test/c.json"
@@ -505,6 +549,20 @@ class RateLimitKeyTests(unittest.TestCase):
              oauth_cimd.FETCH_HOST_FAIL_LIMIT_PER_HOUR, 3600),
         ])
 
+    def test_value_error_from_fetcher_counts_host_bucket(self):
+        """读取层异常(ValueError)归一为协议错误后同样计入 host 失败桶。"""
+        calls = self._ensure(
+            ValueError("Separator is not found, and chunk exceed the limit"),
+            actor_id=None, client_ip="203.0.113.9", check=True)
+        self.assertEqual(calls, [
+            ("oauth-cimd-url", self.URL,
+             oauth_cimd.FETCH_URL_LIMIT_PER_HOUR, 3600),
+            ("oauth-cimd-fetch-anon", "203.0.113.9",
+             oauth_cimd.FETCH_ANON_IP_LIMIT_PER_HOUR, 3600),
+            ("oauth-cimd-host-fail", "agent.example.test",
+             oauth_cimd.FETCH_HOST_FAIL_LIMIT_PER_HOUR, 3600),
+        ])
+
     def test_no_client_ip_skips_anon_bucket_and_logs_warning(self):
         with self.assertLogs("api.services.oauth_cimd", level="WARNING") as logs:
             calls = self._ensure(_ok_fetch(self.URL), actor_id=None,
@@ -516,7 +574,7 @@ class RateLimitKeyTests(unittest.TestCase):
         self.assertTrue(any("client IP" in line for line in logs.output))
 
     def test_logged_in_actor_gets_per_user_bucket(self):
-        # R1: 登录用户按人限次(30/h) —— URL 桶挡不住同 host 换路径的横向
+        # 登录用户按人限次(30/h) —— URL 桶挡不住同 host 换路径的横向
         # 铺开, 按人才挡得住; 不再有匿名 IP 桶。
         calls = self._ensure(_ok_fetch(self.URL), actor_id=7, client_ip=None,
                              check=True)
@@ -528,7 +586,7 @@ class RateLimitKeyTests(unittest.TestCase):
         ])
 
     def test_host_fail_bucket_full_rejects_without_fetch(self):
-        # R1: host 失败桶已满 → 拉取前直接拒绝, 不对外发请求, 不计数。
+        # host 失败桶已满 → 拉取前直接拒绝, 不对外发请求, 不计数。
         fetcher = _StubFetcher(_ok_fetch(self.URL))
         from api.core.rate_limit import RateLimited
 
@@ -655,7 +713,7 @@ class FetchConsumptionTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 真库: 缓存 / 正常流程 / I-071 / 来源标记
+# 真库: 缓存 / 正常流程 / / 来源标记
 # ---------------------------------------------------------------------------
 
 if ASYNC_URL:
@@ -850,7 +908,7 @@ if ASYNC_URL:
 
     @unittest.skipUnless(ASYNC_URL, "测试库闸")
     class AuthorizeOrderTests(_DbTestCase):
-        """I-071: client/redirect 校验先于登录跳转; 无效得 400 错误页。"""
+        """client/redirect 校验先于登录跳转; 无效得 400 错误页。"""
 
         class _Url:
             def __init__(self, query):
@@ -928,6 +986,20 @@ if ASYNC_URL:
                     "Client ID Metadata Document could not be fetched.")
 
             with patch.object(oauth_cimd, "_fetch_document", failing), \
+                 patch.object(oauth_cimd.rate_limit, "enforce", _no_limit):
+                response = await self._authorize(
+                    client_id=cid, redirect_uri="https://x.example/callback",
+                    actor=None)
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("client_id", response.body.decode())
+
+        async def test_cimd_value_error_gets_error_page(self):
+            cid = f"https://verr-{self.tag}.example.test/c.json"
+
+            async def exploding(url):
+                raise ValueError("Separator is not found, and chunk exceed the limit")
+
+            with patch.object(oauth_cimd, "_fetch_document", exploding), \
                  patch.object(oauth_cimd.rate_limit, "enforce", _no_limit):
                 response = await self._authorize(
                     client_id=cid, redirect_uri="https://x.example/callback",

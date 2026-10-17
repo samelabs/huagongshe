@@ -1,18 +1,18 @@
-"""UI token contract for the v2.0 design-system rollout (docs/DESIGN_SYSTEM.md 第七章).
+"""UI token contract for the design system (docs/DESIGN_SYSTEM.md 第七章).
 
 Static source scans of web/app + web/components — no database, no network, no
 node. Checks:
-1. No hex / rgb( / hsl( color literals outside tokens.css and an
+1. No hex / rgb(/ hsl(color literals outside tokens.css and an
    explicit file+line whitelist (data-driven colors, metadata literals).
 2. font-size only takes scale tokens / inherit / 16px iOS-zoom guard.
 3. border-radius only takes scale tokens / 999px / 50% / 0 / inherit.
 4. Every --wb-* in aichem-tokens.css is a pure alias of tokens.css vars.
 5. --green* / --warm* tokens must not reappear.
-6. No alert( / confirm( / prompt( calls in TSX (ConfirmDialog via useConfirm).
-7. Brand: components/ui/HgsLogo.tsx geometry byte-identical to SVG sources.
-8. Brand: public/brand/*.svg only hex exceptions beyond line whitelist.
-9. Entity display: no HCID/HRID display spelled outside EntityBadge.
-10. EntityBadge: compact only in table columns or dev-ui showcase.
+6. No alert(/ confirm(/ prompt(calls in TSX (ConfirmDialog via useConfirm).
+7. Brand: HgsLogo keeps the mark/wordmark class hooks its styles pin to
+   (brand SVG sources live outside the repo in brand/).
+8. Entity display: no HCID/HRID display spelled outside EntityBadge.
+9. EntityBadge: compact only in table columns.
 11. Form: all <form> tags must declare method="post".
 12. Topbar: no search input or shortcut.
 13. Media query: must not hide .hg-btn or its svg.
@@ -55,37 +55,20 @@ HEX_LINE_WHITELIST: list[tuple[str, str, str]] = [
     # 分类颜色是数据（读写数据库，喂给 <input type="color">，只认 hex 字面量）
     ("components/samelabs/SkillsAdminPanel.tsx", 'color: "#1e90ff"',
      "category color form default; DB-bound data, input[type=color] needs a hex"),
-    # HgsLogo 的白色横画随 hgs-mark.svg 源文件逐字交付（品牌 geometry 契约的组成部分）
+    # HgsLogo 的白色横画是品牌图形标的组成部分（源文件在仓库外 brand/ 目录）
     ("components/ui/HgsLogo.tsx", '<g fill="#FFFFFF">',
-     "brand mark knockout white, byte-identical to public/brand/hgs-mark.svg"),
+     "brand mark knockout white"),
 ]
 
-# ── 2.2 brand: public/brand/*.svg 是品牌源文件, 色值是其交付物的一部分 ─────────
-# 文件级白名单: 目录里新增 SVG 必须显式登记在这里(双向钉死, 防止借目录夹带)。
-HEX_FILE_WHITELIST: dict[str, str] = {
-    "public/brand/hgs-mark.svg": "品牌图形标源文件(blue-500 + 白色横画)",
-    "public/brand/hgs-mark-on-dark.svg": "深色底图形标源文件(blue-400)",
-    "public/brand/hgs-mark-line.svg": "线框图形标源文件(currentColor)",
-    "public/brand/hgs-mark-16.svg": "16px 简化版图形标源文件",
-    "public/brand/hgs-wordmark.svg": "字标源文件(currentColor)",
-    "public/brand/hgs-lockup.svg": "横版组合源文件(静态场景)",
-    "public/brand/hgs-app-icon.svg": "App 图标源文件(渐变例外见 DESIGN_SYSTEM 2.2)",
-}
-
-
-def brand_svg_files() -> list[Path]:
-    return sorted((WEB / "public" / "brand").glob("*.svg"))
-
-
 def hex_scan_files() -> list[Path]:
-    # hex/rgb/hsl 扫描覆盖面 = 组件样式 + 品牌 SVG 源文件(后者整体在文件白名单里)
-    return scan_files() + brand_svg_files()
+    # hex/rgb/hsl 扫描覆盖面 = 组件样式（品牌 SVG 源文件在仓库外 brand/ 目录）
+    return scan_files()
 
 # ── native-dialog ban (DESIGN_SYSTEM 7.5) ─────────────────────────────
-# ConfirmDialog (Step 4) replaces window.confirm; its hook returns a
+# ConfirmDialog replaces window.confirm; its hook returns a
 # function named ``confirm``, so a bare ``confirm(`` is legal only in
 # files that also call ``useConfirm``. window.alert/confirm/prompt and
-# bare alert(/prompt( have no legitimate producer and are always banned.
+# bare alert(/prompt(have no legitimate producer and are always banned.
 DIALOG_RE = re.compile(r"(?<![.\w])(alert|confirm|prompt)\s*\(")
 WINDOW_DIALOG_RE = re.compile(r"window\.(alert|confirm|prompt)\s*\(")
 CONFIRM_HOOK = "useConfirm("
@@ -112,8 +95,6 @@ def hex_findings() -> list[tuple[str, int, str]]:
     findings: list[tuple[str, int, str]] = []
     for p in hex_scan_files():
         r = rel(p)
-        if r in HEX_FILE_WHITELIST:
-            continue
         for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             hits = HEX_RE.findall(line)
             if not hits:
@@ -179,13 +160,11 @@ class ColorLiteralTests(unittest.TestCase):
     def test_no_rgb_or_hsl_function_literals(self):
         findings = []
         for p in hex_scan_files():
-            if rel(p) in HEX_FILE_WHITELIST:
-                continue
             for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
                 if "rgb(" in line or "hsl(" in line:
                     findings.append((rel(p), i, line.strip()[:140]))
         self.assertEqual([], findings)
-        # NOTE: rgba() (box-shadow tints) is deliberately out of scope in Step 1;
+        # NOTE: rgba() (box-shadow tints) is deliberately out of scope in ;
         # DESIGN_SYSTEM 7.3 (shadow policy) owns it in a later step.
 
 
@@ -235,34 +214,15 @@ class ForbiddenTokenTests(unittest.TestCase):
 
 
 class BrandAssetTests(unittest.TestCase):
-    """DESIGN_SYSTEM 2.2: React 实现的 SVG geometry 与品牌源文件逐字一致。"""
+    """DESIGN_SYSTEM 2.2: HgsLogo 与全局样式表的类名契约（品牌 SVG 源文件
+    在仓库外 brand/ 目录，geometry 比对不进仓库测试）。"""
 
-    def test_hgs_logo_geometry_matches_brand_svgs(self):
+    def test_hgs_logo_keeps_mark_and_wordmark_hooks(self):
+        # 全局样式（含手机档的图形标/字标缩放）钉在 .hgs-logo-mark /
+        # .hgs-logo-wordmark 上 —— 类名是 HgsLogo 与样式表的契约
         logo = (WEB / "components" / "ui" / "HgsLogo.tsx").read_text(encoding="utf-8")
-        mark = (WEB / "public" / "brand" / "hgs-mark.svg").read_text(encoding="utf-8")
-        wordmark = (WEB / "public" / "brand" / "hgs-wordmark.svg").read_text(encoding="utf-8")
-        # 图形标: polygon points 逐字照抄
-        for pts in re.findall(r'<polygon points="([^"]+)"', mark):
-            self.assertIn(f'points="{pts}"', logo,
-                          f"HgsLogo mark polygon diverged from hgs-mark.svg: {pts}")
-        # 字标: path d 逐字照抄
-        for d in re.findall(r'<path d="([^"]+)"', wordmark):
-            self.assertIn(f'd="{d}"', logo,
-                          f"HgsLogo wordmark path diverged from hgs-wordmark.svg: {d}")
-
-    def test_brand_svg_hex_whitelist_is_exact(self):
-        # 双向钉死: public/brand 下每个 svg 都登记在白名单里(新文件必须显式登记),
-        # 白名单里每个条目都真实存在(删源文件必须同步删条目)。
-        on_disk = {rel(p) for p in brand_svg_files()}
-        listed = set(HEX_FILE_WHITELIST)
-        self.assertEqual(
-            listed, on_disk,
-            f"brand svg whitelist out of sync: only-on-disk={sorted(on_disk - listed)}, "
-            f"only-in-whitelist={sorted(listed - on_disk)}")
-
-    def test_brand_whitelist_entries_exist(self):
-        for wf in HEX_FILE_WHITELIST:
-            self.assertTrue((WEB / wf).exists(), f"brand whitelist file missing: {wf}")
+        self.assertIn("hgs-logo-mark", logo)
+        self.assertIn("hgs-logo-wordmark", logo)
 
 
 class DialogCallTests(unittest.TestCase):
@@ -278,10 +238,17 @@ ENTITY_BADGE_FILE = "components/ui/EntityBadge.tsx"
 ENTITY_SPELL_RE = re.compile(r"(HCID|HRID)(\s*\$\{|\s*\{[a-zA-Z_.\[\]]+\})")
 
 
+# 打印报告页直接显示纯编号（HCID 1 / HRID 1，无读屏后缀）—— 唯一例外
+ENTITY_SPELL_ALLOWED = {
+    "app/(site)/chemical/[id]/print/page.tsx",
+    "app/(site)/reaction/[id]/print/page.tsx",
+}
+
+
 def entity_spell_findings() -> list[tuple[str, int, str]]:
     findings: list[tuple[str, int, str]] = []
     for p in scan_files():
-        if p.suffix != ".tsx" or rel(p) == ENTITY_BADGE_FILE:
+        if p.suffix != ".tsx" or rel(p) == ENTITY_BADGE_FILE or rel(p) in ENTITY_SPELL_ALLOWED:
             continue
         for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             if ENTITY_SPELL_RE.search(line):
@@ -292,11 +259,12 @@ def entity_spell_findings() -> list[tuple[str, int, str]]:
 class EntityBadgeDisplayTests(unittest.TestCase):
     def test_no_entity_id_spelled_outside_badge(self):
         # 字典(lib/i18n/locales，不在扫描面)与纯 aria 文案(无插值)不在此列；
-        # support 页等处的散文提及(“包含 HCID 或 HRID”)没有 id 插值，不算展示。
+        # support 页等处的散文提及(“包含 HCID 或 HRID”)没有 id 插值，不算展示；
+        # 打印报告页按工单直接显示纯编号（ENTITY_SPELL_ALLOWED）。
         self.assertEqual([], entity_spell_findings())
 
 
-# ── 7.7–7.8 BX-B1/B2: 旧类名清零 + ui 之外无原生表单元素 + eyebrow 禁止 ────
+# ── 7.7–7.8 /B2: 旧类名清零 + ui 之外无原生表单元素 + eyebrow 禁止 ────
 # 迁移终点（BX）：旧类名（button/wb-btn/empty-state/eyebrow/text-link/text-button）
 # 的样式定义与使用全部清除；原生表单元素只允许出现在 components/ui 与下方
 # 行级白名单（每条注明理由，禁止整文件豁免）。
@@ -313,8 +281,6 @@ NATIVE_FORM_RE = re.compile(r"<(button|input|select|textarea)\b")
 
 # 行级白名单: (relpath, 行内必须包含的子串, 理由)
 NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
-    ("app/(site)/dev-ui/page.tsx", '<button type="button">撤销</button>',
-     "dev 预览页 Toast 撤销钮的静态结构演示：production 构建下 404，非产品界面"),
     ("components/workbench/panels/SkillsPanel.tsx", 'type="file"',
      "文件上传 input：必须原生（按钮触发 ref.click()，ui Input 无 file 语义）"),
     ("components/samelabs/WorkersPanel.tsx", 'type="checkbox"',
@@ -347,7 +313,7 @@ NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
 
 
 class LegacyClassNameTests(unittest.TestCase):
-    """BX-B1/B2 ①：六类旧类名（class 属性使用 + CSS 定义）全部清零。"""
+    """/B2 ①：六类旧类名（class 属性使用 + CSS 定义）全部清零。"""
 
     def test_no_legacy_class_attributes(self):
         offenders = []
@@ -367,7 +333,7 @@ class LegacyClassNameTests(unittest.TestCase):
         self.assertEqual(offenders, [], "\n".join(offenders))
 
     def test_no_bare_button_class_attribute(self):
-        """旧 `.button` 类族（BX-B1 盘点第 7 类）同样清零 —— 按钮统一 .hg-btn。"""
+        """旧 `.button` 类族(盘点第 7 类）同样清零 —— 按钮统一 .hg-btn。"""
         offenders = []
         for p in scan_files():
             if p.suffix != ".tsx":
@@ -379,7 +345,7 @@ class LegacyClassNameTests(unittest.TestCase):
 
 
 class NativeFormElementTests(unittest.TestCase):
-    """BX-B1/B2 ②：components/ui 之外不允许原生 button/input/select/textarea，
+    """/B2 ②：components/ui 之外不允许原生 button/input/select/textarea，
     行级白名单除外（每条注明理由）。"""
 
     def test_no_native_form_elements_outside_ui(self):
@@ -409,7 +375,7 @@ class NativeFormElementTests(unittest.TestCase):
 
 
 class EyebrowBanTests(unittest.TestCase):
-    """BX-B1/B2 ③：eyebrow（英文大写 kicker）独立成条禁止 —— 分区标题就是 h2。"""
+    """/B2 ③：eyebrow（英文大写 kicker）独立成条禁止 —— 分区标题就是 h2。"""
 
     def test_no_eyebrow_class_anywhere(self):
         offenders = []
@@ -435,7 +401,7 @@ class CompactBadgeTests(unittest.TestCase):
             if p.suffix != ".tsx":
                 continue
             r = rel(p)
-            if r == ENTITY_BADGE_FILE or r == "app/(site)/dev-ui/page.tsx":
+            if r == ENTITY_BADGE_FILE:
                 continue
             text = p.read_text(encoding="utf-8")
             for i, line in enumerate(text.splitlines(), 1):

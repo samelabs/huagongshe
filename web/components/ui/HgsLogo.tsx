@@ -7,7 +7,7 @@
  * - lockup 仅在 locale === "zh-CN" 时渲染「1px×16 分隔线 + 化工社」副标;
  *   ≤640px 由 globals.css 的 .hgs-logo 媒体规则缩到 24 并隐藏副标。
  * - 图形标颜色 var(--brand),字标 currentColor(由外层 header 决定)。
- * - SVG geometry 与 web/public/brand/hgs-mark.svg / hgs-wordmark.svg 逐字一致,
+ * - SVG geometry 与品牌源文件（仓库外 brand/ 目录）逐字一致,
  *   被 tests/test_ui_token_contract.py BrandAssetTests 钉死——改路径先改品牌源文件。
  * - SVG aria-hidden:可访问名称由外层链接提供(aria-label={t.nav.home})。
  */

@@ -1,19 +1,19 @@
 /**
  * zh-CN 语言包 · 站点默认语言(现唯一完整字典)
  *
- * 使用：  import t from '@/lib/i18n'
- *         <h1>{t.home.hero}</h1>
- *         动态: getDictionary(locale)(见 lib/i18n/index.ts)
+ * 使用： import t from '@/lib/i18n'
+ * <h1>{t.home.hero}</h1>
+ * 动态: getDictionary(locale)(见 lib/i18n/index.ts)
  *
  * 规则：
- *   1. 可本地化、会变化的产品文案集中在 t，通过 t.xxx 引用；同一产品文案禁止在多个组件各自维护不同版本
- *   2. 品牌名称集中在 t.brand，确保全站一致
- *   3. 固定协议名、化学标识符（MCP、CAS、SMILES、InChIKey 等）与固定英文搜索提示等技术词允许组件内直接使用，不为形式制造语言 key
- *   4. 新增文案先在此文件对应 domain 下添加 key
- *   5. key 用 camelCase，按场景 domain 分组
- *   6. 函数类型用于含变量的文案：t.reaction.publishedOn(date)
- *   7. en/ja/ko/de 字典(待补齐)必须与本文件结构一致, 类型以本文件推导的
- *      Dictionary 为准(lib/i18n/index.ts), 不另写 interface
+ * 1. 可本地化、会变化的产品文案集中在 t，通过 t.xxx 引用；同一产品文案禁止在多个组件各自维护不同版本
+ * 2. 品牌名称集中在 t.brand，确保全站一致
+ * 3. 固定协议名、化学标识符（MCP、CAS、SMILES、InChIKey 等）与固定英文搜索提示等技术词允许组件内直接使用，不为形式制造语言 key
+ * 4. 新增文案先在此文件对应 domain 下添加 key
+ * 5. key 用 camelCase，按场景 domain 分组
+ * 6. 函数类型用于含变量的文案：t.reaction.publishedOn(date)
+ * 7. en/ja/ko/de 字典(待补齐)必须与本文件结构一致, 类型以本文件推导的
+ * Dictionary 为准(lib/i18n/index.ts), 不另写 interface
  */
 
 const t = {
@@ -95,7 +95,7 @@ const t = {
     hridLabel: (id: number | string) => `HRID ${id}，反应`,
     breadcrumb: '面包屑',
     close: '关闭',
-    /* ── v1.7 组件库（web/components/ui/）通用文案 ── */
+    /* ── 组件库（web/components/ui/）通用文案 ── */
     copy: '复制',
     copied: '已复制',
     cancel: '取消',
@@ -151,13 +151,13 @@ const t = {
     entryWorkbench: '网页工作台',
     entrySkills: 'Skills',
     entryPlugin: "Agent Plugin",
-    /* Step 10：MCP 地址复制按钮 aria / Plugin 状态说明 + Tag warn 文案 */
+    /* ：MCP 地址复制按钮 aria / Plugin 状态说明 + Tag warn 文案 */
     entryMcpCopy: '复制 MCP 服务器地址',
   },
 
   /* ── 搜索 ────────────────────────────────────────────── */
   search: {
-    seoResultsLabel: '搜索',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
+    seoResultsLabel: '搜索',  /* 结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: '在化工社按名称、CAS 号、InChIKey、SMILES 或结构检索化学数据。',
     title: '查询化学数据',
     noResultsFor: (query: string) => `没有找到与「${query}」匹配的记录`,
@@ -343,7 +343,7 @@ const t = {
       other: '其他',
       unknown: '未注明',
     },
-    userSubmitted: '用户发布',  /* BX-A2：API user_submitted 标记的本地化 */
+    userSubmitted: '用户发布',  /* API user_submitted 标记的本地化 */
     sourceFields: {
       type: '来源类型',
       ord: 'ORD记录',
@@ -365,7 +365,7 @@ const t = {
     yieldLabel: (v: string) => `收率 ${v}%`,
     internalStandard: '内标',
     otherRole: '其他',
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: '删除这个反应？',
     deleteBody: (id: number) => `HRID ${id} 将被永久删除，关联的化合物不会被删除。此操作无法撤销。`,
     deleteLabel: '删除反应',
@@ -453,7 +453,8 @@ const t = {
     feedActor: (name: string) => `${name} 发布了公开反应`,
     feedActorNote: (name: string) => `${name} 发布了公开笔记`,
     feedEmptyTitle: '还没有动态',
-    feedEmptyDesc: '关注其他用户后，动态会显示在这里。',
+    feedEmptyDesc: '关注作者后，他们发布的公开反应和笔记会出现在这里。',
+    discoverCta: '去发现作者',
     feedViewAll: '查看全部动态',
     feedOpen: '打开',
     profileViewPublic: '查看我的公开主页',
@@ -494,6 +495,7 @@ const t = {
     },
     notesSessionExpired: '登录已失效，请重新登录后再保存。',
     notesEmpty: '还没有笔记。',
+    notesEmptyDesc: '记录实验观察、判断与资料，可关联化合物或反应',
     notesFilter: '笔记可见性筛选',
     unitNote: '条笔记',
     followingHint: '你正在关注的人，可以查看主页或取消关注',
@@ -501,8 +503,10 @@ const t = {
     emptyReactions: '还没有保存反应记录。',
     emptyChemicals: '还没有收藏化合物。',
     emptyReactionSaved: '还没有收藏反应。',
-    emptyFollowing: '还没有关注用户。',
-    emptyFollowers: '还没有粉丝。',
+    emptyFollowing: '还没有关注任何作者',
+    emptyFollowingDesc: '在「发现作者」里关注感兴趣的成员，他们的新分享会出现在动态里',
+    emptyFollowers: '还没有人关注你',
+    emptyFollowersDesc: '发布公开的反应和笔记，让社区认识你的工作',
     visAll: '你通过网页或AI保存的全部反应记录',
     visPrivate: '仅当前账号可以查看',
     visPublic: '会显示在你的公开主页',
@@ -522,10 +526,12 @@ const t = {
     navSkills: '我的 Skills',
     navMcpKey: 'MCP 与 AI Key',
     navSettings: '设置',
-    tabPeople: '找人',
-    peopleSearchPlaceholder: '搜索用户名或显示名称...',
-    peopleEmptyPrompt: '输入用户名或显示名称查找化工社用户',
-    peopleNoResults: '未找到匹配的用户',
+    tabPeople: '发现作者',
+    peopleHint: '搜索社区成员并关注，他们的新分享会出现在你的动态里',
+    peopleSearchPlaceholder: '搜索用户名或显示名称…',
+    peopleEmptyPrompt: '输入用户名或显示名称，搜索社区成员',
+    peopleIdleDesc: '关注后，对方的公开反应和笔记会出现在你的「动态」里',
+    peopleNoResults: '没有找到匹配的成员',
     peopleFollowers: (n: number) => `${n} 粉丝`,
   },
 
@@ -538,6 +544,7 @@ const t = {
     authorNote: (author: string) => `${author} 的笔记`,
     /* ── Phase 1c: 详情页 / 公开主页 / 私有区块 / 实体过滤 / 截断 / Stoich ── */
     detailTitle: '笔记',
+    untitled: '无标题笔记',
     category: '笔记',
     updatedLabel: '更新于',
     visibilityPublic: '公开',
@@ -554,11 +561,11 @@ const t = {
     createReaction: '新建反应',
     writeNote: '写笔记',
 
-    /* R6 */
+    /* */
     profileLoadFailed: '公开笔记加载失败',
     deleteFailed: '删除失败,请重试',
 
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: '删除这条笔记？',
     deleteBody: (excerpt: string) => `「${excerpt}」将被永久删除。此操作无法撤销。`,
     deleteLabel: '删除笔记',
@@ -826,6 +833,17 @@ const t = {
     errAmountUnit: '每个参与物的投料数值和单位必须同时填写。',
     errConcUnit: '每个参与物的浓度数值和单位必须同时填写。',
     errSourceMissing: '请填写与来源类型对应的来源信息。',
+    errOccurrenceCount: '出现次数必须是 1–20 的整数。',
+    errNonNegative: '数值不能小于 0。',
+    errYieldRange: '收率必须在 0–100 之间。',
+    errDurationRange: '反应时间必须大于 0。',
+    errPhRange: 'pH 必须在 0–14 之间。',
+    errPressureRange: '压强必须大于 0。',
+    errDoiFormat: 'DOI 格式不正确。',
+    errSourceUrlScheme: '来源链接必须以 http:// 或 https:// 开头。',
+    errTempPair: '温度数值和单位必须同时填写。',
+    errDurationPair: '反应时间数值和单位必须同时填写。',
+    errPressurePair: '压强数值和单位必须同时填写。',
     errSave: '保存失败，请稍后重试',
     errNetwork: '网络连接失败，内容仍保留在本页，请稍后重试。',
     roles: {
@@ -1021,7 +1039,7 @@ const t = {
     emptyNotesVisitor: 'TA 还没有公开笔记',
     emptyNotesSelf: '你还没有公开笔记',
     enterWorkbench: '进入工作台',
-    /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停用账号主页停用态（DESIGN_SYSTEM 6.6）与作者标记 */
+    /* 停用账号主页停用态（DESIGN_SYSTEM 6.6）与作者标记 */
     deactivatedTag: '账号已停用',
     deactivatedTitle: '该账号已停用',
     deactivatedBody: '该账号已被停用。已发布的公开内容仍可通过链接访问，但主页不再展示列表，也无法关注。',
@@ -1199,7 +1217,7 @@ const t = {
     viewProfile: '查看主页',
   },
 
-  /* ── 编辑器（IX-5 保存状态 / 未保存拦截） ─────────────── */
+  /* ── 编辑器(保存状态 / 未保存拦截） ─────────────── */
   editor: {
     saved: '已保存',
     saving: '保存中…',
@@ -1210,7 +1228,7 @@ const t = {
     unsavedBody: '离开后将丢失本次修改。',
     unsavedConfirm: '放弃修改',
     unsavedCancel: '继续编辑',
-    /* BX-A1：保存进行中切换编辑上下文 —— 保存不会中断，文案如实 */
+    /* 保存进行中切换编辑上下文 —— 保存不会中断，文案如实 */
     savingTitle: '笔记正在保存，确定切换吗？',
     savingBody: '保存会继续完成，不会丢失；完成后列表会自动刷新。',
     savingConfirm: '仍要切换',
@@ -1231,7 +1249,7 @@ const t = {
     notFoundAction: '去搜索',
   },
 
-  /* ── 打印报告（I-078） ─────────────────────────────────── */
+  /* ── 打印报告 ─────────────────────────────────── */
   print: {
     title: '打印报告',
     printAction: '打印 / 保存 PDF',
@@ -1258,15 +1276,15 @@ const t = {
  * 字典 schema 类型 · 从 zh-CN 字典自动推导, 不手写第二份 interface
  *
  * 递归规则(按真实值类型, 不机械照抄):
- *   - 函数: 保留全部参数签名(...args 推导), 返回值 widen 为 string ——
- *     模板文案返回的字符串因 as const 是字面量类型, 不同语言包返回各自的
- *     字面量, 统一放宽为 string 才能互换
- *   - string: widen 为 string(同上, 中文字面量类型不应约束英文/日文包)
- *   - readonly array(如 features/qwenSteps/noResultsHints): 元素递归 widen,
- *     长度保持 exact(缺/多一条都是错), 得 readonly string[]
- *   - number 等原始值: 原样保留
- *   - 嵌套 object(含 readonly): 逐 key 递归 —— 缺 key / 多余 key 均不满足
- *     映射类型而编译报错
+ * - 函数: 保留全部参数签名(...args 推导), 返回值 widen 为 string ——
+ * 模板文案返回的字符串因 as const 是字面量类型, 不同语言包返回各自的
+ * 字面量, 统一放宽为 string 才能互换
+ * - string: widen 为 string(同上, 中文字面量类型不应约束英文/日文包)
+ * - readonly array(如 features/qwenSteps/noResultsHints): 元素递归 widen,
+ * 长度保持 exact(缺/多一条都是错), 得 readonly string[]
+ * - number 等原始值: 原样保留
+ * - 嵌套 object(含 readonly): 逐 key 递归 —— 缺 key / 多余 key 均不满足
+ * 映射类型而编译报错
  */
 type DictionaryShape<T> =
   T extends (...args: infer A) => unknown

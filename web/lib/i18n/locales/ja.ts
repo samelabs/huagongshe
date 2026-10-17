@@ -89,7 +89,7 @@ const ja: Dictionary = {
     hridLabel: (id: number | string) => `HRID ${id}、反応`,
     breadcrumb: 'パンくずリスト',
     close: '閉じる',
-    /* v1.7 组件库 */
+    /* 组件库 */
     copy: 'コピー',
     copied: 'コピーしました',
     cancel: 'キャンセル',
@@ -150,7 +150,7 @@ const ja: Dictionary = {
 
   /* ── 検索 ───────────────────────────────────────────── */
   search: {
-    seoResultsLabel: '検索',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
+    seoResultsLabel: '検索',  /* 结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: '名称、CAS番号、InChIKey、SMILES、構造で化工社のケミストリーデータを検索。',
     title: 'ケミストリーデータを検索',
     noResultsFor: (query: string) => `「${query}」に一致する記録は見つかりませんでした`,
@@ -335,7 +335,7 @@ const ja: Dictionary = {
       other: 'その他',
       unknown: '記載なし',
     },
-    userSubmitted: 'ユーザー投稿',  /* BX-A2：API user_submitted 标记的本地化 */
+    userSubmitted: 'ユーザー投稿',  /* API user_submitted 标记的本地化 */
     sourceFields: {
       type: '出典タイプ',
       ord: 'ORDレコード',
@@ -357,7 +357,7 @@ const ja: Dictionary = {
     yieldLabel: (v: string) => `収率 ${v}%`,
     internalStandard: '内部標準',
     otherRole: 'その他',
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'この反応を削除しますか？',
     deleteLabel: '反応を削除',
     deleted: '反応を削除しました',
@@ -443,7 +443,8 @@ const ja: Dictionary = {
     feedActor: (name: string) => `${name} が公開反応を投稿しました`,
     feedActorNote: (name: string) => `${name} が公開ノートを投稿しました`,
     feedEmptyTitle: 'まだ動向がありません',
-    feedEmptyDesc: 'フォローしたユーザーの動向がここに表示されます。',
+    feedEmptyDesc: 'フォローした作者の公開リアクションとノートがここに表示されます。',
+    discoverCta: 'フォローする作者を探す',
     feedViewAll: 'すべての動向を見る',
     feedOpen: '開く',
     profileViewPublic: '公開プロフィールを見る',
@@ -484,6 +485,7 @@ const ja: Dictionary = {
     },
     notesSessionExpired: 'セッションが期限切れです。再度ログインしてから保存してください。',
     notesEmpty: 'ノートはまだありません。',
+    notesEmptyDesc: '観察・判断・資料を記録。化合物や反応を関連付けられます',
     notesFilter: 'ノートの公開範囲フィルター',
     unitNote: '件',
     followingHint: 'フォロー中のユーザー。プロフィールの表示やフォロー解除ができます',
@@ -491,8 +493,10 @@ const ja: Dictionary = {
     emptyReactions: '保存された反応記録はまだありません。',
     emptyChemicals: '保存した化合物はまだありません。',
     emptyReactionSaved: '保存した反応はまだありません。',
-    emptyFollowing: 'フォロー中のユーザーはまだいません。',
-    emptyFollowers: 'フォロワーはまだいません。',
+    emptyFollowing: 'フォロー中の作者はまだいません',
+    emptyFollowingDesc: '「作者を探す」で気になるメンバーをフォローすると、新しい投稿が動向に表示されます',
+    emptyFollowers: 'まだフォロワーがいません',
+    emptyFollowersDesc: '公開のリアクションやノートを投稿して、あなたの仕事をコミュニティに届けましょう',
     visAll: 'ウェブまたは AI 経由で保存したすべての反応記録',
     visPrivate: '現在のアカウントのみ閲覧可能',
     visPublic: '公開プロフィールに表示されます',
@@ -512,10 +516,12 @@ const ja: Dictionary = {
     navSkills: 'マイ Skills',
     navMcpKey: 'MCP と AI Key',
     navSettings: '設定',
-    tabPeople: 'ユーザー検索',
-    peopleSearchPlaceholder: 'ユーザー名または表示名で検索...',
-    peopleEmptyPrompt: 'ユーザー名または表示名を入力してユーザーを検索します',
-    peopleNoResults: '一致するユーザーが見つかりません',
+    tabPeople: '作者を探す',
+    peopleHint: 'メンバーを検索してフォローすると、新しい投稿が動向に表示されます',
+    peopleSearchPlaceholder: 'ユーザー名または表示名で検索…',
+    peopleEmptyPrompt: 'ユーザー名または表示名でメンバーを検索',
+    peopleIdleDesc: 'フォローすると、相手の公開リアクションとノートが動向に表示されます',
+    peopleNoResults: '一致するメンバーが見つかりません',
     peopleFollowers: (n: number) => `フォロワー ${n} 人`,
   },
 
@@ -528,6 +534,7 @@ const ja: Dictionary = {
     authorNote: (author: string) => `${author}のノート`,
     /* ── Phase 1c: 詳細ページ / プロフィール / プライベート / フィルタ / 切り詰め / Stoich ── */
     detailTitle: 'ノート',
+    untitled: '無題のノート',
     category: 'ノート',
     updatedLabel: '更新日時',
     visibilityPublic: '公開',
@@ -544,11 +551,11 @@ const ja: Dictionary = {
     createReaction: '反応を作成',
     writeNote: 'ノートを書く',
 
-    /* R6 */
+    /* */
     profileLoadFailed: '公開ノートの読み込みに失敗しました',
     deleteFailed: '削除に失敗しました。もう一度お試しください',
 
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'このノートを削除しますか？',
     deleteLabel: 'ノートを削除',
     deleted: 'ノートを削除しました',
@@ -818,6 +825,17 @@ const ja: Dictionary = {
     errAmountUnit: '各参加物の仕込み量は数値と単位を両方入力してください。',
     errConcUnit: '各参加物の濃度は数値と単位を両方入力してください。',
     errSourceMissing: '出典タイプに対応する出典情報を入力してください。',
+    errOccurrenceCount: '出現回数は 1～20 の整数で入力してください。',
+    errNonNegative: '数値は 0 未満にできません。',
+    errYieldRange: '収率は 0～100 の範囲で入力してください。',
+    errDurationRange: '反応時間は 0 より大きくしてください。',
+    errPhRange: 'pH は 0～14 の範囲で入力してください。',
+    errPressureRange: '圧力は 0 より大きくしてください。',
+    errDoiFormat: 'DOI の形式が正しくありません。',
+    errSourceUrlScheme: '出典リンクは http:// または https:// で始めてください。',
+    errTempPair: '温度は数値と単位を両方入力してください。',
+    errDurationPair: '反応時間は数値と単位を両方入力してください。',
+    errPressurePair: '圧力は数値と単位を両方入力してください。',
     errSave: '保存に失敗しました。後でもう一度お試しください',
     errNetwork: 'ネットワーク接続に失敗しました。入力内容はこのページに残ります。後でもう一度お試しください。',
     roles: {
@@ -1012,7 +1030,7 @@ const ja: Dictionary = {
     emptyNotesVisitor: '公開されているノートはまだありません。',
     emptyNotesSelf: '公開されているノートはまだありません。',
     enterWorkbench: 'ワークベンチへ',
-    /* HGS-ACCOUNT-CONTENT-01（PM 裁定）: 停止アカウントのプロフィール状態（DESIGN_SYSTEM 6.6）と作成者表示 */
+    /* 停止アカウントのプロフィール状態（DESIGN_SYSTEM 6.6）と作成者表示 */
     deactivatedTag: 'アカウント停止中',
     deactivatedTitle: 'このアカウントは停止されています',
     deactivatedBody: 'このアカウントは停止されました。公開済みの内容はリンクから閲覧できますが、一覧には表示されずフォローもできません。',
@@ -1190,7 +1208,7 @@ const ja: Dictionary = {
     viewProfile: 'プロフィールを見る',
   },
 
-  /* ── エディター（IX-5 保存状態 / 未保存ガード） ──────── */
+  /* ── エディター(保存状態 / 未保存ガード） ──────── */
   editor: {
     saved: '保存済み',
     saving: '保存中…',
@@ -1201,7 +1219,7 @@ const ja: Dictionary = {
     unsavedBody: 'このまま離れると変更が失われます。',
     unsavedConfirm: '変更を破棄',
     unsavedCancel: '編集を続ける',
-    /* BX-A1: 保存中に編集コンテキストを切り替える際の正直な文案 */
+    /* 保存中に編集コンテキストを切り替える際の正直な文案 */
     savingTitle: 'ノートを保存中です。切り替えますか？',
     savingBody: '保存はそのまま完了し、失われることはありません。完了後、リストが自動更新されます。',
     savingConfirm: '切り替える',
@@ -1222,7 +1240,7 @@ const ja: Dictionary = {
     notFoundAction: '検索へ',
   },
 
-  /* ── 印刷レポート（I-078） ───────────────────────────── */
+  /* ── 印刷レポート ───────────────────────────── */
   print: {
     title: '印刷レポート',
     printAction: '印刷 / PDF 保存',

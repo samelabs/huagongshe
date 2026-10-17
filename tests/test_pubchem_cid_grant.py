@@ -4,7 +4,7 @@
 (complete_pubchem_job) 只把 core.CID 当作 incoming CID evidence ——
 主表 chemistry.chemicals.pubchem_cid 永远不回写，后续 enrichment 链断。
 修复：已验证的 query binding（job.query_value = worker 实际被派发请求的
-CID）作为可信 CID evidence —— core 缺 CID 时以 expected_cid 进裁定。
+CID）作为可信 CID evidence —— core 缺 CID 时以 expected_cid 进。
 
 锁四条：
 1. core 无 CID + query_value=<cid> → 主表 pubchem_cid 回写（修复主线）；

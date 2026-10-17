@@ -7,9 +7,9 @@ import { ImageResponse } from "next/og";
  * - SVG 是矢量图：地址不带尺寸，显示尺寸由页面 CSS 决定。
  * - PNG 是 1200×630 横版分享图（白底居中），供社交平台抓取。
  * - 可见性由后端判定：请求原样转发 cookie，私有反应只有本人/管理员
- *   能取到图；带身份的响应恒为 private, no-store，绝不落共享缓存。
+ * 能取到图；带身份的响应恒为 private, no-store，绝不落共享缓存。
  * - 反应不存在、不公开或没有可渲染的结构表达时返回 404，
- *   不在路由里替换成其他图片。
+ * 不在路由里替换成其他图片。
  */
 
 const API_ORIGIN = process.env.API_ORIGIN_INTERNAL || "http://127.0.0.1:8000";

@@ -1,4 +1,4 @@
-"""G2.1 stoichiometry vertical slice tests.
+""" stoichiometry vertical slice tests.
 
 覆盖:
 - Service unit tests: 直调 services.stoichiometry.compute, 不启动 FastAPI/MCP
@@ -278,7 +278,7 @@ class McpContractTests(unittest.TestCase):
 
 
 class McpErrorBoundaryTests(unittest.TestCase):
-    """G2.1 correction: enforce/compute 的异常必须在 MCP 边界翻译。
+    """ correction: enforce/compute 的异常必须在 MCP 边界翻译。
 
     直接以 tool 函数对象为单位测试(mock 其内部 import 的 enforce/service),
     锁: 429/503 → ToolError(detail 原文), compute 未执行; 意外异常不被吞。
@@ -321,7 +321,7 @@ class McpErrorBoundaryTests(unittest.TestCase):
         m, fn = self._tool_fn()
 
         async def raise_429(bucket, identity, limit, window):
-            # G2.R: core 现抛 neutral RateLimited(retry_after 元数据)
+            # .R: core 现抛 neutral RateLimited(retry_after 元数据)
             from api.core.rate_limit import RateLimited
             raise RateLimited("请求过于频繁，请稍后重试", retry_after=30)
 

@@ -1,6 +1,6 @@
-"""WorkAPI 应用服务层 (E6: WorkAPI State Machine Ownership Closure)。
+"""WorkAPI 应用服务层 (WorkAPI State Machine Ownership Closure)。
 
-E6 归口: job 状态机(lease / expired recovery / heartbeat / complete / error /
+ 归口: job 状态机(lease / expired recovery / heartbeat / complete / error /
 completion receipt / 幂等判定 / 事务 / 提交后 housekeeping) 的唯一 owner。
 
 边界(见 api/workapi.py):
@@ -8,7 +8,7 @@ completion receipt / 幂等判定 / 事务 / 提交后 housekeeping) 的唯一 o
   body hash / route scope / worker scopes / replay / HTTP status 映射 /
   authenticated_worker。
 - 本模块只表达语义, 禁止 import fastapi / starlette / HTTPException /
-  Request / Response。中性错误: LeaseConflictError(E5) / PayloadInvalidError(E6),
+  Request / Response。中性错误: LeaseConflictError / PayloadInvalidError,
   HTTP status + 逐字 detail 由 adapter 独占映射。
 
 搬迁方式: 正文自 api/workapi.py 逐字搬运(仅参数 plumbing 与 neutral 错误表达
@@ -70,7 +70,7 @@ async def lease_pubchem_jobs(
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
-        # HGS-GATE-HALFOPEN-01: 停档期满半开, 只放行一个探测任务
+        # 停档期满半开, 只放行一个探测任务
         limit = await gate_halfopen_admit(redis, "pubchem", limit)
         if limit <= 0:
             await db.commit()
@@ -128,9 +128,9 @@ async def complete_pubchem_job(
     lease_token: str,
     result: dict[str, Any],
 ) -> dict[str, Any]:
-    """整包入库(0901 定案): 拉到就 update, 全字段覆盖, 无校验。
+    """整包入库: 拉到就 update, 全字段覆盖, 无校验。
     result 空 → job 出表, 数据层零动作。
-    P0-2: active lease 缺失时查 completion receipt — 同 worker+同
+    active lease 缺失时查 completion receipt — 同 worker+同
     lease_token_hash 的重试返回幂等 ack, 不再 409(协议确认幂等)。"""
     try:
         try:
@@ -141,14 +141,14 @@ async def complete_pubchem_job(
                     worker_id=worker_id, lease_token=lease_token):
                 return {"status": "ok", "idempotent": True}
             raise
-        # 0906 身份机制: job 携带的行 id 可能已被合并删除(异步执行期间
+        # 身份合并机制: job 携带的行 id 可能已被合并删除(异步执行期间
         # absorb), 先过 redirect 解析 canonical, 无记录返回原值
         from .identity import canonicalize_id
         chemical_id = await canonicalize_id(db, job[1])
         payload = as_json_object(result.get("payload")) if isinstance(result, dict) else {}
         if payload:
             # ------------------------------------------------------------
-            # 0909 §2 写前裁定: identity evidence 先于一切主表写入。
+            # §2 写前identity evidence 先于一切主表写入。
             # 顺序: 提取 CID/IK → 强身份冲突判断 → resolve/reconcile 得
             # canonical → 再写普通 enrichment → CID/IK 仅经 grant 补空。
             # ------------------------------------------------------------
@@ -175,9 +175,9 @@ async def complete_pubchem_job(
                 if isinstance(ik_raw, str) and len(ik_raw) == 27:
                     inc_ik = ik_raw
 
-            # HGS-PB-01: 扣留事实的任务终态必须如实 — 回执不得记 ok。
+            # 扣留事实的任务终态必须如实 — 回执不得记 ok。
             # (worker 协议响应仍是 ok: 重试不可能解决身份冲突, 无重试价值;
-            #  如实性由 completion receipt 承载, 它是任务的审计记录。)
+            # 如实性由 completion receipt 承载, 它是任务的审计记录。)
             withheld = None
             if expected_cid is None:
                 # §2.2 规则1: query_value 非法 → 不 adjudicate, 实体事实零写入。
@@ -200,7 +200,7 @@ async def complete_pubchem_job(
                 # F-NEW-01: 解析器可能不产出 core.CID（whole_record 现状）。
                 # 已验证的 query binding（job.query_value = worker 实际被派发
                 # 请求的 CID）本身就是可信 CID evidence —— core 缺 CID 时以
-                # expected_cid 进裁定，主表 pubchem_cid 才能回写。行上已有
+                # expected_cid 进，主表 pubchem_cid 才能回写。行上已有
                 # 不同 CID 仍走既有 cid-conflict 硬闸（不同可信 CID 不得合并），
                 # CID/IK 判定与 same-CID 收敛规则不变。
                 adjudicate_cid = inc_cid if inc_cid is not None else expected_cid
@@ -232,7 +232,7 @@ async def complete_pubchem_job(
                         identity_grant=grant,
                     )
         # 出表: complete 即 DELETE, job 是纯队列不承载历史。
-        # P0-2/P1-5: receipt 与 DELETE 同事务(先 receipt 后 delete, 一次 commit)。
+        # /receipt 与 DELETE 同事务(先 receipt 后 delete, 一次 commit)。
         # 终态: empty=空载荷 / ok=事实落库 / withheld*=事实扣留(如实, 不冒充成功)。
         await record_completion_receipt(
             db, family="pubchem", job_id=job_id, worker_id=worker_id,
@@ -244,7 +244,7 @@ async def complete_pubchem_job(
             DELETE FROM maintenance.pubchem_jobs WHERE id=:job_id
         """), {"job_id": job_id})
         await db.commit()
-        # ── P0-3 post-commit housekeeping: primary commit 即 authoritative 终点。
+        # ── post-commit housekeeping: primary commit 即 authoritative 终点。
         # Redis/gate/cache 失败只记结构化 warning, 不得改报 Worker failure。
         try:
             redis = await get_cache()
@@ -275,7 +275,7 @@ async def fail_pubchem_job(
     error_code: str,
     error_detail: str,
 ) -> dict[str, Any]:
-    """worker error(0901 终版): 行留 error 态占位(有人要过、没拿到),
+    """worker error: 行留 error 态占位(有人要过、没拿到),
     连击+1(网络类)。无时间调度字段 — 复活=同请求到达入列口 UPDATE 翻态。"""
     try:
         await verified_lease(db, LeaseProof(job_id=job_id, lease_token=lease_token), worker_id)
@@ -324,7 +324,7 @@ async def lease_cas_jobs(
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
-        # HGS-GATE-HALFOPEN-01: 停档期满半开, 只放行一个探测任务
+        # 停档期满半开, 只放行一个探测任务
         limit = await gate_halfopen_admit(redis, "cb", limit)
         if limit <= 0:
             await db.commit()
@@ -339,7 +339,7 @@ async def lease_cas_jobs(
         """))
         # FOR UPDATE 不能落 LEFT JOIN 的 nullable 侧: 先锁 cas_jobs,
         # cb_number(语言行寻址键)另查补齐。
-        # 0902 剥离: 负缓存终态拦截 CTE 整段删除 — not 行已清零且不再写入,
+        # 剥离: 负缓存终态拦截 CTE 整段删除 — not 行已清零且不再写入,
         # 拦截永不命中; 且此段曾静默删除 34k 修复任务(lease拦截血案)。
         claim = (await db.execute(text("""
             WITH candidates AS (
@@ -359,7 +359,7 @@ async def lease_cas_jobs(
         })).fetchall()
         rows = [(r[0], r[1], r[2], r[3]) for r in claim]
         if rows:
-            # 0907 source grain: cb_number 寻址键优先取 job 自身 request_context
+            # source grain: cb_number 寻址键优先取 job 自身 request_context
             # (backfill 多 cb job: 目标 cb 可能尚未落主表, 或主表已有别的 cb);
             # 无 context 键(全部线上 job)时回落主表 — 与旧版行为一致。
             ctx_rows = (await db.execute(text("""
@@ -367,7 +367,7 @@ async def lease_cas_jobs(
                 WHERE id = ANY(CAST(:ids AS bigint[]))
                   AND request_context ? 'source_cb'
             """), {"ids": [r[0] for r in rows]})).fetchall()
-            # 0907 fix: 键域分离 — context 按 jobId, 主表按 chemicalId。
+            # fix: 键域分离 — context 按 jobId, 主表按 chemicalId。
             # 旧版两域混写同一 cb_map, lookup 恒用 chemicalId → source_cb 永远
             # 取不到, 全部错误回落主表(跨 cb 串抓事故根因)
             cb_by_job = {r[0]: r[1] for r in ctx_rows}
@@ -418,7 +418,7 @@ async def heartbeat_cas_job(
 ) -> dict[str, Any]:
     try:
         await verified_cas_lease(db, LeaseProof(job_id=job_id, lease_token=lease_token), worker_id, lock=False)
-        # HGS-CAS-HEARTBEAT-LEASE-RACE-01: UPDATE 本身带全部租约条件并核对
+        # 心跳续租与领取竞争同语句收口: UPDATE 本身带全部租约条件并核对
         # 影响行数 —— 无锁校验(lock=False)与 UPDATE 之间存在毫秒窗, 租约
         # 可能已过期被回收/被他人接管, 旧写法按 id 续租会延长别人的租约。
         result = await db.execute(text("""
@@ -447,14 +447,14 @@ async def heartbeat_cas_job(
 
 
 async def bind_unbound_ok(db, payload, cas_number: str) -> int | None:
-    """B-safe (P1): unbound CAS OK 的安全绑定判定。
+    """B-safe : unbound CAS OK 的安全绑定判定。
 
     authority = resolved chemical_id 必须属于 callback-time CAS candidate
     set — 不使用 resolver reason 作 authority(resolver 序位 CID→global IK→
     CAS: 候选自带 IK+mol 时先返回 ik-structural-hit, 集外 C 可在 global IK
     序位提前胜出, reason 会骗人, 集合成员资格不会)。
 
-    契约 (用户令 2026-09-10):
+    契约 (用户令):
     - multi-candidate: 必须有 valid incoming IK; resolve_chemical(create=
       False) 返回 EXACT/EQUIVALENT 且 id ∈ candidate set 才 bind。
       AMBIGUOUS/CONFLICT/NEW/集外命中/IK 缺失 → 不 bind。不得 NEW/absorb/merge。
@@ -542,7 +542,7 @@ async def complete_cas_job(
         chemical_id = job[1]
         cas_number = job[2]
         unbound_bound = False  # B-safe: unbound OK bind 成功标记
-        # 占位行机制(2026-08-29定): 搜索miss入队时已占主表行, 任务必有
+        # 占位行机制(定): 搜索miss入队时已占主表行, 任务必有
         # chemical_id。无主行建行分支已删除 — complete 落 cb 表数据 +
         # 结构三件回填(占位行靠这个出图)。
         payload = result
@@ -555,7 +555,7 @@ async def complete_cas_job(
                 await record_negative(
                     db, "cas_locator", cas_number=cas_number)
             if status == "ok" and payload.locale == "zh-CN":
-                # B-safe (P1, 2026-09-10): unbound OK 只允许绑定
+                # B-safe : unbound OK 只允许绑定
                 # callback-time CAS candidate set 内、证据无冲突的实体。
                 # 填补 enqueue 注释承诺但从未实现的"结构判据后 re-resolve
                 # 收敛"义务 — 此前 OK payload 直接随 job DELETE 丢弃。
@@ -596,7 +596,7 @@ async def complete_cas_job(
         entry = payload.entry if status == "ok" else None
         locale = payload.locale
         suppliers = payload.suppliers if status == "ok" and locale == "zh-CN" else []
-        # B-minimal negative observations (2026-09-10):
+        # B-minimal negative observations :
         # 明确 NOT_FOUND → 独立观察表记录 (grain 不折叠: zh 链未拿到
         # cb_number → cas_locator; 语言链有明确 source locator →
         # locale_variant)。ERROR 永不落 negative。chemical_cb 零写入。
@@ -610,7 +610,7 @@ async def complete_cas_job(
                 await record_negative(
                     db, "locale_variant", cb_number=payload.cb_number,
                     locale=locale)
-        # 0906 治理机制(规范版): 回补重定位 — 拿本任务刚解析出的 inchikey
+        # 治理机制(规范版): 回补重定位 — 拿本任务刚解析出的 inchikey
         # 过 resolve 五状态契约; EQUIVALENT/EXACT 且目标行≠job行时过
         # can_merge 吸收(gate 内置于 absorb); AMBIGUOUS/CONFLICT 不写
         # 任何行的身份字段(数据只落子表), 规范见 docs/CHEMICALS_IDENTITY_GOVERNANCE.md
@@ -628,7 +628,7 @@ async def complete_cas_job(
             structure = resolve_structure(entry, payload.mol)
             # 异步执行期间行可能已被合并(旧id已删) — redirect 兜底
             job_chemical_id = await canonicalize_id(db, chemical_id)
-            # HGS-CB-STRUCT-03: 回调侧解析永远 create=False — 占位行机制下
+            # 回调侧解析永远 create=False — 占位行机制下
             # "无主行建行分支已删除", 双 miss(IK miss + CAS miss)时 create=True
             # 会 INSERT 幽灵行并吸走本任务的落库目标。回调只定位不建行。
             res = await resolve_chemical(
@@ -684,8 +684,8 @@ async def complete_cas_job(
                 cb_number=payload.cb_number, locale=locale,
             )
         except ValueError as exc:
-            # 载荷异常: 不打死 — 留 error 行占位(0901 终版: 无时间字段, 复活=同请求翻态)。
-            # 0904 P1收口: 此前分支 commit 会把 apply_structure_fill 的主表结构
+            # 载荷异常: 不打死 — 留 error 行占位。
+            # 收口: 此前分支 commit 会把 apply_structure_fill 的主表结构
             # 半截写入一并落库(有结构无CB数据行, 违反"error=不写数据层"口径)。
             # 改 rollback 整事务废弃 → 单独事务写 error 行再 commit。
             await db.rollback()
@@ -713,7 +713,7 @@ async def complete_cas_job(
                 await clear_negative(
                     db, "locale_variant", cb_number=payload.cb_number,
                     locale=locale)
-        # 多语言派发(2026-08-30 准线§2): zh-CN ok 且拿到 cb_number 时, 对
+        # 多语言派发(准线§2): zh-CN ok 且拿到 cb_number 时, 对
         # 五语言逐一六态判定, 满足才入列(事件驱动, 替代已拆除的 TTL定时扫描)。
         # 语言页靠 cb_number 寻址; 语言任务 complete 不再派生(单点派发)。
         # dedupe :locale 后缀独立去重; 终态拦截在 lease 端已有时限窗。
@@ -735,14 +735,14 @@ async def complete_cas_job(
                     await enqueue_cas_job(
                         db, chemical_id=chemical_id, cas_number=cas_number,
                         priority=30, locale=lang,
-                        # 0907 source grain: 语言 job 继承本 source record 的
+                        # source grain: 语言 job 继承本 source record 的
                         # cb_number — CB001/en 与 CB002/en 各自独立, 不被
                         # (chemical_id,cas,locale) 折叠; 普通线上(无源cb)路径
                         # 不传 → 语义与旧行为一致。
                         source_cb_number=payload.cb_number,
                     )
         # 出表(§3): complete 即 DELETE; 闸门归零(§4) cb 通道。
-        # P0-2/P1-5: receipt 与 DELETE 同事务。
+        # /receipt 与 DELETE 同事务。
         await record_completion_receipt(
             db, family="cas", job_id=job_id, worker_id=worker_id,
             lease_token=lease_token, scope="cas",
@@ -751,7 +751,7 @@ async def complete_cas_job(
             DELETE FROM maintenance.cas_jobs WHERE id=:job_id
         """), {"job_id": job_id})
         await db.commit()
-        # ── P0-3 post-commit housekeeping: 失败仅结构化 warning, 不改报失败。──
+        # ── post-commit housekeeping: 失败仅结构化 warning, 不改报失败。──
         try:
             redis = await get_cache()
             await gate_record_success(redis, "cb")
@@ -782,7 +782,7 @@ async def fail_cas_job(
     error_code: str,
     error_detail: str,
 ) -> dict[str, Any]:
-    """worker error(0901 终版): 行留 error 态占位, 连击+1。
+    """worker error: 行留 error 态占位, 连击+1。
     无时间调度字段 — 复活=同请求到达入列口 UPDATE 翻态。"""
     try:
         await verified_cas_lease(db, LeaseProof(job_id=job_id, lease_token=lease_token), worker_id)
@@ -849,7 +849,7 @@ async def lease_identity_jobs(
         if gate_wait > 0:
             await db.commit()
             return {"jobs": [], "retry_after_seconds": max(5, int(gate_wait) + 1)}
-        # HGS-GATE-HALFOPEN-01: 停档期满半开, 只放行一个探测任务
+        # 停档期满半开, 只放行一个探测任务
         limit = await gate_halfopen_admit(redis, "pubchem", limit)
         if limit <= 0:
             await db.commit()
@@ -910,7 +910,7 @@ async def complete_identity_job(
     """discovery complete: 0→not_found / >1→ambiguous / 1→candidate handoff
     (canonicalize → freshness recheck → 原子入 pubchem_jobs → candidate,
     任一步失败整事务 rollback — §3 修正3)。闸门成功归零与 pubchem 同源。
-    P0-2: 结果行保留(审计+负缓存), 另记 completion receipt 供重试幂等 ack。"""
+    结果行保留(审计+负缓存), 另记 completion receipt 供重试幂等 ack。"""
     try:
         try:
             job = await verified_identity_lease(
@@ -931,7 +931,7 @@ async def complete_identity_job(
             lease_token=lease_token, scope="pubchem",
             terminal_status=status, chemical_id=int(job[1]))
         await db.commit()
-        # ── P0-3 post-commit housekeeping: 失败仅结构化 warning。──
+        # ── post-commit housekeeping: 失败仅结构化 warning。──
         try:
             redis = await get_cache()
             await gate_record_success(redis, "pubchem")

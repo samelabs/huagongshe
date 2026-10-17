@@ -1,4 +1,4 @@
-"""G2.6C — Skill access kernel + detail service 测试。
+""" — Skill access kernel + detail service 测试。
 
 锁:
 - access kernel invariant: missing/private-anon/private-non-owner/
@@ -22,7 +22,7 @@ from api.services.skills import SkillNotAccessibleError
 
 
 def _skill_row(rid=1, owner_id=7, visibility="public"):
-    # 末两列 owner avatar_url 与 active(HGS-ACCOUNT-CONTENT-01: 停用作者标记)
+    # 末两列 owner avatar_url 与 active(停用作者标记)
     return [rid, owner_id, "slug", "T", "D", "MIT", "chem", "user",
             visibility, False, 3, 100, "2026-01-01", "2026-01-02",
             "u1", "U1", None, True]
@@ -127,8 +127,8 @@ class AccessKernelTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_16_field_shape_unchanged(self):
         """16 基础字段不变; owner 子对象新增 active(停用作者标记,
-        HGS-ACCOUNT-CONTENT-01) — 顶层字段数不变。内部 kernel 保留 origin
-        (admin 语义); is_official 投影发生在 detail 编排层(I-024)。"""
+        停用作者标记) — 顶层字段数不变。内部 kernel 保留 origin
+        (admin 语义); is_official 投影发生在 detail 编排层。"""
         d = await self._load(_skill_row(), None)
         self.assertEqual(
             list(d.keys()),
@@ -153,7 +153,7 @@ class DetailServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result["files"]), 2)
         self.assertIsNone(result["skill_md"])  # fs 无文件 → None
         self.assertNotIn("script_warning", result)  # has_scripts=False
-        # I-024: 公开 detail 输出 origin → is_official(布尔)
+        # 公开 detail 输出 origin → is_official(布尔)
         self.assertNotIn("origin", result)
         self.assertIn("is_official", result)
         self.assertFalse(result["is_official"])  # origin='user' → 非官方
@@ -234,8 +234,8 @@ class HttpMigrationTests(unittest.TestCase):
         from api import skills as api_skills
         source = inspect.getsource(api_skills)
         self.assertNotIn("skill_accessible", source)
-        # E4 后: bridge 调用=4(get_file/archive/update 授权门/delete 授权门)。
-        # 原 5 = update 的 readback 也走 bridge; E4 把 readback 收进
+        # 后: bridge 调用=4(get_file/archive/update 授权门/delete 授权门)。
+        # 原 5 = update 的 readback 也走 bridge; 把 readback 收进
         # services.skills.update_skill_metadata(唯一 owner), adapter 只留授权门。
         # 原 create×2 + _create_skill_record 尾部共 3 处随 create service
         # 下沉, 在 services.skills 直调 neutral load_accessible_skill。
@@ -297,7 +297,7 @@ class HttpMigrationTests(unittest.TestCase):
         ar = inspect.getsource(api_skills.download_skill_archive)
         self.assertIn("_load_accessible_skill_http(db", gf)
         self.assertIn("_load_accessible_skill_http(db", ar)
-        # E4: file-level 404 detail 不再由 adapter 持有, 而是 neutral error 的 detail
+        # file-level 404 detail 不再由 adapter 持有, 而是 neutral error 的 detail
         # 经 adapter 映射(唯一 owner = services.skills.read_skill_file);
         # 两条原文仍在同一处被表达, 未丢失。
         svc = inspect.getsource(skills_service)

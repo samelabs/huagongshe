@@ -10,12 +10,12 @@ import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Segmented } from "@/components/ui/Segmented";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
-import { IconNote } from "@/components/ui/icons";
+import { IconNote, IconPencil, IconTrash } from "@/components/ui/icons";
 import { apiDelete, apiGet } from "@/lib/api";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { NoteEditor } from "../NoteEditor";
-import { PanelError, PanelHeading, PanelLoading, Pagination, SlowNotice, VisibilityTag, WbListRow, noteHeadline, relativeTime } from "../shared";
+import { PanelError, PanelHeading, PanelLoading, Pagination, SlowNotice, VisibilityTag, WbListRow, noteListPresentation, relativeTime } from "../shared";
 import type { LoadState, NoteItem, NoteResponse, NoteVisibility, PanelProps } from "../types";
 import { TextLink } from "@/components/ui/TextLink";
 
@@ -65,7 +65,7 @@ export function NotesPanel({
   visibility: NoteVisibility;
   initialData?: NoteResponse | null;
   createOpen?: boolean;
-  /** Step 7 Part C: /aichem?tab=notes&edit=<id> 直接打开该笔记编辑器 */
+  /** : /aichem?tab=notes&edit=<id> 直接打开该笔记编辑器 */
   editNoteId?: number;
   initialChemicalId?: number;
   initialReactionId?: number;
@@ -87,20 +87,20 @@ export function NotesPanel({
     chemicalIds: initialChemicalId ? [initialChemicalId] : [] as number[],
     reactionIds: initialReactionId ? [initialReactionId] : [] as number[],
   }));
-  /** SMK-001：每次「确认放弃旧草稿 → 打开新编辑上下文」递增，强制 NoteEditor
-   *  重挂载（key 变化）——否则同一 key 下编辑器实例复用，旧草稿残留。 */
+  /** 每次「确认放弃旧草稿 → 打开新编辑上下文」递增，强制 NoteEditor
+   * 重挂载（key 变化）——否则同一 key 下编辑器实例复用，旧草稿残留。 */
   const [editorNonce, setEditorNonce] = useState(0);
-  /** BX-A1：编辑会话号 —— 每次打开编辑器（新建/切编辑/?edit=/?new=）递增。
-   *  NoteEditor 的保存回执带发起时的会话号；会话已换人时只刷新列表，
-   *  不动当前编辑器（A 保存中途确认切到 B，A 完成后 B 必须原样在）。 */
+  /** 编辑会话号 —— 每次打开编辑器（新建/切编辑/?edit=/?new=）递增。
+   * NoteEditor 的保存回执带发起时的会话号；会话已换人时只刷新列表，
+   * 不动当前编辑器（A 保存中途确认切到 B，A 完成后 B 必须原样在）。 */
   const editorSessionRef = useRef(0);
   const [editorSession, setEditorSession] = useState(0);
   const beginEditorSession = useCallback(() => {
     editorSessionRef.current += 1;
     setEditorSession(editorSessionRef.current);
   }, []);
-  /** SMK-001：编辑器「有不可丢失状态」的细分（脏草稿/保存在途）——BX-A1
-   *  起保存中切换给如实的确认文案（保存会继续完成） */
+  /** 编辑器「有不可丢失状态」的细分（脏草稿/保存在途）——
+   * 起保存中切换给如实的确认文案（保存会继续完成） */
   const [editorGuard, setEditorGuard] = useState<{ dirty: boolean; busy: boolean }>({ dirty: false, busy: false });
   const handleGuardChange = useCallback((value: { dirty: boolean; busy: boolean }) => setEditorGuard(value), []);
   const mounted = useRef(false);
@@ -111,9 +111,9 @@ export function NotesPanel({
     if (!creating && !editing) setEditorGuard({ dirty: false, busy: false });
   }, [creating, editing]);
 
-  /** SMK-001：切换编辑上下文前的统一丢稿拦截（新建/切编辑/切可见性三条
-   *  不经过 <a> 的路径）。BX-A1：保存在途时文案如实 —— 保存会继续完成。
-   *  返回 true = 可以继续切换。 */
+  /** 切换编辑上下文前的统一丢稿拦截（新建/切编辑/切可见性三条
+   * 不经过 <a> 的路径）。保存在途时文案如实 —— 保存会继续完成。
+   * 返回 true = 可以继续切换。 */
   async function guardDraft(): Promise<boolean> {
     if (!editorGuard.dirty && !editorGuard.busy) return true;
     if (editorGuard.busy) {
@@ -134,7 +134,7 @@ export function NotesPanel({
     });
   }
 
-  // Step 7 Part C: ?edit=<id> → 拉取该笔记并直接进入编辑器（一次挂载效果）
+  // ?edit=<id> → 拉取该笔记并直接进入编辑器（一次挂载效果）
   useEffect(() => {
     if (!editNoteId) return;
     let active = true;
@@ -154,7 +154,7 @@ export function NotesPanel({
   }
 
   /** DESIGN_SYSTEM 3.7 / 6.7：筛选用 Segmented（全部/私有/公开），仍走 URL 参数（可分享/SSR 预取一致）。
-   *  SMK-017：编辑器有未保存内容时先确认（router.push 不经过 <a> 拦截）。 */
+   * 编辑器有未保存内容时先确认（router.push 不经过 <a> 拦截）。 */
   async function switchVisibility(value: NoteVisibility) {
     if (value === visibility) return;
     if (!(await guardDraft())) return;
@@ -227,11 +227,11 @@ export function NotesPanel({
     if (createOpen) router.replace(listHref(1));
   }
 
-  /** R3: never strand the user on a list where the note they just saved
+  /** never strand the user on a list where the note they just saved
    * cannot appear. page=1 + the list can show it → refresh in place;
    * otherwise navigate to page 1 of the filter with the saved note's
    * own visibility (a private note saved under a public filter etc.).
-   * BX-A1：保存回执只作用于发起本次保存的编辑会话 —— 保存期间用户确认
+   * 保存回执只作用于发起本次保存的编辑会话 —— 保存期间用户确认
    * 切换到另一编辑器（或已关闭）时，这里仅刷新列表，不动当前编辑器、
    * 不导航（迟到的 setEditing(null)/router.replace 会把新编辑器关掉）。 */
   async function handleSaved(saved: NoteItem, session: number) {
@@ -270,8 +270,8 @@ export function NotesPanel({
     router.replace(withLocale(`/aichem?${params.toString()}`, locale));
   }
 
-  /** IX-3：删除前确认弹窗（问句标题 + 对象摘录 + 具体动作按钮）；成功/失败都
-   * 用 Toast 反馈；失败保留原列表数据（R6：面板保持可交互，不整页报错）。 */
+  /** 删除前确认弹窗（问句标题 + 对象摘录 + 具体动作按钮）；成功/失败都
+   * 用 Toast 反馈；失败保留原列表数据（面板保持可交互，不整页报错）。 */
   async function remove(note: NoteItem) {
     const excerpt = note.content.length > 24 ? `${note.content.slice(0, 24)}…` : note.content;
     const ok = await confirm({
@@ -305,7 +305,7 @@ export function NotesPanel({
       <PanelHeading
         title={t.nav.tabNotes}
         subtitle={t.me.notesHint}
-        count={state === "ready" ? data.total : "—"}
+        count={state === "ready" ? data.total : undefined}
         unit={t.me.unitNote}
         action={<Button variant="primary" size="sm" onClick={openCreate}>{t.me.notesNew}</Button>}
       />
@@ -352,12 +352,16 @@ export function NotesPanel({
       )}
       {state === "ready" && (data.items.length ? (
         <div className="wb-row-list">
-          {data.items.map((note) => (
+          {data.items.map((note) => {
+            const pres = noteListPresentation(note);
+            return (
             <WbListRow
               key={note.id}
               href={`/note/${note.id}`}
               icon={<IconNote />}
-              title={noteHeadline(note.content) || t.notes.detailTitle}
+              title={pres.title ?? pres.body}
+              titleMultiline={pres.title == null}
+              summary={pres.title ? pres.body : undefined}
               meta={
                 <>
                   <VisibilityTag visibility={note.visibility} t={t} />
@@ -369,26 +373,29 @@ export function NotesPanel({
                 <>
                   <time dateTime={note.updated_at}>{relativeTime(note.updated_at, locale)}</time>
                   <span className="wb-row-actions">
-                    <Button variant="ghost" size="sm" onClick={() => { void (async () => {
+                    <Button variant="ghost" size="sm" iconOnly aria-label={t.common.edit} onClick={() => { void (async () => {
                       if (!(await guardDraft())) return;
                       setCreating(false);
                       setEditing(note);
                       setEditorNonce((n) => n + 1);
                       beginEditorSession();
-                    })(); }}>{t.common.edit}</Button>
-                    <Button variant="danger-quiet" size="sm" onClick={() => void remove(note)}>{t.common.delete}</Button>
+                    })(); }}><IconPencil /></Button>
+                    <Button variant="ghost" size="sm" iconOnly className="wb-action-danger" aria-label={t.common.delete} onClick={() => void remove(note)}><IconTrash /></Button>
                   </span>
                 </>
               }
             />
-          ))}
+            );
+          })}
         </div>
       ) : (
         <EmptyState
           icon={<IconNote />}
           title={filterKey ? t.notes.filterEmpty : t.me.notesEmpty}
           action={{ label: t.me.notesNew, onClick: openCreate }}
-        />
+        >
+          {filterKey ? undefined : t.me.notesEmptyDesc}
+        </EmptyState>
       ))}
 
       {state === "ready" && data.total > data.page_size && (

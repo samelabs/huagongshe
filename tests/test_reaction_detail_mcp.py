@@ -1,4 +1,4 @@
-"""G2.5B — Reaction Detail MCP 解耦测试。
+""" — Reaction Detail MCP 解耦测试。
 
 锁:
 - MCP get_reaction: 直调 services.reactions.load_reaction_detail, 不再调用

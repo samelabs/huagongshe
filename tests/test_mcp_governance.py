@@ -1,7 +1,7 @@
 """MCP / AI 接入治理契约测试(batch: fix/mcp-15-governance)。
 
 只锁结构与语义契约, 不做大段文案 snapshot:
-- MCP tool surface = 13(E9-B 删 get_chemical_externals);
+- MCP tool surface = 13(删 get_chemical_externals);
 - get_skill slug 解析按可访问候选集, 歧义 fail-closed, 不泄露不可访问技能;
 - numeric skill_id 不走 slug resolver;
 - REST / MCP validate_skill 统一 skill:write;
@@ -315,7 +315,7 @@ class ToolSurfaceAndVersion(unittest.TestCase):
             self.assertEqual(done.stdout.strip(), expected, f"cwd={cwd}")
 
     def test_http_api_version_single_source(self):
-        """v1.7.2: settings.api_version 与 serverInfo 同源(仓库根 VERSION),
+        """settings.api_version 与 serverInfo 同源(仓库根 VERSION),
         不再是独立的 "HTTP contract version"。"""
         from api.core.config import settings
         self.assertEqual(settings.api_version,
@@ -535,7 +535,7 @@ class StructureGateCompat(unittest.TestCase):
         self.assertIn("structure_exit", slot)
 
     def test_routes_still_imports_the_same_names(self):
-        # G2.3 final: HTTP/MCP 均经 shared orchestration(闸门 owner=
+        # HTTP/MCP 均经 shared orchestration(闸门 owner=
         # services/search.execute_search); routes 不再持有结构闸门符号
         from api.services import search as _search_service
         self.assertIn("execute_search", dir(routes))

@@ -1,4 +1,4 @@
-"""PUG View 整包解析 (2026-09-01 定案: 一个请求拉整记录, 解析成结构化字段)。
+"""PUG View 整包解析: 一个请求拉整记录, 解析成结构化字段。
 
 规则(实测 CID 2244 验证, 346 节点):
 - 递归 Section 树按 TOCHeading 精确匹配; 缺 heading = 该化合物无数据, 跳过不造空壳
@@ -44,7 +44,7 @@ _MAIN_TABLE_IDS = {
     "DSSTox Substance ID": "dtxsid",
 }
 
-# 实验性质/暴露限值不派生落库(0905 B案裁定): 原文+引文以证据树为准
+# 实验性质/暴露限值不派生落库: 原文+引文以证据树为准
 # (physical_properties/safety_measures), exp_props/exp_limits 是剥引文的派生子集,
 # 已 DROP。数值化需要时从证据树现算。
 
@@ -148,7 +148,7 @@ def _leaf_texts_with_refs(section: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
-# _parse_number_from_text 已删(0905 B案): exp_props/exp_limits 派生链整体废除,
+# _parse_number_from_text 已删: exp_props/exp_limits 派生链整体废除,
 # 数值化解析单源在 caslib/parse_cpp.py(CB 链 props canonical)。
 # 如未来需要数值化 PB 证据树, 从证据树现算, 不落库缓存。
 
@@ -156,7 +156,7 @@ def _leaf_texts_with_refs(section: dict[str, Any]) -> list[dict[str, Any]]:
 def _collect_evidence_tree(section: dict[str, Any]) -> dict[str, Any]:
     """子树 → {entries: {path: [values]}} 平铺(与既有渲染形态兼容), 预算截断。
 
-    Computed 子树跳过(0905 体检毛病①): PUG View 把 'Computed Properties' 挂在
+    Computed 子树跳过(体检毛病①): PUG View 把 'Computed Properties' 挂在
     'Chemical and Physical Properties' 之下, 但它是计算值不是实验证据——Exact Mass/
     TPSA 混进实验性质区。数值列另有专收(computed_properties 列), 这里不收。
     """
@@ -264,7 +264,7 @@ def parse_whole_record(payload: dict[str, Any]) -> dict[str, Any] | None:
             core["MonoisotopicMass"] = number
     out["core"] = core
 
-    # ── CAS (Other Identifiers > CAS; cb_number 空才写由服务端裁定) ──
+    # ── CAS ──
     cas_values: list[str] = []
     for section in _find_all(record, "CAS"):
         for text in _leaf_strings(section):
@@ -330,7 +330,7 @@ def parse_whole_record(payload: dict[str, Any]) -> dict[str, Any] | None:
             ghs_codes["signal_word"] = signal
     out["ghs_codes"] = ghs_codes
 
-    # ── 反应性(0905: exp_props/exp_limits 派生已废, 原文在证据树) ──
+    # ── 反应性: exp_props/exp_limits 派生已废, 原文在证据树 ──
 
     # ── reactivity ──
     reactivity: dict[str, Any] = {}

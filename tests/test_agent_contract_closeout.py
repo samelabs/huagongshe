@@ -1,6 +1,6 @@
-"""v1.7 agent-facing contract closeout (Batch A) governance locks.
+"""Agent-facing contract governance locks.
 
-A-01: retired in v1.7.1 — /api/agent-guide deleted (REST is internal-only).
+A-01: /api/agent-guide is deleted (REST is internal-only).
 A-02: llms.txt is English-only and keeps the frozen facts
       (13 tools, OAuth + 3 scopes, REST/AI Key compatibility,
       no Note MCP / no note:write).
@@ -368,7 +368,7 @@ class McpGuideOAuthPositioningContract(unittest.TestCase):
         self.assertIn("t.mcp.compatJsonDesc", page)
 
     def test_guide_section_authorization_wording(self):
-        """v1.7.1 定位(语义锚点, 不逐字锁文案): AI Key 只供不支持 OAuth 的
+        """定位(语义锚点, 不逐字锁文案): AI Key 只供不支持 OAuth 的
         MCP 客户端使用(兼容通道); 页面不得再出现 HTTP API / agent-guide
         的对外接入表述。"""
         compat_markers = ("without", "ohne", "未対応", "不支持", "미지원", "지원하지")

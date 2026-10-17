@@ -1,24 +1,21 @@
-"""CX 批 Part A —— P1 候选反例裁定（真实 PG 反例，hermetic）。
+"""合并/结构/收包语义的反例集（真实 PG 反例，hermetic）。
 
-审计来源: audit/HGS-1.7-上线问题清单.md「P1 候选」七项。每项先写反例
-（按修复口径断言），红=问题成立；随后按语义修复翻绿。撤销项不出现在本文件。
+每项先写反例（按修复口径断言），红=问题成立；随后按语义修复翻绿。
+撤销项不出现在本文件。
 
 覆盖:
-- A1 HGS-MERGE-CORE-01: absorb 主表核心字段漏迁（survivor 空时不补；
-  双侧非空冲突时无留痕）。
-- A2 HGS-MERGE-01/02: reaction_chemicals 同键计量冲突无留痕；
+- 合并 absorb 主表核心字段漏迁（survivor 空时不补；双侧非空冲突时无留痕）。
+- reaction_chemicals 同键计量冲突无留痕；
   chemical_pubchem.identifier_evidence survivor '{}' 不吸收对方非空证据。
-- A3 F-NEW-02 / HGS-PB-01: 同一可信 CID、IK 有差异 → 整包事实被扣留却记 ok；
+- 同一可信 CID、IK 有差异 → 整包事实被扣留却记 ok；
   真实冲突扣留时回执必须如实（不得记 ok）。
-- A4 HGS-CB-01/STRUCT-01/02/03: 供应商表全删全写丢他源；SMILES/IK/MOL
-  互不交叉校验；只有 SMILES 时不推导 IK；CAS 回调双 miss 建幽灵行。
-- A5 B1-02/B1-03: ≥2 行同 IK 且同挂另一个 CID 时漏报 CONFLICT；
-  CAS 单候选不核对强键互斥。
-- A6 HGS-PB-02 / HGS-MERGE-03: ≥3 行同 CID 只收敛第一个；
-  合并后活动任务 dedupe_key 前缀失配。
+- 供应商表全删全写丢他源；SMILES/IK/MOL 互不交叉校验；
+  只有 SMILES 时不推导 IK；CAS 回调双 miss 建幽灵行。
+- ≥2 行同 IK 且同挂另一个 CID 时漏报 CONFLICT；CAS 单候选不核对强键互斥。
+- ≥3 行同 CID 只收敛第一个；合并后活动任务 dedupe_key 前缀失配。
 
 运行: TEST_DATABASE_URL="postgresql+asyncpg://…/test_hgs?test_sentinel=hgs-test-db" \
-      python -m unittest tests.test_p1c_cx_candidates
+      python -m unittest tests.test_merge_structure_counterexamples
 """
 from __future__ import annotations
 
@@ -59,7 +56,7 @@ def _rxn(cas: str) -> str:
 
 
 @unittest.skipIf(DB_URL is None, "no test DB")
-class CxCandidatesBase(unittest.IsolatedAsyncioTestCase):
+class CounterexampleBase(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -230,9 +227,9 @@ class CxCandidatesBase(unittest.IsolatedAsyncioTestCase):
         return r if isinstance(r, dict) else (json.loads(r) if r else {})
 
 
-# ── A1 HGS-MERGE-CORE-01 ────────────────────────────────────────────────────
+# ── 合并: absorb 主表核心字段 ────────────────────────────────────────────
 
-class A1MergeCoreTests(CxCandidatesBase):
+class A1MergeCoreTests(CounterexampleBase):
     async def test_core_fields_fill_empty(self):
         """survivor 核心字段为空 → 被吸收方补入（当前: 直接随行删除 → 红）。"""
         from api.services.identity import absorb
@@ -305,9 +302,9 @@ class A1MergeCoreTests(CxCandidatesBase):
         self.assertEqual(c.get("absorbed"), "absorbed-name")
 
 
-# ── A2 HGS-MERGE-01 / HGS-MERGE-02 ──────────────────────────────────────────
+# ── A2 / ──────────────────────────────────────────
 
-class A2MergePayloadTests(CxCandidatesBase):
+class A2MergePayloadTests(CounterexampleBase):
     async def test_reaction_metering_conflict_traced(self):
         """同 reaction+role 计量冲突 → survivor 保留 + 留痕（当前: 静默丢 → 红）。"""
         from sqlalchemy import text
@@ -386,9 +383,9 @@ class A2MergePayloadTests(CxCandidatesBase):
                          "survivor '{}' 未吸收对方非空 ghs_classification")
 
 
-# ── A3 F-NEW-02 / HGS-PB-01 ─────────────────────────────────────────────────
+# ── A3 F-NEW-02 / ─────────────────────────────────────────────────
 
-class A3PubchemIkDivergenceTests(CxCandidatesBase):
+class A3PubchemIkDivergenceTests(CounterexampleBase):
     def _payload(self, cid: int, ik: str) -> dict:
         return {"payload": {
             "core": {
@@ -440,7 +437,7 @@ class A3PubchemIkDivergenceTests(CxCandidatesBase):
     async def test_same_cid_ik_divergence_facts_land(self):
         """同一可信 CID + IK 差异 → 事实落库、行 IK 保留、回执 ok。
 
-        CID 是唯一身份锚（B1-01 撤销裁决）：IK 差异记录溯源，不扣留整包。"""
+        CID 是唯一身份锚(撤销裁决）：IK 差异记录溯源，不扣留整包。"""
         chem = await self._chemical(cid=CID, ik=IK_OTHER, mol_smiles="CCO")
         jid, token = await self._lease(chem, str(CID))
         out = await self._complete(jid, token, self._payload(CID, IK_ETHANOL))
@@ -470,14 +467,14 @@ class A3PubchemIkDivergenceTests(CxCandidatesBase):
         self.assertEqual(out["status"], "ok")  # 协议层 ack 不变
         status = await self._receipt_status(jid)
         self.assertNotEqual(status, "ok",
-                            "扣留了整包事实却把任务记成 ok(HGS-PB-01 语义)")
+                            "扣留了整包事实却把任务记成 ok(收包语义)")
         self.assertIn("withheld", (status or ""),
                       "回执应记 withheld 类终态, 实际: %r" % status)
 
 
-# ── A4 HGS-CB-01 / HGS-CB-STRUCT-01/02/03 ───────────────────────────────────
+# ── CB 源与结构交叉校验 ───────────────────────────────────
 
-class A4CbSourceTests(CxCandidatesBase):
+class A4CbSourceTests(CounterexampleBase):
     async def test_suppliers_multi_source_merge(self):
         """两个 CB source 依次回调 → 供应商行并存, 不互相覆盖。"""
         from api.services.cb import upsert_externals
@@ -502,7 +499,7 @@ class A4CbSourceTests(CxCandidatesBase):
                 WHERE chemical_id=:c ORDER BY cbsid
             """), {"c": chem})).scalars().all()
         self.assertEqual(rows, ["CXSUP1", "CXSUP2"],
-                         "后到的 CB source 覆盖了先到 source 的供应商行(HGS-CB-01)")
+                         "后到的 CB source 覆盖了先到 source 的供应商行(多源并存语义)")
 
     async def test_structure_cross_validation(self):
         """SMILES/IK/MOL 交叉校验: 不一致 → 拒写。"""
@@ -513,9 +510,9 @@ class A4CbSourceTests(CxCandidatesBase):
         ]}
         out = resolve_structure(entry_bad, None)
         self.assertIsNone(out["smiles"],
-                          "SMILES/IK 语义不一致仍写 smiles(HGS-CB-STRUCT-01)")
+                          "SMILES/IK 语义不一致仍写 smiles(交叉校验)")
         self.assertIsNone(out["inchikey"],
-                          "SMILES/IK 语义不一致仍写 inchikey(HGS-CB-STRUCT-01)")
+                          "SMILES/IK 语义不一致仍写 inchikey(交叉校验)")
         # 一致数据照常通过(回归)
         entry_ok = {"props": [
             {"key": "smiles", "text": "CCO"},
@@ -531,7 +528,7 @@ class A4CbSourceTests(CxCandidatesBase):
         entry = {"props": [{"key": "smiles", "text": "CCO"}]}
         out = resolve_structure(entry, None)
         self.assertEqual(out["inchikey"], IK_ETHANOL,
-                         "只有 SMILES 时未推导 IK(HGS-CB-STRUCT-02)")
+                         "只有 SMILES 时未推导 IK(结构推导)")
         chem = await self._chemical(cid=None)
         async with self.Session() as db:
             await apply_structure_fill(db, chem, out)
@@ -579,12 +576,12 @@ class A4CbSourceTests(CxCandidatesBase):
                 "SELECT count(*) FROM chemistry.chemicals WHERE inchikey=:ik"
             ), {"ik": IK_ETHANOL})).scalar()
         self.assertEqual(int(n), 1,
-                         "CAS 回调双 miss 建出幽灵行(HGS-CB-STRUCT-03), 实际行数: %d" % n)
+                         "CAS 回调双 miss 建出幽灵行(占位行约束), 实际行数: %d" % n)
 
 
 # ── ZX: CB 回调结构写入(CONFLICT + IK 相异才拒写) ────────────────────────────
 
-class CbCallbackStructureConflictTests(CxCandidatesBase):
+class CbCallbackStructureConflictTests(CounterexampleBase):
     """ZX: resolver CONFLICT 且载荷 IK ≠ 行已有 IK → 跳过 apply_structure_fill
     (只补空也会把 smiles/mol/指纹写成异物); 其余路径(无 CID 但结构一致的
     正常补全)照旧填 IK。"""
@@ -649,7 +646,7 @@ class CbCallbackStructureConflictTests(CxCandidatesBase):
         self.assertEqual(after["smiles"], "CO")
 
     async def test_no_cid_consistent_structure_still_fills_ik(self):
-        """R01 路径: 行无 CID、无 IK, 载荷结构一致(cas-unique-hit EQUIVALENT)
+        """ 路径: 行无 CID、无 IK, 载荷结构一致(cas-unique-hit EQUIVALENT)
         — 照常补出 IK。"""
         chem = await self._chemical(cas=CAS)  # 无 ik、无 cid、无 mol
         jid, token = await self._leased_job(chem, "r01")
@@ -663,9 +660,9 @@ class CbCallbackStructureConflictTests(CxCandidatesBase):
                          "无 CID 但结构一致的正常补全必须照常回填 IK")
 
 
-# ── A5 B1-02 / B1-03 ────────────────────────────────────────────────────────
+# ── A5 / ────────────────────────────────────────────────────────
 
-class A5ResolverBranchTests(CxCandidatesBase):
+class A5ResolverBranchTests(CounterexampleBase):
     async def _resolve(self, **kw):
         from api.services.identity import resolve_chemical
         async with self.Session() as db:
@@ -708,9 +705,9 @@ class A5ResolverBranchTests(CxCandidatesBase):
                          "IK 一致的 CAS 命中回归被破坏")
 
 
-# ── A6 HGS-PB-02 / HGS-MERGE-03 ─────────────────────────────────────────────
+# ── A6 / ─────────────────────────────────────────────
 
-class A6ConvergenceTests(CxCandidatesBase):
+class A6ConvergenceTests(CounterexampleBase):
     async def test_three_way_same_cid_converges(self):
         """≥3 行同 CID → 全部收敛为 1 行（当前: 只收敛第一个 → 红）。"""
         from sqlalchemy import text
@@ -726,7 +723,7 @@ class A6ConvergenceTests(CxCandidatesBase):
             """), {"c": CID_A6})).scalar()
         self.assertIn(canonical, self.made_chemicals)
         self.assertEqual(int(n), 1,
-                         "≥3 行同 CID 收敛后仍残留 %d 行(HGS-PB-02)" % n)
+                         "≥3 行同 CID 收敛后仍残留 %d 行(同 CID 收敛)" % n)
 
     async def test_active_jobs_dedupe_key_rekeyed(self):
         """合并后活动任务 dedupe_key 前缀跟随 survivor（cas + pubchem）。"""
@@ -764,11 +761,11 @@ class A6ConvergenceTests(CxCandidatesBase):
         self.assertIsNotNone(cas_job, "cas job 被误删(无冲突不应删)")
         self.assertEqual(cas_job[0], surv, "cas job chemical_id 未改指")
         self.assertEqual(cas_job[1], f"cas:{surv}:{cas_digest}",
-                         "cas job dedupe_key 前缀未跟随 survivor(HGS-MERGE-03)")
+                         "cas job dedupe_key 前缀未跟随 survivor(合并后任务迁移)")
         self.assertIsNotNone(pb_job, "pubchem job 被误删(无冲突不应删)")
         self.assertEqual(pb_job[0], surv, "pubchem job chemical_id 未改指")
         self.assertEqual(pb_job[1], f"cid:{surv}:{cid_digest}",
-                         "pubchem job dedupe_key 前缀未跟随 survivor(HGS-MERGE-03)")
+                         "pubchem job dedupe_key 前缀未跟随 survivor(合并后任务迁移)")
 
     async def test_active_jobs_duplicate_collapsed(self):
         """rekey 撞 survivor 既有活跃键 → 吸收方任务行收敛(不并存双活)。"""

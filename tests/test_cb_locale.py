@@ -50,7 +50,7 @@ class _Db:
         if match_cb:
             return self.table.get((locale, imprint))
         # legacy 查询: 模拟生产 SQL 的 ORDER BY cb_number ASC NULLS LAST LIMIT 1
-        # (v1.6.0 确定性 tie-break) — dict 顺序无关, 恒取最小 cb_number。
+        # (确定性 tie-break) — dict 顺序无关, 恒取最小 cb_number。
         candidates = [(cbn, row) for (loc, cbn), row in self.table.items()
                       if loc == locale and cbn != imprint]
         if not candidates:
@@ -90,7 +90,7 @@ class NormalizeLocaleTests(unittest.TestCase):
             self.assertEqual(cb_module.normalize_cb_locale(loc), "en")
 
     def test_single_locale_ssot_normalize_and_lifecycle_share_one_set(self):
-        """v1.6.0 收口: normalize(get_externals_row 归一入口)与 lifecycle(cb_decide)
+        """收口: normalize(get_externals_row 归一入口)与 lifecycle(cb_decide)
         必须消费同一份 locale 定义 — 历史两份 tuple 漂移风险的回归锁。"""
         self.assertIs(cb_module.CB_DETAIL_LOCALES, cb_module.CB_LOCALES)
         # normalize 全集 = lifecycle 全集: 每个 normalize 接受的 locale,
@@ -191,7 +191,7 @@ class RowSelectionTests(unittest.TestCase):
 
 
 class DeterministicLegacyFallbackTests(unittest.TestCase):
-    """v1.6.0: legacy fallback 确定性 — 同 locale 多个非-imprint row 时
+    """legacy fallback 确定性 — 同 locale 多个非-imprint row 时
     无论输入顺序如何都选同一最小 cb_number; 选择链 precedence 不变;
     selected row locale 继续穿透 cb_decide/enqueue。"""
 

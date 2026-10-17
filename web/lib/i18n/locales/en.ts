@@ -88,7 +88,7 @@ const en: Dictionary = {
     hridLabel: (id: number | string) => `HRID ${id}, reaction`,
     breadcrumb: 'Breadcrumb',
     close: 'Close',
-    /* v1.7 组件库 */
+    /* 组件库 */
     copy: 'Copy',
     copied: 'Copied',
     cancel: 'Cancel',
@@ -149,7 +149,7 @@ const en: Dictionary = {
 
   /* ── Search ────────────────────────────────────────── */
   search: {
-    seoResultsLabel: 'Search',  /* BX-A5：结果页 title「查询词｜搜索｜品牌」的中段 */
+    seoResultsLabel: 'Search',  /* 结果页 title「查询词｜搜索｜品牌」的中段 */
     seoDesc: 'Search chemistry data by name, CAS number, InChIKey, SMILES, or structure across Huagongshe.',
     title: 'Search chemistry data',
     noResultsFor: (query: string) => `No records match "${query}"`,
@@ -334,7 +334,7 @@ const en: Dictionary = {
       other: 'Other',
       unknown: 'Unspecified',
     },
-    userSubmitted: 'User submitted',  /* BX-A2：API user_submitted 标记的本地化 */
+    userSubmitted: 'User submitted',  /* API user_submitted 标记的本地化 */
     sourceFields: {
       type: 'Source type',
       ord: 'ORD record',
@@ -356,7 +356,7 @@ const en: Dictionary = {
     yieldLabel: (v: string) => `Yield ${v}%`,
     internalStandard: 'Internal standard',
     otherRole: 'Other',
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'Delete this reaction?',
     deleteLabel: 'Delete reaction',
     deleted: 'Reaction deleted',
@@ -442,7 +442,8 @@ const en: Dictionary = {
     feedActor: (name: string) => `${name} published a public reaction`,
     feedActorNote: (name: string) => `${name} published a public note`,
     feedEmptyTitle: 'No activity yet',
-    feedEmptyDesc: 'Activity from users you follow will appear here.',
+    feedEmptyDesc: 'Public reactions and notes from authors you follow appear here.',
+    discoverCta: 'Find authors to follow',
     feedViewAll: 'View all activity',
     feedOpen: 'Open',
     profileViewPublic: 'View my public profile',
@@ -483,6 +484,7 @@ const en: Dictionary = {
     },
     notesSessionExpired: 'Your session has expired. Please sign in again before saving.',
     notesEmpty: 'No notes yet.',
+    notesEmptyDesc: 'Record observations, decisions and references — link compounds or reactions for context',
     notesFilter: 'Note visibility filter',
     unitNote: 'notes',
     followingHint: 'People you follow — view their profiles or unfollow',
@@ -490,8 +492,10 @@ const en: Dictionary = {
     emptyReactions: 'No reaction records saved yet.',
     emptyChemicals: 'No saved compounds yet.',
     emptyReactionSaved: 'No saved reactions yet.',
-    emptyFollowing: 'Not following anyone yet.',
-    emptyFollowers: 'No followers yet.',
+    emptyFollowing: 'Not following any authors yet',
+    emptyFollowingDesc: 'Follow members from Discover authors and their new posts will appear in your feed',
+    emptyFollowers: 'No followers yet',
+    emptyFollowersDesc: 'Publish public reactions and notes to let the community find your work',
     visAll: 'All reaction records you saved via the web or AI',
     visPrivate: 'Visible only to your account',
     visPublic: 'Shown on your public profile',
@@ -511,10 +515,12 @@ const en: Dictionary = {
     navSkills: 'My Skills',
     navMcpKey: 'MCP & AI Keys',
     navSettings: 'Settings',
-    tabPeople: 'Find People',
-    peopleSearchPlaceholder: 'Search by username or display name...',
-    peopleEmptyPrompt: 'Enter a username or display name to find users',
-    peopleNoResults: 'No users found',
+    tabPeople: 'Discover authors',
+    peopleHint: 'Search members and follow them — their new posts show up in your activity feed',
+    peopleSearchPlaceholder: 'Search by username or display name…',
+    peopleEmptyPrompt: 'Search community members by username or display name',
+    peopleIdleDesc: 'Once you follow someone, their public reactions and notes appear in your activity feed',
+    peopleNoResults: 'No matching members',
     peopleFollowers: (n: number) => `${n} ${n === 1 ? 'follower' : 'followers'}`,
   },
 
@@ -527,6 +533,7 @@ const en: Dictionary = {
     authorNote: (author: string) => `Note by ${author}`,
     /* ── Phase 1c: detail page / profile block / private section / filter / truncation / stoich ── */
     detailTitle: 'Note',
+    untitled: 'Untitled note',
     category: 'Note',
     updatedLabel: 'Updated',
     visibilityPublic: 'Public',
@@ -543,11 +550,11 @@ const en: Dictionary = {
     createReaction: 'New reaction',
     writeNote: 'Write a note',
 
-    /* R6 */
+    /* */
     profileLoadFailed: 'Failed to load public notes',
     deleteFailed: 'Delete failed, please retry',
 
-    /* IX-3 确认弹窗（useConfirm）与删除 Toast */
+    /* 确认弹窗（useConfirm）与删除 Toast */
     deleteTitle: 'Delete this note?',
     deleteLabel: 'Delete note',
     deleted: 'Note deleted',
@@ -817,6 +824,17 @@ const en: Dictionary = {
     errAmountUnit: 'Each participant needs both an amount value and a unit.',
     errConcUnit: 'Each participant needs both a concentration value and a unit.',
     errSourceMissing: 'Fill in the source information matching the source type.',
+    errOccurrenceCount: 'Occurrences must be a whole number between 1 and 20.',
+    errNonNegative: 'The value cannot be below 0.',
+    errYieldRange: 'Yield must be between 0 and 100.',
+    errDurationRange: 'Duration must be greater than 0.',
+    errPhRange: 'pH must be between 0 and 14.',
+    errPressureRange: 'Pressure must be greater than 0.',
+    errDoiFormat: 'The DOI format is incorrect.',
+    errSourceUrlScheme: 'The source link must start with http:// or https://.',
+    errTempPair: 'Temperature needs both a value and a unit.',
+    errDurationPair: 'Duration needs both a value and a unit.',
+    errPressurePair: 'Pressure needs both a value and a unit.',
     errSave: 'Save failed. Please try again later.',
     errNetwork: 'Network error. Your input is kept on this page — try again later.',
     roles: {
@@ -1011,7 +1029,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     emptyNotesVisitor: 'No public notes yet.',
     emptyNotesSelf: 'You have no public notes yet.',
     enterWorkbench: 'Open workbench',
-    /* HGS-ACCOUNT-CONTENT-01 (PM ruling): disabled-account profile state (DESIGN_SYSTEM 6.6) + author mark */
+    /* disabled-account profile state (DESIGN_SYSTEM 6.6) + author mark */
     deactivatedTag: 'Account disabled',
     deactivatedTitle: 'This account is disabled',
     deactivatedBody: 'This account has been deactivated. Public content remains accessible via direct link, but is not listed here and cannot be followed.',
@@ -1189,7 +1207,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     viewProfile: 'View profile',
   },
 
-  /* ── Editor (IX-5 save status / unsaved guard) ───────── */
+  /* ── Editor (save status / unsaved guard) ───────── */
   editor: {
     saved: 'Saved',
     saving: 'Saving…',
@@ -1200,7 +1218,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     unsavedBody: 'Your edits have not been saved and will be lost if you leave.',
     unsavedConfirm: 'Discard changes',
     unsavedCancel: 'Keep editing',
-    /* BX-A1: switching editor context while a save is in flight — honest copy */
+    /* switching editor context while a save is in flight — honest copy */
     savingTitle: 'This note is still saving. Switch anyway?',
     savingBody: 'The save keeps running and nothing is lost; the list refreshes once it completes.',
     savingConfirm: 'Switch anyway',
@@ -1221,7 +1239,7 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     notFoundAction: 'Go to search',
   },
 
-  /* ── Print report (I-078) ───────────────────────────── */
+  /* ── Print report ───────────────────────────── */
   print: {
     title: 'Print Report',
     printAction: 'Print / Save as PDF',

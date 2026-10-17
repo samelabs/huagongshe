@@ -1,10 +1,10 @@
-"""caslib 页面解析(0905 收口后): 只保留三类职责 —
+"""caslib 页面解析(收口后): 只保留三类职责 —
 1. 文本工具: text_of / _balanced_table
 2. CPP 页供应商表: parse_cpp_suppliers
 3. 页面判定: cpp_page_state / page_identity / looks_like_not_found / extract_cb_number
 
 旧 CAS 页 entry 解析(parse_entry/parse_cpp_entry/parse_cpp_entry_en/merge)
-已随 0905 canonical schema 重构退役: 新解析器 = parse_cpp.parse_cpp_page。
+已随 canonical schema 重构退役: 新解析器 = parse_cpp.parse_cpp_page。
 试剂价格/全球分布/试剂用途区(reagent_prices/global_distribution/reagents)
 确认为死数据不采, 相关函数一并剥除。
 """
@@ -73,7 +73,7 @@ _CPP_DT_RE = re.compile(r"<dt[^>]*>\s*(?:CAS No\.?|CBNumber|MOL File)", re.I)
 def page_identity(html: str | None) -> str:
     """真页面身份判定: 'real' | 'alien'。
 
-    real  = 携带至少一种站内结构标记(Basicsl壳/ChemicalProperties表/cb链接)
+    real = 携带至少一种站内结构标记(Basicsl壳/ChemicalProperties表/cb链接)
     alien = 无任何站内结构 — 大拦截页(验证码/质询/改版壳), 不论字节多大,
             不具备 not_found 资格(error 语义, 走重试, 拦截事件可观测)。
     """
@@ -109,7 +109,7 @@ def extract_cb_number(html: str) -> str | None:
     """CAS 页提取自身 CB 编号。
 
     主路径: GN 供应商链接 (ProdSupplierGNCB{N}.htm)。
-    兜底(2026-08-28): 无供应商品目 GN 链接缺失时, MSDS/PriceInfo 链接同号
+    兜底(): 无供应商品目 GN 链接缺失时, MSDS/PriceInfo 链接同号
     (69-72-7 实测三链接同号 1680010)。
     """
     for pat in (r"/ProdSupplierGNCB(\d+)\.htm",

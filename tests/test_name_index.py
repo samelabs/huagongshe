@@ -36,7 +36,7 @@ ON CONFLICT (id) DO UPDATE SET preferred_name='测试乙醇哨兵', iupac_name='
 
 
 def _engine():
-    # 0909 测试库闸: 只认 TEST_DATABASE_URL 过闸值, 不再读 HGS_DATABASE_URL
+    # 测试库闸: 只认 TEST_DATABASE_URL 过闸值, 不再读 HGS_DATABASE_URL
     from tests.db_gate import require_test_db, ProductionDbBlocked
     try:
         url = require_test_db()
@@ -131,7 +131,7 @@ class IngestTest(unittest.TestCase):
                         "identity": {"cn": "哨兵苯甲酸", "en": "Sentinel Acid",
                                      "alias_cn": ["哨兵安息香酸"], "alias_en": ["Sentinel Benzoate"]},
                     }
-                    # I-055/I-087: 名称一律以表内全部 locale ok 行为准
+                    # /名称一律以表内全部 locale ok 行为准
                     # (真实链路是 cb.py 先 UPSERT chemical_cb 再同事务调镜像摄入)。
                     await conn.execute(text("""
                         INSERT INTO chemistry.chemical_cb
@@ -139,7 +139,7 @@ class IngestTest(unittest.TestCase):
                           VALUES (:i,'7732-18-5','CBTEST01',
                                   CAST(:entry AS jsonb),'ok',now(),'zh-CN')
                     """), {"i": sid, "entry": json.dumps(entry)})
-                    # I-087: supplier 名镜像 listing ⋈ profile(不再由调用方传入)
+                    # supplier 名镜像 listing ⋈ profile(不再由调用方传入)
                     await conn.execute(text("""
                         INSERT INTO chemistry.chemical_supplier_profile
                           (cbsid,name) VALUES ('TESTSUP01','哨兵供应商甲')
@@ -184,7 +184,7 @@ class IngestTest(unittest.TestCase):
         self.assertEqual(after_kinds, {"supplier"})
 
     def test_cb_multi_record_names_are_union_regardless_of_refresh_order(self):
-        """I-055: 同一化合物多条 zh-CN CB 记录, name_index 名称取并集且与刷新先后无关。"""
+        """同一化合物多条 zh-CN CB 记录, name_index 名称取并集且与刷新先后无关。"""
 
         async def refresh(conn, sid, cb_number, cn_name, alias):
             from api.services.cb import upsert_externals
@@ -236,7 +236,7 @@ class IngestTest(unittest.TestCase):
             )
 
     def test_cb_multilocale_names_union_order_independent_and_error_removal(self):
-        """I-087: 多 locale 名称并集, 刷新顺序无关; 某 locale 转 error 后其名称移除。"""
+        """多 locale 名称并集, 刷新顺序无关; 某 locale 转 error 后其名称移除。"""
 
         async def refresh(conn, sid, cb_number, locale, cn_name, alias):
             from api.services.cb import upsert_externals
@@ -312,7 +312,7 @@ class IngestTest(unittest.TestCase):
                              f"哨兵 {sid}: ja 行转 error 后其名称必须移除, 其余保留")
 
     def test_zh_cn_wins_when_ja_local_name_collides(self):
-        """R4: 同一 cb_number 下 ja 当地名归一化后与中文名相同时,
+        """同一 cb_number 下 ja 当地名归一化后与中文名相同时,
         (name_cn, 'cn') 行必须保留 —— name_index 的 PK 不含 lang, 先处理
         的行先占主键; zh-CN 永远在每个 cb_number 内第一个处理。"""
 
@@ -362,7 +362,7 @@ class IngestTest(unittest.TestCase):
                              f"哨兵 {sid}: 碰撞时中文行必须保留且唯一")
 
     def test_multilocale_names_are_searchable_via_normalize(self):
-        """I-087: ja/ko/de 名称按 normalize_name 命中(搜索端不按语言过滤)。"""
+        """ja/ko/de 名称按 normalize_name 命中(搜索端不按语言过滤)。"""
 
         async def body():
             eng = _engine()
@@ -410,7 +410,7 @@ class IngestTest(unittest.TestCase):
         self.assertEqual(count, 1)
 
     def test_normalize_multilingual_examples(self):
-        """归一化口径示例( receipts 依据): 仅小写化+空白折叠, 不做全半角/ß 折叠。"""
+        """归一化口径示例(receipts 依据): 仅小写化+空白折叠, 不做全半角/ß 折叠。"""
         cases = [
             ("  Acetessigsäureamid ", "acetessigsäureamid"),   # de 变音符保留
             ("STRASSE", "strasse"),                            # ASCII 大小写折叠

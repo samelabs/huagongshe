@@ -1,4 +1,4 @@
-"""P0 (admin-data-p0) governance 修复验收测试 (0912)。
+"""管理端治理快照的事务隔离与分布抽样验收测试。
 
 覆盖任务书 3 项:
 
@@ -17,7 +17,7 @@
 3C generated_at —— 必须是 snapshot 生成时刻, 不是请求时刻; fresh/stale 都返回
    该 snapshot 时间, stale 不得伪装成刚生成。
 
-运行: . /tmp/hgs_test_env.sh && ./venv/bin/python -m unittest tests.test_admin_governance_p0
+运行: . /tmp/hgs_test_env.sh && ./venv/bin/python -m unittest tests.test_admin_governance_isolation
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from tests.db_gate import require_test_db  # I-058: 统一测试库闸(库名模式+sentinel)
+from tests.db_gate import require_test_db  # 统一测试库闸(库名模式+sentinel)
 try:
     DB = require_test_db().replace(
         "postgresql://", "postgresql+asyncpg://").split("?")[0]
@@ -51,7 +51,7 @@ async def _snapshot_with(db, inject: dict | None = None):
         g._SECTIONS = orig
 
 
-class P0GovBase(unittest.TestCase):
+class GovIsolationBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if not DB:
@@ -62,7 +62,7 @@ class P0GovBase(unittest.TestCase):
         g._GOV_CACHE.clear()
 
 
-class TransactionIsolationTests(P0GovBase):
+class TransactionIsolationTests(GovIsolationBase):
     """3A: 真实 PostgreSQL 事务中断 → 后续 section 仍用真实 SQL 成功。"""
 
     def test_section_abort_is_isolated_and_rolled_back(self):
@@ -132,7 +132,7 @@ class TransactionIsolationTests(P0GovBase):
         self.assertTrue(all(snap[n]["available"] for n in ("name_index_distribution",)))
 
 
-class DistributionSampleTests(P0GovBase):
+class DistributionSampleTests(GovIsolationBase):
     """3B: 分布改样本契约, 且在生产 statement_timeout 下不再超时。"""
 
     def test_distribution_is_sample_not_full_table(self):
@@ -167,7 +167,7 @@ class DistributionSampleTests(P0GovBase):
         self.assertLess(elapsed, 8.0, f"样本查询 {elapsed:.2f}s ≥ 生产 statement_timeout")
 
 
-class GeneratedAtTests(P0GovBase):
+class GeneratedAtTests(GovIsolationBase):
     """3C: generated_at = snapshot 生成时刻; stale 不得伪装成刚生成。"""
 
     def test_generated_at_is_snapshot_time_not_request_time(self):

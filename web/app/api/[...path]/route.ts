@@ -5,15 +5,15 @@ import { NextRequest, NextResponse } from "next/server";
  *
  * 通道语义（H1 方案 D）：
  * - BFF 是 transport proxy，不授予 FastAPI 权限；authorization 由
- *   FastAPI actor/public policy 决定（loopback 不再是 authorization
- *   evidence）。
+ * FastAPI actor/public policy 决定（loopback 不再是 authorization
+ * evidence）。
  * - Cookie / Authorization 原样透传：登录用户身份由 FastAPI 侧既有
- *   optional_actor / current_actor 解析，本层不做任何鉴权判断。
+ * optional_actor / current_actor 解析，本层不做任何鉴权判断。
  * - 公开数据匿名完整体验：匿名分页与本页数据走同一通道，无需身份。
  * - 防御性规则：inbound x-hgs-* 一律不向 FastAPI 转发 —— 任何未来的
- *   X-HGS 机制不得因经此代理而自动获得可信地位。
+ * X-HGS 机制不得因经此代理而自动获得可信地位。
  * - /api/docs /api/openapi.json /api/redoc 本层 404：对外接入统一走 MCP
- *   （https://huagongshe.com/mcp），不暴露 OpenAPI。
+ * （https://huagongshe.com/mcp），不暴露 OpenAPI。
  */
 
 const API_ORIGIN = process.env.API_ORIGIN_INTERNAL || "http://127.0.0.1:8000";
@@ -38,7 +38,7 @@ async function proxy(request: NextRequest, path: string): Promise<NextResponse> 
     return notFound();
   }
 
-  // Round 13：查询参数形式的渲染接口不再对外（只保留带扩展名的资源路由）
+  // 查询参数形式的渲染接口不再对外（只保留带扩展名的资源路由）
   if (/^\/api\/(mol|reactions)\/\d+\/(svg|png)$/.test(path)) {
     return notFound();
   }

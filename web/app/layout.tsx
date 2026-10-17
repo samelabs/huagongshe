@@ -9,14 +9,14 @@ import { AppShell } from "@/components/shell/AppShell";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { SITE_ORIGIN } from "@/lib/alternates";
 import { pwaAppName } from "@/lib/pwa";
-import { apiGet } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
 import type { User } from "@/lib/api";
 import "./tokens.css";
 import "./globals.css";
 import "./account-menu.css";
-// v1.7 组件库样式：tokens.css 之后引入（组件类名 .hg- 覆盖全局默认）
+// 组件库样式：tokens.css 之后引入（组件类名 .hg- 覆盖全局默认）
 import "../components/ui/ui.css";
-// v1.7 全局框架（SiteHeader 顶栏 + MobileTabBar 底栏），公开页与工作台共用
+// 全局框架（SiteHeader 顶栏 + MobileTabBar 底栏），公开页与工作台共用
 import "../components/shell/shell.css";
 export const viewport: Viewport = {
   // metadata 约定只接受字符串字面量，无法引用 CSS 变量；此值与 tokens.css 的 --brand(blue-500) 一致
@@ -37,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: t.brand.seoTitle, template: `%s｜${t.brand.name}` },
     description: t.brand.seoDesc,
     keywords: [...t.brand.keywords, "AI Chemistry Workspace", "Chemical Knowledge Base", "Reaction Library"],
-    // BX-A5：不再全局输出 robots=index,follow —— 缺席即默认可索引；
+    // 不再全局输出 robots=index,follow —— 缺席即默认可索引；
     // 404 页由 Next 自动注入唯一一条 noindex（此前会与本条叠加成两条）。
   };
 }
@@ -47,7 +47,7 @@ type SiteConfig = {
   ads?: { adsense?: { enabled?: boolean; client?: string } };
 };
 
-// A档缓存：config 低频变更（admin 改 system_config），最迟 300s 生效
+// 缓存：config 低频变更（admin 改 system_config），最迟 300s 生效
 async function getSiteConfig(): Promise<SiteConfig> {
   try { return await apiGet<SiteConfig>("/config", undefined, { revalidate: 300 }); }
   catch { return {}; }
@@ -105,7 +105,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                   <AppShell />
                   {children}
                 </div>
-                {/* 水合哨兵：挂载后 <html data-hydrated=1>，截图工具等待它（Step 9 Part A.1） */}
+                {/* 水合哨兵：挂载后 <html data-hydrated=1>，截图工具等待它 */}
                 <HydrationMarker />
               </ConfirmProvider>
             </ToastProvider>

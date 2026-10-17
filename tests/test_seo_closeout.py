@@ -1,4 +1,4 @@
-"""G1.5-A SEO minimal closeout — S1/S2/S3/S4 regression tests.
+"""-A SEO minimal closeout — S1/S2/S3/S4 regression tests.
 
 S1: the REAL sitemap()/robots() modules (app/sitemap.ts, app/robots.ts) are
     executed in Node with TS annotations stripped — whitelist URLs only,
@@ -128,7 +128,7 @@ def run_sitemap_harness() -> dict:
     return data
 
 
-class S1SitemapTests(unittest.TestCase):
+class SitemapTests(unittest.TestCase):
     # A2-1: 通用静态页五语言; 法律/支持页仅英文正式版
     MULTILINGUAL_PATHS = {"/", "/search", "/guide", "/mcp-guide", "/skills"}
     ENGLISH_ONLY_PATHS = {"/terms", "/privacy", "/support"}
@@ -185,13 +185,13 @@ class S1SitemapTests(unittest.TestCase):
         self.assertTrue(self.data["sitemapUrl"].startswith(self.data["origin"]))
 
 
-class S2SearchMetadataTests(unittest.TestCase):
+class SearchMetadataTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.src = (REPO / "web/app/(site)/search/page.tsx").read_text(encoding="utf-8")
 
     def test_parameterized_search_is_noindex_follow(self):
-        # focus 参数（v1.7 手机顶栏搜索图标 → /search?focus=1）同样视为
+        # focus 参数（手机顶栏搜索图标 → /search?focus=1）同样视为
         # 内部参数页：noindex,follow，不产生 canonical/hreflang 集合。
         self.assertIn("const hasQuery = Boolean(params.q || params.mode || params.page || params.focus);", self.src)
         self.assertIn("robots: { index: false, follow: true }", self.src)
@@ -219,7 +219,7 @@ class S2SearchMetadataTests(unittest.TestCase):
                           f"search.seoDesc missing in {loc}")
 
 
-class S3LegalPagesTests(unittest.TestCase):
+class LegalPagesTests(unittest.TestCase):
     PAGES = ("terms", "privacy", "support")
 
     def test_en_is_sole_canonical_non_en_noindex(self):
@@ -237,7 +237,8 @@ class S3LegalPagesTests(unittest.TestCase):
                               ("privacy", "Privacy Policy"),
                               ("support", "Support")):
             src = (REPO / f"web/app/(site)/{slug}/page.tsx").read_text(encoding="utf-8")
-            self.assertIn(f"<h1>{heading}</h1>", src)
+            # 版式件 PageHead 承担 h1：标题以 props 表达（渲染仍是唯一 h1）
+            self.assertIn(f'title="{heading}"', src)
             self.assertIn("Effective October 6, 2026", src) if slug == "terms" else None
 
     def test_no_hreflang_claims_for_translations(self):
@@ -249,11 +250,11 @@ class S3LegalPagesTests(unittest.TestCase):
         # A2-3: 英文正文根内容容器显式 lang="en"(不动全站 <html lang>)
         for slug in self.PAGES:
             src = (REPO / f"web/app/(site)/{slug}/page.tsx").read_text(encoding="utf-8")
-            self.assertIn('<article lang="en" className="content-page guide-page legal-page">',
+            self.assertIn('<article lang="en" className="guide-page legal-page">',
                           src, f"{slug} root content container missing lang=\"en\"")
 
 
-class A2McpGuideMetadataTests(unittest.TestCase):
+class McpGuideMetadataTests(unittest.TestCase):
     def test_mcp_guide_layout_metadata_via_server_layout(self):
         # A2-2: Client Component 页面由同级 server layout 提供 metadata,
         # 不改 page.tsx 的 "use client" 与交互
@@ -268,7 +269,7 @@ class A2McpGuideMetadataTests(unittest.TestCase):
         self.assertIn('"use client"', page)
 
 
-class S4LoginTests(unittest.TestCase):
+class LoginMetadataTests(unittest.TestCase):
     def test_login_noindex_follow(self):
         src = (REPO / "web/app/(site)/login/page.tsx").read_text(encoding="utf-8")
         self.assertIn("robots: { index: false, follow: true }", src)

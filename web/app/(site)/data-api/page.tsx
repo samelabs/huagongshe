@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageFrame } from "@/components/ui/PageFrame";
+import { PageHead } from "@/components/ui/PageHead";
+import { Section } from "@/components/ui/Section";
 
 export const metadata: Metadata = {
   title: "Data service API",
@@ -8,25 +11,15 @@ export const metadata: Metadata = {
 };
 
 type FieldRow = { name: string; type: string; desc: string };
-type SectionProps = { title: string; children: React.ReactNode };
-
-function Section({ title, children }: SectionProps) {
-  return (
-    <section className="chem-section" style={{ maxWidth: 860 }}>
-      <h2 className="chem-subhead">{title}</h2>
-      {children}
-    </section>
-  );
-}
 
 function FieldTable({ rows }: { rows: FieldRow[] }) {
   return (
     <div className="hg-code multiline" style={{ overflowX: "auto" }}>
-      <table className="pr-table" style={{ minWidth: 640 }}>
+      <table className="token-table">
         <tbody>
           {rows.map((row) => (
             <tr key={row.name}>
-              <th style={{ whiteSpace: "nowrap" }}>{row.name}</th>
+              <th>{row.name}</th>
               <td>
                 <code className="token-code">{row.type}</code>
                 <span style={{ display: "block", marginTop: 2 }}>{row.desc}</span>
@@ -131,79 +124,89 @@ print(call("/data/v1/chemicals/996", query="locale=zh-CN"))`;
 
 export default function DataApiDocsPage() {
   return (
-    <div className="content-page">
-      <h1 style={{ fontSize: 28, fontWeight: 650 }}>Data service API</h1>
-      <p style={{ maxWidth: 720, lineHeight: 1.7 }}>
-        Huagongshe issues credentials to authorized systems for on-demand compound
-        and reaction queries. All endpoints are read-only GET. Responses are JSON,
-        carry a <code className="token-code">request_id</code>, and follow the same
-        partitions and fields as the corresponding pages — a field appears once,
-        independent of how many sources contributed to it. Results are reference
-        data and do not replace scientific, safety, regulatory or process review.
-      </p>
+    <>
+      {/* 文档主体走阅读档；字段/端点表列宽超阅读档，各自放 page 档页框
+          （组件 tier 组合表达宽表突破，不写页面私有样式） */}
+      <PageFrame tier="reading" className="data-api-page">
+        <PageHead
+          title="Data service API"
+          subtitle={<>Huagongshe issues credentials to authorized systems for on-demand compound
+          and reaction queries. All endpoints are read-only GET. Responses are JSON,
+          carry a <code className="token-code">request_id</code>, and follow the same
+          partitions and fields as the corresponding pages — a field appears once,
+          independent of how many sources contributed to it. Results are reference
+          data and do not replace scientific, safety, regulatory or process review.</>}
+        />
+      </PageFrame>
 
-      <Section title="Endpoints">
-        <FieldTable rows={[
-          { name: "GET /data/v1/chemicals/{hcid}?locale=", type: "object", desc: "One compound, full projection. locale: zh-CN, en, ja, ko or de; missing fields fall back to English." },
-          { name: "GET /data/v1/chemicals?ids=1,2,3&locale=", type: "object", desc: "Batch of compounds, at most 50 ids. Unknown ids are listed under missing." },
-          { name: "GET /data/v1/chemicals/lookup?hcid=|cas=|smiles=|inchikey=|name=&locale=", type: "object", desc: "Candidate list (hcid, title, match), at most 20. Exactly one selector per call. Name lookup tries exact match first, then substring once the normalized name is at least 3 characters; every language participates equally. Unknown SMILES create a record and start collection (returns the new HCID with data_status updating); unknown CAS enter the collection queue (check back for the HCID). Substructure and similarity search are not part of this service." },
-          { name: "GET /data/v1/reactions/{hrid}?locale=", type: "object", desc: "One public reaction, full projection." },
-          { name: "GET /data/v1/reactions?ids=...", type: "object", desc: "Batch of public reactions, at most 20 ids." },
-          { name: "GET /data/v1/chemicals/{hcid}/reactions?page=&page_size=", type: "object", desc: "Public reaction summaries involving the compound; page_size at most 50." },
-        ]} />
-      </Section>
+      <PageFrame tier="page" className="data-api-page">
+        <Section title="Endpoints">
+          <FieldTable rows={[
+            { name: "GET /data/v1/chemicals/{hcid}?locale=", type: "object", desc: "One compound, full projection. locale: zh-CN, en, ja, ko or de; missing fields fall back to English." },
+            { name: "GET /data/v1/chemicals?ids=1,2,3&locale=", type: "object", desc: "Batch of compounds, at most 50 ids. Unknown ids are listed under missing." },
+            { name: "GET /data/v1/chemicals/lookup?hcid=|cas=|smiles=|inchikey=|name=&locale=", type: "object", desc: "Candidate list (hcid, title, match), at most 20. Exactly one selector per call. Name lookup tries exact match first, then substring once the normalized name is at least 3 characters; every language participates equally. Unknown SMILES create a record and start collection (returns the new HCID with data_status updating); unknown CAS enter the collection queue (check back for the HCID). Substructure and similarity search are not part of this service." },
+            { name: "GET /data/v1/reactions/{hrid}?locale=", type: "object", desc: "One public reaction, full projection." },
+            { name: "GET /data/v1/reactions?ids=...", type: "object", desc: "Batch of public reactions, at most 20 ids." },
+            { name: "GET /data/v1/chemicals/{hcid}/reactions?page=&page_size=", type: "object", desc: "Public reaction summaries involving the compound; page_size at most 50." },
+          ]} />
+        </Section>
+      </PageFrame>
 
-      <Section title="Scopes">
-        <p style={{ maxWidth: 720, lineHeight: 1.7 }}>
-          <code className="token-code">data:chemical:read</code> covers the four
-          chemical endpoints; <code className="token-code">data:reaction:read</code>{" "}
-          covers the two reaction endpoints. Scopes map to exact (method, path)
-          pairs — anything not registered is refused with{" "}
-          <code className="token-code">forbidden_scope</code>.
-        </p>
-      </Section>
+      <PageFrame tier="reading" className="data-api-page">
+        <Section title="Scopes">
+          <p className="doc-prose">
+            <code className="token-code">data:chemical:read</code> covers the four
+            chemical endpoints; <code className="token-code">data:reaction:read</code>{" "}
+            covers the two reaction endpoints. Scopes map to exact (method, path)
+            pairs — anything not registered is refused with{" "}
+            <code className="token-code">forbidden_scope</code>.
+          </p>
+        </Section>
 
-      <Section title="Request signing">
-        <p style={{ maxWidth: 720, lineHeight: 1.7 }}>
-          Every request carries five headers. The signature is hex HMAC-SHA256
-          keyed with the token over the newline-joined request elements, in order:
-          method, path (without query), raw query string (empty when none),
-          hex SHA-256 of the body (hex SHA-256 of the empty string for GET),
-          timestamp, nonce. The timestamp may deviate at most ±300 seconds from
-          server time; a nonce is accepted once per credential inside the replay
-          window.
-        </p>
-        <div className="hg-code multiline" style={{ overflowX: "auto" }}>
-          <pre className="document-text" style={{ whiteSpace: "pre" }}>{signExample}</pre>
-        </div>
-      </Section>
+        <Section title="Request signing">
+          <p className="doc-prose">
+            Every request carries five headers. The signature is hex HMAC-SHA256
+            keyed with the token over the newline-joined request elements, in order:
+            method, path (without query), raw query string (empty when none),
+            hex SHA-256 of the body (hex SHA-256 of the empty string for GET),
+            timestamp, nonce. The timestamp may deviate at most ±300 seconds from
+            server time; a nonce is accepted once per credential inside the replay
+            window.
+          </p>
+          <div className="hg-code multiline" style={{ overflowX: "auto" }}>
+            <pre className="document-text" style={{ whiteSpace: "pre" }}>{signExample}</pre>
+          </div>
+        </Section>
+      </PageFrame>
 
-      <Section title="Compound fields">
-        <FieldTable rows={[...chemicalHeader, ...chemicalOverview, ...chemicalNames, ...chemicalPartitions]} />
-      </Section>
+      <PageFrame tier="page" className="data-api-page">
+        <Section title="Compound fields">
+          <FieldTable rows={[...chemicalHeader, ...chemicalOverview, ...chemicalNames, ...chemicalPartitions]} />
+        </Section>
 
-      <Section title="Reaction fields">
-        <FieldTable rows={reactionFields} />
-      </Section>
+        <Section title="Reaction fields">
+          <FieldTable rows={reactionFields} />
+        </Section>
 
-      <Section title="Errors and limits">
-        <p style={{ maxWidth: 720, lineHeight: 1.7 }}>
-          Errors use <code className="token-code">{"{\"error\": {\"code\", \"message\"}}"}</code>{" "}
-          plus <code className="token-code">request_id</code>. Within a version
-          fields are only added, never changed or removed. Quotas are per
-          credential (per minute and per day); exceeding them returns 429 with a
-          Retry-After header.
-        </p>
-        <FieldTable rows={errorCodes} />
-        <p style={{ maxWidth: 720, lineHeight: 1.7, marginTop: 16 }}>
-          To request a credential, contact the operators of Huagongshe. Records
-          fetched by this service should be stored by the calling system; the
-          service does not push updates.
-        </p>
-        <p style={{ marginTop: 16 }}>
-          <Link href="/en" className="TextLink">Back to home</Link>
-        </p>
-      </Section>
-    </div>
+        <Section title="Errors and limits">
+          <p className="doc-prose">
+            Errors use <code className="token-code">{"{\"error\": {\"code\", \"message\"}}"}</code>{" "}
+            plus <code className="token-code">request_id</code>. Within a version
+            fields are only added, never changed or removed. Quotas are per
+            credential (per minute and per day); exceeding them returns 429 with a
+            Retry-After header.
+          </p>
+          <FieldTable rows={errorCodes} />
+          <p className="doc-prose">
+            To request a credential, contact the operators of Huagongshe. Records
+            fetched by this service should be stored by the calling system; the
+            service does not push updates.
+          </p>
+          <p>
+            <Link href="/en" className="TextLink">Back to home</Link>
+          </p>
+        </Section>
+      </PageFrame>
+    </>
   );
 }

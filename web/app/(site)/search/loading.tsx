@@ -1,14 +1,15 @@
+import { PageFrame } from "@/components/ui/PageFrame";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-/** /search 路由加载态（6.2）：Skeleton card × 3（3.11 / IX-4 列表骨架）。 */
+/** /search 路由加载态：与结果页同一页框，Skeleton card × 3（列表骨架）。 */
 export default function SearchLoading() {
   return (
-    <div className="content-page search-page">
+    <PageFrame className="search-page">
       <div className="search-skeleton" aria-hidden="true">
         <Skeleton variant="card" />
         <Skeleton variant="card" />
         <Skeleton variant="card" />
       </div>
-    </div>
+    </PageFrame>
   );
 }

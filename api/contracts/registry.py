@@ -1,8 +1,8 @@
-"""Governance registry (G1 final) — G1A 冻结结论的机械落实。
+"""Governance registry — 冻结结论的机械落实。
 
-v1.7.1 PM 裁定(2026-10-14): REST 只供网站内部使用, 对外接入唯一入口是
-MCP。AGENT_HTTP 投影面整体退役(端点 /api/agent-guide 已删除; REST 路由
-不再接受 AI Key 凭据)。HTTP entrypoints 在 registry 中保留登记, 但其
+REST 只供网站内部使用, 对外接入唯一入口是 MCP。
+AGENT_HTTP 投影面已整体退役(端点 /api/agent-guide 已删除; REST 路由
+不接受 AI Key 凭据)。HTTP entrypoints 在 registry 中保留登记, 但其
 consumer 投影只有 WEB。
 
 事实源(证据优先级: runtime 代码 > 测试 > 消费者 > 公开契约 > 注释):
@@ -39,7 +39,7 @@ from .model import (
 def _fams() -> list[Family]:
     return [
         # ------------------------------------------------------------------
-        # search(G1A 冻结: SHARE_SERVICE 单 service + 三独立 scenario policy)
+        # search(冻结: SHARE_SERVICE 单 service + 三独立 scenario policy)
         # ------------------------------------------------------------------
         Family("search", E.READ, scenarios=(
             S("exact", A.PUBLIC_OR_ACTOR, entrypoints=(
@@ -89,7 +89,7 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # molecule rendering(G1A 冻结: SHARE_KERNEL, SVG/PNG 独立 scenario+contract)
+        # molecule rendering(冻结: SHARE_KERNEL, SVG/PNG 独立 scenario+contract)
         # ------------------------------------------------------------------
         Family("molecule.rendering", E.READ, scenarios=(
             S("svg", A.PUBLIC_OR_ACTOR, entrypoints=(
@@ -107,7 +107,7 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # reaction rendering(G1A: visibility-aware, cache policy 独立于 molecule)
+        # reaction rendering(visibility-aware, cache policy 独立于 molecule)
         # ------------------------------------------------------------------
         Family("reaction.rendering", E.READ, scenarios=(
             S("svg", A.PUBLIC_OR_ACTOR, entrypoints=(
@@ -129,7 +129,7 @@ def _fams() -> list[Family]:
                 I(T.MCP, "get_reaction")),
               contract=Contract(frozenset({C.WEB, C.AGENT_MCP}),
                                 X.STABLE_EXTERNAL, "get_reaction")),
-            # E7: list_own 原挂 reaction.write(E.WRITE) —— family effect 描述性失真;
+            # list_own 原挂 reaction.write(E.WRITE) —— family effect 描述性失真;
             # 它是 ACTOR 自读(GET /users/me/reactions), 归入 E.READ family。
             S("list_own", A.ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/users/me/reactions"),
@@ -169,7 +169,7 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # skills(G1A 冻结: 同一 query/service, 契约如实声明;
+        # skills(冻结: 同一 query/service, 契约如实声明;
         # MCP list_skills public 分支匿名可用 —— 与 HTTP 同语义)
         # ------------------------------------------------------------------
         Family("skill.read", E.READ, scenarios=(
@@ -248,7 +248,7 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # notes(v1.7.0: independent user context; Web-first, no MCP surface)
+        # notes (independent user context; Web-first, no MCP surface)
         # ------------------------------------------------------------------
         Family("note.read", E.READ, scenarios=(
             S("detail", A.PUBLIC_OR_ACTOR, entrypoints=(
@@ -284,7 +284,7 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # OAuth 2.1 connection protocol (v1.7 mixed-auth MCP)
+        # OAuth 2.1 connection protocol (mixed-auth MCP)
         # ------------------------------------------------------------------
         Family("oauth.discovery", E.READ, scenarios=(
             S("protected_resource_metadata", A.ANONYMOUS, entrypoints=(
@@ -310,7 +310,7 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # account / auth / profile / token / avatar(G1A: 文件粘合, 职责分域登记)
+        # account / auth / profile / token / avatar(文件粘合, 职责分域登记)
         # ------------------------------------------------------------------
         Family("account.auth", E.WRITE, scenarios=(
             S("register", A.ANONYMOUS, entrypoints=(
@@ -363,8 +363,8 @@ def _fams() -> list[Family]:
               contract=Contract(frozenset({C.WEB}), X.NONE)),
         )),
         Family("account.oauth_connection", E.PRIVILEGED, scenarios=(
-            # I-016: 设置→账号安全的 MCP 客户端授权管理(Web-only, 凭据生命周期;
-            # 第 2 轮收紧: list 与 /users/me/tokens 同口径只认网页会话)
+            # 设置→账号安全的 MCP 客户端授权管理(Web-only, 凭据生命周期;
+            # 收紧: list 与 /users/me/tokens 同口径只认网页会话)
             S("list", A.SESSION, entrypoints=(
                 I(T.HTTP, "GET /api/users/me/oauth-connections"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
@@ -374,14 +374,14 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # social / public profile(G1A: follow Web-only 合理, MCP 不新增)
+        # social / public profile(follow Web-only 合理, MCP 不新增)
         # ------------------------------------------------------------------
         Family("social.follow", E.WRITE, scenarios=(
             S("follow_user", A.SESSION, entrypoints=(
                 I(T.HTTP, "POST /api/users/{username}/follow"),
                 I(T.HTTP, "DELETE /api/users/{username}/follow")),
               contract=Contract(frozenset({C.WEB}), X.NONE),
-              note="G1A 冻结: 无 MCP 面, 禁止因技术可行规划(P4)"),
+              note="冻结: 无 MCP 面, 禁止因技术可行规划"),
             S("follow_reaction", A.SESSION, entrypoints=(
                 I(T.HTTP, "POST /api/reactions/{reaction_id}/follow"),
                 I(T.HTTP, "DELETE /api/reactions/{reaction_id}/follow")),
@@ -409,7 +409,7 @@ def _fams() -> list[Family]:
             S("users_search", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/users/search"),),
               contract=Contract(frozenset({C.WEB}), X.NONE),
-              note="I-082: 用户搜索(前缀/包含, 公开字段, 限流); 仅 web 面"),
+              note="用户搜索(前缀/包含, 公开字段, 限流); 仅 web 面"),
             S("profile", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/users/{username}"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
@@ -427,7 +427,7 @@ def _fams() -> list[Family]:
         # ------------------------------------------------------------------
         # enrichment / config / discovery / guide / ops
         # ------------------------------------------------------------------
-        # E9-B 1.1: enrichment/details_refresh 已删除(零消费者; PB 回补并入 enrich=full)
+        # 1.1: enrichment/details_refresh 已删除(零消费者; PB 回补并入 enrich=full)
         Family("config", E.READ, scenarios=(
             S("public_read", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/config"),),
@@ -438,7 +438,7 @@ def _fams() -> list[Family]:
                 I(T.HTTP, "GET /api/datasets"),),
               # llms.txt 为弱承诺简介, 无稳定兼容承诺 → NONE(仍是 DISCOVERY consumer)
               contract=Contract(frozenset({C.DISCOVERY}), X.NONE),
-              note="P3 裁定升入 guide 与否"),
+              note="是否升入 guide 待定"),
         )),
         Family("discovery.sitemap", E.READ, scenarios=(
             S("reactions", A.PUBLIC_OR_ACTOR, entrypoints=(
@@ -498,7 +498,7 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # admin(G1A: 九块独立 scenario, adapter 聚合短期接受)
+        # admin(九块独立 scenario, adapter 聚合短期接受)
         # ------------------------------------------------------------------
         Family("admin.worker", E.PRIVILEGED, scenarios=(
             S("manage", A.ADMIN_SESSION, entrypoints=(
@@ -567,7 +567,7 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # WorkAPI(G1A: HMAC protocol 共享, queue domain 独立;
+        # WorkAPI(HMAC protocol 共享, queue domain 独立;
         # trusted internal protocol → Compatibility.NONE;
         # identity 沿用 pubchem scope, P1 维持现状)
         # ------------------------------------------------------------------
@@ -600,7 +600,7 @@ def _fams() -> list[Family]:
             S("lease", A.WORKER_HMAC, required_scope=("pubchem",), entrypoints=(
                 I(T.WORKAPI, "POST /workapi/v1/identity/jobs/lease"),),
               contract=Contract(frozenset({C.WORKER}), X.NONE),
-              note="identity 沿用 pubchem scope(0912 P0-1 裁定; P1 维持)"),
+              note="identity 沿用 pubchem scope(维持现状)"),
             S("complete", A.WORKER_HMAC, required_scope=("pubchem",), entrypoints=(
                 I(T.WORKAPI, "POST /workapi/v1/identity/jobs/complete"),),
               contract=Contract(frozenset({C.WORKER}), X.NONE)),

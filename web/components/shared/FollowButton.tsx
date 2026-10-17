@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FollowButton — 关注/收藏按钮（v1.7 Step 7 起内部改用 ui/Button 组件，接口不变）。
+ * FollowButton — 关注/收藏按钮（内部用 ui/Button 组件，接口不变）。
  *
  * 乐观更新：点击立即翻状态并同步计数；成功且为「关注/收藏」方向时出 Toast
  * （带「撤销」）；失败回滚并 toast 报错；401 回滚后跳登录页带 next=当前页。
@@ -25,15 +25,15 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   label?: "follow" | "favor";
   idleText?: string;
   activeText?: string;
-  /** IX-6：「已关注」hover 时显示「取消关注」—— 渲染双文案，CSS 悬停切换 */
+  /** 「已关注」hover 时显示「取消关注」—— 渲染双文案，CSS 悬停切换 */
   activeHoverText?: string;
   onChange?: (following: boolean) => void;
   /** 默认 primary；rail 创建者卡片等场景传 tonal/sm */
   variant?: ButtonVariant;
-  /** 激活态（已关注/已收藏）的变体（Step 10：公开主页「已关注」= secondary） */
+  /** 激活态（已关注/已收藏）的变体：公开主页「已关注」用 secondary */
   activeVariant?: ButtonVariant;
   size?: ButtonSize;
-  /** 星标图标按钮（Step 10：搜索卡片 / 主页反应卡收藏）；aria-label 取当前文案 */
+  /** 星标图标按钮（搜索卡片 / 主页反应卡收藏）；aria-label 取当前文案 */
   iconOnly?: boolean;
   /** 带星标图标的文本按钮（如工作台关注动态卡） */
   withIcon?: boolean;
@@ -51,10 +51,10 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   followingRef.current = following;
   const busyRef = useRef(false);
   busyRef.current = busy;
-  /** SMK-012：用户操作过（touched）就不再跟随 props —— 异步回填只同步初始态 */
+  /** 用户操作过（touched）就不再跟随 props —— 异步回填只同步初始态 */
   const touchedRef = useRef(false);
 
-  // FX-8b（HGS-ACTIVITY-FAVOR-INIT-01）：初始 props 迟到变化时同步（用户未操作前）
+  // 初始 props 迟到变化时同步（用户未操作前）
   useEffect(() => {
     if (touchedRef.current) return;
     setFollowing(initial);
@@ -77,7 +77,7 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
       if (prev) await apiDelete(endpoint);
       else await apiPost(endpoint);
       onChange?.(next);
-      // FX-7（SMK-005）：取消方向同样 Toast +「撤销」——两个方向反馈一致（IX-6）
+      // 取消方向同样 Toast +「撤销」——两个方向反馈一致
       toast.success(
         label === "favor"
           ? (next ? t.follow.favorToast : t.follow.unfavorToast)
@@ -102,7 +102,7 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   const text = following
     ? activeText || (label === "favor" ? t.follow.favoring : t.follow.following)
     : idleText || (label === "favor" ? t.follow.favor : t.follow.follow);
-  // Step 10：图标形态（星标收藏）—— aria-label 用当前文案，已收藏实心
+  // 图标形态（星标收藏）—— aria-label 用当前文案，已收藏实心
   if (iconOnly) {
     return (
       <Button
@@ -120,7 +120,7 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
       </Button>
     );
   }
-  // 已关注且给了 hover 文案：双文案 CSS 切换（IX-6 hover 显示「取消关注」）
+  // 已关注且给了 hover 文案：双文案 CSS 切换(hover 显示「取消关注」）
   const hoverSwap = following && activeHoverText;
   const currentVariant = following && activeVariant ? activeVariant : variant;
   return (

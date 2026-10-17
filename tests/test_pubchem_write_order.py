@@ -1,4 +1,4 @@
-"""§2 PubChem identity 写前裁定 — 真实生产顺序集成测试 (0909 规范收口)。
+"""§2 PubChem identity 写前— 真实生产顺序集成测试 (规范收口)。
 
 链路: worker callback(complete_job) → incoming CID/IK → identity validation
       → sync → reconcile。
@@ -288,7 +288,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
         resp1 = self._complete(job, self._payload(cid=CID_SHARED))
         survivor1 = resp1.get("chemical_id")
         self.assertIn(survivor1, (me, other))
-        # 重放同一结果: job 已出表。P0-2(0912 trusted plane) 后语义更新:
+        # 重放同一结果: job 已出表。(trusted plane) 后语义更新:
         # 同 worker + 同 lease_token 的重试 → 幂等 ack(200/idempotent),
         # 绝不第二次执行业务写入 — 判据 = merge 仍恰 1 次(下方)。
         resp2 = self._complete(job, self._payload(cid=CID_SHARED))

@@ -1,4 +1,4 @@
-"""E9-B §3/§4 — Admin Pipeline 有界 SQL 与治理伪指标删除的防回归契约。
+""" §3/§4 — Admin Pipeline 有界 SQL 与治理伪指标删除的防回归契约。
 
 源码级锁:
 - chemical_cb locale 聚合前必须有 fetched_at 时间窗口
@@ -85,7 +85,7 @@ class GovernanceRemovedCapabilityTests(unittest.TestCase):
         self.assertNotIn("async def seed_enqueued_no_job", src)
         self.assertNotIn('"resolver_events":', src)
         self.assertNotIn("resolver_events_note", src)
-        self.assertNotIn('"seed_enqueued_no_job"', src.split("# E9-B")[0])
+        self.assertNotIn('"seed_enqueued_no_job"', src)
 
     def test_drilldown_removed(self):
         import api.services.pipeline_governance as gov

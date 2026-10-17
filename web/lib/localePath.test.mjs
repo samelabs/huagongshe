@@ -1,8 +1,8 @@
 // withLocale()/stripLocalePrefix()/isPathAtOrBelow()/applyLocale() locale-aware 路径 helper 测试
 // SUT: web/lib/localePath.ts(真实实现, 无镜像)。
-// v1.6.0: tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
+// tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
 // (tsx --test 直接加载真实 .ts SUT, 不再使用 tsc 临时编译到 /tmp 的人工协议):
-//   npx tsx --test lib/localePath.test.mjs
+// npx tsx --test lib/localePath.test.mjs
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -109,7 +109,7 @@ test("/mcp 只排除自身与子树, /mcp-guide 正常加 locale", () => {
   assert.equal(withLocale("/mcp-guide", "ja"), "/ja/mcp-guide");
 });
 
-/* ─────── P1-2: applyLocale — 强制切换到目标 locale(登录回跳契约) ─────── */
+/* ─────── applyLocale — 强制切换到目标 locale(登录回跳契约) ─────── */
 
 test("applyLocale: 已带 locale 前缀的路径替换为当前 locale", () => {
   assert.equal(applyLocale("/ja/aichem", "en"), "/en/aichem");

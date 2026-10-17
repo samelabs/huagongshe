@@ -1,7 +1,7 @@
 """闸门阶梯(数据链收口§4) — lease 派发口的通道保护。
 
 计数对象=通道(pubchem/cb), 信号源=worker 真实请求结果(error=进, complete=归零)。
-阶梯(定案): 连续 5 错→静默 5 分 → 再 2 错→静默 10 分 → 再 1 错→静默 30 分
+阶梯: 连续 5 错→静默 5 分 → 再 2 错→静默 10 分 → 再 1 错→静默 30 分
 → 再 1 错→停止(半开 30 分钟一发, 可自愈)。
 计时载体: redis 计数器(streak / silent_until / probe)。零新表。
 通道任一 complete → 归零 + gate_unlock_error_rows 整通道 error 行复活。
@@ -48,7 +48,7 @@ async def gate_silence_remaining(redis, channel: str) -> float:
 
 
 async def gate_halfopen_admit(redis, channel: str, limit: int) -> int:
-    """HGS-GATE-HALFOPEN-01: 停档期满的半开探测互斥。
+    """停档期满的半开探测互斥。
 
     停止档(LADDER 末档, streak ≥ 9)的静默窗自然到期后, 不再整批放行
     (积压 ≥2 时会并发放行多个任务打上游, 背离"到点放行一发"合同):
@@ -100,7 +100,7 @@ async def gate_record_success(redis, channel: str) -> None:
 
 
 # 通道 → 错误行所在表。pubchem 通道含 discovery(identity)链 —— 同通道
-# 连击计数, 错误行必须同随通道恢复复活(HGS-IDENTITY-ERROR-REVIVE-01:
+# 连击计数, 错误行必须同随通道恢复复活(通道解锁即错误复活:
 # 此前只翻 pubchem_jobs/cas_jobs, pubchem_identity_jobs 的 error 行
 # 不随通道恢复复活, 与"通道成功解锁"的注释语义相悖)。
 _CHANNEL_ERROR_TABLES: dict[str, tuple[str, ...]] = {
@@ -110,7 +110,7 @@ _CHANNEL_ERROR_TABLES: dict[str, tuple[str, ...]] = {
 
 
 async def gate_unlock_error_rows(db, channel: str) -> None:
-    """通道成功后: 该通道 error 行全部复活归队(0901 终版语义, 纯翻态无时间字段)。"""
+    """通道成功后: 该通道 error 行全部复活归队。"""
     from sqlalchemy import text
     for table in _CHANNEL_ERROR_TABLES[channel]:
         await db.execute(text(f"""

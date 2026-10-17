@@ -42,7 +42,7 @@
 - `/guide`：面向用户的网页记录、AI 对话提示词与 Skill 使用指南。
 - `/workapi/*`：worker HMAC 面，只服务受信任 PubChem worker，与用户 Agent 完全无关。
 
-网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 AI Key（即 API Token，Bearer 传输）：Key 属于用户账号，用于 Agent/API 调用；列表仅本人网页会话可读，响应带 `Cache-Control: private, no-store`；Key 明文有意保存在账号下（项目负责人裁定，2026-10-14），可在设置页再次查看和复制，无明文的旧 Key 显示为空。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
+网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 AI Key（即 API Token，Bearer 传输）：Key 属于用户账号，用于 Agent/API 调用；列表仅本人网页会话可读，响应带 `Cache-Control: private, no-store`；Key 明文有意保存在账号下，可在设置页再次查看和复制，无明文的旧 Key 显示为空。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
 
 ## MCP 与 Agent 接入
 

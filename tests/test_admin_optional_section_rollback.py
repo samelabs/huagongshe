@@ -1,4 +1,4 @@
-"""P1 followup (0912): optional section 真实 SQL error 的降级隔离。
+"""P1 followup : optional section 真实 SQL error 的降级隔离。
 
 区分度要求(任务书): 不是"源码里存在 rollback"的字符串测试 —— 必须在
 PostgreSQL 真实事务内制造 aborted transaction, 验证:
@@ -23,7 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-# I-058: 统一走 db_gate(库名模式+sentinel), 不再自带缺省 DSN 回落。
+# 统一走 db_gate(库名模式+sentinel), 不再自带缺省 DSN 回落。
 from tests.db_gate import require_test_db
 try:
     _gated = require_test_db().split("?", 1)[0]
@@ -54,7 +54,7 @@ class OptionalSectionRollbackTests(unittest.TestCase):
         admin_mod._PIPELINE_STATS_CACHE.clear()
         admin_mod._PIPELINE_STATS_BG.clear()
 
-        # critical 打桩(非被测对象): 返回合法三元组(E9-B 无 total), 不碰大表
+        # critical 打桩(非被测对象): 返回合法三元组(无 total), 不碰大表
         self._orig_critical = admin_mod._scan_critical
 
         async def fake_critical(db):
@@ -62,7 +62,7 @@ class OptionalSectionRollbackTests(unittest.TestCase):
         admin_mod._scan_critical = fake_critical
 
         # negative 注入真实 SQL error: 除零在 PG 服务端 abort 事务
-        # (E9-B: supplier/seed runtime scan 已删除, negative 是唯一 optional)
+        # (supplier/seed runtime scan 已删除, negative 是唯一 optional)
         self._orig_negative = admin_mod._scan_negative
 
         async def boom_negative(db):
@@ -88,10 +88,10 @@ class OptionalSectionRollbackTests(unittest.TestCase):
         snap = asyncio.run(run())
 
         opt = snap["optional"]
-        # 1: 出错 section 降级(negative 是唯一 optional section)
+        # 出错 section 降级(negative 是唯一 optional section)
         self.assertFalse(opt["negative"]["available"])
         self.assertIn("division by zero", opt["negative"]["error"])
-        # 5: generated_at 正常生成(rollback 后 SELECT now() 成功)
+        # generated_at 正常生成(rollback 后 SELECT now() 成功)
         self.assertTrue(snap["generated_at"])
 
     def test_snapshot_enters_cache_not_lkg(self):
@@ -114,7 +114,7 @@ class OptionalSectionRollbackTests(unittest.TestCase):
         async def scenario():
             d1 = await hit()     # 冷启动 → snapshot 进 cache
             lkg = self.admin_mod._PIPELINE_STATS_CACHE["v"]["v"]
-            # E9-B: negative 是唯一 optional section — 注入的错在这里
+            # negative 是唯一 optional section — 注入的错在这里
             self.assertFalse(lkg["optional"]["negative"]["available"])
             self.assertFalse(d1["stats"]["stale"])
             # 人为推过 TTL 再打: SWR — 本请求 stale 返回, 后台刷新换新
@@ -133,9 +133,9 @@ class OptionalSectionRollbackTests(unittest.TestCase):
 
         lkg = asyncio.run(scenario())
         cur = self.admin_mod._PIPELINE_STATS_CACHE["v"]["v"]
-        # 6: 新 snapshot 整体成功进入 cache(negative 单独降级)
+        # 新 snapshot 整体成功进入 cache(negative 单独降级)
         self.assertIsNot(cur, lkg)
-        # 注入的 negative 失败在每个 snapshot 中均单独降级(E9-B: 唯一 optional)
+        # 注入的 negative 失败在每个 snapshot 中均单独降级(唯一 optional)
         self.assertFalse(cur["optional"]["negative"]["available"])
         self.assertIn("division by zero", cur["optional"]["negative"]["error"])
         self.assertTrue(cur["generated_at"])

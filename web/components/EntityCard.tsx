@@ -10,7 +10,7 @@ import { withLocale } from "@/lib/localePath";
 /**
  * EntityCard（chemical）— 搜索结果卡片（DESIGN_SYSTEM 3.13/6.2）。
  * 结构缩略图 112×84 + HCID 徽标 sm + 名称（fs-16/600，链接）+ 元信息
- * （别名 · CAS · CID · 分子式）+ 右侧收藏 ghost icon（乐观更新，IX-6）。
+ * （别名 · CAS · CID · 分子式）+ 右侧收藏 ghost icon（乐观更新)。
  * SMILES 不在卡片显示（详情页有 CodeField）。
  */
 export async function EntityCard({ chemical, favored = false }: { chemical: Chemical; favored?: boolean }) {

@@ -7,12 +7,12 @@
  * isPathAtOrBelow("/mcp-guide", "/mcp") → false; 路径边界语义 SSOT。
  *
  * 规则:
- *  - 外部 URL(http://…, https://…, mailto:…)原样返回, 不加前缀
- *  - NON_LOCALIZED_PREFIXES(全仓库唯一一张业务 prefix 表, proxy 与 link helper
- *    共用)与带扩展名的静态资源不加 locale; 边界语义由 isPathAtOrBelow 统一:
- *    "/mcp" 只排除自身与子树, 不排除 "/mcp-guide" 等同前缀字符串
- *  - 已带 locale 前缀的路径幂等返回, 不二次叠加(识别走同一 parser)
- *  - 不建第二份 locale 列表: 复用 SUPPORTED_LOCALES
+ * - 外部 URL(http://…, https://…, mailto:…)原样返回, 不加前缀
+ * - NON_LOCALIZED_PREFIXES(全仓库唯一一张业务 prefix 表, proxy 与 link helper
+ * 共用)与带扩展名的静态资源不加 locale; 边界语义由 isPathAtOrBelow 统一:
+ * "/mcp" 只排除自身与子树, 不排除 "/mcp-guide" 等同前缀字符串
+ * - 已带 locale 前缀的路径幂等返回, 不二次叠加(识别走同一 parser)
+ * - 不建第二份 locale 列表: 复用 SUPPORTED_LOCALES
  */
 
 import { SUPPORTED_LOCALES, isSupportedLocale, type Locale } from "./i18n/locales";
@@ -44,9 +44,9 @@ export function isPathAtOrBelow(pathname: string, prefix: string): boolean {
  * splitLocalePrefix · 唯一 locale 前缀 parser。
  *
  * "/ja/aichem" → { locale: "ja", rest: "/aichem" }
- * "/en"        → { locale: "en", rest: "/" }
- * "/en/"       → { locale: "en", rest: "/" }
- * "/chemical"  → null
+ * "/en" → { locale: "en", rest: "/" }
+ * "/en/" → { locale: "en", rest: "/" }
+ * "/chemical" → null
  *
  * stripLocalePrefix / replaceLocalePrefix / withLocale / proxy 全部消费它,
  * 任何地方不得再出现第二份 locale 前缀 regex 或 segments 判断。
@@ -89,8 +89,8 @@ export function withLocale(path: string, locale: Locale): string {
  * (大量既有调用依赖); applyLocale 则先把已有前缀剥掉再交给 withLocale 重建,
  * 用于"登录页切语言后, 登录成功的 next 回跳必须落在当前 locale"这类场景。
  * 复用 stripLocalePrefix + withLocale(排除表/静态资源/外部 URL 判定不建第二套):
- *  "/ja/aichem" + en → "/en/aichem"; "/aichem" + ko → "/ko/aichem";
- *  "/samelabs/users"、"/api/…"、静态文件、外部 URL → 原样; query 完整保留。
+ * "/ja/aichem" + en → "/en/aichem"; "/aichem" + ko → "/ko/aichem";
+ * "/samelabs/users"、"/api/…"、静态文件、外部 URL → 原样; query 完整保留。
  */
 export function applyLocale(path: string, locale: Locale): string {
   if (!path.startsWith("/")) return path; // 相对路径/锚点等不处理
@@ -126,7 +126,7 @@ export function replaceLocalePrefix(pathname: string, next: Locale): string {
 }
 
 /**
- * rewriteNextParam · BX-A6：语言切换时同步改写 query 里的 next 回跳参数。
+ * rewriteNextParam · 语言切换时同步改写 query 里的 next 回跳参数。
  *
  * /zh-CN/login?next=/zh-CN/me/settings 切到 en 时，next 若不跟着换前缀，
  * 登录成功会落回旧语言页面。next 是内部绝对路径(以单斜杠开头)时用

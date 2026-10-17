@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""I-087: name_index 多语言回填 executor(可续跑)。
+"""name_index 多语言回填 executor(可续跑)。
 
-v1.7.3 起 CB 摄入把全部 locale 的名称写进 name_index(source='cb');
+CB 摄入把全部 locale 的名称写进 name_index(source='cb');
 历史行只有 zh-CN 的名称。本脚本按 chemical_id 分批重建存量化合物的
 source='cb' 镜像(与 services/name_index.ingest_from_cb_locales 同一
 语义: 全 locale ok 行并集 + 供应商档案名), 不触碰 source='pubchem' 行。

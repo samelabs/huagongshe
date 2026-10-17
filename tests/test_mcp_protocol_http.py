@@ -49,6 +49,8 @@ class McpStreamableHttpProtocolTests(unittest.IsolatedAsyncioTestCase):
                 # SDK's newer server/discover probe.
                 async with Client(transport, mode="legacy") as client:
                     self.assertEqual(client.session.server_info.name, "huagongshe-aichem")
+                    # 显示名不带协议后缀(客户端 UI 自带 MCP 语境); 机器标识 name 不变
+                    self.assertEqual(client.session.server_info.title, "HGS AIchem")
                     self.assertEqual(client.session.server_info.version, server.version)
 
                     listed = await client.list_tools(cache_mode="refresh")
@@ -86,7 +88,7 @@ class McpStreamableHttpProtocolTests(unittest.IsolatedAsyncioTestCase):
 
                     # Invalid ID is rejected before any DB access. This proves
                     # a real tools/call round-trip without coupling this wire
-                    # contract test to PostgreSQL or Redis. I-067 后越界值在
+                    # contract test to PostgreSQL or Redis. 后越界值在
                     # 入参 schema 校验即拒绝(pydantic 消息), 不再进入工具体
                     # 的运行时 ToolError —— 两种文案都算"入参被拒"。
                     result = await client.call_tool(

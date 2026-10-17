@@ -1,4 +1,4 @@
-"""v1.7.2 — 版本号单一来源契约: 仓库根 VERSION 文件。
+"""版本号单一来源契约: 仓库根 VERSION 文件。
 
 /api/health 的 version、FastAPI app.version(settings.api_version)与 MCP
 serverInfo.version 三者必须同源, 都等于 VERSION 内容。此前

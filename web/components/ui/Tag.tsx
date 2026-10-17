@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Tag — v2.0 标签（参考 3.6）。neutral / blue / ok / warn / err；
+ * Tag — 标签（参考 3.6）。neutral / blue / ok / warn / err；
  * dot=true 带状态圆点，icon 传任意图标组件。没有来源 Tag。
  */
 import type { ReactNode } from "react";

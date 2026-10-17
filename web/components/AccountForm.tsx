@@ -14,8 +14,8 @@ import { TextLink } from "@/components/ui/TextLink";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
 /** 登录/注册表单（DESIGN_SYSTEM 6.9）：ui 表单控件 + 错误 Notice err（写明原因，
- *  不暴露错误码，IX-12）；提交 primary lg（触控 ≥44px）。请求路径与
- *  字段 name 与旧版逐字一致（登录回跳/工具登录流依赖这些锚点）。 */
+ * 不暴露错误码)；提交 primary lg（触控 ≥44px）。请求路径与
+ * 字段 name 与旧版逐字一致（登录回跳/工具登录流依赖这些锚点）。 */
 export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
   const router = useRouter();
   const t = useDictionary();
@@ -43,7 +43,7 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
       // username currently typed.
       if (requestId !== latestCheck.current) return;
       if (!data.available) {
-        // BX-A2：服务端返回稳定机器码 reason_code（taken / invalid_format），
+        // 服务端返回稳定机器码 reason_code（taken / invalid_format），
         // 提示文案用当前字典渲染 —— 不再消费/比对中文 reason 契约串。
         const taken = data.reason_code === "taken";
         setUsernameCheck({ status: taken ? "taken" : "invalid", msg: taken ? t.auth.usernameTaken : t.auth.usernameRule });
@@ -160,9 +160,9 @@ export function AccountForm({ nextPath = "/me" }: { nextPath?: string }) {
   );
 }
 
-/** BX-A2：登录/注册失败按状态 + 机器码（detail.kind）渲染五语言文案；
- *  不再透传服务端 message 原文（旧纯字符串 detail 一律落本地化兜底 ——
- *  同样的规则注册时已在客户端预校验，422 数组亦落通用校验文案）。 */
+/** 登录/注册失败按状态 + 机器码（detail.kind）渲染五语言文案；
+ * 不再透传服务端 message 原文（旧纯字符串 detail 一律落本地化兜底 ——
+ * 同样的规则注册时已在客户端预校验，422 数组亦落通用校验文案）。 */
 function apiError(status: number, data: unknown, labels: Dictionary) {
   if (status === 429) return labels.auth.rateLimited;
   const detail = data && typeof data === "object" && "detail" in (data as Record<string, unknown>) ? (data as { detail: unknown }).detail : data;

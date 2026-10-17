@@ -1,4 +1,4 @@
-"""P1 (0912): stale-while-revalidate 契约 — pipeline / governance 双侧。
+"""stale-while-revalidate 契约 — pipeline / governance 双侧。
 
 规则来源(任务书):
 - 已有 snapshot 后, 任何用户请求都不得因 TTL 过期同步等待昂贵统计刷新
@@ -11,7 +11,7 @@
 并发测试纪律: 每个 task 独立 AsyncSession(AsyncSession 禁并发 execute),
 不改变生产 session 设计。
 
-运行: . /tmp/hgs_test_env.sh && /var/www/huagongshe/venv/bin/python -m unittest tests.test_admin_pipeline_p1
+运行: . /tmp/hgs_test_env.sh && /var/www/huagongshe/venv/bin/python -m unittest tests.test_admin_pipeline_stale_refresh
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT))
 
 # HGS_DATABASE_URL 必须指向 asyncpg 驱动的测试库(import api.admin 时
 # create_async_engine 拒绝 psycopg2)。与 tests/test_cb_negative.py 同模式。
-# I-058: 统一走 db_gate(库名模式+sentinel), 不再自带缺省 DSN 回落。
+# 统一走 db_gate(库名模式+sentinel), 不再自带缺省 DSN 回落。
 from tests.db_gate import require_test_db
 try:
     _gated = require_test_db().split("?", 1)[0]
@@ -75,7 +75,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
                       gov_mod.governance_snapshot)
 
         _OPT = {k: {"available": True, "error": None, "value": None}
-                for k in ("negative",)}  # E9-B: supplier/seed runtime 已移除
+                for k in ("negative",)}  # supplier/seed runtime 已移除
 
         async def _gate(which: str):
             while not self.release[which]:
@@ -131,9 +131,9 @@ class StaleWhileRevalidateTests(unittest.TestCase):
 
     def _seed(self, mod, cache_name, *, ttl_back=10_000):
         opt = {k: {"available": True, "error": None, "value": None}
-               for k in ("negative",)}  # E9-B
+               for k in ("negative",)}  #
         getattr(mod, cache_name)["v"] = {
-            "v": {"critical": ([], 0, 0), "optional": opt,  # E9-B: 3 元组
+            "v": {"critical": ([], 0, 0), "optional": opt,  # 3 元组
                   "generated_at": "seed"},
             "ts": _t.monotonic() - ttl_back}
 
@@ -141,7 +141,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
         self.gov_mod._GOV_CACHE["v"] = {
             "v": {"sections": {"tick": 0}}, "ts": _t.monotonic() - ttl_back}
 
-    # 1: stale + 无 refresh 在跑 → 立即返回, 不等待 scanner
+    # stale + 无 refresh 在跑 → 立即返回, 不等待 scanner
     def test_stale_returns_immediately_without_waiting(self):
         self._seed(self.admin_mod, "_PIPELINE_STATS_CACHE")
         # release 未 set → 任何同步等待都会 5s 超时; 立即返回则通过
@@ -167,7 +167,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
         self.assertGreaterEqual(self.calls["gov"], 1)
         asyncio.run(self._drain(self.gov_mod._GOV_BG))
 
-    # 2: N 个 stale 请求并发 → 只 1 次 refresh(每 task 独立 session)
+    # N 个 stale 请求并发 → 只 1 次 refresh(每 task 独立 session)
     def test_concurrent_stale_single_refresh(self):
         self._seed(self.admin_mod, "_PIPELINE_STATS_CACHE")
 
@@ -198,7 +198,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
         self.assertEqual(1, self.calls["pipeline"],
                          "N 个 stale 并发只允许 1 次昂贵 refresh")
 
-    # 3: 后台 refresh 失败 → 旧 snapshot 保留并继续 stale
+    # 后台 refresh 失败 → 旧 snapshot 保留并继续 stale
     def test_background_refresh_failure_keeps_last_known_good(self):
         self._seed(self.admin_mod, "_PIPELINE_STATS_CACHE")
         self.fail["pipeline"] = True
@@ -217,7 +217,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
                          self.admin_mod._PIPELINE_STATS_CACHE["v"]["v"]["generated_at"])
         asyncio.run(self._drain(self.admin_mod._PIPELINE_STATS_BG))
 
-    # 4: refresh 成功 → 下一请求读新 snapshot
+    # refresh 成功 → 下一请求读新 snapshot
     def test_successful_refresh_replaces_snapshot(self):
         self._seed(self.admin_mod, "_PIPELINE_STATS_CACHE")
         self.release["pipeline"] = True
@@ -235,7 +235,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
         self.assertEqual(d2["stats"]["generated_at"], "fresh")
         self.assertFalse(d2["stats"]["stale"])
 
-    # 5: 冷启动 single-flight — N 请求只扫一次(同步等待路径)
+    # 冷启动 single-flight — N 请求只扫一次(同步等待路径)
     def test_cold_start_single_flight_scans_once(self):
         async def one_request():
             eng = _engine()
@@ -258,8 +258,8 @@ class StaleWhileRevalidateTests(unittest.TestCase):
         self.assertFalse(ra["stats"]["stale"])
         self.assertFalse(rb["stats"]["stale"])
 
-    # 6: request DB session 结束后后台 refresh 仍安全 —
-    #    源码不变量: 后台路径用独立 async_session(), 请求 db 不进 task。
+    # request DB session 结束后后台 refresh 仍安全 —
+    # 源码不变量: 后台路径用独立 async_session(), 请求 db 不进 task。
     def test_bg_refresh_uses_independent_session_source(self):
         src = (ROOT / "api" / "admin.py").read_text(encoding="utf-8")
         self.assertIn("async with async_session() as db", src)
@@ -271,7 +271,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
         self.assertIn("_ = t.exception()", src)
         self.assertIn("_ = t.exception()", gsrc)
 
-    # 7: 双侧同语义 — governance stale 也不等待, 成功后换新
+    # 双侧同语义 — governance stale 也不等待, 成功后换新
     def test_pipeline_and_governance_share_semantics(self):
         self._seed_gov()
         self.release["gov"] = True
@@ -284,7 +284,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
         d2 = self._hit_gov()
         self.assertFalse(d2["stale"], "governance 后台刷新成功后不得再标 stale")
 
-    # 8: 集合门自身 — BG 非空时 spawn 直接 no-op(不靠锁排队)
+    # 集合门自身 — BG 非空时 spawn 直接 no-op(不靠锁排队)
     def test_spawn_gate_blocks_duplicate_tasks(self):
         async def scenario():
             # 预置一个挂起中的后台任务
