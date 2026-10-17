@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
 import { SubmissionForm } from "@/components/workbench/SubmissionForm";
-import { apiGet } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
 import type { User } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { apiGet } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { localeAlternates } from "@/lib/alternates";
 import { SkillsClient, type Skill, type Category } from "./SkillsClient";

@@ -1,9 +1,8 @@
-const SERVER_API = process.env.API_BASE || process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000/api";
-const CLIENT_API = "/api";
-const BASE = typeof window !== "undefined" ? CLIENT_API : SERVER_API;
-
-/** 服务端取 API 原始字节（og 品牌卡拉 /mol/{id}/png）用的唯一 base —— 不建第二份字面量 */
-export const SERVER_API_BASE = SERVER_API;
+/** 客户端取数走同源 BFF（app/api/[...path]）。服务端取数（page/layout/
+ *  route handler）一律用 lib/api.server.ts —— 那一层带访客身份直连后端；
+ *  本文件的服务端 base 已移除，服务端误用会在运行时立刻失败并被
+ *  scripts/checkApiLayer.mjs 在提交前拦下。 */
+const BASE = "/api";
 
 /** BX-A2：用户创建且未填来源引用的反应，dataset_name 返回此稳定枚举标记
  *  （后端不再返回中文「用户发布」）—— 前端按语言渲染（t.reaction.userSubmitted）。 */

@@ -9,7 +9,7 @@ import { AppShell } from "@/components/shell/AppShell";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { SITE_ORIGIN } from "@/lib/alternates";
 import { pwaAppName } from "@/lib/pwa";
-import { apiGet } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
 import type { User } from "@/lib/api";
 import "./tokens.css";
 import "./globals.css";

@@ -16,7 +16,7 @@ import type {
   WorkbenchTab,
 } from "@/components/workbench/types";
 import type { PersonSummary } from "@/components/shared/PersonList";
-import { apiGet } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
 import { getRequestDictionary } from "@/lib/serverI18n";
 
 export async function generateMetadata(): Promise<Metadata> {

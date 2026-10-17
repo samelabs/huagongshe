@@ -80,6 +80,12 @@ jobs:
         working-directory: web
         run: npm run test:unit
 
+      - name: API layer static checks
+        # 取数层分界: "use client" 不得引服务端取数模块(读请求作用域头);
+        # 服务端文件不得用客户端取数函数(不带访客身份直连后端)。
+        working-directory: web
+        run: npm run check:api-layer
+
       - name: Locale runtime behavior tests (tsx, real TS SUT)
         # v1.6.0 门禁: locale redirect/rewrite proxy 契约(malformed cookie)、
         # withLocale/applyLocale 登录回跳、NON_LOCALIZED_PREFIXES 边界、

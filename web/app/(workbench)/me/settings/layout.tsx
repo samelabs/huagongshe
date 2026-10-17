@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers, headers as nextHeaders } from "next/headers";
 import { redirect } from "next/navigation";
-import { apiGet } from "@/lib/api";
+import { apiGet } from "@/lib/api.server";
 import type { User } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale, splitLocalePrefix } from "@/lib/localePath";
