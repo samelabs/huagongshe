@@ -255,7 +255,13 @@ async def execute_search(
         structure_enter as _structure_enter,
         structure_exit as _structure_exit,
     )
+    from .cb import CB_LOCALES as _CB_LOCALES
 
+    # locale 白名单归一: 只认 CB 语言枚举, 非法值按未传处理。
+    # 必须发生在缓存键之前 —— locale 在键里只能是极小枚举, 否则每个乱值
+    # 一个新键, TTL 300s 的 Redis 键空间被无界放大; 归一后 name_local
+    # 行为不变(attach_local_names 本就按同一白名单跳过非法值)。
+    locale = locale if locale in _CB_LOCALES else None
     offset = (page - 1) * page_size
     # 缓存键带 locale: 结果里的化合物名称随请求语言变化(当地名兜底英文),
     # 不带 locale 会出现 TTL 内跨语言串值。

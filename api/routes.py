@@ -69,7 +69,9 @@ async def search(
     page: int = Query(1, ge=1, le=20),
     page_size: int = Query(30, ge=1, le=100),
     # I-086: 请求 locale, 化合物条目附 name_local(该语言 CB 当地名)。
-    locale: str | None = Query(None),
+    # 长度上限与 /data/v1 同口径: locale 是极小枚举, 超长乱值在传输层即 422,
+    # 不让它进服务层缓存键(键空间有界)。
+    locale: str | None = Query(None, max_length=10),
     db=Depends(get_db),
 ):
     """One entry point for names, external identifiers, SMILES and structures."""
