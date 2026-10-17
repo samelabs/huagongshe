@@ -293,6 +293,32 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
             self._auth_headers(client_id, TOKEN, path))
         self.assertEqual(self._status(response), 401)
 
+    async def test_auth_failure_flood_rate_limited(self):
+        # 同一来源 IP 的鉴权失败有 per-IP 失败桶 —— 桶满后请求
+        # 在查库前即被拒(429 rate_limited), 无效凭证不再每次实打实查库。
+        # IP 取自本轮随机串: 失败桶在测试 Redis 里是固定窗口, 防跨轮串桶。
+        ip = f"10.{int(self.run[:2], 16)}.{int(self.run[2:4], 16) % 254 + 1}.7"
+        path = f"/data/v1/chemicals/{self.hcid}"
+        statuses = []
+        for _ in range(data_api.AUTH_FAIL_LIMIT + 5):
+            headers = {
+                "x-real-ip": ip,
+                "authorization": "Bearer no-such-token",
+                "x-client-id": "hgsd-no-such-client",
+                "x-timestamp": str(int(time.time())),
+                "x-nonce": uuid.uuid4().hex,
+                "x-signature": "0" * 64,
+            }
+            statuses.append(self._status(
+                await self._call(data_api.chemical_detail, path, "", headers)))
+            if statuses[-1] == 429:
+                break
+        self.assertIn(429, statuses, "失败桶最终应拒绝")
+        # check 是 count<=limit 放行: 第 LIMIT+1 次仍放行并计数, 再下一次
+        # 预检才拒 —— 401 恰出现 LIMIT+1 次。
+        self.assertEqual(statuses.count(401), data_api.AUTH_FAIL_LIMIT + 1)
+        self.assertEqual(statuses[statuses.index(429) - 1], 401)
+
     # ── 额度 ────────────────────────────────────────────────────────
 
     async def test_quota_exceeded_returns_429_with_retry_after(self):

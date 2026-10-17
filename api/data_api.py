@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from .core.database import get_db
+from .core import rate_limit
 from .services.chemicals import ChemicalNotFoundError, get_chemical_detail
 from .services.data_api.auth import (
     DataApiAuthError, authorize_scope, body_sha256_hex, check_nonce,
@@ -46,6 +47,13 @@ REACTION_PAGE_SIZE_DEFAULT = 20
 # 采集/刷新入队走后台优先级(与站内后台刷新同档), 不占用户优先级。
 ENRICH_PRIORITY_BACKGROUND = 40
 SITE_ORIGIN = "https://huagongshe.com"
+# 鉴权失败 per-IP 桶: 无效凭证的请求不占凭证额度(enforce_quota 在鉴权
+# 之后), 不设桶则每次失败都实打实查一次库。失败才计数(check 只读预检,
+# 桶满即在此拒绝、不进查库路径); 拿不到来源 IP 不设桶并记警 —— 与站内
+# register/login 的缺 IP 处理同范式, 不落全站共享桶。
+AUTH_FAIL_BUCKET = "data-api-auth-fail"
+AUTH_FAIL_LIMIT = 30
+AUTH_FAIL_WINDOW_SECONDS = 60
 
 
 def _payload(request_id: str, **fields: Any) -> dict[str, Any]:
@@ -69,30 +77,53 @@ def _error_response(exc: Exception, request_id: str) -> JSONResponse:
     return response
 
 
+async def _count_auth_failure(ip: str) -> None:
+    """鉴权失败计数(失败才计数); 计数器故障只记日志, 不影响错误响应。"""
+    try:
+        await rate_limit.consume(
+            AUTH_FAIL_BUCKET, ip, AUTH_FAIL_LIMIT, AUTH_FAIL_WINDOW_SECONDS)
+    except Exception:  # noqa: BLE001 — 失败计数不可用不能拖垮鉴权本身
+        logger.warning("data api auth-failure counter unavailable", exc_info=True)
+
+
 async def _authenticate(request: Request, db, path_template: str):  # noqa: ANN202
-    """凭证校验链: 鉴权头 → 载入凭证 → 签名 → nonce → scope → 计量。
+    """凭证校验链: 鉴权失败 per-IP 预检 → 鉴权头 → 载入凭证 → 签名 → nonce
+    → scope → 计量。
 
     返回已通过校验的凭证; 失败抛 DataApiAuthError。签名按真实请求要素
-    (method / path / query / body 哈希 / timestamp / nonce)计算。
+    (method / path / query / body 哈希 / timestamp / nonce)计算。401 类
+    失败计入来源 IP 的失败桶, 桶满后请求在查库前即被拒(429)。
     """
-    auth = request.headers.get("authorization", "") or ""
-    token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
-    client_id = (request.headers.get("x-client-id", "") or "").strip()
-    timestamp = request.headers.get("x-timestamp", "")
-    nonce = request.headers.get("x-nonce", "")
-    signature = request.headers.get("x-signature", "")
-    if not token or not client_id or not timestamp or not nonce or not signature:
-        raise DataApiAuthError("unauthorized", "缺少鉴权头")
-    client = await load_client(db, client_id, token)
-    verify_signature(
-        token,
-        method=request.method, path=request.url.path, query=request.url.query,
-        body=await request.body(), timestamp=timestamp, nonce=nonce,
-        signature=signature)
-    await check_nonce(client.client_id, nonce)
-    authorize_scope(client, request.method, path_template)
-    await enforce_quota(client)
-    return client
+    ip = rate_limit.client_ip(request.headers)
+    if ip is None:
+        logger.warning(
+            "data api auth without client IP (no x-real-ip): fail bucket skipped")
+    elif not await rate_limit.check(
+            AUTH_FAIL_BUCKET, ip, AUTH_FAIL_LIMIT, AUTH_FAIL_WINDOW_SECONDS):
+        raise DataApiAuthError("rate_limited", "鉴权失败过于频繁，请稍后再试", status=429)
+    try:
+        auth = request.headers.get("authorization", "") or ""
+        token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+        client_id = (request.headers.get("x-client-id", "") or "").strip()
+        timestamp = request.headers.get("x-timestamp", "")
+        nonce = request.headers.get("x-nonce", "")
+        signature = request.headers.get("x-signature", "")
+        if not token or not client_id or not timestamp or not nonce or not signature:
+            raise DataApiAuthError("unauthorized", "缺少鉴权头")
+        client = await load_client(db, client_id, token)
+        verify_signature(
+            token,
+            method=request.method, path=request.url.path, query=request.url.query,
+            body=await request.body(), timestamp=timestamp, nonce=nonce,
+            signature=signature)
+        await check_nonce(client.client_id, nonce)
+        authorize_scope(client, request.method, path_template)
+        await enforce_quota(client)
+        return client
+    except DataApiAuthError as exc:
+        if exc.status == 401 and ip is not None:
+            await _count_auth_failure(ip)
+        raise
 
 
 @router.get("/chemicals/lookup")

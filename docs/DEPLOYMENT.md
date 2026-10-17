@@ -99,7 +99,12 @@ python -m ops.deploy --nginx-bootstrap
 ```nginx
 # 对外数据服务(/data/v1)直接转发给 FastAPI;
 # 该接口自带凭证鉴权(HMAC 签名 + nonce 防重放)与按凭证计量。
+# limit_req 补齐"无效凭证刷鉴权"的边界: 鉴权失败不占凭证额度, 应用侧
+# 另有 per-IP 失败桶(api/data_api.py AUTH_FAIL_*), nginx 层先挡量级洪水。
+# $binary_remote_addr 经 cloudflare-realip 后即真实访客 IP。
+limit_req_zone $binary_remote_addr zone=hgs_data_api:10m rate=10r/s;  # http {} 级
 location /data/ {
+    limit_req zone=hgs_data_api burst=20 nodelay;
     proxy_pass http://hgs_api;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
