@@ -34,7 +34,7 @@ import type { Locale } from "@/lib/i18n/locales";
  * Reaction Detail（DESIGN_SYSTEM 6.4 重排）。
  *
  * 头部（版式件 PageHead hero）：面包屑到分类 → h1 = 主反应物 → 主产物
- * （徽标 md copyable 随行，私有带锁）→ 署名（Byline + 作者关注）入 meta
+ * 徽标在操作行首位（私有带锁）→ 署名（Byline + 作者关注）入 meta
  * → 结构化事实摘要为副标题 → 操作行（本人：编辑/可见性/删除；他人：关注
  * + 分享 + 打印）入 actions。
  * 反应式：满宽白底卡片（手机可横向滚动不压缩）+ CodeField 反应 SMILES。
@@ -183,14 +183,7 @@ export default async function ReactionPage({ params }: {
           { label: t.chemical.home, href: withLocale("/", locale) },
           { label: t.reaction.category },
         ]}
-        title={<>{reactionTitle}<EntityBadge
-          kind="reaction"
-          id={reaction.id}
-          size="md"
-          copyable
-          state={reaction.visibility === "private" ? "private" : undefined}
-          ariaLabel={t.common.hridLabel(reaction.id)}
-        /></>}
+        title={reactionTitle}
         meta={reaction.creator && (
           <div className="rx-byline-row">
             <Byline
@@ -213,6 +206,13 @@ export default async function ReactionPage({ params }: {
           </div>
         )}
         actions={<>
+          <EntityBadge
+            kind="reaction"
+            id={reaction.id}
+            size="md"
+            state={reaction.visibility === "private" ? "private" : undefined}
+            ariaLabel={t.common.hridLabel(reaction.id)}
+          />
           <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
           <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
             <IconPrinter />

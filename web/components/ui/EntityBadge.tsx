@@ -15,22 +15,19 @@
  */
 import Link from "next/link";
 import { useDictionary } from "@/components/shared/I18nContext";
-import { CopyButton } from "./CopyButton";
 import { GlyphChem, GlyphRx, IconLock } from "./icons";
 
 export type EntityBadgeKind = "chemical" | "reaction";
 export type EntityBadgeSize = "xs" | "sm" | "md" | "lg";
 export type EntityBadgeState = "private" | "merged" | "deleted";
 
-export function EntityBadge({ kind, id, size = "sm", href, copyable, compact, state, redirectTo, ariaLabel, className }: {
+export function EntityBadge({ kind, id, size = "sm", href, compact, state, redirectTo, ariaLabel, className }: {
   kind: EntityBadgeKind;
   id: number | string;
   /** 20(xs 列表/行内) / 24(sm 默认) / 28(md 卡片标题) / 32(lg 详情页头) */
   size?: EntityBadgeSize;
   /** 传入后整个徽标渲染为链接 */
   href?: string;
-  /** 右侧附带复制按钮（mini） */
-  copyable?: boolean;
   /** 只显示字形 + 编号（表格列；前缀文字保留在 DOM 供无障碍，CSS 隐藏） */
   compact?: boolean;
   /** private：编号后锁标；merged/deleted：见组件头注释 */
@@ -98,13 +95,5 @@ export function EntityBadge({ kind, id, size = "sm", href, copyable, compact, st
     <span className={rootClass} aria-label={label}>{inner}</span>
   );
 
-  if (copyable) {
-    return (
-      <span className="hg-eb-copy">
-        {badge}
-        <CopyButton value={String(id)} ariaLabel={`${t.common.copy} ${prefix} ${id}`} />
-      </span>
-    );
-  }
   return badge;
 }

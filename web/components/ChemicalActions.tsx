@@ -123,6 +123,16 @@ export function ChemicalActions({ chemicalId, smiles, initialFollowing, initialC
             <div className="hg-menu-panel" role="menu">
               <Button
                 variant="ghost"
+                href={structureHref("substructure")}
+                onClick={() => setMenuOpen(false)}
+                role="menuitem"
+                data-menu-item
+              >
+                <IconSearch />
+                {t.chemical.substructure}
+              </Button>
+              <Button
+                variant="ghost"
                 href={structureHref("similarity")}
                 onClick={() => setMenuOpen(false)}
                 role="menuitem"

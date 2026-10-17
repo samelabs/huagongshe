@@ -241,7 +241,6 @@ export default async function ChemicalPage({ params }: {
           <>
             {iupacShow && <p className="chem-iupac">{iupacShow}</p>}
             <div className="chem-chips">
-              <EntityBadge kind="chemical" id={chemical.id} size="sm" copyable ariaLabel={t.common.hcidLabel(chemical.id)} />
               {chemical.cas_numbers[0] && source !== "cas" && (
                 <Tag className="chem-cas-chip">
                   CAS {chemical.cas_numbers[0]}
@@ -255,6 +254,7 @@ export default async function ChemicalPage({ params }: {
           </>
         }
         actions={<>
+          <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
           <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
           <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
             <IconPrinter />

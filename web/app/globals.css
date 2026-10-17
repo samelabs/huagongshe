@@ -234,7 +234,7 @@ main { flex: 1; background: var(--bg-page); }
 
 /* ══ Chemical Detail 头部内容件（版式由 PageHead/PageFrame 承担）══
    这里只剩标题区内容样式：IUPAC 行 / 事实 Tag 行 / 右侧结构件卡片。 */
-.chem-iupac { margin: 0; color: var(--text-muted); font-size: var(--fs-14); }
+.chem-iupac { margin: 0 0 var(--sp-3); color: var(--text-muted); font-size: var(--fs-14); }
 /* 胶囊行：全部同高 28px 居中；HCID 徽标与 CAS 复制钮在此行内收紧 */
 .chem-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .chem-chips .hg-tag { height: 28px; }
@@ -332,8 +332,14 @@ details.chem-group[open] > summary::after { content: "▴"; }
   .evidence-flat { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); }
   /* 头部手机序：标题块在前，IUPAC 隐藏，结构件满宽居下 */
   .chem-iupac { display: none; }
+  .hg-page-head-aside { flex-basis: 100%; width: 100%; }
   .chem-struct { width: 100%; min-height: 180px; }
   .chem-struct img { max-height: 180px; }
+  .hg-page-head-actions .hg-eb { order: -2; }
+  .hg-page-head-actions .chem-actions { order: -1; }
+  /* 操作行内徽标收窄为字形+编号（aria-label 全称保留在根上），五语言 375 单行 */
+  .hg-page-head-actions .hg-eb .k > span { display: none; }
+  .chem-substruct-btn { display: none !important; }
   /* 操作行（DESIGN_SYSTEM 5.5 / 6.3）：收藏 + 子结构检索并排，相似结构进更多 */
   .chem-actions-desktop { display: none !important; }
   .chem-actions-more { display: inline-flex !important; flex: none; }
