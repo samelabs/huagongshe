@@ -115,7 +115,7 @@ app.include_router(data_api_router)
 
 app.add_exception_handler(RequestValidationError, _validation_error_response)
 
-# : health 必须注册在 mount_mcp 之前 — MCP 子应用挂根会吞掉其后
+# health 必须注册在 mount_mcp 之前 — MCP 子应用挂根会吞掉其后
 # 所有路由(回归体检中曾发现 /api/health 404)
 @app.get("/api/health")
 async def health():

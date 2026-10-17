@@ -34,7 +34,7 @@ class FauxRedis:
 
 class TestLadder(unittest.TestCase):
     def test_ladder_shape(self):
-        # : 5错→5分; +2(=7)→10分; +1(=8)→30分; +1(=9)→停(半开30分)
+        # 5错→5分; +2(=7)→10分; +1(=8)→30分; +1(=9)→停(半开30分)
         self.assertEqual(LADDER, ((5, 300), (7, 600), (8, 1800), (9, 1800)))
 
     def test_silence_mapping(self):

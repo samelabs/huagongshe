@@ -148,7 +148,7 @@ class P3TruncationTests(unittest.TestCase):
         entity = read("components/EntityNotes.tsx")
         panel = read("components/workbench/panels/NotesPanel.tsx")
         self.assertIn('withLocale(`/note/${', entity)
-        # ：笔记面板行链接经 WbListRow（shared.tsx）统一 withLocale
+        # 笔记面板行链接经 WbListRow（shared.tsx）统一 withLocale
         self.assertIn("`/note/${note.id}`", panel)
         self.assertIn("withLocale(href, locale)", read("components/workbench/shared.tsx"))
 

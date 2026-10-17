@@ -88,10 +88,10 @@ class OptionalSectionRollbackTests(unittest.TestCase):
         snap = asyncio.run(run())
 
         opt = snap["optional"]
-        # 1: 出错 section 降级(negative 是唯一 optional section)
+        # 出错 section 降级(negative 是唯一 optional section)
         self.assertFalse(opt["negative"]["available"])
         self.assertIn("division by zero", opt["negative"]["error"])
-        # 5: generated_at 正常生成(rollback 后 SELECT now() 成功)
+        # generated_at 正常生成(rollback 后 SELECT now() 成功)
         self.assertTrue(snap["generated_at"])
 
     def test_snapshot_enters_cache_not_lkg(self):
@@ -133,7 +133,7 @@ class OptionalSectionRollbackTests(unittest.TestCase):
 
         lkg = asyncio.run(scenario())
         cur = self.admin_mod._PIPELINE_STATS_CACHE["v"]["v"]
-        # 6: 新 snapshot 整体成功进入 cache(negative 单独降级)
+        # 新 snapshot 整体成功进入 cache(negative 单独降级)
         self.assertIsNot(cur, lkg)
         # 注入的 negative 失败在每个 snapshot 中均单独降级(唯一 optional)
         self.assertFalse(cur["optional"]["negative"]["available"])

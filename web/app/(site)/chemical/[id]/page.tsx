@@ -50,7 +50,7 @@ const UPDOWN_TAG_LIMIT = 12; // 上下游 Tag 每向默认显示数
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  // ：非法 ID 在 metadata 层同样 404，不给 422/500 留通道
+  // 非法 ID 在 metadata 层同样 404，不给 422/500 留通道
   if (!isEntityId(id)) notFound();
   const canonical = `/chemical/${id}`;
   const locale = await getRequestLocale();
@@ -105,7 +105,7 @@ export default async function ChemicalPage({ params }: {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   const hasSession = (await cookies()).has("hgs_session");
-  // : SSR 透传用户凭证(详情页 QPS 低可接受, 沿用)
+  // SSR 透传用户凭证(详情页 QPS 低可接受, 沿用)
   const sessionHeaders = hasSession
     ? { cookie: `hgs_session=${(await cookies()).get("hgs_session")?.value ?? ""}` }
     : undefined;

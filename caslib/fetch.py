@@ -15,7 +15,7 @@ import aiohttp
 log = logging.getLogger("caslib.fetch")
 
 BASE = "https://www.chemicalbook.com"
-# : 站点防爬升级为 JS 质询(_ancsi_ 令牌组, 纯HTTP客户端无法应答),
+# 站点防爬升级为 JS 质询(_ancsi_ 令牌组, 纯HTTP客户端无法应答),
 # Chrome 仿真 UA 全线 13B "SysTem ERROR！" / 42B "系统忙" 降级页(实测头/IP/TLS/
 # cookie 逐项排除)。Googlebot UA 走搜索引擎白名单直通(实测 EN/CN/CAS 三类页
 # 均 200 全量真页), 遂整体伪装。若上游启用反解域名验证再回退。
@@ -257,7 +257,7 @@ async def fetch_mol(
     rate: Any = None,
 ) -> str | None:
     """拉一个 mol 文件(站内绝对路径)。任何失败返回 None, 不抛。"""
-    # : 不做路径白名单 — 上下文锚已防误配, 此处只要求站内绝对路径+.mol
+    # 不做路径白名单 — 上下文锚已防误配, 此处只要求站内绝对路径+.mol
     import re as _re
     if not _re.fullmatch(r"/[^?]+\.mol", mol_href):
         return None

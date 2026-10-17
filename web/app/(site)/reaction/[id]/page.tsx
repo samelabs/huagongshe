@@ -50,7 +50,7 @@ function roleNames(t: Dictionary): Record<string, string> {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  // ：非法 ID 与页面同一口径 → 404
+  // 非法 ID 与页面同一口径 → 404
   if (!isEntityId(id)) notFound();
   const canonical = `/reaction/${id}`;
   const locale = await getRequestLocale();

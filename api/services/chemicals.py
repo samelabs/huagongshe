@@ -498,7 +498,7 @@ async def load_synonyms_page(db: Any, chemical_id: int, offset: int, page_size: 
 SUBSTRUCTURE_SNAPSHOT_CAP = 250
 
 SUBSTRUCTURE_SNAPSHOT_TTL = 300
-SUBSTRUCTURE_SNAPSHOT_SLOW_TTL = 60   # : 超时负缓存窗口
+SUBSTRUCTURE_SNAPSHOT_SLOW_TTL = 60   # 超时负缓存窗口
 
 
 def _is_statement_timeout(exc: Exception) -> bool:

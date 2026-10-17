@@ -134,7 +134,7 @@ export function NotesPanel({
     });
   }
 
-  // : ?edit=<id> → 拉取该笔记并直接进入编辑器（一次挂载效果）
+  // ?edit=<id> → 拉取该笔记并直接进入编辑器（一次挂载效果）
   useEffect(() => {
     if (!editNoteId) return;
     let active = true;

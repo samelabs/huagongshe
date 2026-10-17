@@ -610,7 +610,7 @@ class _SectionFailure(RuntimeError):
 
 
 async def _scan_critical(db) -> tuple:
-    # 3: 有界化 — 全部统计先 WHERE fetched_at >= current_date 再分组,
+    # 有界化 — 全部统计先 WHERE fetched_at >= current_date 再分组,
     # 删除无时间条件的全表聚合(locale total / cb total / PB all-time count)。
     # 索引(locale,fetched_at)/(fetched_at)上线后此形态即为索引范围扫。
     cb_locales = [
@@ -634,7 +634,7 @@ async def _scan_critical(db) -> tuple:
 
 async def _scan_negative(db) -> dict:
     # CB 负面观测账本 (无数据不落主表, 只落这里)。
-    # 3: 表量轻但只保留有界 today(observed_at >= current_date);
+    # 表量轻但只保留有界 today(observed_at >= current_date);
     # total 全表 count 已删。
     neg = (await db.execute(text("""
         SELECT count(*) FILTER (WHERE observed_at >= current_date)
@@ -900,7 +900,7 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
 
     return {
         # negative = CB secondary diagnostics(降级区), 不与 queue health 抢一级
-        # 3: supplier/seed runtime stats 已移除(无界/账本非运行时)
+        # supplier/seed runtime stats 已移除(无界/账本非运行时)
         "cb": {
             "queue": cb_queue, "error_buckets": cb_errors,
             "rate_1h": cb_rate,

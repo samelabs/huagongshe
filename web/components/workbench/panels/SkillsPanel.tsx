@@ -100,7 +100,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
         const value = await apiGet<PageResponse<SkillItem>>(`/skills?scope=mine&page=1&page_size=20`);
         setSkills(value);
         setState("ready");
-        // ：上传成功落到第 1 页时同步 URL，避免「看第 1 页、URL 第 N 页」
+        // 上传成功落到第 1 页时同步 URL，避免「看第 1 页、URL 第 N 页」
         if (page !== 1) router.replace(withLocale("/aichem?tab=skills", locale));
       } catch {
         setUploadNotice(t.me.skillUploaded(created.slug) + warn + " " + t.me.skillRefreshFailed);
@@ -130,7 +130,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
       // 删除成功即成功 — 刷新失败单独提示, 不报"删除失败",
       // 不重复提交删除。
       setUploadNotice(t.me.skillDeleted(slug));
-      // ：按当前页刷新；当前页被删空则退回上一页并同步 URL
+      // 按当前页刷新；当前页被删空则退回上一页并同步 URL
       const lastPage = Math.max(1, Math.ceil((skills.total - 1) / 20));
       const target = Math.min(page, lastPage);
       try {

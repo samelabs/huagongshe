@@ -251,7 +251,7 @@ async def sync_chemical_core(
     """), {
         "chemical_id": chemical_id,
         "sync_synonyms": validated is not None,
-        # : validate_synonyms 原是四层重构孤儿(全库零引用)。它是 PB
+        # validate_synonyms 是 PB
         # synonyms 上限防线(20万条/8MB), 接回写入口。校验 raise ValueError
         # → 此处捕获: 跳过 synonyms 写入(其余字段照写), log 留痕不静默。
         "synonyms": validated,

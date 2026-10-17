@@ -500,7 +500,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         self._rate = rate_limit.STRUCTURE_ACTOR_RATE_LIMIT
         # 本组只验并发层: 把 fixed-window 抬高, 免得两层混在一起
         rate_limit.STRUCTURE_ACTOR_RATE_LIMIT = 10_000
-        # : 真实 SMILES(直链烷烃, 10-49 个重原子) — 必须过生产
+        # 真实 SMILES(直链烷烃, 10-49 个重原子) — 必须过生产
         # canonicalize_smiles(无效合成串如 C9100001CO 会 400, 测试根本到不了
         # 闸门层)。run_search_query 整体 mock, 生产 validation/gate 不放松。
         self._queries = ["C" * (10 + i) for i in range(40)]

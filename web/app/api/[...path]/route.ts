@@ -38,7 +38,7 @@ async function proxy(request: NextRequest, path: string): Promise<NextResponse> 
     return notFound();
   }
 
-  // ：查询参数形式的渲染接口不再对外（只保留带扩展名的资源路由）
+  // 查询参数形式的渲染接口不再对外（只保留带扩展名的资源路由）
   if (/^\/api\/(mol|reactions)\/\d+\/(svg|png)$/.test(path)) {
     return notFound();
   }

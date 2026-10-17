@@ -583,7 +583,7 @@
   white-space: pre-line;
 }
 
-/* ：≤640 列表行改纵向三行布局 —
+/* ≤640 列表行改纵向三行布局 —
    ①类型图标+标题（最多 2 行省略） ②Tag+徽标（可换行） ③时间（左）+操作（右）。
    .wb-row-main / .wb-row-side 提升为 display:contents，让 title/meta/side
    直接成为行的 grid item（DOM 不动，纯 CSS 重排）。 */
@@ -823,7 +823,7 @@
 }
 .wb-person-row {
   display: grid;
-  /* ：Avatar 40 | 信息 | 关系标签 | 操作 */
+  /* 用户行 = Avatar 40 | 信息 | 关系标签 | 操作 */
   grid-template-columns: 40px minmax(0,1fr) auto auto;
   gap: var(--wb-sp-3);
   align-items: center;

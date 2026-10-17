@@ -77,7 +77,7 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
       if (prev) await apiDelete(endpoint);
       else await apiPost(endpoint);
       onChange?.(next);
-      // ：取消方向同样 Toast +「撤销」——两个方向反馈一致
+      // 取消方向同样 Toast +「撤销」——两个方向反馈一致
       toast.success(
         label === "favor"
           ? (next ? t.follow.favorToast : t.follow.unfavorToast)
@@ -102,7 +102,7 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   const text = following
     ? activeText || (label === "favor" ? t.follow.favoring : t.follow.following)
     : idleText || (label === "favor" ? t.follow.favor : t.follow.follow);
-  // ：图标形态（星标收藏）—— aria-label 用当前文案，已收藏实心
+  // 图标形态（星标收藏）—— aria-label 用当前文案，已收藏实心
   if (iconOnly) {
     return (
       <Button

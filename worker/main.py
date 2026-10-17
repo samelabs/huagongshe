@@ -343,8 +343,8 @@ async def process_cas_job(
             # 缺失时 callback upsert 收 cb=None 落 legacy NULL 粒度, 同 chemical
             # 的 CB001/en 与 CB002/en 互相覆盖(语言层折叠事故)。
             if entry is None:
-                # 判定成功的"无变体"(含空壳200): not_found — B-minimal
-                # : complete 侧据 (cb_number, locale) 落
+                # 判定成功的"无变体"(含空壳200): not_found — B-minimal;
+                # complete 侧据 (cb_number, locale) 落
                 # locale_variant negative observation; 大量条目无语言
                 # 变体, 重问窗内不再派发(retry 只产无效请求喂上游风控)。
                 payload = {"status": "not_found", "entry": None, "suppliers": [],
@@ -453,8 +453,8 @@ async def _cb_loop(
                 continue
             idle = 2.0
             for job in jobs:
-                # : 限速已下沉请求级(caslib._get), job 级 acquire 拆除
-                # — 否则双重间隔把有效 rps 再砍半。
+                # 限速已下沉请求级(caslib._get), job 级 acquire 拆除
+                # —— 否则双重间隔把有效 rps 再砍半。
                 await process_cas_job(session, workapi, job, rate=rate)
         except Exception as exc:
             _reraise_fatal_auth(exc)

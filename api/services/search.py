@@ -307,7 +307,7 @@ async def execute_search(
         if cas_fetch_pending:
             data["cas_fetch_pending"] = True  # 前端提示: 正在获取该CAS数据
         if cas_fetch_hit_id:
-            # : 同步拉命中 — 数据已落库, 前端直接跳详情页
+            # 同步拉命中 — 数据已落库, 前端直接跳详情页
             data["cas_fetch_chemical_id"] = cas_fetch_hit_id
         if mode != "exact":
             await _cache_set(cache_key, data, ttl=300)
@@ -346,8 +346,8 @@ async def run_search_query(
     chemicals: list[dict[str, Any]] = []
     total: int | None = None
     cas_fetch_pending = False
-    cas_fetch_hit_id: int | None = None  # : 同步拉命中, 前端直跳详情页
-    capped = False  # : substructure snapshot 达到产品上限(250)
+    cas_fetch_hit_id: int | None = None  # 同步拉命中, 前端直跳详情页
+    capped = False  # substructure snapshot 达到产品上限(250)
     clauses: list[str] = []
     params: dict[str, Any] = {}
     try:
@@ -357,7 +357,7 @@ async def run_search_query(
             if not canonical:
                 raise SearchError(INVALID_STRUCTURE, "无法识别该 SMILES 结构")
             canonical = bounded_substructure_smiles(canonical)
-            # : 有上限 GiST snapshot + Redis(同 chemicals.substructure_page) —
+            # 有上限 GiST snapshot + Redis(同 chemicals.substructure_page) —
             # 无序 GiST 必被 planner 选中, 深页不再重扫候选集, TTL 内分页确定。
             from .chemicals import (SUBSTRUCTURE_SNAPSHOT_CAP, hydrate_chemicals,
                                     substructure_snapshot)
@@ -580,7 +580,7 @@ async def run_search_query(
         reactions = await reaction_lookup(
             db, query, page_size, actor_id=actor_id
         ) if mode == "exact" and page == 1 else []
-        # : 身份键唯一命中直达 — 无歧义身份键(CAS/InChIKey/canonical SMILES/
+        # 身份键唯一命中直达 — 无歧义身份键(CAS/InChIKey/canonical SMILES/
         # 显式 id:/cid: 前缀)且恰 1 行化合物 0 反应 → 前端/API 跳详情页。
         # 纯数字无前缀不直达: hcid/cid/hrid 三路天然歧义。
         if (
