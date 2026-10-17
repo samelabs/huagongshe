@@ -12,7 +12,7 @@
 |---|---|
 | `web/app/tokens.css` | 全部取值 |
 | 本文档 | 规则、组件契约、交互、模式、页面结构 |
-| `web/components/ui/` + `/dev-ui` | 组件实现与活样张（非生产环境可访问）。样张与本文档冲突时，以本文档为准，修样张 |
+| `web/components/ui/` | 组件实现 |
 
 非目标：不改数据库、身份裁定、API / MCP 语义；不做暗色模式。
 
@@ -24,7 +24,7 @@
 
 - 图形标：尖顶六边形，里面是字母 H，横画是两条平行线（双键）。字标 HGS 以 SVG 路径交付，不用文字字体排版。
 - 中文副标“化工社”只在 `zh-CN` 横版组合中出现，与字标之间用 1px × 16px 分隔线隔开；其他语言只显示 HGS。
-- 资源在 `web/public/brand/`：`hgs-mark.svg`（浅色底）、`hgs-mark-on-dark.svg`（深色底）、`hgs-mark-line.svg`（品牌色底、App 图标）、`hgs-mark-16.svg`（favicon）、`hgs-wordmark.svg`、`hgs-lockup.svg`（OG 图）、`hgs-app-icon.svg`（PWA）。
+- 品牌源文件在仓库外 `brand/` 目录（不入库；`brand/build-brand-assets.mjs` 生成 public/app 图标产物，产物入库）：`hgs-mark.svg`（浅色底）、`hgs-mark-on-dark.svg`（深色底）、`hgs-mark-line.svg`（品牌色底、App 图标）、`hgs-mark-16.svg`（favicon）、`hgs-wordmark.svg`、`hgs-lockup.svg`（OG 图）、`hgs-app-icon.svg`（PWA）。
 - React：`<HgsLogo variant="lockup" | "mark" | "wordmark" size />`。尺寸：桌面顶栏 28，手机顶栏 24，登录卡和空态 44；组件最小 20，16 只用于 favicon。
 - 四周留白 ≥ 图形标宽度的 1/4。不加渐变（App 图标除外）、阴影、描边；不改比例和颜色。
 

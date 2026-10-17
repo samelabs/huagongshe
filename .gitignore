@@ -35,3 +35,6 @@ local/stack/.env.local
 !local/stack/.env.local.example
 local/uploads/
 local/.dev*.log
+
+# 品牌源文件与生成脚本（不入库；产物在 web/public 与 web/app）
+brand/
