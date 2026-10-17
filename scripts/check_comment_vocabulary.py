@@ -90,7 +90,7 @@ def main() -> int:
                 break
 
     if violations:
-        print("新增行包含过程语言（编号/轮次/裁定类引用），请改写为领域语言：")
+        print("新增行包含过程语言（编号代号与决策过程用语），请改写为领域语言：")
         for item in violations:
             print(f"  {item}")
         return 1
