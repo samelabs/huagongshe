@@ -27,7 +27,6 @@ async def enforce_quota(client: DataClient) -> None:
         await rate_limit.enforce(MINUTE_BUCKET, str(client.id), client.rate_per_minute, 60)
         await rate_limit.enforce(DAY_BUCKET, str(client.id), client.rate_per_day, 86400)
     except rate_limit.RateLimited as exc:
-        retry = max(int(getattr(exc, "retry_after", 60) or 60), 1)
         raise DataApiAuthError(
             "rate_limited", "已超出该凭证的调用额度", status=429) from exc
     except rate_limit.RateLimitError as exc:

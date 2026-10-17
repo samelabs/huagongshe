@@ -30,14 +30,21 @@ _VALIDATION_TYPE_MESSAGES = {
     "string_type": "该字段必须是文本",
     "string_too_short": "内容过短",
     "string_too_long": "超出长度上限",
-    "greater_than": "数值超出上限",
-    "greater_than_equal": "数值超出上限",
-    "less_than": "数值低于下限",
-    "less_than_equal": "数值低于下限",
+    # 数值边界按「值的偏离方向」向用户表述: greater_than* 是下限约束,
+    # 值太小才触发; less_than* 是上限约束, 值太大才触发 —— 类型名描述的
+    # 是被违反的约束方向, 不是值的偏离方向, 不得按字面直译。
+    "greater_than": "数值低于下限",
+    "greater_than_equal": "数值低于下限",
+    "less_than": "数值超出上限",
+    "less_than_equal": "数值超出上限",
+    "too_short": "列表数量不足",
+    "too_long": "列表数量超出上限",
     "enum": "取值不在允许范围内",
     "bool_parsing": "该字段必须是布尔值",
     "int_parsing": "该字段必须是整数",
+    "int_from_float": "必须是整数",
     "float_parsing": "该字段必须是数值",
+    "string_pattern_mismatch": "格式不正确",
     "json_invalid": "内容格式不正确",
     "literal_error": "取值不在允许范围内",
 }
@@ -56,9 +63,8 @@ def _validation_error_response(request, exc: RequestValidationError) -> JSONResp
     message = f"{field}：{reason}" if field else reason
     # 对外数据服务的统一错误契约：{"error":{code,message},"request_id"}；
     # 参数校验发生在路由函数体之前，须在此处就按契约包络，否则消费方
-    # 要处理两种错误格式。request 由 FastAPI 异常处理器传入恒非空；
-    # 契约测试直调本函数传 None 时按站内形状处理。
-    if request is not None and request.url.path.startswith("/data/v1"):
+    # 要处理两种错误格式。
+    if request.url.path.startswith("/data/v1"):
         import uuid as _uuid
         return JSONResponse(status_code=422, content={
             "error": {"code": "invalid_parameter", "message": message},
