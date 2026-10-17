@@ -1,5 +1,5 @@
 /**
- * icons — v1.7 组件库图标（全站唯一图标来源，见 docs/DESIGN_SYSTEM.md 1.6）。
+ * icons — 组件库图标（全站唯一图标来源，见 docs/DESIGN_SYSTEM.md 1.6）。
  *
  * 24 视口图标逐字照抄；16 视口字形（g-chem / g-rx / lock）保留参考的
  * viewBox="0 0 16 16" 与原始坐标 —— 不做视口换算（换算会引入变换矩阵，

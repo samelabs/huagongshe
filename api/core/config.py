@@ -9,10 +9,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 def _version_from_repo() -> str:
     """产品版本唯一来源 = 仓库根 VERSION 文件(与 MCP serverInfo 同源)。
 
-    v1.7.2版本号只有一个来源。此前这里硬编码 "1.0.0"(所谓
-    "HTTP API contract version"), 导致 /api/health 与 app.version 和
-    MCP serverInfo(VERSION)漂移, 已删。读取方式与 api/mcp_server.py
-    的 _release_version 一致。
+    版本号只有一个来源: 硬编码 "1.0.0"(所谓 "HTTP API contract
+    version")会让 /api/health 与 app.version 和 MCP serverInfo(VERSION)
+    漂移, 已删除。读取方式与 api/mcp_server.py 的 _release_version 一致。
     """
     version_file = Path(__file__).resolve().parents[2] / "VERSION"
     try:

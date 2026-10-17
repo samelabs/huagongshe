@@ -646,12 +646,13 @@ async def _scan_negative(db) -> dict:
 
 async def _pipeline_refresh_stats(db) -> dict:
     """全量重扫描(critical 串行 + optional 各自容错), 返回 snapshot dict。
-    P1 : 提升为模块级 —— 同一段扫描逻辑供请求路径(冷启动同步)与
-    后台刷新任务(stale-while-revalidate, 独立 session)共用, 单一实现无分叉。
+
+    扫描逻辑为模块级单实现: 请求路径(冷启动同步)与后台刷新任务
+    (stale-while-revalidate, 独立 session)共用同一段, 无分叉。
     critical 失败向上抛(调用方决定降级路径); optional 失败埋 available=False。
 
-     3: supplier exact totals 与 seed exact totals 已从 runtime stats
-    移除 —— supplier 历史规模属 Governance/估算面(不做 8.67M 精确 count);
+    supplier exact totals 与 seed exact totals 不在 runtime stats 内:
+    supplier 历史规模属 Governance/估算面(不做 8.67M 精确 count);
     seed 属 ingestion 账本(Governance 展示), 不参与 60s runtime refresh。"""
     snapshot: dict[str, Any] = {}
     cb_locales, pb_today, pb_last_1h = await _scan_critical(db)
@@ -947,7 +948,7 @@ async def revive_errors(
     actor: Actor = Depends(admin),
     db=Depends(get_db),
 ):
-    """error 行手动复活(, 复核): 一键把该链全部 error 态翻回 queued。
+    """error 行手动复活: 一键把该链全部 error 态翻回 queued。
     与 worker 的"过期租约回收"同口径 —— error 行在入 error 态时已清空租约字段,
     故翻态只需改 status/updated_at; last_error_code 保留为留痕(下次派发失败会覆盖)。
     claim 只认 status='queued', 翻态后即可被 worker 正常认领。"""

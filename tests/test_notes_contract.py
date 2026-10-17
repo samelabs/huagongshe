@@ -1,4 +1,4 @@
-"""v1.7.0 Notes contract tests that do not require a database."""
+"""Notes contract tests that do not require a database."""
 
 from __future__ import annotations
 

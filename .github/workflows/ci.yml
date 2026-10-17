@@ -93,7 +93,7 @@ jobs:
         run: npm run check:api-layer
 
       - name: Locale runtime behavior tests (tsx, real TS SUT)
-        # v1.6.0 门禁: locale redirect/rewrite proxy 契约(malformed cookie)、
+        # 门禁: locale redirect/rewrite proxy 契约(malformed cookie)、
         # withLocale/applyLocale 登录回跳、NON_LOCALIZED_PREFIXES 边界、
         # 语言切换器、runtime 字典、canonical/hreflang/x-default 全部进 CI。
         # tsx --test 直接加载真实 .ts 实现, 无镜像、无临时编译协议。

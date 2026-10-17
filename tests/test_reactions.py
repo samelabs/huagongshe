@@ -142,7 +142,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn("list_my_reactions(", adapter_source)
 
     def test_api_version_matches_version_file(self) -> None:
-        # v1.7.2: 版本号单一来源(仓库根 VERSION); 旧的 "1.0.0 公共 API 版本"
+        # 版本号单一来源(仓库根 VERSION); 旧的 "1.0.0 公共 API 版本"
         # 约定已撤销
         from pathlib import Path as _Path
         version_file = (_Path(__file__).resolve().parents[1] / "VERSION")
@@ -160,7 +160,7 @@ class ApiTokenBoundaryTests(unittest.TestCase):
     """P2 边界归一: Token = credential, 与 API/MCP onboarding 解耦。"""
 
     def test_machine_contract_uses_ai_key_wording(self) -> None:
-        # v1.7.1: /api/agent-guide 已删, 机器契约术语只剩 MCP 面
+        # /api/agent-guide 已删, 机器契约术语只剩 MCP 面
         mcp_source = Path(inspect.getsourcefile(__import__("api.mcp_server", fromlist=["x"]))).read_text()
         self.assertNotIn("API Token", mcp_source)
         self.assertIn("AI Key", mcp_source)
@@ -173,7 +173,7 @@ class ApiTokenBoundaryTests(unittest.TestCase):
         self.assertIn('"token": plain', return_source)
         for coupling in ("agent_connection_text", "agent_guide_url", "api_base_url"):
             self.assertNotIn(f'"{coupling}"', return_source)
-        # v1.7.1: api.agent 模块整体退役(REST 不再对外, guide 端点删除)
+        # api.agent 模块整体退役(REST 不再对外, guide 端点删除)
         import importlib.util
         self.assertIsNone(importlib.util.find_spec("api.agent"))
 

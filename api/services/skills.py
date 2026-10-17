@@ -180,8 +180,8 @@ async def get_skill_detail(
     *,
     actor_id: int | None,
 ) -> dict[str, Any]:
-    """skill detail orchestration —— 自 api/skills.py::get_skill 下沉
-    (; HTTP/MCP 共用; slug 解析留 MCP adapter, 不在此层)。
+    """skill detail orchestration —— 自 api/skills.py::get_skill 下沉;
+    HTTP/MCP 共用, slug 解析留 MCP adapter, 不在此层。
 
     flow: load_accessible_skill → skill_files 查询 → SKILL.md 条件读取
     (missing → skill_md=None; decode errors="replace") → 组装。
@@ -213,7 +213,7 @@ async def get_skill_detail(
 # ---------------------------------------------------------------------------
 
 class SkillArchiveValidationError(Exception):
-    """技能 zip 校验失败的 neutral 语义错误(; 原 18 类 HTTP 400 全集)。
+    """技能 zip 校验失败的 neutral 语义错误(覆盖原 18 类 HTTP 400 全集)。
 
     kind ∈ {ARCHIVE_TOO_LARGE, INVALID_ARCHIVE, UNSAFE_PATH, DECOMPRESSION,
              EMPTY_ARCHIVE, ARCHIVE_LIMIT, MANIFEST_INVALID};
@@ -605,7 +605,7 @@ async def create_skill(
     idempotency_key: str | None,
     archive_loader: Callable[[int], Awaitable[bytes]],
 ) -> dict[str, Any]:
-    """shared skill create orchestration(; HTTP/MCP 共用)。
+    """shared skill create orchestration; HTTP/MCP 共用。
 
     payload loader 为 transport-neutral contract: await loader(limit) -> bytes;
     service 只决定读取时机与上限。硬冻结顺序:
@@ -854,7 +854,7 @@ async def update_skill_metadata(
 
 
 async def read_skill_file(db, skill_id: int, *, file_path: str) -> dict[str, Any]:
-    """技能内单文件读取唯一 owner(; access 判定仍由 adapter 的 404 映射桥承担)。
+    """技能内单文件读取唯一 owner(access 判定仍由 adapter 的 404 映射桥承担)。
 
     行为与迁移前逐字一致: manifest 行缺失 → 404 "文件不存在"; 非文本行 →
     404 "二进制文件请通过 archive 端点获取 zip"; FS 文件缺失 → 404 "文件不存在"。
@@ -880,7 +880,7 @@ async def read_skill_file(db, skill_id: int, *, file_path: str) -> dict[str, Any
 
 
 async def build_skill_archive(db, skill_id: int) -> bytes:
-    """技能 zip 组装唯一 owner(; 响应构造 / Content-Disposition 留 adapter)。
+    """技能 zip 组装唯一 owner(响应构造 / Content-Disposition 留 adapter)。
 
     manifest 行读取 + 目录/文件缺失判定 + 压缩均在 owner 内; 失败以
     SkillArchiveUnavailableError 表达(DIR_MISSING / FILE_MISSING / UNREADABLE),

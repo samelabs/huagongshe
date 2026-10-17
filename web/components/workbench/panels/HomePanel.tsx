@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/Field";
  * 数据全部来自现有读接口（SSR 预取传入，失败的流客户端补拉）：
  * - 我的内容：/users/me/notes、/users/me/reactions、/users/me/follows/chemicals
  * - 「最近」= 三个流按时间合并取前 8
- * - 关注动态：/users/me/notifications（v1.7 只有 new_reaction 事件）
+ * - 关注动态：/users/me/notifications（当前只有 new_reaction 事件）
  * - 动态卡片收藏初始态：/users/me/follows/reactions 的 id 集
  * 统计/问候用 counts + 本地时间；删除旧版三个统计卡与「连接 AI 助手」
  * 大提示框（入口收进快捷入口）。

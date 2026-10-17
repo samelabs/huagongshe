@@ -88,7 +88,7 @@ const en: Dictionary = {
     hridLabel: (id: number | string) => `HRID ${id}, reaction`,
     breadcrumb: 'Breadcrumb',
     close: 'Close',
-    /* v1.7 组件库 */
+    /* 组件库 */
     copy: 'Copy',
     copied: 'Copied',
     cancel: 'Cancel',

@@ -57,7 +57,7 @@ async def create_note(
         # (RateLimited→429, LimiterUnavailable→503), 与 reactions 等同口径。
         raise to_http_exception(exc) from exc
     except NoteReferenceError as exc:
-        # v1.7.0 L2: detail 升级为 {message, kind} 结构 — message 保持中文
+        # detail 为 {message, kind} 结构 — message 保持中文
         # 原文, kind 是稳定机器码(前端五语言分类); 纯字符串消费者的旧
         # 形态由 ApiError 结构分支兼容。
         raise HTTPException(
@@ -76,7 +76,7 @@ async def get_note(
 ):
     try:
         # Public notes are anonymous-readable. Private owner context is Web-only
-        # in v1.7.0: an API Key/other machine actor must not silently gain a
+        # (machine actors must not silently gain a
         # private Notes read surface before Notes has an explicit Agent contract.
         owner_session_id = (
             actor.id if actor is not None and actor.auth_kind == "session" else None
@@ -110,7 +110,7 @@ async def update_note(
     except NoteNotAccessibleError as exc:
         raise _note_not_found(exc) from exc
     except NoteReferenceError as exc:
-        # v1.7.0 L2: detail 升级为 {message, kind} 结构 — message 保持中文
+        # detail 为 {message, kind} 结构 — message 保持中文
         # 原文, kind 是稳定机器码(前端五语言分类); 纯字符串消费者的旧
         # 形态由 ApiError 结构分支兼容。
         raise HTTPException(

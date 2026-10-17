@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ShareButton — 分享（v1.7 支持 iconOnly ghost 图标形态）。
+ * ShareButton — 分享（支持 iconOnly ghost 图标形态）。
  * navigator.share 退回复制链接；复制成功用 Toast 反馈（图标形态 / feedback="toast"）
  * 或原地文案切换（默认文字形态，guide 页沿用）。
  * ：label/variant/size/className/ariaLabel 可覆盖 —— 公开主页

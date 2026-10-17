@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * NoteOwnerActions — 笔记详情页本人操作（v1.7)。
+ * NoteOwnerActions — 笔记详情页本人操作。
  * 编辑（secondary sm）→ 工作台笔记面板 ?edit=<id> 直接打开编辑器；
  * 删除（danger-quiet sm）经 useConfirm → DELETE /notes/{id}（现有端点）
  * → Toast + 跳回工作台笔记列表。

@@ -1,4 +1,4 @@
-"""v1.7.1 — REST 收为网站内部面 + 错误码化, 针对性测试。
+"""REST 收为网站内部面 + 错误码化, 针对性测试。
 
 1. optional_actor 依赖: AI Key(agent)对任意 REST 路由 401(kind=
    rest_agent_forbidden); 会话 cookie 与匿名行为不变;

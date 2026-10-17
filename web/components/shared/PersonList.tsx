@@ -21,7 +21,7 @@ export type PersonSummary = {
  *  「取消关注」）+ 关系标签。粉丝列表里的人按定义都关注了当前用户：
  *  is_following → 「互相关注」，否则「关注了你」（列表语义可客户端判定，
  *  不需要 API 补字段；「我的关注」列表的互相关注需要 per-person
- *  is_followed_by，v1.7 不新增 API，暂不显示）。 */
+ *  is_followed_by，无对应 API，暂不显示）。 */
 export function PersonList({ items, kind, onFollowChange }: {
   items: PersonSummary[];
   kind: "followers" | "following";

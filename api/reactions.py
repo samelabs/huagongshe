@@ -52,7 +52,7 @@ def _reaction_access_http(exc: ReactionAccessError) -> HTTPException:
     summary="校验并标准化反应草稿",
 )
 async def validate_reaction(body: ReactionBody, actor: Actor = Depends(current_actor)):
-    # v1.7.1: REST 已不接受 AI Key(optional_actor 层 401), agent-only 的
+    # REST 已不接受 AI Key(optional_actor 层 401), agent-only 的
     # require_scope 幂等/权限分支随之退役; MCP 侧 scope 检查在 mcp_server。
     # rate/kernel/assembly 下沉 services.reactions.validate_reaction_draft;
     # adapter 只余 auth/scope + neutral → HTTP 映射(400/409 + .R bridge)。

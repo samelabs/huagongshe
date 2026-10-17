@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * EntityId — EntityBadge 的兼容包装（v1.7 起视觉由 EntityBadge 承载）。
+ * EntityId — EntityBadge 的兼容包装（视觉由 EntityBadge 承载）。
  *
  * 旧调用方不改：compact=true → size="xs"，否则 size="sm"；
  * ariaLabel 透传。根元素保留 legacy 类名 entity-id —— globals.css /

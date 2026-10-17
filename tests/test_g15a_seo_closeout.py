@@ -191,7 +191,7 @@ class S2SearchMetadataTests(unittest.TestCase):
         cls.src = (REPO / "web/app/(site)/search/page.tsx").read_text(encoding="utf-8")
 
     def test_parameterized_search_is_noindex_follow(self):
-        # focus 参数（v1.7 手机顶栏搜索图标 → /search?focus=1）同样视为
+        # focus 参数（手机顶栏搜索图标 → /search?focus=1）同样视为
         # 内部参数页：noindex,follow，不产生 canonical/hreflang 集合。
         self.assertIn("const hasQuery = Boolean(params.q || params.mode || params.page || params.focus);", self.src)
         self.assertIn("robots: { index: false, follow: true }", self.src)

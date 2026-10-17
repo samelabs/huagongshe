@@ -5,7 +5,7 @@
  * - ogLocaleTag: 直接 import 真实实现验证五 locale 映射(不维护镜像映射表)
  * - localizedAbsoluteUrl: SITE_ORIGIN + withLocale 组合
  *
- * 运行(v1.6.0: tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`,
+ * 运行(tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`,
  * tsx --test 直接加载真实 .ts SUT, 不再使用 tsc 临时编译到 /tmp 的人工协议):
  *   npx tsx --test lib/alternates.test.mjs
  */

@@ -91,7 +91,7 @@ const ko: Dictionary = {
     hridLabel: (id: number | string) => `HRID ${id}, 반응`,
     breadcrumb: '브레드크럼',
     close: '닫기',
-    /* v1.7 组件库 */
+    /* 组件库 */
     copy: '복사',
     copied: '복사됨',
     cancel: '취소',

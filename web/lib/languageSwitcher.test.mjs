@@ -4,7 +4,7 @@
  * SUT: web/lib/localePath.ts 的 replaceLocalePrefix(自 LanguageSwitcher 迁入,
  * 已删除组件内复制实现)。本文件只含断言, 不复制业务函数。
  *
- * v1.6.0: tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
+ * tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
  * (tsx --test 直接加载真实 .ts SUT, 不再使用 tsc 临时编译到 /tmp 的人工协议):
  * npx tsx --test lib/languageSwitcher.test.mjs
  *

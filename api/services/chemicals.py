@@ -518,7 +518,7 @@ def _is_statement_timeout(exc: Exception) -> bool:
 
 def _snapshot_total(ids: list[int], offset: int, page_size: int,
                     snapshot_capped: bool | None = None) -> int | None:
-    """snapshot 分页 total 语义(, 只修元数据):
+    """snapshot 分页 total 语义(只修元数据):
 
     - snapshot 未满 cap ⇒ 它就是本次检索的完整匹配集 → total 恒为 len(ids);
       (#4: cap 判定必须用排除自身前的 snapshot 长度 — 排除后 249 会被

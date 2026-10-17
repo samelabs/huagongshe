@@ -1,7 +1,7 @@
 // proxy.ts 最小单测: 用 Next 官方 testing 工具 (next/experimental/testing/server)
 // 的 isRewrite / getRewrittenUrl / getRedirectUrl 验证 rewrite/redirect,
 // 不用自建 fetch mock 证明正确性。
-// v1.6.0: tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
+// tsx 已声明为 dev dependency, 统一入口 `npm run test:locale`
 // (tsx --test 直接加载真实 .ts SUT)。malformed cookie / locale redirect 契约
 // 正式进入 CI 回归门禁。
 import test from "node:test";

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Button — v1.7 组件库按钮（docs/DESIGN_SYSTEM.md 3.1）。
+ * Button — 组件库按钮（docs/DESIGN_SYSTEM.md 3.1）。
  *
  * variant: primary（每区域一个）/ secondary / tonal / ghost / danger / danger-quiet
  * size: sm 32 / md 40（默认）/ lg 48；iconOnly 时按方块渲染（必须给 aria-label）。

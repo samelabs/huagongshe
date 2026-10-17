@@ -1,4 +1,4 @@
-"""UI token contract for the v2.0 design-system rollout (docs/DESIGN_SYSTEM.md 第七章).
+"""UI token contract for the design system (docs/DESIGN_SYSTEM.md 第七章).
 
 Static source scans of web/app + web/components — no database, no network, no
 node. Checks:

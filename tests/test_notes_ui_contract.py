@@ -1,4 +1,4 @@
-"""v1.7.0 Notes / Workbench UI source contracts."""
+"""Notes / Workbench UI source contracts."""
 from __future__ import annotations
 import unittest
 from pathlib import Path
@@ -43,7 +43,7 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertIn("router.replace(withLocale(`/aichem?${params.toString()}`, locale))", src)
 
     def test_creation_actions_live_in_drawer_and_overview(self):
-        """v1.7 §9.4：桌面侧栏不再放「新建反应 / 新建笔记」（概览标题行
+        """桌面侧栏不再放「新建反应 / 新建笔记」（概览标题行
         承担创建入口），手机抽屉顶部保留一份（WbQuickActions 单一实现），
         不与底部 tab 功能重复。"""
         quick = (REPO / "web/components/workbench/WbQuickActions.tsx").read_text(encoding="utf-8")

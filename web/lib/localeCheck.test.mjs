@@ -1,4 +1,4 @@
-// 防回退静态检查（v1.7.1）：
+// 防回退静态检查：
 // 1. 非 zh-CN 字典值不得含中文字符（en、ko、de 零汉字，ja 不得中日混杂）；
 // 2. tsx 里不得出现 err.detail / error.detail 直接渲染或直接使用。
 import test from "node:test";

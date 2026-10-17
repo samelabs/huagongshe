@@ -2,7 +2,7 @@
 
 Opaque credentials are stored only as SHA-256 digests. The OAuth access-token
 family is intentionally separate from existing hgs_ API keys and is resolved
-only by the MCP adapter in v1.7.0.
+only by the MCP adapter.
 """
 from __future__ import annotations
 

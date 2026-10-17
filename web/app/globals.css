@@ -1,4 +1,4 @@
-/* v2.0: 设计 token 唯一来源是 tokens.css（docs/DESIGN_SYSTEM.md）；
+/* 设计 token 唯一来源是 tokens.css（docs/DESIGN_SYSTEM.md）；
    本文件只写组件样式，旧 :root 变量已收敛为语义 token。 */
 
 * { box-sizing: border-box; }
@@ -52,7 +52,7 @@ main { flex: 1; background: var(--bg-page); }
    行内文字链接/文字按钮统一 ui TextLink（.hg-text，样式在 components/ui/ui.css） */
 .section-heading p { margin: 0 0 8px; color: var(--action); font-size: var(--fs-12); font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
 /* ── EntityId · HCID/HRID 平台实体身份 ────────────────────
- * v1.7 起视觉/排版全部由 EntityBadge（components/ui/ui.css 的
+ * 视觉/排版全部由 EntityBadge（components/ui/ui.css 的
  * .hg-eb）承载；entity-id 只是兼容层（shared/EntityId.tsx）保留的
  * legacy 定位类名 —— 本文件与其余 CSS 只保留定位/布局规则。
  * 溢出防线由 .hg-eb 的 overflow:hidden 兜底（flex 子项自动最小尺寸为 0）。
@@ -392,7 +392,7 @@ details.chem-group[open] > summary::after { content: "▴"; }
 .pagination-link { background: none; border: 0; cursor: pointer; font: inherit; }
 .structured-form label:not(.hg-label), .form-stack label:not(.hg-label) { display: grid; gap: 7px; color: var(--text-muted); font-size: var(--fs-13); }
 /* select 元素层皮肤 — 全站唯一一份（工作台 aichem.css 不再重复定义）。
-   ：外观对齐 ui Select 组件（.hg-select）—— 去系统箭头、
+   外观对齐 ui Select 组件（.hg-select）—— 去系统箭头、
    画 CSS 箭头；仍是原生 select 元素，只改外观。 */
 select {
   border: 1px solid var(--border-strong); border-radius: var(--r-sm); outline: 0; padding: 10px 11px; color: var(--text); background: var(--bg-surface);
@@ -1305,13 +1305,13 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
 .pipe-revive-btn:hover { background: rgba(30,144,255,.08); }
 }
 
-/* v1.7 — public linked notes */
+/* ── 公开关联笔记 ── */
 .entity-notes-heading{display:flex;align-items:end;justify-content:space-between;gap:16px}
 .entity-note-list{display:grid;gap:12px;min-width:0;max-width:100%}
 .entity-note-card{border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;background:var(--bg-surface);min-width:0;max-width:100%}
 .entity-note-card>p{white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;line-height:1.65;margin:10px 0 0;min-width:0}
 .entity-note-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-/* v1.7 EntityBadge 自带边框/底色 —— 外层链接只负责布局,不再画胶囊(避免双层边框) */
+/* EntityBadge 自带边框/底色 —— 外层链接只负责布局,不再画胶囊(避免双层边框) */
 .entity-note-links>a{display:inline-flex;text-decoration:none}
 /* 公开笔记卡两行摘要（署名用 ui/Byline） */
 .note-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;min-width:0}

@@ -23,7 +23,7 @@ class NoteNotAccessibleError(Exception):
 class NoteReferenceError(Exception):
     """One or more requested entity references are invalid or inaccessible.
 
-    kind 是稳定机器码(v1.7.0 L2: 前端按 kind 做五语言分类提示, 不解析
+    kind 是稳定机器码(前端按 kind 做五语言分类提示, 不解析
     中文 detail 原文); str(exc) 保持中文原文, adapter 层将 HTTP 400
     detail 升级为 {message, kind} 结构。
     - chemical_not_found: 部分 HCID 不存在
@@ -154,7 +154,7 @@ async def _validate_references(
             and row["moderation_status"] == "visible"
         )
         owned = row["created_by_user_id"] is not None and int(row["created_by_user_id"]) == actor_id
-        # v1.7.0 权限边界收口: 非所有者 + 非公开可见 → 统一
+        # 权限边界: 非所有者 + 非公开可见 → 统一
         # reaction_not_accessible, 与 HRID 不存在不可区分(不泄露存在性);
         # 无论笔记可见性与 HRID 是否真实存在。
         if not public_visible and not owned:

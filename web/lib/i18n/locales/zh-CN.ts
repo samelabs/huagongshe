@@ -95,7 +95,7 @@ const t = {
     hridLabel: (id: number | string) => `HRID ${id}，反应`,
     breadcrumb: '面包屑',
     close: '关闭',
-    /* ── v1.7 组件库（web/components/ui/）通用文案 ── */
+    /* ── 组件库（web/components/ui/）通用文案 ── */
     copy: '复制',
     copied: '已复制',
     cancel: '取消',

@@ -321,7 +321,7 @@ async def validate_reaction_draft(
     actor_id: int,
     body: ReactionBody,
 ) -> dict[str, Any]:
-    """shared validate orchestration(; HTTP/MCP 共用)。
+    """shared validate orchestration; HTTP/MCP 共用。
 
     neutral rate enforce(reaction-validate / str(actor_id) / 20 / 60)
     → to_thread(canonical kernel, CPU-bound 不回 event loop)
@@ -519,7 +519,7 @@ async def create_reaction(
     body: ReactionBody,
     idempotency_key: str | None,
 ) -> dict[str, Any]:
-    """shared create orchestration(; HTTP/MCP 共用)。
+    """shared create orchestration; HTTP/MCP 共用。
 
     共享 rate(reaction-write-minute/day, str(actor_id), settings 值, 先于 key 校验)
     → agent 缺 key 检查 → key 长度检查 → 幂等预检
@@ -655,7 +655,7 @@ async def update_reaction(
     reaction_id: int,
     body: ReactionBody,
 ) -> dict[str, Any]:
-    """reaction PUT 的唯一业务 owner(; 原 api/reactions.py 逐字迁移)。
+    """reaction PUT 的唯一业务 owner(行为与下沉前的路由实现逐字一致)。
 
     顺序(与迁移前逐条一致): agent 403 → rate(reaction-write-minute)
     → row lock(FOR UPDATE) → 存在性/owner 检查 → canonical kernel(to_thread)
@@ -731,7 +731,7 @@ async def delete_reaction(
     auth_kind: str,
     reaction_id: int,
 ) -> None:
-    """reaction DELETE 的唯一业务 owner(; 原 api/reactions.py 逐字迁移)。
+    """reaction DELETE 的唯一业务 owner(行为与下沉前的路由实现逐字一致)。
 
     顺序: agent 403 → row lock(FOR UPDATE) → 404 → 系统导入 403 → 非 owner 403
     → DELETE row(reaction_chemicals / reaction_follows 走 FK CASCADE)

@@ -14,7 +14,7 @@ import { TextLink } from "@/components/ui/TextLink";
 const roles = ["any", "reactant", "product", "reagent", "catalyst", "solvent"] as const;
 type Role = (typeof roles)[number];
 
-/** 手机默认展示的相关反应卡数（：其余 hidden，「显示更多」展开） */
+/** 手机默认展示的相关反应卡数：其余 hidden，「显示更多」展开 */
 const MOBILE_PREVIEW = 4;
 
 export function ReactionList({ chemicalId, initial, initialTotal }: { chemicalId: number; initial: ReactionSummary[]; initialTotal: number }) {

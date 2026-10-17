@@ -89,7 +89,7 @@ const ja: Dictionary = {
     hridLabel: (id: number | string) => `HRID ${id}、反応`,
     breadcrumb: 'パンくずリスト',
     close: '閉じる',
-    /* v1.7 组件库 */
+    /* 组件库 */
     copy: 'コピー',
     copied: 'コピーしました',
     cancel: 'キャンセル',

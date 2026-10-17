@@ -1,4 +1,4 @@
-"""单实例部署 owner(v1.5.2 R4-SINGLE)。
+"""单实例部署 owner。
 
 职责(仅此而已):
   1. fail-closed 检查执行用户不是 root(mutating deploy 禁 root)

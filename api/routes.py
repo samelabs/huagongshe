@@ -19,7 +19,7 @@ from .services.search import (
 from .rate_limit_http import to_http_exception  # noqa: E402  (HTTP 限流桥接)
 from .core.rate_limit import RateLimitError, client_ip  # noqa: E402
 
-# service 语义类别 → 基线 HTTP status 唯一映射(; detail 逐字不变)
+# service 语义类别 → 基线 HTTP status 唯一映射; detail 逐字不变
 _STATUS_BY_KIND = {
     INVALID_STRUCTURE: 400,
     SUBSTRUCTURE_TOO_SMALL: 422,

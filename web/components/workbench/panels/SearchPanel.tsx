@@ -20,7 +20,7 @@ import type { LoadState } from "../types";
 type SearchMode = "exact" | "substructure" | "similarity";
 
 /**
- * 工作台查询面板（：组件换 ui 库 —— Input/Button/Segmented/
+ * 工作台查询面板：组件用 ui 库（Input/Button/Segmented/
  * Skeleton/Notice/EmptyState；计算与业务逻辑不变）。
  * 搜索框 + 模式切换（精确/子结构/相似）+ 结果区
  */

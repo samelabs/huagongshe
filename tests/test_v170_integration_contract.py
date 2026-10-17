@@ -1,4 +1,4 @@
-"""Cross-domain v1.7.0 integration contract.
+"""Cross-domain integration contract.
 
 This test exists on the combined integration line to prove that adding Notes
 does not silently expand or couple the frozen MCP tool surface.

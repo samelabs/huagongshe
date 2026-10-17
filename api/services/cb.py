@@ -32,7 +32,7 @@ MAX_ENTRY_JSON_BYTES = 2_000_000  # 双保险: workapi 载荷上限内的条目�
 
 # CB 详情读路径 locale 白名单 — 与 web/lib/i18n/locales.ts SUPPORTED_LOCALES 同源
 # (API 侧唯一权威列表; 未列出的 locale 一律回落 en, 不做第二套协商)。
-# v1.6.0 收口: 此前 CB_DETAIL_LOCALES 与 CB_LOCALES 两份重复定义(silent drift 风险),
+# 收口: 此前 CB_DETAIL_LOCALES 与 CB_LOCALES 两份重复定义(silent drift 风险),
 # 现合并为单一权威 tuple; normalize/get_externals_row/cb_decide 全部消费同一份。
 # ru 已摘(误加未实测, ru 页对爬虫全封)。
 CB_LOCALES = ("zh-CN", "en", "ja", "de", "ko")
@@ -75,7 +75,7 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
             # legacy fallback(步骤 3/4): 同 locale 多个非-imprint source row 时,
             # ORDER BY cb_number ASC 建立稳定 tie-break — 只消除数据库随机性,
             # 不把时间/热度解释成 source 优先级, 不参与身份判定, 数据零修改
-            # (v1.6.0: 生产 84 组 no-imprint-match 暴露面实证需要确定性)。
+            # (生产 84 组 no-imprint-match 暴露面实证需要确定性)。
             row = (await db.execute(text("""
                 SELECT chemical_id,cas_number,entry,last_status,fetched_at,cb_number,locale
                 FROM chemistry.chemical_cb
@@ -101,7 +101,7 @@ async def get_externals_row(db: Any, chemical_id: int, *, locale: str = CB_DETAI
 async def get_suppliers(db: Any, chemical_id: int) -> list[dict[str, Any]]:
     # 收口: 老表迁移完成(profile 6,417/listing 449k), 双读回退桥拆除,
     # 只读两新表。旧表 chemical_supplier 已摘除。
-    # 对外 ref 一律为 caslib/redact.supplier_ref 不透明哈希(v1.7.1 起)。
+    # 对外 ref 一律为 caslib/redact.supplier_ref 不透明哈希。
     # 库内 ref 列保存原站标识形态(cb-supplier:{cbsid}), 属 DB 身份字段不出
     # 公开详情/MCP; 库内键与数据不变, 哈希在此出口计算。输出不含 cbsid 键。
     from caslib.redact import supplier_ref

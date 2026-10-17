@@ -1,4 +1,4 @@
-"""PUG View 整包解析 (: 一个请求拉整记录, 解析成结构化字段)。
+"""PUG View 整包解析: 一个请求拉整记录, 解析成结构化字段。
 
 规则(实测 CID 2244 验证, 346 节点):
 - 递归 Section 树按 TOCHeading 精确匹配; 缺 heading = 该化合物无数据, 跳过不造空壳
@@ -330,7 +330,7 @@ def parse_whole_record(payload: dict[str, Any]) -> dict[str, Any] | None:
             ghs_codes["signal_word"] = signal
     out["ghs_codes"] = ghs_codes
 
-    # ── 反应性(: exp_props/exp_limits 派生已废, 原文在证据树) ──
+    # ── 反应性: exp_props/exp_limits 派生已废, 原文在证据树 ──
 
     # ── reactivity ──
     reactivity: dict[str, Any] = {}

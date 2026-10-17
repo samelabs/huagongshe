@@ -18,7 +18,7 @@ import { IconStar, IconUsers, IconLock, IconTrash, IconOk, IconInfo, IconWarn, I
 import "./dev-ui.css";
 
 /**
- * /dev-ui — v2.0 组件库开发预览页（仅非 production）。
+ * /dev-ui — 组件库开发预览页（仅非 production）。
  * 组件活样张，规则见 docs/DESIGN_SYSTEM.md 第三层，
  * 用于像素级对照与键盘走查。
  * 按钮矩阵的 hover/pressed/focus 用 class 强制展示。

@@ -13,7 +13,7 @@ import type { User } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
 
 /**
- * 移动端抽屉导航（v1.7 起挂到 SiteHeader 的 mobileActions 插槽）。
+ * 移动端抽屉导航（挂到 SiteHeader 的 mobileActions 插槽）。
  * - 常驻 DOM，CSS transform 控制滑入/滑出（不走条件渲染）
  * - pathname 或 searchParams 变化时自动关闭（解决 tab 切换不收起）
  * - Escape / overlay 点击 / close 按钮均可关闭

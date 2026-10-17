@@ -1,8 +1,8 @@
 """Governance registry — 冻结结论的机械落实。
 
-v1.7.1 : REST 只供网站内部使用, 对外接入唯一入口是
-MCP。AGENT_HTTP 投影面整体退役(端点 /api/agent-guide 已删除; REST 路由
-不再接受 AI Key 凭据)。HTTP entrypoints 在 registry 中保留登记, 但其
+REST 只供网站内部使用, 对外接入唯一入口是 MCP。
+AGENT_HTTP 投影面已整体退役(端点 /api/agent-guide 已删除; REST 路由
+不接受 AI Key 凭据)。HTTP entrypoints 在 registry 中保留登记, 但其
 consumer 投影只有 WEB。
 
 事实源(证据优先级: runtime 代码 > 测试 > 消费者 > 公开契约 > 注释):
@@ -248,7 +248,7 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # notes(v1.7.0: independent user context; Web-first, no MCP surface)
+        # notes (independent user context; Web-first, no MCP surface)
         # ------------------------------------------------------------------
         Family("note.read", E.READ, scenarios=(
             S("detail", A.PUBLIC_OR_ACTOR, entrypoints=(
@@ -284,7 +284,7 @@ def _fams() -> list[Family]:
         )),
 
         # ------------------------------------------------------------------
-        # OAuth 2.1 connection protocol (v1.7 mixed-auth MCP)
+        # OAuth 2.1 connection protocol (mixed-auth MCP)
         # ------------------------------------------------------------------
         Family("oauth.discovery", E.READ, scenarios=(
             S("protected_resource_metadata", A.ANONYMOUS, entrypoints=(

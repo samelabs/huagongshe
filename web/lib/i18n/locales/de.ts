@@ -92,7 +92,7 @@ const de: Dictionary = {
     hridLabel: (id: number | string) => `HRID ${id}, Reaktion`,
     breadcrumb: 'Brotkrumen-Navigation',
     close: 'Schließen',
-    /* v1.7 组件库 */
+    /* 组件库 */
     copy: 'Kopieren',
     copied: 'Kopiert',
     cancel: 'Abbrechen',

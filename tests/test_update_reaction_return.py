@@ -177,7 +177,7 @@ class UpdateReactionReturnTests(_Base):
         self.assertEqual(db.rollback_count, 1)
 
     async def test_agent_edit_rejected_at_auth_entry(self):
-        """v1.7.1 REST 收口: AI Key 在鉴权入口(optional_actor)即 401,
+        """REST 收口: AI Key 在鉴权入口(optional_actor)即 401,
         路由函数收不到 agent 身份 —— 不再构造 agent 直调路由函数。"""
         import api.core.security as security
 

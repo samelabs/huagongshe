@@ -1,4 +1,4 @@
-"""v1.7.0 MCP agent-facing contract metadata.
+"""MCP agent-facing contract metadata.
 
 Locks only externally exposed MCP metadata. Business behavior remains covered by
 the existing service/governance tests.

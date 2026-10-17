@@ -315,7 +315,7 @@ class ToolSurfaceAndVersion(unittest.TestCase):
             self.assertEqual(done.stdout.strip(), expected, f"cwd={cwd}")
 
     def test_http_api_version_single_source(self):
-        """v1.7.2: settings.api_version 与 serverInfo 同源(仓库根 VERSION),
+        """settings.api_version 与 serverInfo 同源(仓库根 VERSION),
         不再是独立的 "HTTP contract version"。"""
         from api.core.config import settings
         self.assertEqual(settings.api_version,

@@ -86,7 +86,7 @@ app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
     lifespan=lifespan,
-    # v1.7.1 REST 只供网站内部使用, 对外接入唯一入口是 MCP(/mcp
+    # REST 只供网站内部使用, 对外接入唯一入口是 MCP(/mcp
     # 自描述 + protected-resource metadata); OpenAPI/文档不对公网暴露
     docs_url=None,
     openapi_url=None,

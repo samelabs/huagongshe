@@ -11,7 +11,7 @@ export const USER_SUBMITTED_SOURCE = "user_submitted";
 export class ApiError extends Error {
   /** 服务端 error detail(如 FastAPI {"detail": "..."}), 可能为空 */
   detail?: string;
-  /** v1.7.0 L2: 结构化 detail 的稳定机器码(如 Notes 引用校验 kind), 可能为空 */
+  /** 结构化 detail 的稳定机器码(如 Notes 引用校验 kind), 可能为空 */
   detailKind?: string;
   /** 字段级校验错误携带的字段名(invalid_field), 可能为空 */
   detailField?: string;
@@ -22,7 +22,7 @@ export class ApiError extends Error {
     else if (detail && typeof detail === "object" && "detail" in (detail as Record<string, unknown>)) {
       const inner = (detail as { detail: unknown }).detail;
       if (typeof inner === "string" && inner) this.detail = inner;
-      // v1.7.0 L2: Notes 400 detail = {message, kind} — message 回填 detail,
+      // Notes 400 detail = {message, kind} — message 回填 detail,
       // kind 单独透出供五语言分类; 其他对象形态不受影响。
       else if (inner && typeof inner === "object") {
         const { message, kind, field } = inner as { message?: unknown; kind?: unknown; field?: unknown };
@@ -59,7 +59,7 @@ export class ApiError extends Error {
 }
 
 /**
- * 统一报错文案函数（v1.7.1）：
+ * 统一报错文案函数：
  * 先按 detailKind 查字典 t.errors[kind]，查不到再用该场景的通用文案（fallback）。
  * 任何地方都不得直接渲染 err.detail。
  */

@@ -31,16 +31,81 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("日期+裁定", re.compile(
         r"(?:20\d{2}[-年/]\d{1,2}[-月/]\d{1,2})[^\n]{0,16}裁定"
         r"|裁定[^\n]{0,16}(?:20\d{2}[-年/]\d{1,2}[-月/]\d{1,2})")),
+    # ── 残句形态（机械删词后留下的坏句，只查注释段）──
+    # 版本演变引用（v1.x / 某版本起）
+    ("版本演变", re.compile(r"\bv\d+\.\d+\b")),
+    # 空括号（前后不贴字词字符，foo() 是函数名不算）或括号内以分隔标点开头
+    # （冒号后须跟空白，(:param) 是 SQL 具名参数不算）
+    ("残句空括号", re.compile(r"(?<![\w.])[（(]\s*[）)](?![\w])|[（(]\s*(?:[,;，；]|[：:]\s)")),
+    # 注释以悬空冒号或"数字:"开头（删编号后残留）
+    ("残句悬空开头", re.compile(r"^\s*(?:[：:](?!:)|\d+\s*[：:])")),
 ]
 
 # 领域语言里的合法用词（化合物身份治理的人工决断语义），不属过程引用
 ALLOW_PHRASES = ("需人工裁定", "身份裁定", "身份未裁定", "参与裁定", "裁决")
 
-# 不检查的路径：历史迁移档案（内容冻结）、验收工作区、依赖产物
 # 不检查的路径：历史迁移档案（内容冻结）、验收工作区、依赖产物、
 # 本脚本自身（词表模式定义必须包含被禁词）
 EXCLUDED_PARTS = ("migrations/history/", ".rc-acceptance/", "node_modules/",
                   "package-lock.json", "scripts/check_comment_vocabulary.py")
+
+
+def _docstring_lines(path: str) -> set[int]:
+    """py 文件的 docstring 行集（模块/类/函数首语句），用于把新增的
+    docstring 行也纳入残句判定。文件读不了（已删除等）返回空集。"""
+    cache = getattr(_docstring_lines, "_cache", None)
+    if cache is None:
+        cache = _docstring_lines._cache = {}
+    if path in cache:
+        return cache[path]
+    import ast
+
+    lines: set[int] = set()
+    target = REPO / path
+    if target.exists():
+        try:
+            tree = ast.parse(target.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError):
+            tree = None
+        if tree is not None:
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                    body = getattr(node, "body", None)
+                    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) \
+                            and isinstance(body[0].value.value, str):
+                        lines.update(range(body[0].lineno, body[0].end_lineno + 1))
+    cache[path] = lines
+    return lines
+
+
+def _comment_segment(path: str, line: str, lineno: int = 0) -> str | None:
+    """取该行的注释文本（剥掉注释标记）；非注释行返回 None。"""
+    stripped = line.strip()
+    if path.endswith(".py"):
+        pos = line.find("#")
+        if pos >= 0 and (pos == 0 or line[pos - 1] in " \t"):
+            return line[pos + 1:]
+        return line if lineno in _docstring_lines(path) else None
+    if path.endswith((".yml", ".yaml")):
+        return stripped[1:] if stripped.startswith("#") else None
+    if path.endswith((".ts", ".tsx", ".js", ".mjs", ".cjs")):
+        if stripped.startswith("//"):
+            return stripped[2:]
+        pos = line.find(" // ")
+        return line[pos + 3:] if pos >= 0 else None
+    if path.endswith(".css"):
+        if stripped.startswith("/*"):
+            return stripped[2:]
+        return stripped[1:] if stripped.startswith("*") else None
+    if path.endswith(".sql"):
+        pos = line.find("--")
+        return line[pos + 2:] if pos >= 0 else None
+    if path.endswith(".md"):
+        return line
+    return None
+
+
+COMMENT_ONLY_PATTERNS = {"版本演变", "残句空括号", "残句悬空开头"}
 
 
 def merge_base(base: str) -> str:
@@ -87,8 +152,11 @@ def main() -> int:
             continue
         if any(phrase in text for phrase in ALLOW_PHRASES):
             continue
+        segment = _comment_segment(path, text, lineno)
         for name, pattern in PATTERNS:
-            if pattern.search(text):
+            # 残句类只在注释文本上判；其余（编号/轮次/裁定）整行判
+            target = segment if name in COMMENT_ONLY_PATTERNS else text
+            if target and pattern.search(target):
                 violations.append(f"{path}:{lineno} [{name}] {text.strip()[:100]}")
                 break
 

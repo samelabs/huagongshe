@@ -1,4 +1,4 @@
-"""v1.7.2 — pubchem_identity_jobs 领任务/租约回收索引契约（20261015_01）。
+"""pubchem_identity_jobs 领任务/租约回收索引契约（20261015_01）。
 
 生产实测（约 25.6 万行, 全部终态）: worker 每次领任务都对全表顺序扫描 ——
 过期租约回收(WHERE status='leased' AND lease_expires_at<=now())无可用索引;

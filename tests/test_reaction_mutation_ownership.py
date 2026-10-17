@@ -438,7 +438,7 @@ class HttpMappingContractTests(unittest.IsolatedAsyncioTestCase):
         return ctx.exception
 
     async def test_agent_rejected_at_auth_entry_not_route_403(self):
-        """v1.7.1 REST 收口: AI Key 在鉴权入口(optional_actor)即 401,
+        """REST 收口: AI Key 在鉴权入口(optional_actor)即 401,
         路由函数收不到 agent 身份 —— 场景"agent 直调路由得 403"已不存在,
         不再构造 agent 身份直调路由函数。"""
         import api.core.security as security

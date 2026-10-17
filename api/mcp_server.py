@@ -134,7 +134,7 @@ def _render_busy() -> ToolError:
     return ToolError("Rendering concurrency limit reached. Try again shortly.")
 
 
-# MCP validation translator (A-03, v1.7 agent-contract closeout):
+# MCP validation translator:
 # reaction schemas raise Chinese ValueError messages for the REST/Web surface.
 # The MCP boundary maps those known messages to English; unknown messages get a
 # safe neutral fallback instead of leaking raw text. Field locations are kept.
@@ -377,8 +377,8 @@ async def _render_exit(held: list[str]) -> None:
 def _release_version() -> str:
     """MCP serverInfo.version = 仓库根 VERSION(产品发布版本)。
 
-    v1.7.2: 版本号只有一个来源 —— settings.api_version 同样读该文件
-    (api/core/config.py 的 _version_from_repo), 两处不再分版本轴。
+    版本号只有一个来源 —— settings.api_version 读同一文件
+    (api/core/config.py 的 _version_from_repo), 两处不分版本轴。
     这里只读文件, 不硬编码第二份版本号。
     """
     version_file = Path(__file__).resolve().parents[1] / "VERSION"
@@ -739,7 +739,7 @@ def build_mcp_server() -> MCPServer:
         # title 是客户端 UI 里展示的服务名(不带协议后缀); name 是机器标识,
         # 已被接入方当作稳定 ID 引用, 不得变更。
         title="HGS AIchem",
-        # serverInfo.version = 产品发布版本(仓库根 VERSION); v1.7.2 起
+        # serverInfo.version = 产品发布版本(仓库根 VERSION);
         # settings.api_version 读同一文件, 版本号单一来源。
         version=_release_version(),
         instructions=(

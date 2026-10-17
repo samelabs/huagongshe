@@ -1,4 +1,4 @@
-"""v1.7.0 Notes persistence, privacy and identity-reference integration tests."""
+"""Notes persistence, privacy and identity-reference integration tests."""
 
 from __future__ import annotations
 

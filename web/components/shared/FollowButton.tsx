@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FollowButton — 关注/收藏按钮（v1.7 起内部改用 ui/Button 组件，接口不变）。
+ * FollowButton — 关注/收藏按钮（内部用 ui/Button 组件，接口不变）。
  *
  * 乐观更新：点击立即翻状态并同步计数；成功且为「关注/收藏」方向时出 Toast
  * （带「撤销」）；失败回滚并 toast 报错；401 回滚后跳登录页带 next=当前页。
@@ -30,10 +30,10 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   onChange?: (following: boolean) => void;
   /** 默认 primary；rail 创建者卡片等场景传 tonal/sm */
   variant?: ButtonVariant;
-  /** 激活态（已关注/已收藏）的变体（：公开主页「已关注」= secondary） */
+  /** 激活态（已关注/已收藏）的变体：公开主页「已关注」用 secondary */
   activeVariant?: ButtonVariant;
   size?: ButtonSize;
-  /** 星标图标按钮（：搜索卡片 / 主页反应卡收藏）；aria-label 取当前文案 */
+  /** 星标图标按钮（搜索卡片 / 主页反应卡收藏）；aria-label 取当前文案 */
   iconOnly?: boolean;
   /** 带星标图标的文本按钮（如工作台关注动态卡） */
   withIcon?: boolean;

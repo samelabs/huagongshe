@@ -17,7 +17,7 @@ import type { LoadState, PageResponse, SkillItem } from "../types";
 const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, page_size: 20 });
 
 /**
- * v1.7.0 L3(+补正): 上传/删除失败提示按真实状态分类 —
+ * 上传/删除失败提示按真实状态分类 —
  * 401 会话失效 / 403 权限不足 / 429 限流各自专用文案(不挪用搜索专用
  * 的"结构检索需要登录"); 400/409 按后端业务校验机器码(起 detail
  * = {message, kind})映射五语言文案(zip 结构/slug 冲突/大小上限等可行动
@@ -92,7 +92,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
     form.append("file", file);
     try {
       const created = await apiPost<SkillItem & { warnings?: string[] }>("/skills", form);
-      // v1.7.0 L3 补正: 写请求成功即视为操作成功 — 成功提示先落定;
+      // 写请求成功即视为操作成功 — 成功提示先落定;
       // 后续列表刷新失败单独提示, 不反向报"上传失败", 也不重试写请求。
       const warn = created.warnings?.length ? t.me.skillUploadWarnings(created.warnings.length) : "";
       setUploadNotice(t.me.skillUploaded(created.slug) + warn);
@@ -127,7 +127,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
     setUploadError(null);
     try {
       await apiDelete(`/skills/${id}`);
-      // v1.7.0 L3 补正: 删除成功即成功 — 刷新失败单独提示, 不报"删除失败",
+      // 删除成功即成功 — 刷新失败单独提示, 不报"删除失败",
       // 不重复提交删除。
       setUploadNotice(t.me.skillDeleted(slug));
       // ：按当前页刷新；当前页被删空则退回上一页并同步 URL

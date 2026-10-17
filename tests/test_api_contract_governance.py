@@ -4,7 +4,7 @@
 - HTTP: 真实 FastAPI app route inventory ↔ scenario entrypoints(物理覆盖)
 - MCP: build_mcp_server().list_tools() ↔ registry(13)
 - WorkAPI: 真实 routes + ROUTE_SCOPE ↔ registry(10; 未知 scope fail-closed)
-- v1.7.1: REST 收为网站内部面 — AGENT_HTTP 投影与 /api/agent-guide 已退役
+- REST 收为网站内部面 — AGENT_HTTP 投影与 /api/agent-guide 已退役
 
 guide auth 对账原则: guide auth 字符串 ↔ (scenario.auth, required_scope)
 用显式语义映射, 每个合法组合逐条声明; 收紧仅当显式 selector scenario
@@ -215,7 +215,7 @@ class WorkApiCoverage(unittest.TestCase):
 
 
 class AgentHttpSurfaceRetired(unittest.TestCase):
-    """v1.7.1 : REST 只供网站内部使用, 对外接入唯一
+    """REST 只供网站内部使用, 对外接入唯一
     入口是 MCP。锁死退役事实: registry 零 AGENT_HTTP 投影、路由表无
     /api/agent-guide、api.agent 模块不存在。"""
 
@@ -321,7 +321,7 @@ class FrozenScenarioShapes(unittest.TestCase):
         fam = next(f for f in FAMILIES if f.id == "molecule.rendering")
         svg = fam.scenario("svg")
         png = fam.scenario("png")
-        # v1.7.1: AGENT_HTTP 投影面已整体退役(svg/PNG 均只投 WEB/MCP)
+        # AGENT_HTTP 投影面已整体退役(svg/PNG 均只投 WEB/MCP)
         self.assertNotIn(Consumer.AGENT_HTTP, svg.contract.consumers)
         self.assertNotIn(Consumer.AGENT_HTTP, png.contract.consumers)
         self.assertIn(Consumer.DISCOVERY, png.contract.consumers)

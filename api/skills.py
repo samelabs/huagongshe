@@ -248,7 +248,7 @@ async def validate_skill(
     file: UploadFile = File(...),
     actor: Actor = Depends(current_actor),
 ):
-    # v1.7.1: REST 已不接受 AI Key, agent-only 的 require_scope 分支退役;
+    # REST 已不接受 AI Key, agent-only 的 require_scope 分支退役;
     # MCP 侧 scope 检查在 mcp_server。
     # HGS-A4-01: 网页 REST 校验入口的交互预算(与创建 20/h 同维度)。
     # MCP validate_skill 不经此桶(MCP 侧走其自身调用路径), 不是全入口 CPU 防刷。
@@ -298,7 +298,7 @@ async def create_skill(
     # services.skills.create_skill(payload loader); adapter 只余 auth/scope
     # + loader 构造 + neutral → HTTP 映射。读文件时机由 service 决定
     # (rate→category→key→预检 之后才 loader(max+1)), 保持原 ordering。
-    # v1.7.1: agent-only 幂等 key 分支已随 REST 收口退役(MCP 侧映射在
+    # agent-only 幂等 key 分支已随 REST 收口退役(MCP 侧映射在
     # mcp_server; service 检查保留)。
 
     async def archive_loader(limit: int) -> bytes:
@@ -330,7 +330,7 @@ async def update_skill(
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):
-    # v1.7.1: REST 已不接受 AI Key, agent-only 的编辑封禁分支退役。
+    # REST 已不接受 AI Key, agent-only 的编辑封禁分支退役。
     current = await _load_accessible_skill_http(db, skill_id, actor)
     if current["owner_id"] != actor.id:
         raise HTTPException(403, {"message": "只能编辑自己创建的技能", "kind": "skill_not_owner"})
@@ -355,7 +355,7 @@ async def delete_skill(
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):
-    # v1.7.1: REST 已不接受 AI Key, agent-only 的删除封禁分支退役。
+    # REST 已不接受 AI Key, agent-only 的删除封禁分支退役。
     current = await _load_accessible_skill_http(db, skill_id, actor)
     if current["owner_id"] != actor.id:
         raise HTTPException(403, {"message": "只能删除自己创建的技能", "kind": "skill_not_owner"})

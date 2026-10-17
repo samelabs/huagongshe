@@ -22,7 +22,7 @@
 }
 
 /* ── 顶栏 ──
-   v1.7 ：工作台不再有自己的顶栏 —— 全站共用 components/shell/SiteHeader。
+   工作台不再有自己的顶栏 —— 全站共用 components/shell/SiteHeader。
    旧 .wb-topbar / .wb-topbar-inner / .wb-logo / .wb-topnav* / .wb-topbar-user 已删除。 */
 
 /* ── 汉堡按钮（挂 SiteHeader mobileActions 插槽；视觉走 .hg-btn ghost icon，
@@ -639,7 +639,7 @@
 }
 .wb-drawer-logout:hover { background: var(--err-bg); }
 
-/* 关注动态（v1.7 只有 new_reaction） */
+/* 关注动态（当前只有 new_reaction 事件） */
 .wb-feed-list { display: flex; flex-direction: column; gap: var(--wb-sp-4); }
 .wb-feed-item { display: flex; gap: var(--wb-sp-2); }
 .wb-feed-body { flex: 1; min-width: 0; display: grid; gap: 4px; justify-items: start; }
@@ -1203,11 +1203,11 @@
   padding-top: 2px;
 }
 
-/* 人员列表里的紧凑关注按钮（：FollowButton 已是 ui/Button hg-btn sm） */
+/* 人员列表里的紧凑关注按钮：FollowButton 已是 ui/Button hg-btn sm */
 .wb-shell .wb-person-actions .hg-btn { min-height: var(--h-sm); }
 
 /* ── MobileTabBar ──
-   v1.7 ：底栏统一为 components/shell/MobileTabBar（.sh-tabbar，样式在
+   底栏统一为 components/shell/MobileTabBar（.sh-tabbar，样式在
    components/shell/shell.css）；本文件旧 .mobile-tab-bar 块已删除。
    PWA 安全区让位由 .sh-tabbar 的 padding-bottom(env(safe-area-inset-bottom)) 处理。 */
 
@@ -1215,7 +1215,7 @@
    L9 — Mobile
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── 手机抽屉 ── 常驻 DOM，transform 切换；v1.7 视觉换新 token（1.5 / 2.1 浮层） */
+/* ── 手机抽屉 ── 常驻 DOM，transform 切换；浮层视觉用设计 token（1.5 / 2.1 浮层） */
 .wb-drawer-overlay {
   position: fixed; inset: 0;
   background: var(--wb-overlay);
@@ -1304,7 +1304,7 @@
 }
 
 /* ── 桌面 >640px ──
-   v1.7 ：手机断点与全站统一为 ≤640（SiteHeader 手机态 + MobileTabBar）。
+   手机断点与全站统一为 ≤640（SiteHeader 手机态 + MobileTabBar）。
    641–1024 平板区间：顶栏主导航进「更多」菜单，工作台保持桌面布局。 */
 @media (min-width: 641px) {
   .wb-burger { display: none; }
@@ -1640,7 +1640,7 @@
   flex-wrap:wrap;
   gap:var(--wb-sp-2);
 }
-/* v1.7 EntityBadge 自带边框/底色 —— 已选引用的移除按钮不再画胶囊(避免双层边框) */
+/* EntityBadge 自带边框/底色 —— 已选引用的移除按钮不再画胶囊(避免双层边框) */
 .wb-note-reference-chips>button{
   display:inline-flex;
   align-items:center;
