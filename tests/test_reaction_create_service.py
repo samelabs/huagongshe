@@ -1,4 +1,4 @@
-"""G3.1C — reaction create service 测试。
+""" — reaction create service 测试。
 
 锁:
 - shared create orchestration 全序(rate→key 校验→幂等预检→validation→resolve
@@ -467,7 +467,7 @@ class ArchitectureTests(unittest.TestCase):
         src = inspect.getsource(__import__(
             "api.services.search", fromlist=["x"]))
         self.assertNotIn("from ..reactions import", src)
-        # E9-B: 建行路径改为函数内局部 import, 同时引入 fail-closed 异常
+        # 建行路径改为函数内局部 import, 同时引入 fail-closed 异常
         self.assertIn("from .reactions import UnresolvedIdentityError, resolve_or_create_chemical", src)
 
     def test_single_implementation(self):

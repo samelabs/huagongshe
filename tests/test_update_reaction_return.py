@@ -1,11 +1,11 @@
-"""D001 — update_reaction 返回体契约回归测试(E3 后 owner 在 application service)。
+"""D001 — update_reaction 返回体契约回归测试(后 owner 在 application service)。
 
 锁:
 - 成功更新(visibility 变或不变)必须返回同一 reaction_response payload;
   此前 visibility 未变分支 fall-through 返回 None(200 null)。
 - visibility 副作用(notify 仅 private→public)、单次 commit、owner 前置。
 
-E3 变更: 行锁/owner 规则/参与者替换/统计/事务/通知下沉
+ 变更: 行锁/owner 规则/参与者替换/统计/事务/通知下沉
 services.reactions.update_reaction。本文件打桩目标随之从 adapter 模块迁移到
 service 模块(adapter 内已无 SQL/事务可打桩), 但**调用仍走 adapter**
 (api.reactions.update_reaction), 因此 HTTP 映射契约继续被覆盖。
@@ -79,7 +79,7 @@ class _Base(unittest.IsolatedAsyncioTestCase):
         return DB(), FakeActor(), FakeBody(new_visibility), events
 
     def _patched(self, events, new="public", notify_calls=None):
-        """E3: 打桩目标 = service 模块(adapter 已无 SQL/事务可打桩)。"""
+        """打桩目标 = service 模块(adapter 已无 SQL/事务可打桩)。"""
 
         def _notify(*a, **k):
             events.append(("notify",))
@@ -144,7 +144,7 @@ class UpdateReactionReturnTests(_Base):
         self.assertIn("return await reaction_response", src)
 
     async def test_case5_owner_gate_before_row_fetch(self):
-        """E3: owner 前置不变, 但 owner 现在是 service(源码结构锁)。
+        """owner 前置不变, 但 owner 现在是 service(源码结构锁)。
 
         service: agent 403 → FOR UPDATE → owner 检查 → canonical kernel;
         adapter: 零行锁/零 SQL(不得留半迁移)。

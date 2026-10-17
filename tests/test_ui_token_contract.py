@@ -2,13 +2,13 @@
 
 Static source scans of web/app + web/components — no database, no network, no
 node. Checks:
-1. No hex / rgb( / hsl( color literals outside tokens.css and an
+1. No hex / rgb(/ hsl(color literals outside tokens.css and an
    explicit file+line whitelist (data-driven colors, metadata literals).
 2. font-size only takes scale tokens / inherit / 16px iOS-zoom guard.
 3. border-radius only takes scale tokens / 999px / 50% / 0 / inherit.
 4. Every --wb-* in aichem-tokens.css is a pure alias of tokens.css vars.
 5. --green* / --warm* tokens must not reappear.
-6. No alert( / confirm( / prompt( calls in TSX (ConfirmDialog via useConfirm).
+6. No alert(/ confirm(/ prompt(calls in TSX (ConfirmDialog via useConfirm).
 7. Brand: components/ui/HgsLogo.tsx geometry byte-identical to SVG sources.
 8. Brand: public/brand/*.svg only hex exceptions beyond line whitelist.
 9. Entity display: no HCID/HRID display spelled outside EntityBadge.
@@ -82,10 +82,10 @@ def hex_scan_files() -> list[Path]:
     return scan_files() + brand_svg_files()
 
 # ── native-dialog ban (DESIGN_SYSTEM 7.5) ─────────────────────────────
-# ConfirmDialog (Step 4) replaces window.confirm; its hook returns a
+# ConfirmDialog replaces window.confirm; its hook returns a
 # function named ``confirm``, so a bare ``confirm(`` is legal only in
 # files that also call ``useConfirm``. window.alert/confirm/prompt and
-# bare alert(/prompt( have no legitimate producer and are always banned.
+# bare alert(/prompt(have no legitimate producer and are always banned.
 DIALOG_RE = re.compile(r"(?<![.\w])(alert|confirm|prompt)\s*\(")
 WINDOW_DIALOG_RE = re.compile(r"window\.(alert|confirm|prompt)\s*\(")
 CONFIRM_HOOK = "useConfirm("
@@ -185,7 +185,7 @@ class ColorLiteralTests(unittest.TestCase):
                 if "rgb(" in line or "hsl(" in line:
                     findings.append((rel(p), i, line.strip()[:140]))
         self.assertEqual([], findings)
-        # NOTE: rgba() (box-shadow tints) is deliberately out of scope in Step 1;
+        # NOTE: rgba() (box-shadow tints) is deliberately out of scope in ;
         # DESIGN_SYSTEM 7.3 (shadow policy) owns it in a later step.
 
 
@@ -296,7 +296,7 @@ class EntityBadgeDisplayTests(unittest.TestCase):
         self.assertEqual([], entity_spell_findings())
 
 
-# ── 7.7–7.8 BX-B1/B2: 旧类名清零 + ui 之外无原生表单元素 + eyebrow 禁止 ────
+# ── 7.7–7.8 /B2: 旧类名清零 + ui 之外无原生表单元素 + eyebrow 禁止 ────
 # 迁移终点（BX）：旧类名（button/wb-btn/empty-state/eyebrow/text-link/text-button）
 # 的样式定义与使用全部清除；原生表单元素只允许出现在 components/ui 与下方
 # 行级白名单（每条注明理由，禁止整文件豁免）。
@@ -347,7 +347,7 @@ NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
 
 
 class LegacyClassNameTests(unittest.TestCase):
-    """BX-B1/B2 ①：六类旧类名（class 属性使用 + CSS 定义）全部清零。"""
+    """/B2 ①：六类旧类名（class 属性使用 + CSS 定义）全部清零。"""
 
     def test_no_legacy_class_attributes(self):
         offenders = []
@@ -367,7 +367,7 @@ class LegacyClassNameTests(unittest.TestCase):
         self.assertEqual(offenders, [], "\n".join(offenders))
 
     def test_no_bare_button_class_attribute(self):
-        """旧 `.button` 类族（BX-B1 盘点第 7 类）同样清零 —— 按钮统一 .hg-btn。"""
+        """旧 `.button` 类族(盘点第 7 类）同样清零 —— 按钮统一 .hg-btn。"""
         offenders = []
         for p in scan_files():
             if p.suffix != ".tsx":
@@ -379,7 +379,7 @@ class LegacyClassNameTests(unittest.TestCase):
 
 
 class NativeFormElementTests(unittest.TestCase):
-    """BX-B1/B2 ②：components/ui 之外不允许原生 button/input/select/textarea，
+    """/B2 ②：components/ui 之外不允许原生 button/input/select/textarea，
     行级白名单除外（每条注明理由）。"""
 
     def test_no_native_form_elements_outside_ui(self):
@@ -409,7 +409,7 @@ class NativeFormElementTests(unittest.TestCase):
 
 
 class EyebrowBanTests(unittest.TestCase):
-    """BX-B1/B2 ③：eyebrow（英文大写 kicker）独立成条禁止 —— 分区标题就是 h2。"""
+    """/B2 ③：eyebrow（英文大写 kicker）独立成条禁止 —— 分区标题就是 h2。"""
 
     def test_no_eyebrow_class_anywhere(self):
         offenders = []

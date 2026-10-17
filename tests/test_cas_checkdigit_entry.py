@@ -1,12 +1,12 @@
-"""I-061 CAS 校验位 + I-026 在途 cas_job 详情态 — 针对性测试。
+""" CAS 校验位 + 在途 cas_job 详情态 — 针对性测试。
 
-I-061:
+
 1. valid_cas/cas_checkdigit_valid 纯函数正反例;
 2. 搜索入口: 校验位正确照常检索; 校验位错误 → SearchError(invalid_cas,
    "CAS 号校验位不正确") 且不建行;
 3. cb.py upsert: 校验位错误的 CAS 不追加进主表 cas_numbers, 正常的照加。
 
-I-026:
+
 4. cb_row=None 且无在途 cas_job → cb state none(absent);
    有 queued/leased job → queued; error(失败终态)不算在途。
 
@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, urlparse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from tests.db_gate import require_test_db  # I-058: 收口到统一闸(原内联 sentinel 等价)
+from tests.db_gate import require_test_db  # 收口到统一闸(原内联 sentinel 等价)
 try:
     DB_URL = require_test_db().split("?", 1)[0]
 except Exception:
@@ -72,7 +72,7 @@ async def _alloc_sentinel_id(conn) -> int:
 
 
 class CasCheckdigitPureTests(unittest.TestCase):
-    """I-061 纯函数: 不需要 DB。"""
+    """ 纯函数: 不需要 DB。"""
 
     def test_known_good_cas(self):
         from api.chemistry import valid_cas
@@ -194,7 +194,7 @@ class CasCheckdigitSearchEntryTests(unittest.TestCase):
 
 @_GATE
 class CasJobPendingDetailTests(unittest.TestCase):
-    """I-026: cb_row=None 时在途 cas_job → queued, 否则 absent(none)。"""
+    """cb_row=None 时在途 cas_job → queued, 否则 absent(none)。"""
 
     def run_coro(self, coro):
         return asyncio.run(coro)

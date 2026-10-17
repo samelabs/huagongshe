@@ -1,4 +1,4 @@
-"""G3.1B — reaction validation service 测试。
+""" — reaction validation service 测试。
 
 锁:
 - canonical kernel 错误矩阵: 3 种 neutral kind + exact detail(原 400/409 契约)
@@ -229,7 +229,7 @@ class HttpAdapterTests(unittest.TestCase):
             self.assertEqual(e.detail, {"message": detail, "kind": kind})
 
     def test_rate_bridge_via_enforce_neutral(self):
-        """service 冒泡 RateLimitError → handler G2.R bridge → 429。"""
+        """service 冒泡 RateLimitError → handler .R bridge → 429。"""
         import asyncio
 
         async def boom(*a, **k):
@@ -251,7 +251,7 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
     """§11: create/update kernel 适配位置与映射。"""
 
     def test_update_validation_after_owner_check(self):
-        # E3: update 全流程(行锁/owner/kernel/事务)在
+        # update 全流程(行锁/owner/kernel/事务)在
         # services.reactions.update_reaction。
         src = inspect.getsource(services_reactions.update_reaction)
         i_fupdate = src.index("FOR UPDATE")
@@ -261,7 +261,7 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
         self.assertLess(i_owner, i_kernel)
 
     def test_update_wraps_neutral_error(self):
-        # E3: kernel 消费 + neutral 错误在 service, HTTP adapter 映射。
+        # kernel 消费 + neutral 错误在 service, HTTP adapter 映射。
         svc_src = inspect.getsource(services_reactions.update_reaction)
         self.assertIn("to_thread(canonical_participants", svc_src)
         http_src = inspect.getsource(reactions_module.update_reaction)
@@ -269,7 +269,7 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
         self.assertIn("update_reaction_service", http_src)
 
     def test_create_wraps_neutral_error(self):
-        # G3.1C: create 全流程在 services.reactions.create_reaction;
+        # create 全流程在 services.reactions.create_reaction;
         # kernel 消费+neutral 错误在 service, HTTP adapter 映射。
         svc_src = inspect.getsource(services_reactions.create_reaction)
         self.assertIn("to_thread(canonical_participants", svc_src)
@@ -291,7 +291,7 @@ class UpdateCreateAdaptationTests(unittest.TestCase):
         self.assertNotIn("_HTTPException", seg)
 
     def test_transaction_ordering_unchanged(self):
-        # E3: 事务序(行锁 → kernel → UPDATE)现由 service 持有。
+        # 事务序(行锁 → kernel → UPDATE)现由 service 持有。
         src = inspect.getsource(services_reactions.update_reaction)
         # validation 仍在 FOR UPDATE 之后、UPDATE 之前
         self.assertLess(src.index("FOR UPDATE"),

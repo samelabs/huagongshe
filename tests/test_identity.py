@@ -1,18 +1,18 @@
-"""身份裁定机制测试矩阵 (2026-09-06 规范冻结版)。
+"""身份机制测试矩阵 (规范冻结版)。
 
 规范: docs/CHEMICALS_IDENTITY_GOVERNANCE.md。真库跑(需要 PG), 无库环境跳过。
 
 矩阵 (每项对应规范条款):
-1. 同 IK + 不同非空 CID → CONFLICT, 绝不能 absorb        (3.3 硬约束)
+1. 同 IK + 不同非空 CID → CONFLICT, 绝不能 absorb (3.3 硬约束)
 2. CAS 多候选 + 无 IK/CID → AMBIGUOUS, 任何候选行不得写入 (3.3)
-3. CAS 多候选 + IK 唯一匹配 → 正确归属                    (3.3)
-4. stale chemical_id 经 redirect 找到 canonical            (3.6.3)
-5. absorb 后所有注册引用均改指                             (3.6.1)
-6. registry 漏掉一个实际 FK 时测试必须失败                 (3.6.1)
-7. merge_log 有 before snapshot / evidence / reason        (3.6.2)
-8. 重复 name 改指不产生重复                                (3.6.4)
-9. absorb 未过 gate → MergeBlockedError, 无删除发生        (3.5)
-10. cid 命中 + 输入 ik 与行 ik 冲突 → CONFLICT             (3.3)
+3. CAS 多候选 + IK 唯一匹配 → 正确归属 (3.3)
+4. stale chemical_id 经 redirect 找到 canonical (3.6.3)
+5. absorb 后所有注册引用均改指 (3.6.1)
+6. registry 漏掉一个实际 FK 时测试必须失败 (3.6.1)
+7. merge_log 有 before snapshot / evidence / reason (3.6.2)
+8. 重复 name 改指不产生重复 (3.6.4)
+9. absorb 未过 gate → MergeBlockedError, 无删除发生 (3.5)
+10. cid 命中 + 输入 ik 与行 ik 冲突 → CONFLICT (3.3)
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ class IdentityResolutionTests(unittest.TestCase):
                 """), {"c": CAS, "ik": IK, "ik2": IK2, "a": CID_A, "b": CID_B})
                 # 审计表清理: 按 trigger 直清。
                 # 旧法按 source/target 子查询匹配, 但 absorb 删除 source 行后
-                # 子查询失配 → unit-test 记录残留生产表(0906 已人工清 96 笔)。
+                # 子查询失配 → unit-test 记录残留生产表(早期已人工清 96 笔)。
                 # redirect 无 trigger 列, 经 merge_log_id 级联定位。
                 await c.execute(text("""
                     DELETE FROM maintenance.chemical_identity_redirect
@@ -110,7 +110,7 @@ class IdentityResolutionTests(unittest.TestCase):
                         cas_numbers @> ARRAY[:c] OR inchikey IN (:ik,:ik2)
                         OR pubchem_cid IN (:a,:b)
                 """), {"c": CAS, "ik": IK, "ik2": IK2, "a": CID_A, "b": CID_B})
-                # cas_jobs 部分唯一索引 dedupe: 本测试前缀直清(0907 卫生收口)
+                # cas_jobs 部分唯一索引 dedupe: 本测试前缀直清(卫生收口)
                 await c.execute(text(
                     "DELETE FROM maintenance.cas_jobs"
                     " WHERE dedupe_key LIKE 'test-dedupe-%'"))
@@ -512,7 +512,7 @@ class IdentityResolutionTests(unittest.TestCase):
 
 
     def test_12_tightened_gate_ik_alone_never_merges(self):
-        """0906 终审收紧: IK 单独永不授权 destructive merge。
+        """收紧: IK 单独永不授权 destructive merge。
 
         a) 仅同 IK 两侧无 CID → BLOCKED(same_inchikey_without_entity_proof), 两行存活
         b) evidence_cid 与目标行 CID 一致(源行无CID) → ALLOW
@@ -1059,7 +1059,7 @@ class OneToOneMergeTests(IdentityResolutionTests):
 
 @unittest.skipUnless(DB_URL, "需要 PG")
 class GateCoverageTests(IdentityResolutionTests):
-    """0907 门禁覆盖: search CAS bypass 修复 + pubchem 强身份回补 gate。"""
+    """门禁覆盖: search CAS bypass 修复 + pubchem 强身份回补 gate。"""
 
     def test_cas_bypass_unique_hit_uses_resolver_id(self):
         # 1. CAS 唯一命中 → enqueue_cas_search_fetch 返回 resolver chemical_id

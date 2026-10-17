@@ -1,4 +1,4 @@
-"""E9-B §6 — WorkAPI receipt prune 脚本契约测试。
+""" §6 — WorkAPI receipt prune 脚本契约测试。
 
 覆盖:
 1. completed_at >= cutoff → 不删

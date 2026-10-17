@@ -30,7 +30,7 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertIn("createContext.reactionIds", src)
         self.assertIn("latestLoad = useRef(0)", src)
         self.assertIn("const created = creating && !editing", src)
-        # R3 landing semantics: after save the user must never be stranded on
+        # landing semantics: after save the user must never be stranded on
         # a list where the saved note cannot appear. page 1 + the list can
         # show it (visibility and entity filter both match) → refresh in
         # place; otherwise navigate to the saved note's own visibility list.
@@ -43,7 +43,7 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertIn("router.replace(withLocale(`/aichem?${params.toString()}`, locale))", src)
 
     def test_creation_actions_live_in_drawer_and_overview(self):
-        """v1.7 Step 8 §9.4：桌面侧栏不再放「新建反应 / 新建笔记」（概览标题行
+        """v1.7 §9.4：桌面侧栏不再放「新建反应 / 新建笔记」（概览标题行
         承担创建入口），手机抽屉顶部保留一份（WbQuickActions 单一实现），
         不与底部 tab 功能重复。"""
         quick = (REPO / "web/components/workbench/WbQuickActions.tsx").read_text(encoding="utf-8")
@@ -76,7 +76,7 @@ class NotesUiContractTests(unittest.TestCase):
             self.assertNotIn(forbidden, src)
 
     def test_home_overview_carries_create_actions(self):
-        """Step 8 §9.4：桌面创建入口 = 概览标题行（新建笔记 secondary +
+        """ §9.4：桌面创建入口 = 概览标题行（新建笔记 secondary +
         新建反应 primary）；手机收进顶栏「+」菜单（WbCreateMenu）。"""
         home = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
         self.assertIn('href={withLocale("/aichem?tab=notes&new=1", locale)}>{t.me.navNewNote}', home)
@@ -86,7 +86,7 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertIn('href={withLocale("/aichem?tab=notes&new=1", locale)}', menu)
 
     def test_home_recent_merges_three_streams(self):
-        """Step 8 §9.4 概览「最近」：反应/笔记/收藏按时间合并取前 8，
+        """ §9.4 概览「最近」：反应/笔记/收藏按时间合并取前 8，
         全部走既有读接口（SSR 预取）。"""
         home = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
         self.assertIn(".slice(0, 8)", home)
@@ -104,7 +104,7 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertNotIn(".wb-home-guide", css)
 
     def test_workspace_order_matches_product_ia(self):
-        """Step 8 §9.4：registry 分组收敛为 workspace/tools/network/account 四组
+        """ §9.4：registry 分组收敛为 workspace/tools/network/account 四组
         （agent 并入 tools，api-tokens 移入 tools 作「MCP 与 AI Key」，账户只留
         设置）。id 与 href 不变（深链/测试钉子稳定），只动展示分组与图标。"""
         src = (REPO / "web/components/workbench/registry.ts").read_text(encoding="utf-8")

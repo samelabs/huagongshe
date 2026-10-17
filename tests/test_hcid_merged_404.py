@@ -1,6 +1,6 @@
-"""I-054 — 已合并旧 HCID 的公开 404 契约(专项, 不做重定向)。
+""" — 已合并旧 HCID 的公开 404 契约(专项, 不做重定向)。
 
-现行裁定: absorb 物理删除旧行后, 旧 HCID 在所有公开面一律 404;
+现行absorb 物理删除旧行后, 旧 HCID 在所有公开面一律 404;
 maintenance.chemical_identity_redirect 仅供内部任务寻址(canonicalize_id),
 公开查询不跟随。本测试在存在 redirect 行的前提下锁定三个公开面:
 

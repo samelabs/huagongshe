@@ -1,4 +1,4 @@
-"""G3.1D — skill create service 测试。
+""" — skill create service 测试。
 
 锁:
 - payload loader contract + service ordering(rate→category→key→预检→loader→size
@@ -44,7 +44,7 @@ def _zip_bytes(files: dict[str, bytes]) -> bytes:
 
 SKILL_MD = b"---\nname: Test Skill\ndescription: A test skill\n---\nbody"
 
-# E1: 与生产失败行同口径的样本(path='.gitignore', size_bytes=34, 纯文本无 NUL, 无扩展名)。
+# 与生产失败行同口径的样本(path='.gitignore', size_bytes=34, 纯文本无 NUL, 无扩展名)。
 # 生产字节内容不可知(日志只留 sha256), 因此这里只对齐长度与文本/扩展名特征。
 GITIGNORE_TEXT = b".env\n*.log\nnode_modules/\n#pad\n"
 GITIGNORE_TEXT += b"#" * (34 - len(GITIGNORE_TEXT))
@@ -332,13 +332,13 @@ class ArchiveKernelTests(unittest.TestCase):
                          ["SKILL.md", "examples/out/model.bin"])
 
     def test_binary_content_with_text_extension_rejected(self):
-        """E1: 扩展名不再豁免放行目录 — .csv 内嵌 NUL 必须在 archive 阶段被拒(原先落到 DB → 500)。"""
+        """扩展名不再豁免放行目录 — .csv 内嵌 NUL 必须在 archive 阶段被拒(原先落到 DB → 500)。"""
         raw = _zip_bytes({"SKILL.md": SKILL_MD, "data.csv": b"a\x00b"})
         self._assert(raw, SkillArchiveValidationError.MANIFEST_INVALID,
                      "二进制文件只能放在 assets/ 或 examples/ 目录：data.csv")
 
     def test_extensionless_text_files_are_text(self):
-        """E1 生产 500 回归: .gitignore/LICENSE/Makefile 等无扩展名文本文件不得被判为二进制。"""
+        """ 生产 500 回归: .gitignore/LICENSE/Makefile 等无扩展名文本文件不得被判为二进制。"""
         raw = _zip_bytes({"SKILL.md": SKILL_MD, ".gitignore": GITIGNORE_TEXT,
                           "LICENSE": b"MIT License\n", "Makefile": b"all:\n\techo hi\n"})
         self.assertEqual(len(GITIGNORE_TEXT), 34)  # 与生产失败行 size_bytes 一致
@@ -453,7 +453,7 @@ class TransactionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seq[-1], "commit")  # commit 最后(SKILL.md+icon 2 行 files)
 
     async def test_extensionless_text_file_inserted_as_text(self):
-        """E1 回归: .gitignore 行以 is_text=true 落库(原先 false → CheckViolation 500)。"""
+        """ 回归: .gitignore 行以 is_text=true 落库(原先 false → CheckViolation 500)。"""
         db = _Exec(results=[("INSERT INTO community.skills", 99)])
         seen = []
         orig_exec = db.execute

@@ -1,4 +1,4 @@
-"""E9-B §3/§4 — Admin Pipeline 有界 SQL 与治理伪指标删除的防回归契约。
+""" §3/§4 — Admin Pipeline 有界 SQL 与治理伪指标删除的防回归契约。
 
 源码级锁:
 - chemical_cb locale 聚合前必须有 fetched_at 时间窗口

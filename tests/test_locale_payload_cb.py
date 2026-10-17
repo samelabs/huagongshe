@@ -1,4 +1,4 @@
-# 0907 locale payload cb_number 专项: 语言行 payload 缺 cb_number → callback
+# locale payload cb_number 专项: 语言行 payload 缺 cb_number → callback
 # 落 legacy NULL 粒度 → 同 chemical 不同 cb 的同 locale 行互相覆盖。
 # 复刻 worker locale 分支的 payload 构造并断言 cb_number 继承。
 import unittest

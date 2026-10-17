@@ -1,4 +1,4 @@
-"""v1.7.1 第 3 轮 — REST 收为网站内部面 + 错误码化, 针对性测试。
+"""v1.7.1 — REST 收为网站内部面 + 错误码化, 针对性测试。
 
 1. optional_actor 依赖: AI Key(agent)对任意 REST 路由 401(kind=
    rest_agent_forbidden); 会话 cookie 与匿名行为不变;
@@ -19,7 +19,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from tests.db_gate import require_test_db  # I-058: 统一测试库闸
+from tests.db_gate import require_test_db  # 统一测试库闸
 try:
     DB_URL = require_test_db().split("?", 1)[0]
 except Exception:

@@ -1,4 +1,4 @@
-"""G2.4B — Chemical Detail 共享编排与 enrichment neutral 化测试。
+""" — Chemical Detail 共享编排与 enrichment neutral 化测试。
 
 锁:
 - get_chemical_detail: exists/not-found/enrich 语义(07e8088 起核心/完整 (core/full)
@@ -150,7 +150,7 @@ class SharedDetailOrchestrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(str(ctx.exception), DETAIL_404)
 
     async def test_exists_returns_canonical_detail_core(self):
-        # E9-B: 缺省 enrich=core — 零 provider, details=None, status=current
+        # 缺省 enrich=core — 零 provider, details=None, status=current
         result = await chem.get_chemical_detail(
             _FakeDetailDB(), 1, actor_id=None, priority=50)
         self.assertTrue(DETAIL_BASE_FIELDS.issubset(result.keys()))
@@ -159,7 +159,7 @@ class SharedDetailOrchestrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result["details"])
 
     async def test_exists_full_returns_semantic_detail(self):
-        # E9-B: full 走 provider owner(此处全 mock 失败→unavailable 也不炸)
+        # full 走 provider owner(此处全 mock 失败→unavailable 也不炸)
         from unittest.mock import patch as _patch
         from api.services import cb as cb_module
         async def fake_row(d, cid):
@@ -255,7 +255,7 @@ class SharedDetailOrchestrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seen["user_id"], 42)
 
     async def test_enrich_core_full_diverge_in_orchestration(self):
-        """E9-B: core/full 是真实分叉 — core 提前返回零 provider;
+        """core/full 是真实分叉 — core 提前返回零 provider;
         详细差异证明见 tests/test_chemical_detail_unified.py。"""
         source = inspect.getsource(chem.get_chemical_detail)
         self.assertIn('if enrich == "core":', source)
@@ -313,10 +313,10 @@ class HttpAdapterTests(unittest.TestCase):
         self.assertNotIn("fill_detail_context(", src)
         self.assertNotIn("enqueue_chemical_if_needed", src)
         self.assertNotIn("request: Request", src)
-        self.assertNotIn("display_details", src)  # E9-B: display 投影随死端点删除
+        self.assertNotIn("display_details", src)  # display 投影随死端点删除
 
     def test_details_and_externals_routes_removed(self):
-        """E9-B 1.1: 死面端点删除, 无兼容 wrapper。"""
+        """ 1.1: 死面端点删除, 无兼容 wrapper。"""
         import api.routes as routes
         for route in routes.router.routes:
             path = getattr(route, "path", "")

@@ -1,4 +1,4 @@
-"""P1 (0912): stale-while-revalidate 契约 — pipeline / governance 双侧。
+"""P1 : stale-while-revalidate 契约 — pipeline / governance 双侧。
 
 规则来源(任务书):
 - 已有 snapshot 后, 任何用户请求都不得因 TTL 过期同步等待昂贵统计刷新
@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT))
 
 # HGS_DATABASE_URL 必须指向 asyncpg 驱动的测试库(import api.admin 时
 # create_async_engine 拒绝 psycopg2)。与 tests/test_cb_negative.py 同模式。
-# I-058: 统一走 db_gate(库名模式+sentinel), 不再自带缺省 DSN 回落。
+# 统一走 db_gate(库名模式+sentinel), 不再自带缺省 DSN 回落。
 from tests.db_gate import require_test_db
 try:
     _gated = require_test_db().split("?", 1)[0]
@@ -75,7 +75,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
                       gov_mod.governance_snapshot)
 
         _OPT = {k: {"available": True, "error": None, "value": None}
-                for k in ("negative",)}  # E9-B: supplier/seed runtime 已移除
+                for k in ("negative",)}  # supplier/seed runtime 已移除
 
         async def _gate(which: str):
             while not self.release[which]:
@@ -131,9 +131,9 @@ class StaleWhileRevalidateTests(unittest.TestCase):
 
     def _seed(self, mod, cache_name, *, ttl_back=10_000):
         opt = {k: {"available": True, "error": None, "value": None}
-               for k in ("negative",)}  # E9-B
+               for k in ("negative",)}  #
         getattr(mod, cache_name)["v"] = {
-            "v": {"critical": ([], 0, 0), "optional": opt,  # E9-B: 3 元组
+            "v": {"critical": ([], 0, 0), "optional": opt,  # 3 元组
                   "generated_at": "seed"},
             "ts": _t.monotonic() - ttl_back}
 
@@ -259,7 +259,7 @@ class StaleWhileRevalidateTests(unittest.TestCase):
         self.assertFalse(rb["stats"]["stale"])
 
     # 6: request DB session 结束后后台 refresh 仍安全 —
-    #    源码不变量: 后台路径用独立 async_session(), 请求 db 不进 task。
+    # 源码不变量: 后台路径用独立 async_session(), 请求 db 不进 task。
     def test_bg_refresh_uses_independent_session_source(self):
         src = (ROOT / "api" / "admin.py").read_text(encoding="utf-8")
         self.assertIn("async with async_session() as db", src)

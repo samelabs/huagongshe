@@ -1,4 +1,4 @@
-"""I-056: 供应商编号(cbsid)不出公开详情 — 对外 ref 用 caslib/redact.supplier_ref。
+"""供应商编号(cbsid)不出公开详情 — 对外 ref 用 caslib/redact.supplier_ref。
 
 泄漏链路(修复前): caslib/parse 生成 ref="cb-supplier:{cbsid}" → 库内
 chemical_supplier_profile.ref → get_suppliers 原样输出 → REST 详情

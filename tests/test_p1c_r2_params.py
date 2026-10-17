@@ -1,4 +1,4 @@
-"""R2: Notes filter param serialization — REAL behavior tests.
+"""Notes filter param serialization — REAL behavior tests.
 
 Executes the actual serialization helpers from NotesPanel.tsx in Node with a
 minimal DOM-free harness, asserting on real URLSearchParams output, not on
@@ -178,7 +178,7 @@ class R3SaveLandingTests(unittest.TestCase):
         cls.results = json.loads(cls.out_path.read_text(encoding="utf-8"))
 
     def test_private_created_under_public_filter_navigates(self):
-        # R3 core scenario: must NOT stay on the public-filtered list
+        # core scenario: must NOT stay on the public-filtered list
         self.assertEqual(
             self.results["private_created_under_public_filter"],
             "navigate-to-saved-visibility",
@@ -204,14 +204,14 @@ class R3SaveLandingTests(unittest.TestCase):
 
 class R6UiCloseoutTests(unittest.TestCase):
     def test_home_card_has_view_full_hint(self):
-        """R6 查看全文提示：概览重做（Step 8）后 HomePanel 笔记行改为单行标题行
+        """ 查看全文提示：概览重做（）后 HomePanel 笔记行改为单行标题行
         （链接直达详情页），note-view-full 提示在 EntityNotes 摘录卡上保留。"""
         src = (REPO / "web/components/EntityNotes.tsx").read_text(encoding="utf-8")
-        # BX-B1 迁移：text-button → ui TextLink（note-view-full 定位类保留）
+        # 迁移：text-button → ui TextLink（note-view-full 定位类保留）
         self.assertIn('<TextLink className="note-view-full"', src)
         self.assertIn("t.notes.viewFull", src)
         home = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
-        # Step 9 重设计：笔记行经 WbListRow（shared.tsx）统一 withLocale
+        # 重设计：笔记行经 WbListRow（shared.tsx）统一 withLocale
         self.assertIn('href={`/note/${note.id}`}', home)
         self.assertIn("withLocale(href, locale)", (REPO / "web/components/workbench/shared.tsx").read_text(encoding="utf-8"))
 
@@ -219,7 +219,7 @@ class R6UiCloseoutTests(unittest.TestCase):
         src = (REPO / "web/components/workbench/panels/NotesPanel.tsx").read_text(encoding="utf-8")
         # delete error must NOT set the fatal panel error state
         remove_fn = src[src.index("async function remove"):]
-        # Step 9 重设计：labels 块改为 filterOptions（Segmented 筛选）
+        # 重设计：labels 块改为 filterOptions（Segmented 筛选）
         remove_fn = remove_fn[:remove_fn.index("const filterOptions")]
         self.assertNotIn('setState("error")', remove_fn)
         self.assertIn("setActionError(t.notes.deleteFailed)", remove_fn)

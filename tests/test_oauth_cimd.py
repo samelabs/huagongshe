@@ -1,4 +1,4 @@
-"""B (I-072/I-071/I-073) — OAuth Client ID Metadata Document (CIMD) 针对性测试.
+"""B (//) — OAuth Client ID Metadata Document (CIMD) 针对性测试.
 
 覆盖(B6):
 1. URL 语法闸: http/无 path/fragment/用户信息/非默认端口/超长 → 拒绝;
@@ -9,7 +9,7 @@
    (private_key_jwt → invalid_client_metadata)、grant/response 规则同 DCR;
 5. 缓存: 缓存期内不重复拉取、过期重拉、过期且拉取失败拒绝(不用过期缓存兜底);
 6. 正常流程: 拉取 → 授权确认页(host 来源 + localhost 提示) → 换 token → refresh;
-7. I-071: 无效 client_id / redirect_uri 未登录时直接得 400 错误页, 不跳登录;
+7. 无效 client_id / redirect_uri 未登录时直接得 400 错误页, 不跳登录;
 8. 来源标记: DCR 注册行 source_type='dcr'; 授权管理列表 CIMD 带可信 host。
 
 拉取全部走可注入 fetcher 或打桩(测试不访问外网); DB 用真链测试库。
@@ -484,7 +484,7 @@ class BodyReadTests(unittest.TestCase):
 
 
 class RateLimitKeyTests(unittest.TestCase):
-    """1.3/1.4/R1: URL 桶每次尝试计; host 桶只计失败且拉取前预检;
+    """1.3/1.4/URL 桶每次尝试计; host 桶只计失败且拉取前预检;
     登录用户按人分桶; 无 IP 不落共用桶并告警。"""
 
     URL = "https://agent.example.test/c.json"
@@ -574,7 +574,7 @@ class RateLimitKeyTests(unittest.TestCase):
         self.assertTrue(any("client IP" in line for line in logs.output))
 
     def test_logged_in_actor_gets_per_user_bucket(self):
-        # R1: 登录用户按人限次(30/h) —— URL 桶挡不住同 host 换路径的横向
+        # 登录用户按人限次(30/h) —— URL 桶挡不住同 host 换路径的横向
         # 铺开, 按人才挡得住; 不再有匿名 IP 桶。
         calls = self._ensure(_ok_fetch(self.URL), actor_id=7, client_ip=None,
                              check=True)
@@ -586,7 +586,7 @@ class RateLimitKeyTests(unittest.TestCase):
         ])
 
     def test_host_fail_bucket_full_rejects_without_fetch(self):
-        # R1: host 失败桶已满 → 拉取前直接拒绝, 不对外发请求, 不计数。
+        # host 失败桶已满 → 拉取前直接拒绝, 不对外发请求, 不计数。
         fetcher = _StubFetcher(_ok_fetch(self.URL))
         from api.core.rate_limit import RateLimited
 
@@ -713,7 +713,7 @@ class FetchConsumptionTests(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 真库: 缓存 / 正常流程 / I-071 / 来源标记
+# 真库: 缓存 / 正常流程 / / 来源标记
 # ---------------------------------------------------------------------------
 
 if ASYNC_URL:
@@ -908,7 +908,7 @@ if ASYNC_URL:
 
     @unittest.skipUnless(ASYNC_URL, "测试库闸")
     class AuthorizeOrderTests(_DbTestCase):
-        """I-071: client/redirect 校验先于登录跳转; 无效得 400 错误页。"""
+        """client/redirect 校验先于登录跳转; 无效得 400 错误页。"""
 
         class _Url:
             def __init__(self, query):

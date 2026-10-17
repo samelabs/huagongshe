@@ -1,4 +1,4 @@
-"""Admin A1 (0912): pipeline 健康语义 / 分区容错 / 缓存治理 / SSR 边界。
+"""Admin A1 : pipeline 健康语义 / 分区容错 / 缓存治理 / SSR 边界。
 
 覆盖 PM 验收单第 9 节 10 条中的 1/2/3/4/5/6/7/8(9/10 是 SSR 边界, 以
 layout 源码不变量 + 现有 /users/me 机制断言)。
@@ -102,7 +102,7 @@ class ChainHealthModelTests(unittest.TestCase):
         self.assertEqual("healthy", chain_health(error=0, gate_silent=False, **base)["status"])
 
     def test_degraded_wins_over_backlogged(self):
-        """(0912 PM 修正) queued + worker + error → degraded, 不再是 backlogged。"""
+        """ queued + worker + error → degraded, 不再是 backlogged。"""
         h = chain_health(scope="cas", queued=10, leased=0, error=5,
                          latest_success_at=NOW, gate_silent=False,
                          metrics_available=True,
@@ -110,7 +110,7 @@ class ChainHealthModelTests(unittest.TestCase):
         self.assertEqual("degraded", h["status"])
 
     def test_gate_silent_degrades_idle(self):
-        """(0912 PM 修正) idle + gate 静默 → degraded(空闲不掩盖闸门异常)。"""
+        """ idle + gate 静默 → degraded(空闲不掩盖闸门异常)。"""
         h = chain_health(scope="cas", queued=0, leased=0, error=0,
                          latest_success_at=NOW - timedelta(seconds=4 * 3600),
                          gate_silent=True, metrics_available=True,
@@ -232,7 +232,7 @@ class WorkerRuntimeTests(unittest.TestCase):
 
 # ── 2/3/4: 端点级: 分区容错 / last-known-good / 单飞 ────────
 def _has_db():
-    # I-058: 与 _engine() 同口径 — TEST_DATABASE_URL 必须过 db_gate
+    # 与 _engine() 同口径 — TEST_DATABASE_URL 必须过 db_gate
     # 双闸(库名模式 + sentinel), 不直读环境变量。
     from tests.db_gate import ProductionDbBlocked, require_test_db
 
@@ -301,7 +301,7 @@ class PipelineEndpointTests(unittest.TestCase):
             self.assertIn(w["runtime"], ("online", "stale", "offline", "disabled"))
             self.assertIn("scopes", w)
         # optional 三块都是 {available, error, value}
-        for wrap in (d["cb"]["negative"],):  # E9-B: supplier/seed runtime 已移除
+        for wrap in (d["cb"]["negative"],):  # supplier/seed runtime 已移除
             self.assertEqual({"available", "error", "value"}, set(wrap))
         # aging 事实口径: 只有排队年龄; 租约年龄字段已删除(无 leased_at, 纯推测)
         for chain in ("cb", "pb"):
@@ -322,7 +322,7 @@ class PipelineEndpointTests(unittest.TestCase):
         self.assertFalse(d["cb"]["negative"]["available"])
         self.assertIn("injected negative failure", d["cb"]["negative"]["error"])
         self.assertIsNone(d["cb"]["negative"]["value"])
-        # 其它链健康块不受牵连(E9-B 后 negative 是唯一 optional)
+        # 其它链健康块不受牵连(后 negative 是唯一 optional)
         self.assertIn("health", d["cb"])
         self.assertIn("health", d["pb"])
 
@@ -361,7 +361,7 @@ class PipelineEndpointTests(unittest.TestCase):
         self.assertTrue(d2["cb"]["negative"]["available"])
 
     def test_cold_start_single_flight_no_crash_no_double_scan(self):
-        """验收(0912 blocker2): 两个冷启动请求并发 → _scan_critical 只跑一次,
+        """验收(关键阻塞项): 两个冷启动请求并发 → _scan_critical 只跑一次,
         两个请求都拿到结果, 无一因 cached=None 崩溃。"""
         import api.admin as admin_mod
         admin_mod._PIPELINE_STATS_CACHE.clear()
@@ -400,7 +400,7 @@ class PipelineEndpointTests(unittest.TestCase):
             self.assertTrue(r["cb"]["negative"]["available"])
 
     def test_cold_start_first_refresh_failure_raises(self):
-        """(0912 blocker2) 首次刷新失败且无 snapshot → 明确抛错, 不造 0。"""
+        """首次刷新失败且无 snapshot → 明确抛错, 不造 0。"""
         import api.admin as admin_mod
         admin_mod._PIPELINE_STATS_CACHE.clear()
         orig = admin_mod._scan_critical

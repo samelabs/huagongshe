@@ -84,7 +84,7 @@ class NoteArchitectureTests(unittest.TestCase):
 
 
 class NoteRateLimitHttpMappingTests(unittest.TestCase):
-    """I-057: 服务层 neutral 限流异常 → HTTP 429/503(reactions 同口径)。"""
+    """服务层 neutral 限流异常 → HTTP 429/503(reactions 同口径)。"""
 
     def _actor(self):
         from api.core.security import Actor

@@ -1,4 +1,4 @@
-"""E3 — Reaction Update/Delete Application Ownership 契约测试。
+""" — Reaction Update/Delete Application Ownership 契约测试。
 
 覆盖(任务书 §Tests + Architecture gate):
 - owner update success / unauthorized / admin / system-import / participants
@@ -110,7 +110,7 @@ def _async_ret(value):
 def _body(visibility: str = "public") -> ReactionBody:
     """与 production contract 同 shape 的请求体(真 ReactionBody/ParticipantBody)。
 
-    E3: service 的 canonical_participants 直接消费 ParticipantBody 契约
+    service 的 canonical_participants 直接消费 ParticipantBody 契约
     (item.smiles / item.role / item.model_dump()), 测试不得用 dict 替身。
     """
     return ReactionBody(
@@ -444,7 +444,7 @@ class HttpMappingContractTests(unittest.IsolatedAsyncioTestCase):
         import api.core.security as security
 
         # 1) PUT/DELETE /reactions/{id} 的 actor 依赖是 current_actor
-        #    (optional_actor 下游 → agent 在依赖层即被拒)
+        # (optional_actor 下游 → agent 在依赖层即被拒)
         route = next(r for r in adapter.router.routes
                      if getattr(r, "path", "") == "/reactions/{reaction_id}"
                      and "DELETE" in (r.methods or ()))
@@ -559,7 +559,7 @@ class HttpMappingContractTests(unittest.IsolatedAsyncioTestCase):
         physical = set(_iter_routes(_app()))
         self.assertIn(("PUT", "/api/reactions/{reaction_id}"), physical)
         self.assertIn(("DELETE", "/api/reactions/{reaction_id}"), physical)
-        # status_code 取自 reactions 自己的 APIRoute 对象(E3 未改)
+        # status_code 取自 reactions 自己的 APIRoute 对象(未改)
         declared: dict[str, int] = {}
         for route in adapter.router.routes:
             if getattr(route, "path", "").endswith("/reactions/{reaction_id}"):
@@ -641,7 +641,7 @@ class ArchitectureGateTests(unittest.TestCase):
             self.assertIn(f"await {target}(", src)
 
     def test_sql_business_implementation_lives_only_in_service(self):
-        """E3 ownership 边界: 只比对 adapter 与 service 两个文件。
+        """ ownership 边界: 只比对 adapter 与 service 两个文件。
 
         (不得全 api/ 扫描: api/admin.py 的 moderation UPDATE 是范围外合法代码。)
         """

@@ -1,4 +1,4 @@
-"""G1 final governance tests — family/scenario/contract 治理账本对账。
+""" final governance tests — family/scenario/contract 治理账本对账。
 
 真实对象对账(禁止 registry 自证 registry):
 - HTTP: 真实 FastAPI app route inventory ↔ scenario entrypoints(物理覆盖)
@@ -215,7 +215,7 @@ class WorkApiCoverage(unittest.TestCase):
 
 
 class AgentHttpSurfaceRetired(unittest.TestCase):
-    """v1.7.1 PM 裁定(2026-10-14): REST 只供网站内部使用, 对外接入唯一
+    """v1.7.1 : REST 只供网站内部使用, 对外接入唯一
     入口是 MCP。锁死退役事实: registry 零 AGENT_HTTP 投影、路由表无
     /api/agent-guide、api.agent 模块不存在。"""
 
@@ -315,7 +315,7 @@ class ScopeCorrectness(unittest.TestCase):
 
 
 class FrozenScenarioShapes(unittest.TestCase):
-    """G1A 冻结案例的机械断言(防退化)。"""
+    """ 冻结案例的机械断言(防退化)。"""
 
     def test_molecule_rendering_svg_png_split(self):
         fam = next(f for f in FAMILIES if f.id == "molecule.rendering")

@@ -1,4 +1,4 @@
-"""CX 批 Part A —— P1 候选反例裁定（真实 PG 反例，hermetic）。
+"""CX 批 —— P1 候选反例（真实 PG 反例，hermetic）。
 
 审计来源: audit/HGS-1.7-上线问题清单.md「P1 候选」七项。每项先写反例
 （按修复口径断言），红=问题成立；随后按语义修复翻绿。撤销项不出现在本文件。
@@ -6,15 +6,15 @@
 覆盖:
 - A1 HGS-MERGE-CORE-01: absorb 主表核心字段漏迁（survivor 空时不补；
   双侧非空冲突时无留痕）。
-- A2 HGS-MERGE-01/02: reaction_chemicals 同键计量冲突无留痕；
+- A2 /02: reaction_chemicals 同键计量冲突无留痕；
   chemical_pubchem.identifier_evidence survivor '{}' 不吸收对方非空证据。
-- A3 F-NEW-02 / HGS-PB-01: 同一可信 CID、IK 有差异 → 整包事实被扣留却记 ok；
+- A3 F-NEW-02 / 同一可信 CID、IK 有差异 → 整包事实被扣留却记 ok；
   真实冲突扣留时回执必须如实（不得记 ok）。
-- A4 HGS-CB-01/STRUCT-01/02/03: 供应商表全删全写丢他源；SMILES/IK/MOL
+- A4 /STRUCT-01/02/03: 供应商表全删全写丢他源；SMILES/IK/MOL
   互不交叉校验；只有 SMILES 时不推导 IK；CAS 回调双 miss 建幽灵行。
-- A5 B1-02/B1-03: ≥2 行同 IK 且同挂另一个 CID 时漏报 CONFLICT；
+- A5 /≥2 行同 IK 且同挂另一个 CID 时漏报 CONFLICT；
   CAS 单候选不核对强键互斥。
-- A6 HGS-PB-02 / HGS-MERGE-03: ≥3 行同 CID 只收敛第一个；
+- A6 / ≥3 行同 CID 只收敛第一个；
   合并后活动任务 dedupe_key 前缀失配。
 
 运行: TEST_DATABASE_URL="postgresql+asyncpg://…/test_hgs?test_sentinel=hgs-test-db" \
@@ -305,7 +305,7 @@ class A1MergeCoreTests(CxCandidatesBase):
         self.assertEqual(c.get("absorbed"), "absorbed-name")
 
 
-# ── A2 HGS-MERGE-01 / HGS-MERGE-02 ──────────────────────────────────────────
+# ── A2 / ──────────────────────────────────────────
 
 class A2MergePayloadTests(CxCandidatesBase):
     async def test_reaction_metering_conflict_traced(self):
@@ -386,7 +386,7 @@ class A2MergePayloadTests(CxCandidatesBase):
                          "survivor '{}' 未吸收对方非空 ghs_classification")
 
 
-# ── A3 F-NEW-02 / HGS-PB-01 ─────────────────────────────────────────────────
+# ── A3 F-NEW-02 / ─────────────────────────────────────────────────
 
 class A3PubchemIkDivergenceTests(CxCandidatesBase):
     def _payload(self, cid: int, ik: str) -> dict:
@@ -440,7 +440,7 @@ class A3PubchemIkDivergenceTests(CxCandidatesBase):
     async def test_same_cid_ik_divergence_facts_land(self):
         """同一可信 CID + IK 差异 → 事实落库、行 IK 保留、回执 ok。
 
-        CID 是唯一身份锚（B1-01 撤销裁决）：IK 差异记录溯源，不扣留整包。"""
+        CID 是唯一身份锚(撤销裁决）：IK 差异记录溯源，不扣留整包。"""
         chem = await self._chemical(cid=CID, ik=IK_OTHER, mol_smiles="CCO")
         jid, token = await self._lease(chem, str(CID))
         out = await self._complete(jid, token, self._payload(CID, IK_ETHANOL))
@@ -475,7 +475,7 @@ class A3PubchemIkDivergenceTests(CxCandidatesBase):
                       "回执应记 withheld 类终态, 实际: %r" % status)
 
 
-# ── A4 HGS-CB-01 / HGS-CB-STRUCT-01/02/03 ───────────────────────────────────
+# ── A4 / HGS-CB-STRUCT-01/02/03 ───────────────────────────────────
 
 class A4CbSourceTests(CxCandidatesBase):
     async def test_suppliers_multi_source_merge(self):
@@ -649,7 +649,7 @@ class CbCallbackStructureConflictTests(CxCandidatesBase):
         self.assertEqual(after["smiles"], "CO")
 
     async def test_no_cid_consistent_structure_still_fills_ik(self):
-        """R01 路径: 行无 CID、无 IK, 载荷结构一致(cas-unique-hit EQUIVALENT)
+        """ 路径: 行无 CID、无 IK, 载荷结构一致(cas-unique-hit EQUIVALENT)
         — 照常补出 IK。"""
         chem = await self._chemical(cas=CAS)  # 无 ik、无 cid、无 mol
         jid, token = await self._leased_job(chem, "r01")
@@ -663,7 +663,7 @@ class CbCallbackStructureConflictTests(CxCandidatesBase):
                          "无 CID 但结构一致的正常补全必须照常回填 IK")
 
 
-# ── A5 B1-02 / B1-03 ────────────────────────────────────────────────────────
+# ── A5 / ────────────────────────────────────────────────────────
 
 class A5ResolverBranchTests(CxCandidatesBase):
     async def _resolve(self, **kw):
@@ -708,7 +708,7 @@ class A5ResolverBranchTests(CxCandidatesBase):
                          "IK 一致的 CAS 命中回归被破坏")
 
 
-# ── A6 HGS-PB-02 / HGS-MERGE-03 ─────────────────────────────────────────────
+# ── A6 / ─────────────────────────────────────────────
 
 class A6ConvergenceTests(CxCandidatesBase):
     async def test_three_way_same_cid_converges(self):

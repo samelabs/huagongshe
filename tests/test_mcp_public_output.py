@@ -81,7 +81,7 @@ class PublicChemicalTests(unittest.TestCase):
         self.assertIsNone(out["details"])
 
     def test_supplier_ref_with_raw_cbsid_is_not_exposed(self):
-        # I-056: 即使上游语义详情还带着原站标识形态的 ref(cb-supplier:{cbsid}),
+        # 即使上游语义详情还带着原站标识形态的 ref(cb-supplier:{cbsid}),
         # MCP 出口也不得出现供应商编号。
         semantic = json.loads(json.dumps(SEMANTIC))
         semantic["suppliers"]["items"][0]["ref"] = "cb-supplier:1436986"

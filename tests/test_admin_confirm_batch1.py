@@ -67,7 +67,7 @@ class WorkerDisableConfirmation(unittest.TestCase):
         # 停用确认不得声称杀死进程/终止任务
         for banned in ("杀死", "终止正在运行", "立即终止", "删除该 worker"):
             self.assertNotIn(banned, src)
-        # 新产品契约(E9-A): 安全删除 Worker 是明确功能;
+        # 新产品契约: 安全删除 Worker 是明确功能;
         # 文案必须说明边界(仅无进行中任务, 历史记录保留)。
         self.assertIn("删除 Worker", i18n())
         self.assertIn("没有进行中任务", i18n())

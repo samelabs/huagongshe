@@ -1,4 +1,4 @@
-"""Token revoke 语义归一 + secret 禁缓存 + skills race 收口 (2026-09-10)。
+"""Token revoke 语义归一 + secret 禁缓存 + skills race 收口 。
 
 1. password change / admin disable 后用户 token 行物理不存在(不留 soft-revoke);
 2. GET /users/me/tokens → Cache-Control: private, no-store;
@@ -33,7 +33,7 @@ _GATE = unittest.skipUnless(DB_URL, "需要 PG 测试库")
 
 
 def _skill_root_snapshot():
-    """E7 §4 环境卫生: 记录测试前的 skill_root 目录集合。"""
+    """ §4 环境卫生: 记录测试前的 skill_root 目录集合。"""
     from api.core.config import settings
     root = Path(settings.skill_root)
     return root, (set(root.iterdir()) if root.is_dir() else set())
@@ -43,7 +43,7 @@ def _skill_root_cleanup(snap) -> None:
     """删掉本测试期间新建的 skill 目录(只动新增项, 不碰既有内容)。
 
     _create_skill_record 会 mkdir skill_root/<id>; 测试只回滚 DB 行,
-    目录会留在盘上 → full suite 每轮残留。E7 定位 owner 后补此处清理。
+    目录会留在盘上 → full suite 每轮残留。 定位 owner 后补此处清理。
     """
     root, before = snap
     if not root.is_dir():
@@ -63,7 +63,7 @@ class TokenRevokeSemanticsTests(unittest.TestCase):
         from api.core import rate_limit
         rate_limit.pool = aioredis.ConnectionPool.from_url(
             os.environ["HGS_REDIS_URL"], decode_responses=True)
-        # E7 §4: 测试期间新建的 skill 目录出测试即清(环境卫生)
+        # §4: 测试期间新建的 skill 目录出测试即清(环境卫生)
         self.addCleanup(_skill_root_cleanup, _skill_root_snapshot())
 
     def _engine(self):
@@ -233,7 +233,7 @@ class SkillsRaceTests(unittest.TestCase):
         from api.core import rate_limit
         rate_limit.pool = aioredis.ConnectionPool.from_url(
             os.environ["HGS_REDIS_URL"], decode_responses=True)
-        # E7 §4: 测试期间新建的 skill 目录出测试即清(环境卫生)
+        # §4: 测试期间新建的 skill 目录出测试即清(环境卫生)
         self.addCleanup(_skill_root_cleanup, _skill_root_snapshot())
 
     def test_concurrent_same_key_returns_same_skill(self):
@@ -607,7 +607,7 @@ class SkillsRaceTests(unittest.TestCase):
                     await _create_skill_record(s2, uid, manifest_a, None, None)
                     return "no-conflict"
                 except SkillSlugConflictError as exc:
-                    # G3.1D: canonical owner 抛 neutral error(同一 409 文案);
+                    # canonical owner 抛 neutral error(同一 409 文案);
                     # HTTP 409 映射由 tests/test_skill_create_service.py 覆盖。
                     return f"slug-conflict:{exc.detail}"
                 except IntegrityError:

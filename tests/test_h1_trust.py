@@ -98,7 +98,7 @@ class RefreshUseCasePolicyTests(unittest.TestCase):
         self.assertNotIn("request.client", body)
         self.assertIn("allow_refresh: bool", full)
         self.assertIn("if not allow_refresh:", body)
-        # 两个详情调用点(G2.4B: chemical_detail 编排下沉 services/chemicals)
+        # 两个详情调用点(chemical_detail 编排下沉 services/chemicals)
         from api.services import chemicals as chemicals_service
         for endpoint in (chemicals_service.get_chemical_detail,):
             esrc = inspect.getsource(endpoint)
@@ -212,7 +212,7 @@ class InvariantsTests(unittest.TestCase):
     """I/J/K: 限流/会话/Worker 契约不变。"""
 
     def test_i_cas_anonymous_global_budget_unchanged(self):
-        """行为契约(0915 改写): 不再审计源码字面 `enforce(...)` — 函数局部
+        """行为契约: 不再审计源码字面 `enforce(...)` — 函数局部
         alias 名不是 contract。直接驱动 run_search_query 的 CAS-miss 分支,
         断言落进 rate_limit 的 (bucket, identity, limit, window):
         anonymous → cas-search-fetch / ip:<来源IP> / 30 / 60;

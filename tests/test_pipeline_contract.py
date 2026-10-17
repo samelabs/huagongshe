@@ -1,4 +1,4 @@
-"""数据管道端点契约锁定 (0911)。
+"""数据管道端点契约锁定 。
 
 锁的是管理后台 web/components/samelabs/PipelinePanel.tsx 实际消费的语义, 防回退:
 
@@ -148,7 +148,7 @@ class PipelineContractTest(unittest.TestCase):
         async with self.Session() as db:
             return int((await db.execute(text(sql))).scalar())
 
-    # ── 1. rows.today 两链同语义(E9-B: 有界口径, total 已删) ─────────────
+    # ── 1. rows.today 两链同语义(有界口径, total 已删) ─────────────
     def test_rows_shape_both_chains(self):
         d = asyncio.run(self._payload())
         for chain in ("cb", "pb"):
@@ -159,7 +159,7 @@ class PipelineContractTest(unittest.TestCase):
         cb = d["cb"]
         self.assertEqual(cb["rows"]["today"],
                          sum(x["today"] for x in cb["locales"]), "cb.rows.today 与 locales 不符")
-        # E9-B: rows.total / locale total / PB all-time 全部从 runtime 契约删除
+        # rows.total / locale total / PB all-time 全部从 runtime 契约删除
         # (bounded 口径 — 无界大表 count 禁令, 见 test_pipeline_bounded_contract)
 
     # ── 2. rate_1h 是真实聚合 ────────────────────────────

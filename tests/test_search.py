@@ -18,7 +18,7 @@ from api.services.chemicals import bounded_substructure_smiles
 
 class StructureSearchContractTests(unittest.TestCase):
     def test_exact_search_is_not_cached_with_mutable_user_reactions(self) -> None:
-        # G2.3 final: cache 读/写守卫唯一 owner = shared orchestration
+        # cache 读/写守卫唯一 owner = shared orchestration
         from api.services import search as search_service
         source = inspect.getsource(search_service.execute_search)
         self.assertEqual(source.count('if mode != "exact":'), 2)
@@ -51,7 +51,7 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertEqual(bounded_substructure_smiles(smiles), smiles)
 
     def test_bounded_substructure_rejects_broad_structure(self) -> None:
-        # G2.3D: chemicals 内核 neutral 异常(422 语义在 HTTP adapter 映射)
+        # chemicals 内核 neutral 异常(422 语义在 HTTP adapter 映射)
         from api.services.chemicals import SubstructureTooSmallError
         with self.assertRaises(SubstructureTooSmallError) as raised:
             bounded_substructure_smiles("c1ccccc1")
@@ -65,7 +65,7 @@ class StructureSearchContractTests(unittest.TestCase):
 
     def test_structure_modes_share_the_public_read_gate(self) -> None:
         """结构模式登录墙(H1 保持): mode!=exact 需已鉴权 actor, exact 匿名照旧.
-        墙由 c75424c 建立、73f2ab3 拆除、2026-08-26 重建(拆墙评估漏算并发面).
+        墙由 c75424c 建立、73f2ab3 拆除、 重建(拆墙评估漏算并发面).
         H1 方案 D 重命名 dependency 为 public_or_actor, 本墙语义不变。
         """
         source = inspect.getsource(routes.search)
@@ -375,7 +375,7 @@ class SearchSystemGovernanceTests(unittest.TestCase):
         result = run("similarity", None, 10)
         self.assertEqual(result[1], 10)
         self.assertFalse(result[6])
-        # similarity page>=2(收口 0914 #1): qualifying 是从第 1 条起的完整
+        # similarity page>=2(收口 #1): qualifying 是从第 1 条起的完整
         # 前缀, cut_inside 时精确 total=len(qualifying), 与页码无关 —
         # 旧实现 offset+len(qualifying) 每页虚增 page_size(35 条 p2 报 65)。
         result = run("similarity", None, 35, page=2)

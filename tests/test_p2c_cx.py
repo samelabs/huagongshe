@@ -1,6 +1,6 @@
-"""CX 批 Part C —— P2 修复的行为锁定测试。
+"""CX 批 —— P2 修复的行为锁定测试。
 
-覆盖(与回执 Part C 状态表逐项对应):
+覆盖(与回执 状态表逐项对应):
 - F-01: notes 写入限流桶 + 每用户存量上限(NoteQuotaExceededError)
 - HGS-SEARCH-LIKE-LITERAL-01: like_literal 转义 + 检索按字面命中
 - HGS-SKILL-PATH-01: 连续两点文件名在 zip 校验层被拒(与 DB CHECK 对齐)

@@ -1,7 +1,7 @@
-"""合并后的旧 HCID 详情返回 404 —— 现行裁定的专项锁定。
+"""合并后的旧 HCID 详情返回 404 —— 现行的专项锁定。
 
 身份合并（absorb）删除旧行并落 redirect 记录；详情读取链（routes →
-get_chemical_detail）不跟随 redirect。这是有意裁定：对外身份语义是
+get_chemical_detail）不跟随 redirect。这是有意对外身份语义是
 「旧编号已不存在」，不是「旧编号 301 到新编号」。本测试锁死三件事：
 ① 旧 HCID 详情抛 ChemicalNotFoundError（HTTP 404）
 ② survivor 详情正常（同一次合并的对照面）
@@ -91,7 +91,7 @@ class MergedOldIdReturns404Tests(unittest.TestCase):
                 return await get_chemical_detail(
                     db, cid_for_read, actor_id=None, priority=0, enrich="core")
 
-        # ① 旧 HCID → 404（裁定本体）
+        # ① 旧 HCID → 404
         with self.assertRaises(ChemicalNotFoundError):
             self._run(read(old))
         # ② survivor 正常

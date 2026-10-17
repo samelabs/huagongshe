@@ -1,4 +1,4 @@
-"""Resource bounds guards (LOW-PATCH, 2026-09-10)。
+"""Resource bounds guards (LOW-PATCH)。
 
 只测新增 guard:
 1. /users/me/password actor bucket (10/15min) — N 次内允许, 超限 429,

@@ -1,6 +1,6 @@
-"""E5 — WorkAPI transport neutrality: service neutral error ↔ adapter HTTP 映射。
+""" — WorkAPI transport neutrality: service neutral error ↔ adapter HTTP 映射。
 
-锁(逐条对应 E5 任务书 Tests 段):
+锁(逐条对应 任务书 Tests 段):
 - ``api/services/workqueue.py`` / ``api/services/discovery.py``: AST 级零
   fastapi/starlette import; 无 HTTPException/ToolError/Request/Response 等
   transport 符号(注释不计入 — 只扫 AST 节点)
@@ -17,7 +17,7 @@
 - WorkAPI route/scope 契约未变
 
 HTTP 层逐字断言(真实 app + test_hgs)在 tests/test_worker_trusted_plane.py
-E5 段; 本模块不做 DB 依赖, 无 TEST_DATABASE_URL 也能全绿。
+ 段; 本模块不做 DB 依赖, 无 TEST_DATABASE_URL 也能全绿。
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ from api.services.workqueue import LeaseConflictError
 from api.workapi import WorkerContext
 
 REPO = Path(__file__).resolve().parents[1]
-# E6: workapi_jobs.py 是新的 application service owner — 同受 transport 符号禁令约束
+# workapi_jobs.py 是新的 application service owner — 同受 transport 符号禁令约束
 SERVICE_MODULES = ("api/services/workqueue.py", "api/services/discovery.py",
                    "api/services/workapi_jobs.py")
 
@@ -78,7 +78,7 @@ class _StubResult:
 
 
 class _StubDB:
-    """只记账的 db 替身 — 断言 handler 的 commit/rollback 语义未被 E5 改动。"""
+    """只记账的 db 替身 — 断言 handler 的 commit/rollback 语义未被 改动。"""
 
     def __init__(self):
         self.commits = 0
@@ -248,9 +248,9 @@ class AdapterMappingTests(unittest.TestCase):
     """adapter 独占 neutral → HTTP 映射; 逐字 status/detail; 只捕获 intended 类型。"""
 
     def _patch_conflict(self, name: str) -> None:
-        """E6: neutral 冲突由 application service 抛出 → patch 真实 owner。
+        """neutral 冲突由 application service 抛出 → patch 真实 owner。
 
-        测试指向 api/services/workapi_jobs.py(§3 裁定: 不在 adapter 留 shim)。
+        测试指向 api/services/workapi_jobs.py。
         """
         self.addCleanup(mock.patch.stopall)
         mock.patch.object(jobs, name, lambda *a, **k: _raise(LeaseConflictError(LEASE_DETAIL))).start()
@@ -277,7 +277,7 @@ class AdapterMappingTests(unittest.TestCase):
             _run(wa.complete_job(body=body, db=db, worker=WORKER))
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertEqual(ctx.exception.detail, LEASE_DETAIL)
-        # E5 前该路径(HTTPException 直穿)不 rollback — 事务语义未移动
+        # 前该路径(HTTPException 直穿)不 rollback — 事务语义未移动
         self.assertEqual(db.rollbacks, 0)
 
     def test_complete_job_receipt_retry_still_idempotent(self) -> None:
@@ -322,7 +322,7 @@ class AdapterMappingTests(unittest.TestCase):
             _run(wa.error_job(body=body, db=db, worker=WORKER))
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertEqual(ctx.exception.detail, LEASE_DETAIL)
-        # E5 前该路径由 `except Exception` 兜(rollback 后重抛) — 语义逐字保留
+        # 前该路径由 `except Exception` 兜(rollback 后重抛) — 语义逐字保留
         self.assertEqual(db.rollbacks, 1)
 
     def test_cas_heartbeat_maps_neutral_to_exact_409_with_rollback(self) -> None:
@@ -419,11 +419,11 @@ class AdapterMappingTests(unittest.TestCase):
         self.assertEqual(offenders, [],
                          f"catch-all 子句里出现 409 构造: lines {offenders}")
 
-    # E6: neutral 来源矩阵(service 侧) → 映射点(adapter 侧) 必须一一覆盖。
+    # neutral 来源矩阵(service 侧) → 映射点(adapter 侧) 必须一一覆盖。
     # 来源证据(/tmp/e6_matrix_audit.txt [C]): workqueue.verified_lease@114 ←
     # workapi_jobs 132/258; verified_cas_lease@511 ← 392/494/726;
     # discovery.complete_discovery@129; workapi_jobs.verified_identity_lease@766
-    # ← 849/895。identity error 路径旧为 HTTPException 直穿 409, E6 后同属
+    # ← 849/895。identity error 路径旧为 HTTPException 直穿 409, 后同属
     # neutral 类型 → 漏映射会变 500, 故必须显式映射。
     NEUTRAL_SOURCES = {
         "complete_job": ("verified_lease",),
@@ -438,7 +438,7 @@ class AdapterMappingTests(unittest.TestCase):
     def test_neutral_errors_are_caught_by_exact_type_only(self) -> None:
         """映射点集合 == 真实 neutral 来源矩阵(AST 断言, 取代硬编码计数)。
 
-        E5 版为 `caught == 6`; E6 后 identity error 也是真实来源(§4 裁定:
+         版为 `caught == 6`; 后 identity error 也是真实来源(§4
         有真实来源 → 旧断言属 stale structural assertion)。断言三条:
         1. 逐 handler 显式 `except LeaseConflictError`(禁宽泛类型兜);
         2. handler 集合 == NEUTRAL_SOURCES 键集(无孤儿 catch / 无漏映射);
@@ -513,7 +513,7 @@ class AdapterMappingTests(unittest.TestCase):
 # ─────────────────────────── D. route 契约 ───────────────────────────
 
 class WorkApiRouteContractTests(unittest.TestCase):
-    """既有 WorkAPI route/scope 契约未变(E5 不动 state machine / 路由)。"""
+    """既有 WorkAPI route/scope 契约未变(不动 state machine / 路由)。"""
 
     EXPECTED_SCOPE = {
         ("POST", "/workapi/v1/jobs/lease"): "pubchem",

@@ -1,4 +1,4 @@
--- I-087(R3): 校验 name_index_lang_check。
+-- 校验 name_index_lang_check。
 -- 单独成文件, 不与 20261015_03 同事务: VALIDATE CONSTRAINT 需要
 -- SHARE UPDATE EXCLUSIVE 锁并全表扫描 —— 生产 name_index 约 1820 万行、
 -- 6.9 GB, 预计分钟级耗时。该锁不阻塞读写(SELECT/INSERT/UPDATE 照常),

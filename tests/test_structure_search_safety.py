@@ -1,4 +1,4 @@
-"""结构检索安全回归与并发闸门验收(0912 P0)。
+"""结构检索安全回归与并发闸门验收()。
 
 覆盖三层:
 
@@ -56,7 +56,7 @@ def _sql_blocks(source: str) -> list[str]:
 
 
 class SubstructureSqlInvariantTests(unittest.TestCase):
-    """P0: 禁止任何 `mol @>` 查询块出现 ORDER BY id / SQL OFFSET。"""
+    """: 禁止任何 `mol @>` 查询块出现 ORDER BY id / SQL OFFSET。"""
 
     def setUp(self):
         self.snapshot_sql = "\n".join(_sql_blocks(inspect.getsource(
@@ -118,7 +118,7 @@ class SimilaritySemanticsTests(unittest.TestCase):
 
     def test_total_semantics_are_explicit(self):
         self.assertIn("cut_inside", self.sim_src)
-        # 0914 #1: qualifying 是无 OFFSET 的完整前缀, 精确 total 与页码无关
+        # #1: qualifying 是无 OFFSET 的完整前缀, 精确 total 与页码无关
         self.assertIn("total = len(qualifying) if cut_inside else None", self.sim_src)
 
     def test_unified_search_accepts_threshold(self):
@@ -128,7 +128,7 @@ class SimilaritySemanticsTests(unittest.TestCase):
     def test_route_threshold_param_and_cache_key(self):
         src = inspect.getsource(routes.search)
         self.assertIn("threshold: float = Query(0.7", src)
-        # G2.3 final: cache key 构造唯一 owner = shared orchestration
+        # cache key 构造唯一 owner = shared orchestration
         orch = inspect.getsource(search_service.execute_search)
         self.assertIn("round(threshold, 3)", orch, "cache key 必须含 threshold")
 
@@ -164,7 +164,7 @@ class GateWiringTests(unittest.TestCase):
         self.assertLessEqual(rate_limit.STRUCTURE_GLOBAL_INFLIGHT, 4)
 
     def test_all_structure_handlers_gated_after_cache(self):
-        # G2.3 final: cache-before-gate 顺序唯一 owner = shared orchestration;
+        # cache-before-gate 顺序唯一 owner = shared orchestration;
         # HTTP/MCP adapter 均经 execute_search 继承同一顺序。
         source = inspect.getsource(search_service.execute_search)
         cache_pos = source.find("await _cache_get(cache_key)")
@@ -174,15 +174,15 @@ class GateWiringTests(unittest.TestCase):
         self.assertIn("structure_exit", source, "orchestration 未释放租约")
 
     def test_mcp_has_no_bypass(self):
-        """G2.3 后: MCP 直调 transport-neutral service, 但结构闸门/缓存口径
+        """ 后: MCP 直调 transport-neutral service, 但结构闸门/缓存口径
         与 HTTP 相同 —— 无 cache-before-gate 旁路, 也不经 HTTP handler。"""
         with open("api/mcp_server.py") as handle:
             mcp = handle.read()
-        # 不得经 HTTP handler(G2.3 目标), 不得直连底层分页实现绕过闸门
+        # 不得经 HTTP handler(目标), 不得直连底层分页实现绕过闸门
         self.assertNotIn("routes_module.search(", mcp)
         self.assertNotIn("substructure_page(", mcp)
         self.assertNotIn("similarity_page(", mcp)
-        # G2.3 final: MCP 直调 shared orchestration(execute_search)——
+        # MCP 直调 shared orchestration(execute_search)——
         # 闸门/缓存/cache-before-gate 顺序由 orchestration 唯一拥有,
         # MCP adapter 不再自带任何编排原语。
         start = mcp.index('@server.tool(name="search_chemistry_data"')
@@ -500,7 +500,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
         self._rate = rate_limit.STRUCTURE_ACTOR_RATE_LIMIT
         # 本组只验并发层: 把 fixed-window 抬高, 免得两层混在一起
         rate_limit.STRUCTURE_ACTOR_RATE_LIMIT = 10_000
-        # 0915: 真实 SMILES(直链烷烃, 10-49 个重原子) — 必须过生产
+        # : 真实 SMILES(直链烷烃, 10-49 个重原子) — 必须过生产
         # canonicalize_smiles(无效合成串如 C9100001CO 会 400, 测试根本到不了
         # 闸门层)。run_search_query 整体 mock, 生产 validation/gate 不放松。
         self._queries = ["C" * (10 + i) for i in range(40)]
@@ -537,7 +537,7 @@ class ConcurrencyGateAcceptanceTests(LoopLocalRedisMixin, unittest.IsolatedAsync
             tracker["max"] = max(tracker["max"], tracker["live"])
             try:
                 await asyncio.sleep(delay)
-                # 8 元组契约(0915): capped 末位 — 化学品/total/反应/pending/
+                # 8 元组契约(): capped 末位 — 化学品/total/反应/pending/
                 # canonical/cas_hit/has_more/capped
                 return [], 3, [], False, canonical, None, False, False
             finally:
@@ -662,7 +662,7 @@ class SnapshotPaginationEndTests(unittest.TestCase):
 
 
 class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase):
-    """0912: 结构检索 lease fail-closed — Redis 故障时 503, 绝不放进 DB。"""
+    """: 结构检索 lease fail-closed — Redis 故障时 503, 绝不放进 DB。"""
 
     BUCKET = "test-fail-closed"
 

@@ -1,4 +1,4 @@
-"""I-016 — GET/DELETE /users/me/oauth-connections 针对性测试。
+""" — GET/DELETE /users/me/oauth-connections 针对性测试。
 
 覆盖:
 1. 列表只含本人数据(跨用户同 client 隔离), 字段口径: scopes 并集 /
@@ -318,7 +318,7 @@ class OauthConnectionsManageTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_agent_token_cannot_list_connections(self):
-        """I-016 第 2 轮收紧: 凭据管理只认网页会话, AI Key(agent)调用 403。"""
+        """ 收紧: 凭据管理只认网页会话, AI Key(agent)调用 403。"""
         import asyncio
         import inspect
 

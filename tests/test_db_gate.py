@@ -1,4 +1,4 @@
-"""测试库身份闸测试 (0909 §1)。
+"""测试库身份闸测试 (§1)。
 
 验证:
 1. 缺失 TEST_DATABASE_URL 时 require_test_db() 拒绝(fail-fast), 且不会触碰生产配置。

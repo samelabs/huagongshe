@@ -1,4 +1,4 @@
-"""G1.5-A SEO minimal closeout — S1/S2/S3/S4 regression tests.
+"""-A SEO minimal closeout — S1/S2/S3/S4 regression tests.
 
 S1: the REAL sitemap()/robots() modules (app/sitemap.ts, app/robots.ts) are
     executed in Node with TS annotations stripped — whitelist URLs only,

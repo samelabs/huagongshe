@@ -81,7 +81,7 @@ class HomePageEntryContract(unittest.TestCase):
 
 class CompatibilitySurfaceKept(unittest.TestCase):
     def test_agent_guide_route_removed(self):
-        # v1.7.1 PM 裁定: REST 不再对外, /api/agent-guide 端点删除,
+        # v1.7.1 REST 不再对外, /api/agent-guide 端点删除,
         # 对外接入唯一入口是 MCP。
         from api.main import app
 

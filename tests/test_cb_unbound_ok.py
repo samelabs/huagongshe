@@ -1,4 +1,4 @@
-"""B-safe: unbound CAS OK callback 的安全绑定 (P1, 2026-09-10)。
+"""B-safe: unbound CAS OK callback 的安全绑定 (P1)。
 
 authority = resolved chemical_id ∈ callback-time CAS candidate set。
 真链: 双/单候选行 → enqueue_cas_search_fetch (AMBIGUOUS→NULL job) →

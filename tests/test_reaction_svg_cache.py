@@ -1,4 +1,4 @@
-"""Reaction SVG cacheability (LOW-PATCH, 2026-09-10)。
+"""Reaction SVG cacheability (LOW-PATCH)。
 
 shared-cache eligibility = visibility public AND moderation visible —
 不基于 actor 身份(public+visible 即使 owner/admin 请求, 匿名同样有权;
@@ -190,7 +190,7 @@ class ReactionSvgCacheTests(unittest.TestCase):
         self.assertEqual(self._status(resp), 200)
         self.assertEqual(self._cc(resp), "public, max-age=300")
 
-    # 结构断言(G2.2 relocation 后): visibility 领域判断唯一 owner=rendering
+    # 结构断言(relocation 后): visibility 领域判断唯一 owner=rendering
     # service, HTTP adapter 只依领域事实分 cache 分支, 不重写 visibility SQL。
     def test_6_no_immutable_in_reaction_svg_path(self):
         import api.mol as mol

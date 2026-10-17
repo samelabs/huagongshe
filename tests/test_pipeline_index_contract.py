@@ -1,4 +1,4 @@
-"""schema 契约: /api/admin/pipeline 统计查询的物理访问路径必须存在 (0918, E2-B)。
+"""schema 契约: /api/admin/pipeline 统计查询的物理访问路径必须存在 。
 
 锁的契约(防回退):
   1. chemistry.chemical_cb 上存在**非 partial**、**有效**的
@@ -16,7 +16,7 @@
      也不含事务控制;
   5. migrations/0000_baseline.sql **未被修改**(sha256 冻结)。
 
-背景: 0918 production 500 的根因是缺物理访问路径 —— chemical_cb 的 per-locale
+背景: 生产 500 的根因是缺物理访问路径 —— chemical_cb 的 per-locale
 三计数无 (locale, fetched_at) 覆盖, 必须整堆扫 3,562 MB(实测 heap 命中率 30.7%,
 每次约 2.4 GB 落盘); chemical_pubchem 无任何 fetched_at 索引 → latest_pb 整堆扫
 + top-N Sort。索引**不改变** exact 计数语义 / LKG stale 语义 / optional 降级 /
@@ -24,7 +24,7 @@ response shape / statement_timeout。
 
 注意(不夸大): 索引存在 ≠ index-only 一定被选中 —— Q1/Q2 的总量计数是否走
 index-only 还取决于索引可见性(VM)位, 需 VACUUM 后由 planner 决定。本测试只锁
-"物理访问路径存在且可被 planner 使用", 规模态计划证据见 E2-B 报告的 before/after
+"物理访问路径存在且可被 planner 使用", 规模态计划证据见 报告的 before/after
 基准(test/benchmark DB 生产规模合成表)。
 
 运行: . /tmp/hgs_test_env.sh && ./venv/bin/python -m unittest tests.test_pipeline_index_contract -v
@@ -51,13 +51,13 @@ PB_INDEX = "idx_chemical_pubchem_fetched_at"
 CB_MIGRATION = "20260918_01_index_chemical_cb_locale_fetched_at.sql"
 PB_MIGRATION = "20260918_02_index_chemical_pubchem_fetched_at.sql"
 
-# migrations/0000_baseline.sql 冻结哈希(2026-09-10 cutover baseline, 不可修改)。
-# 2026-10-11 v1.7 收口曾按当时裁定把 token_plain 列从 baseline 移除并配套
-# 20261011_01 drop migration, 哈希随之更新。2026-10-14 项目负责人裁定撤销
-# 该决策(AI Key 明文有意落库、可在设置页再次查看): baseline 维持 2026-10-11
+# migrations/0000_baseline.sql 冻结哈希(cutover baseline, 不可修改)。
+# v1.7 收口曾按当时把 token_plain 列从 baseline 移除并配套
+# 20261011_01 drop migration, 哈希随之更新。 撤销
+# 该决策(AI Key 明文有意落库、可在设置页再次查看): baseline 维持
 # 版内容与哈希不变, token_plain 列改由 forward migration 20261014_02
 # (ADD COLUMN IF NOT EXISTS, 对生产 no-op)对所有环境恢复。
-# baseline 仍冻结; 再改需走同样显式裁定并同步此处。
+# baseline 仍冻结; 再改需走同样显式并同步此处。
 BASELINE_SHA256 = "c92cecf5dbbcb081c05611d34c6fb6cbd4a790b72c1aa21ce2880f78a2c8ba7c"
 BASELINE_BYTES = 204720
 

@@ -274,7 +274,7 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
             """), {"id": self.owner})
             await db.commit()
 
-            # HGS-ACCOUNT-CONTENT-01（PM 裁定 2026-10-12）: 停用作者的公开
+            # HGS-ACCOUNT-CONTENT-01: 停用作者的公开
             # 笔记保留可见(不再是 0), active=False 供前端渲染「已停用」。
             kept = await svc.list_entity_notes(
                 db, entity="chemical", entity_id=self.chemical,

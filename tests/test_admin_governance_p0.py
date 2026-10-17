@@ -1,4 +1,4 @@
-"""P0 (admin-data-p0) governance 修复验收测试 (0912)。
+"""P0 (admin-data-p0) governance 修复验收测试 。
 
 覆盖任务书 3 项:
 
@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from tests.db_gate import require_test_db  # I-058: 统一测试库闸(库名模式+sentinel)
+from tests.db_gate import require_test_db  # 统一测试库闸(库名模式+sentinel)
 try:
     DB = require_test_db().replace(
         "postgresql://", "postgresql+asyncpg://").split("?")[0]

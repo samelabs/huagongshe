@@ -144,7 +144,7 @@ class ReadinessAndSmokeTests(unittest.TestCase):
         self.assertFalse(self._run_deploy(r))
 
     def test_worker_restarts_only_after_fronting_apps_ready(self):
-        """2026-10-14 21:32 事故回归锁: worker 重启必须发生在 API/Web health
+        """ 21:32 事故回归锁: worker 重启必须发生在 API/Web health
         就绪之后 —— worker 启动 preflight 鉴权(/workapi/v1/jobs/lease)依赖
         API, 提前重启只会 exit 1 crash-loop(当时连续 5 次)。"""
         r = _ok_world()
@@ -438,7 +438,7 @@ class FailureReportingTests(unittest.TestCase):
     """12. failure 非零, 不伪报 success。"""
 
     def test_build_command_is_npm_ci_only(self):
-        """B5-01: 发布构建只允许 npm ci —— 不得回退 npm install（锁文件可重现）。"""
+        """发布构建只允许 npm ci —— 不得回退 npm install（锁文件可重现）。"""
         r = _ok_world()
         with mock.patch.object(D, "wait_http_ok", side_effect=lambda url, **k: url in r.http_ok_urls), \
              mock.patch.object(D, "wait_worker_online", return_value=True), \

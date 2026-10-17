@@ -61,7 +61,7 @@ class P5SanitizerUnitTests(unittest.TestCase):
             NoteBody(content="   ", visibility="private")
 
     def test_length_limit_after_sanitize(self):
-        # R4: length is enforced AFTER sanitization. Raw >30000 whose
+        # length is enforced AFTER sanitization. Raw >30000 whose
         # sanitized form fits is ACCEPTED; still >30000 after sanitize rejects.
         body = NoteBody(content="a" * 29_990 + "\u200d" * 10, visibility="private")
         self.assertEqual(len(body.content), 29_990)
@@ -180,7 +180,7 @@ class P1AccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
             for nid in (hidden_pub, hidden_priv):
                 with self.assertRaises(svc.NoteNotAccessibleError):
                     await svc.get_note(db, note_id=nid, actor_id=self.owner)
-            # HGS-ACCOUNT-CONTENT-01（PM 裁定 2026-10-12）: 停用作者的公开
+            # HGS-ACCOUNT-CONTENT-01: 停用作者的公开
             # 笔记保留可见(此前 404) —— 停用态只影响作者主页/关注, 不撤内容;
             # active=False 供前端渲染「已停用」标记。
             inactive_row = await svc.get_note(db, note_id=inactive_pub, actor_id=None)

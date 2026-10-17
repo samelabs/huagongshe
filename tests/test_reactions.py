@@ -99,7 +99,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertLess(create_source.index("await db.commit()"), create_source.index("notify_new_reaction_safely"))
 
     def test_activity_feed_only_returns_current_visible_followed_reactions(self) -> None:
-        # I-007: feed 过滤条件提取为 social 模块级共享常量(notifications 端点
+        # feed 过滤条件提取为 social 模块级共享常量(notifications 端点
         # 与 unread_activity_count 同一过滤), 静态断言随之看模块源; dashboard
         # 未读数委托 unread_activity_count(不再自带 SQL)。
         social_source = inspect.getsource(social)
@@ -126,7 +126,7 @@ class ReactionContractTests(unittest.TestCase):
         self.assertIn("return await reaction_response(db, int(existing))", source)
 
     def test_all_owned_reactions_use_bounded_visibility_branches(self) -> None:
-        # G2.5C: SQL 下沉至 services/reactions.list_my_reactions(bounded
+        # SQL 下沉至 services/reactions.list_my_reactions(bounded
         # UNION ALL 是硬 contract), 断言迁新 owner。
         from api.services.reactions import list_my_reactions as _svc
         source = inspect.getsource(_svc)
@@ -151,7 +151,7 @@ class ReactionContractTests(unittest.TestCase):
 
         routes_source = inspect.getsource(__import__("api.routes", fromlist=["unified_search"]))
         self.assertNotIn('"v1:stats:exact"', routes_source)  # /api/stats 已剥离
-        # G2.3 final: unified-search cache key 唯一 owner = shared orchestration
+        # unified-search cache key 唯一 owner = shared orchestration
         search_source = inspect.getsource(
             __import__("api.services.search", fromlist=["execute_search"]))
         self.assertIn('f"v2:unified-search', search_source)
