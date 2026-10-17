@@ -36,7 +36,9 @@ jobs:
       - name: Comment vocabulary lint (new lines only)
         # 词表检查: 新增行禁止编号代号与决策过程用语(存量已清理, 不追溯)
         run: |
-          git fetch origin main --quiet || true
+          # 浅克隆没有 main 的远端引用与共同祖先: 显式建出 origin/main 并补全历史
+          git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main
+          git fetch --no-tags --quiet --unshallow origin || true
           python scripts/check_comment_vocabulary.py --base origin/main
 
       - name: Run pure unit tests
