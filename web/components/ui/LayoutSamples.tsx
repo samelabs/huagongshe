@@ -294,7 +294,7 @@ function ReactionSample() {
       />
 
       <CardPanel className="du-sample-private-head">
-        <p className="du-sample-private-caption">私有反应展示（仅创建者可见）</p>
+        <p className="du-sample-private-caption">私有徽标形态演示 —— 徽标与署名私有标记为演示加缀，不代表该反应真实可见性（真实私有态以接口可见性判定为准）</p>
         <PageHead
           hero
           breadcrumb={[{ label: "首页", href: "/" }, { label: "反应" }, { label: `反应 ${rx.id}` }]}
@@ -438,11 +438,13 @@ function NoteSample() {
   useEffect(() => {
     apiGet<NoteItem>("/notes/5").then(setNote).catch(() => null);
   }, []);
+  // 署名走接口真实字段；头像为演示位（接口未回传时用固定演示头像，
+  // 不冒充真实作者头像 —— 本页是版式样张，不作为权限/数据投影验收依据）
   const author = {
     username: note?.username ?? "samelabs",
     display_name: note?.display_name ?? "SUN",
-    avatar_url: "/uploads/avatars/5/2ab29e469dc18ded6d6d.webp",
-    active: true,
+    avatar_url: note?.avatar_url ?? "/uploads/avatars/5/2ab29e469dc18ded6d6d.webp",
+    active: note?.active ?? true,
   };
   return (
     <PageFrame tier="reading">
