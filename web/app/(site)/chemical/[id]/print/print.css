@@ -93,7 +93,7 @@
   /* 与报告正文同族无衬线(CJK/拉丁五语言一致); 纸质报告不混排衬线标题 */
   font-family: var(--pr-sans);
   font-size: var(--fs-22);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25;
   margin: 0 0 6px;
 }

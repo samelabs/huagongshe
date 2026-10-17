@@ -10,9 +10,17 @@ import { fieldKey, fieldLabel, pathLabel, type FieldLocale } from "@/lib/fieldLa
 import { withLocale } from "@/lib/localePath";
 import "./print.css";
 
-export const metadata: Metadata = {
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  if (!isEntityId(id)) notFound();
+  const locale = await getRequestLocale();
+  // metadata 只需显示名投影 —— enrich=core（零 provider 访问）
+  const chemical = await apiGet<Chemical>(`/chemicals/${id}?enrich=core`).catch(() => null);
+  const title = chemical
+    ? resolveChemicalName(chemical, (n: string | number) => `HCID ${n}`, locale).title
+    : `HCID ${id}`;
+  return { title, robots: { index: false, follow: false } };
+}
 
 function formatNumber(n: number | null | undefined, locale: string, fractionDigits = 4): string {
   if (n == null) return "—";
@@ -170,7 +178,7 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
   if (!chemical) notFound();
   const detail: SemanticDetail | null = chemical.details ?? null;
 
-  const { title } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
+  const { title } = resolveChemicalName(chemical, (n: string | number) => `HCID ${n}`, locale);
   const printDate = new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date());
   const pageUrl = `https://huagongshe.com${withLocale(`/chemical/${id}`, locale)}`;
 
@@ -262,7 +270,7 @@ export default async function ChemicalPrintPage({ params }: { params: Promise<{ 
             <span className="pr-notice">{t.print.reportNotice}</span>
           </div>
           <div className="pr-meta-row">
-            <span className="pr-hcid">{t.common.hcidLabel(id)}</span>
+            <span className="pr-hcid">HCID {id}</span>
             <span className="pr-date">{t.print.generatedAt(printDate)}</span>
           </div>
           <h1 className="pr-title">{title}</h1>

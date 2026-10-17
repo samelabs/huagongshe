@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { reactionTitleText } from "@/lib/reactionTitle";
 import { PrintButton } from "@/components/PrintButton";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
@@ -11,9 +12,17 @@ import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale } from "@/lib/localePath";
 import "@/app/(site)/chemical/[id]/print/print.css";
 
-export const metadata: Metadata = {
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  if (!isEntityId(id)) notFound();
+  const locale = await getRequestLocale();
+  const t = await getRequestDictionary();
+  const reaction = await apiGet<ReactionDetail>(`/reactions/${id}`).catch(() => null);
+  const title = reaction
+    ? reactionTitleText(reaction.participants, { t, locale, reactionId: reaction.id })
+    : `HRID ${id}`;
+  return { title, robots: { index: false, follow: false } };
+}
 
 function fmt(v: number | null | undefined, locale: string): string {
   if (v == null) return "—";
@@ -87,10 +96,10 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
             <span className="pr-notice">{t.print.reportNotice}</span>
           </div>
           <div className="pr-meta-row">
-            <span className="pr-hcid">{t.common.hridLabel(id)}</span>
+            <span className="pr-hcid">HRID {id}</span>
             <span className="pr-date">{t.print.generatedAt(printDate)}</span>
           </div>
-          <h1 className="pr-title">{t.print.reactionReportTitle}</h1>
+          <h1 className="pr-title">{reactionTitleText(reaction.participants, { t, locale, reactionId: reaction.id })}</h1>
           <p className="pr-url"><a href={pageUrl}>{pageUrl}</a></p>
         </header>
 
@@ -119,7 +128,7 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
               </thead>
               <tbody>
                 {reaction.participants.map((p: Chemical) => {
-                  const { title: pName } = resolveChemicalName(p, t.common.hcidLabel, locale);
+                  const { title: pName } = resolveChemicalName(p, (n: string | number) => `HCID ${n}`, locale);
                   const amount = [
                     p.amount_value != null ? `${fmt(p.amount_value, locale)} ${p.amount_unit ?? ""}`.trim() : null,
                     p.equivalents != null ? `${fmt(p.equivalents, locale)} eq` : null,
@@ -129,7 +138,7 @@ export default async function ReactionPrintPage({ params }: { params: Promise<{ 
                     <tr key={p.id}>
                       <td>{roleLabel(p.role, t)}</td>
                       <td className={/\S{25,}/.test(pName) ? "pr-breakany" : undefined}>{pName}</td>
-                      <td className="pr-mono">{t.common.hcidLabel(p.id)}</td>
+                      <td className="pr-mono">HCID {p.id}</td>
                       <td>{amount || "—"}</td>
                     </tr>
                   );
