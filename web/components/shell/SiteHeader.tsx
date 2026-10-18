@@ -3,20 +3,24 @@
 /**
  * SiteHeader — 全站唯一顶栏（DESIGN_SYSTEM 2.3）。
  *
- * 公开页 (site) 与工作台 (workbench) 两个 layout 共用；桌面 / 平板 / 手机三态：
+ * 公开页 (site) 与工作台 (workbench) 共用；外壳实例全程不卸载，工作台
+ * 形态由上下文驱动（ShellWorkbenchChrome）。桌面 / 平板 / 手机三态：
  * - 桌面（≥）：标志 · 主导航（查询/Skills/MCP/工作台）·
  * 铃铛（未读红点，链接 /aichem?tab=activity）· 语言 · 头像菜单。无搜索框。
  * - 平板（641–）：主导航收进「更多」菜单。
- * - 手机（≤640）：高 --header-h-m，标志 + 工作台动作插槽（工作台 layout 传
- * 抽屉菜单与创建入口；公开页不传，顶栏只有标志和语言）+ 语言切换；
+ * - 手机（≤640）：高 --header-h-m，标志 + 工作台动作（抽屉菜单 ≡ 与创建
+ * 入口 +，仅当「服务端外壳数据 + 登录态 + 当前为工作台路由」三者同时
+ * 满足时出现；站内切进/切出工作台随之显隐）+ 语言切换；
  * 头像菜单内容并入底部「我的」。
  *
  * 未读数来源 = 工作台计数同一接口 /users/me/dashboard（counts.unread），
- * 只在已登录时请求，不新增 API；工作台 layout 通过 initialUnread 直传
- * 服务端已取的值，避免重复请求。ShellUnreadContext 下发给 MobileTabBar。
+ * 不新增 API；工作台形态时初始值取外壳上下文里的 counts.unread（服务端
+ * 已取，不重复请求），公开页缺省由 Provider 自取。
+ * ShellUnreadContext 下发给 MobileTabBar。
  *
  * 不吸顶：header 在正常文档流中。
  */
+import { Suspense } from "react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -31,6 +35,10 @@ import { Button } from "@/components/ui/Button";
 import { IconBell, IconChevron } from "@/components/ui/icons";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { ShellUnreadProvider, useShellUnread } from "./ShellUnread";
+import { useShellWorkbenchChrome } from "./ShellWorkbenchChrome";
+import { isWorkbenchRoute } from "@/lib/workbenchRoute";
+import { WbCreateMenu } from "@/components/workbench/WbCreateMenu";
+import { WbMobileNav } from "@/components/workbench/WbMobileNav";
 import { useToast } from "@/components/ui/Toast";
 import { useLogout } from "@/components/shared/useLogout";
 import { MobileTabBar } from "./MobileTabBar";
@@ -48,21 +56,17 @@ function useNavItems(): NavItem[] {
   ];
 }
 
-export function SiteHeader({ initialUnread, mobileActions }: {
-  /** 工作台 layout 传入服务端已取的 counts.unread；公开页缺省由 Provider 自取 */
-  initialUnread?: number;
-  /** 手机端右侧插槽（工作台传抽屉汉堡按钮） */
-  mobileActions?: React.ReactNode;
-}) {
+export function SiteHeader() {
   const { user } = useAccount();
   const t = useDictionary();
   const locale = useLocale();
   const nav = useNavItems();
   const pathname = usePathname();
   const routePath = stripLocalePrefix(pathname ?? "/");
+  const chrome = useShellWorkbenchChrome();
 
   return (
-    <ShellUnreadProvider initial={initialUnread}>
+    <ShellUnreadProvider initial={chrome?.counts?.unread ?? null}>
       <header className="sh-header">
         <div className="sh-inner">
           {/* 可访问名含可见文字「化工社」（zh lockup 有副标文本），
@@ -100,10 +104,17 @@ export function SiteHeader({ initialUnread, mobileActions }: {
             )}
           </div>
 
-          {/* 手机（≤640）：标志 + 工作台动作插槽（有则渲染）+ 语言切换
-              （DESIGN_SYSTEM 2.3；公开页不传插槽，顶栏只有标志和语言） */}
+          {/* 手机（≤640）：标志 + 工作台动作 + 语言切换（DESIGN_SYSTEM 2.3）。
+              工作台动作（抽屉 ≡ 与创建 +）只在「外壳上下文有工作台数据 +
+              已登录 + 当前为工作台路由」同时满足时出现；整页打开工作台时
+              该组按钮随服务端 HTML 直接输出。 */}
           <div className="sh-mobile-right">
-            {mobileActions}
+            {chrome && user && isWorkbenchRoute(routePath) && (
+              <Suspense>
+                <WbCreateMenu />
+                <WbMobileNav counts={chrome.counts} user={chrome.user} />
+              </Suspense>
+            )}
             <div className="sh-lang-m">
               <LanguageSwitcher />
             </div>
