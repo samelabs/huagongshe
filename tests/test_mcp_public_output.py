@@ -141,6 +141,8 @@ class FieldLabelForeignSynonymTests(unittest.TestCase):
         self.assertEqual(field_label("Toxizität"), "Toxicity")
         self.assertEqual(field_label("독성"), "Toxicity")
         self.assertEqual(field_label("REACH 注册登记"), "REACH registrations")
+        self.assertEqual(field_label("F"), "Flash point (°F)")
+        self.assertEqual(field_label("F 고인화성물질"), "Flash point (°F)")
 
     def test_regulation_names_pass_through(self):
         from api.services.field_labels import field_label

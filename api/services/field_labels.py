@@ -28,6 +28,9 @@ _reg("Vapor pressure", "蒸气压", "蒸気圧", "vapor pressure", "dampfdruck",
 _reg("Vapor density", "蒸气密度", "蒸気密度", "vapor density", "dampfdichte", "증기 밀도")
 _reg("Refractive index", "折射率", "屈折率", "refractive index", "brechungsindex", "굴절률")
 _reg("Flash point", "闪点", "引火点", "flash point", "flammpunkt", "인화점")
+# 源站安全表另有一列华氏闪点（德语页标 "F"，韩语页标 "F 고인화성물질"，
+# 值如 "3-10"/"824 °F"）；单位与摄氏闪点不同，独立成规范名不混并
+_reg("Flash point (°F)", "f", "f 고인화성물질")
 _reg("pH", "ph", "ph值")
 _reg("LogP", "logp")
 _reg("pKa", "pka", "酸度系数(pka)", "酸解離定数(pka)")
