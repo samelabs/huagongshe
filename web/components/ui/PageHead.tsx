@@ -2,10 +2,12 @@ import type { ReactNode } from "react";
 import { Breadcrumb, type BreadcrumbItem } from "./Breadcrumb";
 
 /**
- * PageHead — 页头（版式基准）：面包屑 + H1 + 副标题 + 操作区。
+ * PageHead — 页头（版式基准）：面包屑 + H1 + 副标题 + 元信息 + 操作区。
  *
  * H1 两档：default 28（列表/文章页）、hero 28/22（实体详情页，手机 22）；
  * 字重恒 --fw-semibold，行高 --lh-heading，字距 0。
+ * 主区内渲染序固定为 副标题（纯文本，如实体外文名）→ 块级元信息
+ * （如作者署名、事实胶囊行），两者并列时副标题在前。
  */
 export function PageHead({
   breadcrumb,
@@ -34,8 +36,8 @@ export function PageHead({
       {breadcrumb && <Breadcrumb items={breadcrumb} />}
       <div className="hg-page-head-main">
         <h1>{title}</h1>
-        {meta != null && <div className="hg-page-head-meta">{meta}</div>}
         {subtitle != null && <p className="hg-page-head-sub">{subtitle}</p>}
+        {meta != null && <div className="hg-page-head-meta">{meta}</div>}
       </div>
       {actions && <div className="hg-page-head-actions">{actions}</div>}
       {aside && <div className="hg-page-head-aside">{aside}</div>}

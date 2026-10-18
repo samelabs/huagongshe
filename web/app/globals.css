@@ -233,8 +233,8 @@ main { flex: 1; background: var(--bg-page); }
 }
 
 /* ══ Chemical Detail 头部内容件（版式由 PageHead/PageFrame 承担）══
-   这里只剩标题区内容样式：IUPAC 行 / 事实 Tag 行 / 右侧结构件卡片。 */
-.chem-iupac { margin: 0 0 var(--sp-3); color: var(--text-muted); font-size: var(--fs-14); }
+   这里只剩标题区内容样式：事实 Tag 行 / 右侧结构件卡片。
+   副标题（英文常用名，缺省以 IUPAC 兜底）由 PageHead 统一渲染。 */
 /* 胶囊行：全部同高 28px 居中；HCID 徽标与 CAS 复制钮在此行内收紧 */
 .chem-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .chem-chips .hg-tag { height: 28px; }
@@ -330,8 +330,7 @@ details.chem-group[open] > summary::after { content: "▴"; }
   /* 篇幅收敛（DESIGN_SYSTEM 6.3）：手机分区距与数据行列距降档 */
   .chem-dl > div { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); }
   .evidence-flat { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); }
-  /* 头部手机序：标题块在前，IUPAC 隐藏，结构件满宽居下 */
-  .chem-iupac { display: none; }
+  /* 头部手机序：标题块在前，结构件满宽居下 */
   .hg-page-head-aside { flex-basis: 100%; width: 100%; }
   .chem-struct { width: 100%; min-height: 180px; }
   .chem-struct img { max-height: 180px; }

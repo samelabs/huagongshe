@@ -181,6 +181,14 @@ class TitleRuleUnitTests(unittest.TestCase):
         self.assertEqual(title, "苯酚")
         self.assertEqual(secondary, "Phenol")
 
+    def test_zh_without_english_uses_iupac_subtitle(self):
+        title, secondary = resolve_title(
+            {"id": 2, "name_local": None, "name_cn": "苯酚", "preferred_name": None,
+             "iupac_name": "phenol"},
+            "zh-CN")
+        self.assertEqual(title, "苯酚")
+        self.assertEqual(secondary, "phenol")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -38,7 +38,8 @@ def _is_chinese_locale(locale: str) -> bool:
 
 def resolve_title(chemical: dict[str, Any], locale: str) -> tuple[str, str | None]:
     """与站内详情页同一取名规则: 当地常用名 → 英文常用名 → IUPAC 名 →
-    分子式 → CAS 号 → HCID; 主标题是当地名时副标题给英文常用名。"""
+    分子式 → CAS 号 → HCID; 主标题是当地名时副标题给英文常用名,
+    缺英文常用名时以 IUPAC 名兜底(与主标题相同则为空)。"""
     local = _clean(chemical.get("name_local")) or (
         _clean(chemical.get("name_cn")) if _is_chinese_locale(locale) else None)
     common = _clean(chemical.get("preferred_name"))
@@ -47,8 +48,10 @@ def resolve_title(chemical: dict[str, Any], locale: str) -> tuple[str, str | Non
     cas = _clean((chemical.get("cas_numbers") or [None])[0])
 
     if local:
-        secondary = common and common.lower() != local.lower()
-        return local, (common if secondary else None)
+        fallback = common or systematic
+        if fallback and fallback.lower() != local.lower():
+            return local, fallback
+        return local, None
     for candidate in (common, systematic, formula, cas):
         if candidate:
             return candidate, None

@@ -136,10 +136,9 @@ export default async function ChemicalPage({ params }: {
   // 名称解析唯一出口(与搜索结果/SEO 同规则); pb.record_title 不再入链 ——
   // 数据事实: PubChem 摄入时 preferred_name = properties.Title or record_title,
   // 抽样 6/6 record_title 与 preferred_name 同值, 单独入链只会制造第二套 fallback。
+  // 页头副标题 = 英文常用名, 缺英文常用名时以 IUPAC 名兜底(解析器内规则),
+  // IUPAC 名不再单独成行展示。
   const { title, secondary, source } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
-  const iupacShow = chemical.iupac_name
-    && chemical.iupac_name.toLowerCase() !== title.toLowerCase()
-    && chemical.iupac_name.toLowerCase() !== (secondary || "").toLowerCase() ? chemical.iupac_name : null;
 
   // Names: synonyms(主源) + CB aliases 视觉去重(仅展示层, 不写回)
   const synonyms = chemical.synonyms || [];
@@ -239,7 +238,6 @@ export default async function ChemicalPage({ params }: {
         subtitle={secondary || undefined}
         meta={
           <>
-            {iupacShow && <p className="chem-iupac">{iupacShow}</p>}
             <div className="chem-chips">
               {chemical.cas_numbers[0] && source !== "cas" && (
                 <Tag className="chem-cas-chip">
