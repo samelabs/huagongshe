@@ -1128,7 +1128,9 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
 
 /* ── 首页 AI 接入入口(第一屏) ── */
 /* MCP 区块 = CodeField 地址 → 三入口按钮 → 说明 + Tag warn「未上架」 */
-.home-entry { margin-top: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-6); background: var(--bg-surface); display: grid; gap: var(--sp-3); text-align: left; max-width: var(--w-reading); }
+/* 分区收进与首页搜索区相同的阅读列（电脑端居中）；分区标题在该列内靠左，与卡片左缘对齐 */
+.home-entry-section { max-width: var(--w-reading); margin-inline: auto; }
+.home-entry { margin-top: 26px; border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4) var(--sp-6); background: var(--bg-surface); display: grid; gap: var(--sp-3); text-align: left; }
 .home-entry-kicker { margin: 0; font-size: var(--fs-13); font-weight: 600; color: var(--text-muted); letter-spacing: .02em; }
 .home-entry-code .hg-code code { font-size: var(--fs-13); }
 .home-entry-actions { margin-top: 0; display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
