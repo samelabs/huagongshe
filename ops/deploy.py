@@ -73,6 +73,22 @@ def _event(name: str, **kw) -> None:
           flush=True)
 
 
+CHILD_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+
+def child_env() -> dict[str, str]:
+    """子进程只拿最小环境, 不继承调用方终端。
+
+    pm2 start/restart --update-env 会把调用方环境整体写进 app 进程与
+    dump.pm2; app 所需变量一律来自 ecosystem.config.cjs 与 /etc/huagongshe.env。
+    """
+    env = {"PATH": CHILD_PATH, "LANG": "C.UTF-8"}
+    for key in ("HOME", "USER", "LOGNAME", "PM2_HOME"):
+        if os.environ.get(key):
+            env[key] = os.environ[key]
+    return env
+
+
 @dataclass
 class Runner:
     """subprocess 执行器; 测试注入 FakeRunner 替代。"""
@@ -82,7 +98,8 @@ class Runner:
     @classmethod
     def real(cls) -> "Runner":
         def _run(argv: list[str]) -> subprocess.CompletedProcess:
-            return subprocess.run(argv, capture_output=True, text=True)
+            return subprocess.run(argv, capture_output=True, text=True,
+                                  env=child_env())
         return cls(run=_run)
 
 

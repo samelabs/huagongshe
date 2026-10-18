@@ -479,5 +479,26 @@ class FailureReportingTests(unittest.TestCase):
                 self.assertEqual(D.main(["--skip-build"]), 1)
 
 
+class ChildEnvTests(unittest.TestCase):
+    """子进程不继承调用方终端环境(pm2 --update-env 会写进 app 与 dump)。"""
+
+    def test_child_env_drops_caller_terminal_vars(self):
+        caller = {"PATH": "/home/x/agent/venv/bin:/usr/bin", "HOME": "/home/ubuntu",
+                  "PM2_HOME": "/home/ubuntu/.pm2", "TMPDIR": "/home/x/scratch",
+                  "SSL_CERT_FILE": "/home/x/cacert.pem", "SSH_AUTH_SOCK": "/run/s",
+                  "GIT_PAGER": "cat", "SOME_API_KEY": "k"}
+        with mock.patch.dict(D.os.environ, caller, clear=True):
+            env = D.child_env()
+        self.assertEqual(env["PATH"], D.CHILD_PATH)
+        self.assertEqual(env["HOME"], "/home/ubuntu")
+        self.assertEqual(env["PM2_HOME"], "/home/ubuntu/.pm2")
+        self.assertEqual(set(env) - {"PATH", "LANG", "HOME", "USER", "LOGNAME", "PM2_HOME"}, set())
+
+    def test_real_runner_passes_child_env(self):
+        with mock.patch.object(D.subprocess, "run") as run:
+            D.Runner.real().run(["pm2", "jlist"])
+        self.assertEqual(run.call_args.kwargs["env"], D.child_env())
+
+
 if __name__ == "__main__":
     unittest.main()

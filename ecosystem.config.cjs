@@ -29,7 +29,7 @@ module.exports = {
       name: "huagongshe-api",
       cwd: "/var/www/huagongshe",
       script: "./venv/bin/python",
-      args: "-m uvicorn api.main:app --host 127.0.0.1 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips=127.0.0.1",
+      args: "-m uvicorn api.main:app --host 127.0.0.1 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips=127.0.0.1 --no-access-log",
       interpreter: "none",
       env: {
         PYTHONUNBUFFERED: "1",

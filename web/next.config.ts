@@ -58,9 +58,7 @@ const nextConfig: NextConfig = {
     return [{
       source: "/:path*",
       headers: [
-        { key: "X-Content-Type-Options", value: "nosniff" },
-        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-        { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        // nosniff / Referrer-Policy / Permissions-Policy 由 nginx 对全部响应统一下发。
         // F-09（）: CSP 先 report-only —— 盘点后的 inline script 清单：
         // 1. layout.tsx LA.init 统计初始化（dangerouslySetInnerHTML，id 经
         // 语法白名单校验后插值）→ 需要 script-src 'unsafe-inline' 或改造为
