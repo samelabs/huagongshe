@@ -133,7 +133,7 @@ function isPublicEdgeCacheablePage(rest: string): boolean {
 }
 
 /**
- * 判断请求是否为 RSC 数据请求或 Next Router 预取请求（）：
+ * 判断请求是否为 RSC 数据请求或 Next Router 预取请求：
  * Next 的客户端跳转和预取用同一 URL 取 RSC 数据（带 rsc / next-router-prefetch /
  * next-router-segment-prefetch 请求头、_rsc 查询参数或 text/x-component accept），
  * Cloudflare 不识别 Vary: rsc。

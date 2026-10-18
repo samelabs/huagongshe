@@ -59,7 +59,7 @@ const nextConfig: NextConfig = {
       source: "/:path*",
       headers: [
         // nosniff / Referrer-Policy / Permissions-Policy 由 nginx 对全部响应统一下发。
-        // F-09（）: CSP 先 report-only —— 盘点后的 inline script 清单：
+        // CSP 先 report-only —— 盘点后的 inline script 清单：
         // 1. layout.tsx LA.init 统计初始化（dangerouslySetInnerHTML，id 经
         // 语法白名单校验后插值）→ 需要 script-src 'unsafe-inline' 或改造为
         // nonce（收紧前置条件）；外部源 //sdk.51.la。

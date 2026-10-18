@@ -1,4 +1,4 @@
-"""MCP server: the curated agent-facing capability surface (M1).
+"""MCP server: the curated agent-facing capability surface.
 
 认知模型(与 /api/agent-guide 的关系, 不得再表述为 1:1):
 - /api/agent-guide = HTTP Agent contract(自描述连接契约)。

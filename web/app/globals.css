@@ -209,7 +209,7 @@ main { flex: 1; background: var(--bg-page); }
 .reaction-result-foot p { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reaction-result-foot a { flex: 0 0 auto; color: var(--action); }
 
-/* 化合物页「相关反应」压缩卡（）：两列网格 + 方程图 96 等比 contain
+/* 化合物页「相关反应」压缩卡：两列网格 + 方程图 96 等比 contain
    + 单行底栏（HRID 徽标 / 角色 Tag / 来源 Tag）。搜索页 .reaction-result 不受影响。 */
 .reaction-mini-grid { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); min-width: 0; max-width: 100%; }
 .reaction-mini { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); overflow: hidden; transition: border-color .15s; min-width: 0; width: 100%; }
@@ -494,7 +494,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pf-counts strong { color: var(--text); font-weight: 650; font-size: var(--fs-16); font-variant-numeric: tabular-nums; }
 .pf-counts a:hover strong { color: var(--action); }
 .pf-acts { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
-/* 分享双形态（）：桌面 ghost 图标；手机文字「分享主页」（下方媒体查询切换）。
+/* 分享双形态：桌面 ghost 图标；手机文字「分享主页」（下方媒体查询切换）。
    特异性须带 .pf-acts —— ui.css 的 .hg-btn{display:inline-flex} 后加载会盖掉单类规则。 */
 .pf-share { display: flex; min-width: 0; }
 .pf-acts .pf-share-text { display: none; }
@@ -670,7 +670,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .guide-trust-list li { color: var(--text-muted); font-size: var(--fs-13); line-height: 1.7; padding-left: 16px; position: relative; }
 .guide-trust-list li::before { content: ""; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--brand); }
 
-/* ── 法务/支持页（）：更新日期 meta 行 + 条款编号 + 阅读版式正文 ── */
+/* ── 法务/支持页：更新日期 meta 行 + 条款编号 + 阅读版式正文 ── */
 .legal-meta { margin: 10px 0 0; color: var(--text-muted); font-size: var(--fs-13); font-variant-numeric: tabular-nums; }
 .legal-page { counter-reset: legalsec; }
 .legal-page .hg-section { counter-increment: legalsec; }

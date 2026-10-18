@@ -14,7 +14,7 @@ from .config import settings
 logger = logging.getLogger(__name__)
 pool = redis.ConnectionPool.from_url(settings.redis_url, decode_responses=True)
 
-# 按事件循环隔离的池(F-01 引入的新调用面暴露的基建缺口): redis asyncio 连接
+# 按事件循环隔离的池: redis asyncio 连接
 # 绑定创建它的 loop, 测试常见 asyncio.run-per-call 模式下每次调用都是新 loop,
 # 复用旧 loop 的连接必然报错(cache 层吞掉变降级, 限流层 fail-closed 变 503)。
 # 生产单事件循环(uvicorn/uvloop)下 get_running_loop 恒同一对象 → 行为与

@@ -336,7 +336,7 @@ class FullOrchestrationTests(unittest.TestCase):
         # 归一为 {entries: …} 渲染形态(与前端 chemicalEvidence 同构)
         self.assertEqual(sections.get("ghs_classification"), {"entries": ghs},
                          "REST full 丢失 GHS 分类（白名单键名回归？）")
-        # ZX: 默认路径(MCP full, 完整证据)GHS 原样透传, 同样不丢
+        # 默认路径(MCP full, 完整证据)GHS 原样透传, 同样不丢
         result_full = self._full(pb_details={
             "record_description": "PB desc",
             "xlogp": -0.5,
@@ -389,7 +389,7 @@ class LocaleLifecycleChainTests(unittest.TestCase):
 
 
 class EvidenceProjectionTests(unittest.TestCase):
-    """ZX: 共享 semantic detail 路径默认完整证据(MCP full 口径); 网页展示
+    """共享 semantic detail 路径默认完整证据(MCP full 口径); 网页展示
     (pb_display_limit=True)保持 display_details 页面级截断(12×6)。"""
 
     PB_13X7 = {
@@ -419,7 +419,7 @@ class EvidenceProjectionTests(unittest.TestCase):
 
 
 class CbRefreshSourceGrainTests(unittest.TestCase):
-    """ZX: stale 刷新入队携带当前展示所选行的 cb_number(source grain) —
+    """stale 刷新入队携带当前展示所选行的 cb_number(source grain) —
     fallback 来源 B 过期时刷新任务领取的就是 B(lease 侧按
     request_context.source_cb 寻址, 链路契约见 tests/test_lease_cb_key.py),
     不回落 imprint 主行。"""
@@ -458,8 +458,8 @@ class CbRefreshSourceGrainTests(unittest.TestCase):
 
 
 class DetailCbRefreshSemanticsTests(unittest.TestCase):
-    """ZX(恢复 1.6): 网页详情访问的 CB 生命周期 — stale 入队刷新一次,
-    absent 恒不首次采集(aae71ad 的只读收口已回退)。
+    """网页详情访问的 CB 生命周期 — stale 入队刷新一次,
+    absent 恒不首次采集(只读收口已回退)。
     """
 
     CB_ROW = {"entry": {"identity": {"cn": "水"},
@@ -586,7 +586,7 @@ class DetailCbRefreshSemanticsTests(unittest.TestCase):
 
 
 class McpCbRefreshPreservedTests(unittest.TestCase):
-    """MCP full 默认 CB 刷新能力不变(与 REST 同语义, ZX 后无差别)。"""
+    """MCP full 默认 CB 刷新能力不变(与 REST 同语义)。"""
 
     CB_ROW = {"entry": {"identity": {"cn": "水"}}, "cb_number": "CB1",
               "locale": "zh-CN"}
@@ -612,7 +612,7 @@ class McpCbRefreshPreservedTests(unittest.TestCase):
         self.assertEqual(seen["enqueue_locale"], "ja")
 
     def test_service_signature_has_no_readonly_flag(self):
-        # ZX(恢复 1.6): allow_cb_enqueue 只读开关已整体移除 —— 所有调用方
+        # allow_cb_enqueue 只读开关已整体移除 —— 所有调用方
         # (REST/MCP)同一语义
         import inspect
         from api.services import chemicals as svc
@@ -633,8 +633,8 @@ class McpCbRefreshPreservedTests(unittest.TestCase):
 
 
 class RestAdapterProjectionTests(unittest.TestCase):
-    """REST adapter 契约(ZX): 不传只读开关(1.6 语义恢复); 网页展示显式
-    传 pb_display_limit=True 保持 12×6 证据截断。"""
+    """REST adapter 契约: 不传只读开关(刷新语义与 service 默认一致);
+    网页展示显式传 pb_display_limit=True 保持 12×6 证据截断。"""
 
     def test_routes_no_readonly_flag_keeps_display_limit(self):
         import inspect

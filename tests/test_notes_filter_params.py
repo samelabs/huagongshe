@@ -204,7 +204,7 @@ class SaveLandingTests(unittest.TestCase):
 
 class NotesListUiCloseoutTests(unittest.TestCase):
     def test_home_card_has_view_full_hint(self):
-        """ 查看全文提示：概览重做（）后 HomePanel 笔记行改为单行标题行
+        """ 查看全文提示：概览改版后 HomePanel 笔记行改为单行标题行
         （链接直达详情页），note-view-full 提示在 EntityNotes 摘录卡上保留。"""
         src = (REPO / "web/components/EntityNotes.tsx").read_text(encoding="utf-8")
         # 迁移：text-button → ui TextLink（note-view-full 定位类保留）

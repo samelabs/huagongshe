@@ -7,6 +7,7 @@
 
 用法：
     python scripts/check_comment_vocabulary.py [--base origin/main]
+    python scripts/check_comment_vocabulary.py --all   # 全量扫描（对空树做差）
 """
 from __future__ import annotations
 
@@ -35,12 +36,18 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     # ── 残句形态（机械删词后留下的坏句，只查注释段）──
     # 版本演变引用（v1.x / 某版本起）
     ("版本演变", re.compile(r"\bv\d+\.\d+\b")),
-    # 空括号（前后不贴字词字符，foo() 是函数名不算）或括号内以分隔标点开头
+    # 空括号：全角（）不论前一字符是什么都算命中；半角 () 前后不贴
+    # 字词字符（foo() 是函数名不算）；括号内以分隔标点开头也算
     # （冒号后须跟空白，(:param) 是 SQL 具名参数不算）
-    ("残句空括号", re.compile(r"(?<![\w.])[（(]\s*[）)](?![\w])|[（(]\s*(?:[,;，；]|[：:]\s)")),
+    ("残句空括号", re.compile(r"[（]\s*[）)]|(?<![\w.])[(]\s*[)](?![\w])|[（(]\s*(?:[,;，；]|[：:]\s)")),
     # 注释以悬空冒号或"数字:"开头（删编号后残留）。冒号后须是空白或
     # 非 ASCII 字符：(:param) 是 SQL 具名参数、1:1 是比值，都不算
     ("残句悬空开头", re.compile(r"^\s*[：:](?:\s|[^\x00-\x7f])|^\s*\d+\s*[：:](?!\d)")),
+    # 内部代号与注释内日期（只查注释段；代码字符串里的值不算）
+    ("内部代号 ZX", re.compile(r"\bZX\b")),
+    ("条目编号 F 数字", re.compile(r"\bF-\d{2}\b")),
+    ("批次代号 M 数字", re.compile(r"\bM\d\b")),
+    ("注释内日期", re.compile(r"\b20\d{2}-\d{2}-\d{2}\b")),
 ]
 
 # 领域语言里的合法用词（化合物身份治理的人工决断语义），不属过程引用
@@ -93,8 +100,18 @@ def _comment_segment(path: str, line: str, lineno: int = 0) -> str | None:
     if path.endswith((".ts", ".tsx", ".js", ".mjs", ".cjs")):
         if stripped.startswith("//"):
             return stripped[2:]
+        # 块注释（含 JSDoc 首行与续行）；行中形态只认 JSX 的 {/* ——
+        # 路径串里的 "/mcp/*" 之类不是注释
+        if stripped.startswith("/*"):
+            return stripped[2:]
+        if stripped.startswith("*"):
+            return stripped[1:]
+        if stripped.startswith("{/*"):
+            return stripped[3:]
         pos = line.find(" // ")
         return line[pos + 3:] if pos >= 0 else None
+    if path.endswith(".conf"):
+        return stripped[1:] if stripped.startswith("#") else None
     if path.endswith(".css"):
         if stripped.startswith("/*"):
             return stripped[2:]
@@ -107,7 +124,9 @@ def _comment_segment(path: str, line: str, lineno: int = 0) -> str | None:
     return None
 
 
-COMMENT_ONLY_PATTERNS = {"版本演变", "残句空括号", "残句悬空开头"}
+COMMENT_ONLY_PATTERNS = {"版本演变", "残句空括号", "残句悬空开头",
+                         "内部代号 ZX", "条目编号 F 数字", "批次代号 M 数字",
+                         "注释内日期"}
 
 
 def merge_base(base: str) -> str:
@@ -136,21 +155,35 @@ def added_lines(base_commit: str):
             lineno += 1
 
 
+def empty_tree() -> str:
+    """当前对象库的空树哈希（--all 全量模式对它做差 = 每一行都是新增）。"""
+    result = subprocess.run(
+        ["git", "hash-object", "-t", "tree", "/dev/null"], cwd=REPO,
+        capture_output=True, text=True, check=True)
+    return result.stdout.strip()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", default="origin/main",
                         help="基线分支/提交（默认 origin/main）")
+    parser.add_argument("--all", action="store_true",
+                        help="全量扫描（对空树做差）；额外排除 CHANGELOG.md、docs/、migrations/")
     args = parser.parse_args()
 
+    excluded = list(EXCLUDED_PARTS)
     try:
-        base_commit = merge_base(args.base)
+        base_commit = empty_tree() if args.all else merge_base(args.base)
     except subprocess.CalledProcessError:
         print(f"无法解析基线 {args.base}（本地无该引用时请先 fetch）")
         return 2
+    if args.all:
+        # 过程档案与历史迁移不参与全量清零；命中清单在验收回执中单列报告
+        excluded += ("CHANGELOG.md", "docs/", "migrations/")
 
     violations: list[str] = []
     for path, lineno, text in added_lines(base_commit):
-        if any(part in path for part in EXCLUDED_PARTS):
+        if any(part in path for part in excluded):
             continue
         if any(phrase in text for phrase in ALLOW_PHRASES):
             continue
@@ -167,7 +200,8 @@ def main() -> int:
         for item in violations:
             print(f"  {item}")
         return 1
-    print(f"词表检查通过（基线 {base_commit[:10]}，无新增过程语言）")
+    mode = "全量" if args.all else "新增"
+    print(f"词表检查通过（{mode}扫描，基线 {base_commit[:10]}，无过程语言）")
     return 0
 
 

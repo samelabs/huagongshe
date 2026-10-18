@@ -116,7 +116,7 @@ docker compose --env-file .env.local exec db su postgres -s /bin/bash -c \
   "/usr/lib/postgresql/16/bin/psql -d hgs_local -c \"UPDATE community.notifications SET read_at=NULL WHERE event_type='new_reaction'\""
 ```
 
-**pristine test_hgs 上的本轮结果（Step 6，2026-10-10）**：`Ran 1478 tests …
+**pristine test_hgs 上的基线结果**：`Ran 1478 tests …
 FAILED (failures=1, errors=1, skipped=1, expected failures=1)`。两个非预期项
 都是"开发机 checkout vs CI checkout"的环境差异，不是代码问题（step3 起持续，
 两轮 pristine 复跑均复现同样两项）：

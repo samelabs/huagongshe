@@ -63,7 +63,7 @@ async def create_note(
         raise HTTPException(
             400, {"message": str(exc), "kind": exc.kind}) from exc
     except NoteQuotaExceededError as exc:
-        # F-01: 每用户存量上限 — 409 + 机器码, 前端按 kind 本地化
+        # 笔记每用户存量上限 — 409 + 机器码, 前端按 kind 本地化
         raise HTTPException(
             409, {"message": str(exc), "kind": exc.kind}) from exc
 

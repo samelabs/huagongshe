@@ -579,10 +579,10 @@ class A4CbSourceTests(CounterexampleBase):
                          "CAS 回调双 miss 建出幽灵行(占位行约束), 实际行数: %d" % n)
 
 
-# ── ZX: CB 回调结构写入(CONFLICT + IK 相异才拒写) ────────────────────────────
+# ── CB 回调结构写入(CONFLICT + IK 相异才拒写) ────────────────────────────
 
 class CbCallbackStructureConflictTests(CounterexampleBase):
-    """ZX: resolver CONFLICT 且载荷 IK ≠ 行已有 IK → 跳过 apply_structure_fill
+    """resolver CONFLICT 且载荷 IK ≠ 行已有 IK → 跳过 apply_structure_fill
     (只补空也会把 smiles/mol/指纹写成异物); 其余路径(无 CID 但结构一致的
     正常补全)照旧填 IK。"""
 

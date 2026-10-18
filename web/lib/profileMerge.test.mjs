@@ -1,4 +1,4 @@
-/* 资料设置页迟到 GET 的按字段合并(ZX): 纯 ESM, 不在 tsconfig include 内, 不参与构建。
+/* 资料设置页迟到 GET 的按字段合并: 纯 ESM, 不在 tsconfig include 内, 不参与构建。
    运行: cd web && node --test --experimental-strip-types lib/profileMerge.test.mjs */
 import test from "node:test";
 import assert from "node:assert/strict";
