@@ -223,7 +223,7 @@ export default async function ReactionPage({ params }: {
             {reaction.is_owner ? (
               <ReactionOwnerActions reactionId={reaction.id} />
             ) : (
-              <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" />
+              <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" variant="tonal" withIcon />
             )}
           </div>
         </>}

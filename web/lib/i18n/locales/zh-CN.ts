@@ -433,7 +433,6 @@ const t = {
     sideActivity: '动态',
     tabFollowers: '粉丝',
     tabFollowing: '关注',
-    homeSearchPlaceholder: '中英文名称、CAS、SMILES、CID、InChIKey…',
     homeSearchButton: '查询',
     homeViewAll: '查看全部',
     greetingTitle: (greeting: string, name: string) => `${greeting}，${name}`,

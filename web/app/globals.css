@@ -582,9 +582,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
      顺落网格左列，与上排按钮同宽同高 */
   .pf-acts { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); }
   .pf-acts .hg-btn { height: var(--h-lg); }
-  .pf-acts .pf-share-icon { display: none; }
-  .pf-acts .pf-share-text { display: inline-flex; width: 100%; }
-  .pf-rx-grid { grid-template-columns: minmax(0, 1fr); }
+      .pf-rx-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .avatar-upload, .token-create { display: flex; align-items: center; gap: 9px; }

@@ -85,7 +85,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
             enterKeyHint="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="CAS, Name, SMILES, InChIKey"
+            placeholder={t.search.placeholder}
             autoFocus
             autoComplete="off"
             spellCheck={false}

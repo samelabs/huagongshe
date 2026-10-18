@@ -423,7 +423,6 @@ const ja: Dictionary = {
     sideActivity: '新着',
     tabFollowers: 'フォロワー',
     tabFollowing: 'フォロー中',
-    homeSearchPlaceholder: '名称、CAS、SMILES、CID、InChIKey…',
     homeSearchButton: '検索',
     homeViewAll: 'すべて表示',
     greetingTitle: (greeting: string, name: string) => `${greeting}、${name}`,

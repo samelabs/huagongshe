@@ -425,7 +425,6 @@ const ko: Dictionary = {
     sideActivity: '소식',
     tabFollowers: '팔로워',
     tabFollowing: '팔로잉',
-    homeSearchPlaceholder: '이름, CAS, SMILES, CID, InChIKey…',
     homeSearchButton: '검색',
     homeViewAll: '전체 보기',
     greetingTitle: (greeting: string, name: string) => `${greeting}, ${name}`,
