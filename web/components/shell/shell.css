@@ -131,7 +131,7 @@
   .sh-lang-m .lang-switcher .lang-switcher-trigger { min-height: 44px; padding: 0 var(--sp-2); }
 }
 
-/* ══ 页脚（公开页与状态页共用；手机由底栏承担导航，不显示） ══ */
+/* ══ 页脚（公开页与状态页共用；手机同样显示，法务三页链接可达） ══ */
 .sh-footer {
   min-height: 64px;
   padding: 20px max(20px, calc((100vw - var(--w-wide)) / 2));
@@ -147,8 +147,9 @@
   border-top: 1px solid var(--border);
 }
 .sh-footer-link { color: var(--action); }
+/* 手机：页脚显示在底栏上方，底部让位 = --tabbar-clear（含安全区） */
 @media (max-width: 640px) {
-  .sh-footer { display: none; }
+  .sh-footer { padding-bottom: var(--tabbar-clear); }
 }
 
 /* ══ 手机底部 tab（DESIGN_SYSTEM 2.3） ══════════════════════ */

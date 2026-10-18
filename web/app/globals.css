@@ -970,11 +970,9 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
    无视口单位、无 fixed 壳、无 overflow:hidden(body 成滚动容器是历代
    冷启动失控的根: 恢复时刻滚动容器归属错位, 软导航一路带病)。
    底栏 = components/shell/MobileTabBar（.sh-tabbar，样式在 shell.css，
-   ≤640 显示）；让位只此一处（main padding-bottom = --tabbar-clear，含安全区）。 */
-@media (max-width: 640px) {
-  /* 手机不显示页脚（shell.css），底栏让位由正文承担：--tabbar-clear（含安全区），与工作台正文共用 */
-  .app-container > main { padding-bottom: var(--tabbar-clear); }
-}
+   ≤640 显示）；底栏让位由页脚承担（.sh-footer 手机端 padding-bottom
+   = --tabbar-clear，含安全区，规则在 shell.css）—— 页脚在底栏上方
+   完整可达，正文不再额外让位。工作台正文自持让位（aichem.css）。 */
 @media (min-width: 641px) {
   /* desktop: local nav 隐藏, 由 secondary rail 的 On this page 承担 */
 }
