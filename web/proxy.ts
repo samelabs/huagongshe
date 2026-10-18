@@ -192,7 +192,7 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
     requestHeaders.set(LOCALE_PATH_HEADER, pathname + request.nextUrl.search);
     const response = NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } });
 
-    // /14 边缘缓存与 Set-Cookie 规则：
+    // 边缘缓存与 Set-Cookie 规则：
     const hasSession = request.cookies.has("hgs_session") ||
       Boolean(request.headers.get("cookie")?.split(";").some((c) => c.trim().startsWith("hgs_session=")));
     const isPublic = isPublicEdgeCacheablePage(prefixed.rest);

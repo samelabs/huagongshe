@@ -5,7 +5,7 @@ import { useDictionary } from "@/components/shared/I18nContext";
 import { Notice } from "@/components/ui/Notice";
 
 /**
- * SlowNotice — 超时关怀(/)：客户端加载超过 10s 时
+ * SlowNotice — 超时关怀：客户端加载超过 10s 时
  * 出现「仍在处理，请稍候」Notice（warn）并带「重试」。active=true 起 10s
  * 计时；加载完成（active=false）即消失。重试由调用方重新触发加载。
  */

@@ -642,7 +642,7 @@ class ArchiveFileMatrixTests(_LifecycleBase):
         self.assertEqual(outside.read_bytes(), b"secret\n")
 
     def test_extractor_ingress_protections_not_degraded(self):
-        """既有 ingress 防护(/ kernel, 未改): traversal + symlink 拒绝。"""
+        """ingress 防护保持内核层职责: traversal + symlink 拒绝。"""
         trav = self._make_zip({"./../evil.txt": b"x\n"})
         with self.assertRaises(svc.SkillArchiveValidationError) as ctx:
             svc.extract_skill_zip(trav)

@@ -43,6 +43,11 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     # 注释以悬空冒号或"数字:"开头（删编号后残留）。冒号后须是空白或
     # 非 ASCII 字符：(:param) 是 SQL 具名参数、1:1 是比值，都不算
     ("残句悬空开头", re.compile(r"^\s*[：:](?:\s|[^\x00-\x7f])|^\s*\d+\s*[：:](?!\d)")),
+    # 括号内只剩斜杠，或以斜杠加空白开头（机械删词残留，如 (/)、(/ 某规范）；
+    # 路径串 (/api/x) 斜杠后是词字符，不命中
+    ("括号内斜杠残句", re.compile(r"[（(]\s*/\s*[）)]|[（(]/\s")),
+    # 注释正文以斜杠编号开头（如 "/14 …"）
+    ("行首斜杠编号", re.compile(r"^\s*/\d{1,3}\s")),
     # 内部代号与注释内日期（只查注释段；代码字符串里的值不算）
     ("内部代号 ZX", re.compile(r"\bZX\b")),
     ("条目编号 F 数字", re.compile(r"\bF-\d{2}\b")),
@@ -87,6 +92,64 @@ def _docstring_lines(path: str) -> set[int]:
     return lines
 
 
+def _block_comment_texts(text: str) -> dict[int, str]:
+    """ts/tsx/js/mjs/cjs/css 的块注释行 → 该行注释正文（行号从 1 起）。
+
+    从每处 /* 起到同文件最近 */ 为止的每一行都算注释，续行不要求以 *
+    开头。两类不开块：行注释 // 先于 /* 时，其文本里的 /* 不是注释；
+    /* 前紧贴词字符（如字符串字面量里的 /mcp/*）不是注释。自闭合块
+    （{ /* … */ }）只取块内正文，行内代码不进检查。"""
+    out: dict[int, str] = {}
+    in_block = False
+    for i, raw in enumerate(text.splitlines(), 1):
+        if in_block:
+            end = raw.find("*/")
+            if end >= 0:
+                out[i] = raw[:end]
+                in_block = False
+            else:
+                out[i] = raw
+            continue
+        star = raw.find("/*")
+        while star >= 0:
+            slash = raw.find("//")
+            if 0 <= slash < star:
+                star = -1
+                break
+            prev = raw[star - 1] if star else ""
+            if not (prev.isalnum() or prev == "_"):
+                break
+            star = raw.find("/*", star + 2)
+        if star < 0:
+            continue
+        end = raw.find("*/", star + 2)
+        if end >= 0:
+            out[i] = raw[star + 2:end]
+        else:
+            out[i] = raw[star + 2:]
+            in_block = True
+    return out
+
+
+def _block_comment_lines(path: str) -> dict[int, str]:
+    """文件当前内容的块注释正文表（带缓存）；读不了返回空表。"""
+    cache = getattr(_block_comment_lines, "_cache", None)
+    if cache is None:
+        cache = _block_comment_lines._cache = {}
+    if path in cache:
+        return cache[path]
+    texts: dict[int, str] = {}
+    if path.endswith((".ts", ".tsx", ".js", ".mjs", ".cjs", ".css")):
+        target = REPO / path
+        if target.exists():
+            try:
+                texts = _block_comment_texts(target.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError):
+                texts = {}
+    cache[path] = texts
+    return texts
+
+
 def _comment_segment(path: str, line: str, lineno: int = 0) -> str | None:
     """取该行的注释文本（剥掉注释标记）；非注释行返回 None。"""
     stripped = line.strip()
@@ -98,23 +161,19 @@ def _comment_segment(path: str, line: str, lineno: int = 0) -> str | None:
     if path.endswith((".yml", ".yaml")):
         return stripped[1:] if stripped.startswith("#") else None
     if path.endswith((".ts", ".tsx", ".js", ".mjs", ".cjs")):
+        texts = _block_comment_lines(path)
+        if lineno and lineno in texts:
+            return texts[lineno]
         if stripped.startswith("//"):
             return stripped[2:]
-        # 块注释（含 JSDoc 首行与续行）；行中形态只认 JSX 的 {/* ——
-        # 路径串里的 "/mcp/*" 之类不是注释
-        if stripped.startswith("/*"):
-            return stripped[2:]
-        if stripped.startswith("*"):
-            return stripped[1:]
-        if stripped.startswith("{/*"):
-            return stripped[3:]
         pos = line.find(" // ")
         return line[pos + 3:] if pos >= 0 else None
     if path.endswith(".conf"):
         return stripped[1:] if stripped.startswith("#") else None
     if path.endswith(".css"):
-        if stripped.startswith("/*"):
-            return stripped[2:]
+        texts = _block_comment_lines(path)
+        if lineno and lineno in texts:
+            return texts[lineno]
         return stripped[1:] if stripped.startswith("*") else None
     if path.endswith(".sql"):
         pos = line.find("--")
@@ -126,7 +185,7 @@ def _comment_segment(path: str, line: str, lineno: int = 0) -> str | None:
 
 COMMENT_ONLY_PATTERNS = {"版本演变", "残句空括号", "残句悬空开头",
                          "内部代号 ZX", "条目编号 F 数字", "批次代号 M 数字",
-                         "注释内日期"}
+                         "注释内日期", "括号内斜杠残句", "行首斜杠编号"}
 
 
 def merge_base(base: str) -> str:

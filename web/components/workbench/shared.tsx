@@ -146,7 +146,7 @@ export function relativeTime(value: string, locale: string): string {
 import { resolveNotePresentation } from "@/lib/noteHeadline";
 export { noteHeadline, noteListPresentation, resolveNotePresentation } from "@/lib/noteHeadline";
 
-/** (/)：客户端加载 >10s 的「仍在处理」Notice + 重试 */
+/** 客户端加载 >10s 时的「仍在处理」Notice + 重试 */
 export { SlowNotice } from "./SlowNotice";
 
 /** 可见性 Tag（概览行与笔记/反应面板行共用） */
@@ -157,7 +157,7 @@ export function VisibilityTag({ visibility, t }: { visibility: "public" | "priva
 }
 
 /* ── 动态卡片（DESIGN_SYSTEM 6.7）：概览「关注动态」与动态面板（?tab=activity）同一个
-   组件（）。支持 new_reaction 与 new_note。 ── */
+   组件。支持 new_reaction 与 new_note。 ── */
 export function ActivityFeedCard({ item, favored, t, locale }: {
   item: Notice;
   /** 收藏初始态（调用方从 /users/me/follows/reactions 的 id 集给出） */
@@ -249,7 +249,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
 }
 
 /* ── 反应行（DESIGN_SYSTEM 6.7）：方程式缩略图（高 48）+ HRID 徽标 sm（私有锁）+ 摘要 +
-   日期 + 关注人数 —— 「我的反应」与「收藏·反应」共用（）── */
+   日期 + 关注人数 —— 「我的反应」与「收藏·反应」共用 ── */
 export function ReactionRow({ item, t, locale, actions }: {
   item: Reaction;
   t: Dictionary;
