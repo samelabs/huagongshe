@@ -384,6 +384,11 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-code.multiline { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--sp-1) var(--sp-2); padding: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-3); height: auto; }
 .hg-code.multiline code { grid-column: 1; white-space: pre; overflow: auto; max-height: 320px; line-height: 1.65; }
 .hg-code.multiline .hg-copy-wrap { grid-column: 2; grid-row: 1; }
+/* wrap 形态（超长单行标识，如反应 SMILES）：同 multiline 的块状网格，
+   内容完整换行（保留空白、逐字符断行），纵向限高内部滚动 */
+.hg-code.wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--sp-1) var(--sp-2); padding: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-3); height: auto; }
+.hg-code.wrap code { grid-column: 1; white-space: pre-wrap; word-break: break-all; overflow: auto; max-height: 320px; line-height: 1.65; }
+.hg-code.wrap .hg-copy-wrap { grid-column: 2; grid-row: 1; }
 .hg-copy-wrap { display: inline-flex; vertical-align: middle; }
 .hg-copy {
   height: var(--h-xs);

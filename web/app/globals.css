@@ -380,6 +380,12 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 /* 反应式：满宽白底卡片（手机 overflow-x 滚动不压缩）+ SMILES CodeField */
 .rx-equation-card { width: 100%; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); padding: var(--sp-4) var(--sp-3); }
 .rx-equation-card img { display: block; width: 100%; height: auto; max-height: 340px; object-fit: contain; }
+/* 手机（≤640）：方程式图放大一倍在卡片内横向滑动 —— 多组分反应不压缩
+   到不可读；卡片自身限宽，页面不横向滚动。桌面保持整图适配卡片宽。 */
+@media (max-width: 640px) {
+  .rx-equation-card { overflow-x: auto; }
+  .rx-equation-card img { width: 200%; max-width: none; max-height: none; height: auto; }
+}
 .rx-equation-unavailable { min-height: 140px; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-14); text-align: center; border-radius: var(--r-sm); }
 .rx-smiles-code { margin-top: var(--sp-3); }
 
