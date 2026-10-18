@@ -218,6 +218,7 @@ const en: Dictionary = {
       preferred: 'Preferred name',
     },
     page: {
+      basics: 'Basic information',
       overview: 'Overview',
       names: 'Names & identifiers',
       properties: 'Properties',

@@ -227,6 +227,7 @@ const t = {
       preferred: '首选名称',
     },
     page: {
+      basics: '基本信息',
       overview: '概述',
       names: '名称与标识',
       properties: '性质',

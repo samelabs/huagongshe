@@ -3,7 +3,7 @@
 /**
  * ChemicalActions — 化合物详情头部的互动件。
  *
- * ChemicalActions（互动行组）：收藏（primary + 计数）——乐观更新，点击
+ * ChemicalActions（互动行组）：收藏（tonal 浅色 + 计数）——乐观更新，点击
  * 立即翻状态并出 Toast（带「撤销」），请求失败回滚并 toast 报错；401
  * 回滚后跳登录页带回跳地址。
  * ChemicalStructureLinks（结构图卡片按钮行）：子结构检索 / 相似结构
@@ -69,7 +69,7 @@ export function ChemicalActions({ chemicalId, initialFollowing, initialCount }: 
   return (
     <div className="chem-actions">
       <Button
-        variant="primary"
+        variant="tonal"
         aria-pressed={following}
         loading={busy}
         onClick={() => void setFavor(!following)}

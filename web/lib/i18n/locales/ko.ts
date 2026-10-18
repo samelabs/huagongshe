@@ -221,6 +221,7 @@ const ko: Dictionary = {
       preferred: '우선 이름',
     },
     page: {
+      basics: '기본 정보',
       overview: '개요',
       names: '이름 및 식별자',
       properties: '물성',

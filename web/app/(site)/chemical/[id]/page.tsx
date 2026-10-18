@@ -203,18 +203,20 @@ export default async function ChemicalPage({ params }: {
     ...(chemical.pubchem_cid ? { url: localizedAbsoluteUrl(`/chemical/${chemical.id}`, locale) } : {}),
   };
 
-  const hasOverview = Boolean(
-    detail?.description.record_description ||
+  // 基本信息 = 结构标识基础数据（库值/计算值）；概述 = PubChem 编辑文本，二者分区呈现
+  const hasBasics = Boolean(
     chemical.smiles ||
     chemical.inchikey ||
     chemical.molecular_formula ||
     chemical.average_mass != null ||
     chemical.monoisotopic_mass != null
   );
+  const hasDescription = Boolean(detail?.description.record_description);
 
   // TOC 只列实际渲染的 section(rail TOC 与 tablet/mobile local nav 共用此唯一列表)
   const tocSections: [string, string][] = [
-    ...(hasOverview ? [["overview", t.chemical.page.overview] as [string, string]] : []),
+    ...(hasBasics ? [["basics", t.chemical.page.basics] as [string, string]] : []),
+    ...(hasDescription ? [["overview", t.chemical.page.overview] as [string, string]] : []),
     ...(hasNames ? [["names", t.chemical.page.names] as [string, string]] : []),
     ...(hasProperties ? [["properties", t.chemical.page.properties] as [string, string]] : []),
     ...(hasSafetyReal ? [["safety", t.chemical.page.safety] as [string, string]] : []),
@@ -246,22 +248,20 @@ export default async function ChemicalPage({ params }: {
         ]}
         title={title}
         subtitle={secondary || undefined}
-        meta={
-          <div className="chem-chips">
-            {/* 身份行：HCID 与 CAS 是"这是哪种物质"的锚，其余标识在下方分区数据行里 */}
-            {source !== "hcid" && (
-              <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
-            )}
-            {chemical.cas_numbers[0] && source !== "cas" && (
-              <Tag className="chem-cas-chip">
-                CAS {chemical.cas_numbers[0]}
-                <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
-              </Tag>
-            )}
-          </div>
-        }
         actions={
           <div className="hg-head-row">
+            {/* 身份与功能同一行：HCID/CAS 是锚，收藏/分享/打印紧随，不断行 */}
+            <div className="chem-chips">
+              {source !== "hcid" && (
+                <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
+              )}
+              {chemical.cas_numbers[0] && source !== "cas" && (
+                <Tag className="chem-cas-chip">
+                  CAS {chemical.cas_numbers[0]}
+                  <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
+                </Tag>
+              )}
+            </div>
             <ChemicalActions
               chemicalId={chemical.id}
               initialFollowing={Boolean(chemical.is_following)}
@@ -284,13 +284,12 @@ export default async function ChemicalPage({ params }: {
       <div className="chemical-layout">
         <main className="chemical-main">
 
-          {/* ── 内容首屏：结构图（内容件，居左）｜概述（右） ── */}
+          {/* ── 内容首屏：结构图（内容件，居左）｜基本信息（结构标识五行） ── */}
           <div className="chem-lead">
             {structureCard}
             <div className="chem-lead-body">
-              {hasOverview && (
-              <Section id="overview" title={t.chemical.page.overview}>
-                {detail?.description.record_description && <div className="description-panel"><p>{detail.description.record_description}</p></div>}
+              {hasBasics && (
+              <Section id="basics" title={t.chemical.page.basics}>
                 <dl className="chem-dl">
                   <DataRow label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono copyable copyLabel={`${t.common.copy} SMILES`} />
                   <DataRow label="InChIKey" value={chemical.inchikey} mono copyable copyLabel={`${t.common.copy} InChIKey`} />
@@ -302,6 +301,13 @@ export default async function ChemicalPage({ params }: {
               )}
             </div>
           </div>
+
+          {/* ── 概述（PubChem 编辑文本）：通栏，引领正文分区 ── */}
+          {hasDescription && (
+          <Section id="overview" title={t.chemical.page.overview}>
+            <div className="description-panel"><p>{detail?.description.record_description}</p></div>
+          </Section>
+          )}
 
           {/* ── 2. Names & Identifiers ── */}
           {hasNames && (

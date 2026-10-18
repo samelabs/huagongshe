@@ -219,6 +219,7 @@ const ja: Dictionary = {
       preferred: '優先名称',
     },
     page: {
+      basics: '基本情報',
       overview: '概要',
       names: '名称と識別子',
       properties: '物性',

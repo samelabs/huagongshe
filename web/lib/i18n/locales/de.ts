@@ -222,6 +222,7 @@ const de: Dictionary = {
       preferred: 'Bevorzugter Name',
     },
     page: {
+      basics: 'Grundinformationen',
       overview: 'Überblick',
       names: 'Namen und Bezeichner',
       properties: 'Eigenschaften',
