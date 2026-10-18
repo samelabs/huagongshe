@@ -147,9 +147,10 @@
   border-top: 1px solid var(--border);
 }
 .sh-footer-link { color: var(--action); }
-/* 手机：页脚显示在底栏上方，底部让位 = --tabbar-clear（含安全区） */
+/* 手机：页脚显示在底栏上方；让位用外边距（页脚自身上下内边距保持
+   与桌面同值，末行到底栏之间留出与上内边距相等的呼吸空间） */
 @media (max-width: 640px) {
-  .sh-footer { padding-bottom: var(--tabbar-clear); }
+  .sh-footer { margin-bottom: var(--tabbar-clear); }
 }
 
 /* ══ 手机底部 tab（DESIGN_SYSTEM 2.3） ══════════════════════ */
