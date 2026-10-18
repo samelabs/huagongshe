@@ -650,8 +650,6 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-block: var(--sp-6);
 }
 .hg-page-head .hg-breadcrumb { flex-basis: 100%; margin-block-end: var(--sp-3); }
-/* 带右侧视觉位（aside）时改为顶端对齐：标题区与卡片各自从顶排起 */
-.hg-page-head:has(.hg-page-head-aside) { align-items: flex-start; }
 .hg-page-head-main { min-width: 0; }
 .hg-page-head h1 {
   margin: 0;
