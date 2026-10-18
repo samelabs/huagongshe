@@ -5,6 +5,8 @@
  *
  * 图地址不带尺寸（矢量图），显示尺寸由容器 CSS 决定；width/height 属性
  * 只是 4:3 宽高比提示，避免加载期间布局跳动。
+ * priority：首屏结构图传 true —— eager + 高抓取优先级，避免首屏先显示
+ * 空卡片；默认保持懒加载。
  * locale 来源: I18nContext(runtime locale); alt / noStructureText 仍可显式覆盖。
  * 结构图加载失败或无结构时显示占位（图标 24 + 暂无结构图），不露 alt 文本。
  */
@@ -30,6 +32,7 @@ export function Molecule({
   size = "lg",
   alt,
   noStructureText,
+  priority = false,
 }: {
   chemicalId: number;
   smiles?: string | null;
@@ -40,6 +43,8 @@ export function Molecule({
   alt?: string;
   /** 覆盖「无结构」占位文案；未传用当前字典 noStructure */
   noStructureText?: string;
+  /** 首屏结构图用：eager + 高抓取优先级，跳过懒加载 */
+  priority?: boolean;
 }) {
   const t = useDictionary();
   const [loadError, setLoadError] = useState(false);
@@ -63,7 +68,8 @@ export function Molecule({
       alt=""
       role="img"
       aria-label={alt ?? t.chemical.structureAlt(name)}
-      loading="lazy"
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : undefined}
       onError={() => setLoadError(true)}
     />
   );

@@ -242,12 +242,13 @@ main { flex: 1; background: var(--bg-page); }
 .chem-chips .hg-copy { width: 22px; height: 22px; }
 .chem-chips .hg-copy svg { width: 14px; height: 14px; }
 .chem-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
-.chem-actions-desktop { display: inline-flex; align-items: center; gap: var(--sp-2); }
-.chem-actions-more { display: none !important; }
 .chem-favor-count { font-weight: 600; font-variant-numeric: tabular-nums; }
-.chem-struct { align-self: start; position: relative; display: grid; place-items: center; width: 300px; min-height: 220px; margin: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); }
+/* 结构图卡片 = 图区 + 检索按钮行：子结构/相似结构检索随卡片展示，
+   所有宽度直接可见（未登录点击去登录，逻辑在链接组件内） */
+.chem-struct { align-self: start; display: flex; flex-direction: column; width: 300px; margin: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); overflow: hidden; }
+.chem-struct-figure { display: grid; place-items: center; min-height: 220px; }
 .chem-struct img { max-width: 100%; max-height: 220px; object-fit: contain; }
-.chem-struct figcaption { position: absolute; left: var(--sp-3); bottom: var(--sp-2); color: var(--text-muted); font-size: var(--fs-12); }
+.chem-struct-links { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-3); border-top: 1px solid var(--border); }
 .mol-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2); color: var(--text-muted); font-size: var(--fs-13); text-align: center; width: 100%; height: 100%; user-select: none; }
 .mol-placeholder svg { width: var(--icon-lg); height: var(--icon-lg); color: var(--text-muted); flex-shrink: 0; }
 /* 补全中 Notice（DetailRefresher 渲染，头部下方） */
@@ -330,15 +331,10 @@ details.chem-group[open] > summary::after { content: "▴"; }
   /* 篇幅收敛（DESIGN_SYSTEM 6.3）：手机分区距与数据行列距降档 */
   .chem-dl > div { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); }
   .evidence-flat { grid-template-columns: 96px minmax(0, 1fr); gap: var(--sp-3); }
-  /* 头部手机序：标题块在前，结构件满宽居下 */
-  .hg-page-head-aside { flex-basis: 100%; width: 100%; }
-  .chem-struct { width: 100%; min-height: 180px; }
+  /* 头部手机序：标题块在前，结构件满宽居下（页头网格的手机规则在 ui.css） */
+  .chem-struct { width: 100%; }
+  .chem-struct-figure { min-height: 180px; }
   .chem-struct img { max-height: 180px; }
-  /* 手机端子结构检索收进“更多” */
-  .chem-actions .chem-substruct-btn { display: none; }
-  /* 操作行（DESIGN_SYSTEM 5.5 / 6.3）：收藏 + 子结构检索并排，相似结构进更多 */
-  .chem-actions-desktop { display: none !important; }
-  .chem-actions-more { display: inline-flex !important; flex: none; }
 }
 .evidence-list { border-top: 1px solid var(--border); }
 .evidence-list details { border-bottom: 1px solid var(--border); }

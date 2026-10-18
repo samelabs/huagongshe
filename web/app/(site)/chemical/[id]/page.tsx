@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { ChemicalActions } from "@/components/ChemicalActions";
+import { ChemicalActions, ChemicalStructureLinks } from "@/components/ChemicalActions";
 import { ChemPageNav } from "@/components/ChemPageNav";
 import { DataRow } from "@/components/DataRow";
 import { DetailRefresher } from "@/components/DetailRefresher";
@@ -262,17 +262,17 @@ export default async function ChemicalPage({ params }: {
           <div className="hg-head-row">
             <ChemicalActions
               chemicalId={chemical.id}
-              smiles={chemical.smiles}
               initialFollowing={Boolean(chemical.is_following)}
               initialCount={chemical.follower_count || 0}
-              authed={hasSession}
-              title={title}
             />
           </div>
         </>}
         aside={
           <figure className="chem-struct">
-            <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} />
+            <div className="chem-struct-figure">
+              <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} priority />
+            </div>
+            <ChemicalStructureLinks chemicalId={chemical.id} smiles={chemical.smiles} authed={hasSession} />
           </figure>
         }
       />

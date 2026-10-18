@@ -675,17 +675,41 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   line-height: var(--lh-prose);
 }
 .hg-page-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-left: auto; }
-/* 本人操作（编辑/可见性/删除）在桌面行的右端；手机另起一行靠左 */
-.hg-page-head-actions .owner-actions { margin-inline-start: auto; }
-/* 操作区分两组：标识 + 分享 + 打印 / 其余操作。桌面两组并入同一行，
-   手机各占一行、靠左。 */
-.hg-head-row { display: contents; }
-@media (max-width: 640px) {
-  .hg-page-head-actions { flex-direction: column; align-items: flex-start; margin-left: 0; }
-  .hg-head-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
-  .hg-page-head-actions .hg-head-row > * { margin-inline-start: 0; }
+/* hero 页头互动行独占一行、满宽靠左（网格规则见下）；默认页头仍在页头右端 */
+.hg-page-head--hero .hg-page-head-actions { margin-left: 0; }
+/* 互动行分组：每组（标识/分享/打印、收藏或本人操作）是行内弹性整体，
+   外层只在组与组之间换行，组内永不拆开 */
+.hg-head-row { display: inline-flex; align-items: center; gap: var(--sp-2); }
+/* 本人操作（编辑/删除）保持在行尾 */
+.hg-head-row:has(.owner-actions) { margin-inline-start: auto; }
+
+/* hero 页头（实体详情）：显式网格，互动行始终独占一行。
+   无结构图：单列，依次为 面包屑 / 标题区 / 互动行。
+   带结构图（≥641）：两列三行 —— 面包屑跨两列 / 标题区｜结构图（顶端
+   对齐）/ 互动行跨两列满宽。
+   ≤640：单列，依次为 面包屑 / 标题区 / 结构图满宽 / 互动行（DOM 中
+   互动行在结构图之前，靠 order 调整先后）。 */
+.hg-page-head--hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--sp-2) var(--sp-4);
+}
+.hg-page-head--hero .hg-breadcrumb { margin-block-end: 0; }
+@media (min-width: 641px) {
+  .hg-page-head--hero:has(.hg-page-head-aside) { grid-template-columns: minmax(0, 1fr) auto; }
+  .hg-page-head--hero:has(.hg-page-head-aside) .hg-breadcrumb { grid-area: 1 / 1 / 2 / -1; }
+  .hg-page-head--hero:has(.hg-page-head-aside) .hg-page-head-main { grid-area: 2 / 1 / 3 / 2; }
+  .hg-page-head--hero:has(.hg-page-head-aside) .hg-page-head-aside { grid-area: 2 / 2 / 3 / 3; align-self: start; }
+  .hg-page-head--hero:has(.hg-page-head-aside) .hg-page-head-actions { grid-area: 3 / 1 / 4 / -1; }
 }
 .hg-page-head-aside { flex: none; max-width: 100%; }
+@media (max-width: 640px) {
+  /* 手机：结构图卡片满宽一行，排在标题区之后、互动行之前 */
+  .hg-page-head-aside { flex-basis: 100%; width: 100%; }
+  .hg-page-head--hero .hg-page-head-aside { order: 1; }
+  .hg-page-head--hero .hg-page-head-actions { order: 2; }
+}
 
 .hg-section { margin-block-start: var(--sp-section); }
 .hg-section-head {
