@@ -8,10 +8,9 @@
  * - 桌面（≥）：标志 · 主导航（查询/Skills/MCP/工作台）·
  * 铃铛（未读红点，链接 /aichem?tab=activity）· 语言 · 头像菜单。无搜索框。
  * - 平板（641–）：主导航收进「更多」菜单。
- * - 手机（≤640）：高 --header-h-m，标志 + 工作台动作（抽屉菜单 ≡ 与创建
- * 入口 +，仅当「服务端外壳数据 + 登录态 + 当前为工作台路由」三者同时
- * 满足时出现；站内切进/切出工作台随之显隐）+ 语言切换；
- * 头像菜单内容并入底部「我的」。
+ * - 手机（≤640）：高 --header-h-m，标志 + 汉堡抽屉 ≡ + 语言切换 ——
+ * 全站一套：登录即显示汉堡（抽屉含快捷操作/语言/工作台导航/账户设置/
+ * 退出登录），匿名只有标志与语言；头像菜单内容并入抽屉与底部「我的」。
  *
  * 未读数来源 = 工作台计数同一接口 /users/me/dashboard（counts.unread），
  * 不新增 API；工作台形态时初始值取外壳上下文里的 counts.unread（服务端
@@ -36,8 +35,6 @@ import { IconBell, IconChevron } from "@/components/ui/icons";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { ShellUnreadProvider, useShellUnread } from "./ShellUnread";
 import { useShellWorkbenchChrome } from "./ShellWorkbenchChrome";
-import { isWorkbenchRoute } from "@/lib/workbenchRoute";
-import { WbCreateMenu } from "@/components/workbench/WbCreateMenu";
 import { WbMobileNav } from "@/components/workbench/WbMobileNav";
 import { useToast } from "@/components/ui/Toast";
 import { useLogout } from "@/components/shared/useLogout";
@@ -104,15 +101,14 @@ export function SiteHeader() {
             )}
           </div>
 
-          {/* 手机（≤640）：标志 + 工作台动作 + 语言切换（DESIGN_SYSTEM 2.3）。
-              工作台动作（抽屉 ≡ 与创建 +）只在「外壳上下文有工作台数据 +
-              已登录 + 当前为工作台路由」同时满足时出现；整页打开工作台时
-              该组按钮随服务端 HTML 直接输出。 */}
+          {/* 手机（≤640）：标志 + 汉堡抽屉 + 语言切换（全站一套，不分公开/
+              工作台）。登录即显示汉堡（≡，打开抽屉：快捷操作/语言/工作台
+              导航/账户设置/退出登录）；匿名只有标志与语言。整页打开工作台
+              时抽屉随服务端 HTML 直接输出。 */}
           <div className="sh-mobile-right">
-            {chrome && user && isWorkbenchRoute(routePath) && (
+            {user && (
               <Suspense>
-                <WbCreateMenu />
-                <WbMobileNav counts={chrome.counts} user={chrome.user} />
+                <WbMobileNav counts={chrome?.counts ?? null} user={user} />
               </Suspense>
             )}
             <div className="sh-lang-m">
