@@ -209,8 +209,6 @@ const t = {
     relatedReactions: '相关反应',
     substructure: '子结构检索',
     similarity: '查找相似结构',
-    newRelated: '新建相关反应记录',
-    newRelatedHint: '将当前化合物预填为反应物，并自动关联HCID。',
     newReaction: '新建反应记录',
     errReactions: '相关反应暂时无法加载，请稍后重试。',
     noReactions: '当前筛选下没有反应记录。',

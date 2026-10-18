@@ -201,8 +201,6 @@ const ja: Dictionary = {
     relatedReactions: '関連反応',
     substructure: '部分構造検索',
     similarity: '類似構造を探す',
-    newRelated: '関連する反応記録を作成',
-    newRelatedHint: 'この化合物を反応物として事前入力し、HCID を自動で関連付けます。',
     newReaction: '反応記録を作成',
     errReactions: '関連反応を読み込めませんでした。後でもう一度お試しください。',
     noReactions: '現在のフィルター条件では反応記録がありません。',

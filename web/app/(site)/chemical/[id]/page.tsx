@@ -237,36 +237,32 @@ export default async function ChemicalPage({ params }: {
         title={title}
         subtitle={secondary || undefined}
         meta={
-          <>
-            <div className="chem-chips">
-              {chemical.cas_numbers[0] && source !== "cas" && (
-                <Tag className="chem-cas-chip">
-                  CAS {chemical.cas_numbers[0]}
-                  <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
-                </Tag>
-              )}
-              {chemical.molecular_formula && source !== "molecular_formula" && <Tag>{chemical.molecular_formula}</Tag>}
-              {chemical.average_mass != null && <Tag>{formatNumber(chemical.average_mass, locale)} g/mol</Tag>}
-              {chemical.pubchem_cid != null && <Tag>PubChem CID {chemical.pubchem_cid}</Tag>}
-            </div>
-          </>
-        }
-        actions={<>
-          <div className="hg-head-row">
-            <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
-            <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
-            <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
-              <IconPrinter />
-            </Button>
+          <div className="chem-chips">
+            {/* 身份行：HCID 与 CAS 是"这是哪种物质"的锚，其余标识在下方分区数据行里 */}
+            {source !== "hcid" && (
+              <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
+            )}
+            {chemical.cas_numbers[0] && source !== "cas" && (
+              <Tag className="chem-cas-chip">
+                CAS {chemical.cas_numbers[0]}
+                <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
+              </Tag>
+            )}
           </div>
+        }
+        actions={
           <div className="hg-head-row">
             <ChemicalActions
               chemicalId={chemical.id}
               initialFollowing={Boolean(chemical.is_following)}
               initialCount={chemical.follower_count || 0}
             />
+            <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
+            <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
+              <IconPrinter />
+            </Button>
           </div>
-        </>}
+        }
         aside={
           <figure className="chem-struct">
             <div className="chem-struct-figure">
@@ -465,7 +461,12 @@ export default async function ChemicalPage({ params }: {
 
           {/* ── 6. Reactions ── */}
           <Section id="reactions" title={t.chemical.relatedReactions}
-            note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined}>
+            note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined}
+            action={
+              <Button variant="tonal" size="sm" href={withLocale(`/submit?chemical=${chemical.id}`, locale)}>
+                {t.chemical.newReaction}
+              </Button>
+            }>
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
           </Section>
 
@@ -476,12 +477,6 @@ export default async function ChemicalPage({ params }: {
         {/* ── Secondary rail (desktop；≤900 移到正文末尾) ── */}
         <aside className="chemical-aside">
           <ChemPageNav sections={tocSections} variant="rail" />
-          {/* 新建相关反应（紧凑版：标题 + 一句说明 + tonal sm 按钮） */}
-          <section className="contribute-panel">
-            <h2 className="contribute-title">{t.chemical.newRelated}</h2>
-            <p>{t.chemical.newRelatedHint}</p>
-            <Button variant="tonal" size="sm" href={withLocale(`/submit?chemical=${chemical.id}`, locale)}>{t.chemical.newReaction}</Button>
-          </section>
         </aside>
       </div>
     </PageFrame>

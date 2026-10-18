@@ -7,7 +7,7 @@ import { Breadcrumb, type BreadcrumbItem } from "./Breadcrumb";
  * H1 两档：default 28（列表/文章页）、hero 28/22（实体详情页，手机 22）；
  * 字重恒 --fw-semibold，行高 --lh-heading，字距 0。
  * 主区内渲染序固定为 副标题（纯文本，如实体外文名）→ 块级元信息
- * （如作者署名、事实胶囊行），两者并列时副标题在前。
+ * （如实体身份行）→ 互动行（hero 变体）；默认页头的操作区仍在页头右端。
  */
 export function PageHead({
   breadcrumb,
@@ -38,8 +38,10 @@ export function PageHead({
         <h1>{title}</h1>
         {subtitle != null && <p className="hg-page-head-sub">{subtitle}</p>}
         {meta != null && <div className="hg-page-head-meta">{meta}</div>}
+        {/* hero 页头：互动行是标题块的末行（紧贴元信息，不跨列悬空） */}
+        {hero && actions && <div className="hg-page-head-actions">{actions}</div>}
       </div>
-      {actions && <div className="hg-page-head-actions">{actions}</div>}
+      {!hero && actions && <div className="hg-page-head-actions">{actions}</div>}
       {aside && <div className="hg-page-head-aside">{aside}</div>}
     </header>
   );

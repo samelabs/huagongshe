@@ -204,8 +204,6 @@ const de: Dictionary = {
     relatedReactions: 'Zugehörige Reaktionen',
     substructure: 'Teilstruktursuche',
     similarity: 'Ähnliche Strukturen suchen',
-    newRelated: 'Zugehörige Reaktionsaufzeichnung erstellen',
-    newRelatedHint: 'Füllt diese Verbindung als Edukt vor und verknüpft die HCID automatisch.',
     newReaction: 'Reaktionsaufzeichnung erstellen',
     errReactions: 'Zugehörige Reaktionen konnten nicht geladen werden. Bitte später erneut versuchen.',
     noReactions: 'Keine Reaktionsaufzeichnungen unter den aktuellen Filterkriterien.',

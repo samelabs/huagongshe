@@ -235,7 +235,8 @@ main { flex: 1; background: var(--bg-page); }
 /* ══ Chemical Detail 头部内容件（版式由 PageHead/PageFrame 承担）══
    这里只剩标题区内容样式：事实 Tag 行 / 右侧结构件卡片。
    副标题（英文常用名，缺省以 IUPAC 兜底）由 PageHead 统一渲染。 */
-/* 胶囊行：全部同高 28px 居中；HCID 徽标与 CAS 复制钮在此行内收紧 */
+/* 身份行：HCID 徽标 + CAS（带复制），全部同高 28px 居中；分子式/质量等
+   标识不入页头 —— 它们在概述与名称分区的数据行里。 */
 .chem-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .chem-chips .hg-tag { height: 28px; }
 .chem-chips .hg-eb { --eb-h: 28px; }
@@ -272,10 +273,6 @@ main { flex: 1; background: var(--bg-page); }
 .chemical-aside dt { margin-bottom: 4px; color: var(--text-muted); font-size: var(--fs-12); }
 .chemical-aside dd { margin: 0; font-size: var(--fs-13); line-height: 1.55; overflow-wrap: anywhere; }
 .chemical-aside dd a { color: var(--action); }
-.contribute-panel { background: var(--bg-page); }
-/* 紧凑版：标题一行（fs-14/600）+ 一句说明（fs-13 muted）+ tonal sm 按钮 */
-.contribute-title { margin: 0 0 var(--sp-1); font-size: var(--fs-14); font-weight: 600; color: var(--text); }
-.contribute-panel p { margin: 0 0 var(--sp-3); color: var(--text-muted); font-size: var(--fs-13); line-height: 1.55; }
 .description-panel { border-left: 3px solid var(--brand); padding: 0 0 0 18px; }
 .description-panel p { margin: 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.85; }
 .chem-subhead { margin: var(--sp-3) 0 0; font-size: var(--fs-18); font-weight: var(--fw-semibold); color: var(--text); }
