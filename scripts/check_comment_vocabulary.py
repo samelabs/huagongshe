@@ -58,10 +58,12 @@ PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 # 领域语言里的合法用词（化合物身份治理的人工决断语义），不属过程引用
 ALLOW_PHRASES = ("需人工裁定", "身份裁定", "身份未裁定", "参与裁定", "裁决")
 
-# 不检查的路径：历史迁移档案（内容冻结）、验收工作区、依赖产物、
-# 本脚本自身（词表模式定义必须包含被禁词）
+# 不检查的路径：历史迁移档案（内容冻结）、变更记录（编年格式，日期即
+# 版本条目）、验收工作区、依赖产物、本脚本自身（词表模式定义必须包含
+# 被禁词）
 EXCLUDED_PARTS = ("migrations/history/", ".rc-acceptance/", "node_modules/",
-                  "package-lock.json", "scripts/check_comment_vocabulary.py")
+                  "package-lock.json", "scripts/check_comment_vocabulary.py",
+                  "CHANGELOG.md")
 
 
 def _docstring_lines(path: str) -> set[int]:
