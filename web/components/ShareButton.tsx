@@ -40,8 +40,12 @@ export function ShareButton({ url: customUrl, title, iconOnly = false, label, va
     if (navigator.share) {
       try {
         await navigator.share({ title: shareTitle, url });
-      } catch { /* 用户取消系统分享面板：不改做复制 */ }
-      return;
+        return;
+      } catch (error) {
+        // 用户取消系统分享面板 → 安静结束；其余错误（未激活/不支持等）
+        // 退回复制路径 —— 按钮不得静默失效。
+        if ((error as { name?: string })?.name === "AbortError") return;
+      }
     }
     if (!(await copyText(url))) { toast.error(t.common.copyFailed); return; }
     if (iconOnly || feedback === "toast") toast.success(copiedToast ?? t.guide.shareCopied);

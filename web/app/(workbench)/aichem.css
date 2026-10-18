@@ -1141,7 +1141,7 @@
     padding-bottom: calc(var(--tabbar-clear) + var(--wb-sp-6));
   }
 
-  /* 隐藏桌面侧栏，用抽屉替代（汉堡按钮在 SiteHeader mobileActions 插槽，
+  /* 隐藏桌面侧栏，用抽屉替代（汉堡按钮在外壳顶栏 .sh-mobile-right，
       随 .sh-mobile-right 只在 ≤640 显示） */
   .wb-aside { display: none; }
 

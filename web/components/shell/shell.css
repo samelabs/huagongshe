@@ -211,7 +211,7 @@
    触发钮在顶栏 .sh-mobile-right（≤640 显示，≥641 隐藏）；
    抽屉 = 快捷操作 + 语言 + 工作台导航 + 账户设置/退出登录。
    样式自工作台域迁入（--wb-* 别名已按令牌契约解析回全局 token）。 */
-/* ── 汉堡按钮（挂 SiteHeader mobileActions 插槽；视觉走 .hg-btn ghost icon，
+/* ── 汉堡按钮（渲染在外壳顶栏 .sh-mobile-right；视觉走 .hg-btn ghost icon，
       此处只负责显隐） ── */
 .wb-burger { flex-shrink: 0; }
 @media (min-width: 641px) {

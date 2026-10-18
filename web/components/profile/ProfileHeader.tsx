@@ -144,7 +144,6 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
             {/* 分享主页：与主人态同一单形态 */}
             <span className="pf-share">
               <ShareButton url={shareUrl} title={shareTitle} label={t.user.shareProfile} variant="secondary" ariaLabel={t.me.profileShareLabel} />
-              <ShareButton url={shareUrl} title={shareTitle} label={t.user.shareProfile} variant="secondary" size="lg" ariaLabel={t.me.profileShareLabel} feedback="toast" className="pf-share-text" />
             </span>
           </>
         )}
