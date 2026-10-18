@@ -25,43 +25,11 @@
    工作台不再有自己的顶栏 —— 全站共用 components/shell/SiteHeader。
    旧 .wb-topbar / .wb-topbar-inner / .wb-logo / .wb-topnav* / .wb-topbar-user 已删除。 */
 
-/* ── 汉堡按钮（挂 SiteHeader mobileActions 插槽；视觉走 .hg-btn ghost icon，
-      此处只负责显隐） ── */
-.wb-burger { flex-shrink: 0; }
 
-/* ── 手机顶栏「+」创建菜单（2.3 / 6.7 随 .sh-mobile-right 仅 ≤640 出现；
-      面板视觉对齐 shell.css .sh-menu-panel） ── */
-.wb-create { position: relative; flex-shrink: 0; }
-.wb-create-panel {
-  position: absolute; right: 0; top: calc(100% + 6px); z-index: 60;
-  min-width: 176px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-float);
-  padding: var(--sp-1);
-  display: grid;
-}
-.wb-create-panel a {
-  display: flex; align-items: center; gap: var(--sp-2);
-  padding: 8px var(--sp-3);
-  border-radius: var(--r-xs);
-  font-size: var(--fs-14);
-  color: var(--text-2);
-  text-decoration: none;
-}
-.wb-create-panel a:hover { background: var(--bg-hover); color: var(--text); }
-.wb-create-panel a:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
-/* ── 快捷操作(临时安置： 起桌面入口移概览标题行，
-      只保留抽屉顶部（手机）一份） ── */
-.wb-quick-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--wb-sp-2);
-  padding: 0 var(--wb-sp-4) var(--wb-sp-4);
-}
-.wb-drawer-body .wb-quick-actions { padding: var(--wb-sp-3) var(--wb-sp-2) var(--wb-sp-2); }
+
+
+
 
 /* ── 主体区 — flex row ── */
 .wb-body {
@@ -91,65 +59,7 @@
 /* ═══════════════════════════════════════════════════════════════
    L3 — Navigation
    ═══════════════════════════════════════════════════════════════ */
-.wb-nav-group + .wb-nav-group { margin-top: var(--wb-sp-5); }
 
-.wb-nav-label {
-  margin: 0 0 var(--wb-sp-2);
-  padding: 0 var(--wb-sp-3);
-  font-size: var(--wb-fs-sm);
-  font-weight: var(--wb-w-bold);
-  color: var(--wb-quiet);
-  letter-spacing: .01em;
-}
-
-.wb-nav-link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--wb-sp-2);
-  padding: var(--wb-sp-2) var(--wb-sp-3);
-  margin-bottom: 1px;
-  border-radius: var(--wb-r-sm);
-  font-size: var(--wb-fs);
-  font-weight: var(--wb-w-regular);
-  color: var(--wb-muted);
-  cursor: pointer;
-}
-.wb-nav-link > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* 16px 图标槽（1.6 / 6.7） */
-.wb-nav-icon {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  color: var(--wb-muted);
-}
-
-/* 当前项（2.3 / 6.7）：action-subtle 底 / action-ink 文字 / 500 / 图标 action */
-.wb-nav-link.active {
-  background: var(--action-subtle);
-  color: var(--action-ink);
-  font-weight: var(--wb-w-medium);
-}
-.wb-nav-link.active .wb-nav-icon { color: var(--action); }
-
-/* badge — 计数项 plain 数字（0 时不渲染）；「动态」未读为红色 pill */
-.wb-nav-link em {
-  font-size: var(--wb-fs-sm);
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-  color: var(--wb-quiet);
-}
-.wb-nav-link.active em { color: var(--action-ink); }
-.wb-nav-link em.pill {
-  min-width: 18px;
-  padding: 0 6px;
-  border-radius: var(--wb-r-pill);
-  background: var(--wb-danger);
-  color: var(--wb-inverse);
-  text-align: center;
-  line-height: 18px;
-}
 
 /* ═══════════════════════════════════════════════════════════════
    L4 — Grid & Panel（DESIGN_SYSTEM 2.4 框架 D / /)
@@ -630,14 +540,7 @@
 }
 
 /* 抽屉底部：退出登录（手机端唯一登出入口，与桌面头像菜单共用 useLogout） */
-.wb-drawer-foot { border-top: 1px solid var(--wb-line); padding: var(--wb-sp-2) var(--wb-sp-3); }
-.wb-drawer-logout {
-  display: flex; align-items: center; justify-content: center;
-  width: 100%; min-height: var(--touch-min);
-  border: 0; border-radius: var(--wb-r-sm); background: none;
-  font-size: var(--wb-fs); color: var(--err); cursor: pointer;
-}
-.wb-drawer-logout:hover { background: var(--err-bg); }
+
 
 /* 关注动态（当前只有 new_reaction 事件） */
 .wb-feed-list { display: flex; flex-direction: column; gap: var(--wb-sp-4); }
@@ -1215,100 +1118,12 @@
    L9 — Mobile
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── 手机抽屉 ── 常驻 DOM，transform 切换；浮层视觉用设计 token（1.5 / 2.1 浮层） */
-.wb-drawer-overlay {
-  position: fixed; inset: 0;
-  background: var(--wb-overlay);
-  z-index: 50;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .2s ease;
-}
-.wb-drawer-overlay.open {
-  opacity: 1;
-  pointer-events: auto;
-}
-.wb-drawer {
-  position: fixed;
-  top: 0; right: 0;
-  bottom: calc(var(--wb-tabbar-h) + env(safe-area-inset-bottom));
-  width: min(300px, 85vw);
-  z-index: 51;
-  background: var(--wb-paper);
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-float);
-  transform: translateX(100%);
-  transition: transform .22s cubic-bezier(.4, 0, .2, 1);
-  visibility: hidden;
-  border-radius: 0 0 0 var(--r-lg);
-}
-.wb-drawer.open {
-  transform: translateX(0);
-  visibility: visible;
-}
 
-/* 抽屉头部 — 用户信息（身份菜单在顶栏头像 UserMenu）+ 关闭按钮 */
-.wb-drawer-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--wb-sp-3);
-  padding: var(--wb-sp-3) var(--wb-sp-4);
-  border-bottom: 1px solid var(--wb-line);
-}
-.wb-drawer-user {
-  display: flex;
-  align-items: center;
-  gap: var(--wb-sp-3);
-  min-width: 0;
-}
-.wb-drawer-user-meta {
-  display: grid;
-  min-width: 0;
-}
-.wb-drawer-user-meta strong {
-  font-size: var(--wb-fs);
-  color: var(--wb-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wb-drawer-user-meta span {
-  font-size: var(--wb-fs-xs);
-  color: var(--wb-quiet);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wb-drawer-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--wb-sp-2);
-  -webkit-overflow-scrolling: touch;
-}
-.wb-drawer-language {
-  padding: var(--wb-sp-2) var(--wb-sp-2) var(--wb-sp-3);
-  border-bottom: 1px solid var(--wb-line);
-  margin-bottom: var(--wb-sp-2);
-}
-.wb-drawer-language .lang-switcher-menu {
-  max-width: calc(100vw - 48px);
-}
-.wb-drawer-nav { display: block; }
-.wb-drawer-nav .wb-nav-group + .wb-nav-group { margin-top: var(--wb-sp-2); }
-.wb-drawer-nav .wb-nav-link {
-  padding: var(--wb-sp-2) var(--wb-sp-3);
-  font-size: var(--wb-fs);
-}
 
 /* ── 桌面 >640px ──
    手机断点与全站统一为 ≤640（SiteHeader 手机态 + MobileTabBar）。
    641–1024 平板区间：顶栏主导航进「更多」菜单，工作台保持桌面布局。 */
-@media (min-width: 641px) {
-  .wb-burger { display: none; }
-}
+
 
 /* ── 手机 ≤640px ──
    文档滚动：.wb-body/.wb-main 不自持 overflow；页面由 document 整体滚动，底部 tab（shell.css .sh-tabbar）
@@ -1326,7 +1141,7 @@
     padding-bottom: calc(var(--tabbar-clear) + var(--wb-sp-6));
   }
 
-  /* 隐藏桌面侧栏，用抽屉替代（汉堡按钮在 SiteHeader mobileActions 插槽，
+  /* 隐藏桌面侧栏，用抽屉替代（汉堡按钮在外壳顶栏 .sh-mobile-right，
       随 .sh-mobile-right 只在 ≤640 显示） */
   .wb-aside { display: none; }
 
@@ -1662,10 +1477,6 @@
 
 /* ── hover 交互: 只在真指针设备生效(触屏跳过, 避免首点粘滞) ── */
 @media (hover: hover) and (pointer: fine) {
-.wb-nav-link:hover {
-  background: var(--wb-wash);
-  color: var(--wb-ink);
-}
 .wb-search-submit:hover { background: var(--wb-blue-deep); }
 .wb-search-chemical:hover {
   border-color: var(--wb-blue-border);
@@ -1681,7 +1492,6 @@
   border-color: var(--wb-blue);
   color: var(--wb-blue-deep);
 }
-.wb-drawer-close:hover { background: var(--wb-wash); color: var(--wb-ink); }
 .wb-shell *::-webkit-scrollbar-thumb:hover { background: var(--wb-muted); }
 .wb-skills-upload input[type="file"]::file-selector-button:hover{border-color:var(--wb-blue-border);background:var(--wb-blue-tint);color:var(--wb-blue-deep)}
 .wb-skill-row:hover{border-color:var(--wb-blue-border)}

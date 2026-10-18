@@ -293,8 +293,6 @@ NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
      "菜单项行按钮：ui 无 Menu 原语，菜单行自有样式体系"),
     ("components/workbench/WbMobileNav.tsx", "wb-drawer-logout",
      "手机抽屉底部登出钮：与 SiteHeader sh-menu-logout 同为菜单行按钮（useLogout 共用实现）"),
-    ("components/workbench/WbCreateMenu.tsx", "triggerRef",
-     "「+ 新建」菜单触发器：焦点管理需 ref（ui Button 不转发 ref）"),
     ("components/workbench/EntityReferencePicker.tsx", "key={`c-${chemical.id}`}",
      "组合框选项行：ui 无 Option 原语，选项行自有样式"),
     ("components/workbench/EntityReferencePicker.tsx", "key={`r-${reaction.id}`}",

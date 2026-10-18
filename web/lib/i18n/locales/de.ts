@@ -426,7 +426,6 @@ const de: Dictionary = {
     sideActivity: 'Aktivität',
     tabFollowers: 'Follower',
     tabFollowing: 'Folge ich',
-    homeSearchPlaceholder: 'Name, CAS, SMILES, CID, InChIKey…',
     homeSearchButton: 'Suchen',
     homeViewAll: 'Alle ansehen',
     greetingTitle: (greeting: string, name: string) => `${greeting}, ${name}`,

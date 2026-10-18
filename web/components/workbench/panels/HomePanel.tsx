@@ -167,7 +167,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
                 enterKeyHint="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={t.me.homeSearchPlaceholder}
+                placeholder={t.search.placeholder}
                 aria-label={t.me.homeSearchButton}
                 autoComplete="off"
                 spellCheck={false}

@@ -13,7 +13,7 @@ import type { User } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
 
 /**
- * 移动端抽屉导航（渲染在顶栏的工作台动作组内，随外壳上下文显隐）。
+ * 移动端抽屉导航（外壳件：全站登录即显示的顶栏汉堡入口，样式在 shell.css）。
  * - 常驻 DOM，CSS transform 控制滑入/滑出（不走条件渲染）
  * - pathname 或 searchParams 变化时自动关闭（解决 tab 切换不收起）
  * - Escape / overlay 点击 / close 按钮均可关闭

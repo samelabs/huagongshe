@@ -556,7 +556,7 @@ function EvidenceList({ entries, dict, limit = Infinity }: { entries: EvidenceEn
 /** 长文组：组头即折叠 summary（「标题 · N 条」）；≤2 条且短时平铺 */
 function ProseGroup({ gid, title, prose, dict }: { gid: string; title: string; prose: ProseItem[]; dict: Dictionary }) {
   const collapsible = prose.length > COLLAPSE_ITEMS || prose.some((item) => item.text.length > COLLAPSE_CHARS);
-  const list = <div className="casext-prose-list">{prose.map((item) => <p key={item.title + item.text.slice(0, 24)}><strong>{item.title}</strong>{item.text}</p>)}</div>;
+  const list = <div className="casext-prose-list">{prose.map((item) => <p key={item.title + item.text.slice(0, 24)}>{item.title !== title && <strong>{item.title}</strong>}{item.text}</p>)}</div>;
   if (!collapsible) {
     return (
       <div className="chem-group">

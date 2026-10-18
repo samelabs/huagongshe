@@ -77,13 +77,14 @@ class NotesUiContractTests(unittest.TestCase):
 
     def test_home_overview_carries_create_actions(self):
         """ §9.4：桌面创建入口 = 概览标题行（新建笔记 secondary +
-        新建反应 primary）；手机收进顶栏「+」菜单（WbCreateMenu）。"""
+        新建反应 primary）；手机收进顶栏汉堡抽屉的快捷操作
+        （WbQuickActions，顶栏不设独立「+」菜单）。"""
         home = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
         self.assertIn('href={withLocale("/aichem?tab=notes&new=1", locale)}>{t.me.navNewNote}', home)
         self.assertIn('href={withLocale("/submit", locale)}>{t.me.navNewReaction}', home)
-        menu = (REPO / "web/components/workbench/WbCreateMenu.tsx").read_text(encoding="utf-8")
-        self.assertIn('href={withLocale("/submit", locale)}', menu)
-        self.assertIn('href={withLocale("/aichem?tab=notes&new=1", locale)}', menu)
+        quick = (REPO / "web/components/workbench/WbQuickActions.tsx").read_text(encoding="utf-8")
+        self.assertIn('href={withLocale("/submit", locale)}', quick)
+        self.assertIn('href={withLocale("/aichem?tab=notes&new=1", locale)}', quick)
 
     def test_home_recent_merges_three_streams(self):
         """ §9.4 概览「最近」：反应/笔记/收藏按时间合并取前 8，
