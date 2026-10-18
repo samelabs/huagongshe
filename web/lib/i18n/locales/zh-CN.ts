@@ -138,6 +138,9 @@ const t = {
     footer: '化工社开放计划',
     footerAi: 'AI 接入：',
     footerMcpGuide: 'MCP 指南',
+    footerPrivacy: '隐私政策',
+    footerTerms: '服务条款',
+    footerSupport: '支持',
   },
 
   /* ── 首页 ────────────────────────────────────────────── */

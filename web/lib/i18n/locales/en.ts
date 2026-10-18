@@ -131,6 +131,9 @@ const en: Dictionary = {
     footer: 'Huagongshe Open Program',
     footerAi: 'AI access: ',
     footerMcpGuide: 'MCP Guide',
+    footerPrivacy: 'Privacy Policy',
+    footerTerms: 'Terms of Service',
+    footerSupport: 'Support',
   },
 
   /* ── Homepage ──────────────────────────────────────── */

@@ -89,6 +89,7 @@ export function SamelabsDataClients() {
     <h2>数据服务凭证</h2>
     <p className="samelabs-panel-desc">
       面向持授权凭证的对外数据查询接口（/data/v1）。令牌明文只在发放时显示一次。
+      接口文档见 <a href="/samelabs/data-clients/docs" className="TextLink">数据服务 API 文档</a>，随凭证一并交给对接方。
     </p>
 
     {error && <Notice tone="err">{error}</Notice>}

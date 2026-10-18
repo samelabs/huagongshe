@@ -129,9 +129,9 @@ def run_sitemap_harness() -> dict:
 
 
 class SitemapTests(unittest.TestCase):
-    # A2-1: 通用静态页五语言; 法律/支持页仅英文正式版
+    # 入口页五语言各一份；条款、隐私、支持页不进 sitemap
     MULTILINGUAL_PATHS = {"/", "/search", "/guide", "/mcp-guide", "/skills"}
-    ENGLISH_ONLY_PATHS = {"/terms", "/privacy", "/support"}
+    LEGAL_SLUGS = ("terms", "privacy", "support")
     LOCALES = ["zh-CN", "en", "ja", "ko", "de"]
 
     @classmethod
@@ -139,30 +139,25 @@ class SitemapTests(unittest.TestCase):
         cls.data = run_sitemap_harness()
 
     def test_sitemap_generates_full_grid(self):
-        # A2-1: 5 通用路径 × 5 语言 + 3 法律页(仅 en) = 28 条
+        # 5 个入口页 × 5 语言 = 25 条
         urls = self.data["urls"]
-        self.assertEqual(len(urls), 28)
-        self.assertEqual(len(set(urls)), 28, "sitemap URLs must be unique")
+        self.assertEqual(len(urls), 25)
+        self.assertEqual(len(set(urls)), 25, "sitemap URLs must be unique")
         self.assertEqual(self.data["locales"], self.LOCALES)
 
     def test_all_urls_from_whitelist_and_origin(self):
-        # 期望集合按 withLocale SSOT 语义构造: "/" → "/<locale>",
-        # 其他路径 → "/<locale><path>"(en 同样带前缀, 与站点路由一致)
+        # "/" → "/<locale>"，其他路径 → "/<locale><path>"（en 同样带前缀）
         origin = self.data["origin"]
         allowed = {
             f"{origin}/{loc}" if path == "/" else f"{origin}/{loc}{path}"
             for loc in self.LOCALES for path in self.MULTILINGUAL_PATHS
-        } | {
-            f"{origin}/en{path}" for path in self.ENGLISH_ONLY_PATHS
         }
         self.assertEqual(set(self.data["urls"]), allowed)
 
-    def test_non_english_legal_urls_excluded(self):
-        # A2-1: 非英文法律 URL 不得进入 Sitemap(noindex 页面)
+    def test_legal_and_support_pages_excluded(self):
         for url in self.data["urls"]:
-            if any(url.endswith(f"/{slug}") for slug in self.ENGLISH_ONLY_PATHS):
-                self.assertTrue(url.startswith(f"{self.data['origin']}/en/"),
-                                f"non-EN legal URL in sitemap: {url}")
+            for slug in self.LEGAL_SLUGS:
+                self.assertFalse(url.endswith(f"/{slug}"), f"legal/support page in sitemap: {url}")
 
     def test_no_private_admin_account_workbench_urls(self):
         forbidden = ("/aichem", "/login", "/me", "/samelabs", "/api/",

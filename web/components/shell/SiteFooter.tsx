@@ -24,6 +24,13 @@ export function SiteFooter() {
           {t.nav.footerMcpGuide}
         </Link>
       </span>
+      <span>
+        <Link href={withLocale("/privacy", locale)} className="sh-footer-link">{t.nav.footerPrivacy}</Link>
+        {" · "}
+        <Link href={withLocale("/terms", locale)} className="sh-footer-link">{t.nav.footerTerms}</Link>
+        {" · "}
+        <Link href={withLocale("/support", locale)} className="sh-footer-link">{t.nav.footerSupport}</Link>
+      </span>
     </footer>
   );
 }

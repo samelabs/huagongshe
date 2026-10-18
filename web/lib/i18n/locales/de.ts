@@ -135,6 +135,9 @@ const de: Dictionary = {
     footer: 'Huagongshe Open Project',
     footerAi: 'KI-Anbindung: ',
     footerMcpGuide: 'MCP-Anleitung',
+    footerPrivacy: 'Datenschutz',
+    footerTerms: 'Nutzungsbedingungen',
+    footerSupport: 'Support',
   },
 
   /* ── Startseite ─────────────────────────────────────── */

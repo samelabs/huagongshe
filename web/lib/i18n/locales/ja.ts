@@ -132,6 +132,9 @@ const ja: Dictionary = {
     footer: '化工社オープンプロジェクト',
     footerAi: 'AIアクセス：',
     footerMcpGuide: 'MCPガイド',
+    footerPrivacy: 'プライバシーポリシー',
+    footerTerms: '利用規約',
+    footerSupport: 'サポート',
   },
 
   /* ── ホーム ─────────────────────────────────────────── */

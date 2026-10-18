@@ -134,6 +134,9 @@ const ko: Dictionary = {
     footer: 'Huagongshe 오픈 프로젝트',
     footerAi: 'AI 접속: ',
     footerMcpGuide: 'MCP 가이드',
+    footerPrivacy: '개인정보처리방침',
+    footerTerms: '이용약관',
+    footerSupport: '지원',
   },
 
   /* ── 홈 ─────────────────────────────────────────────── */

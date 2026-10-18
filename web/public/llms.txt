@@ -59,6 +59,3 @@ Counted per identity; over the limit the server returns `429` with a `Retry-Afte
 - [MCP connection guide](https://huagongshe.com/mcp-guide)
 - [MCP server](https://huagongshe.com/mcp)
 - [Skills Registry](https://huagongshe.com/skills)
-- [Privacy Policy](https://huagongshe.com/privacy)
-- [Terms of Service](https://huagongshe.com/terms)
-- [Support](https://huagongshe.com/support)
