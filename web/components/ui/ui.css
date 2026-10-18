@@ -689,33 +689,18 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 /* 本人操作（编辑/删除）保持在行尾 */
 .hg-head-row:has(.owner-actions) { margin-inline-start: auto; }
 
-/* hero 页头（实体详情）：显式网格，互动行是标题块的末行。
-   无结构图：单列，面包屑 / 标题块（标题→副标题→元信息→互动行）。
-   带结构图（≥641）：两列 —— 面包屑跨两列；左列标题块，右列结构图卡
-   （顶端对齐）。页头底 = 两列较高者，左列内无空档。
-   ≤640：结构图卡满宽排在标题块之后。 */
+/* hero 页头（实体详情）：单列 —— 面包屑 / 标题块（标题→副标题→元信息→
+   互动行）。实体的结构图卡等内容件在正文首屏，不进页头（右侧栏只留功能）。 */
 .hg-page-head--hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "bc" "main";
   align-content: start;
   gap: var(--sp-2) var(--sp-4);
 }
 .hg-page-head--hero .hg-breadcrumb { grid-area: bc; margin-block-end: 0; }
 .hg-page-head--hero .hg-page-head-main { grid-area: main; }
-/* 互动行从网格行并入标题块，行距用标题块同一节奏 */
+/* 互动行在标题块内，行距与标题块同一节奏 */
 .hg-page-head--hero .hg-page-head-actions { margin-left: 0; margin-block-start: var(--sp-3); }
-@media (min-width: 641px) {
-  .hg-page-head--hero:has(.hg-page-head-aside) {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: "bc bc" "main aside";
-  }
-  .hg-page-head--hero:has(.hg-page-head-aside) .hg-page-head-aside { grid-area: aside; align-self: start; }
-}
-.hg-page-head-aside { flex: none; max-width: 100%; }
-@media (max-width: 640px) {
-  .hg-page-head-aside { flex-basis: 100%; width: 100%; }
-}
 
 .hg-section { margin-block-start: var(--sp-section); }
 .hg-section-head {

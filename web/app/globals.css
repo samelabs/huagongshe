@@ -245,11 +245,17 @@ main { flex: 1; background: var(--bg-page); }
 .chem-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
 .chem-favor-count { font-weight: 600; font-variant-numeric: tabular-nums; }
 /* 结构图卡片 = 图区 + 检索按钮行：子结构/相似结构检索随卡片展示，
-   所有宽度直接可见（未登录点击去登录，逻辑在链接组件内） */
+   所有宽度直接可见（未登录点击去登录，逻辑在链接组件内）。
+   结构卡是内容件，居内容首屏左列与概述并排（chem-lead）；右侧栏只留功能。 */
 .chem-struct { align-self: start; display: flex; flex-direction: column; width: 300px; margin: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); overflow: hidden; }
 .chem-struct-figure { display: grid; place-items: center; min-height: 220px; }
 .chem-struct img { max-width: 100%; max-height: 220px; object-fit: contain; }
 .chem-struct-links { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-3); border-top: 1px solid var(--border); }
+/* 内容首屏：结构图（左）｜概述（右）；窄幅自动上下叠放 */
+.chem-lead { display: flex; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-6); }
+.chem-lead > .chem-struct { flex: none; }
+.chem-lead-body { flex: 1; min-width: min(320px, 100%); }
+.chem-lead-body .hg-section { margin-block-start: 0; }
 .mol-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2); color: var(--text-muted); font-size: var(--fs-13); text-align: center; width: 100%; height: 100%; user-select: none; }
 .mol-placeholder svg { width: var(--icon-lg); height: var(--icon-lg); color: var(--text-muted); flex-shrink: 0; }
 /* 补全中 Notice（DetailRefresher 渲染，头部下方） */

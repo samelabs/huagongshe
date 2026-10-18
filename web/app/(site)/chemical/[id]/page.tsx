@@ -223,11 +223,21 @@ export default async function ChemicalPage({ params }: {
     ["linked-notes", t.notes.linkedTitle],
   ];
 
+  /* 结构图卡 = 内容首屏的分子画像（图 + 子结构/相似检索入口），随正文滚动 */
+  const structureCard = (
+    <figure className="chem-struct">
+      <div className="chem-struct-figure">
+        <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} priority />
+      </div>
+      <ChemicalStructureLinks chemicalId={chemical.id} smiles={chemical.smiles} authed={hasSession} />
+    </figure>
+  );
+
   return (
     <PageFrame className="chemical-page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
 
-      {/* ── Entity Header：左标题区 + 右结构图卡片（版式件 PageHead hero） ── */}
+      {/* ── Entity Header（版式件 PageHead hero）：标题/身份/互动一行紧凑；结构图在下方内容首屏 ── */}
       <PageHead
         hero
         breadcrumb={[
@@ -263,14 +273,6 @@ export default async function ChemicalPage({ params }: {
             </Button>
           </div>
         }
-        aside={
-          <figure className="chem-struct">
-            <div className="chem-struct-figure">
-              <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} priority />
-            </div>
-            <ChemicalStructureLinks chemicalId={chemical.id} smiles={chemical.smiles} authed={hasSession} />
-          </figure>
-        }
       />
 
       {/* 补全中（enrichment queued / CB 在途）：头部下方 Notice + 原轮询逻辑 */}
@@ -282,19 +284,24 @@ export default async function ChemicalPage({ params }: {
       <div className="chemical-layout">
         <main className="chemical-main">
 
-          {/* ── 1. Overview ── */}
-          {hasOverview && (
-          <Section id="overview" title={t.chemical.page.overview}>
-            {detail?.description.record_description && <div className="description-panel"><p>{detail.description.record_description}</p></div>}
-            <dl className="chem-dl">
-              <DataRow label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono copyable copyLabel={`${t.common.copy} SMILES`} />
-              <DataRow label="InChIKey" value={chemical.inchikey} mono copyable copyLabel={`${t.common.copy} InChIKey`} />
-              <DataRow label={t.chemical.identity.formula} value={chemical.molecular_formula} />
-              <DataRow label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass, locale)} g/mol` : null} />
-              <DataRow label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, locale, 8) : null} />
-            </dl>
-          </Section>
-          )}
+          {/* ── 内容首屏：结构图（内容件，居左）｜概述（右） ── */}
+          <div className="chem-lead">
+            {structureCard}
+            <div className="chem-lead-body">
+              {hasOverview && (
+              <Section id="overview" title={t.chemical.page.overview}>
+                {detail?.description.record_description && <div className="description-panel"><p>{detail.description.record_description}</p></div>}
+                <dl className="chem-dl">
+                  <DataRow label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono copyable copyLabel={`${t.common.copy} SMILES`} />
+                  <DataRow label="InChIKey" value={chemical.inchikey} mono copyable copyLabel={`${t.common.copy} InChIKey`} />
+                  <DataRow label={t.chemical.identity.formula} value={chemical.molecular_formula} />
+                  <DataRow label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass, locale)} g/mol` : null} />
+                  <DataRow label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, locale, 8) : null} />
+                </dl>
+              </Section>
+              )}
+            </div>
+          </div>
 
           {/* ── 2. Names & Identifiers ── */}
           {hasNames && (
