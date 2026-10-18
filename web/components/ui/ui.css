@@ -34,6 +34,7 @@
   --eb-ic: 12px;
   display: inline-flex;
   align-items: center;
+  flex: none;
   height: var(--eb-h);
   border-radius: var(--r-xs);
   border: 1px solid var(--eb-line, var(--border));
@@ -57,7 +58,7 @@
   letter-spacing: .06em;
   font-size: var(--fs-eb-prefix);
 }
-.hg-eb .k svg { width: var(--eb-ic); height: var(--eb-ic); }
+.hg-eb .k svg { width: var(--eb-ic); height: var(--eb-ic); flex: none; }
 .hg-eb .v { padding: 0 7px; font-variant-numeric: tabular-nums; }
 .hg-eb .x { display: inline-flex; align-items: center; padding-right: 6px; color: var(--text-muted); }
 .hg-eb .x svg { width: var(--icon-xs); height: var(--icon-xs); }
