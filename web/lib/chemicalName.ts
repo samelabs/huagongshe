@@ -13,7 +13,8 @@
  *   → 分子式               ← chemistry.chemicals.molecular_formula
  *   → HCID {id}            ← i18n 现有标签 t.common.hcidLabel
  *
- * secondary: 主标题是本地化名称且存在不同的英文常用名时给出英文名;
+ * secondary: 主标题是本地化名称时给出英文常用名, 缺英文常用名时以
+ *            系统名(IUPAC)兜底; 与主标题相同(忽略大小写)时不展示,
  *            主标题本身已是英文名时不重复展示。
  *
  * locale: 公开详情页按 runtime locale 传参调用 resolveChemicalName;
@@ -86,8 +87,12 @@ export function resolveChemicalName(
   const title = hit ? (hit[0] as string) : hcidLabel(chemical.id);
 
   const isLocalSource = source === "name_local" || source === "name_cn";
-  const secondary = isLocalSource && common && common.toLowerCase() !== title.toLowerCase()
-    ? common
+  // 副标题 = 英文常用名, 缺英文常用名时用系统名(IUPAC)兜底;
+  // 与主标题相同(忽略大小写)时不展示。
+  const subtitleCandidate = common ?? systematic;
+  const secondary = isLocalSource && subtitleCandidate
+    && subtitleCandidate.toLowerCase() !== title.toLowerCase()
+    ? subtitleCandidate
     : null;
 
   return { title, secondary, source };

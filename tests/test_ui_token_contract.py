@@ -2,13 +2,13 @@
 
 Static source scans of web/app + web/components — no database, no network, no
 node. Checks:
-1. No hex / rgb(/ hsl(color literals outside tokens.css and an
+1. No hex, rgb or hsl color literals outside tokens.css and an
    explicit file+line whitelist (data-driven colors, metadata literals).
 2. font-size only takes scale tokens / inherit / 16px iOS-zoom guard.
 3. border-radius only takes scale tokens / 999px / 50% / 0 / inherit.
 4. Every --wb-* in aichem-tokens.css is a pure alias of tokens.css vars.
 5. --green* / --warm* tokens must not reappear.
-6. No alert(/ confirm(/ prompt(calls in TSX (ConfirmDialog via useConfirm).
+6. No alert, confirm or prompt calls in TSX (ConfirmDialog via useConfirm).
 7. Brand: HgsLogo keeps the mark/wordmark class hooks its styles pin to
    (brand SVG sources live outside the repo in brand/).
 8. Entity display: no HCID/HRID display spelled outside EntityBadge.

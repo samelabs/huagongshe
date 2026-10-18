@@ -1,12 +1,12 @@
 """字面转义 / 技能包路径 / 半开闸门 / 通道复活的行为锁定测试。
 
 覆盖(与回执 状态表逐项对应):
-- F-01: notes 写入限流桶 + 每用户存量上限(NoteQuotaExceededError)
+- notes 写入限流桶 + 每用户存量上限(NoteQuotaExceededError)
 - like_literal 转义 + 检索按字面命中
 - 连续两点文件名在 zip 校验层被拒(与 DB CHECK 对齐)
 - 停档后半开只放行一个探测名额
 - pubchem 通道解锁含 pubchem_identity_jobs
-- F-06: prune_oauth_credentials 契约(过期/撤销各表清理, 未到期保留)
+- prune_oauth_credentials 契约(过期/撤销各表清理, 未到期保留)
 - P2c-tombstone: 清扫只动 grace 外的 .deleted-* 目录
 - notes 超大 ID: int32 上界 → 422(此前 500)
 - DOI 双源: 同反应 rx.doi 与 provenance 同 DOI 命中只出一行

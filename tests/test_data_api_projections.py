@@ -145,6 +145,7 @@ class ReactionProjectionTests(unittest.TestCase):
 
     def test_projection_shape(self):
         projection = project_reaction(self._reaction(), "zh-CN", site_origin=SITE)
+        self.assertNotIn("visibility", projection)
         self.assertEqual(projection["hrid"], 7)
         self.assertEqual(projection["title"], "乙醇 → 乙酸乙酯")
         self.assertTrue(projection["equation_image"].endswith("/img/reaction/7.svg"))
@@ -180,6 +181,14 @@ class TitleRuleUnitTests(unittest.TestCase):
             "zh-CN")
         self.assertEqual(title, "苯酚")
         self.assertEqual(secondary, "Phenol")
+
+    def test_zh_without_english_uses_iupac_subtitle(self):
+        title, secondary = resolve_title(
+            {"id": 2, "name_local": None, "name_cn": "苯酚", "preferred_name": None,
+             "iupac_name": "phenol"},
+            "zh-CN")
+        self.assertEqual(title, "苯酚")
+        self.assertEqual(secondary, "phenol")
 
 
 if __name__ == "__main__":

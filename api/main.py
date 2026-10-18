@@ -121,7 +121,7 @@ app.add_exception_handler(RequestValidationError, _validation_error_response)
 async def health():
     return {"status": "ok", "version": settings.api_version}
 
-# MCP 面(M1): /mcp — Agent 连接器入口, stateless streamable-http.
+# MCP 面: /mcp — Agent 连接器入口, stateless streamable-http.
 mount_mcp(app)
 
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .field_labels import field_key, field_label
+from ..field_labels import field_key, field_label
 
 
 # 安全字段落入五个安全分区的归类线索(按子串匹配; 未命中归 hazards)。
@@ -38,7 +38,8 @@ def _is_chinese_locale(locale: str) -> bool:
 
 def resolve_title(chemical: dict[str, Any], locale: str) -> tuple[str, str | None]:
     """与站内详情页同一取名规则: 当地常用名 → 英文常用名 → IUPAC 名 →
-    分子式 → CAS 号 → HCID; 主标题是当地名时副标题给英文常用名。"""
+    分子式 → CAS 号 → HCID; 主标题是当地名时副标题给英文常用名,
+    缺英文常用名时以 IUPAC 名兜底(与主标题相同则为空)。"""
     local = _clean(chemical.get("name_local")) or (
         _clean(chemical.get("name_cn")) if _is_chinese_locale(locale) else None)
     common = _clean(chemical.get("preferred_name"))
@@ -47,8 +48,10 @@ def resolve_title(chemical: dict[str, Any], locale: str) -> tuple[str, str | Non
     cas = _clean((chemical.get("cas_numbers") or [None])[0])
 
     if local:
-        secondary = common and common.lower() != local.lower()
-        return local, (common if secondary else None)
+        fallback = common or systematic
+        if fallback and fallback.lower() != local.lower():
+            return local, fallback
+        return local, None
     for candidate in (common, systematic, formula, cas):
         if candidate:
             return candidate, None
@@ -289,7 +292,6 @@ def project_reaction(reaction: dict[str, Any], locale: str, *, site_origin: str)
         "title": title,
         "equation_smiles": reaction.get("reaction_smiles"),
         "equation_image": f"{site_origin}/img/reaction/{reaction.get('id')}.svg",
-        "visibility": reaction.get("visibility"),
         "participants": [
             {
                 "role": p.get("role"),
@@ -323,7 +325,6 @@ def project_reaction_summary(row: Any) -> dict[str, Any]:
     return {
         "hrid": row[0],
         "equation_smiles": row[1],
-        "visibility": row[2],
-        "updated_at": str(row[3]) if row[3] is not None else None,
-        "participant_count": row[4],
+        "updated_at": str(row[2]) if row[2] is not None else None,
+        "participant_count": row[3],
     }

@@ -69,7 +69,7 @@ class PublicChemicalTests(unittest.TestCase):
         self.assertEqual(d["physical_data"][0]["value"], "0 °C")
         self.assertEqual(d["chemical_properties"][0]["text"], "无色液体")
         self.assertEqual(d["safety"]["ghs_classification"], {"Signal": ["Warning"]})
-        self.assertEqual(d["safety"]["safety_data"], {"wgk": "1"})
+        self.assertEqual(d["safety"]["safety_data"], {"Water hazard class (WGK)": "1"})
         self.assertEqual(d["applications"]["uses_and_manufacturing"], {"Uses": ["solvent"]})
         self.assertEqual(d["related_products"]["upstream_materials"], ["氢气"])
         self.assertEqual(d["reagent_prices"][0]["price"], "10")
@@ -79,6 +79,13 @@ class PublicChemicalTests(unittest.TestCase):
         out = _public_chemical({"id": 1, "details": None, "enrichment": {"status": "current"}})
         _assert_clean(self, out)
         self.assertIsNone(out["details"])
+
+    def test_unknown_service_key_not_exposed(self):
+        # 服务层将来新增的键(此处以未知内部状态键模拟)不得自动进入 MCP 输出
+        raw = {"id": 1, "details": None, "internal_audit_state": "queued"}
+        out = _public_chemical(raw)
+        self.assertNotIn("internal_audit_state", out)
+        self.assertEqual(out, {"id": 1, "details": None})
 
     def test_supplier_ref_with_raw_cbsid_is_not_exposed(self):
         # 即使上游语义详情还带着原站标识形态的 ref(cb-supplier:{cbsid}),
@@ -106,6 +113,42 @@ class PublicReactionTests(unittest.TestCase):
         self.assertEqual(out["ord_id"], "ord-1")
         self.assertEqual(out["source_citation"], "uspto")
         self.assertEqual(out["participants"], [{"id": 1, "role": "REACTANT"}])
+
+
+    def test_unknown_service_key_not_exposed(self):
+        raw = {"id": 5, "visibility": "public", "moderation_state_v2": "ok",
+               "participants": []}
+        out = _public_reaction(raw)
+        self.assertNotIn("moderation_state_v2", out)
+        self.assertEqual(out["visibility"], "public")
+
+
+class FieldLabelForeignSynonymTests(unittest.TestCase):
+    """规范表外语写法：CB 原站多语言安全键落到统一规范名；法规专名保持原样。"""
+
+    def test_foreign_synonyms_resolve_to_canonical(self):
+        from api.services.field_labels import field_label
+        self.assertEqual(field_label("Gefahrenhinweise"), "GHS hazard statements")
+        self.assertEqual(field_label("危険有害性情報"), "GHS hazard statements")
+        self.assertEqual(field_label("유해·위험 문구"), "GHS hazard statements")
+        self.assertEqual(field_label("Alarmwort"), "GHS signal word")
+        self.assertEqual(field_label("신호 어"), "GHS signal word")
+        self.assertEqual(field_label("防范说明"), "GHS precautionary statements")
+        self.assertEqual(field_label("危险性符号(GHS)"), "Hazard symbols")
+        self.assertEqual(field_label("Speicherklasse"), "Storage class")
+        self.assertEqual(field_label("hazard_note"), "Hazard note")
+        self.assertEqual(field_label("위험 참고 사항"), "Hazard note")
+        self.assertEqual(field_label("Toxizität"), "Toxicity")
+        self.assertEqual(field_label("독성"), "Toxicity")
+        self.assertEqual(field_label("REACH 注册登记"), "REACH registrations")
+        self.assertEqual(field_label("F"), "Flash point (°F)")
+        self.assertEqual(field_label("F 고인화성물질"), "Flash point (°F)")
+
+    def test_regulation_names_pass_through(self):
+        from api.services.field_labels import field_label
+        self.assertEqual(field_label("消防法"), "消防法")
+        self.assertEqual(field_label("DOT Classification"), "DOT Classification")
+        self.assertEqual(field_label("유해화학물질 필터링"), "유해화학물질 필터링")
 
 
 class PublicSearchTests(unittest.TestCase):

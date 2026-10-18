@@ -790,7 +790,7 @@ async def get_chemical_detail(
                     cb_raw_state = "fresh"
                 elif decision in ("enqueue_refresh", "enqueue_first"):
                     # 与旧 /externals stale 路径同语义: 出旧数据 + 入列。
-                    # ZX(恢复 1.6): 网页详情访问同样入队刷新。absent
+                    # 网页详情访问同样入队刷新。absent
                     # (cb_row=None)不进本分支, 恒不首次采集。
                     # source_cb(source grain): 所选行是 zh-CN imprint
                     # 行时不传 — lease 回落主表 cb_number 即同一来源, dedupe

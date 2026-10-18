@@ -272,7 +272,7 @@ async def chemical_reactions(
         # 关联表主键含 role：同一反应里同一化合物可多角色并存，先按反应
         # 去重再分页 —— 否则同 HRID 重复出现、total 高估、页边界被重复占位
         rows = (await db.execute(text("""
-            SELECT DISTINCT rx.id, rx.reaction_smiles, rx.visibility, rx.updated_at,
+            SELECT DISTINCT rx.id, rx.reaction_smiles, rx.updated_at,
                    (SELECT count(*) FROM chemistry.reaction_chemicals rc2
                      WHERE rc2.reaction_id = rx.id)
             FROM chemistry.reaction_chemicals rc

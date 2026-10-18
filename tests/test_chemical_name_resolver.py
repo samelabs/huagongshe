@@ -72,6 +72,7 @@ const cases = {
   en_locale_with_cn: [{ id: 7, name_cn: "乙醇", preferred_name: "Ethanol" }, "en-US"],
   zh_blank_cn: [{ id: 8, name_cn: "   ", preferred_name: "Cyanogen" }, "zh-CN"],
   zh_cn_equals_en: [{ id: 9, name_cn: "Cyanogen", preferred_name: "Cyanogen" }, "zh-CN"],
+  zh_cn_no_en_with_iupac: [{ id: 10, name_cn: "乙醇", iupac_name: "ethanol", molecular_formula: "C2H6O" }, "zh-CN"],
 };
 const out = {};
 for (const [key, [chem, locale]] of Object.entries(cases)) out[key] = m.resolveChemicalName(chem, label, locale);
@@ -144,6 +145,10 @@ class ResolverRuleTests(unittest.TestCase):
         same = self.result["zh_cn_equals_en"]
         self.assertEqual("Cyanogen", same["title"])
         self.assertIsNone(same["secondary"], "本地化名与英文名同串时不得重复展示")
+
+    def test_zh_without_english_falls_back_to_iupac_subtitle(self):
+        got = self.result["zh_cn_no_en_with_iupac"]
+        self.assertEqual(("乙醇", "ethanol", "name_cn"), (got["title"], got["secondary"], got["source"]))
 
     def test_site_locale_is_zh_cn(self):
         self.assertEqual("zh-CN", self.result["site_locale"])

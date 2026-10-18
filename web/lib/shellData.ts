@@ -4,6 +4,7 @@ import { apiGet } from "@/lib/api.server";
 import type { User } from "@/lib/api";
 import type { Summary } from "@/components/workbench/types";
 import { splitLocalePrefix } from "@/lib/localePath";
+import { isWorkbenchRoute } from "@/lib/workbenchRoute";
 
 /**
  * shellData — 外壳（顶栏/底栏）与工作台 layout 共用的服务端数据。
@@ -11,15 +12,9 @@ import { splitLocalePrefix } from "@/lib/localePath";
  * 顶栏在根 layout 只挂一次；工作台路由时它需要工作台的手机动作与
  * 未读数。这里用 React cache() 把请求按渲染合并 —— 根 layout 与
  * 工作台 layout 在同一次渲染里取同一份数据，不重复请求后端。
+ * 路由是否属于工作台由 web/lib/workbenchRoute.ts 判定（客户端顶栏
+ * 显隐同用该纯函数）。
  */
-
-/** 工作台路由族：/aichem 及其子页、/submit、/me（设置除外） */
-function isWorkbenchRoute(rest: string): boolean {
-  if (rest === "/aichem" || rest.startsWith("/aichem/")) return true;
-  if (rest.startsWith("/submit")) return true;
-  if (rest.startsWith("/me")) return true;
-  return false;
-}
 
 export type ShellWorkbenchChrome = {
   user: User;

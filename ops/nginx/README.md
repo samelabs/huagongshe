@@ -1,7 +1,7 @@
 # nginx 站点配置（生产权威来源入库副本）
 
-生产 nginx 的站点与 snippet 配置以本目录为权威来源。快照导自生产
-（2026-10-17，只读），`huagongshe.conf` 在快照基础上补齐了对外数据服
+生产 nginx 的站点与 snippet 配置以本目录为权威来源。快照按只读方式
+导自生产，`huagongshe.conf` 在快照基础上补齐了对外数据服
 务需要的 `/data/` location 与 `hgs_data_api` 限流 zone（生产尚未应用，
 随本版本发布）。
 

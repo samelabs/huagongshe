@@ -659,7 +659,7 @@ async def complete_cas_job(
             # 结构三件只补空: 无结构行靠 CB mol 回填出图;
             # cid 在的行 PubChem 早填过(coalesce no-op)。
             if chemical_id is not None:
-                # ZX: resolver CONFLICT 且载荷 IK 与该行已有 IK 不同 →
+                # resolver CONFLICT 且载荷 IK 与该行已有 IK 不同 →
                 # 载荷结构与本行不是同一分子 — 即使只补空, smiles/mol/
                 # 指纹也会被写成异物(主表宁缺勿错), 跳过 fill 并留痕。
                 # 其余路径(merge blocked/AMBIGUOUS/无 CID 但结构一致的

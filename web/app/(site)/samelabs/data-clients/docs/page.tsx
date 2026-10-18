@@ -4,10 +4,9 @@ import { PageFrame } from "@/components/ui/PageFrame";
 import { PageHead } from "@/components/ui/PageHead";
 import { Section } from "@/components/ui/Section";
 
+// 内部文档：只在后台（/samelabs 布局鉴权、noindex）提供，由管理员随凭证交给对接方。
 export const metadata: Metadata = {
   title: "Data service API",
-  description:
-    "Huagongshe data service API for authorized systems: query compounds and reactions by credential.",
 };
 
 type FieldRow = { name: string; type: string; desc: string };
@@ -203,7 +202,7 @@ export default function DataApiDocsPage() {
             service does not push updates.
           </p>
           <p>
-            <Link href="/en" className="TextLink">Back to home</Link>
+            <Link href="/samelabs/data-clients" className="TextLink">Back to data service credentials</Link>
           </p>
         </Section>
       </PageFrame>

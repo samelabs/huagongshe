@@ -134,6 +134,9 @@ const ko: Dictionary = {
     footer: 'Huagongshe 오픈 프로젝트',
     footerAi: 'AI 접속: ',
     footerMcpGuide: 'MCP 가이드',
+    footerPrivacy: '개인정보처리방침',
+    footerTerms: '이용약관',
+    footerSupport: '지원',
   },
 
   /* ── 홈 ─────────────────────────────────────────────── */
@@ -200,8 +203,6 @@ const ko: Dictionary = {
     relatedReactions: '관련 반응',
     substructure: '부분 구조 검색',
     similarity: '유사 구조 찾기',
-    newRelated: '관련 반응 기록 만들기',
-    newRelatedHint: '이 화합물을 반응물로 미리 채우고 HCID를 자동으로 연결합니다.',
     newReaction: '반응 기록 만들기',
     errReactions: '관련 반응을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
     noReactions: '현재 필터 조건에 해당하는 반응 기록이 없습니다.',
@@ -220,6 +221,7 @@ const ko: Dictionary = {
       preferred: '우선 이름',
     },
     page: {
+      basics: '기본 정보',
       overview: '개요',
       names: '이름 및 식별자',
       properties: '물성',

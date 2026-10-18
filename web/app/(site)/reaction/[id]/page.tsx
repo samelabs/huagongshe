@@ -243,7 +243,7 @@ export default async function ReactionPage({ params }: {
           ) : <div className="rx-equation-unavailable">{t.reaction.equationUnavailable}</div>}
         </div>
         {reaction.reaction_smiles && (
-          <CodeField value={reaction.reaction_smiles} copyLabel={`${t.common.copy} SMILES`} className="rx-smiles-code" />
+          <CodeField value={reaction.reaction_smiles} copyLabel={`${t.common.copy} SMILES`} wrap className="rx-smiles-code" />
         )}
       </Section>
 

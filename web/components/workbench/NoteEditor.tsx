@@ -124,7 +124,7 @@ export function NoteEditor({
       // 400 引用校验按 kind 机器码映射五语言分类提示; 其余未知失败安全
       // 回退 notesSaveFailed, 不展示原始技术错误或中文原文。
       // 输入内容全部保留（保存失败不清空输入）；
-      // Toast err 即时反馈 + Notice err 常驻带重试（/）。
+      // Toast err 即时反馈 + Notice err 常驻带重试。
       let message = t.me.notesSaveFailed;
       if (err instanceof ApiError) {
         if (err.status === 401) message = t.me.notesSessionExpired;

@@ -34,6 +34,7 @@
   --eb-ic: 12px;
   display: inline-flex;
   align-items: center;
+  flex: none;
   height: var(--eb-h);
   border-radius: var(--r-xs);
   border: 1px solid var(--eb-line, var(--border));
@@ -57,7 +58,7 @@
   letter-spacing: .06em;
   font-size: var(--fs-eb-prefix);
 }
-.hg-eb .k svg { width: var(--eb-ic); height: var(--eb-ic); }
+.hg-eb .k svg { width: var(--eb-ic); height: var(--eb-ic); flex: none; }
 .hg-eb .v { padding: 0 7px; font-variant-numeric: tabular-nums; }
 .hg-eb .x { display: inline-flex; align-items: center; padding-right: 6px; color: var(--text-muted); }
 .hg-eb .x svg { width: var(--icon-xs); height: var(--icon-xs); }
@@ -380,9 +381,13 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   height: var(--h-md);
 }
 .hg-code code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-13); color: var(--text); scrollbar-width: thin; }
-.hg-code.multiline { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--sp-1) var(--sp-2); padding: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-3); height: auto; }
-.hg-code.multiline code { grid-column: 1; white-space: pre; overflow: auto; max-height: 320px; line-height: 1.65; }
-.hg-code.multiline .hg-copy-wrap { grid-column: 2; grid-row: 1; }
+.hg-code.multiline, .hg-code.wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--sp-1) var(--sp-2); padding: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-3); height: auto; }
+.hg-code.multiline code, .hg-code.wrap code { grid-column: 1; overflow: auto; max-height: 320px; line-height: 1.65; }
+.hg-code.multiline .hg-copy-wrap, .hg-code.wrap .hg-copy-wrap { grid-column: 2; grid-row: 1; }
+.hg-code.multiline code { white-space: pre; }
+/* wrap 形态（超长单行标识，如反应 SMILES）：与 multiline 共用上方块状
+   网格，差异只在换行方式——完整换行（保留空白、逐字符断行） */
+.hg-code.wrap code { white-space: pre-wrap; word-break: break-all; }
 .hg-copy-wrap { display: inline-flex; vertical-align: middle; }
 .hg-copy {
   height: var(--h-xs);
@@ -645,8 +650,6 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-block: var(--sp-6);
 }
 .hg-page-head .hg-breadcrumb { flex-basis: 100%; margin-block-end: var(--sp-3); }
-/* 带右侧视觉位（aside）时改为顶端对齐：标题区与卡片各自从顶排起 */
-.hg-page-head:has(.hg-page-head-aside) { align-items: flex-start; }
 .hg-page-head-main { min-width: 0; }
 .hg-page-head h1 {
   margin: 0;
@@ -675,17 +678,26 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   line-height: var(--lh-prose);
 }
 .hg-page-head-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-left: auto; }
-/* 本人操作（编辑/可见性/删除）在桌面行的右端；手机另起一行靠左 */
-.hg-page-head-actions .owner-actions { margin-inline-start: auto; }
-/* 操作区分两组：标识 + 分享 + 打印 / 其余操作。桌面两组并入同一行，
-   手机各占一行、靠左。 */
-.hg-head-row { display: contents; }
-@media (max-width: 640px) {
-  .hg-page-head-actions { flex-direction: column; align-items: flex-start; margin-left: 0; }
-  .hg-head-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
-  .hg-page-head-actions .hg-head-row > * { margin-inline-start: 0; }
+/* hero 页头互动行独占一行、满宽靠左（网格规则见下）；默认页头仍在页头右端 */
+.hg-page-head--hero .hg-page-head-actions { margin-left: 0; }
+/* 互动行分组：每组（标识/分享/打印、收藏或本人操作）是行内弹性整体，
+   外层只在组与组之间换行，组内永不拆开 */
+.hg-head-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+/* 本人操作（编辑/删除）保持在行尾 */
+.hg-head-row:has(.owner-actions) { margin-inline-start: auto; }
+
+/* hero 页头（实体详情）：单列 —— 面包屑 / 标题块（标题→副标题→元信息→
+   互动行）。实体的结构图卡等内容件在正文首屏，不进页头（右侧栏只留功能）。 */
+.hg-page-head--hero {
+  display: grid;
+  grid-template-areas: "bc" "main";
+  align-content: start;
+  gap: var(--sp-2) var(--sp-4);
 }
-.hg-page-head-aside { flex: none; max-width: 100%; }
+.hg-page-head--hero .hg-breadcrumb { grid-area: bc; margin-block-end: 0; }
+.hg-page-head--hero .hg-page-head-main { grid-area: main; }
+/* 互动行在标题块内，行距与标题块同一节奏 */
+.hg-page-head--hero .hg-page-head-actions { margin-left: 0; margin-block-start: var(--sp-3); }
 
 .hg-section { margin-block-start: var(--sp-section); }
 .hg-section-head {
@@ -694,6 +706,9 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   justify-content: space-between;
   gap: var(--sp-4);
 }
+/* 分区级动作在标题行最右；标题与注记收进左簇 */
+.hg-section-lead { display: flex; align-items: last baseline; gap: var(--sp-4); min-width: 0; }
+.hg-section-action { flex: none; }
 .hg-section-title {
   margin: 0;
   font-size: var(--fs-22);

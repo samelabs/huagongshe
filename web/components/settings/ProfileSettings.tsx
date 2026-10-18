@@ -19,7 +19,7 @@ const EMPTY: Profile = {
   institution: "", title: "", website: "", orcid: "",
 };
 
-/** 资料设置（）：ui Field/Input/Textarea；保存结果 Toast；
+/** 资料设置：ui Field/Input/Textarea；保存结果 Toast；
  * 提交 primary + loading 宽度锁定。字段错误显示在输入框下方。 */
 export function ProfileSettings() {
   const t = useDictionary();
@@ -27,7 +27,7 @@ export function ProfileSettings() {
   const toast = useToast();
   const { user, ready, refresh } = useAccount();
   const [profile, setProfile] = useState<Profile>(EMPTY);
-  /** ZX（迟到 GET 按字段合并, 原 / 整体丢弃）：只记录用户
+  /** 迟到 GET 按字段合并：只记录用户
    * 改过的字段 —— GET 返回时这些字段保留当前输入, 未改字段回填服务端值 */
   const touchedRef = useRef<Set<keyof Profile>>(new Set());
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof Profile, string>>>({});

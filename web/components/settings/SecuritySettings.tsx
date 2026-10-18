@@ -25,9 +25,9 @@ type OAuthConnection = {
   last_used_at: string | null;
 };
 
-/** 安全设置(/)：修改密码 + 已连接的应用（OAuth）
+/** 安全设置：修改密码 + 已连接的应用（OAuth）
  * 修改密码：成功跳登录页，失败 Notice err。
- * 已连接应用：列表、空态、撤销二次确认(/)、DELETE 调用与 Toast。 */
+ * 已连接应用：列表、空态、撤销二次确认、DELETE 调用与 Toast。 */
 export function SecuritySettings() {
   const t = useDictionary();
   const locale = useLocale();

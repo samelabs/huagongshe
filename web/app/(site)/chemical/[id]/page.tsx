@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { ChemicalActions } from "@/components/ChemicalActions";
+import { ChemicalActions, ChemicalStructureLinks } from "@/components/ChemicalActions";
 import { ChemPageNav } from "@/components/ChemPageNav";
 import { DataRow } from "@/components/DataRow";
 import { DetailRefresher } from "@/components/DetailRefresher";
@@ -136,10 +136,9 @@ export default async function ChemicalPage({ params }: {
   // 名称解析唯一出口(与搜索结果/SEO 同规则); pb.record_title 不再入链 ——
   // 数据事实: PubChem 摄入时 preferred_name = properties.Title or record_title,
   // 抽样 6/6 record_title 与 preferred_name 同值, 单独入链只会制造第二套 fallback。
+  // 页头副标题 = 英文常用名, 缺英文常用名时以 IUPAC 名兜底(解析器内规则),
+  // IUPAC 名不再单独成行展示。
   const { title, secondary, source } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
-  const iupacShow = chemical.iupac_name
-    && chemical.iupac_name.toLowerCase() !== title.toLowerCase()
-    && chemical.iupac_name.toLowerCase() !== (secondary || "").toLowerCase() ? chemical.iupac_name : null;
 
   // Names: synonyms(主源) + CB aliases 视觉去重(仅展示层, 不写回)
   const synonyms = chemical.synonyms || [];
@@ -204,18 +203,20 @@ export default async function ChemicalPage({ params }: {
     ...(chemical.pubchem_cid ? { url: localizedAbsoluteUrl(`/chemical/${chemical.id}`, locale) } : {}),
   };
 
-  const hasOverview = Boolean(
-    detail?.description.record_description ||
+  // 基本信息 = 结构标识基础数据（库值/计算值）；概述 = PubChem 编辑文本，二者分区呈现
+  const hasBasics = Boolean(
     chemical.smiles ||
     chemical.inchikey ||
     chemical.molecular_formula ||
     chemical.average_mass != null ||
     chemical.monoisotopic_mass != null
   );
+  const hasDescription = Boolean(detail?.description.record_description);
 
   // TOC 只列实际渲染的 section(rail TOC 与 tablet/mobile local nav 共用此唯一列表)
   const tocSections: [string, string][] = [
-    ...(hasOverview ? [["overview", t.chemical.page.overview] as [string, string]] : []),
+    ...(hasBasics ? [["basics", t.chemical.page.basics] as [string, string]] : []),
+    ...(hasDescription ? [["overview", t.chemical.page.overview] as [string, string]] : []),
     ...(hasNames ? [["names", t.chemical.page.names] as [string, string]] : []),
     ...(hasProperties ? [["properties", t.chemical.page.properties] as [string, string]] : []),
     ...(hasSafetyReal ? [["safety", t.chemical.page.safety] as [string, string]] : []),
@@ -224,11 +225,21 @@ export default async function ChemicalPage({ params }: {
     ["linked-notes", t.notes.linkedTitle],
   ];
 
+  /* 结构图卡 = 内容首屏的分子画像（图 + 子结构/相似检索入口），随正文滚动 */
+  const structureCard = (
+    <figure className="chem-struct">
+      <div className="chem-struct-figure">
+        <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} priority />
+      </div>
+      <ChemicalStructureLinks chemicalId={chemical.id} smiles={chemical.smiles} authed={hasSession} />
+    </figure>
+  );
+
   return (
     <PageFrame className="chemical-page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") }} />
 
-      {/* ── Entity Header：左标题区 + 右结构图卡片（版式件 PageHead hero） ── */}
+      {/* ── Entity Header（版式件 PageHead hero）：标题/身份/互动一行紧凑；结构图在下方内容首屏 ── */}
       <PageHead
         hero
         breadcrumb={[
@@ -237,45 +248,30 @@ export default async function ChemicalPage({ params }: {
         ]}
         title={title}
         subtitle={secondary || undefined}
-        meta={
-          <>
-            {iupacShow && <p className="chem-iupac">{iupacShow}</p>}
+        actions={
+          <div className="hg-head-row">
+            {/* 身份与功能同一行：HCID/CAS 是锚，收藏/分享/打印紧随，不断行 */}
             <div className="chem-chips">
+              {source !== "hcid" && (
+                <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
+              )}
               {chemical.cas_numbers[0] && source !== "cas" && (
                 <Tag className="chem-cas-chip">
                   CAS {chemical.cas_numbers[0]}
                   <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
                 </Tag>
               )}
-              {chemical.molecular_formula && source !== "molecular_formula" && <Tag>{chemical.molecular_formula}</Tag>}
-              {chemical.average_mass != null && <Tag>{formatNumber(chemical.average_mass, locale)} g/mol</Tag>}
-              {chemical.pubchem_cid != null && <Tag>PubChem CID {chemical.pubchem_cid}</Tag>}
             </div>
-          </>
-        }
-        actions={<>
-          <div className="hg-head-row">
-            <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
+            <ChemicalActions
+              chemicalId={chemical.id}
+              initialFollowing={Boolean(chemical.is_following)}
+              initialCount={chemical.follower_count || 0}
+            />
             <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
             <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
               <IconPrinter />
             </Button>
           </div>
-          <div className="hg-head-row">
-            <ChemicalActions
-              chemicalId={chemical.id}
-              smiles={chemical.smiles}
-              initialFollowing={Boolean(chemical.is_following)}
-              initialCount={chemical.follower_count || 0}
-              authed={hasSession}
-              title={title}
-            />
-          </div>
-        </>}
-        aside={
-          <figure className="chem-struct">
-            <Molecule chemicalId={chemical.id} smiles={chemical.smiles} label={title} size="lg" alt={t.chemical.structureAlt(title)} />
-          </figure>
         }
       />
 
@@ -288,17 +284,28 @@ export default async function ChemicalPage({ params }: {
       <div className="chemical-layout">
         <main className="chemical-main">
 
-          {/* ── 1. Overview ── */}
-          {hasOverview && (
+          {/* ── 内容首屏：结构图（内容件，居左）｜基本信息（结构标识五行） ── */}
+          <div className="chem-lead">
+            {structureCard}
+            <div className="chem-lead-body">
+              {hasBasics && (
+              <Section id="basics" title={t.chemical.page.basics}>
+                <dl className="chem-dl">
+                  <DataRow label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono copyable copyLabel={`${t.common.copy} SMILES`} />
+                  <DataRow label="InChIKey" value={chemical.inchikey} mono copyable copyLabel={`${t.common.copy} InChIKey`} />
+                  <DataRow label={t.chemical.identity.formula} value={chemical.molecular_formula} />
+                  <DataRow label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass, locale)} g/mol` : null} />
+                  <DataRow label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, locale, 8) : null} />
+                </dl>
+              </Section>
+              )}
+            </div>
+          </div>
+
+          {/* ── 概述（PubChem 编辑文本）：通栏，引领正文分区 ── */}
+          {hasDescription && (
           <Section id="overview" title={t.chemical.page.overview}>
-            {detail?.description.record_description && <div className="description-panel"><p>{detail.description.record_description}</p></div>}
-            <dl className="chem-dl">
-              <DataRow label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono copyable copyLabel={`${t.common.copy} SMILES`} />
-              <DataRow label="InChIKey" value={chemical.inchikey} mono copyable copyLabel={`${t.common.copy} InChIKey`} />
-              <DataRow label={t.chemical.identity.formula} value={chemical.molecular_formula} />
-              <DataRow label={t.chemical.identity.avgMass} value={chemical.average_mass != null ? `${formatNumber(chemical.average_mass, locale)} g/mol` : null} />
-              <DataRow label={t.chemical.identity.monoMass} value={chemical.monoisotopic_mass != null ? formatNumber(chemical.monoisotopic_mass, locale, 8) : null} />
-            </dl>
+            <div className="description-panel"><p>{detail?.description.record_description}</p></div>
           </Section>
           )}
 
@@ -467,7 +474,12 @@ export default async function ChemicalPage({ params }: {
 
           {/* ── 6. Reactions ── */}
           <Section id="reactions" title={t.chemical.relatedReactions}
-            note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined}>
+            note={!reactionsUnavailable ? t.chemical.reactionCount(new Intl.NumberFormat(locale).format(reactionTotal)) : undefined}
+            action={
+              <Button variant="tonal" size="sm" href={withLocale(`/submit?chemical=${chemical.id}`, locale)}>
+                {t.chemical.newReaction}
+              </Button>
+            }>
             {reactionsUnavailable ? <p className="quiet-empty">{t.chemical.errReactions}</p> : <ReactionList chemicalId={chemical.id} initial={initialReactions} initialTotal={reactionTotal} />}
           </Section>
 
@@ -478,12 +490,6 @@ export default async function ChemicalPage({ params }: {
         {/* ── Secondary rail (desktop；≤900 移到正文末尾) ── */}
         <aside className="chemical-aside">
           <ChemPageNav sections={tocSections} variant="rail" />
-          {/* 新建相关反应（紧凑版：标题 + 一句说明 + tonal sm 按钮） */}
-          <section className="contribute-panel">
-            <h2 className="contribute-title">{t.chemical.newRelated}</h2>
-            <p>{t.chemical.newRelatedHint}</p>
-            <Button variant="tonal" size="sm" href={withLocale(`/submit?chemical=${chemical.id}`, locale)}>{t.chemical.newReaction}</Button>
-          </section>
         </aside>
       </div>
     </PageFrame>

@@ -191,7 +191,7 @@ async def _replace_references(
 
 
 class NoteQuotaExceededError(Exception):
-    """每用户笔记存量达到上限(F-01) — neutral error, adapter 映射 409。"""
+    """每用户笔记存量达到上限 — neutral error, adapter 映射 409。"""
     kind = "note_quota_exceeded"
 
 
@@ -239,7 +239,7 @@ async def create_note(
     chemical_ids: list[int],
     reaction_ids: list[int],
 ) -> dict[str, Any]:
-    # F-01: 笔记是唯一无预算的敏感写入口 —— 与 reactions/skills 同构的
+    # 笔记是唯一无预算的敏感写入口 —— 与 reactions/skills 同构的
     # 双层预算: 写入限流(429, 前端已预留文案) + 每用户存量上限(409)。
     from ..core.config import settings
     from ..core.rate_limit import enforce
@@ -322,7 +322,7 @@ async def update_note(
     # same visibility rule as reads: hidden notes and inactive owners are
     # 404 for everyone, so an update can never commit and only then 404 —
     # and a hidden note can never be mutated back into visibility.
-    # F-01: 编辑限流与创建同桶(不占存量上限)
+    # 编辑限流与创建同桶(不占存量上限)
     from ..core.config import settings
     from ..core.rate_limit import enforce
     await enforce("note-write-minute", str(actor_id),

@@ -135,6 +135,9 @@ const de: Dictionary = {
     footer: 'Huagongshe Open Project',
     footerAi: 'KI-Anbindung: ',
     footerMcpGuide: 'MCP-Anleitung',
+    footerPrivacy: 'Datenschutz',
+    footerTerms: 'Nutzungsbedingungen',
+    footerSupport: 'Support',
   },
 
   /* ── Startseite ─────────────────────────────────────── */
@@ -201,8 +204,6 @@ const de: Dictionary = {
     relatedReactions: 'Zugehörige Reaktionen',
     substructure: 'Teilstruktursuche',
     similarity: 'Ähnliche Strukturen suchen',
-    newRelated: 'Zugehörige Reaktionsaufzeichnung erstellen',
-    newRelatedHint: 'Füllt diese Verbindung als Edukt vor und verknüpft die HCID automatisch.',
     newReaction: 'Reaktionsaufzeichnung erstellen',
     errReactions: 'Zugehörige Reaktionen konnten nicht geladen werden. Bitte später erneut versuchen.',
     noReactions: 'Keine Reaktionsaufzeichnungen unter den aktuellen Filterkriterien.',
@@ -221,6 +222,7 @@ const de: Dictionary = {
       preferred: 'Bevorzugter Name',
     },
     page: {
+      basics: 'Grundinformationen',
       overview: 'Überblick',
       names: 'Namen und Bezeichner',
       properties: 'Eigenschaften',

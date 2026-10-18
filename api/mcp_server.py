@@ -1,4 +1,4 @@
-"""MCP server: the curated agent-facing capability surface (M1).
+"""MCP server: the curated agent-facing capability surface.
 
 认知模型(与 /api/agent-guide 的关系, 不得再表述为 1:1):
 - /api/agent-guide = HTTP Agent contract(自描述连接契约)。
@@ -575,8 +575,33 @@ async def _resolve_skill_slug(candidate: str, actor: Actor | None) -> int:
 # MCP 的读者是外部 agent: 输出只用按含义命名、外人能直接看懂的字段, 不暴露
 # 内部字段(采集来源 / 流程状态 / 审核状态 / 内部行号 / 网页社交态)。共享服务
 # (网页同用)不变, 映射只在 MCP 出口做。映射关系只存在于此处代码, 不随输出下发。
+# 投影用显式白名单: 服务层将来新增的键不自动外泄, 对外键集只在改白名单时变化。
 
-_CHEMICAL_INTERNAL_KEYS = ("similarity", "follower_count", "is_following", "enrichment")
+from .services.field_labels import field_label
+
+# 化合物详情对外的键集合(= 本投影当前实际输出; 服务层内部键
+# similarity/follower_count/is_following/enrichment 不在其中)。
+_CHEMICAL_PUBLIC_KEYS = (
+    "id", "pubchem_cid", "smiles", "pubchem_smiles",
+    "preferred_name", "name_cn", "name_local", "iupac_name",
+    "molecular_formula", "average_mass", "monoisotopic_mass",
+    "inchikey", "dtxsid", "cas_numbers", "nikkaji_numbers",
+    "chembl_ids", "ec_numbers", "unii_codes", "chebi_ids",
+    "synonym_count", "synonyms", "reaction_count", "details",
+)
+
+# 反应详情对外的键集合(服务层的 moderation_status/ord_record_id/
+# dataset_name/is_following/follower_count 等内部键不在其中)。
+_REACTION_PUBLIC_KEYS = (
+    "id", "reaction_smiles", "visibility", "created_at", "updated_at",
+    "ord_id", "source_type", "doi", "patent", "publication_url",
+    "source_citation", "procedure_details", "safety_notes", "reflux",
+    "ph", "conditions_detail", "temperature", "duration", "atmosphere",
+    "pressure", "workup_details", "note", "creator", "is_owner",
+    "participants", "workup",
+)
+# creator 子对象对外的键集合(avatar_url/is_following 是网页社交态)。
+_REACTION_CREATOR_PUBLIC_KEYS = ("username", "display_name", "active")
 
 
 def _evidence_values(values: Any) -> list[str]:
@@ -610,6 +635,21 @@ def _notes(items: Any) -> list[dict[str, str]]:
             for i in (items or []) if isinstance(i, dict)]
 
 
+def _normalized_labels(raw: Any) -> Any:
+    """标签字典 → 规范英文字段名(field_label); 不同原始键规范化后同名时
+    合并为一键, 值以 '; ' 连接。非字典/空字典原样返回。"""
+    if not isinstance(raw, dict) or not raw:
+        return raw
+    merged: dict[str, Any] = {}
+    for key, value in raw.items():
+        label = field_label(key) if isinstance(key, str) else str(key)
+        if label in merged:
+            merged[label] = f"{merged[label]}; {value}"
+        else:
+            merged[label] = value
+    return merged
+
+
 def _public_details(d: dict[str, Any] | None) -> dict[str, Any] | None:
     if not d:
         return None
@@ -632,7 +672,8 @@ def _public_details(d: dict[str, Any] | None) -> dict[str, Any] | None:
         "computed_properties": props.get("pb_computed"),
         "experimental_properties": _evidence(props.get("pb_physical_properties")),
         "physical_data": [
-            {"name": p.get("label"), "value": p.get("text"),
+            {"name": field_label(p["label"]) if isinstance(p.get("label"), str) else p.get("label"),
+             "value": p.get("text"),
              "numeric_value": p.get("v"), "unit": p.get("unit")}
             for p in props.get("cb_experimental") or [] if isinstance(p, dict)
         ],
@@ -643,7 +684,7 @@ def _public_details(d: dict[str, Any] | None) -> dict[str, Any] | None:
             "safety_measures": _evidence(pb_safety.get("safety_measures")),
             "toxicity": _evidence(pb_safety.get("toxicity")),
             "regulatory": _evidence(pb_safety.get("regulatory")),
-            "safety_data": safety.get("cb_safety"),
+            "safety_data": _normalized_labels(safety.get("cb_safety")),
             "toxicity_notes": _notes(safety.get("cb_toxicity")),
             "storage_and_transport": _notes(safety.get("cb_packaging")),
         },
@@ -672,7 +713,7 @@ def _public_details(d: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def _public_chemical(result: dict[str, Any]) -> dict[str, Any]:
-    out = {k: v for k, v in result.items() if k not in _CHEMICAL_INTERNAL_KEYS}
+    out = {k: v for k, v in result.items() if k in _CHEMICAL_PUBLIC_KEYS}
     if "details" in out:
         out["details"] = _public_details(out["details"])
     return out
@@ -684,13 +725,11 @@ def _public_compound(c: dict[str, Any]) -> dict[str, Any]:
 
 
 def _public_reaction(r: dict[str, Any]) -> dict[str, Any]:
-    out = {k: v for k, v in r.items()
-           if k not in ("moderation_status", "ord_record_id", "is_following",
-                        "follower_count", "dataset_name")}
+    out = {k: v for k, v in r.items() if k in _REACTION_PUBLIC_KEYS}
     creator = out.get("creator")
     if isinstance(creator, dict):
         out["creator"] = {k: v for k, v in creator.items()
-                          if k not in ("avatar_url", "is_following")}
+                          if k in _REACTION_CREATOR_PUBLIC_KEYS}
     if "participants" in r:
         out["participants"] = [_public_compound(p) for p in r.get("participants") or []]
     return out

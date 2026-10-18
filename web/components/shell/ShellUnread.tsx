@@ -5,7 +5,7 @@
  *
  * 数据来源 = 工作台计数同一接口 /users/me/dashboard（counts.unread），
  * 不新增 API。两种供给方式：
- * - 工作台 layout SSR 已取 dashboard → 经 SiteHeader 的 initialUnread 直传；
+ * - 工作台形态 SSR 已取 dashboard → 经外壳工作台上下文的 counts.unread 直传；
  * - 公开页 → 由本 Provider 在已登录时客户端请求（失败静默，未读数是
  * 装饰性信息）。
  *
@@ -51,8 +51,8 @@ export function ShellUnreadProvider({ initial = null, children }: {
   const [unread, setUnread] = useState(initial ?? 0);
   const shouldFetch = user != null && initial == null;
 
-  /* ：进入动态面板标记已读后，WorkbenchCounts.refresh 触发
-     router.refresh()，layout 重取 dashboard 并把新的 initialUnread 传下来。
+  /* 进入动态面板标记已读后，WorkbenchCounts.refresh 触发
+     router.refresh()，layout 重取 dashboard 并把新的未读初值传下来。
      useState 初值只认首次挂载 —— 不跟随 prop 的话底部 tab 的未读徽标会一直
      停在旧值。SSR 值变化时同步进 state（null = 客户端自取模式不动）。 */
   useEffect(() => {

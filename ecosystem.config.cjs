@@ -27,9 +27,10 @@ module.exports = {
   apps: [
     {
       name: "huagongshe-api",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
       cwd: "/var/www/huagongshe",
       script: "./venv/bin/python",
-      args: "-m uvicorn api.main:app --host 127.0.0.1 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips=127.0.0.1",
+      args: "-m uvicorn api.main:app --host 127.0.0.1 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips=127.0.0.1 --no-access-log",
       interpreter: "none",
       env: {
         PYTHONUNBUFFERED: "1",
@@ -39,6 +40,7 @@ module.exports = {
     },
     {
       name: "huagongshe",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
       cwd: "/var/www/huagongshe/web",
       script: "/usr/bin/npx",
       // 3001 只经 nginx 反向代理访问, 主机防火墙不对外开放该端口。
@@ -53,6 +55,7 @@ module.exports = {
     },
     {
       name: "huagongshe-pubchem-worker",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
       cwd: "/var/www/huagongshe",
       script: "./venv/bin/python",
       args: "-m worker.main",

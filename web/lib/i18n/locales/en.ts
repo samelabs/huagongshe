@@ -131,6 +131,9 @@ const en: Dictionary = {
     footer: 'Huagongshe Open Program',
     footerAi: 'AI access: ',
     footerMcpGuide: 'MCP Guide',
+    footerPrivacy: 'Privacy Policy',
+    footerTerms: 'Terms of Service',
+    footerSupport: 'Support',
   },
 
   /* ── Homepage ──────────────────────────────────────── */
@@ -197,8 +200,6 @@ const en: Dictionary = {
     relatedReactions: 'Related reactions',
     substructure: 'Substructure search',
     similarity: 'Find similar structures',
-    newRelated: 'New related reaction',
-    newRelatedHint: 'Prefills this compound as a reactant and links its HCID automatically.',
     newReaction: 'New reaction record',
     errReactions: 'Related reactions could not be loaded. Please try again later.',
     noReactions: 'No reaction records under the current filter.',
@@ -217,6 +218,7 @@ const en: Dictionary = {
       preferred: 'Preferred name',
     },
     page: {
+      basics: 'Basic information',
       overview: 'Overview',
       names: 'Names & identifiers',
       properties: 'Properties',

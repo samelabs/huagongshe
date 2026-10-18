@@ -5,7 +5,9 @@ import { I18nProvider } from "@/components/shared/I18nContext";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import { HydrationMarker } from "@/components/shell/HydrationMarker";
-import { AppShell } from "@/components/shell/AppShell";
+import { SiteHeader } from "@/components/shell/SiteHeader";
+import { ShellWorkbenchChromeProvider } from "@/components/shell/ShellWorkbenchChrome";
+import { getShellWorkbenchChrome } from "@/lib/shellData";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { SITE_ORIGIN } from "@/lib/alternates";
 import { pwaAppName } from "@/lib/pwa";
@@ -75,6 +77,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // hydration: root layout 为 server render, lang 由请求 header(SSOT)决定,
   // client 无二次推断, 不产生 hydration mismatch。
   const locale = await getRequestLocale();
+  // 外壳的工作台形态数据：只在请求命中工作台路由且有会话时取（同渲染
+  // 与工作台 layout 合并请求）；作为顶栏工作台上下文的初始值。
+  const chrome = await getShellWorkbenchChrome();
 
   return (
     // data-build：dev-only 的 commit 指纹（next.config env 注入），线上只读
@@ -99,11 +104,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               <ConfirmProvider>
                 {/* 全站唯一外壳（顶栏 + 手机底栏）：在根 layout 挂一次，
                     公开页与工作台之间切换路由不卸载重建。
-                    工作台路由时把手机动作与未读数作为插槽交给外壳。
+                    工作台形态（手机动作 ≡/+ 与未读数）经上下文供给：初始值
+                    来自本层服务端取数；站内切进工作台后由工作台 layout 的
+                    Sync 组件写入，顶栏不重挂即切换形态。
                     顶栏与页面同在一个满屏框架内：框架占满视口，页面填满顶栏以下的剩余高度。 */}
                 <div className="sh-frame">
-                  <AppShell />
-                  {children}
+                  <ShellWorkbenchChromeProvider initial={chrome}>
+                    <SiteHeader />
+                    {children}
+                  </ShellWorkbenchChromeProvider>
                 </div>
                 {/* 水合哨兵：挂载后 <html data-hydrated=1>，截图工具等待它 */}
                 <HydrationMarker />

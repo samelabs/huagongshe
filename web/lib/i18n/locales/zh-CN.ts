@@ -138,6 +138,9 @@ const t = {
     footer: '化工社开放计划',
     footerAi: 'AI 接入：',
     footerMcpGuide: 'MCP 指南',
+    footerPrivacy: '隐私政策',
+    footerTerms: '服务条款',
+    footerSupport: '支持',
   },
 
   /* ── 首页 ────────────────────────────────────────────── */
@@ -206,8 +209,6 @@ const t = {
     relatedReactions: '相关反应',
     substructure: '子结构检索',
     similarity: '查找相似结构',
-    newRelated: '新建相关反应记录',
-    newRelatedHint: '将当前化合物预填为反应物，并自动关联HCID。',
     newReaction: '新建反应记录',
     errReactions: '相关反应暂时无法加载，请稍后重试。',
     noReactions: '当前筛选下没有反应记录。',
@@ -226,6 +227,7 @@ const t = {
       preferred: '首选名称',
     },
     page: {
+      basics: '基本信息',
       overview: '概述',
       names: '名称与标识',
       properties: '性质',

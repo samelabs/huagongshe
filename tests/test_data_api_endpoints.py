@@ -513,7 +513,7 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(self._status(response), 200)
             payload = self._json(response)
             self.assertEqual(payload["reaction"]["hrid"], public_id)
-            self.assertEqual(payload["reaction"]["visibility"], "public")
+            self.assertNotIn("visibility", payload["reaction"])
         finally:
             async with self.Session() as db:
                 await db.execute(text(

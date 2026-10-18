@@ -341,7 +341,7 @@ async def run_search_query(
         限流身份；匿名建行按来源 IP 分桶(缺 IP 不设限流并记警)。
     client_ip: 匿名请求的来源 IP(x-real-ip), 匿名建行限流分桶用。
     threshold: similarity 模式阈值(0.4-1.0, 默认 0.7)。similarity 唯一入口
-        是本 search 端点(/chemicals/{id}/similarity 已随 20dfdbc 剥离)。
+        是本 search 端点。
     """
     chemicals: list[dict[str, Any]] = []
     total: int | None = None
