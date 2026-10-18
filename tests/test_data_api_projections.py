@@ -145,6 +145,7 @@ class ReactionProjectionTests(unittest.TestCase):
 
     def test_projection_shape(self):
         projection = project_reaction(self._reaction(), "zh-CN", site_origin=SITE)
+        self.assertNotIn("visibility", projection)
         self.assertEqual(projection["hrid"], 7)
         self.assertEqual(projection["title"], "乙醇 → 乙酸乙酯")
         self.assertTrue(projection["equation_image"].endswith("/img/reaction/7.svg"))

@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .field_labels import field_key, field_label
+from ..field_labels import field_key, field_label
 
 
 # 安全字段落入五个安全分区的归类线索(按子串匹配; 未命中归 hazards)。
@@ -292,7 +292,6 @@ def project_reaction(reaction: dict[str, Any], locale: str, *, site_origin: str)
         "title": title,
         "equation_smiles": reaction.get("reaction_smiles"),
         "equation_image": f"{site_origin}/img/reaction/{reaction.get('id')}.svg",
-        "visibility": reaction.get("visibility"),
         "participants": [
             {
                 "role": p.get("role"),
@@ -326,7 +325,6 @@ def project_reaction_summary(row: Any) -> dict[str, Any]:
     return {
         "hrid": row[0],
         "equation_smiles": row[1],
-        "visibility": row[2],
-        "updated_at": str(row[3]) if row[3] is not None else None,
-        "participant_count": row[4],
+        "updated_at": str(row[2]) if row[2] is not None else None,
+        "participant_count": row[3],
     }
