@@ -61,10 +61,11 @@ _reg("UN transport number", "ridadr", "危险品运输编号")
 _reg("Packing group", "包装类别", "packinggroup", "packing_group", "포장분류")
 _reg("Hazard class", "危险等级", "危险性类别", "hazard_class", "hazardclass",
     "위험 등급", "hazard classifications")
-_reg("Storage class", "存储类别", "ストレージクラス", "스토리지 클래스", "storage class")
+_reg("Storage class", "存储类别", "ストレージクラス", "스토리지 클래스", "storage class",
+    "speicherklasse")
 _reg("Safety statements (S)", "安全说明", "safety_code", "safety statements")
 _reg("Risk statements (R)", "危险类别码", "risk_code", "risk statements")
-_reg("Hazard symbols", "危险品标志", "hazard_code", "hazard codes")
+_reg("Hazard symbols", "危险品标志", "hazard_code", "hazard codes", "危险性符号(ghs)")
 _reg("Customs code", "海关编码", "hs_code", "hs 번호", "hs code")
 _reg("Toxicity", "毒性", "독성", "toxizität", "toxicity")
 _reg("Hazardous substances data", "毒害物质数据", "有毒物質データの",
@@ -72,14 +73,17 @@ _reg("Hazardous substances data", "毒害物质数据", "有毒物質データ�
 _reg("Occupational exposure band (OEB)", "职业暴露等级", "oeb")
 _reg("Occupational exposure limit (OEL)", "职业暴露限值", "oel")
 _reg("Immediately dangerous to life or health", "立即威胁生命和健康浓度", "idla", "idlh")
-_reg("GHS signal word", "signal word", "信号词")
-_reg("GHS hazard statements", "hazard statements")
-_reg("GHS precautionary statements", "precautionary statements")
+_reg("GHS signal word", "signal word", "信号词", "alarmwort", "注意喚起語",
+    "신호 어", "警示词")
+_reg("GHS hazard statements", "hazard statements", "gefahrenhinweise",
+    "危険有害性情報", "유해·위험 문구", "危险性描述")
+_reg("GHS precautionary statements", "precautionary statements", "防范说明")
 _reg("GHS pictogram", "symbol(ghs)")
 _reg("GHS classification", "ghs classification")
-_reg("REACH registrations", "reach registrations")
+_reg("REACH registrations", "reach registrations", "reach 注册登记")
 _reg("Personal protective equipment (PPE)", "ppe")
 _reg("Exposure limits", "暴露限值", "exposure limits")
+_reg("Hazard note", "hazard_note", "hazard note", "위험 참고 사항")
 
 
 def field_label(raw: str) -> str:

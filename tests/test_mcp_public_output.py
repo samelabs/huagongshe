@@ -123,6 +123,32 @@ class PublicReactionTests(unittest.TestCase):
         self.assertEqual(out["visibility"], "public")
 
 
+class FieldLabelForeignSynonymTests(unittest.TestCase):
+    """规范表外语写法：CB 原站多语言安全键落到统一规范名；法规专名保持原样。"""
+
+    def test_foreign_synonyms_resolve_to_canonical(self):
+        from api.services.field_labels import field_label
+        self.assertEqual(field_label("Gefahrenhinweise"), "GHS hazard statements")
+        self.assertEqual(field_label("危険有害性情報"), "GHS hazard statements")
+        self.assertEqual(field_label("유해·위험 문구"), "GHS hazard statements")
+        self.assertEqual(field_label("Alarmwort"), "GHS signal word")
+        self.assertEqual(field_label("신호 어"), "GHS signal word")
+        self.assertEqual(field_label("防范说明"), "GHS precautionary statements")
+        self.assertEqual(field_label("危险性符号(GHS)"), "Hazard symbols")
+        self.assertEqual(field_label("Speicherklasse"), "Storage class")
+        self.assertEqual(field_label("hazard_note"), "Hazard note")
+        self.assertEqual(field_label("위험 참고 사항"), "Hazard note")
+        self.assertEqual(field_label("Toxizität"), "Toxicity")
+        self.assertEqual(field_label("독성"), "Toxicity")
+        self.assertEqual(field_label("REACH 注册登记"), "REACH registrations")
+
+    def test_regulation_names_pass_through(self):
+        from api.services.field_labels import field_label
+        self.assertEqual(field_label("消防法"), "消防法")
+        self.assertEqual(field_label("DOT Classification"), "DOT Classification")
+        self.assertEqual(field_label("유해화학물질 필터링"), "유해화학물질 필터링")
+
+
 class PublicSearchTests(unittest.TestCase):
     def test_search_clean(self):
         raw = {"query": "x", "chemicals": [{"id": 1, "similarity": None}, {"id": 2, "similarity": 0.8}],
