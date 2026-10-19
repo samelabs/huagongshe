@@ -18,6 +18,12 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+// 引用 Next 内部工具函数以保持与服务端 RSC 哈希校验完全一致。升级 Next 时须核对签名。
+import {
+  computeCacheBustingSearchParam,
+  computeLegacyCacheBustingSearchParam,
+} from "next/dist/shared/lib/router/utils/cache-busting-search-param";
+
 import { SUPPORTED_LOCALES, FALLBACK_LOCALE, isSupportedLocale, type Locale } from "./lib/i18n/locales";
 import { NON_LOCALIZED_PREFIXES, isPathAtOrBelow, splitLocalePrefix } from "./lib/localePath";
 
@@ -29,6 +35,9 @@ const LOCALE_HEADER = "x-site-locale";
 
 /** rewrite 时附带原始(带 locale 前缀的)请求路径, 供 server 端构建 locale-aware 回跳(next)参数 */
 const LOCALE_PATH_HEADER = "x-site-locale-path";
+
+/** 传递给内部请求的边缘缓存标记，服务端渲染判断「能否输出个人化内容」的唯一依据 */
+const EDGE_CACHE_HEADER = "x-site-edge-cache";
 
 /** cookie 属性: 1 年, Lax */
 const LOCALE_COOKIE_OPTIONS = { path: "/", maxAge: 31536000, sameSite: "lax" as const };
@@ -114,8 +123,83 @@ function detectLocale(cookieHeader: string | null, acceptLanguage: string | null
 }
 
 /**
- * 判断已剥离 locale 前缀的路径是否属于支持匿名边缘缓存的公开页面(Cloudflare 方案 1）：
+ * 剥离 URL 查询串中的 _rsc 参数（保留其余参数顺序与取值）。
+ * skipProxyUrlNormalize 开启后 nextUrl 带 _rsc，LOCALE_PATH_HEADER
+ * 供登录回跳（next=）使用，不能混入 _rsc 参数。
+ */
+function stripRscQuery(search: string): string {
+  if (!search) return "";
+  const params = new URLSearchParams(search);
+  if (!params.has("_rsc")) return search;
+  params.delete("_rsc");
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+type RequestShape = "document" | "rsc" | "mixed";
+
+/**
+ * 判断请求的形态契约：
+ * - hasFlight: 请求头含 rsc、next-router-state-tree、next-router-prefetch、
+ *   next-router-segment-prefetch 任一，或 accept 含 text/x-component
+ * - hasParam: URL searchParams 含 _rsc
+ * - 只有哈希与请求头一致的 RSC 请求才可共享缓存；不一致时 Next 返回 307，这类响应不得进入共享缓存。
+ * - hasFlight && 匹配 → "rsc"
+ * - 纯文档: !hasFlight && !hasParam → "document"
+ * - 其余（含哈希不匹配、mixed 异常形态）→ "mixed"（不缓存）
+ */
+async function classifyRequestShape(request: NextRequest): Promise<RequestShape> {
+  const hasFlight =
+    request.headers.has("rsc") ||
+    request.headers.has("next-router-state-tree") ||
+    request.headers.has("next-router-prefetch") ||
+    request.headers.has("next-router-segment-prefetch") ||
+    Boolean(request.headers.get("accept")?.includes("text/x-component"));
+  const hasParam = request.nextUrl.searchParams.has("_rsc");
+
+  if (!hasFlight && !hasParam) return "document";
+
+  if (hasFlight) {
+    const rawPrefetch = request.headers.get("next-router-prefetch");
+    const prefetch: "1" | "2" | undefined =
+      rawPrefetch === "1" || rawPrefetch === "2" ? rawPrefetch : undefined;
+    const segmentPrefetch = request.headers.get("next-router-segment-prefetch") ?? undefined;
+    const stateTree = request.headers.get("next-router-state-tree") ?? undefined;
+    const nextUrl = request.headers.get("next-url") ?? undefined;
+    const actual = request.nextUrl.searchParams.get("_rsc");
+
+    if (
+      actual !== null &&
+      (actual === (await computeCacheBustingSearchParam(prefetch, segmentPrefetch, stateTree, nextUrl)) ||
+        actual === computeLegacyCacheBustingSearchParam(prefetch, segmentPrefetch, stateTree, nextUrl))
+    ) {
+      return "rsc";
+    }
+  }
+
+  return "mixed";
+}
+
+/**
+ * 判断公开页面内容是否与当前访问者有关：
+ * /search（登录者检索触发 CAS 拉取、建行、结构检索）、/chemical/*（is_following、刷新优先级）、
+ * /reaction/*（私有反应作者本人可见、关注态）、/note/*（私有笔记）、/user/*（is_me、is_following）。
+ * 这些路由在带有登录会话时必须输出个人化内容，不可进入共享边缘缓存。
+ */
+function isViewerScopedPage(rest: string): boolean {
+  if (rest === "/search") return true;
+  if (isPathAtOrBelow(rest, "/chemical")) return true;
+  if (isPathAtOrBelow(rest, "/reaction")) return true;
+  if (isPathAtOrBelow(rest, "/note")) return true;
+  if (isPathAtOrBelow(rest, "/user")) return true;
+  return false;
+}
+
+/**
+ * 判断已剥离 locale 前缀的路径是否属于公开可边缘缓存的页面：
  * 首页、搜索、化合物、反应、笔记、公开主页、Skills、guide、mcp-guide、privacy、terms、support。
+ * RSC 按 _rsc 区分 URL，并由服务端哈希校验保证安全；请求形态不一致（mixed）时不缓存；
+ * 与访问者有关的路由带会话时不缓存。
  * 不缓存：工作台(/aichem)、设置(/me)、登录(/login)、提交(/submit)、管理端(/samelabs)等。
  */
 function isPublicEdgeCacheablePage(rest: string): boolean {
@@ -132,23 +216,7 @@ function isPublicEdgeCacheablePage(rest: string): boolean {
   return false;
 }
 
-/**
- * 判断请求是否为 RSC 数据请求或 Next Router 预取请求：
- * Next 的客户端跳转和预取用同一 URL 取 RSC 数据（带 rsc / next-router-prefetch /
- * next-router-segment-prefetch 请求头、_rsc 查询参数或 text/x-component accept），
- * Cloudflare 不识别 Vary: rsc。
- * 这类请求一律返回 private, no-store，绝不进共享边缘缓存；只有普通 HTML 文档请求才标记为 public 可缓存。
- */
-function isRscOrPrefetchRequest(request: NextRequest): boolean {
-  if (request.headers.has("rsc")) return true;
-  if (request.headers.has("next-router-prefetch")) return true;
-  if (request.headers.has("next-router-segment-prefetch")) return true;
-  if (request.headers.get("accept")?.includes("text/x-component")) return true;
-  if (request.nextUrl.searchParams.has("_rsc")) return true;
-  return false;
-}
-
-export default function proxy(request: NextRequest): NextResponse | undefined {
+export default async function proxy(request: NextRequest): Promise<NextResponse | undefined> {
   const pathname = request.nextUrl.pathname;
 
   // /u/{username} 短地址稳定入口: 大小写先归一为小写（注册规则本身仅小写,
@@ -184,35 +252,32 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
     // 交给后续路由按原路径 404。
     if (isExcluded(prefixed.rest)) return undefined;
 
-    // 已带 locale: Next 原生 rewrite 到现有路由, 地址栏不变, 附带 locale header
+    // 边缘缓存与登录态判定：
+    // edgePublic = isPublic && shape !== "mixed" && !(hasSession && isViewerScopedPage(rest))
+    // hasSession 只看 hgs_session cookie（保留现有判断方式）。
+    const hasSession = request.cookies.has("hgs_session") ||
+      Boolean(request.headers.get("cookie")?.split(";").some((c) => c.trim().startsWith("hgs_session=")));
+    const isPublic = isPublicEdgeCacheablePage(prefixed.rest);
+    const shape = await classifyRequestShape(request);
+    const edgePublic = isPublic && shape !== "mixed" && !(hasSession && isViewerScopedPage(prefixed.rest));
+
+    // 已带 locale: Next 原生 rewrite 到现有路由, 地址栏不变, 附带 locale header 与 edge-cache header
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = prefixed.rest;
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set(LOCALE_HEADER, prefixed.locale);
-    requestHeaders.set(LOCALE_PATH_HEADER, pathname + request.nextUrl.search);
+    requestHeaders.set(LOCALE_PATH_HEADER, pathname + stripRscQuery(request.nextUrl.search));
+    requestHeaders.set(EDGE_CACHE_HEADER, edgePublic ? "public" : "private");
     const response = NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } });
 
     // 边缘缓存与 Set-Cookie 规则：
-    const hasSession = request.cookies.has("hgs_session") ||
-      Boolean(request.headers.get("cookie")?.split(";").some((c) => c.trim().startsWith("hgs_session=")));
-    const isPublic = isPublicEdgeCacheablePage(prefixed.rest);
-
-    // 当响应为 public 可缓存时，绝对不写 Set-Cookie（避免边缘缓存存下语言 cookie 造成全员污染）；
-    // 只在不可缓存的响应（带登录会话、非公开页）上按现有逻辑写 site_locale。
-    // 匿名用户的语言偏好改由语言切换器在客户端主动切换时写入。
-    const isUncacheablePageOrSession = hasSession || !isPublic;
-    if (isUncacheablePageOrSession) {
+    // - edgePublic: 下发 public 共享边缘缓存头，绝对不写 Set-Cookie（避免边缘缓存存下语言 cookie 造成全员污染）；
+    // - 否则: private, no-store，并按现有逻辑写 site_locale cookie
+    if (edgePublic) {
+      response.headers.set("Cache-Control", "public, max-age=0, s-maxage=300, stale-while-revalidate=86400");
+    } else {
       response.cookies.set(LOCALE_COOKIE, prefixed.locale, LOCALE_COOKIE_OPTIONS);
       response.headers.set("Cache-Control", "private, no-store");
-    } else {
-      // 匿名公开页面：
-      // RSC / 预取请求用同一 URL 取 RSC 数据，Cloudflare 不识别 Vary: rsc，一律 private, no-store。
-      // 只有普通的 HTML 文档请求才标记为 public 可缓存。
-      if (isRscOrPrefetchRequest(request)) {
-        response.headers.set("Cache-Control", "private, no-store");
-      } else {
-        response.headers.set("Cache-Control", "public, max-age=0, s-maxage=300, stale-while-revalidate=86400");
-      }
     }
     return response;
   }

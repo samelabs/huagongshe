@@ -13,6 +13,7 @@
  */
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Button } from "@/components/ui/Button";
@@ -28,11 +29,9 @@ export function normalizeSearchMode(value: string | undefined | null): SearchHer
   return MODES.includes(value as SearchHeroMode) ? (value as SearchHeroMode) : "exact";
 }
 
-export function SearchHero({ initial = "", initialMode = "exact", authed, autoFocus = false, contextLabel }: {
+export function SearchHero({ initial = "", initialMode = "exact", autoFocus = false, contextLabel }: {
   initial?: string;
   initialMode?: SearchHeroMode;
-  /** 服务端 cookie 判定；未登录时结构类模式点查询去登录页 */
-  authed: boolean;
   /** 挂载即聚焦输入框（/search?focus=1） */
   autoFocus?: boolean;
   /** 输入框 aria-label（首页/搜索页文案不同时用） */
@@ -41,6 +40,7 @@ export function SearchHero({ initial = "", initialMode = "exact", authed, autoFo
   const router = useRouter();
   const t = useDictionary();
   const locale = useLocale();
+  const { user, ready } = useAccount();
   const [query, setQuery] = useState(initial);
   const [mode, setMode] = useState<SearchHeroMode>(normalizeSearchMode(initialMode));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -50,9 +50,12 @@ export function SearchHero({ initial = "", initialMode = "exact", authed, autoFo
     const q = query.trim();
     if (!q) { inputRef.current?.focus(); return; }
     const target = withLocale(`/search?q=${encodeURIComponent(q)}${mode !== "exact" ? `&mode=${mode}` : ""}`, locale);
-    if (STRUCTURE_MODES.includes(mode) && !authed) {
-      router.push(withLocale(`/login?next=${encodeURIComponent(target)}`, locale));
-      return;
+    if (STRUCTURE_MODES.includes(mode)) {
+      if (!ready) return;
+      if (!user) {
+        router.push(withLocale(`/login?next=${encodeURIComponent(target)}`, locale));
+        return;
+      }
     }
     router.push(target);
   }

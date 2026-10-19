@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { SearchHero } from "@/components/SearchHero";
 import { CodeField } from "@/components/ui/CodeField";
 import { Button } from "@/components/ui/Button";
@@ -43,14 +42,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Home() {
   const t = await getRequestDictionary();
   const locale = await getRequestLocale();
-  const authed = (await cookies()).has("hgs_session");
   return (
     <PageFrame className="home">
       {/* 标题与搜索区按现行规则在框内居中 */}
       <section className="hero">
         <h1>{t.home.hero}</h1>
         <p className="hero-subtitle">{t.home.subtitle}</p>
-        <SearchHero authed={authed} />
+        <SearchHero />
       </section>
 
       {/* ── AI 接入入口: 第一屏直接给出地址与主入口 MCP / Skills / 工作台 /

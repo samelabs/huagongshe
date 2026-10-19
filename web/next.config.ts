@@ -42,6 +42,12 @@ function devLanOrigins(): string[] {
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   allowedDevOrigins: devLanOrigins(),
+  // 让 proxy 能看到 RSC 请求头与 _rsc 以判定能否缓存
+  skipProxyUrlNormalize: true,
+  // 让 RSC 响应按 _rsc 区分 URL，可以安全进入共享缓存
+  experimental: {
+    validateRSCRequestHeaders: true,
+  },
   ...(buildSha ? { env: { HGS_BUILD_SHA: buildSha } } : {}),
   // 本地 dev 的 /uploads 静态服务（生产由 nginx 承担）：
   // 上传文件落 local/uploads（与 hgs_local_api 容器同 bind），由

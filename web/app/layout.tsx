@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { AccountProvider } from "@/components/shared/AccountContext";
 import { I18nProvider } from "@/components/shared/I18nContext";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -70,8 +70,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     ? analytics.id : null;
   const adsense = config.ads?.adsense;
   const h = await headers();
-  const cookieHeader = h.get("cookie");
-  const initialUser = await getSSRUser(cookieHeader);
+  const edgeCache = h.get("x-site-edge-cache") ?? "private";
+  const cookieStore = await cookies();
+  const initialUser = (edgeCache !== "public" && cookieStore.has("hgs_session"))
+    ? await getSSRUser(h.get("cookie"))
+    : null;
   // 运行时 locale 链路: proxy(x-site-locale) → getRequestLocale → I18nProvider。
   // 全站公开页面已按 locale 输出, lang 与 runtime locale 保持一致。
   // hydration: root layout 为 server render, lang 由请求 header(SSOT)决定,
@@ -98,7 +101,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         )}
       </head>
       <body>
-        <AccountProvider initialUser={initialUser}>
+        <AccountProvider initialUser={initialUser} resolved={edgeCache !== "public"}>
           <I18nProvider locale={locale}>
             <ToastProvider>
               <ConfirmProvider>
