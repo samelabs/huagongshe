@@ -188,7 +188,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <>{t.search.queryStructurePrefix}<code>{q}</code>{t.search.queryStructure}{relationLabel}{urlMode === "similarity" && similarityThreshold !== null ? t.search.similarityThreshold(similarityThreshold) : ""}{capped ? t.search.cappedHint : ""}</>
         ) : undefined}
       />
-      <SearchHero initial={q} initialMode={urlMode} authed={authed} autoFocus={params.focus === "1"} contextLabel={t.search.title} />
+      <SearchHero initial={q} initialMode={urlMode} autoFocus={params.focus === "1"} contextLabel={t.search.title} />
       {error && <Notice tone="err">{error}</Notice>}
       {(hasChemicals || hasReactions) && (
         hasBoth ? (

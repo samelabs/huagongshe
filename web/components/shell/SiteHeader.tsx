@@ -54,7 +54,7 @@ function useNavItems(): NavItem[] {
 }
 
 export function SiteHeader() {
-  const { user } = useAccount();
+  const { user, ready } = useAccount();
   const t = useDictionary();
   const locale = useLocale();
   const nav = useNavItems();
@@ -92,7 +92,9 @@ export function SiteHeader() {
             <div className="sh-lang">
               <LanguageSwitcher />
             </div>
-            {user ? (
+            {!ready ? (
+              <span className="sh-login-placeholder" aria-hidden="true" />
+            ) : user ? (
               <UserMenu user={user} />
             ) : (
               <Button variant="secondary" size="sm" className="sh-login-btn" href={withLocale("/login", locale)}>

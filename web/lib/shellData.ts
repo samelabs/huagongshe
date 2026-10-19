@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { apiGet } from "@/lib/api.server";
 import type { User } from "@/lib/api";
 import type { Summary } from "@/components/workbench/types";
@@ -41,6 +41,8 @@ export const getShellWorkbenchChrome = cache(async (): Promise<ShellWorkbenchChr
   const rest = stripped ? stripped.rest : localePath.split("?")[0];
   if (!isWorkbenchRoute(rest)) return null;
 
+  const cookieStore = await cookies();
+  if (!cookieStore.has("hgs_session")) return null;
   const cookieHeader = h.get("cookie");
   if (!cookieHeader) return null;
   try {
