@@ -1,3 +1,4 @@
+// 线上 Next 会先删请求头再调用 proxy，本测试成立的前提是 next.config 配置了 skipProxyUrlNormalize。
 // proxy.ts 最小单测: 用 Next 官方 testing 工具 (next/experimental/testing/server)
 // 的 isRewrite / getRewrittenUrl / getRedirectUrl 验证 rewrite/redirect,
 // 不用自建 fetch mock 证明正确性。
@@ -207,19 +208,36 @@ test("匿名访问公开页面: public 300s 边缘缓存", () => {
   }
 });
 
-test("带 hgs_session 登录会话访问公开页: 保持 private, no-store", () => {
-  for (const p of [
-    "/zh-CN",
-    "/zh-CN/chemical/4",
-    "/en/reaction/1",
-    "/ja/search",
-  ]) {
-    const r = proxy(nextReq(p, { cookie: "hgs_session=fake_session_token; site_locale=zh-CN" }));
+test("非个人化公开页(/zh-CN, /zh-CN/skills): 带 hgs_session 依然 public, 无 set-cookie, x-site-edge-cache=public", () => {
+  for (const p of ["/zh-CN", "/zh-CN/skills"]) {
+    const r = proxy(nextReq(p, { cookie: "hgs_session=fake_session_token" }));
     assert.equal(
       r.headers.get("cache-control"),
-      "private, no-store",
-      `带会话访问 ${p} 应为 private, no-store`,
+      "public, max-age=0, s-maxage=300, stale-while-revalidate=86400",
+      `非个人化公开页 ${p} 带会话应获得 public 缓存头`,
     );
+    assert.equal(r.headers.getSetCookie().length, 0, `${p} 不得包含任何 Set-Cookie 头`);
+    assert.equal(r.headers.get("x-middleware-request-x-site-edge-cache"), "public", `${p} x-site-edge-cache 应为 public`);
+  }
+});
+
+test("与访问者有关的公开路由: 带 hgs_session → private; 匿名 → public", () => {
+  const viewerScopedPaths = [
+    "/ja/chemical/4",
+    "/zh-CN/search",
+    "/zh-CN/reaction/1",
+    "/zh-CN/note/1",
+    "/zh-CN/user/abcd",
+  ];
+  for (const p of viewerScopedPaths) {
+    const rAuth = proxy(nextReq(p, { cookie: "hgs_session=fake_session_token" }));
+    assert.equal(rAuth.headers.get("cache-control"), "private, no-store", `带会话访问 ${p} 应为 private, no-store`);
+    assert.equal(rAuth.headers.get("x-middleware-request-x-site-edge-cache"), "private", `带会话访问 ${p} x-site-edge-cache 应为 private`);
+
+    const rAnon = proxy(nextReq(p));
+    assert.equal(rAnon.headers.get("cache-control"), "public, max-age=0, s-maxage=300, stale-while-revalidate=86400", `匿名访问 ${p} 应为 public`);
+    assert.equal(rAnon.headers.get("x-middleware-request-x-site-edge-cache"), "public", `匿名访问 ${p} x-site-edge-cache 应为 public`);
+    assert.equal(rAnon.headers.getSetCookie().length, 0, `匿名访问 ${p} 不得有 Set-Cookie`);
   }
 });
 
@@ -293,31 +311,46 @@ test("不可缓存响应(带登录会话、非公开页)以及 307 跳转正常�
   assert.match(r5.headers.getSetCookie().join("; "), /site_locale=en/);
 });
 
-test("RSC 与预取请求不进共享缓存 (private, no-store 且无 Set-Cookie)", () => {
-  // 1. 带 rsc 请求头
-  const r1 = proxy(nextReq("/zh-CN", { headers: { rsc: "1" } }));
-  assert.equal(r1.headers.get("cache-control"), "private, no-store");
+test("/zh-CN/skills RSC 请求形态矩阵", () => {
+  // 1. 带 rsc:1 且带 _rsc → public
+  const r1 = proxy(nextReq("/zh-CN/skills?_rsc=abc", { headers: { rsc: "1" } }));
+  assert.equal(r1.headers.get("cache-control"), "public, max-age=0, s-maxage=300, stale-while-revalidate=86400");
+  assert.equal(r1.headers.get("x-middleware-request-x-site-edge-cache"), "public");
   assert.equal(r1.headers.getSetCookie().length, 0);
 
-  // 2. 带 next-router-prefetch 请求头
-  const r2 = proxy(nextReq("/en/chemical/4", { headers: { "next-router-prefetch": "1" } }));
+  // 2. 只带 rsc:1 → private (mixed)
+  const r2 = proxy(nextReq("/zh-CN/skills", { headers: { rsc: "1" } }));
   assert.equal(r2.headers.get("cache-control"), "private, no-store");
-  assert.equal(r2.headers.getSetCookie().length, 0);
+  assert.equal(r2.headers.get("x-middleware-request-x-site-edge-cache"), "private");
 
-  // 3. 带 next-router-segment-prefetch 请求头
-  const r3 = proxy(nextReq("/ja/search", { headers: { "next-router-segment-prefetch": "/search" } }));
+  // 3. 只带 _rsc → private (mixed)
+  const r3 = proxy(nextReq("/zh-CN/skills?_rsc=abc"));
   assert.equal(r3.headers.get("cache-control"), "private, no-store");
-  assert.equal(r3.headers.getSetCookie().length, 0);
+  assert.equal(r3.headers.get("x-middleware-request-x-site-edge-cache"), "private");
 
-  // 4. 带 _rsc 查询参数
-  const r4 = proxy(nextReq("/zh-CN/skills?_rsc=19tnmxm6gp9xm"));
+  // 4. 带 next-router-prefetch:1 但无 _rsc → private (mixed)
+  const r4 = proxy(nextReq("/zh-CN/skills", { headers: { "next-router-prefetch": "1" } }));
   assert.equal(r4.headers.get("cache-control"), "private, no-store");
-  assert.equal(r4.headers.getSetCookie().length, 0);
+  assert.equal(r4.headers.get("x-middleware-request-x-site-edge-cache"), "private");
+});
 
-  // 5. Accept: text/x-component
-  const r5 = proxy(nextReq("/en/guide", { headers: { accept: "text/x-component" } }));
-  assert.equal(r5.headers.get("cache-control"), "private, no-store");
-  assert.equal(r5.headers.getSetCookie().length, 0);
+test("/zh-CN/login 任何情况都是 private", () => {
+  const cases = [
+    nextReq("/zh-CN/login"),
+    nextReq("/zh-CN/login", { cookie: "hgs_session=xyz" }),
+    nextReq("/zh-CN/login?_rsc=abc", { headers: { rsc: "1" } }),
+    nextReq("/zh-CN/login", { headers: { rsc: "1" } }),
+  ];
+  for (const req of cases) {
+    const r = proxy(req);
+    assert.equal(r.headers.get("cache-control"), "private, no-store");
+    assert.equal(r.headers.get("x-middleware-request-x-site-edge-cache"), "private");
+  }
+});
+
+test("LOCALE_PATH_HEADER 去掉 _rsc 参数: /zh-CN/aichem?tab=x&_rsc=abc 带 rsc:1", () => {
+  const r = proxy(nextReq("/zh-CN/aichem?tab=x&_rsc=abc", { headers: { rsc: "1" } }));
+  assert.equal(r.headers.get("x-middleware-request-x-site-locale-path"), "/zh-CN/aichem?tab=x");
 });
 
 /* ─────── /u/{username} 短地址跳转 ─────── */
