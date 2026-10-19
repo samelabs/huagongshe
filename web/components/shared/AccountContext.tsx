@@ -29,7 +29,6 @@ export function AccountProvider({ children, initialUser, resolved }: { children:
     }
   }, []);
 
-  // 服务端已确定登录态时首屏即就绪；共享缓存的页面由客户端取登录态。
   useEffect(() => {
     if (!resolved || !initialUser) void refresh();
   }, [refresh, resolved, initialUser]);

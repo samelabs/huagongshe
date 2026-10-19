@@ -93,7 +93,11 @@ export function SiteHeader() {
               <LanguageSwitcher />
             </div>
             {!ready ? (
-              <span className="sh-login-placeholder" aria-hidden="true" />
+              <span aria-hidden="true" tabIndex={-1} style={{ visibility: "hidden" }}>
+                <Button variant="secondary" size="sm" className="sh-login-btn">
+                  {t.nav.login}
+                </Button>
+              </span>
             ) : user ? (
               <UserMenu user={user} />
             ) : (

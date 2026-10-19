@@ -18,6 +18,12 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+// 引用 Next 内部工具函数以保持与服务端 RSC 哈希校验完全一致。升级 Next 时须核对签名。
+import {
+  computeCacheBustingSearchParam,
+  computeLegacyCacheBustingSearchParam,
+} from "next/dist/shared/lib/router/utils/cache-busting-search-param";
+
 import { SUPPORTED_LOCALES, FALLBACK_LOCALE, isSupportedLocale, type Locale } from "./lib/i18n/locales";
 import { NON_LOCALIZED_PREFIXES, isPathAtOrBelow, splitLocalePrefix } from "./lib/localePath";
 
@@ -137,11 +143,12 @@ type RequestShape = "document" | "rsc" | "mixed";
  * - hasFlight: 请求头含 rsc、next-router-state-tree、next-router-prefetch、
  *   next-router-segment-prefetch 任一，或 accept 含 text/x-component
  * - hasParam: URL searchParams 含 _rsc
+ * - 只有哈希与请求头一致的 RSC 请求才可共享缓存；不一致时 Next 返回 307，这类响应不得进入共享缓存。
+ * - hasFlight && 匹配 → "rsc"
  * - 纯文档: !hasFlight && !hasParam → "document"
- * - 合法 RSC: hasFlight && hasParam → "rsc"
- * - 不一致: 其余 → "mixed"（不缓存）
+ * - 其余（含哈希不匹配、mixed 异常形态）→ "mixed"（不缓存）
  */
-function classifyRequestShape(request: NextRequest): RequestShape {
+async function classifyRequestShape(request: NextRequest): Promise<RequestShape> {
   const hasFlight =
     request.headers.has("rsc") ||
     request.headers.has("next-router-state-tree") ||
@@ -151,7 +158,25 @@ function classifyRequestShape(request: NextRequest): RequestShape {
   const hasParam = request.nextUrl.searchParams.has("_rsc");
 
   if (!hasFlight && !hasParam) return "document";
-  if (hasFlight && hasParam) return "rsc";
+
+  if (hasFlight) {
+    const rawPrefetch = request.headers.get("next-router-prefetch");
+    const prefetch: "1" | "2" | undefined =
+      rawPrefetch === "1" || rawPrefetch === "2" ? rawPrefetch : undefined;
+    const segmentPrefetch = request.headers.get("next-router-segment-prefetch") ?? undefined;
+    const stateTree = request.headers.get("next-router-state-tree") ?? undefined;
+    const nextUrl = request.headers.get("next-url") ?? undefined;
+    const actual = request.nextUrl.searchParams.get("_rsc");
+
+    if (
+      actual !== null &&
+      (actual === (await computeCacheBustingSearchParam(prefetch, segmentPrefetch, stateTree, nextUrl)) ||
+        actual === computeLegacyCacheBustingSearchParam(prefetch, segmentPrefetch, stateTree, nextUrl))
+    ) {
+      return "rsc";
+    }
+  }
+
   return "mixed";
 }
 
@@ -191,7 +216,7 @@ function isPublicEdgeCacheablePage(rest: string): boolean {
   return false;
 }
 
-export default function proxy(request: NextRequest): NextResponse | undefined {
+export default async function proxy(request: NextRequest): Promise<NextResponse | undefined> {
   const pathname = request.nextUrl.pathname;
 
   // /u/{username} 短地址稳定入口: 大小写先归一为小写（注册规则本身仅小写,
@@ -233,7 +258,7 @@ export default function proxy(request: NextRequest): NextResponse | undefined {
     const hasSession = request.cookies.has("hgs_session") ||
       Boolean(request.headers.get("cookie")?.split(";").some((c) => c.trim().startsWith("hgs_session=")));
     const isPublic = isPublicEdgeCacheablePage(prefixed.rest);
-    const shape = classifyRequestShape(request);
+    const shape = await classifyRequestShape(request);
     const edgePublic = isPublic && shape !== "mixed" && !(hasSession && isViewerScopedPage(prefixed.rest));
 
     // 已带 locale: Next 原生 rewrite 到现有路由, 地址栏不变, 附带 locale header 与 edge-cache header

@@ -71,12 +71,6 @@
   background: var(--err);
   box-shadow: 0 0 0 2px var(--bg-surface);
 }
-.sh-login-placeholder {
-  display: inline-block;
-  height: var(--h-sm);
-  width: 58px;
-  flex: none;
-}
 
 /* ══ 下拉菜单（头像菜单 / 更多菜单共用） ════════════════════ */
 .sh-menu { position: relative; }
@@ -132,7 +126,7 @@
     gap: var(--sp-2);
   }
   .sh-right { display: none; }
-  .sh-nav, .sh-more, .sh-bell, .sh-lang, .sh-login-btn, .sh-login-placeholder { display: none; }
+  .sh-nav, .sh-more, .sh-bell, .sh-lang, .sh-login-btn { display: none; }
   .sh-mobile-right { display: flex; align-items: center; margin-left: auto; }
   .sh-lang-m .lang-switcher .lang-switcher-trigger { min-height: 44px; padding: 0 var(--sp-2); }
 }
