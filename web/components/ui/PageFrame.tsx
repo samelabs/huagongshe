@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
  *
  * 内容最大宽 1200（--w-wide），与顶栏 .sh-inner 同一条宽度公式，
  * 左缘与顶栏 logo 对齐；窄于 1240 时两侧各留 20。
- * reading = 阅读窄档（720），form = 表单窄档（400），窄档同样左缘对齐，不做居中窄栏。
+ * reading = 阅读窄档（720，左缘对齐限行长）；form = 表单窄档（400，框架 E 卡片居中）。
  */
 export function PageFrame({
   children,

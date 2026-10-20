@@ -629,16 +629,17 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-left: max(20px, calc((100% - var(--w-wide)) / 2));
   margin-right: auto;
 }
+/* 框架 E 单卡：卡片居中（DESIGN_SYSTEM 2.2 / 2.4）—— 与阅读档左对齐相反,
+   表单卡是页面唯一的居中窄栏 */
 .hg-page-frame--form {
   max-width: var(--w-form);
-  margin-left: max(20px, calc((100% - var(--w-wide)) / 2));
-  margin-right: auto;
+  margin-inline: auto;
 }
 /* 手机档与顶栏 .sh-inner 同一公式（calc(100% - 24px)，两侧 12px）——
    左缘对齐检查在 375 下同样要求 H1 与 logo 像素差为 0 */
 @media (max-width: 640px) {
   .hg-page-frame { width: calc(100% - 24px); }
-  .hg-page-frame--reading, .hg-page-frame--form { margin-left: 12px; }
+  .hg-page-frame--reading { margin-left: 12px; }
 }
 
 .hg-page-head {

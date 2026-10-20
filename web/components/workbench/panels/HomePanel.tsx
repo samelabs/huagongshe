@@ -21,7 +21,7 @@ import type { ChemicalFollow } from "../types";
 import { Input } from "@/components/ui/Field";
 
 /**
- * 工作台概览（DESIGN_SYSTEM 6.7：桌面双列 —— 快捷检索/入口列 + 我的内容列）。
+ * 工作台概览（DESIGN_SYSTEM 6.7：单列 —— 快捷检索/入口 → 我的内容）。
  *
  * 数据全部来自现有读接口（SSR 预取传入，失败的流客户端补拉）：
  * - 我的内容：/users/me/notes、/users/me/reactions、/users/me/follows/chemicals
@@ -141,7 +141,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
         </div>
       </header>
 
-      {/* ── 我的内容列（概览双列的右列，快捷检索/入口在左） ── */}
+      {/* ── 我的内容面板 ── */}
       <div className="wb-home2-col-main">
         {/* ── 快速检索 + 快捷入口 ── */}
         <section className="wb-card wb-home2-quick" data-area="quick">

@@ -291,21 +291,13 @@
     gap: var(--wb-sp-3);
   }
 }
+/* 概览单列（owner 裁定 2026-10：工作台首页不做双列）：
+   快捷检索/入口卡与「我的内容」卡纵向顺排 */
 .wb-home2-col-main {
   display: flex;
   flex-direction: column;
   gap: var(--sp-6);
   min-width: 0;
-}
-/* 概览桌面双列（DESIGN_SYSTEM 6.7）：快捷检索/入口列 + 我的内容列；
-   平板及以下单列顺排 */
-@media (min-width: 1024px) {
-  .wb-home2-col-main {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-    gap: var(--sp-6);
-    align-items: start;
-  }
 }
 
 /* 概览卡片基座 */

@@ -232,9 +232,9 @@
   margin: 0 0 var(--sp-2);
   padding: 0 var(--sp-3);
   font-size: var(--fs-12);
-  font-weight: var(--fw-display);
+  font-weight: var(--fw-medium);
   color: var(--text-muted);
-  letter-spacing: .01em;
+  letter-spacing: .02em;
 }
 
 .wb-nav-link {
@@ -247,7 +247,7 @@
   border-radius: var(--r-sm);
   font-size: var(--fs-14);
   font-weight: var(--fw-regular);
-  color: var(--text-muted);
+  color: var(--text-2);
   cursor: pointer;
 }
 .wb-nav-link > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -268,7 +268,7 @@
 }
 .wb-nav-link.active .wb-nav-icon { color: var(--action); }
 
-/* badge — 计数项 plain 数字（0 时不渲染）；「动态」未读为红色 pill */
+/* badge — 计数项 plain 数字（0 时不渲染）；「通知」未读为红色 pill */
 .wb-nav-link em {
   font-size: var(--fs-12);
   font-style: normal;
@@ -376,8 +376,9 @@
 }
 .wb-drawer-nav { display: block; }
 .wb-drawer-nav .wb-nav-group + .wb-nav-group { margin-top: var(--sp-2); }
+/* 抽屉是触屏导航：可点目标真实高度 ≥44（IX-11）—— 12+20+12 */
 .wb-drawer-nav .wb-nav-link {
-  padding: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3);
   font-size: var(--fs-14);
 }
 .wb-drawer-close:hover { background: var(--bg-page); color: var(--text); }
