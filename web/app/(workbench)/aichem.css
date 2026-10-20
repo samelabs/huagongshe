@@ -850,41 +850,8 @@
 .wb-panel select { width: 100%; min-width: 0; padding: var(--wb-sp-3); padding-right: 34px; font-family: var(--wb-font-ui); font-size: var(--wb-fs); }
 .wb-panel select:focus { border-color: var(--wb-blue); box-shadow: 0 0 0 3px var(--wb-glow); }
 
-/* 设置页按钮 */
-.wb-panel .button.primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--wb-btn-h);
-  padding: 0 var(--wb-sp-4);
-  background: var(--wb-blue);
-  color: var(--wb-inverse);
-  border: none;
-  border-radius: var(--wb-r-md);
-  font-size: var(--wb-fs);
-  font-weight: var(--wb-w-medium);
-  cursor: pointer;
-  transition: background var(--wb-transition);
-}
-.wb-panel .button.primary.small {
-  height: var(--wb-sp-7);
-  padding: 0 var(--wb-sp-3);
-  font-size: var(--wb-fs-sm);
-}
-.wb-panel .button.secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--wb-btn-h);
-  padding: 0 var(--wb-sp-4);
-  background: var(--wb-paper);
-  color: var(--wb-blue);
-  border: 1px solid var(--wb-line);
-  border-radius: var(--wb-r-md);
-  font-size: var(--wb-fs);
-  font-weight: var(--wb-w-medium);
-  cursor: pointer;
-}
+/* 设置页按钮：统一 ui/Button（hg-btn）—— 旧 .wb-panel .button.primary/.secondary
+   字面值家族随 LegacyClassNameTests 清零删除，此处不再有按钮外观定义。 */
 
 /* 设置页表单按钮：按钮宽度一律按内容自适应，任何场景都不撑满 */
 .wb-panel .form-fields > .hg-btn,

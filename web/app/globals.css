@@ -438,29 +438,27 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .participant-editor-cards { display: grid; gap: 10px; }
 .participant-input-card { min-width: 0; border: 1px solid var(--border); padding: 13px; }
 .participant-input-main { display: grid; grid-template-columns: 130px 1fr auto; gap: 9px; align-items: center; }
-.participant-input-main button { border: 0; color: var(--err); background: none; cursor: pointer; font-size: var(--fs-12); }
 .participant-measures { margin-top: 10px; display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 8px; }
 .participant-measures label { font-size: var(--fs-12); }
 .participant-measures input { min-width: 0; padding: 8px; font-size: var(--fs-12); }
 .participant-add { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 7px; }
-.participant-add button { border: 1px solid var(--border); border-radius: var(--r-xs); padding: 6px 9px; color: var(--text-muted); background: var(--bg-page); cursor: pointer; font-size: var(--fs-12); }
 .condition-fields { display: grid; grid-template-columns: 1.2fr .8fr 1.2fr .8fr; gap: 12px; }
 .submit-button { justify-self: end; }
 .form-message { margin: 0; overflow-wrap: anywhere; font-size: var(--fs-13); }
 .form-message.ok { color: var(--ok); }
 .form-message.bad { color: var(--err); }
 .status { border-radius: 999px; padding: 3px 7px; font-size: var(--fs-12); }
-.status.active, .status.visible { color: var(--ok); background: var(--ok-bg); }
-.status.disabled, .status.hidden { color: var(--err); background: var(--err-bg); }
 
 .owner-actions { display: flex; gap: 8px; }
-.dashboard-section + .dashboard-section { margin-top: 55px; }
+/* 分区间距 token 化（原 55px 字面值入棘轮基线后清除） */
+.dashboard-section + .dashboard-section { margin-top: var(--sp-12); }
 
 /* ══ 公开主页（6.6：社交名片 + 研究档案）═════════════════
-   .pf-head 三列：Avatar 80 | 信息 | 操作；正文列表走 Section 分区。
-   手机（≤640，参考 2.1 / 6.6）：头像 64 + 三项数据横排 → 名字+关系 Tag →
-   简介 → 职位·机构 → 两个 lg 按钮并排 → Tabs → 列表（.pf-info 提升为
-   display:contents 让各段成为 header 的 grid item，纯 CSS 重排）。 */
+   .pf-head 三列：Avatar 80 | 信息 | 操作；正文列表走 Section 分区（不挂
+   标题 —— Tabs 已带计数与选中态）。手机（≤640，参考 2.1 / 6.6）：头像 64 +
+   三项数据横排 → 名字+关系 Tag → 职位·机构 → 简介 → 操作两列等宽网格
+   （主人态第三枚整行）→ Tabs → 列表（.pf-info 提升为 display:contents
+   让各段成为 header 的 grid item，纯 CSS 重排）。 */
 .profile-page .hg-tabs { margin: var(--sp-6) 0 var(--sp-4); }
 .pf-head {
   display: grid;
@@ -497,9 +495,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pf-counts strong { color: var(--text); font-weight: 650; font-size: var(--fs-16); font-variant-numeric: tabular-nums; }
 .pf-counts a:hover strong { color: var(--action); }
 .pf-acts { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
-/* 分享双形态：桌面 ghost 图标；手机文字「分享主页」（下方媒体查询切换）。
-   特异性须带 .pf-acts —— ui.css 的 .hg-btn{display:inline-flex} 后加载会盖掉单类规则。 */
-.pf-share { display: flex; min-width: 0; }
 
 /* 反应两列卡片：标题（主反应物 → 主产物）+ 方程式高 110 白底 + 底部 HRID md / 收藏 / 关注数 / 日期 */
 .pf-rx-title { margin: 0; padding: var(--sp-2) var(--sp-3) 0; font-size: var(--fs-14); font-weight: 600; line-height: 1.4; color: var(--text); }
@@ -577,10 +572,12 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .pf-counts strong { font-size: var(--fs-18); }
   .pf-meta { display: none; }
   .pf-info h1 { margin-top: var(--sp-2); font-size: var(--fs-22); }
-  /* 关注 + 分享主页：两个 lg 按钮并排等宽（2.1 / 6.6）；主人态第三项（分享）
-     顺落网格左列，与上排按钮同宽同高 */
-  .pf-acts { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); }
-  .pf-acts .hg-btn { height: var(--h-lg); }
+  /* 操作按钮：两列等宽网格。高度经 --bh 覆盖（ui.css 后加载，.hg-btn.sm/lg
+     同特异性会反超单写 height；名片操作钮全部不带尺寸类，改 var 恒胜）。
+     主人态第三枚（分享主页）独占整行；访客两枚并排不受影响。 */
+  .pf-acts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+  .pf-acts .hg-btn { --bh: var(--h-lg); }
+  .pf-acts > :nth-child(3) { grid-column: 1 / -1; }
       .pf-rx-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
