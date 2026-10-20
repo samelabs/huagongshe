@@ -304,7 +304,8 @@ export function SubmissionForm() {
             <div className="participant-input-main">
               <Select value={item.role} onChange={(event) => update(item.key, { role: event.target.value as Role })} disabled={busy} aria-label={t.submit.participants}>{Object.entries(roleLabel).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</Select>
               <Input data-field="smiles" mono value={item.smiles} onChange={(event) => update(item.key, { smiles: event.target.value })} placeholder="SMILES" maxLength={REACTION_RULES.smilesMaxLength} disabled={busy} aria-label="SMILES" invalid={!!rowError?.smiles} aria-invalid={rowError?.smiles ? true : undefined} />
-              <Button variant="ghost" size="sm" type="button" onClick={() => { setDirty(true); setParticipants((current) => current.filter((row) => row.key !== item.key)); }} disabled={busy || participants.length <= REACTION_RULES.participantsMin}>{t.common.delete}</Button>
+              {/* 行内删除（DS 3.1 danger-quiet），外观不再靠 globals 元素选择器染红 */}
+              <Button variant="danger-quiet" size="sm" type="button" onClick={() => { setDirty(true); setParticipants((current) => current.filter((row) => row.key !== item.key)); }} disabled={busy || participants.length <= REACTION_RULES.participantsMin}>{t.common.delete}</Button>
             </div>
             {(rowError?.smiles || rowError?.__row) && <p className="hg-help err participant-row-error">{rowError?.smiles || rowError?.__row}</p>}
             <div className="participant-measures">

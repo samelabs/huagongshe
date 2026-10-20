@@ -6,12 +6,15 @@
  * （互相关注 > 关注了你）→ @username → 职位·机构 → 简介(fs-14/text-2/60ch)
  * → 元信息行（机构图标、加入时间）→ 数据行（公开反应 · 公开笔记 · 粉丝 · 关注，
  * 数字 650、标签 muted）。
- * 操作：访客 = 关注（primary 乐观更新，已关注转 secondary hover「取消关注」）
- * + 分享（复制链接 + Toast）；本人 = 编辑资料(secondary) + 进入工作台(primary)。
+ * 操作（5.5：一组只一个 primary，其余 secondary 同尺寸）：访客 = 关注（primary
+ * 乐观更新，已关注转 secondary hover「取消关注」）+ 分享主页；本人 = 编辑资料
+ * (secondary) + 进入工作台(primary) + 分享主页。分享复制链接统一 Toast 反馈
+ * （按钮文案不变宽，两列网格不抖动）。退出登录不在名片 —— 桌面头像菜单 /
+ * 手机抽屉承载（2.3，共用 useLogout）。
  * 关注/取消时头部数据行的粉丝数同步 ±1（FollowButton onChange）。
  * 手机（≤640，参考 DESIGN_SYSTEM 6.6）：头像 64 + 反应/粉丝/关注 三数横排 → 名字+
- * 关系 Tag → 简介 → 职位·机构 → 关注 + 分享主页 两个 lg 文字按钮并排等宽
- * （分享桌面仍为 ghost 图标，CSS 切换)。
+ * 关系 Tag → 职位·机构 → 简介 → 操作两列等宽 lg 网格；主人态第三枚（分享主页）
+ * 独占整行（globals.css .pf-acts）。
  */
 import Link from "next/link";
 import { useState } from "react";
@@ -21,7 +24,6 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { ShareButton } from "@/components/ShareButton";
-import { useLogout } from "@/components/shared/useLogout";
 import { Tag } from "@/components/ui/Tag";
 import { IconPin, IconCal, IconShare } from "@/components/ui/icons";
 import { SITE_ORIGIN } from "@/lib/alternates";
@@ -65,7 +67,6 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
   const locale = useLocale();
   // 关注操作联动头部「粉丝」计数（乐观 ±1，撤销时回退 —— FollowButton onChange）
   const [followers, setFollowers] = useState(profile.followers);
-  const logout = useLogout();
   const joined = new Date(profile.created_at).toLocaleDateString(locale);
   const jobTitle = [profile.title, profile.institution].filter(Boolean).join(" · ");
   // 本人：粉丝/关注链接到工作台列表页；他人无公开列表页 → 纯展示
@@ -124,12 +125,8 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
           <>
             <Button variant="secondary" href={withLocale("/me/settings/profile", locale)}>{t.user.editProfile}</Button>
             <Button variant="primary" href={withLocale("/aichem", locale)}>{t.user.enterWorkbench}</Button>
-            {/* 退出登录 —— 主人态账户操作（与头像菜单/抽屉共用 useLogout） */}
-            <Button variant="ghost" onClick={() => { void logout(); }}>{t.nav.logout}</Button>
-            {/* 分享主页：全宽统一单形态（secondary 文字钮），不再桌面图标/手机按钮分叉 */}
-            <span className="pf-share">
-              <ShareButton url={shareUrl} title={shareTitle} label={t.user.shareProfile} variant="secondary" ariaLabel={t.me.profileShareLabel} feedback="toast" />
-            </span>
+            {/* 分享主页：主人态第三枚，手机网格独占整行（.pf-acts > :nth-child(3)） */}
+            <ShareButton url={shareUrl} title={shareTitle} label={t.user.shareProfile} variant="secondary" size="md" ariaLabel={t.me.profileShareLabel} feedback="toast" />
           </>
         ) : (
           <>
@@ -142,9 +139,7 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
               onChange={(next) => setFollowers((value) => Math.max(value + (next ? 1 : -1), 0))}
             />
             {/* 分享主页：与主人态同一单形态 */}
-            <span className="pf-share">
-              <ShareButton url={shareUrl} title={shareTitle} label={t.user.shareProfile} variant="secondary" ariaLabel={t.me.profileShareLabel} />
-            </span>
+            <ShareButton url={shareUrl} title={shareTitle} label={t.user.shareProfile} variant="secondary" size="md" ariaLabel={t.me.profileShareLabel} feedback="toast" />
           </>
         )}
       </div>
