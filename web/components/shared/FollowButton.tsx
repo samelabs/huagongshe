@@ -35,7 +35,7 @@ export function FollowButton({ endpoint, initial, count = 0, disabled = false, s
   size?: ButtonSize;
   /** 星标图标按钮（搜索卡片 / 主页反应卡收藏）；aria-label 取当前文案 */
   iconOnly?: boolean;
-  /** 带星标图标的文本按钮（如工作台关注动态卡） */
+  /** 带星标图标的文本按钮（如通知卡片） */
   withIcon?: boolean;
 }) {
   const router = useRouter();

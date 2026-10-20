@@ -31,11 +31,16 @@
 
 
 
-/* ── 主体区 — flex row ── */
+/* ── 主体区 — flex row ──
+   容器宽度与公开页同档（--w-wide 1200 居中）：侧栏左边缘 = 顶栏 logo 左缘，
+   工作台不再满宽铺屏。 */
 .wb-body {
   flex: 1;
   min-height: 0;
   display: flex;
+  width: 100%;
+  max-width: var(--w-wide);
+  margin-inline: auto;
   overflow: hidden;
 }
 
@@ -62,14 +67,12 @@
 
 
 /* ═══════════════════════════════════════════════════════════════
-   L4 — Grid & Panel（DESIGN_SYSTEM 2.4 框架 D / /)
+   L4 — Grid & Panel（DESIGN_SYSTEM 2.4 框架 D）
    所有工作台页面（各 Tab 与 /me 设置页）共用同一个栅格，主列左边缘与宽度恒定。
-   桌面保留右栏社交列，平板及以下统一下沉或隐藏。
+   右栏社交列已删除（归位裁定）：通知由铃铛 + 通知面板单一表达。
    ═══════════════════════════════════════════════════════════════ */
 .wb-grid {
   width: 100%;
-  max-width: 1120px;
-  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: var(--sp-6);
@@ -81,31 +84,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--wb-sp-4);
-}
-
-.wb-grid-side {
-  width: var(--rail-w-wide);
-  flex: none;
-  min-width: 0;
-}
-
-@media (min-width: 1024px) {
-  .wb-grid {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-}
-
-@media (max-width: 1023px) {
-  .wb-grid-side {
-    width: 100%;
-  }
-}
-
-@media (max-width: 640px) {
-  .wb-grid-side .wb-feed-card {
-    display: none;
-  }
 }
 
 .wb-panel {
@@ -313,21 +291,20 @@
     gap: var(--wb-sp-3);
   }
 }
-.wb-home2-col-main,
-.wb-home2-col-side {
+.wb-home2-col-main {
   display: flex;
   flex-direction: column;
   gap: var(--sp-6);
   min-width: 0;
 }
-/* 桌面两列独立纵向排布（DESIGN_SYSTEM 2.1 / 6.7）：快速检索与我的内容无缝顺排，无空洞 */
+/* 概览桌面双列（DESIGN_SYSTEM 6.7）：快捷检索/入口列 + 我的内容列；
+   平板及以下单列顺排 */
 @media (min-width: 1024px) {
   .wb-home2-col-main {
-    flex: 1 1 0;
-  }
-  .wb-home2-col-side {
-    width: var(--rail-w-wide);
-    flex: none;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: var(--sp-6);
+    align-items: start;
   }
 }
 
@@ -579,9 +556,8 @@
 }
 .wb-feed-eq img { display: block; width: 100%; height: 64px; object-fit: contain; }
 .wb-feed-actions { display: flex; gap: var(--wb-sp-2); }
-.wb-feed-all { text-align: center; font-size: var(--wb-fs-sm); color: var(--wb-blue); }
 
-/* 动态笔记卡片 */
+/* 通知笔记卡片 */
 .wb-feed-author-row {
   display: flex;
   align-items: center;
@@ -624,13 +600,11 @@
 }
 
 /* 手机 ≤640：标题行 fs-22、创建按钮收进顶栏「+」、
-   快速检索脱离卡片框（48 高、图标入框左侧）＋ 2×2 快捷入口、
-   Segmented 切换 我的内容/关注动态、主页卡最后(A.3 顺序） */
+   快速检索脱离卡片框（48 高、图标入框左侧）＋ 2×2 快捷入口 */
 @media (max-width: 640px) {
   .wb-panel-head h2 { font-size: var(--fs-22); }
   .wb-home2-head h2 { font-size: var(--fs-22); }
   .wb-home2-actions { display: none; }
-  .wb-home2 .wb-feed-card { display: none; }
   /* 快速检索不用卡片外框：直接是输入框（48 高 / r-md / 图标框内左侧）+ 查询按钮。
      选择器带 .wb-home2 前缀抬特异性，压过卡片基座 .wb-home2 .wb-card。 */
   .wb-home2 .wb-home2-quick {

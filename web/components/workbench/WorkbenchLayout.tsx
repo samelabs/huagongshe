@@ -13,7 +13,6 @@ import { SearchPanel } from "./panels/SearchPanel";
 import { SkillsPanel } from "./panels/SkillsPanel";
 import { StoichPanel } from "./panels/StoichPanel";
 import { PeoplePanel } from "./panels/PeoplePanel";
-import { WorkbenchSocialRail } from "./WorkbenchSocialRail";
 import type {
   ChemicalFollow,
   NoticeResponse,
@@ -43,7 +42,6 @@ export function WorkbenchLayout({
   initialReactions,
   initialFavorites,
   initialNotices,
-  initialFavoredIds,
   initialChemicals,
   initialSavedReactions,
   initialPeople,
@@ -64,10 +62,9 @@ export function WorkbenchLayout({
   filterChemicalId?: number;
   filterReactionId?: number;
   initialReactions: ReactionResponse | null;
-  /** 概览（DESIGN_SYSTEM 6.7）：我的内容收藏流 / 动态前 5 / 收藏反应 id 集 */
+  /** 概览（DESIGN_SYSTEM 6.7）：我的内容收藏流；通知仅 activity 面板 SSR */
   initialFavorites: PageResponse<ChemicalFollow> | null;
   initialNotices: NoticeResponse | null;
-  initialFavoredIds: number[] | null;
   initialChemicals: PageResponse<ChemicalFollow> | null;
   initialSavedReactions: PageResponse<Reaction> | null;
   initialPeople: PageResponse<PersonSummary> | null;
@@ -94,8 +91,6 @@ export function WorkbenchLayout({
             initialNotes={initialNotes}
             initialReactions={initialReactions}
             initialFavorites={initialFavorites}
-            initialNotices={initialNotices}
-            initialFavoredIds={initialFavoredIds}
           />
         )}
         {activeTab === "notes" && <NotesPanel
@@ -118,9 +113,6 @@ export function WorkbenchLayout({
         {(activeTab === "followers" || activeTab === "following") && <RelationshipsPanel page={page} kind={activeTab} initialData={initialPeople} username={summary?.username} />}
         {activeTab === "people" && <PeoplePanel page={page} initialQuery={searchQuery} />}
       </div>
-      <aside className="wb-grid-side">
-        <WorkbenchSocialRail initialNotices={initialNotices} initialFavoredIds={initialFavoredIds} />
-      </aside>
     </div>
   );
 }

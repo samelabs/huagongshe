@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ShellUnread — 顶栏铃铛与手机底部 tab「动态」共用的未读数上下文。
+ * ShellUnread — 顶栏铃铛与手机底部 tab「通知」共用的未读数上下文。
  *
  * 数据来源 = 工作台计数同一接口 /users/me/dashboard（counts.unread），
  * 不新增 API。两种供给方式：
@@ -51,7 +51,7 @@ export function ShellUnreadProvider({ initial = null, children }: {
   const [unread, setUnread] = useState(initial ?? 0);
   const shouldFetch = user != null && initial == null;
 
-  /* 进入动态面板标记已读后，WorkbenchCounts.refresh 触发
+  /* 进入通知面板标记已读后，WorkbenchCounts.refresh 触发
      router.refresh()，layout 重取 dashboard 并把新的未读初值传下来。
      useState 初值只认首次挂载 —— 不跟随 prop 的话底部 tab 的未读徽标会一直
      停在旧值。SSR 值变化时同步进 state（null = 客户端自取模式不动）。 */

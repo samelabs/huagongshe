@@ -127,7 +127,7 @@ export function PanelLoading({ variant = "grid", rows = 4 }: { variant?: "grid" 
   );
 }
 
-/** 相对时间（分钟/小时/天；超过 30 天回退绝对日期）— 概览与动态面板共用 */
+/** 相对时间（分钟/小时/天；超过 30 天回退绝对日期）— 通知面板共用 */
 export function relativeTime(value: string, locale: string): string {
   const date = new Date(value).getTime();
   if (!Number.isFinite(date)) return value;
@@ -156,7 +156,7 @@ export function VisibilityTag({ visibility, t }: { visibility: "public" | "priva
     : <Tag tone="blue">{t.common.public}</Tag>;
 }
 
-/* ── 动态卡片（DESIGN_SYSTEM 6.7）：概览「关注动态」与动态面板（?tab=activity）同一个
+/* ── 通知卡片（DESIGN_SYSTEM 6.7）：通知面板（?tab=activity）唯一表达位，
    组件。支持 new_reaction 与 new_note。 ── */
 export function ActivityFeedCard({ item, favored, t, locale }: {
   item: Notice;

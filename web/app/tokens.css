@@ -166,7 +166,6 @@
   --tabbar-clear: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); /* 手机底栏让位（公开页正文与工作台正文共用此一条） */
   --sidebar-w:  232px;
   --rail-w:     260px;
-  --rail-w-wide:320px;
   --w-reading:  720px;
   --w-content:  1040px;
   --w-wide:     1200px;

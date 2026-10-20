@@ -10,7 +10,7 @@ import { withLocale, stripLocalePrefix } from "@/lib/localePath";
 /**
  * 工作台侧栏/抽屉导航（DESIGN_SYSTEM 6.7：四组 + 16px 图标；当前项
  * action-subtle 底/action-ink 字重 500/图标 action 色）。
- * 徽标：计数项 plain 数字；「动态」未读用红色 pill，0 时不渲染。
+ * 徽标：计数项 plain 数字；「通知」未读用红色 pill，0 时不渲染。
  */
 export function WorkbenchNav({ counts, activeTab, variant = "sidebar" }: {
   counts?: Counts | null;
