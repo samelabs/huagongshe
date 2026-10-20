@@ -12,7 +12,7 @@ import type { LoadState, NoticeResponse, PageResponse, PanelProps, Reaction } fr
 
 const empty = (): NoticeResponse => ({ items: [], total: 0, page: 1, page_size: 50 });
 
-/** 通知面板（?tab=activity）：通知是唯一表达位（归位裁定，2026-10）。
+/** 通知面板（?tab=activity）：通知的唯一表达位。
  * 进入面板后按现有逻辑标记已读，侧栏与底部 tab 的
  * 未读数同步清零（WorkbenchCounts.refresh → router.refresh → SSR 重取）。 */
 export function ActivityPanel({ page, initialData }: PanelProps & { initialData?: NoticeResponse | null }) {

@@ -36,7 +36,7 @@ from api.services import notes as notes_svc
 
 
 @unittest.skipUnless(ASYNC_URL, "测试库闸: TEST_DATABASE_URL 未过 tests/db_gate.py")
-class ActivityFeedNoteTests(unittest.IsolatedAsyncioTestCase):
+class _FeedFixture(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.engine = create_async_engine(ASYNC_URL)
         self.Session = async_sessionmaker(self.engine, expire_on_commit=False)
@@ -74,18 +74,20 @@ class ActivityFeedNoteTests(unittest.IsolatedAsyncioTestCase):
             await db.commit()
 
     async def _create_note(self, visibility: str, content: str) -> int:
-        result = await notes_svc.create_note(
-            self.Session(), actor_id=self.author, visibility=visibility,
-            content=content, chemical_ids=[], reaction_ids=[],
-        )
+        async with self.Session() as db:
+            result = await notes_svc.create_note(
+                db, actor_id=self.author, visibility=visibility,
+                content=content, chemical_ids=[], reaction_ids=[],
+            )
         return int(result["id"])
 
     async def _update_note(self, note_id: int, visibility: str, content: str) -> None:
-        await notes_svc.update_note(
-            self.Session(), note_id=note_id, actor_id=self.author,
-            visibility=visibility, content=content,
-            chemical_ids=[], reaction_ids=[],
-        )
+        async with self.Session() as db:
+            await notes_svc.update_note(
+                db, note_id=note_id, actor_id=self.author,
+                visibility=visibility, content=content,
+                chemical_ids=[], reaction_ids=[],
+            )
 
     async def _feed(self, user_id: int | None = None) -> dict:
         from api.social import notifications
@@ -113,6 +115,9 @@ class ActivityFeedNoteTests(unittest.IsolatedAsyncioTestCase):
         async with self.Session() as db:
             return (await dashboard_summary(actor=actor, db=db))["counts"]["unread"]
 
+
+@unittest.skipUnless(ASYNC_URL, "测试库闸: TEST_DATABASE_URL 未过 tests/db_gate.py")
+class ActivityFeedNoteTests(_FeedFixture):
     async def test_public_note_notifies_follower_with_contract_fields(self):
         await self._follow()
         note_id = await self._create_note("public", "第一行: 苯甲酸重结晶\n第二行: 略")
@@ -224,8 +229,9 @@ class ActivityFeedNoteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self._unread(), 0)
 
 
-class PersonalEventNotificationTests(ActivityFeedNoteTests):
-    """个人相关事项进通知（归位裁定 2026-10）: new_follower / reaction_favorited。
+@unittest.skipUnless(ASYNC_URL, "测试库闸: TEST_DATABASE_URL 未过 tests/db_gate.py")
+class PersonalEventNotificationTests(_FeedFixture):
+    """个人相关事项进通知: new_follower / reaction_favorited。
 
     覆盖:
     1. 关注 → 被关注者收到 new_follower; 取关不撤销(事件即事实); 再关注 dedupe 不重复;
@@ -339,11 +345,33 @@ class PersonalEventNotificationTests(ActivityFeedNoteTests):
         self.assertEqual(len((await self._feed(user_id=self.author))["items"]), 1)
         self.assertEqual(await self._unread(user_id=self.author), 1)
 
+    async def test_favorite_ownerless_reaction_succeeds_without_notification(self):
+        # 导入反应无作者: 收藏照常成功, 不产生通知
+        async with self.Session() as db:
+            rid = int((await db.execute(text("""
+                INSERT INTO chemistry.reactions (reaction_smiles,reaction,visibility)
+                VALUES ('CC>>CC', CAST('CC>>CC' AS public.reaction), 'public')
+                RETURNING id
+            """))).scalar_one())
+            await db.commit()
+        try:
+            await self._favorite_endpoint(self.follower, rid)
+            async with self.Session() as db:
+                self.assertEqual((await db.execute(text(
+                    "SELECT count(*) FROM community.reaction_follows WHERE reaction_id=:r"),
+                    {"r": rid})).scalar(), 1)
+                self.assertEqual((await db.execute(text(
+                    "SELECT count(*) FROM community.notifications WHERE reaction_id=:r"),
+                    {"r": rid})).scalar(), 0)
+        finally:
+            async with self.engine.begin() as conn:
+                await conn.execute(text("DELETE FROM chemistry.reactions WHERE id=:r"), {"r": rid})
+
     async def test_personal_events_mix_with_follow_feed_and_unread(self):
         rid = await self._create_public_reaction()
         await self._favorite_endpoint(self.follower, rid)   # → author 收藏通知
         await self._follow_endpoint(self.follower)          # → author 新粉丝通知
-        await self._follow()                                # → follower 收到作者旧? 否: 无发布, 0
+        await self._follow()                                # follower 关注作者
         await self._create_note("public", "混合流笔记")      # → follower new_note
 
         author_feed = (await self._feed(user_id=self.author))["items"]

@@ -32,8 +32,7 @@
 
 
 /* ── 主体区 — flex row ──
-   容器宽度与公开页同档（--w-wide 1200 居中）：侧栏左边缘 = 顶栏 logo 左缘，
-   工作台不再满宽铺屏。 */
+   容器宽度与公开页同档（--w-wide 1200 居中）：侧栏左边缘 = 顶栏 logo 左缘。 */
 .wb-body {
   flex: 1;
   min-height: 0;
@@ -69,7 +68,7 @@
 /* ═══════════════════════════════════════════════════════════════
    L4 — Grid & Panel（DESIGN_SYSTEM 2.4 框架 D）
    所有工作台页面（各 Tab 与 /me 设置页）共用同一个栅格，主列左边缘与宽度恒定。
-   右栏社交列已删除（归位裁定）：通知由铃铛 + 通知面板单一表达。
+   单主列；通知由铃铛 + 通知面板单一表达。
    ═══════════════════════════════════════════════════════════════ */
 .wb-grid {
   width: 100%;
@@ -291,8 +290,7 @@
     gap: var(--wb-sp-3);
   }
 }
-/* 概览单列（owner 裁定 2026-10：工作台首页不做双列）：
-   快捷检索/入口卡与「我的内容」卡纵向顺排 */
+/* 概览单列：快捷检索/入口卡与「我的内容」卡纵向顺排 */
 .wb-home2-col-main {
   display: flex;
   flex-direction: column;
@@ -816,8 +814,6 @@
 .wb-panel select { width: 100%; min-width: 0; padding: var(--wb-sp-3); padding-right: 34px; font-family: var(--wb-font-ui); font-size: var(--wb-fs); }
 .wb-panel select:focus { border-color: var(--wb-blue); box-shadow: 0 0 0 3px var(--wb-glow); }
 
-/* 设置页按钮：统一 ui/Button（hg-btn）—— 旧 .wb-panel .button.primary/.secondary
-   字面值家族随 LegacyClassNameTests 清零删除，此处不再有按钮外观定义。 */
 
 /* 设置页表单按钮：按钮宽度一律按内容自适应，任何场景都不撑满 */
 .wb-panel .form-fields > .hg-btn,

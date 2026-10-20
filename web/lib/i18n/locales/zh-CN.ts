@@ -456,7 +456,7 @@ const t = {
     feedActorFollow: (name: string) => `${name} 关注了你`,
     feedActorFavorited: (name: string) => `${name} 收藏了你的公开反应`,
     notificationsEmptyTitle: '还没有通知',
-    notificationsEmptyDesc: '关注作者后，他们发布的公开反应和笔记会出现在这里。',
+    notificationsEmptyDesc: '关注的人发布公开内容、有人关注你或收藏你的反应时，会在这里提醒你。',
     discoverCta: '去发现作者',
     feedOpen: '打开',
     profileViewPublic: '查看我的公开主页',

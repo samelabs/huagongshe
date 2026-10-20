@@ -448,7 +448,7 @@ const ko: Dictionary = {
     feedActorFollow: (name: string) => `${name} 님이 나를 팔로우했습니다`,
     feedActorFavorited: (name: string) => `${name} 님이 내 공개 반응을 저장했습니다`,
     notificationsEmptyTitle: '아직 알림이 없습니다',
-    notificationsEmptyDesc: '팔로우한 작성자의 공개 반응과 노트가 여기에 표시됩니다.',
+    notificationsEmptyDesc: '팔로우한 작성자의 공개 게시, 새 팔로워, 내 반응 저장 소식이 여기에 표시됩니다.',
     discoverCta: '작성자 찾아보기',
     feedOpen: '열기',
     profileViewPublic: '공개 프로필 보기',

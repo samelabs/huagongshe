@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
  * action：分区级动作（该分区业务入口的按钮/链接），渲染在标题行最右；
  * 有 action 时标题与注记收进同一左簇，无 action 时 DOM 与历来一致。
  * title 可省略：head 三件套（title/note/action）全空时标题行不渲染 ——
- * 分区语义已由上游承载的场景不再重复标题（IX-12：不重复标题；如公开主页
+ * 分区语义已由上游承载时不重复标题（如公开主页
  * Tabs 自带计数与选中态，其下内容分区不再挂同名 h2）。
  */
 export function Section({

@@ -449,7 +449,7 @@ const de: Dictionary = {
     feedActorFollow: (name: string) => `${name} folgt dir jetzt`,
     feedActorFavorited: (name: string) => `${name} hat deine öffentliche Reaktion gespeichert`,
     notificationsEmptyTitle: 'Noch keine Benachrichtigungen',
-    notificationsEmptyDesc: 'Öffentliche Reaktionen und Notizen von Autoren, denen du folgst, erscheinen hier.',
+    notificationsEmptyDesc: 'Hier wirst du benachrichtigt, wenn Autoren, denen du folgst, etwas veröffentlichen, dir jemand folgt oder deine Reaktion speichert.',
     discoverCta: 'Jetzt Autoren entdecken',
     feedOpen: 'Öffnen',
     profileViewPublic: 'Mein öffentliches Profil ansehen',

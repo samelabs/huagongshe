@@ -120,8 +120,7 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
   const initialFavorites = activeTab === "home"
     ? ssrGet<PageResponse<ChemicalFollow>>(cookieHeader, "/users/me/follows/chemicals?page=1&page_size=8")
     : null;
-  /* 通知仅 activity 面板 SSR 预取；概览不再拉通知（归位裁定：通知由
-     铃铛 + 通知面板单一表达，避免动态/通知/feed 三处混合）。 */
+  /* 通知仅 activity 面板 SSR 预取：通知由铃铛 + 通知面板单一表达。 */
   const initialNotices = activeTab === "activity"
     ? ssrGet<NoticeResponse>(cookieHeader, `/users/me/notifications?page=${page}&page_size=50`)
     : null;

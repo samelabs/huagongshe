@@ -446,7 +446,7 @@ const ja: Dictionary = {
     feedActorFollow: (name: string) => `${name} があなたをフォローしました`,
     feedActorFavorited: (name: string) => `${name} があなたの公開リアクションを保存しました`,
     notificationsEmptyTitle: 'まだ通知はありません',
-    notificationsEmptyDesc: 'フォローした作者の公開リアクションとノートがここに表示されます。',
+    notificationsEmptyDesc: 'フォロー中の作者の公開投稿、新しいフォロワー、リアクションの保存がここに通知されます。',
     discoverCta: 'フォローする作者を探す',
     feedOpen: '開く',
     profileViewPublic: '公開プロフィールを見る',

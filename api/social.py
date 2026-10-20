@@ -13,7 +13,7 @@ router = APIRouter(tags=["follows"])
 
 # 通知过滤条件唯一事实源 —— 通知列表(social)与 dashboard 未读数(users)
 # 共用, 保证「未读数 = 列表里未读的条数」。
-# 四类事件（通知 = 提醒，归位裁定 2026-10）:
+# 四类事件（通知 = 提醒）:
 #   new_reaction / new_note   关注的人发布公开反应/笔记 —— 发布时扇出给关注者;
 #                             要求关注关系仍成立、通知晚于关注时间、客体公开可见
 #                             （取关后不再续旧事件, 已投递的随客体隐藏条件消失）。
@@ -126,17 +126,19 @@ async def follow_reaction(reaction_id: int = Path(..., ge=1, le=2_147_483_647), 
         INSERT INTO community.reaction_follows(user_id,reaction_id)
         VALUES (:user_id,:reaction_id) ON CONFLICT DO NOTHING
     """), {"user_id": actor.id, "reaction_id": reaction_id})
-    # 个人事项通知: 有人收藏了你的公开反应（收件人=作者; endpoint 已挡自己收藏自己）
-    await db.execute(text("""
-        INSERT INTO community.notifications
-          (user_id,event_type,actor_user_id,reaction_id,dedupe_key)
-        VALUES (:owner,'reaction_favorited',:actor,:reaction_id,
-                'reaction-favorited:' || :owner_text || ':' || :actor_text || ':' || :reaction_text)
-        ON CONFLICT (dedupe_key) DO NOTHING
-    """), {
-        "owner": row[0], "actor": actor.id, "reaction_id": reaction_id,
-        "owner_text": str(row[0]), "actor_text": str(actor.id), "reaction_text": str(reaction_id),
-    })
+    # 个人事项通知: 有人收藏了你的公开反应（收件人=作者; endpoint 已挡自己收藏自己）。
+    # 导入反应无作者(created_by_user_id 为空), 无人可通知。
+    if row[0] is not None:
+        await db.execute(text("""
+            INSERT INTO community.notifications
+              (user_id,event_type,actor_user_id,reaction_id,dedupe_key)
+            VALUES (:owner,'reaction_favorited',:actor,:reaction_id,
+                    'reaction-favorited:' || :owner_text || ':' || :actor_text || ':' || :reaction_text)
+            ON CONFLICT (dedupe_key) DO NOTHING
+        """), {
+            "owner": row[0], "actor": actor.id, "reaction_id": reaction_id,
+            "owner_text": str(row[0]), "actor_text": str(actor.id), "reaction_text": str(reaction_id),
+        })
     await db.commit()
 
 
