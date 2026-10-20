@@ -509,7 +509,7 @@
 /* 抽屉底部：退出登录（手机端唯一登出入口，与桌面头像菜单共用 useLogout） */
 
 
-/* 关注动态（当前只有 new_reaction 事件） */
+/* 通知卡片 */
 .wb-feed-list { display: flex; flex-direction: column; gap: var(--wb-sp-4); }
 .wb-feed-item { display: flex; gap: var(--wb-sp-2); }
 .wb-feed-body { flex: 1; min-width: 0; display: grid; gap: 4px; justify-items: start; }
