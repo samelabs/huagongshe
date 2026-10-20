@@ -455,10 +455,12 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 
 /* ══ 公开主页（6.6：社交名片 + 研究档案）═════════════════
    .pf-head 三列：Avatar 80 | 信息 | 操作；正文列表走 Section 分区（不挂
-   标题 —— Tabs 已带计数与选中态）。手机（≤640，参考 2.1 / 6.6）：头像 64 +
-   三项数据横排 → 名字+关系 Tag → 职位·机构 → 简介 → 操作两列等宽网格
-   （主人态第三枚整行）→ Tabs → 列表（.pf-info 提升为 display:contents
-   让各段成为 header 的 grid item，纯 CSS 重排）。 */
+   标题 —— Tabs 已带计数与选中态）。信息区按社交主页排布：名字 → @handle
+   → 简介 → 元信息行（职位·机构 · 位置 · 个人网址 · ORCID · 加入时间）
+   → 数据行 →（本人）主页短链行。手机（≤640，参考 2.1 / 6.6）：头像 64 +
+   三项数据横排 → 名字+关系 Tag → 简介 → 元信息 → 短链行 → 操作两列
+   等宽网格 → Tabs → 列表（.pf-info 提升为 display:contents 让各段成为
+   header 的 grid item，纯 CSS 重排）。 */
 .profile-page .hg-tabs { margin: var(--sp-6) 0 var(--sp-4); }
 .pf-head {
   display: grid;
@@ -482,7 +484,6 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   color: var(--text);
 }
 .pf-handle { margin: 0; color: var(--text-muted); font-size: var(--fs-14); }
-.pf-job { margin: 0; color: var(--text-2); font-size: var(--fs-14); font-weight: 500; }
 .pf-bio { margin: var(--sp-1) 0 0; max-width: 60ch; color: var(--text-2); font-size: var(--fs-14); line-height: 1.65; overflow-wrap: anywhere; }
 .pf-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px var(--sp-4); margin-top: var(--sp-1); color: var(--text-muted); font-size: var(--fs-13); }
 .pf-meta svg { width: var(--icon-xs); height: var(--icon-xs); vertical-align: -2px; margin-right: 4px; }
@@ -494,6 +495,25 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .pf-counts span, .pf-counts a { display: inline-flex; align-items: baseline; gap: 6px; color: var(--text-muted); font-size: var(--fs-13); text-decoration: none; }
 .pf-counts strong { color: var(--text); font-weight: 650; font-size: var(--fs-16); font-variant-numeric: tabular-nums; }
 .pf-counts a:hover strong { color: var(--action); }
+.pf-url {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  min-width: 0;
+}
+/* 短址文本：mono 13 在浅底胶囊里，超长省略（复制/分享取完整地址） */
+.pf-url-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-subtle);
+  color: var(--text-2);
+  font-size: var(--fs-13);
+}
 .pf-acts { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
 
 /* 反应两列卡片：标题（主反应物 → 主产物）+ 方程式高 110 白底 + 底部 HRID md / 收藏 / 关注数 / 日期 */
@@ -570,14 +590,12 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   .pf-counts > span:nth-child(2) { display: none; }
   .pf-counts span, .pf-counts a { display: grid; justify-items: center; gap: 2px; }
   .pf-counts strong { font-size: var(--fs-18); }
-  .pf-meta { display: none; }
   .pf-info h1 { margin-top: var(--sp-2); font-size: var(--fs-22); }
-  /* 操作按钮：两列等宽网格。高度经 --bh 覆盖（ui.css 后加载，.hg-btn.sm/lg
-     同特异性会反超单写 height；名片操作钮全部不带尺寸类，改 var 恒胜）。
-     主人态第三枚（分享主页）独占整行；访客两枚并排不受影响。 */
+  /* 操作按钮：两列等宽网格（访客 关注+分享；本人 编辑资料+进入工作台）。
+     高度经 --bh 覆盖（ui.css 后加载，.hg-btn.sm/lg 同特异性会反超单写
+     height；名片操作钮全部不带尺寸类，改 var 恒胜）。 */
   .pf-acts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
   .pf-acts .hg-btn { --bh: var(--h-lg); }
-  .pf-acts > :nth-child(3) { grid-column: 1 / -1; }
       .pf-rx-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
