@@ -79,7 +79,7 @@ export type { NoteItem, NoteResponse, NoteVisibility } from "@/lib/api";
 
 export type Notice = {
   id: number;
-  event_type: "new_reaction" | "new_note";
+  event_type: "new_reaction" | "new_note" | "new_follower" | "reaction_favorited";
   reaction_id: number | null;
   chemical_id: number | null;
   note_id?: number | null;

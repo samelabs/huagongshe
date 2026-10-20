@@ -453,6 +453,8 @@ const t = {
     savedAt: (d: string) => `收藏于 ${d}`,
     feedActor: (name: string) => `${name} 发布了公开反应`,
     feedActorNote: (name: string) => `${name} 发布了公开笔记`,
+    feedActorFollow: (name: string) => `${name} 关注了你`,
+    feedActorFavorited: (name: string) => `${name} 收藏了你的公开反应`,
     notificationsEmptyTitle: '还没有通知',
     notificationsEmptyDesc: '关注作者后，他们发布的公开反应和笔记会出现在这里。',
     discoverCta: '去发现作者',

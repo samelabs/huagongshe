@@ -443,6 +443,8 @@ const ja: Dictionary = {
     savedAt: (d: string) => `${d} に保存`,
     feedActor: (name: string) => `${name} が公開反応を投稿しました`,
     feedActorNote: (name: string) => `${name} が公開ノートを投稿しました`,
+    feedActorFollow: (name: string) => `${name} があなたをフォローしました`,
+    feedActorFavorited: (name: string) => `${name} があなたの公開リアクションを保存しました`,
     notificationsEmptyTitle: 'まだ通知はありません',
     notificationsEmptyDesc: 'フォローした作者の公開リアクションとノートがここに表示されます。',
     discoverCta: 'フォローする作者を探す',

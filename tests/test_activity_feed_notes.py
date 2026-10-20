@@ -224,5 +224,137 @@ class ActivityFeedNoteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self._unread(), 0)
 
 
+class PersonalEventNotificationTests(ActivityFeedNoteTests):
+    """个人相关事项进通知（归位裁定 2026-10）: new_follower / reaction_favorited。
+
+    覆盖:
+    1. 关注 → 被关注者收到 new_follower; 取关不撤销(事件即事实); 再关注 dedupe 不重复;
+    2. 收藏他人公开反应 → 作者收到 reaction_favorited; 自己收藏自己被 409 挡住(无自通知);
+    3. 反应转私有后 reaction_favorited 从列表与未读数消失; 转回公开恢复;
+    4. 未读数 == 列表未读条数(同一过滤)。
+    """
+
+    async def _create_public_reaction(self) -> int:
+        async with self.Session() as db:
+            rid = int((await db.execute(text("""
+                INSERT INTO chemistry.reactions
+                  (reaction_smiles,reaction,created_by_user_id,visibility,source_type)
+                VALUES ('CC>>CC', CAST('CC>>CC' AS public.reaction), :author, 'public', 'other')
+                RETURNING id
+            """), {"author": self.author})).scalar_one())
+            await db.commit()
+        return rid
+
+    async def _follow_endpoint(self, follower_id: int) -> None:
+        from api.social import follow_user
+        from api.core.security import Actor
+
+        actor = Actor(
+            follower_id, "u", "U", "u@t.example", "member", None, "session",
+        )
+        async with self.Session() as db:
+            await follow_user(username=f"afn_a_{self.tag}", actor=actor, db=db)
+
+    async def _unfollow_endpoint(self, follower_id: int) -> None:
+        from api.social import unfollow_user
+        from api.core.security import Actor
+
+        actor = Actor(
+            follower_id, "u", "U", "u@t.example", "member", None, "session",
+        )
+        async with self.Session() as db:
+            await unfollow_user(username=f"afn_a_{self.tag}", actor=actor, db=db)
+
+    async def _favorite_endpoint(self, follower_id: int, reaction_id: int) -> None:
+        from api.social import follow_reaction
+        from api.core.security import Actor
+
+        actor = Actor(
+            follower_id, "u", "U", "u@t.example", "member", None, "session",
+        )
+        async with self.Session() as db:
+            await follow_reaction(reaction_id=reaction_id, actor=actor, db=db)
+
+    async def asyncTearDown(self):
+        # 本类自建 reactions(author 所有)必须先删: users 级联不反向删除 reactions
+        async with self.engine.begin() as conn:
+            await conn.execute(text(
+                "DELETE FROM chemistry.reactions WHERE created_by_user_id=:a"),
+                {"a": self.author})
+        await super().asyncTearDown()
+
+    async def test_follow_creates_new_follower_notification(self):
+        await self._follow_endpoint(self.follower)
+        feed = await self._feed(user_id=self.author)
+        self.assertEqual(len(feed["items"]), 1)
+        item = feed["items"][0]
+        self.assertEqual(item["event_type"], "new_follower")
+        self.assertIsNone(item["reaction_id"])
+        self.assertIsNone(item["note_id"])
+        self.assertIsNone(item["read_at"])
+        self.assertEqual(await self._unread(user_id=self.author), 1)
+
+        # 取关: 事件即事实, 通知不撤销
+        await self._unfollow_endpoint(self.follower)
+        self.assertEqual(len((await self._feed(user_id=self.author))["items"]), 1)
+
+        # 再关注: dedupe_key 挡住, 不重复打扰
+        await self._follow_endpoint(self.follower)
+        self.assertEqual(len((await self._feed(user_id=self.author))["items"]), 1)
+        self.assertEqual(await self._unread(user_id=self.author), 1)
+
+    async def test_favorite_creates_reaction_favorited_notification(self):
+        rid = await self._create_public_reaction()
+        await self._favorite_endpoint(self.follower, rid)
+
+        feed = await self._feed(user_id=self.author)
+        self.assertEqual(len(feed["items"]), 1)
+        item = feed["items"][0]
+        self.assertEqual(item["event_type"], "reaction_favorited")
+        self.assertEqual(item["reaction_id"], rid)
+        self.assertIsNone(item["note_id"])
+        self.assertEqual(await self._unread(user_id=self.author), 1)
+
+        # 作者不能收藏自己的反应(endpoint 409), 不产生自通知
+        from fastapi import HTTPException
+
+        with self.assertRaises(HTTPException) as ctx:
+            await self._favorite_endpoint(self.author, rid)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertEqual(len((await self._feed(user_id=self.author))["items"]), 1)
+
+        # 反应转私有: 列表与未读数消失; 转回公开恢复
+        async with self.Session() as db:
+            await db.execute(text(
+                "UPDATE chemistry.reactions SET visibility='private' WHERE id=:r"),
+                {"r": rid})
+            await db.commit()
+        self.assertEqual(len((await self._feed(user_id=self.author))["items"]), 0)
+        self.assertEqual(await self._unread(user_id=self.author), 0)
+        async with self.Session() as db:
+            await db.execute(text(
+                "UPDATE chemistry.reactions SET visibility='public' WHERE id=:r"),
+                {"r": rid})
+            await db.commit()
+        self.assertEqual(len((await self._feed(user_id=self.author))["items"]), 1)
+        self.assertEqual(await self._unread(user_id=self.author), 1)
+
+    async def test_personal_events_mix_with_follow_feed_and_unread(self):
+        rid = await self._create_public_reaction()
+        await self._favorite_endpoint(self.follower, rid)   # → author 收藏通知
+        await self._follow_endpoint(self.follower)          # → author 新粉丝通知
+        await self._follow()                                # → follower 收到作者旧? 否: 无发布, 0
+        await self._create_note("public", "混合流笔记")      # → follower new_note
+
+        author_feed = (await self._feed(user_id=self.author))["items"]
+        self.assertEqual({i["event_type"] for i in author_feed},
+                         {"reaction_favorited", "new_follower"})
+        self.assertEqual(await self._unread(user_id=self.author), 2)
+
+        follower_feed = (await self._feed(user_id=self.follower))["items"]
+        self.assertEqual([i["event_type"] for i in follower_feed], ["new_note"])
+        self.assertEqual(await self._unread(user_id=self.follower), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

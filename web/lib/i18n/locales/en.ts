@@ -442,6 +442,8 @@ const en: Dictionary = {
     savedAt: (d: string) => `Saved ${d}`,
     feedActor: (name: string) => `${name} published a public reaction`,
     feedActorNote: (name: string) => `${name} published a public note`,
+    feedActorFollow: (name: string) => `${name} followed you`,
+    feedActorFavorited: (name: string) => `${name} saved your public reaction`,
     notificationsEmptyTitle: 'No notifications yet',
     notificationsEmptyDesc: 'Public reactions and notes from authors you follow appear here.',
     discoverCta: 'Find authors to follow',

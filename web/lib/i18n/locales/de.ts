@@ -446,6 +446,8 @@ const de: Dictionary = {
     savedAt: (d: string) => `Gespeichert ${d}`,
     feedActor: (name: string) => `${name} hat eine öffentliche Reaktion veröffentlicht`,
     feedActorNote: (name: string) => `${name} hat eine öffentliche Notiz veröffentlicht`,
+    feedActorFollow: (name: string) => `${name} folgt dir jetzt`,
+    feedActorFavorited: (name: string) => `${name} hat deine öffentliche Reaktion gespeichert`,
     notificationsEmptyTitle: 'Noch keine Benachrichtigungen',
     notificationsEmptyDesc: 'Öffentliche Reaktionen und Notizen von Autoren, denen du folgst, erscheinen hier.',
     discoverCta: 'Jetzt Autoren entdecken',
