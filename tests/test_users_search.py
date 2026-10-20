@@ -8,8 +8,11 @@ follower_count/is_following)、分页上限(422)、空白 q 422、限流(429)。
 from __future__ import annotations
 
 import re
+import time
+import types
 import unittest
 import uuid
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 from sqlalchemy import text
@@ -33,6 +36,13 @@ if ASYNC_URL:
     from fastapi import HTTPException
     from api.core.security import Actor
     import api.users as users_api
+
+
+def _frozen_limiter_clock():
+    """限流是固定窗口：连打循环跨过窗口边界会被拆进两个桶。冻结引擎时钟于
+    当前窗口中点，循环内全部请求计入同一窗口。"""
+    now = (int(time.time()) // 60) * 60 + 30
+    return patch("api.core.rate_limit.time", types.SimpleNamespace(time=lambda: now))
 
 
 class _FakeRequest:
@@ -194,26 +204,28 @@ class UsersSearchTests(unittest.IsolatedAsyncioTestCase):
         # 同一匿名 IP 连打 61 次 → 429(Redis 真实闸门); 分桶键是 nginx
         # 覆盖写入的 x-real-ip, 与请求自带的 x-forwarded-for 无关。
         limited = False
-        for _ in range(61):
-            try:
-                await self._search(self.prefix, real_ip="198.51.100.77")
-            except HTTPException as exc:
-                limited = exc.status_code == 429
-                break
+        with _frozen_limiter_clock():
+            for _ in range(61):
+                try:
+                    await self._search(self.prefix, real_ip="198.51.100.77")
+                except HTTPException as exc:
+                    limited = exc.status_code == 429
+                    break
         self.assertTrue(limited, "匿名 61 次/分钟必须被限流")
 
     async def test_forged_xff_does_not_affect_bucketing(self):
         # XFF 首段是客户端可伪造的值 —— 每次换一个伪造 XFF, 若分桶
         # 错误地读 XFF 则永不超限; 读 x-real-ip 时同一 IP 61 次必 429。
         limited = False
-        for i in range(61):
-            try:
-                await self._search(
-                    self.prefix, real_ip="198.51.100.78",
-                    xff=f"1.2.3.{i}, 10.0.0.1")
-            except HTTPException as exc:
-                limited = exc.status_code == 429
-                break
+        with _frozen_limiter_clock():
+            for i in range(61):
+                try:
+                    await self._search(
+                        self.prefix, real_ip="198.51.100.78",
+                        xff=f"1.2.3.{i}, 10.0.0.1")
+                except HTTPException as exc:
+                    limited = exc.status_code == 429
+                    break
         self.assertTrue(limited, "伪造 XFF 不得绕过按 IP 限流")
 
     async def test_no_real_ip_skips_limit_without_shared_unknown_bucket(self):

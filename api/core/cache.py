@@ -35,6 +35,17 @@ def current_pool() -> redis.ConnectionPool:
     return p
 
 
+async def close_loop_pool() -> None:
+    """断开当前事件循环的连接池（应用关停与测试循环收尾调用）。"""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    p = _loop_pools.pop(loop, None)
+    if p is not None:
+        await p.disconnect()
+
+
 async def get_cache():
     """FastAPI dependency: yields a Redis connection."""
     return redis.Redis(connection_pool=current_pool())

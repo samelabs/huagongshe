@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from .admin import router as admin_router
 from .data_api import router as data_api_router
 from .core.config import settings
+from .core.cache import close_loop_pool
 from .core.database import engine
 from .mcp_server import mcp_session_lifespan, mount_mcp
 from .mol import router as molecule_router
@@ -80,6 +81,7 @@ async def lifespan(app: FastAPI):
     async with mcp_session_lifespan():
         yield
     await engine.dispose()
+    await close_loop_pool()
 
 
 app = FastAPI(
