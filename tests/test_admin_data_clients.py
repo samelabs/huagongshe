@@ -8,6 +8,7 @@ import re
 import sys
 import unittest
 import uuid
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -109,8 +110,8 @@ class AdminDataClientTests(unittest.IsolatedAsyncioTestCase):
         async with self.Session() as db:
             await db.execute(text("""
                 INSERT INTO data_api.usage_daily(client_id, day, calls, errors)
-                VALUES (:pk, CURRENT_DATE, 7, 2)
-            """), {"pk": row["id"]})
+                VALUES (:pk, :today, 7, 2)
+            """), {"pk": row["id"], "today": date.today()})  # 与计量写入同取进程日期
             await db.commit()
             listing = await list_clients(actor=self.actor, db=db)
         mine = next(item for item in listing["items"] if item["id"] == row["id"])

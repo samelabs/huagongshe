@@ -7,7 +7,6 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale, splitLocalePrefix } from "@/lib/localePath";
 import { PanelHeading } from "@/components/workbench/shared";
 import { SettingsTabs } from "@/components/settings/SettingsTabs";
-import { WorkbenchSocialRail } from "@/components/workbench/WorkbenchSocialRail";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
@@ -45,9 +44,6 @@ export default async function SettingsLayout({ children }: { children: React.Rea
           {children}
         </div>
       </div>
-      <aside className="wb-grid-side">
-        <WorkbenchSocialRail />
-      </aside>
     </div>
   );
 }

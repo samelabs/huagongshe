@@ -139,7 +139,7 @@ function HeaderBell({ user }: { user: User | null }) {
     <Link
       href={withLocale("/aichem?tab=activity", locale)}
       className="hg-btn ghost icon sh-bell"
-      aria-label={unread > 0 ? t.nav.unreadCount(unread) : t.nav.activity}
+      aria-label={unread > 0 ? t.nav.unreadCount(unread) : t.nav.notifications}
     >
       <IconBell />
       {unread > 0 && <span className="sh-bell-dot" aria-hidden="true" />}

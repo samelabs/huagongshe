@@ -3,7 +3,7 @@
 /**
  * MobileTabBar — 手机底部 4 tab（DESIGN_SYSTEM 2.3）。
  *
- * 首页 / · 工作台 /aichem · 动态 /aichem?tab=activity（未读徽标，
+ * 首页 / · 工作台 /aichem · 通知 /aichem?tab=activity（未读徽标，
  * 未登录跳登录）· 我的（直接落「我的主页」/user/{username}——公开主页
  * 区分主人态/游客态，主人态承载设置入口与身份操作；未登录跳 /login）。
  * 高度 var(--tabbar-h) + safe-area 底部内边距；当前 tab 用 var(--action)。
@@ -36,7 +36,7 @@ export function MobileTabBar() {
   // 底栏归属: 每个路由恰归一个 tab。
   // 查询 = 首页、搜索、化合物、反应、Skills、MCP 与指南、笔记、他人主页
   // 等公开内容页; 工作台 = /aichem 及子页、/submit、/me(设置除外);
-  // 动态 = 工作台动态; 我的 = 本人主页、设置、登录与注册等账号页。
+  // 通知 = 工作台通知面板; 我的 = 本人主页、设置、登录与注册等账号页。
   const isAuthPage = /^\/(login|register|verify|forgot|reset|oauth)(\/|$)/.test(routePath);
   const isOwnProfile = user ? routePath === `/user/${encodeURIComponent(user.username)}` : false;
   const isMeActive = isOwnProfile || routePath.startsWith("/me/settings") || isAuthPage;
@@ -67,7 +67,7 @@ export function MobileTabBar() {
         aria-current={isActivity ? "page" : undefined}
       >
         <IconBell />
-        {t.nav.activity}
+        {t.nav.notifications}
         {user && unread > 0 && <i className="sh-tab-badge" aria-label={t.nav.unreadCount(unread)}>{unread}</i>}
       </Link>
       {user ? (

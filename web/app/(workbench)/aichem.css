@@ -31,11 +31,15 @@
 
 
 
-/* ── 主体区 — flex row ── */
+/* ── 主体区 — flex row ──
+   容器宽度与公开页同档（--w-wide 1200 居中）：侧栏左边缘 = 顶栏 logo 左缘。 */
 .wb-body {
   flex: 1;
   min-height: 0;
   display: flex;
+  width: 100%;
+  max-width: var(--w-wide);
+  margin-inline: auto;
   overflow: hidden;
 }
 
@@ -62,14 +66,12 @@
 
 
 /* ═══════════════════════════════════════════════════════════════
-   L4 — Grid & Panel（DESIGN_SYSTEM 2.4 框架 D / /)
+   L4 — Grid & Panel（DESIGN_SYSTEM 2.4 框架 D）
    所有工作台页面（各 Tab 与 /me 设置页）共用同一个栅格，主列左边缘与宽度恒定。
-   桌面保留右栏社交列，平板及以下统一下沉或隐藏。
+   单主列；通知由铃铛 + 通知面板单一表达。
    ═══════════════════════════════════════════════════════════════ */
 .wb-grid {
   width: 100%;
-  max-width: 1120px;
-  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: var(--sp-6);
@@ -81,31 +83,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--wb-sp-4);
-}
-
-.wb-grid-side {
-  width: var(--rail-w-wide);
-  flex: none;
-  min-width: 0;
-}
-
-@media (min-width: 1024px) {
-  .wb-grid {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-}
-
-@media (max-width: 1023px) {
-  .wb-grid-side {
-    width: 100%;
-  }
-}
-
-@media (max-width: 640px) {
-  .wb-grid-side .wb-feed-card {
-    display: none;
-  }
 }
 
 .wb-panel {
@@ -313,22 +290,12 @@
     gap: var(--wb-sp-3);
   }
 }
-.wb-home2-col-main,
-.wb-home2-col-side {
+/* 概览单列：快捷检索/入口卡与「我的内容」卡纵向顺排 */
+.wb-home2-col-main {
   display: flex;
   flex-direction: column;
   gap: var(--sp-6);
   min-width: 0;
-}
-/* 桌面两列独立纵向排布（DESIGN_SYSTEM 2.1 / 6.7）：快速检索与我的内容无缝顺排，无空洞 */
-@media (min-width: 1024px) {
-  .wb-home2-col-main {
-    flex: 1 1 0;
-  }
-  .wb-home2-col-side {
-    width: var(--rail-w-wide);
-    flex: none;
-  }
 }
 
 /* 概览卡片基座 */
@@ -542,7 +509,7 @@
 /* 抽屉底部：退出登录（手机端唯一登出入口，与桌面头像菜单共用 useLogout） */
 
 
-/* 关注动态（当前只有 new_reaction 事件） */
+/* 通知卡片 */
 .wb-feed-list { display: flex; flex-direction: column; gap: var(--wb-sp-4); }
 .wb-feed-item { display: flex; gap: var(--wb-sp-2); }
 .wb-feed-body { flex: 1; min-width: 0; display: grid; gap: 4px; justify-items: start; }
@@ -579,9 +546,8 @@
 }
 .wb-feed-eq img { display: block; width: 100%; height: 64px; object-fit: contain; }
 .wb-feed-actions { display: flex; gap: var(--wb-sp-2); }
-.wb-feed-all { text-align: center; font-size: var(--wb-fs-sm); color: var(--wb-blue); }
 
-/* 动态笔记卡片 */
+/* 通知笔记卡片 */
 .wb-feed-author-row {
   display: flex;
   align-items: center;
@@ -624,13 +590,11 @@
 }
 
 /* 手机 ≤640：标题行 fs-22、创建按钮收进顶栏「+」、
-   快速检索脱离卡片框（48 高、图标入框左侧）＋ 2×2 快捷入口、
-   Segmented 切换 我的内容/关注动态、主页卡最后(A.3 顺序） */
+   快速检索脱离卡片框（48 高、图标入框左侧）＋ 2×2 快捷入口 */
 @media (max-width: 640px) {
   .wb-panel-head h2 { font-size: var(--fs-22); }
   .wb-home2-head h2 { font-size: var(--fs-22); }
   .wb-home2-actions { display: none; }
-  .wb-home2 .wb-feed-card { display: none; }
   /* 快速检索不用卡片外框：直接是输入框（48 高 / r-md / 图标框内左侧）+ 查询按钮。
      选择器带 .wb-home2 前缀抬特异性，压过卡片基座 .wb-home2 .wb-card。 */
   .wb-home2 .wb-home2-quick {
@@ -850,41 +814,6 @@
 .wb-panel select { width: 100%; min-width: 0; padding: var(--wb-sp-3); padding-right: 34px; font-family: var(--wb-font-ui); font-size: var(--wb-fs); }
 .wb-panel select:focus { border-color: var(--wb-blue); box-shadow: 0 0 0 3px var(--wb-glow); }
 
-/* 设置页按钮 */
-.wb-panel .button.primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--wb-btn-h);
-  padding: 0 var(--wb-sp-4);
-  background: var(--wb-blue);
-  color: var(--wb-inverse);
-  border: none;
-  border-radius: var(--wb-r-md);
-  font-size: var(--wb-fs);
-  font-weight: var(--wb-w-medium);
-  cursor: pointer;
-  transition: background var(--wb-transition);
-}
-.wb-panel .button.primary.small {
-  height: var(--wb-sp-7);
-  padding: 0 var(--wb-sp-3);
-  font-size: var(--wb-fs-sm);
-}
-.wb-panel .button.secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--wb-btn-h);
-  padding: 0 var(--wb-sp-4);
-  background: var(--wb-paper);
-  color: var(--wb-blue);
-  border: 1px solid var(--wb-line);
-  border-radius: var(--wb-r-md);
-  font-size: var(--wb-fs);
-  font-weight: var(--wb-w-medium);
-  cursor: pointer;
-}
 
 /* 设置页表单按钮：按钮宽度一律按内容自适应，任何场景都不撑满 */
 .wb-panel .form-fields > .hg-btn,

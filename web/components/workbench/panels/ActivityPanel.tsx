@@ -12,7 +12,7 @@ import type { LoadState, NoticeResponse, PageResponse, PanelProps, Reaction } fr
 
 const empty = (): NoticeResponse => ({ items: [], total: 0, page: 1, page_size: 50 });
 
-/** 动态面板（?tab=activity）：与概览「关注动态」同一个卡片组件（DESIGN_SYSTEM 6.7）。
+/** 通知面板（?tab=activity）：通知的唯一表达位。
  * 进入面板后按现有逻辑标记已读，侧栏与底部 tab 的
  * 未读数同步清零（WorkbenchCounts.refresh → router.refresh → SSR 重取）。 */
 export function ActivityPanel({ page, initialData }: PanelProps & { initialData?: NoticeResponse | null }) {
@@ -21,7 +21,7 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
   const [notices, setNotices] = useState<NoticeResponse>(initialData ?? empty());
   const [state, setState] = useState<LoadState>(initialData ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);
-  /** 动态卡收藏初始态：/users/me/follows/reactions 的 id 集（与概览同源） */
+  /** 通知卡收藏初始态：/users/me/follows/reactions 的 id 集 */
   const [favoredIds, setFavoredIds] = useState<Set<number>>(new Set());
   const { refresh: refreshCounts } = useWorkbenchCounts();
   const mounted = useRef(false);
@@ -77,7 +77,7 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
 
   return (
     <section className="wb-panel">
-      <PanelHeading title={t.me.tabActivity} count={state === "ready" ? notices.total : undefined} />
+      <PanelHeading title={t.me.tabNotifications} count={state === "ready" ? notices.total : undefined} />
       {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && (notices.items.length
@@ -86,7 +86,7 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
               <ActivityFeedCard key={item.id} item={item} favored={item.reaction_id != null ? favoredIds.has(item.reaction_id) : false} t={t} locale={locale} />
             ))}
           </div>
-        : <EmptyState icon={<GlyphRx />} title={t.me.feedEmptyTitle} action={{ label: t.me.discoverCta, href: withLocale("/aichem?tab=people", locale) }}>{t.me.feedEmptyDesc}</EmptyState>)}
+        : <EmptyState icon={<GlyphRx />} title={t.me.notificationsEmptyTitle} action={{ label: t.me.discoverCta, href: withLocale("/aichem?tab=people", locale) }}>{t.me.notificationsEmptyDesc}</EmptyState>)}
       {state === "ready" && notices.total > notices.page_size && (
         <Pagination page={page} pageSize={notices.page_size} total={notices.total} href={(value) => withLocale(`/aichem?tab=activity${value > 1 ? `&page=${value}` : ""}`, locale)} />
       )}

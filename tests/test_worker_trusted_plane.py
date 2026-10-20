@@ -184,6 +184,9 @@ class WorkerTrustedPlaneTests(unittest.TestCase):
         finally:
             cls.client.aclose()  # 只关本模块的 ASGI client, 不碰 app lifespan
             cls.LOOP.run_until_complete(_reset_app_pools())
+            # 本模块 loop 上按循环建的 Redis 池随 loop 一起收尾
+            from api.core import cache as _cache
+            cls.LOOP.run_until_complete(_cache.close_loop_pool())
             cls.LOOP.close()
 
     # ── helpers ──

@@ -3,7 +3,7 @@
  *
  * 使用： import t from '@/lib/i18n'
  * <h1>{t.home.hero}</h1>
- * 动态: getDictionary(locale)(见 lib/i18n/index.ts)
+ * 通知: getDictionary(locale)(见 lib/i18n/index.ts)
  *
  * 规则：
  * 1. 可本地化、会变化的产品文案集中在 t，通过 t.xxx 引用；同一产品文案禁止在多个组件各自维护不同版本
@@ -124,10 +124,10 @@ const t = {
     myProfile: '我的主页',
     aiKey: 'AI Key',
     settings: '设置',
-    activity: '动态',
+    notifications: '通知',
     tabQuery: '查询',
     more: '更多',
-    unreadCount: (n: number) => `动态，${n} 条未读`,
+    unreadCount: (n: number) => `通知，${n} 条未读`,
     tabHome: '首页',
     tabNotes: '笔记',
     tabWorkbench: '工作台',
@@ -389,8 +389,8 @@ const t = {
     tabStoich: '投料计算',
     tabReactions: '我的反应',
     tabSaved: '我的收藏',
-    /* 侧栏短文案（DESIGN_SYSTEM 6.7「收藏」「动态」）；面板标题与底部 tab
-       继续用 tabSaved/tabActivity，互不影响 */
+    /* 侧栏短文案（DESIGN_SYSTEM 6.7「收藏」「通知」）；面板标题与底部 tab
+       继续用 tabSaved/tabNotifications，互不影响 */
     sideSaved: '收藏',
     skillsHint: '上传、下载和管理你的 AI 技能包（zip，根目录含 SKILL.md）',
     skillsUpload: '上传技能包',
@@ -429,8 +429,8 @@ const t = {
     skillDeleteTitle: '删除这个技能？',
     skillDeleteBody: (slug: string) => `将删除技能「${slug}」及其全部文件，此操作不可恢复。`,
     skillDeleteLabel: '删除技能',
-    tabActivity: '关注动态',
-    sideActivity: '动态',
+    tabNotifications: '通知',
+    sideNotifications: '通知',
     tabFollowers: '粉丝',
     tabFollowing: '关注',
     homeSearchButton: '查询',
@@ -439,7 +439,7 @@ const t = {
     greetingMorning: '早上好',
     greetingAfternoon: '下午好',
     greetingEvening: '晚上好',
-    homeStatusUnread: (n: number) => `关注的人新发布了 ${n} 条反应`,
+    homeStatusUnread: (n: number) => `你有 ${n} 条未读通知`,
     homeStatusIdle: '记录化合物、反应和实验笔记',
     quickSubstructure: '子结构检索',
     quickSkills: 'Skills',
@@ -453,14 +453,16 @@ const t = {
     savedAt: (d: string) => `收藏于 ${d}`,
     feedActor: (name: string) => `${name} 发布了公开反应`,
     feedActorNote: (name: string) => `${name} 发布了公开笔记`,
-    feedEmptyTitle: '还没有动态',
-    feedEmptyDesc: '关注作者后，他们发布的公开反应和笔记会出现在这里。',
+    feedActorFollow: (name: string) => `${name} 关注了你`,
+    feedActorFavorited: (name: string) => `${name} 收藏了你的公开反应`,
+    notificationsEmptyTitle: '还没有通知',
+    notificationsEmptyDesc: '关注的人发布公开内容、有人关注你或收藏你的反应时，会在这里提醒你。',
     discoverCta: '去发现作者',
-    feedViewAll: '查看全部动态',
     feedOpen: '打开',
     profileViewPublic: '查看我的公开主页',
     profileLinkCopied: '已复制主页链接',
     profileShareLabel: '分享主页链接',
+    profileCopyLabel: '复制主页链接',
     createMenuLabel: '新建',
     homeGuideTitle: '连接 AI 助手',
     searchHint: '在化学数据库中查询化合物和反应',
@@ -505,7 +507,7 @@ const t = {
     emptyChemicals: '还没有收藏化合物。',
     emptyReactionSaved: '还没有收藏反应。',
     emptyFollowing: '还没有关注任何作者',
-    emptyFollowingDesc: '在「发现作者」里关注感兴趣的成员，他们的新分享会出现在动态里',
+    emptyFollowingDesc: '在「发现作者」里关注感兴趣的成员，他们的新分享会出现在通知里',
     emptyFollowers: '还没有人关注你',
     emptyFollowersDesc: '发布公开的反应和笔记，让社区认识你的工作',
     visAll: '你通过网页或AI保存的全部反应记录',
@@ -528,10 +530,10 @@ const t = {
     navMcpKey: 'MCP 与 AI Key',
     navSettings: '设置',
     tabPeople: '发现作者',
-    peopleHint: '搜索社区成员并关注，他们的新分享会出现在你的动态里',
+    peopleHint: '搜索社区成员并关注，他们的新分享会出现在你的通知里',
     peopleSearchPlaceholder: '搜索用户名或显示名称…',
     peopleEmptyPrompt: '输入用户名或显示名称，搜索社区成员',
-    peopleIdleDesc: '关注后，对方的公开反应和笔记会出现在你的「动态」里',
+    peopleIdleDesc: '关注后，对方的公开反应和笔记会出现在你的「通知」里',
     peopleNoResults: '没有找到匹配的成员',
     peopleFollowers: (n: number) => `${n} 粉丝`,
   },

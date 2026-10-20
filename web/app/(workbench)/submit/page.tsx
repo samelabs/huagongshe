@@ -9,7 +9,6 @@ import type { User } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import { TextLink } from "@/components/ui/TextLink";
-import { WorkbenchSocialRail } from "@/components/workbench/WorkbenchSocialRail";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getRequestDictionary();
@@ -48,9 +47,6 @@ export default async function SubmitPage({ searchParams }: { searchParams: Promi
           <Suspense><SubmissionForm /></Suspense>
         </section>
       </div>
-      <aside className="wb-grid-side">
-        <WorkbenchSocialRail />
-      </aside>
     </div>
   );
 }

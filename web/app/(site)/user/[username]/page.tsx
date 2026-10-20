@@ -153,9 +153,10 @@ export default async function UserPage({ params, searchParams }: { params: Promi
 
     <ProfileTabs username={profile.username} tab={tab} reactionCount={profile.public_reactions} noteCount={notesTotal} />
 
-    {/* ── 反应 tab：两列卡片（手机一列），分页沿用 page 参数 ── */}
+    {/* ── 反应 tab：两列卡片（手机一列），分页沿用 page 参数。
+        分区不挂标题 —— Tabs 已带计数与选中态（不重复标题） ── */}
     {tab === "reactions" && (
-      <Section title={t.user.tabReactions}>
+      <Section className="pf-tab-body">
         {reactionsUnavailable ? <RetryNotice>{t.user.contentError}</RetryNotice> : reactions.length ? (
           <>
             <div className="pf-rx-grid">
@@ -208,9 +209,9 @@ export default async function UserPage({ params, searchParams }: { params: Promi
     {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
         源码契约（tests/test_notes_ui_regression.py 等）：加载失败 ≠ total=0 —— 失败渲染
         错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
-        total=0 只渲染 tab 空状态（下方 EmptyState）。 ── */}
+        total=0 只渲染 tab 空状态（下方 EmptyState）。分区不挂标题（同反应 tab）── */}
     {tab === "notes" && (
-      <Section title={t.user.tabNotes}>
+      <Section className="pf-tab-body">
         {notesUnavailable && (
           <RetryNotice>{t.notes.profileLoadFailed}</RetryNotice>
         )}

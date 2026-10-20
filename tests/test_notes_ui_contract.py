@@ -96,7 +96,9 @@ class NotesUiContractTests(unittest.TestCase):
         self.assertIn("/users/me/notes?visibility=all&page=1&page_size=8", page)
         self.assertIn("/users/me/reactions?visibility=all&page=1&page_size=8", page)
         self.assertIn("/users/me/follows/chemicals?page=1&page_size=8", page)
-        self.assertIn("/users/me/notifications?page=1&page_size=5", page)
+        # 通知只在通知面板预取，概览不拉通知
+        self.assertNotIn("/users/me/notifications?page=1&page_size=5", page)
+        self.assertNotIn("/users/me/notifications", home)
         # 旧版三统计卡与「连接 AI 助手」大提示框删除（入口收进快捷入口）
         self.assertNotIn("wb-home-stats", home)
         self.assertNotIn("wb-home-guide", home)

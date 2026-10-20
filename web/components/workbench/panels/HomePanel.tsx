@@ -17,17 +17,16 @@ import { Tabs } from "@/components/ui/Tabs";
 import { IconNote, IconPlus, IconSearch, IconCalc, IconSparkle, IconPlug, GlyphChem, GlyphRx } from "@/components/ui/icons";
 import { ActivityFeedCard, PanelError, PanelLoading, ReactionRow, SlowNotice, VisibilityTag, WbListRow, noteListPresentation, relativeTime } from "../shared";
 import type { Counts, LoadState, NoteResponse, PageResponse, Reaction, ReactionResponse } from "../types";
-import type { ChemicalFollow, Notice } from "../types";
+import type { ChemicalFollow } from "../types";
 import { Input } from "@/components/ui/Field";
 
 /**
- * 工作台概览（DESIGN_SYSTEM 6.7：工具在左，社交在右）。
+ * 工作台概览（DESIGN_SYSTEM 6.7：单列 —— 快捷检索/入口 → 我的内容）。
  *
  * 数据全部来自现有读接口（SSR 预取传入，失败的流客户端补拉）：
  * - 我的内容：/users/me/notes、/users/me/reactions、/users/me/follows/chemicals
  * - 「最近」= 三个流按时间合并取前 8
- * - 关注动态：/users/me/notifications（当前只有 new_reaction 事件）
- * - 动态卡片收藏初始态：/users/me/follows/reactions 的 id 集
+ * 通知不在概览：通知由顶栏铃铛与「通知」面板承载。
  * 统计/问候用 counts + 本地时间；删除旧版三个统计卡与「连接 AI 助手」
  * 大提示框（入口收进快捷入口）。
  */
@@ -37,8 +36,6 @@ type FeedProps = {
   initialNotes: NoteResponse | null;
   initialReactions: ReactionResponse | null;
   initialFavorites: PageResponse<ChemicalFollow> | null;
-  initialNotices: { items: Notice[]; total: number } | null;
-  initialFavoredIds: number[] | null;
 };
 
 type RecentItem =
@@ -46,7 +43,7 @@ type RecentItem =
   | { kind: "reaction"; id: number; at: string; reaction: Reaction }
   | { kind: "saved"; id: number; at: string; chemical: ChemicalFollow };
 
-export function HomePanel({ counts, initialNotes, initialReactions, initialFavorites, initialNotices, initialFavoredIds }: FeedProps) {
+export function HomePanel({ counts, initialNotes, initialReactions, initialFavorites }: FeedProps) {
   const t = useDictionary();
   const locale: Locale = useLocale();
   const { user } = useAccount();
@@ -54,8 +51,6 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
   const [recentNotes, setRecentNotes] = useState<NoteResponse | null>(initialNotes ?? null);
   const [recent, setRecent] = useState<ReactionResponse | null>(initialReactions ?? null);
   const [favorites, setFavorites] = useState<PageResponse<ChemicalFollow> | null>(initialFavorites ?? null);
-  const [notices, setNotices] = useState<FeedProps["initialNotices"]>(initialNotices ?? null);
-  const [favoredIds, setFavoredIds] = useState<Set<number>>(new Set(initialFavoredIds ?? []));
   const [state, setState] = useState<LoadState>(
     initialNotes && initialReactions && initialFavorites ? "ready" : "loading");
   const [error, setError] = useState<unknown>(null);
@@ -78,11 +73,6 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
     if (!recentNotes) jobs.push(apiGet<NoteResponse>("/users/me/notes?visibility=all&page=1&page_size=8").then(setRecentNotes));
     if (!recent) jobs.push(apiGet<ReactionResponse>("/users/me/reactions?visibility=all&page=1&page_size=8").then(setRecent));
     if (!favorites) jobs.push(apiGet<PageResponse<ChemicalFollow>>("/users/me/follows/chemicals?page=1&page_size=8").then(setFavorites));
-    if (!notices) jobs.push(apiGet<FeedProps["initialNotices"]>("/users/me/notifications?page=1&page_size=5").then(setNotices));
-    if (initialFavoredIds == null) {
-      jobs.push(apiGet<PageResponse<Reaction>>("/users/me/follows/reactions?page=1&page_size=50")
-        .then((page) => setFavoredIds(new Set(page.items.map((item) => item.id)))));
-    }
     if (jobs.length === 0) return;
     Promise.all(jobs)
       .then(() => { if (active) setState("ready"); })
@@ -109,7 +99,6 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
   const notes = recentNotes?.items ?? [];
   const reactions = recent?.items ?? [];
   const savedItems = favorites?.items ?? [];
-  const feedItems = (notices?.items ?? []).slice(0, 5);
   const name = user.display_name || `@${user.username}`;
 
   function goSearch(e: React.FormEvent) {
@@ -152,7 +141,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
         </div>
       </header>
 
-      {/* ── 概览内容列（工具在左，社交统一由外层 WorkbenchSocialRail 提供） ── */}
+      {/* ── 我的内容面板 ── */}
       <div className="wb-home2-col-main">
         {/* ── 快速检索 + 快捷入口 ── */}
         <section className="wb-card wb-home2-quick" data-area="quick">

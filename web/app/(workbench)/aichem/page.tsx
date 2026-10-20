@@ -103,7 +103,7 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
   const summary = await ssrGet<Summary>(cookieHeader, "/users/me/dashboard");
 
   // 2. 当前 tab 数据并行预取（只发一个请求，不浪费）
-  // home（6.7 概览）：我的内容三流 + 动态前 5 + 收藏反应 id 集（动态卡收藏初始态）
+  // home（6.7 概览）：我的内容三流（笔记 / 反应 / 收藏化合物）
   const initialNotes = (activeTab === "notes" || activeTab === "home")
     ? ssrGet<NoteResponse>(
         cookieHeader,
@@ -120,16 +120,9 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
   const initialFavorites = activeTab === "home"
     ? ssrGet<PageResponse<ChemicalFollow>>(cookieHeader, "/users/me/follows/chemicals?page=1&page_size=8")
     : null;
-  const initialNotices = (activeTab === "activity" || activeTab === "home")
-    ? ssrGet<NoticeResponse>(
-        cookieHeader,
-        activeTab === "home"
-          ? "/users/me/notifications?page=1&page_size=5"
-          : `/users/me/notifications?page=${page}&page_size=50`,
-      )
-    : null;
-  const initialFavoredIds = activeTab === "home"
-    ? ssrGet<PageResponse<Reaction>>(cookieHeader, "/users/me/follows/reactions?page=1&page_size=50")
+  /* 通知仅 activity 面板 SSR 预取：通知由铃铛 + 通知面板单一表达。 */
+  const initialNotices = activeTab === "activity"
+    ? ssrGet<NoticeResponse>(cookieHeader, `/users/me/notifications?page=${page}&page_size=50`)
     : null;
   const initialChemicals = activeTab === "saved" && savedKind === "chemicals"
     ? ssrGet<PageResponse<ChemicalFollow>>(cookieHeader, `/users/me/follows/chemicals?page=${page}&page_size=40`)
@@ -145,12 +138,11 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
     : null;
 
   // 等待并行请求完成
-  const [notes, reactions, favorites, notices, favoredIds, chemicals, savedReactions, people, skills] = await Promise.all([
+  const [notes, reactions, favorites, notices, chemicals, savedReactions, people, skills] = await Promise.all([
     initialNotes,
     initialReactions,
     initialFavorites,
     initialNotices,
-    initialFavoredIds,
     initialChemicals,
     initialSavedReactions,
     initialPeople,
@@ -169,7 +161,6 @@ export default async function AichemPage({ searchParams }: { searchParams: Promi
       initialReactions={reactions}
       initialFavorites={favorites}
       initialNotices={notices}
-      initialFavoredIds={favoredIds?.items.map((item) => item.id) ?? null}
       initialChemicals={chemicals}
       initialSavedReactions={savedReactions}
       initialPeople={people}

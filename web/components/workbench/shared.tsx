@@ -127,7 +127,7 @@ export function PanelLoading({ variant = "grid", rows = 4 }: { variant?: "grid" 
   );
 }
 
-/** 相对时间（分钟/小时/天；超过 30 天回退绝对日期）— 概览与动态面板共用 */
+/** 相对时间（分钟/小时/天；超过 30 天回退绝对日期）— 通知面板共用 */
 export function relativeTime(value: string, locale: string): string {
   const date = new Date(value).getTime();
   if (!Number.isFinite(date)) return value;
@@ -156,8 +156,10 @@ export function VisibilityTag({ visibility, t }: { visibility: "public" | "priva
     : <Tag tone="blue">{t.common.public}</Tag>;
 }
 
-/* ── 动态卡片（DESIGN_SYSTEM 6.7）：概览「关注动态」与动态面板（?tab=activity）同一个
-   组件。支持 new_reaction 与 new_note。 ── */
+/* ── 通知卡片（DESIGN_SYSTEM 6.7）：通知面板（?tab=activity）唯一表达位。
+   四类事件：new_reaction / new_note（关注面发布）/ new_follower（个人事项，
+   纯文本卡）/ reaction_favorited（个人事项；收件人=作者，作者不能收藏自己的
+   反应 → 不渲染收藏钮，仅打开）。 ── */
 export function ActivityFeedCard({ item, favored, t, locale }: {
   item: Notice;
   /** 收藏初始态（调用方从 /users/me/follows/reactions 的 id 集给出） */
@@ -166,7 +168,21 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
   locale: Locale;
 }) {
   const isNote = item.event_type === "new_note";
+  const isFollower = item.event_type === "new_follower";
+  const isFavoritedMine = item.event_type === "reaction_favorited";
   const actorName = item.actor_display_name || item.actor_username;
+
+  if (isFollower) {
+    return (
+      <article className="wb-feed-item">
+        <Avatar id={item.actor_username} name={actorName} src={item.actor_avatar_url || undefined} size={32} />
+        <div className="wb-feed-body">
+          <p className="wb-feed-line">{t.me.feedActorFollow(actorName)}</p>
+          <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
+        </div>
+      </article>
+    );
+  }
 
   if (isNote) {
     const entityName = item.chemical_id != null ? t.common.hcidLabel(item.chemical_id) : item.reaction_id != null ? t.common.hridLabel(item.reaction_id) : null;
@@ -213,7 +229,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
       <Avatar id={item.actor_username} name={actorName} src={item.actor_avatar_url || undefined} size={32} />
       <div className="wb-feed-body">
         <p className="wb-feed-line">
-          {t.me.feedActor(actorName)}
+          {isFavoritedMine ? t.me.feedActorFavorited(actorName) : t.me.feedActor(actorName)}
           {item.reaction_id != null && (
             <EntityBadge kind="reaction" id={item.reaction_id} size="xs" href={withLocale(`/reaction/${item.reaction_id}`, locale)} ariaLabel={t.common.hridLabel(item.reaction_id)} />
           )}
@@ -226,7 +242,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
           </Link>
         )}
         <div className="wb-feed-actions">
-          {item.reaction_id != null && (
+          {item.reaction_id != null && !isFavoritedMine && (
             <FollowButton
               endpoint={`/reactions/${item.reaction_id}/follow`}
               initial={favored}

@@ -12,6 +12,7 @@ import json
 import re
 import sys
 import time
+import types
 import unittest
 import uuid
 from pathlib import Path
@@ -298,19 +299,24 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         ip = f"10.{int(self.run[:2], 16)}.{int(self.run[2:4], 16) % 254 + 1}.7"
         path = f"/data/v1/chemicals/{self.hcid}"
         statuses = []
-        for _ in range(data_api.AUTH_FAIL_LIMIT + 5):
-            headers = {
-                "x-real-ip": ip,
-                "authorization": "Bearer no-such-token",
-                "x-client-id": "hgsd-no-such-client",
-                "x-timestamp": str(int(time.time())),
-                "x-nonce": uuid.uuid4().hex,
-                "x-signature": "0" * 64,
-            }
-            statuses.append(self._status(
-                await self._call(data_api.chemical_detail, path, "", headers)))
-            if statuses[-1] == 429:
-                break
+        # 失败桶是固定窗口：冻结引擎时钟于当前窗口中点，循环不被窗口边界拆桶
+        window = data_api.AUTH_FAIL_WINDOW_SECONDS
+        now = (int(time.time()) // window) * window + window // 2
+        from unittest.mock import patch as _patch
+        with _patch("api.core.rate_limit.time", types.SimpleNamespace(time=lambda: now)):
+            for _ in range(data_api.AUTH_FAIL_LIMIT + 5):
+                headers = {
+                    "x-real-ip": ip,
+                    "authorization": "Bearer no-such-token",
+                    "x-client-id": "hgsd-no-such-client",
+                    "x-timestamp": str(int(time.time())),
+                    "x-nonce": uuid.uuid4().hex,
+                    "x-signature": "0" * 64,
+                }
+                statuses.append(self._status(
+                    await self._call(data_api.chemical_detail, path, "", headers)))
+                if statuses[-1] == 429:
+                    break
         self.assertIn(429, statuses, "失败桶最终应拒绝")
         # check 是 count<=limit 放行: 第 LIMIT+1 次仍放行并计数, 再下一次
         # 预检才拒 —— 401 恰出现 LIMIT+1 次。
