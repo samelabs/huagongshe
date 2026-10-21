@@ -8,7 +8,7 @@ import { EntityNotes } from "@/components/EntityNotes";
 import { ReactionOwnerActions } from "@/components/ReactionOwnerActions";
 import { ShareButton } from "@/components/ShareButton";
 import { Button } from "@/components/ui/Button";
-import { IconPrinter } from "@/components/ui/icons";
+import { IconPlus, IconPrinter } from "@/components/ui/icons";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { Byline } from "@/components/ui/Byline";
 import { EntityBadge } from "@/components/ui/EntityBadge";
@@ -206,6 +206,8 @@ export default async function ReactionPage({ params }: {
           </div>
         )}
         actions={<>
+          {/* 互动胶囊行: 徽标后 收藏|+笔记|分享|打印, 排序与化合物页同构
+              (2026-10-21 裁定); 新建入口常显, 未登录由工作台服务端门带回跳 */}
           <div className="hg-head-row">
             <EntityBadge
               kind="reaction"
@@ -214,18 +216,21 @@ export default async function ReactionPage({ params }: {
               state={reaction.visibility === "private" ? "private" : undefined}
               ariaLabel={t.common.hridLabel(reaction.id)}
             />
+            <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" variant="ghost" size="sm" showCount={false} withIcon />
+            <Button variant="ghost" size="sm" href={withLocale(`/aichem?tab=notes&reaction=${reaction.id}&new=1`, locale)}>
+              <IconPlus />
+              {t.user.tabNotes}
+            </Button>
             <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
             <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
               <IconPrinter />
             </Button>
           </div>
-          <div className="hg-head-row">
-            {reaction.is_owner ? (
+          {reaction.is_owner && (
+            <div className="hg-head-row">
               <ReactionOwnerActions reactionId={reaction.id} />
-            ) : (
-              <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" variant="tonal" withIcon />
-            )}
-          </div>
+            </div>
+          )}
         </>}
       />
 

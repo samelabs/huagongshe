@@ -266,7 +266,6 @@ export default async function ChemicalPage({ params }: {
               chemicalId={chemical.id}
               initialFollowing={Boolean(chemical.is_following)}
               initialCount={chemical.follower_count || 0}
-              authed={hasSession}
             />
             <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
             <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
