@@ -46,6 +46,7 @@ function MyPrivateNotes({ context }: { context: PrivateContext }) {
               <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
               <Link href={withLocale(`/note/${note.id}`, locale)}>{t.notes.viewFull}</Link>
             </header>
+            {note.title ? <h4>{note.title}</h4> : null}
             <p className="note-clamp">{note.content}</p>
           </article>
         ))}

@@ -1,9 +1,9 @@
 /**
- * 笔记呈现规则（DESIGN_SYSTEM 6.5 / /)：
- * 笔记保持只有正文、没有标题字段，不改数据结构；只改呈现规则。整站共用一个函数：
- * - 笔记有两行及以上、且首行不超过 60 字：首行作为标题，其余作为正文。
- * - 其他情况（单行笔记，或首行太长）：整段作为正文，标题用中性写法——
- * 关联了实体时写“关于 {实体名} 的笔记”，没有关联时写“{作者显示名} 的笔记”。不要再把整段内容当 H1。
+ * 笔记呈现规则（DESIGN_SYSTEM 6.5）：
+ * 2026-10-21 模型扩容后笔记有可选标题字段 —— 有标题用标题，整段正文；
+ * 无标题回落到旧呈现规则（不改数据的年代定的）：两行及以上且首行
+ * 不超过 60 字 → 首行作标题；否则整段作正文，标题用中性写法——
+ * 关联实体时“关于 {实体名} 的笔记”，否则“{作者显示名} 的笔记”。
  */
 
 export type NotePresentation = {
@@ -15,6 +15,8 @@ export type NotePresentation = {
 export function resolveNotePresentation(
   content: string,
   options?: {
+    /** 显式标题(模型字段): 非空时整段正文作 body, 不再走首行拆分 */
+    explicitTitle?: string | null;
     authorName?: string | null;
     linkedEntityName?: string | null;
     fallbackTitle?: string;
@@ -27,6 +29,11 @@ export function resolveNotePresentation(
     };
   }
 ): NotePresentation {
+  const explicit = (options?.explicitTitle ?? "").trim();
+  if (explicit) {
+    return { title: explicit, body: (content || "").trim(), isCustomTitle: true };
+  }
+
   const lines = (content || "").split("\n");
   let firstIdx = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -85,7 +92,10 @@ export function noteHeadline(content: string, options?: Parameters<typeof resolv
  */
 export type NoteListPresentation = { title: string | null; body: string };
 
-export function noteListPresentation(note: { content: string }): NoteListPresentation {
+export function noteListPresentation(note: { content: string; title?: string | null }): NoteListPresentation {
+  if (note.title && note.title.trim()) {
+    return { title: note.title.trim(), body: (note.content || "").trim() };
+  }
   const lines = (note.content || "").split("\n");
   let firstIdx = -1;
   for (let i = 0; i < lines.length; i++) {

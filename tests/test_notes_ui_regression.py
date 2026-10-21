@@ -183,7 +183,10 @@ class P1DetailPageTests(unittest.TestCase):
 
     def test_chips_use_serialized_ids(self):
         src = read("app/(site)/note/[id]/page.tsx")
-        self.assertIn("note.chemical_ids.map", src)
+        # 化合物芯片 = chemical_ids 派生的解析名链接(≤8), 溢出仍走徽标;
+        # 反应芯片保持徽标。都迭代序列化 id, 不拼字符串。
+        self.assertIn("note.chemical_ids.slice(0, 8).map", src)
+        self.assertIn("chemicalNames.map", src)
         self.assertIn("note.reaction_ids.map", src)
 
 

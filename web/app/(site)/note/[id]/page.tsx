@@ -8,6 +8,7 @@ import { IconLock } from "@/components/ui/icons";
 import { PageFrame } from "@/components/ui/PageFrame";
 import { PageHead } from "@/components/ui/PageHead";
 import { Section } from "@/components/ui/Section";
+import { TextLink } from "@/components/ui/TextLink";
 import { Tag } from "@/components/ui/Tag";
 import { apiGet } from "@/lib/api.server";
 import { isApiNotFound, isApiGone, isEntityId, type Chemical, type NoteItem } from "@/lib/api";
@@ -44,6 +45,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       entityName = t.common.hridLabel(note.reaction_ids[0]);
     }
     const pres = resolveNotePresentation(note.content, {
+      explicitTitle: note.title,
       authorName: authorLine,
       linkedEntityName: entityName,
       t,
@@ -91,19 +93,22 @@ export default async function NoteDetailPage({ params }: Params) {
   }
 
   const authorLine = note.display_name || `@${note.username}`;
-  let linkedEntityName: string | null = null;
-  if (note.chemical_ids.length > 0) {
-    try {
-      const chem = await apiGet<Chemical>(`/chemicals/${note.chemical_ids[0]}`);
-      linkedEntityName = resolveChemicalName(chem, t.common.hcidLabel, locale).title;
-    } catch {
-      linkedEntityName = t.common.hcidLabel(note.chemical_ids[0]);
-    }
-  } else if (note.reaction_ids.length > 0) {
-    linkedEntityName = t.common.hridLabel(note.reaction_ids[0]);
-  }
+  // 关联化合物的解析名(上限 8 个, 命名走 CAS 优先链); 失败退 HCID 标签。
+  const chemicalNames = await Promise.all(
+    note.chemical_ids.slice(0, 8).map(async (cid) => {
+      try {
+        const chem = await apiGet<Chemical>(`/chemicals/${cid}`);
+        return { id: cid, name: resolveChemicalName(chem, t.common.hcidLabel, locale).title };
+      } catch {
+        return { id: cid, name: t.common.hcidLabel(cid) };
+      }
+    }),
+  );
+  const linkedEntityName = chemicalNames[0]?.name
+    ?? (note.reaction_ids.length > 0 ? t.common.hridLabel(note.reaction_ids[0]) : null);
 
   const { title, body } = resolveNotePresentation(note.content, {
+    explicitTitle: note.title,
     authorName: authorLine,
     linkedEntityName,
     t,
@@ -125,6 +130,9 @@ export default async function NoteDetailPage({ params }: Params) {
             {note.visibility === "public"
               ? <Tag tone="blue">{t.notes.visibilityPublic}</Tag>
               : <Tag icon={<IconLock />}>{t.notes.visibilityPrivate}</Tag>}
+            {note.visibility === "public" && (
+              <span className="note-detail-views">{t.notes.viewCount(note.view_count ?? 0)}</span>
+            )}
           </div>
         }
         actions={hasSession ? (
@@ -140,7 +148,12 @@ export default async function NoteDetailPage({ params }: Params) {
         {hasLinkedEntities && (
           <Section id="linked-entities" title={t.notes.linkedTitle} className="note-detail-links-section">
             <div className="entity-note-links">
-              {note.chemical_ids.map((cid) => (
+              {chemicalNames.map(({ id: cid, name }) => (
+                <TextLink key={`c-${cid}`} href={withLocale(`/chemical/${cid}`, locale)}>
+                  {name}
+                </TextLink>
+              ))}
+              {note.chemical_ids.slice(chemicalNames.length).map((cid) => (
                 <EntityBadge
                   key={`c-${cid}`}
                   kind="chemical"

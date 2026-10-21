@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 MAX_NOTE_REFERENCES = 20
 MAX_NOTE_CONTENT_LENGTH = 30000
+MAX_NOTE_TITLE_LENGTH = 120
 
 
 def sanitize_note_content(value: str) -> str:
@@ -37,6 +38,8 @@ def sanitize_note_content(value: str) -> str:
 
 class NoteBody(BaseModel):
     visibility: Literal["public", "private"] = "private"
+    # 可选标题(2026-10-21 模型扩容): 空串/纯空白归一为 NULL。
+    title: str | None = None
     # No Field max_length here: the limit is enforced AFTER sanitization in
     # normalize_content . A declared max_length would run first and
     # wrongly reject raw input >30000 whose sanitized form fits.
@@ -55,6 +58,18 @@ class NoteBody(BaseModel):
             raise ValueError("笔记内容不能为空")
         if len(value) > MAX_NOTE_CONTENT_LENGTH:
             raise ValueError(f"笔记内容不能超过 {MAX_NOTE_CONTENT_LENGTH} 字符")
+        return value
+
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = sanitize_note_content(value).strip()
+        if not value:
+            return None
+        if len(value) > MAX_NOTE_TITLE_LENGTH:
+            raise ValueError(f"笔记标题不能超过 {MAX_NOTE_TITLE_LENGTH} 字符")
         return value
 
     @field_validator("chemical_ids", "reaction_ids")

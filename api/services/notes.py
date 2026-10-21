@@ -236,6 +236,7 @@ async def create_note(
     actor_id: int,
     visibility: str,
     content: str,
+    title: str | None = None,
     chemical_ids: list[int],
     reaction_ids: list[int],
 ) -> dict[str, Any]:
@@ -260,13 +261,14 @@ async def create_note(
     )
     try:
         note_id = int((await db.execute(text("""
-            INSERT INTO community.notes(owner_user_id, visibility, content)
-            VALUES (:owner, :visibility, :content)
+            INSERT INTO community.notes(owner_user_id, visibility, content, title)
+            VALUES (:owner, :visibility, :content, :title)
             RETURNING id
         """), {
             "owner": actor_id,
             "visibility": visibility,
             "content": content,
+            "title": title,
         })).scalar_one())
         await _replace_references(
             db,
@@ -292,6 +294,7 @@ async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
     # 让前端渲染「已停用」; 私有笔记仍实际不可达(停用即撤销全部会话)。
     row = (await db.execute(text("""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
+               n.title,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
@@ -305,6 +308,18 @@ async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
     """), {"id": note_id, "actor": actor_id or 0})).mappings().first()
     if row is None:
         raise NoteNotAccessibleError("笔记不存在")
+    # 阅读量: 公开笔记的非作者读取计数(匿名计入;失败不影响读取)。
+    # visibility 是纯客观列 —— 与任何"发布时间"无关(2026-10-21 裁定)。
+    if row["visibility"] == "public" and actor_id != row["owner_user_id"]:
+        try:
+            await db.execute(text("""
+                UPDATE community.notes SET view_count = view_count + 1
+                WHERE id=:id
+            """), {"id": note_id})
+            await db.commit()
+            row = {**row, "view_count": int(row["view_count"] or 0) + 1}
+        except Exception:
+            await db.rollback()
     return (await _hydrate_rows(db, [row], viewer_id=actor_id))[0]
 
 
@@ -315,6 +330,7 @@ async def update_note(
     actor_id: int,
     visibility: str,
     content: str,
+    title: str | None = None,
     chemical_ids: list[int],
     reaction_ids: list[int],
 ) -> dict[str, Any]:
@@ -348,12 +364,13 @@ async def update_note(
     try:
         await db.execute(text("""
             UPDATE community.notes
-            SET visibility=:visibility, content=:content, updated_at=now()
+            SET visibility=:visibility, content=:content, title=:title, updated_at=now()
             WHERE id=:id
         """), {
             "id": note_id,
             "visibility": visibility,
             "content": content,
+            "title": title,
         })
         await _replace_references(
             db,
@@ -434,6 +451,7 @@ async def list_my_notes(
     """), params)).scalar() or 0)
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
+               n.title,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
@@ -476,6 +494,7 @@ async def list_public_user_notes(
     """), params)).scalar() or 0)
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
+               n.title,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
@@ -533,6 +552,7 @@ async def list_entity_notes(
     # active 供前端渲染「已停用」标记。
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
+               n.title,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n

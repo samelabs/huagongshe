@@ -49,6 +49,7 @@ async def create_note(
             actor_id=actor.id,
             visibility=body.visibility,
             content=body.content,
+            title=body.title,
             chemical_ids=body.chemical_ids,
             reaction_ids=body.reaction_ids,
         )
@@ -101,6 +102,7 @@ async def update_note(
             actor_id=actor.id,
             visibility=body.visibility,
             content=body.content,
+            title=body.title,
             chemical_ids=body.chemical_ids,
             reaction_ids=body.reaction_ids,
         )
