@@ -21,7 +21,7 @@ export async function EntityCard({ chemical, favored = false }: { chemical: Chem
     secondary,
     source === "cas" ? null : (chemical.cas_numbers[0] ? `CAS ${chemical.cas_numbers[0]}` : null),
     chemical.pubchem_cid ? `CID ${chemical.pubchem_cid}` : null,
-    source === "molecular_formula" ? null : chemical.molecular_formula,
+    chemical.molecular_formula,
   ].filter(Boolean).join(" · ");
   const href = withLocale(`/chemical/${chemical.id}`, locale);
 

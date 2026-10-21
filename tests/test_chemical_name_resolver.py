@@ -61,7 +61,7 @@ def _read(rel: str) -> str:
 # ---------------------------------------------------------------------------
 NODE_CASES = """
 const m = await import(RESOLVER_URL);
-const label = (id) => `HCID ${id}`;
+const label = (id) => `HCID ${id}，化合物`;
 const cases = {
   zh_cn_and_en: [{ id: 1, name_cn: "乙醇", preferred_name: "Ethanol", iupac_name: "ethanol", molecular_formula: "C2H6O" }, "zh-CN"],
   zh_en_only: [{ id: 2, preferred_name: "Ethanol" }, "zh-CN"],
@@ -73,9 +73,14 @@ const cases = {
   zh_blank_cn: [{ id: 8, name_cn: "   ", preferred_name: "Cyanogen" }, "zh-CN"],
   zh_cn_equals_en: [{ id: 9, name_cn: "Cyanogen", preferred_name: "Cyanogen" }, "zh-CN"],
   zh_cn_no_en_with_iupac: [{ id: 10, name_cn: "乙醇", iupac_name: "ethanol", molecular_formula: "C2H6O" }, "zh-CN"],
+  cas_first: [{ id: 11, cas: "64-17-5", name_cn: "乙醇", preferred_name: "Ethanol" }, "zh-CN"],
+  cas_only: [{ id: 12, cas: "7732-18-5" }, "zh-CN"],
+  cas_equals_name: [{ id: 13, cas: "50-00-5", preferred_name: "50-00-5" }, "zh-CN"],
+  narrative_prefers_name: [{ id: 14, cas: "64-17-5", name_cn: "乙醇", preferred_name: "Ethanol" }, "zh-CN", { preferCas: false }],
+  narrative_cas_after_iupac: [{ id: 15, cas: "107-13-1", iupac_name: "prop-2-enenitrile" }, "zh-CN", { preferCas: false }],
 };
 const out = {};
-for (const [key, [chem, locale]] of Object.entries(cases)) out[key] = m.resolveChemicalName(chem, label, locale);
+for (const [key, [chem, locale, opts]] of Object.entries(cases)) out[key] = m.resolveChemicalName(chem, label, locale, opts);
 out.site_locale = m.SITE_LOCALE;
 console.log(JSON.stringify(out));
 """
@@ -112,7 +117,9 @@ def _run_resolver() -> dict:
 
 
 class ResolverRuleTests(unittest.TestCase):
-    """locale -> 本地化名 -> 英文常用名 -> 系统名 -> 分子式 -> HCID。"""
+    """身份链(默认): CAS → 本地化名 → 英文常用名 → 系统名 → HCID;
+    分子式不进标题(2026-10-21 裁定)。叙述链(preferCas: false): 常用名 →
+    IUPAC → CAS → HCID, 供反应标题等名称叙事场合。"""
 
     @classmethod
     def setUpClass(cls):
@@ -127,10 +134,26 @@ class ResolverRuleTests(unittest.TestCase):
         self.assertEqual(("Ethanol", "preferred_name"), (got["title"], got["source"]))
         self.assertIsNone(got["secondary"], "主标题本身就是英文名时不得重复 secondary")
 
-    def test_zh_systematic_then_formula_then_hcid(self):
+    def test_zh_systematic_then_hcid_formula_dropped(self):
         self.assertEqual(("oxalonitrile", "iupac_name"), (self.result["zh_systematic_only"]["title"], self.result["zh_systematic_only"]["source"]))
-        self.assertEqual(("C2N2", "molecular_formula"), (self.result["zh_formula_only"]["title"], self.result["zh_formula_only"]["source"]))
-        self.assertEqual(("HCID 5", "hcid"), (self.result["zh_nothing"]["title"], self.result["zh_nothing"]["source"]))
+        self.assertEqual(("HCID 4，化合物", "hcid"), (self.result["zh_formula_only"]["title"], self.result["zh_formula_only"]["source"]),
+                         "分子式已退链: 只有分子式的行走 HCID")
+        self.assertEqual(("HCID 5，化合物", "hcid"), (self.result["zh_nothing"]["title"], self.result["zh_nothing"]["source"]))
+
+    def test_cas_takes_identity_priority_with_name_companion(self):
+        got = self.result["cas_first"]
+        self.assertEqual(("64-17-5", "乙醇", "cas"), (got["title"], got["secondary"], got["source"]))
+        only = self.result["cas_only"]
+        self.assertEqual(("7732-18-5", "cas"), (only["title"], only["source"]))
+        self.assertIsNone(only["secondary"], "无名称可伴随时不展示副标题")
+        same = self.result["cas_equals_name"]
+        self.assertIsNone(same["secondary"], "CAS 与名称同串时不得重复展示")
+
+    def test_narrative_chain_prefers_names(self):
+        got = self.result["narrative_prefers_name"]
+        self.assertEqual(("乙醇", "name_cn"), (got["title"], got["source"]))
+        late = self.result["narrative_cas_after_iupac"]
+        self.assertEqual(("prop-2-enenitrile", "iupac_name"), (late["title"], late["source"]))
 
     def test_other_locale_falls_back_to_english(self):
         for key in ("ja_cn_and_en", "en_locale_with_cn"):
