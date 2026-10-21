@@ -310,16 +310,18 @@ export function NotesPanel({
         action={<Button variant="primary" size="sm" onClick={openCreate}>{t.me.notesNew}</Button>}
       />
 
+      {/* 编辑器打开时本面板即编辑场景 —— 筛选与列表让位(不叠挂) */}
+      {!creating && !editing && (
       <Segmented
         ariaLabel={t.me.notesFilter}
         options={filterOptions}
         value={visibility}
         onChange={(value) => switchVisibility(value)}
-      />
+      />)}
 
       {/* P-8: entity filter breadcrumb — chemical takes precedence when both
           params exist; clear returns to the unfiltered list. */}
-      {filterKey && (
+      {!creating && !editing && filterKey && (
         <div className="wb-filter-crumbs">
           <span className="wb-filter-crumb">
             {filterKey === "chemical" ? t.notes.filterChemical : t.notes.filterReaction}: <EntityId kind={filterKey} id={filterId!} compact />
@@ -344,20 +346,20 @@ export function NotesPanel({
         />
       )}
 
-      {state === "loading" && <><PanelLoading variant="list" rows={4} /><SlowNotice active onRetry={() => void load()} /></>}
-      {state === "error" && <PanelError error={error} />}
+      {!creating && !editing && state === "loading" && <><PanelLoading variant="list" rows={4} /><SlowNotice active onRetry={() => void load()} /></>}
+      {!creating && !editing && state === "error" && <PanelError error={error} />}
       {/* R6: delete failure keeps the list mounted with a recoverable state */}
-      {actionError && state !== "error" && (
+      {!creating && !editing && actionError && state !== "error" && (
         <p className="wb-panel-inline-error" role="alert">{actionError}</p>
       )}
-      {state === "ready" && (data.items.length ? (
+      {!creating && !editing && state === "ready" && (data.items.length ? (
         <div className="wb-row-list">
           {data.items.map((note) => {
             const pres = noteListPresentation(note);
             return (
             <WbListRow
               key={note.id}
-              href={`/note/${note.id}`}
+              href={`/note/${note.slug}`}
               icon={<IconNote />}
               title={pres.title ?? pres.body}
               titleMultiline={pres.title == null}
@@ -398,7 +400,7 @@ export function NotesPanel({
         </EmptyState>
       ))}
 
-      {state === "ready" && data.total > data.page_size && (
+      {!creating && !editing && state === "ready" && data.total > data.page_size && (
         <Pagination
           page={page}
           pageSize={data.page_size}

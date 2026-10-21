@@ -38,7 +38,7 @@ type Reaction = {
   /* 参与物投影（与详情接口同形状）：卡片标题按「主反应物 → 主产物」解析 */
   participants?: TitledParticipant[];
 };
-type NoteCard = { id: number; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
+type NoteCard = { id: number; slug: string; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
 type NotesBlock = { items: NoteCard[]; total: number };
 
 const REACTIONS_PAGE_SIZE = 20;
@@ -168,7 +168,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
             {notesBlock.items.map((note) => {
               const pres = noteListPresentation(note);
               return (
-                <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
+                <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.slug}`, locale)}>
                   <div className="pf-note-head">
                     {pres.title && <h3>{pres.title}</h3>}
                     <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>

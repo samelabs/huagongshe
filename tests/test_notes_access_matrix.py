@@ -167,23 +167,23 @@ class NoteAccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
             await db.commit()
 
             # anonymous public 200
-            self.assertEqual((await svc.get_note(db, note_id=pub, actor_id=None))["id"], pub)
+            self.assertEqual((await svc.get_note(db, note_ref=pub, actor_id=None))["id"], pub)
             # anonymous private 404
             with self.assertRaises(svc.NoteNotAccessibleError):
-                await svc.get_note(db, note_id=priv, actor_id=None)
+                await svc.get_note(db, note_ref=priv, actor_id=None)
             # owner private 200
-            self.assertEqual((await svc.get_note(db, note_id=priv, actor_id=self.owner))["id"], priv)
+            self.assertEqual((await svc.get_note(db, note_ref=priv, actor_id=self.owner))["id"], priv)
             # non-owner private 404
             with self.assertRaises(svc.NoteNotAccessibleError):
-                await svc.get_note(db, note_id=priv, actor_id=self.other)
+                await svc.get_note(db, note_ref=priv, actor_id=self.other)
             # hidden 404 even for owner (both visibilities)
             for nid in (hidden_pub, hidden_priv):
                 with self.assertRaises(svc.NoteNotAccessibleError):
-                    await svc.get_note(db, note_id=nid, actor_id=self.owner)
+                    await svc.get_note(db, note_ref=nid, actor_id=self.owner)
             # 停用作者的公开
             # 笔记保留可见(此前 404) —— 停用态只影响作者主页/关注, 不撤内容;
             # active=False 供前端渲染「已停用」标记。
-            inactive_row = await svc.get_note(db, note_id=inactive_pub, actor_id=None)
+            inactive_row = await svc.get_note(db, note_ref=inactive_pub, actor_id=None)
             self.assertEqual(inactive_row["id"], inactive_pub)
             self.assertIs(inactive_row["active"], False)
             # 停用作者无法登录(会话已撤), private 笔记实际不可达 ——
@@ -234,7 +234,7 @@ class NoteAccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
                 "SELECT content FROM community.notes WHERE id=:i"), {"i": note["id"]})).scalar_one()
             self.assertEqual(row, "line1\nline2line3tail\ttab")
             # API-shaped read returns exactly the stored content
-            reread = await svc.get_note(db, note_id=note["id"], actor_id=self.owner)
+            reread = await svc.get_note(db, note_ref=note["id"], actor_id=self.owner)
             self.assertEqual(reread["content"], row)
 
     async def test_p6_private_filter_returns_only_own_private_for_entity(self):

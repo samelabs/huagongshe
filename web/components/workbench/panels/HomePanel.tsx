@@ -222,7 +222,7 @@ function NoteRow({ note, t, locale }: { note: NoteResponse["items"][number]; t: 
   const pres = noteListPresentation(note);
   return (
     <WbListRow
-      href={`/note/${note.id}`}
+      href={`/note/${note.slug}`}
       icon={<IconNote />}
       title={pres.title ?? pres.body}
       titleMultiline={pres.title == null}

@@ -277,9 +277,10 @@ export type NoteItem = {
   owner_user_id: number;
   visibility: "public" | "private";
   moderation_status: "visible" | "hidden";
-  /* 可选标题与阅读量(2026-10-21 模型扩容); 旧数据 title=NULL */
+  /* 标题/阅读量/slug(2026-10-21 模型扩容); 旧数据 title=NULL */
   title: string | null;
   view_count?: number;
+  slug: string;
   content: string;
   created_at: string;
   updated_at: string;

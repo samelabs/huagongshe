@@ -149,7 +149,7 @@ class P3TruncationTests(unittest.TestCase):
         panel = read("components/workbench/panels/NotesPanel.tsx")
         self.assertIn('withLocale(`/note/${', entity)
         # 笔记面板行链接经 WbListRow（shared.tsx）统一 withLocale
-        self.assertIn("`/note/${note.id}`", panel)
+        self.assertIn("`/note/${note.slug}`", panel)
         self.assertIn("withLocale(href, locale)", read("components/workbench/shared.tsx"))
 
     def test_empty_reference_area_not_rendered(self):
@@ -221,7 +221,7 @@ class P2ProfileBlockTests(unittest.TestCase):
 
     def test_cards_link_to_detail(self):
         src = read("app/(site)/user/[username]/page.tsx")
-        self.assertIn("`/note/${note.id}`", src)
+        self.assertIn("`/note/${note.slug}`", src)
 
 
 class P8FilterUITests(unittest.TestCase):

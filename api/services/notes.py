@@ -8,6 +8,9 @@ This module is transport-neutral: no FastAPI/MCP imports.
 
 from __future__ import annotations
 
+import secrets
+import string
+
 import logging
 from typing import Any
 
@@ -41,6 +44,12 @@ class NoteReferenceError(Exception):
 
 class NoteEntityNotFoundError(Exception):
     """Entity-scoped public Note query target does not exist or is not public."""
+
+
+def _new_note_slug() -> str:
+    """7 位小写字母数字随机 slug(URL 标识); 撞号由唯一索引兜底, 调用方重掷。"""
+    alphabet = string.ascii_lowercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(7))
 
 
 def _page_payload(items: list[dict[str, Any]], total: int, page: int, page_size: int) -> dict[str, Any]:
@@ -260,16 +269,28 @@ async def create_note(
         reaction_ids=reaction_ids,
     )
     try:
-        note_id = int((await db.execute(text("""
-            INSERT INTO community.notes(owner_user_id, visibility, content, title)
-            VALUES (:owner, :visibility, :content, :title)
-            RETURNING id
-        """), {
-            "owner": actor_id,
-            "visibility": visibility,
-            "content": content,
-            "title": title,
-        })).scalar_one())
+        from sqlalchemy.exc import IntegrityError
+        note_id = 0
+        for _ in range(5):  # slug 撞号(概率~1/16^7)重掷
+            try:
+                note_id = int((await db.execute(text("""
+                    INSERT INTO community.notes(owner_user_id, visibility, content, title, slug)
+                    VALUES (:owner, :visibility, :content, :title, :slug)
+                    RETURNING id
+                """), {
+                    "owner": actor_id,
+                    "visibility": visibility,
+                    "content": content,
+                    "title": title,
+                    "slug": _new_note_slug(),
+                })).scalar_one())
+                break
+            except IntegrityError as exc:
+                if "notes_slug_key" not in str(exc):
+                    raise
+                await db.rollback()
+        else:
+            raise RuntimeError("笔记 slug 生成重试耗尽")
         await _replace_references(
             db,
             note_id=note_id,
@@ -283,29 +304,35 @@ async def create_note(
     if visibility == "public":
         # 创建即公开 → 通知关注者(失败不影响笔记保存)。
         await notify_new_note_safely(db, actor_id, note_id)
-    return await get_note(db, note_id=note_id, actor_id=actor_id)
+    return await get_note(db, note_ref=note_id, actor_id=actor_id)
 
 
-async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
+async def get_note(db, *, note_ref: int | str, actor_id: int | None) -> dict[str, Any]:
+    """按数字 id 或 7 位 slug 取笔记(URL 双通, 旧 id 链接不失效)。"""
     # /P-1: hidden notes 404 for everyone (including the owner); private
     # notes only for the owning session; public+visible notes anonymously.
     # 停用作者的公开笔记保留可见 ——
     # 不再经 users join 的 status='active' 过滤, 由 active 标记
     # 让前端渲染「已停用」; 私有笔记仍实际不可达(停用即撤销全部会话)。
-    row = (await db.execute(text("""
+    # ref 形态二选一(数字=id / 其他=slug): 避免 NULL 参数无法定型的歧义
+    ref_match = "n.id=:ref" if str(note_ref).isdigit() else "n.slug=:ref"
+    row = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
-               n.title,n.view_count,
+               n.title,n.slug,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
         JOIN community.users u ON u.id=n.owner_user_id
-        WHERE n.id=:id
+        WHERE {ref_match}
           AND n.moderation_status='visible'
           AND (
             n.owner_user_id=:actor
             OR n.visibility='public'
           )
-    """), {"id": note_id, "actor": actor_id or 0})).mappings().first()
+    """), {
+        "ref": int(note_ref) if str(note_ref).isdigit() else str(note_ref),
+        "actor": actor_id or 0,
+    })).mappings().first()
     if row is None:
         raise NoteNotAccessibleError("笔记不存在")
     # 阅读量: 公开笔记的非作者读取计数(匿名计入;失败不影响读取)。
@@ -315,7 +342,7 @@ async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
             await db.execute(text("""
                 UPDATE community.notes SET view_count = view_count + 1
                 WHERE id=:id
-            """), {"id": note_id})
+            """), {"id": row["id"]})
             await db.commit()
             row = {**row, "view_count": int(row["view_count"] or 0) + 1}
         except Exception:
@@ -386,7 +413,7 @@ async def update_note(
         # 私有→公开才通知(与 update_reaction 触发口径一致;
         # 一直公开的内容编辑不重复打扰, dedupe_key 再兜一层)。
         await notify_new_note_safely(db, actor_id, note_id)
-    return await get_note(db, note_id=note_id, actor_id=actor_id)
+    return await get_note(db, note_ref=note_id, actor_id=actor_id)
 
 
 async def delete_note(db, *, note_id: int, actor_id: int) -> None:
@@ -451,7 +478,7 @@ async def list_my_notes(
     """), params)).scalar() or 0)
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
-               n.title,n.view_count,
+               n.title,n.slug,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
@@ -494,7 +521,7 @@ async def list_public_user_notes(
     """), params)).scalar() or 0)
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
-               n.title,n.view_count,
+               n.title,n.slug,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
@@ -552,7 +579,7 @@ async def list_entity_notes(
     # active 供前端渲染「已停用」标记。
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
-               n.title,n.view_count,
+               n.title,n.slug,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n

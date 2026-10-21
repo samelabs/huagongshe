@@ -44,7 +44,7 @@ function MyPrivateNotes({ context }: { context: PrivateContext }) {
           <article className="entity-note-card" key={note.id}>
             <header>
               <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
-              <Link href={withLocale(`/note/${note.id}`, locale)}>{t.notes.viewFull}</Link>
+              <Link href={withLocale(`/note/${note.slug}`, locale)}>{t.notes.viewFull}</Link>
             </header>
             {note.title ? <h4>{note.title}</h4> : null}
             <p className="note-clamp">{note.content}</p>
@@ -109,7 +109,7 @@ export function EntityNotes({ entity, entityId, canAdd, privateContext }: {
                   {note.reaction_ids.map((id) => <Link key={`r-${id}`} href={withLocale(`/reaction/${id}`, locale)}><EntityBadge kind="reaction" id={id} size="xs" /></Link>)}
                 </div>
               )}
-              <TextLink className="note-view-full" href={withLocale(`/note/${note.id}`, locale)}>{t.notes.viewFull}</TextLink>
+              <TextLink className="note-view-full" href={withLocale(`/note/${note.slug}`, locale)}>{t.notes.viewFull}</TextLink>
             </article>
           ))}
         </div>

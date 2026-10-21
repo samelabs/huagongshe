@@ -11,7 +11,7 @@ import { Section } from "@/components/ui/Section";
 import { TextLink } from "@/components/ui/TextLink";
 import { Tag } from "@/components/ui/Tag";
 import { apiGet } from "@/lib/api.server";
-import { isApiNotFound, isApiGone, isEntityId, type Chemical, type NoteItem } from "@/lib/api";
+import { isApiNotFound, isApiGone, type Chemical, type NoteItem } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import { localeAlternates } from "@/lib/alternates";
@@ -21,10 +21,15 @@ import { buildShareMetadata } from "@/lib/shareMeta";
 
 type Params = { params: Promise<{ id: string }> };
 
+/** URL ref: 7 位 slug(规范)或纯数字(旧 id 链接, 双通不失效)。 */
+function isNoteRef(value: string): boolean {
+  return /^[a-z0-9]{7}$/.test(value) || /^\d+$/.test(value);
+}
+
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { id } = await params;
-  if (!isEntityId(id)) notFound();
-  const canonical = `/note/${id}`;
+  if (!isNoteRef(id)) notFound();
+  let canonical = `/note/${id}`;
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   let pageTitle = `${t.notes.detailTitle} ${id}`;
@@ -32,6 +37,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
   try {
     const note = await apiGet<NoteItem>(`/notes/${id}`);
+    canonical = `/note/${note.slug}`;
     const authorLine = note.display_name || `@${note.username}`;
     let entityName: string | null = null;
     if (note.chemical_ids.length > 0) {
@@ -78,7 +84,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function NoteDetailPage({ params }: Params) {
   const { id } = await params;
-  if (!isEntityId(id)) notFound();
+  if (!isNoteRef(id)) notFound();
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
   const cookieStore = await cookies();
@@ -120,8 +126,7 @@ export default async function NoteDetailPage({ params }: Params) {
       <PageHead
         breadcrumb={[
           { label: t.chemical.home, href: withLocale("/", locale) },
-          { label: t.notes.category },
-          { label: title },
+          { label: authorLine, href: withLocale(`/user/${encodeURIComponent(note.username)}`, locale) },
         ]}
         title={title}
         meta={

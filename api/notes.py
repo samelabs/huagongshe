@@ -69,21 +69,20 @@ async def create_note(
             409, {"message": str(exc), "kind": exc.kind}) from exc
 
 
-@router.get("/notes/{note_id}")
+@router.get("/notes/{ref}")
 async def get_note(
-    note_id: int = Path(..., ge=1, le=2_147_483_647),
+    ref: str = Path(..., min_length=1, max_length=64, pattern=r"^[a-z0-9]+$"),
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
     try:
-        # Public notes are anonymous-readable. Private owner context is Web-only
-        # (machine actors must not silently gain a
-        # private Notes read surface before Notes has an explicit Agent contract.
+        # 公开笔记匿名可读; 私有仅属主会话(Web)。ref = 数字 id 或 7 位 slug,
+        # 旧 id 链接不失效。机器会话不读私有(Notes 无 Agent 契约前不扩面)。
         owner_session_id = (
             actor.id if actor is not None and actor.auth_kind == "session" else None
         )
         return await get_note_service(
-            db, note_id=note_id, actor_id=owner_session_id)
+            db, note_ref=ref, actor_id=owner_session_id)
     except NoteNotAccessibleError as exc:
         raise _note_not_found(exc) from exc
 

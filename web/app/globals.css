@@ -466,7 +466,8 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
   grid-template-columns: 80px minmax(0, 1fr) auto;
   gap: var(--sp-6);
   align-items: start;
-  padding: var(--sp-2) 0 var(--sp-6);
+  /* 顶距随内容扩容上调(b37c3a2 去面包屑置顶后仅 8px, 距导航过近) */
+  padding: var(--sp-12) 0 var(--sp-6);
   border-bottom: 1px solid var(--border);
 }
 .pf-info { min-width: 0; display: grid; gap: 4px; justify-items: start; }
@@ -1274,6 +1275,7 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
 /* Note 详情页：版式走 PageFrame reading + PageHead default + Section，
    这里只剩署名行、本人操作行与正文阅读体内容样式 */
 .note-detail-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2) var(--sp-3)}
+.note-detail-views{color:var(--text-muted);font-size:var(--fs-12)}
 .note-owner-actions{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
 .note-detail-content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:var(--lh-prose);margin:var(--sp-4) 0 0;font-size:var(--fs-16)}
 /* P-6: 实体页私有区块(公开区块上方, 只读) */

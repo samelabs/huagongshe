@@ -212,7 +212,7 @@ class NotesListUiCloseoutTests(unittest.TestCase):
         self.assertIn("t.notes.viewFull", src)
         home = (REPO / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
         # 重设计：笔记行经 WbListRow（shared.tsx）统一 withLocale
-        self.assertIn('href={`/note/${note.id}`}', home)
+        self.assertIn('href={`/note/${note.slug}`}', home)
         self.assertIn("withLocale(href, locale)", (REPO / "web/components/workbench/shared.tsx").read_text(encoding="utf-8"))
 
     def test_delete_failure_keeps_list_and_is_recoverable(self):
