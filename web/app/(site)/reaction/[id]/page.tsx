@@ -207,7 +207,7 @@ export default async function ReactionPage({ params }: {
         )}
         actions={<>
           {/* 互动胶囊行: 徽标后 收藏|+笔记|分享|打印, 排序与化合物页同构
-              (2026-10-21 裁定); 新建入口常显, 未登录由工作台服务端门带回跳 */}
+              新建入口常显, 未登录由工作台服务端门带回跳 */}
           <div className="hg-head-row">
             <EntityBadge
               kind="reaction"

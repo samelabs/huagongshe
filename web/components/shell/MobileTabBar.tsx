@@ -29,10 +29,9 @@ export function MobileTabBar() {
   const pathname = usePathname();
   const routePath = stripLocalePrefix(pathname ?? "/");
   const tabParam = useSearchParams().get("tab");
-  // 键盘判定:视觉视口高度较「历史峰值」骤降 150px 以上。iOS 上
-  // innerHeight 跟随视觉视口同缩(innerHeight - vv.height 恒≈0, 布局视口
-  // 差值判定在 iOS 失效), 峰值差判定两端通用; 地址栏收缩幅度(<150px)
-  // 不误报; 转向(宽度变化)重置基准。不支持 visualViewport 的环境保持原状。
+  // 键盘判定:视觉视口高度较「历史峰值」骤降 150px 以上(两端通用;
+  // 地址栏收缩幅度不足 150px 不误报; 转向时宽度变化重置基准)。
+  // 不支持 visualViewport 的环境保持原状。
   const [keyboardUp, setKeyboardUp] = useState(false);
   useEffect(() => {
     const vv = window.visualViewport;

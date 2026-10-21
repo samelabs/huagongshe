@@ -277,7 +277,7 @@ export type NoteItem = {
   owner_user_id: number;
   visibility: "public" | "private";
   moderation_status: "visible" | "hidden";
-  /* 标题/阅读量/slug(2026-10-21 模型扩容); 旧数据 title=NULL */
+  /* 标题/阅读量/slug; 旧数据 title=NULL */
   title: string | null;
   view_count?: number;
   slug: string;

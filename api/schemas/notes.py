@@ -38,7 +38,7 @@ def sanitize_note_content(value: str) -> str:
 
 class NoteBody(BaseModel):
     visibility: Literal["public", "private"] = "private"
-    # 可选标题(2026-10-21 模型扩容): 空串/纯空白归一为 NULL。
+    # 可选标题: 空串/纯空白归一为 NULL。
     title: str | None = None
     # No Field max_length here: the limit is enforced AFTER sanitization in
     # normalize_content . A declared max_length would run first and

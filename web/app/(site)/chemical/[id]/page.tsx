@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   });
   // 与页面 H1 同源: 同一 resolver、同一 locale, 不允许 SEO 自己再写一套 fallback。
   // H1/标题用名称(本体); CAS 是标签级重要 —— html title 与分享 meta 里
-  // CAS 前置(2026-10-21 裁定)。无数据行(落到编号标签)不追加编号后缀。
+  // CAS 前置。无数据行(落到编号标签)不追加编号后缀。
   const { title: displayName, source: nameSource } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel, locale);
   const baseTitle = nameSource === "hcid" ? displayName : `${displayName} (${t.common.hcidShort(id)})`;
   const casVal = (chemical?.cas_numbers?.[0] ?? "").toString().trim();

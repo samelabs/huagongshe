@@ -224,7 +224,7 @@ async def download_skill_archive(
     actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
-    # 下载是登录能力(2026-10-21 裁定): 技能浏览/文件预览保持公开,
+    # 下载是登录能力: 技能浏览/文件预览保持公开,
     # zip 落盘要走会话。current_session 已完成 401 映射。
     manifest = await _load_accessible_skill_http(db, skill_id, actor)
     # skill_files 查询 + 目录/文件缺失判定 + zip 组装归

@@ -834,11 +834,11 @@ async def update_skill_metadata(
     与发布(visibility/category), 无 filesystem 参与 —— 因此不存在 FS staging /
     FS 补偿面(不发明 staging)。
 
-    发布规则(2026-10-21 裁定): owner 可自发布 —— visibility='public' 时
+    发布规则: owner 可自发布 —— visibility='public' 时
     category 必须已设(本次或既有的合法 active 分类), 公开技能进前台
     skills 栏目同一分类体系; origin 保持 'user'(社区技能, 平台策展的
     official 升级仍走管理端)。published_at 仅首次公开时落(now), 公开态
-    本身是客观列、与时间解耦(同笔记模型裁定)。
+    本身是客观列、与时间解耦。
     """
     if title is None and description is None and visibility is None and category is None:
         raise SkillUpdateValidationError()

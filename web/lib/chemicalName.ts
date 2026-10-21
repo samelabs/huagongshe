@@ -6,7 +6,7 @@
  * 规则出口 —— 任何展示化合物名称的地方都必须消费本函数结果, 不允许再写
  * `preferred_name || iupac_name || ...` 之类的第二套链。
  *
- * 规则(2026-10-21 二次裁定: 常用名/品名是本体, CAS 是标签级重要 —— 标题
+ * 规则(常用名/品名是本体, CAS 是标签级重要 —— 标题
  * 按名称链展示, 不以 CAS 作标题; CAS 在标签区与 html title/分享 meta 里
  * 优先前置, 由各消费面自行组合):
  *   当前 locale 的常用名  ← chemistry.name_index kind='name_cn' (镜像 chemical_cb.identity.cn, 汉语)

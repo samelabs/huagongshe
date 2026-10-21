@@ -337,7 +337,7 @@ async def get_note(db, *, note_ref: int | str, actor_id: int | None) -> dict[str
     if row is None:
         raise NoteNotAccessibleError("笔记不存在")
     # 阅读量: 公开笔记的非作者读取计数(匿名计入;失败不影响读取)。
-    # visibility 是纯客观列 —— 与任何"发布时间"无关(2026-10-21 裁定)。
+    # visibility 是纯客观列, 与任何"发布时间"无关。
     if row["visibility"] == "public" and actor_id != row["owner_user_id"]:
         try:
             await db.execute(text("""
