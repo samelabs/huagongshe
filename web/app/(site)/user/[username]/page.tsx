@@ -153,6 +153,47 @@ export default async function UserPage({ params, searchParams }: { params: Promi
 
     <ProfileTabs username={profile.username} tab={tab} reactionCount={profile.public_reactions} noteCount={notesTotal} />
 
+    {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
+        笔记是社交承载，排在反应之前（DESIGN_SYSTEM 6.6；手机默认落本 tab）。
+        源码契约（tests/test_notes_ui_regression.py 等）：加载失败 ≠ total=0 —— 失败渲染
+        错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
+        total=0 只渲染 tab 空状态（下方 EmptyState）。分区不挂标题（同反应 tab）── */}
+    {tab === "notes" && (
+      <Section className="pf-tab-body">
+        {notesUnavailable && (
+          <RetryNotice>{t.notes.profileLoadFailed}</RetryNotice>
+        )}
+        {!notesUnavailable && notesBlock && notesBlock.total > 0 && (
+          <div className="pf-note-list">
+            {notesBlock.items.map((note) => {
+              const pres = noteListPresentation(note);
+              return (
+                <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
+                  <div className="pf-note-head">
+                    {pres.title && <h3>{pres.title}</h3>}
+                    <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
+                  </div>
+                  <p className="pf-note-summary">{pres.body}</p>
+                  {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
+                    <div className="pf-note-refs">
+                      {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
+                      {note.reaction_ids.slice(0, 3).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+        {!notesUnavailable && notesBlock && notesBlock.total === 0 && (
+          <EmptyState
+            title={profile.is_me ? t.user.emptyNotesSelf : t.user.emptyNotesVisitor}
+            action={profile.is_me ? { label: t.notes.writeNote, href: withLocale("/aichem?tab=notes&new=1", locale) } : undefined}
+          />
+        )}
+      </Section>
+    )}
+
     {/* ── 反应 tab：两列卡片（手机一列），分页沿用 page 参数。
         分区不挂标题 —— Tabs 已带计数与选中态（不重复标题） ── */}
     {tab === "reactions" && (
@@ -201,46 +242,6 @@ export default async function UserPage({ params, searchParams }: { params: Promi
           <EmptyState
             title={profile.is_me ? t.user.emptyReactionsSelf : t.user.emptyReactionsVisitor}
             action={profile.is_me ? { label: t.notes.createReaction, href: withLocale("/submit", locale) } : undefined}
-          />
-        )}
-      </Section>
-    )}
-
-    {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
-        源码契约（tests/test_notes_ui_regression.py 等）：加载失败 ≠ total=0 —— 失败渲染
-        错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
-        total=0 只渲染 tab 空状态（下方 EmptyState）。分区不挂标题（同反应 tab）── */}
-    {tab === "notes" && (
-      <Section className="pf-tab-body">
-        {notesUnavailable && (
-          <RetryNotice>{t.notes.profileLoadFailed}</RetryNotice>
-        )}
-        {!notesUnavailable && notesBlock && notesBlock.total > 0 && (
-          <div className="pf-note-list">
-            {notesBlock.items.map((note) => {
-              const pres = noteListPresentation(note);
-              return (
-                <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
-                  <div className="pf-note-head">
-                    {pres.title && <h3>{pres.title}</h3>}
-                    <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
-                  </div>
-                  <p className="pf-note-summary">{pres.body}</p>
-                  {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
-                    <div className="pf-note-refs">
-                      {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
-                      {note.reaction_ids.slice(0, 3).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
-                    </div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        )}
-        {!notesUnavailable && notesBlock && notesBlock.total === 0 && (
-          <EmptyState
-            title={profile.is_me ? t.user.emptyNotesSelf : t.user.emptyNotesVisitor}
-            action={profile.is_me ? { label: t.notes.writeNote, href: withLocale("/aichem?tab=notes&new=1", locale) } : undefined}
           />
         )}
       </Section>
