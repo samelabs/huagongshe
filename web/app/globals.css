@@ -432,8 +432,12 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .form-fields.two-columns { grid-template-columns: 1fr 1fr; }
 .form-fields .wide { grid-column: 1 / -1; }
 .form-fields textarea { resize: vertical; }
-/* 后台配置页: label 与字段分离(不改 DOM/文案/保存机制); 公众表单不受影响 */
-.admin-content .form-fields label { display: grid; gap: 7px; }
+/* 后台配置页: label 与字段分离(不改 DOM/文案/保存机制); 公众表单不受影响。
+   :not(.hg-check) —— 复选框 label 走 ui.css 的 inline-flex 排布, 不参与此堆叠 */
+.admin-content .form-fields label:not(.hg-check) { display: grid; gap: 7px; }
+/* 数据服务凭证发放表单: 收窄输入宽度(原 DataClientsPanel 内联样式收编) */
+.admin-form-narrow { max-width: 560px; }
+.admin-scope-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
 .editing-context { border-left: 3px solid var(--brand); padding: 10px 13px; display: flex; align-items: center; gap: 9px; color: var(--text-muted); background: var(--bg-page); font-size: var(--fs-13); }
 .participant-editor-cards { display: grid; gap: 10px; }
 .participant-input-card { min-width: 0; border: 1px solid var(--border); padding: 13px; }
@@ -659,6 +663,9 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .samelabs-page .page-title > p:not(.page-kicker) { margin: 14px 0 0; color: var(--text-muted); font-size: var(--fs-16); line-height: 1.75; }
 .samelabs-page .page-title > .hg-text { margin-top: 12px; display: inline-block; }
 
+/* 数据服务凭证列表：跟在发放表单之后（原内联 margin-top 收编） */
+.samelabs-table { margin-top: var(--sp-6); }
+
 /* ── 文档页（6.10）：页框/页头/分区走版式件（reading 档 + Section），
    这里只剩文档内容样式 ── */
 .guide-actions { margin-top: 22px; display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
@@ -725,7 +732,9 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .admin-worker-form input[type="text"], .admin-worker-form input:not([type]) { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 8px 10px; font-size: var(--fs-12); background: var(--bg-surface); color: var(--text); }
 .admin-worker-form fieldset { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 10px 12px; display: flex; gap: 16px; }
 .admin-worker-form fieldset legend { font-size: var(--fs-12); color: var(--text-muted); padding: 0 4px; }
-.checkbox-row { display: flex; align-items: center; gap: 6px; font-size: var(--fs-12); color: var(--text); }
+/* label.checkbox-row: 提到 (0,1,1) 压过同文件的 .admin-worker-form label(0,1,1) 且声明在后,
+   否则复选框 label 被 grid 覆盖、框与文字上下堆叠(ui.css .hg-check 同病的 workers 版) */
+label.checkbox-row { display: flex; align-items: center; gap: 6px; font-size: var(--fs-12); color: var(--text); }
 .admin-pre { border: 1px solid var(--bg-inverse-2); border-radius: var(--r-md); padding: 14px; background: var(--bg-inverse); color: var(--code-inverse); overflow-x: auto; font-size: var(--fs-12); line-height: 1.7; }
 
 .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 16px; }
@@ -1030,6 +1039,8 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--focus-hal
 .admin-cat-create input:focus { border-color: var(--brand); }
 .admin-cat-create input[type="color"] { padding: 2px; height: 36px; cursor: pointer; }
 .admin-cat-create button { justify-self: start; }
+/* 编辑态实例嵌在 admin-table article(栅格)内, 需显式占满所在列 */
+.admin-cat-create.admin-cat-edit { width: 100%; }
 @media (max-width: 680px) { .admin-cat-create { grid-template-columns: 1fr 1fr; } }
 
 /* ── samelabs 后台壳：布局级侧栏导航（admin-* 语义前缀） ── */

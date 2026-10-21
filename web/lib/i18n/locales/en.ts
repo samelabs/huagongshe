@@ -535,6 +535,8 @@ const en: Dictionary = {
 
   notes: {
     linkedTitle: 'Linked notes',
+    /** Note detail: chemicals/reactions the note links to (vs linked notes on entity pages) */
+    linkedEntitiesTitle: 'Linked entries',
     add: 'Add note',
     emptyPublic: 'No public linked notes yet.',
     loadFailed: 'Could not load notes.',

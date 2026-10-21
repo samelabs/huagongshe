@@ -536,6 +536,8 @@ const ja: Dictionary = {
 
   notes: {
     linkedTitle: '関連ノート',
+    /** ノート詳細：ノートが紐づく化合物/反応（実体ページの「関連ノート」とは別） */
+    linkedEntitiesTitle: '関連項目',
     add: 'ノートを追加',
     emptyPublic: '公開された関連ノートはまだありません。',
     loadFailed: 'ノートを読み込めませんでした。',

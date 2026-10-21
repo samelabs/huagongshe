@@ -546,6 +546,8 @@ const t = {
 
   notes: {
     linkedTitle: '关联笔记',
+    /** 笔记详情页：笔记关联的化合物/反应（区别于实体页的「关联笔记」） */
+    linkedEntitiesTitle: '关联条目',
     add: '记一条',
     emptyPublic: '还没有公开的关联笔记。',
     loadFailed: '笔记读取失败。',

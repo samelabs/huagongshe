@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { NoteOwnerActions } from "@/components/NoteOwnerActions";
+import { ShareButton } from "@/components/ShareButton";
 import { Byline } from "@/components/ui/Byline";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { IconLock } from "@/components/ui/icons";
@@ -139,8 +140,16 @@ export default async function NoteDetailPage({ params }: Params) {
             )}
           </div>
         }
-        actions={hasSession ? (
-          <NoteOwnerActions noteId={note.id} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />
+        actions={(note.visibility === "public" || hasSession) ? (
+          <div className="hg-head-row">
+            {/* 公开笔记与化合物/反应页同构：分享 iconOnly sm（私有不出） */}
+            {note.visibility === "public" && (
+              <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
+            )}
+            {hasSession && (
+              <NoteOwnerActions noteId={note.id} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />
+            )}
+          </div>
         ) : undefined}
       />
 
@@ -150,7 +159,7 @@ export default async function NoteDetailPage({ params }: Params) {
 
         {/* 关联实体放在正文后面 */}
         {hasLinkedEntities && (
-          <Section id="linked-entities" title={t.notes.linkedTitle} className="note-detail-links-section">
+          <Section id="linked-entities" title={t.notes.linkedEntitiesTitle} className="note-detail-links-section">
             <div className="entity-note-links">
               {chemicalNames.map(({ id: cid, name }) => (
                 <TextLink key={`c-${cid}`} href={withLocale(`/chemical/${cid}`, locale)}>

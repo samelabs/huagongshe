@@ -538,6 +538,8 @@ const ko: Dictionary = {
 
   notes: {
     linkedTitle: '연결된 노트',
+    /** 노트 상세: 노트가 연결된 화합물/반응 (엔티티 페이지의 '연결된 노트'와 별개) */
+    linkedEntitiesTitle: '연결 항목',
     add: '노트 추가',
     emptyPublic: '공개된 연결 노트가 아직 없습니다.',
     loadFailed: '노트를 불러오지 못했습니다.',

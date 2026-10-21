@@ -354,7 +354,7 @@ export function SamelabsSkills() {
                   </>}
               </div>
               {editCatId === c.id && (
-                <div className="admin-cat-create" style={{ width: "100%" }}>
+                <div className="admin-cat-create admin-cat-edit">
                   <Input value={editCat.name} placeholder={t.admin.categoryNamePlaceholder}
                     onChange={(e) => setEditCat({ ...editCat, name: e.target.value })} />
                   <Input value={editCat.abbr} placeholder={t.admin.categoryAbbrPlaceholder} maxLength={4}

@@ -539,6 +539,8 @@ const de: Dictionary = {
 
   notes: {
     linkedTitle: 'Verknüpfte Notizen',
+    /** Notizdetail: verknüpfte Chemikalien/Reaktionen (nicht „Verknüpfte Notizen“ auf Entitätsseiten) */
+    linkedEntitiesTitle: 'Verknüpfte Einträge',
     add: 'Notiz hinzufügen',
     emptyPublic: 'Noch keine öffentlichen verknüpften Notizen.',
     loadFailed: 'Notizen konnten nicht geladen werden.',
