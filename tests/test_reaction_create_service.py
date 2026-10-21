@@ -23,6 +23,7 @@ from api import reactions as reactions_module
 from api.core import rate_limit
 from api.core.rate_limit import LimiterUnavailable, RateLimited
 from api.schemas.reactions import ReactionBody
+from api.services import notifications as notifications_service
 from api.services import reactions as services_reactions
 from api.services.reactions import (IdempotencyKeyTooLongError,
                                     MissingIdempotencyKeyError,
@@ -473,13 +474,18 @@ class ArchitectureTests(unittest.TestCase):
     def test_single_implementation(self):
         for helper in ("resolve_or_create_chemical", "resolve_participants",
                        "reaction_values", "write_relationships",
-                       "reaction_response", "notify_new_reaction_safely",
-                       "chemical_properties"):
+                       "reaction_response", "chemical_properties"):
             self.assertNotIn(f"def {helper}(",
                              inspect.getsource(reactions_module),
                              helper)
             self.assertIn(f"def {helper}(",
                           inspect.getsource(services_reactions), helper)
+        # 通知扇出 owner 已收编 services/notifications: 仍在 service 层单一实现,
+        # adapter(api/reactions.py) 不定义。
+        self.assertNotIn("def notify_new_reaction_safely(",
+                         inspect.getsource(reactions_module))
+        self.assertIn("def notify_new_reaction_safely(",
+                      inspect.getsource(notifications_service))
 
     def test_mcp_no_http_create_dependency(self):
         import api.mcp_server as mcp

@@ -16,6 +16,8 @@ from typing import Any
 
 from sqlalchemy import text
 
+from .notifications import notify_new_note_safely
+
 logger = logging.getLogger(__name__)
 
 
@@ -202,41 +204,6 @@ async def _replace_references(
 class NoteQuotaExceededError(Exception):
     """每用户笔记存量达到上限 — neutral error, adapter 映射 409。"""
     kind = "note_quota_exceeded"
-
-
-async def notify_new_note(db, owner_id: int, note_id: int) -> None:
-    """公开笔记 fan-out 到关注者(与 reactions.notify_new_reaction 同构)。
-
-    dedupe_key 挡重: 私有→公开→私有→公开 只通知一次; 笔记转回私有/被
-    隐藏/删除时由动态查询的 join 条件(join notes visibility/moderation)
-    或 FK CASCADE 物理消除, 不需要撤回通知。
-    """
-    await db.execute(text("""
-        INSERT INTO community.notifications
-          (user_id,event_type,actor_user_id,note_id,dedupe_key)
-        SELECT follower_user_id,'new_note',:owner_id,:note_id,
-               'new-note:' || follower_user_id::text || ':' || :note_id_text
-        FROM community.user_follows
-        WHERE followed_user_id=:owner_id AND follower_user_id<>:owner_id
-        ON CONFLICT (dedupe_key) DO NOTHING
-    """), {
-        "owner_id": owner_id, "note_id": note_id, "note_id_text": str(note_id),
-    })
-
-
-async def notify_new_note_safely(db, owner_id: int, note_id: int) -> None:
-    """辅助 fan-out 不进核心写预算(与 notify_new_reaction_safely 同构)。"""
-    try:
-        await db.execute(text("SET LOCAL statement_timeout='1000ms'"))
-        await notify_new_note(db, owner_id, note_id)
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        logger.warning(
-            "note activity notification skipped",
-            exc_info=True,
-            extra={"owner_id": owner_id, "note_id": note_id},
-        )
 
 
 async def create_note(

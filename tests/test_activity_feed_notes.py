@@ -101,9 +101,9 @@ class _FeedFixture(unittest.IsolatedAsyncioTestCase):
             return await notifications(page=1, page_size=50, actor=actor, db=db)
 
     async def _unread(self, user_id: int | None = None) -> int:
-        from api.social import unread_activity_count
+        from api.services.notifications import unread_count
         async with self.Session() as db:
-            return await unread_activity_count(db, user_id or self.follower)
+            return await unread_count(db, user_id or self.follower)
 
     async def _dashboard_unread(self) -> int:
         from api.users import dashboard_summary
@@ -140,8 +140,8 @@ class ActivityFeedNoteTests(_FeedFixture):
                 VALUES ('C>>C', CAST('C>>C' AS public.reaction), :author, 'public', 'other')
                 RETURNING id
             """), {"author": self.author})).scalar_one())
-            await notes_svc.notify_new_note(db, self.author, note_id)  # 幂等不增
-            from api.services.reactions import notify_new_reaction_safely
+            from api.services.notifications import notify_new_note, notify_new_reaction_safely
+            await notify_new_note(db, self.author, note_id)  # 幂等不增
             await notify_new_reaction_safely(db, self.author, rid)
 
         feed = await self._feed()

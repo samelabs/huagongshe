@@ -450,6 +450,8 @@ const ja: Dictionary = {
     feedActorNote: (name: string) => `${name} が公開ノートを投稿しました`,
     feedActorFollow: (name: string) => `${name} があなたをフォローしました`,
     feedActorFavorited: (name: string) => `${name} があなたの公開リアクションを保存しました`,
+    markAllRead: 'すべて既読',
+    unreadLabel: '未読',
     notificationsEmptyTitle: 'まだ通知はありません',
     notificationsEmptyDesc: '新しい通知はここに表示されます',
     discoverCta: 'フォローする作者を探す',

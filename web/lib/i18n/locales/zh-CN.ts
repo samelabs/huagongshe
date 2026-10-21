@@ -460,6 +460,8 @@ const t = {
     feedActorNote: (name: string) => `${name} 发布了公开笔记`,
     feedActorFollow: (name: string) => `${name} 关注了你`,
     feedActorFavorited: (name: string) => `${name} 收藏了你的公开反应`,
+    markAllRead: '全部已读',
+    unreadLabel: '未读',
     notificationsEmptyTitle: '还没有通知',
     notificationsEmptyDesc: '新通知会出现在这里',
     discoverCta: '去发现作者',

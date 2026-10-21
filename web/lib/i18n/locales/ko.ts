@@ -452,6 +452,8 @@ const ko: Dictionary = {
     feedActorNote: (name: string) => `${name} 님이 공개 노트를 게시했습니다`,
     feedActorFollow: (name: string) => `${name} 님이 나를 팔로우했습니다`,
     feedActorFavorited: (name: string) => `${name} 님이 내 공개 반응을 저장했습니다`,
+    markAllRead: '모두 읽음',
+    unreadLabel: '읽지 않음',
     notificationsEmptyTitle: '아직 알림이 없습니다',
     notificationsEmptyDesc: '새 알림이 여기에 표시됩니다',
     discoverCta: '작성자 찾아보기',

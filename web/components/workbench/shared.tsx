@@ -160,21 +160,27 @@ export function VisibilityTag({ visibility, t }: { visibility: "public" | "priva
    四类事件：new_reaction / new_note（关注面发布）/ new_follower（个人事项，
    纯文本卡）/ reaction_favorited（个人事项；收件人=作者，作者不能收藏自己的
    反应 → 不渲染收藏钮，仅打开）。 ── */
-export function ActivityFeedCard({ item, favored, t, locale }: {
+export function ActivityFeedCard({ item, favored, t, locale, onOpen }: {
   item: Notice;
   /** 收藏初始态（调用方从 /users/me/follows/reactions 的 id 集给出） */
   favored: boolean;
   t: Dictionary;
   locale: Locale;
+  /** 点开通知主链接（笔记标题/反应方程式）= 消费该通知, 由调用方置已读 */
+  onOpen?: () => void;
 }) {
   const isNote = item.event_type === "new_note";
   const isFollower = item.event_type === "new_follower";
   const isFavoritedMine = item.event_type === "reaction_favorited";
   const actorName = item.actor_display_name || item.actor_username;
+  const unreadDot = !item.read_at && (
+    <i className="wb-feed-dot" role="img" aria-label={t.me.unreadLabel} />
+  );
 
   if (isFollower) {
     return (
-      <article className="wb-feed-item">
+      <article className={`wb-feed-item${item.read_at ? "" : " is-unread"}`}>
+        {unreadDot}
         <Avatar id={item.actor_username} name={actorName} src={item.actor_avatar_url || undefined} size={32} />
         <div className="wb-feed-body">
           <p className="wb-feed-line">{t.me.feedActorFollow(actorName)}</p>
@@ -194,7 +200,8 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
     const hasBadges = item.chemical_id != null || item.reaction_id != null;
 
     return (
-      <article className="wb-feed-item wb-feed-note">
+      <article className={`wb-feed-item wb-feed-note${item.read_at ? "" : " is-unread"}`}>
+        {unreadDot}
         <Avatar id={item.actor_username} name={actorName} src={item.actor_avatar_url || undefined} size={32} />
         <div className="wb-feed-body">
           <div className="wb-feed-author-row">
@@ -204,7 +211,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
             </Link>
             <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
           </div>
-          <Link href={withLocale(`/note/${item.note_slug}`, locale)} className="wb-feed-note-title">
+          <Link href={withLocale(`/note/${item.note_slug}`, locale)} className="wb-feed-note-title" onClick={onOpen}>
             <strong>{title}</strong>
           </Link>
           {body && (
@@ -226,7 +233,8 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
   }
 
   return (
-    <article className="wb-feed-item">
+    <article className={`wb-feed-item${item.read_at ? "" : " is-unread"}`}>
+      {unreadDot}
       <Avatar id={item.actor_username} name={actorName} src={item.actor_avatar_url || undefined} size={32} />
       <div className="wb-feed-body">
         <p className="wb-feed-line">
@@ -237,7 +245,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
         </p>
         <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
         {item.reaction_id != null && (
-          <Link className="wb-feed-eq" href={withLocale(`/reaction/${item.reaction_id}`, locale)}>
+          <Link className="wb-feed-eq" href={withLocale(`/reaction/${item.reaction_id}`, locale)} onClick={onOpen}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={reactionSvgUrl(item.reaction_id)} height={64} alt={t.reaction.equationAlt(item.reaction_id)} loading="lazy" />
           </Link>
@@ -255,7 +263,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
             />
           )}
           {item.reaction_id != null && (
-            <Button variant="ghost" size="sm" href={withLocale(`/reaction/${item.reaction_id}`, locale)}>
+            <Button variant="ghost" size="sm" href={withLocale(`/reaction/${item.reaction_id}`, locale)} onClick={onOpen}>
               <GlyphRx />{t.me.feedOpen}
             </Button>
           )}

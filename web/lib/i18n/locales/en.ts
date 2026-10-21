@@ -449,6 +449,8 @@ const en: Dictionary = {
     feedActorNote: (name: string) => `${name} published a public note`,
     feedActorFollow: (name: string) => `${name} followed you`,
     feedActorFavorited: (name: string) => `${name} saved your public reaction`,
+    markAllRead: 'Mark all read',
+    unreadLabel: 'Unread',
     notificationsEmptyTitle: 'No notifications yet',
     notificationsEmptyDesc: 'New notifications appear here',
     discoverCta: 'Find authors to follow',

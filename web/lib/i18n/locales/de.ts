@@ -453,6 +453,8 @@ const de: Dictionary = {
     feedActorNote: (name: string) => `${name} hat eine öffentliche Notiz veröffentlicht`,
     feedActorFollow: (name: string) => `${name} folgt dir jetzt`,
     feedActorFavorited: (name: string) => `${name} hat deine öffentliche Reaktion gespeichert`,
+    markAllRead: 'Alle als gelesen markieren',
+    unreadLabel: 'Ungelesen',
     notificationsEmptyTitle: 'Noch keine Benachrichtigungen',
     notificationsEmptyDesc: 'Neue Benachrichtigungen erscheinen hier',
     discoverCta: 'Jetzt Autoren entdecken',

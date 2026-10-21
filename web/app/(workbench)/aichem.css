@@ -511,7 +511,10 @@
 
 /* 通知卡片 */
 .wb-feed-list { display: flex; flex-direction: column; gap: var(--wb-sp-4); }
-.wb-feed-item { display: flex; gap: var(--wb-sp-2); }
+.wb-feed-item { position: relative; display: flex; gap: var(--wb-sp-2); }
+/* 未读标记：逐条 read_at 的视觉表达（收件箱语义，不随打开面板清零） */
+.wb-feed-dot { position: absolute; top: var(--wb-sp-2); right: 0; width: var(--wb-sp-2); height: var(--wb-sp-2); border-radius: 50%; background: var(--action); }
+.wb-feed-item.is-unread .wb-feed-note-title strong { font-weight: var(--fw-semibold); }
 .wb-feed-body { flex: 1; min-width: 0; display: grid; gap: 4px; justify-items: start; }
 .wb-feed-line {
   margin: 0;

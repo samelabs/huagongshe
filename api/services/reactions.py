@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from ..chemistry import canonicalize_smiles
 from ..core.config import settings
 from ..core.rate_limit import enforce
+from .notifications import notify_new_reaction_safely
 from ..schemas.reactions import ReactionBody
 
 from .chemicals import CHEMICAL_SELECT, attach_localized_names, chemical_dict, clean_float
@@ -458,35 +459,6 @@ async def write_relationships(db, reaction_id: int, participants: list[dict[str,
               (:reaction_id,:chemical_id,:role,:occurrence_count,:amount_value,:amount_unit,
                :equivalents,:concentration_value,:concentration_unit,:yield_percent)
         """), {"reaction_id": reaction_id, **item})
-
-
-async def notify_new_reaction(db, actor_id: int, reaction_id: int) -> None:
-    await db.execute(text("""
-        INSERT INTO community.notifications
-          (user_id,event_type,actor_user_id,reaction_id,dedupe_key)
-        SELECT follower_user_id,'new_reaction',:actor_id,:reaction_id,
-               'new-reaction:' || follower_user_id::text || ':' || :reaction_id_text
-        FROM community.user_follows
-        WHERE followed_user_id=:actor_id AND follower_user_id<>:actor_id
-        ON CONFLICT (dedupe_key) DO NOTHING
-    """), {
-        "actor_id": actor_id, "reaction_id": reaction_id, "reaction_id_text": str(reaction_id),
-    })
-
-
-async def notify_new_reaction_safely(db, actor_id: int, reaction_id: int) -> None:
-    """Keep auxiliary activity fan-out outside and below the core write budget."""
-    try:
-        await db.execute(text("SET LOCAL statement_timeout='1000ms'"))
-        await notify_new_reaction(db, actor_id, reaction_id)
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        logger.warning(
-            "reaction activity notification skipped",
-            exc_info=True,
-            extra={"actor_id": actor_id, "reaction_id": reaction_id},
-        )
 
 
 async def reaction_response(db, reaction_id: int, created_chemicals: list[int] | None = None) -> dict[str, Any]:

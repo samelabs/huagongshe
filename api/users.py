@@ -291,8 +291,8 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
     """), {"id": actor.id})).one()
     # 未读数与 /users/me/notifications 同一过滤条件(含 new_note),
     # 未读数恒等于列表里未读的条数。
-    from .social import unread_activity_count
-    unread = await unread_activity_count(db, actor.id)
+    from .services.notifications import unread_count
+    unread = await unread_count(db, actor.id)
     return {
         "username": row[0], "display_name": row[1], "bio": row[2], "avatar_url": row[3],
         "created_at": row[4], "active": bool(row[11]),
