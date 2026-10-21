@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
+import { SEARCH_PLACEHOLDER } from "@/lib/searchPlaceholder";
 import { apiGet, molSvgUrl } from "@/lib/api";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
@@ -156,7 +157,7 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
                 enterKeyHint="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={t.search.placeholder}
+                placeholder={SEARCH_PLACEHOLDER}
                 aria-label={t.me.homeSearchButton}
                 autoComplete="off"
                 spellCheck={false}

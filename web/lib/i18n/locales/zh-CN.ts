@@ -166,7 +166,6 @@ const t = {
     noResultsFor: (query: string) => `没有找到与「${query}」匹配的记录`,
     fetchPendingHint: '已开始从外部数据源获取 {cas}，通常 1 分钟内完成，请稍后刷新。',
     /* 大搜索框（SearchHero）+ 检索方式 Segmented + 结果分类 Tabs（DESIGN_SYSTEM 6.2） */
-    placeholder: '名称、CAS 号、SMILES 或 InChIKey',
     modeLabel: '检索方式',
     modeNameCas: '名称 / CAS',
     modeExactStructure: '精确结构',

@@ -157,7 +157,6 @@ const en: Dictionary = {
     title: 'Search chemistry data',
     noResultsFor: (query: string) => `No records match "${query}"`,
     fetchPendingHint: 'Started fetching {cas} from external sources — usually done within a minute, refresh this page later',
-    placeholder: 'Name, CAS number, SMILES, or InChIKey',
     modeLabel: 'Search mode',
     modeNameCas: 'Name / CAS',
     modeExactStructure: 'Exact structure',

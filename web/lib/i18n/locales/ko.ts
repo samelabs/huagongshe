@@ -160,7 +160,6 @@ const ko: Dictionary = {
     title: '화학 데이터 검색',
     noResultsFor: (query: string) => `"${query}"에 대한 일치 기록을 찾지 못했습니다`,
     fetchPendingHint: '외부 데이터 소스에서 {cas} 가져오기를 시작했습니다. 보통 1분 이내에 완료되며, 잠시 후 이 페이지를 새로고침하세요',
-    placeholder: '이름, CAS 번호, SMILES, InChIKey',
     modeLabel: '검색 방식',
     modeNameCas: '이름 / CAS',
     modeExactStructure: '정확한 구조',

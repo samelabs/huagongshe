@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { SEARCH_PLACEHOLDER } from "@/lib/searchPlaceholder";
 import { apiGet, molSvgUrl, USER_SUBMITTED_SOURCE, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { Button } from "@/components/ui/Button";
@@ -85,7 +86,7 @@ export function SearchPanel({ initialQuery }: { initialQuery?: string }) {
             enterKeyHint="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t.search.placeholder}
+            placeholder={SEARCH_PLACEHOLDER}
             autoFocus
             autoComplete="off"
             spellCheck={false}

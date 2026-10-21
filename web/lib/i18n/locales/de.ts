@@ -161,7 +161,6 @@ const de: Dictionary = {
     title: 'Chemiedaten durchsuchen',
     noResultsFor: (query: string) => `Keine Einträge für „${query}“ gefunden`,
     fetchPendingHint: 'Der Abruf von {cas} aus externen Quellen wurde gestartet — meist innerhalb einer Minute fertig, aktualisieren Sie diese Seite später',
-    placeholder: 'Name, CAS-Nummer, SMILES oder InChIKey',
     modeLabel: 'Suchmodus',
     modeNameCas: 'Name / CAS',
     modeExactStructure: 'Exakte Struktur',

@@ -158,7 +158,6 @@ const ja: Dictionary = {
     title: 'ケミストリーデータを検索',
     noResultsFor: (query: string) => `「${query}」に一致する記録は見つかりませんでした`,
     fetchPendingHint: '外部データソースから {cas} の取得を開始しました。通常 1 分以内に完了するため、少ししてからこのページを更新してください',
-    placeholder: '名称、CAS 番号、SMILES、InChIKey',
     modeLabel: '検索方式',
     modeNameCas: '名称 / CAS',
     modeExactStructure: '精密構造',
