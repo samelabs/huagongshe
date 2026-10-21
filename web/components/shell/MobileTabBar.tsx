@@ -9,9 +9,11 @@
  * 高度 var(--tabbar-h) + safe-area 底部内边距；当前 tab 用 var(--action)。
  * 内容区 56，safe-area 作为下方 padding，图标 20，文字和图标垂直居中。
  * 未读数来自 SiteHeader 的 ShellUnreadContext（/users/me/dashboard，同一来源）。
- * ≤640px 显示。
+ * ≤640px 显示。输入法弹出时整体退场、收起恢复（规范 2.3；iOS 键盘会把
+ * fixed 底栏顶到键盘上方，退场由 visualViewport 判定，CSS 见 .sh-tabbar.kb）。
  */
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
@@ -27,6 +29,21 @@ export function MobileTabBar() {
   const pathname = usePathname();
   const routePath = stripLocalePrefix(pathname ?? "/");
   const tabParam = useSearchParams().get("tab");
+  // 键盘判定:视觉视口比布局视口矮 150px 以上算键盘弹出(阈值避开地址栏
+  // 收缩的幅度);不支持 visualViewport 的环境保持原状。
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => setKeyboardUp(window.innerHeight - vv.height > 150);
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    sync();
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+    };
+  }, []);
   const activityHref = user ? "/aichem?tab=activity" : "/login";
   const isActivity = routePath === "/aichem" && tabParam === "activity";
   const isWorkbench = !isActivity && (
@@ -44,7 +61,7 @@ export function MobileTabBar() {
     || (!isAuthPage && !isWorkbench && !isActivity && !isMeActive);
 
   return (
-    <nav className="sh-tabbar" aria-label={t.nav.bottomNav}>
+    <nav className={keyboardUp ? "sh-tabbar sh-tabbar-kb" : "sh-tabbar"} aria-label={t.nav.bottomNav}>
       <Link
         href={withLocale("/", locale)}
         className={`sh-tab${isHomeActive ? " on" : ""}`}

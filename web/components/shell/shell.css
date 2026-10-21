@@ -165,6 +165,14 @@
   box-sizing: border-box;
   background: var(--bg-surface);
   border-top: 1px solid var(--border);
+  transition: transform var(--dur-fast) ease, visibility var(--dur-fast) ease;
+}
+/* 键盘弹出退场（规范 2.3）：MobileTabBar 经 visualViewport 判定后挂
+   .sh-tabbar-kb，底栏滑出视口且不可交互，键盘收起恢复 —— iOS 输入法
+   会把 fixed 底栏顶到键盘上方，这是治理手段，不是显示/隐藏的通用开关 */
+.sh-tabbar-kb {
+  transform: translateY(calc(100% + env(safe-area-inset-bottom)));
+  visibility: hidden;
 }
 @media (max-width: 640px) {
   .sh-tabbar { display: grid; }
