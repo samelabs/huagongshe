@@ -16,10 +16,11 @@ import { withLocale } from "@/lib/localePath";
 export async function EntityCard({ chemical, favored = false }: { chemical: Chemical; favored?: boolean }) {
   const t = await getRequestDictionary();
   const locale = await getRequestLocale();
-  const { title, secondary, source } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
+  const { title, secondary } = resolveChemicalName(chemical, t.common.hcidLabel, locale);
+  // 标签区: CAS 优先(2026-10-21 裁定 —— CAS 是标签级重要), 其后随
   const identity = [
+    chemical.cas_numbers[0] ? `CAS ${chemical.cas_numbers[0]}` : null,
     secondary,
-    source === "cas" ? null : (chemical.cas_numbers[0] ? `CAS ${chemical.cas_numbers[0]}` : null),
     chemical.pubchem_cid ? `CID ${chemical.pubchem_cid}` : null,
     chemical.molecular_formula,
   ].filter(Boolean).join(" · ");
