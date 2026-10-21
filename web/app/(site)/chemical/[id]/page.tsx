@@ -63,8 +63,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     return null; // 后端暂不可用：退化为通用标题，不让 metadata 500
   });
   // 与页面 H1 同源: 同一 resolver、同一 locale, 不允许 SEO 自己再写一套 fallback。
-  // 无数据行(resolver 落到 hcidLabel)时主标题本身就是 HCID 标签,
-  // 不再追加 (HCID {id}) 避免同义重复。
+  // 无数据行(resolver 落到 hcidLabel)时主标题本身就是编号标签,
+  // 不再追加编号后缀避免同义重复。
   const { title: displayName, source: nameSource } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel, locale);
   const pageTitle = nameSource === "hcid" ? displayName : `${displayName} (${t.common.hcidShort(id)})`;
   const description = t.chemical.descFor(displayName);
