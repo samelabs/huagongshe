@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ApiError, apiDelete, apiGet, apiPost } from "@/lib/api";
+import { ApiError, apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { IconSparkle } from "@/components/ui/icons";
 import { Notice } from "@/components/ui/Notice";
@@ -13,6 +14,8 @@ import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import { withLocale } from "@/lib/localePath";
 import { Pagination, PanelError, PanelHeading, PanelLoading, SlowNotice } from "../shared";
 import type { LoadState, PageResponse, SkillItem } from "../types";
+
+type SkillCategory = { name: string; abbr: string };
 
 const emptyPage = <T,>(): PageResponse<T> => ({ items: [], total: 0, page: 1, page_size: 20 });
 
@@ -52,6 +55,23 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [categories, setCategories] = useState<SkillCategory[]>([]);
+  const [categoryDraft, setCategoryDraft] = useState<Record<number, string>>({});
+  useEffect(() => {
+    apiGet<SkillCategory[]>("/skills/categories").then(setCategories).catch(() => setCategories([]));
+  }, []);
+
+  async function handlePublish(id: number, nextVisibility: "public" | "private") {
+    const category = nextVisibility === "public" ? categoryDraft[id] : undefined;
+    try {
+      await apiPatch(`/skills/${id}`, JSON.stringify(
+        nextVisibility === "public" ? { visibility: "public", category } : { visibility: "private" },
+      ));
+      await load();
+    } catch (err) {
+      setUploadError(skillsErrorMessage(err, t, nextVisibility === "public" ? t.me.skillPublishFailed : t.me.skillUnpublishFailed));
+    }
+  }
   const mounted = useRef(false);
   const latestLoad = useRef(0);
 
@@ -177,6 +197,25 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
                 </small>
               </span>
               <span className="wb-skill-actions">
+                {s.visibility === "private" ? (
+                  <>
+                    <Select
+                      aria-label={t.me.skillCategoryLabel}
+                      value={categoryDraft[s.id] ?? s.category ?? ""}
+                      onChange={(e) => setCategoryDraft((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                    >
+                      <option value="">{t.me.skillCategoryPick}</option>
+                      {categories.map((c) => <option key={c.name} value={c.name}>{c.abbr}</option>)}
+                    </Select>
+                    <Button variant="secondary" size="sm" onClick={() => void handlePublish(s.id, "public")}>
+                      {t.me.skillPublish}
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="ghost" size="sm" onClick={() => void handlePublish(s.id, "private")}>
+                    {t.me.skillUnpublish}
+                  </Button>
+                )}
                 <a className="hg-btn ghost sm" href={`/api/skills/${s.id}/archive`} download={`${s.slug}.zip`}>
                   {t.me.skillDownload}
                 </a>

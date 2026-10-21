@@ -20,7 +20,7 @@ from .core.config import settings
 from .core.database import get_db
 from .rate_limit_http import enforce_http, to_http_exception
 from .core.rate_limit import RateLimitError
-from .core.security import Actor, current_actor, public_or_actor
+from .core.security import Actor, current_actor, current_session, public_or_actor
 from .services.skills import (list_skills as list_skills_service,
     SkillNotAccessibleError, get_skill_detail as get_skill_detail_service,
     load_accessible_skill)
@@ -217,13 +217,15 @@ async def get_skill_file(
 @router.get(
     "/skills/{skill_id}/archive",
     operation_id="download_skill_archive",
-    summary="下载技能完整 zip 包",
+    summary="下载技能完整 zip 包（需登录；匿名 401）",
 )
 async def download_skill_archive(
     skill_id: int = PathParam(..., ge=1),
-    actor: Actor | None = Depends(public_or_actor),
+    actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
+    # 下载是登录能力(2026-10-21 裁定): 技能浏览/文件预览保持公开,
+    # zip 落盘要走会话。current_session 已完成 401 映射。
     manifest = await _load_accessible_skill_http(db, skill_id, actor)
     # skill_files 查询 + 目录/文件缺失判定 + zip 组装归
     # services.skills.build_skill_archive; adapter 只余 access 404 桥 +
@@ -322,7 +324,7 @@ async def create_skill(
 @router.patch(
     "/skills/{skill_id}",
     operation_id="update_skill",
-    summary="更新技能标题或描述（分类与公开态由平台管理，不在此路径）",
+    summary="更新技能标题/描述/分类/公开态（owner 自发布；平台策展另走管理端）",
 )
 async def update_skill(
     body: dict[str, Any],
@@ -339,7 +341,8 @@ async def update_skill(
     try:
         return await update_skill_metadata(
             db, skill_id, title=body.get("title"),
-            description=body.get("description"), actor_id=actor.id)
+            description=body.get("description"), actor_id=actor.id,
+            visibility=body.get("visibility"), category=body.get("category"))
     except SkillUpdateValidationError as exc:
         raise HTTPException(400, exc.detail) from exc
 
