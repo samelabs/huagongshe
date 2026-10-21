@@ -203,7 +203,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
             </Link>
             <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
           </div>
-          <Link href={withLocale(`/note/${item.note_id}`, locale)} className="wb-feed-note-title">
+          <Link href={withLocale(`/note/${item.note_slug}`, locale)} className="wb-feed-note-title">
             <strong>{title}</strong>
           </Link>
           {body && (

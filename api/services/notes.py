@@ -270,20 +270,21 @@ async def create_note(
     )
     try:
         from sqlalchemy.exc import IntegrityError
-        note_id = 0
-        for _ in range(5):  # slug 撞号(概率~1/16^7)重掷
+        note_id, note_slug = 0, ""
+        for _ in range(5):  # slug 撞号(概率~1/36^7)重掷
             try:
-                note_id = int((await db.execute(text("""
+                ins = (await db.execute(text("""
                     INSERT INTO community.notes(owner_user_id, visibility, content, title, slug)
                     VALUES (:owner, :visibility, :content, :title, :slug)
-                    RETURNING id
+                    RETURNING id, slug
                 """), {
                     "owner": actor_id,
                     "visibility": visibility,
                     "content": content,
                     "title": title,
                     "slug": _new_note_slug(),
-                })).scalar_one())
+                })).first()
+                note_id, note_slug = int(ins[0]), str(ins[1])
                 break
             except IntegrityError as exc:
                 if "notes_slug_key" not in str(exc):
@@ -304,7 +305,7 @@ async def create_note(
     if visibility == "public":
         # 创建即公开 → 通知关注者(失败不影响笔记保存)。
         await notify_new_note_safely(db, actor_id, note_id)
-    return await get_note(db, note_ref=note_id, actor_id=actor_id)
+    return await get_note(db, note_ref=note_slug, actor_id=actor_id)
 
 
 async def get_note(db, *, note_ref: int | str, actor_id: int | None) -> dict[str, Any]:
@@ -323,14 +324,14 @@ async def get_note(db, *, note_ref: int | str, actor_id: int | None) -> dict[str
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
         JOIN community.users u ON u.id=n.owner_user_id
-        WHERE {ref_match}
+        WHERE n.slug=:ref
           AND n.moderation_status='visible'
           AND (
             n.owner_user_id=:actor
             OR n.visibility='public'
           )
     """), {
-        "ref": int(note_ref) if str(note_ref).isdigit() else str(note_ref),
+        "ref": str(note_ref),
         "actor": actor_id or 0,
     })).mappings().first()
     if row is None:
@@ -371,7 +372,7 @@ async def update_note(
     await enforce("note-write-minute", str(actor_id),
                   settings.api_note_write_limit_per_minute, 60)
     current = (await db.execute(text("""
-        SELECT n.owner_user_id, n.visibility
+        SELECT n.owner_user_id, n.visibility, n.slug
         FROM community.notes n
         JOIN community.users u ON u.id=n.owner_user_id AND u.status='active'
         WHERE n.id=:id
@@ -413,7 +414,7 @@ async def update_note(
         # 私有→公开才通知(与 update_reaction 触发口径一致;
         # 一直公开的内容编辑不重复打扰, dedupe_key 再兜一层)。
         await notify_new_note_safely(db, actor_id, note_id)
-    return await get_note(db, note_ref=note_id, actor_id=actor_id)
+    return await get_note(db, note_ref=current[2], actor_id=actor_id)
 
 
 async def delete_note(db, *, note_id: int, actor_id: int) -> None:

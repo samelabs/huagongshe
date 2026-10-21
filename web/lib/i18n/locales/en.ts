@@ -540,7 +540,7 @@ const en: Dictionary = {
     category: 'Note',
     updatedLabel: 'Updated',
     visibilityPublic: 'Public',
-    viewCount: (n: number) => `{n} views`,
+    viewCount: (n: number) => `${n} views`,
     visibilityPrivate: 'Private',
     editInWorkbench: 'Edit',
     viewFull: 'View full note',

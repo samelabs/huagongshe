@@ -212,7 +212,7 @@ async def notifications(
         WHERE {_ACTIVITY_FEED_VISIBLE}
     """), {"id": actor.id})).scalar() or 0)
     rows = (await db.execute(text(f"""
-        SELECT n.id,n.event_type,n.reaction_id,n.chemical_id,n.note_id,
+        SELECT n.id,n.event_type,n.reaction_id,n.chemical_id,n.note_id,nt.slug AS note_slug,
                n.created_at,n.read_at,
                CASE WHEN n.event_type='new_note'
                     THEN left(split_part(nt.content, E'\\n', 1), 140)

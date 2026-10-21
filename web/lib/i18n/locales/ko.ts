@@ -543,7 +543,7 @@ const ko: Dictionary = {
     category: '노트',
     updatedLabel: '업데이트',
     visibilityPublic: '공개',
-    viewCount: (n: number) => `조회 {n}`,
+    viewCount: (n: number) => `조회 ${n}`,
     visibilityPrivate: '비공개',
     editInWorkbench: '편집',
     viewFull: '전체 보기',

@@ -71,13 +71,13 @@ async def create_note(
 
 @router.get("/notes/{ref}")
 async def get_note(
-    ref: str = Path(..., min_length=1, max_length=64, pattern=r"^[a-z0-9]+$"),
+    ref: str = Path(..., pattern=r"^[a-z0-9]{7}$"),
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
     try:
-        # 公开笔记匿名可读; 私有仅属主会话(Web)。ref = 数字 id 或 7 位 slug,
-        # 旧 id 链接不失效。机器会话不读私有(Notes 无 Agent 契约前不扩面)。
+        # 公开笔记匿名可读; 私有仅属主会话(Web)。公共取用走 7 位 slug
+        # (管理操作另走数字 id 端点)。机器会话不读私有。
         owner_session_id = (
             actor.id if actor is not None and actor.auth_kind == "session" else None
         )

@@ -541,7 +541,7 @@ const ja: Dictionary = {
     category: 'ノート',
     updatedLabel: '更新日時',
     visibilityPublic: '公開',
-    viewCount: (n: number) => `{n} 閲覧`,
+    viewCount: (n: number) => `${n} 閲覧`,
     visibilityPrivate: '非公開',
     editInWorkbench: '編集',
     viewFull: '全文を見る',

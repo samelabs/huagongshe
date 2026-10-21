@@ -544,7 +544,7 @@ const de: Dictionary = {
     category: 'Notiz',
     updatedLabel: 'Aktualisiert',
     visibilityPublic: 'Öffentlich',
-    viewCount: (n: number) => `{n} Aufrufe`,
+    viewCount: (n: number) => `${n} Aufrufe`,
     visibilityPrivate: 'Privat',
     editInWorkbench: 'Bearbeiten',
     viewFull: 'Ganze Notiz ansehen',

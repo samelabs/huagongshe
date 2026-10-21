@@ -551,7 +551,7 @@ const t = {
     category: '笔记',
     updatedLabel: '更新于',
     visibilityPublic: '公开',
-    viewCount: (n: number) => `阅读 {n}`,
+    viewCount: (n: number) => `阅读 ${n}`,
     visibilityPrivate: '私有',
     editInWorkbench: '编辑',
     viewFull: '查看全文',

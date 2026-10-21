@@ -234,15 +234,18 @@
   padding: 0 var(--sp-4) var(--sp-4);
 }
 .wb-drawer-body .wb-quick-actions { padding: var(--sp-3) var(--sp-2) var(--sp-2); }
-.wb-nav-group + .wb-nav-group { margin-top: var(--sp-6); }
+.wb-nav-group + .wb-nav-group { margin-top: var(--sp-8); }
 
+/* 分组标题与条目拉开层级: 小一号、轻一档、拉开字距 —— 分类是结构信息,
+   不是可点选项(视觉上不得与条目同权重) */
 .wb-nav-label {
   margin: 0 0 var(--sp-2);
   padding: 0 var(--sp-3);
   font-size: var(--fs-12);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-regular);
   color: var(--text-muted);
-  letter-spacing: .02em;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .wb-nav-link {
@@ -254,13 +257,13 @@
   margin-bottom: 1px;
   border-radius: var(--r-sm);
   font-size: var(--fs-14);
-  font-weight: var(--fw-regular);
-  color: var(--text-2);
+  font-weight: var(--fw-medium);
+  color: var(--text);
   cursor: pointer;
 }
 .wb-nav-link > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 16px 图标槽（1.6 / 6.7） */
+/* 16px 图标槽（1.6 / 6.7）—— 默认与文字同灰,悬停/选中跟文字走 */
 .wb-nav-icon {
   flex: none;
   width: 16px;
@@ -268,11 +271,11 @@
   color: var(--text-muted);
 }
 
-/* 当前项（2.3 / 6.7）：action-subtle 底 / action-ink 文字 / 500 / 图标 action */
+/* 当前项（2.3 / 6.7）：action-subtle 底 / action-ink 文字 / 图标 action,
+   左缘 2px action 竖条钉住选中位 */
 .wb-nav-link.active {
   background: var(--action-subtle);
   color: var(--action-ink);
-  font-weight: var(--fw-medium);
 }
 .wb-nav-link.active .wb-nav-icon { color: var(--action); }
 
@@ -391,5 +394,6 @@
 }
 .wb-drawer-close:hover { background: var(--bg-page); color: var(--text); }
 @media (hover: hover) and (pointer: fine) {
-  .wb-nav-link:hover { background: var(--bg-page); color: var(--text); }
+  .wb-nav-link:hover { background: var(--bg-hover); color: var(--text); }
+  .wb-nav-link:hover .wb-nav-icon { color: var(--text-2); }
 }

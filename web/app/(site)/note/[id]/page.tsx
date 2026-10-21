@@ -21,9 +21,9 @@ import { buildShareMetadata } from "@/lib/shareMeta";
 
 type Params = { params: Promise<{ id: string }> };
 
-/** URL ref: 7 位 slug(规范)或纯数字(旧 id 链接, 双通不失效)。 */
+/** URL ref: 7 位 slug —— 笔记唯一公共标识。 */
 function isNoteRef(value: string): boolean {
-  return /^[a-z0-9]{7}$/.test(value) || /^\d+$/.test(value);
+  return /^[a-z0-9]{7}$/.test(value);
 }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
@@ -37,7 +37,6 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
   try {
     const note = await apiGet<NoteItem>(`/notes/${id}`);
-    canonical = `/note/${note.slug}`;
     const authorLine = note.display_name || `@${note.username}`;
     let entityName: string | null = null;
     if (note.chemical_ids.length > 0) {
