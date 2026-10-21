@@ -555,6 +555,7 @@
   font-size: var(--wb-fs-sm);
   color: var(--wb-quiet);
 }
+.wb-feed-author-name span { color: var(--wb-quiet); font-weight: var(--wb-w-regular); }
 .wb-feed-author-name {
   color: var(--wb-ink);
   font-weight: var(--wb-w-semibold);

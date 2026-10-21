@@ -200,6 +200,7 @@ export function ActivityFeedCard({ item, favored, t, locale }: {
           <div className="wb-feed-author-row">
             <Link className="wb-feed-author-name" href={withLocale(`/user/${encodeURIComponent(item.actor_username)}`, locale)}>
               <strong>{actorName}</strong>
+              <span>@{item.actor_username}</span>
             </Link>
             <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
           </div>
