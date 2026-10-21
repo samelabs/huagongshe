@@ -20,12 +20,14 @@ import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
-import { IconStar, IconSearch } from "@/components/ui/icons";
+import { IconStar, IconSearch, IconNote, IconCalc } from "@/components/ui/icons";
 
-export function ChemicalActions({ chemicalId, initialFollowing, initialCount }: {
+export function ChemicalActions({ chemicalId, initialFollowing, initialCount, authed }: {
   chemicalId: number;
   initialFollowing: boolean;
   initialCount: number;
+  /** 服务端 cookie 判定: 笔记入口未登录引导登录(回跳本页) */
+  authed: boolean;
 }) {
   const t = useDictionary();
   const locale = useLocale();
@@ -66,6 +68,10 @@ export function ChemicalActions({ chemicalId, initialFollowing, initialCount }: 
     }
   }
 
+  // 笔记入口未登录去登录页带回跳; 登录则落工作台笔记编辑并预填本化合物
+  const noteHref = authed
+    ? withLocale(`/aichem?tab=notes&chemical=${chemicalId}&new=1`, locale)
+    : loginHref;
   return (
     <div className="chem-actions">
       <Button
@@ -78,6 +84,14 @@ export function ChemicalActions({ chemicalId, initialFollowing, initialCount }: 
         <IconStar />
         <span>{following ? t.follow.favoring : t.follow.favor}</span>
         <strong className="chem-favor-count">{count.toLocaleString(locale)}</strong>
+      </Button>
+      <Button variant="ghost" size="sm" href={noteHref}>
+        <IconNote />
+        {t.user.tabNotes}
+      </Button>
+      <Button variant="ghost" size="sm" href="#reactions">
+        <IconCalc />
+        {t.user.tabReactions}
       </Button>
     </div>
   );

@@ -684,6 +684,11 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 /* 互动行分组：每组（标识/分享/打印、收藏或本人操作）是行内弹性整体，
    外层只在组与组之间换行，组内永不拆开 */
 .hg-head-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+
+/* 互动胶囊行(2026-10-21 裁定): 徽标后的收藏/笔记/反应/分享/打印统一
+   胶囊表达(圆角全圆), 高度对齐徽标(按钮 sm 32 = 徽标 md) —— 互动是
+   化合物/反应未来的主入口, 视觉同族但不喧宾夺主 */
+.hg-head-row .hg-btn { border-radius: var(--r-pill); }
 /* 本人操作（编辑/删除）保持在行尾 */
 .hg-head-row:has(.owner-actions) { margin-inline-start: auto; }
 

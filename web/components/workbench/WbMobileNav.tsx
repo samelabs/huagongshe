@@ -88,7 +88,7 @@ export function WbMobileNav({ counts, user }: {
       >
         <div className="wb-drawer-head">
           <div className="wb-drawer-user">
-            <Avatar id={user.id} name={user.display_name} src={user.avatar_url} size={32} />
+            <Avatar id={user.username} name={user.display_name} src={user.avatar_url} size={32} />
             <div className="wb-drawer-user-meta">
               <strong>{user.display_name}</strong>
               <span>@{user.username}</span>

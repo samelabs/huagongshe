@@ -166,7 +166,7 @@ function UserMenu({ user }: { user: User }) {
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <Avatar id={user.id} name={user.display_name} src={user.avatar_url} size={32} />
+        <Avatar id={user.username} name={user.display_name} src={user.avatar_url} size={32} />
         <IconChevron className="sh-chev" />
       </button>
       {open && (

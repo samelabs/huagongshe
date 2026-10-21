@@ -82,7 +82,7 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
 
   return (
     <header className="pf-head">
-      <Avatar id={profile.id} name={profile.display_name} src={profile.avatar_url} size={80} />
+      <Avatar id={profile.username} name={profile.display_name} src={profile.avatar_url} size={80} />
       <div className="pf-info">
         <h1>
           {profile.display_name}

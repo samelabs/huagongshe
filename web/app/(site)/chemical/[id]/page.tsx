@@ -256,22 +256,17 @@ export default async function ChemicalPage({ params }: {
         subtitle={secondary || undefined}
         actions={
           <div className="hg-head-row">
-            {/* 身份与功能同一行：HCID/CAS 是锚，收藏/分享/打印紧随，不断行 */}
+            {/* 身份与功能同一行：HCID 是锚，互动胶囊紧随（CAS 在基本信息首行） */}
             <div className="chem-chips">
               {source !== "hcid" && (
-                <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
-              )}
-              {chemical.cas_numbers[0] && source !== "cas" && (
-                <Tag className="chem-cas-chip">
-                  CAS {chemical.cas_numbers[0]}
-                  <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
-                </Tag>
+                <EntityBadge kind="chemical" id={chemical.id} size="md" ariaLabel={t.common.hcidLabel(chemical.id)} />
               )}
             </div>
             <ChemicalActions
               chemicalId={chemical.id}
               initialFollowing={Boolean(chemical.is_following)}
               initialCount={chemical.follower_count || 0}
+              authed={hasSession}
             />
             <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
             <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/chemical/${chemical.id}/print`, locale)} aria-label={t.common.print}>
@@ -297,6 +292,9 @@ export default async function ChemicalPage({ params }: {
               {hasBasics && (
               <Section id="basics" title={t.chemical.page.basics}>
                 <dl className="chem-dl">
+                  {chemical.cas_numbers[0] && (
+                    <DataRow label="CAS" value={chemical.cas_numbers[0]} mono copyable copyLabel={`${t.common.copy} CAS`} />
+                  )}
                   <DataRow label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono copyable copyLabel={`${t.common.copy} SMILES`} />
                   <DataRow label="InChIKey" value={chemical.inchikey} mono copyable copyLabel={`${t.common.copy} InChIKey`} />
                   <DataRow label={t.chemical.identity.formula} value={chemical.molecular_formula} />
