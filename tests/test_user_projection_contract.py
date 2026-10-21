@@ -56,12 +56,13 @@ class UserProjectionContractTests(unittest.IsolatedAsyncioTestCase):
                    "name": f"proj-{self.tag}"})).scalar_one())
             self.chemical_ids.append(self.chemical)
             # 公开笔记挂在化合物上,作者带头像
-            self.note = int((await conn.execute(text("""
+            _n = (await conn.execute(text("""
                 INSERT INTO community.notes(
-                    owner_user_id,visibility,moderation_status,content)
-                VALUES (:owner,'public','visible',:content) RETURNING id
-            """), {"owner": self.owner,
-                   "content": f"note body {self.tag}"})).scalar_one())
+                    owner_user_id,visibility,moderation_status,content,slug)
+                VALUES (:owner,'public','visible',:content,:slug) RETURNING id, slug
+            """), {"owner": self.owner, "slug": self.tag[:7],
+                   "content": f"note body {self.tag}"})).first()
+            self.note, self.note_slug = int(_n[0]), str(_n[1])
             await conn.execute(text("""
                 INSERT INTO community.note_chemicals(note_id,chemical_id)
                 VALUES (:note,:chem)
@@ -125,7 +126,7 @@ class UserProjectionContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_note_detail_carries_owner_avatar_and_active(self):
         from api.services.notes import get_note
         async with self.Session() as db:
-            note = await get_note(db, note_id=self.note, actor_id=None)
+            note = await get_note(db, note_ref=self.note_slug, actor_id=None)
         self.assertTrue(USER_FIELDS <= set(note))
         self.assertEqual(note["avatar_url"], "/avatars/author.png")
         self.assertIs(note["active"], True)

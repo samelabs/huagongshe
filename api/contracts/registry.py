@@ -252,7 +252,8 @@ def _fams() -> list[Family]:
         # ------------------------------------------------------------------
         Family("note.read", E.READ, scenarios=(
             S("detail", A.PUBLIC_OR_ACTOR, entrypoints=(
-                I(T.HTTP, "GET /api/notes/{note_id}"),),
+                I(T.HTTP, "GET /api/notes/{ref}"),  # ref=7位slug(公共唯一标识)
+              ),
               contract=Contract(frozenset({C.WEB}), X.NONE),
               note="public visible anonymous; private owner context is exposed only "
                    "when the resolved actor is an interactive session"),
