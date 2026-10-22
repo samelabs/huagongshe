@@ -291,8 +291,10 @@ class NoteTruncationTests(unittest.TestCase):
 
     def test_empty_reference_area_not_rendered(self):
         entity = read("components/EntityNotes.tsx")
+        # 空引用区不渲染 DOM：条件提取为 hasRefs（语义同内联条件式）
         self.assertIn(
-            "(note.chemical_ids.length > 0 || note.reaction_ids.length > 0)", entity)
+            "const hasRefs = note.chemical_ids.length > 0 || note.reaction_ids.length > 0;", entity)
+        self.assertIn("{hasRefs && (", entity)
 
 
 class StoichNoteLinkTests(unittest.TestCase):

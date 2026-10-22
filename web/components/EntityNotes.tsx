@@ -15,30 +15,32 @@ type PrivateContext = { chemical?: number; reaction?: number } | null;
 
 const PAGE_SIZE = 20;
 
-/** 时间线行（公开与私有同一规范）：标题（无标题时正文两行截断作主文本）
- *  + 两行摘要 + 实体徽标；公开行带署名，私有行带可见性 Tag。 */
+/** 时间线行（公开与私有同一规范，内容先行）：标题（无标题时正文两行
+ *  截断作主文本）+ 两行摘要 + 脚注（署名·时间 或 可见性标，实体徽标靠右）。
+ *  与个人主页笔记行、工作台行同一「标题先行」信息序。 */
 function NoteRow({ note, minePrivate }: { note: NoteItem; minePrivate?: boolean }) {
   const t = useDictionary();
   const locale = useLocale();
   const pres = noteListPresentation(note);
   const href = withLocale(`/note/${note.slug}`, locale);
+  const hasRefs = note.chemical_ids.length > 0 || note.reaction_ids.length > 0;
   return (
     <article className="entity-note-row">
-      <div className="entity-note-row-head">
-        {minePrivate
-          ? <><Tag>{t.notes.visibilityPrivate}</Tag><time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time></>
-          : <Byline user={note} time={new Date(note.updated_at).toLocaleDateString(locale)} />}
-      </div>
       {pres.title
         ? <h3 className="entity-note-title"><Link href={href}>{pres.title}</Link></h3>
         : <Link href={href} className="entity-note-title is-body note-clamp-2">{pres.body}</Link>}
       {pres.title && pres.body && <p className="note-clamp-2">{pres.body}</p>}
-      {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
-        <div className="entity-note-links">
-          {note.chemical_ids.slice(0, 3).map((id) => <Link key={`c-${id}`} href={withLocale(`/chemical/${id}`, locale)}><EntityBadge kind="chemical" id={id} size="xs" /></Link>)}
-          {note.reaction_ids.slice(0, 3).map((id) => <Link key={`r-${id}`} href={withLocale(`/reaction/${id}`, locale)}><EntityBadge kind="reaction" id={id} size="xs" /></Link>)}
-        </div>
-      )}
+      <div className="entity-note-row-foot">
+        {minePrivate
+          ? <><Tag>{t.notes.visibilityPrivate}</Tag><time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time></>
+          : <Byline user={note} time={new Date(note.updated_at).toLocaleDateString(locale)} />}
+        {hasRefs && (
+          <div className="entity-note-links">
+            {note.chemical_ids.slice(0, 3).map((id) => <Link key={`c-${id}`} href={withLocale(`/chemical/${id}`, locale)}><EntityBadge kind="chemical" id={id} size="xs" /></Link>)}
+            {note.reaction_ids.slice(0, 3).map((id) => <Link key={`r-${id}`} href={withLocale(`/reaction/${id}`, locale)}><EntityBadge kind="reaction" id={id} size="xs" /></Link>)}
+          </div>
+        )}
+      </div>
     </article>
   );
 }

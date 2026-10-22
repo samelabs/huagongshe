@@ -123,18 +123,14 @@ export default async function NoteDetailPage({ params }: Params) {
 
   return (
     <PageFrame tier="reading" className="note-detail-page">
+      {/* 阅读页头部整体居中：不挂面包屑（作者在署名行已链接主页）；
+          公开态不贴公开 Tag（无锁即公开），私有出锁标 */}
       <PageHead
-        breadcrumb={[
-          { label: t.chemical.home, href: withLocale("/", locale) },
-          { label: authorLine, href: withLocale(`/user/${encodeURIComponent(note.username)}`, locale) },
-        ]}
         title={title}
         meta={
           <div className="note-detail-meta">
             <Byline user={note} time={new Date(note.updated_at).toLocaleDateString(locale)} size={32} />
-            {note.visibility === "public"
-              ? <Tag tone="blue">{t.notes.visibilityPublic}</Tag>
-              : <Tag icon={<IconLock />}>{t.notes.visibilityPrivate}</Tag>}
+            {note.visibility !== "public" && <Tag icon={<IconLock />}>{t.notes.visibilityPrivate}</Tag>}
             {note.visibility === "public" && (
               <span className="note-detail-views">{t.notes.viewCount(note.view_count ?? 0)}</span>
             )}
