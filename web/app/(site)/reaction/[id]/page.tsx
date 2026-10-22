@@ -156,7 +156,7 @@ export default async function ReactionPage({ params }: {
     ...(hasSafety ? [["safety", t.reaction.safety] as [string, string]] : []),
     ...(hasNotes ? [["notes", t.reaction.notes] as [string, string]] : []),
     ...(hasSources ? [["sources", t.reaction.sources] as [string, string]] : []),
-    ["linked-notes", t.notes.linkedTitle],
+    ["linked-notes", t.notes.linkedTitleReaction],
   ];
 
   const jsonLd = {

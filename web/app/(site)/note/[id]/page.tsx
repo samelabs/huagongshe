@@ -9,8 +9,8 @@ import { IconLock } from "@/components/ui/icons";
 import { PageFrame } from "@/components/ui/PageFrame";
 import { PageHead } from "@/components/ui/PageHead";
 import { Section } from "@/components/ui/Section";
-import { TextLink } from "@/components/ui/TextLink";
 import { Tag } from "@/components/ui/Tag";
+import Link from "next/link";
 import { apiGet } from "@/lib/api.server";
 import { isApiNotFound, isApiGone, type Chemical, type NoteItem } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
@@ -157,21 +157,23 @@ export default async function NoteDetailPage({ params }: Params) {
         {/* 正文以阅读体排版，阅读宽度（reading 720） */}
         {body && <div className="note-detail-content">{body}</div>}
 
-        {/* 关联实体放在正文后面 */}
+        {/* 关联实体放在正文后面：化合物/反应统一 HCID/HRID 徽标，
+            化合物徽标后跟随解析名（≤8 命名走 CAS 优先链，溢出纯徽标） */}
         {hasLinkedEntities && (
           <Section id="linked-entities" title={t.notes.linkedEntitiesTitle} className="note-detail-links-section">
             <div className="entity-note-links">
               {chemicalNames.map(({ id: cid, name }) => (
-                <TextLink key={`c-${cid}`} href={withLocale(`/chemical/${cid}`, locale)}>
-                  {name}
-                </TextLink>
+                <Link key={`c-${cid}`} className="entity-note-link" href={withLocale(`/chemical/${cid}`, locale)}>
+                  <EntityBadge kind="chemical" id={cid} size="sm" ariaLabel={t.common.hcidLabel(cid)} />
+                  <span>{name}</span>
+                </Link>
               ))}
               {note.chemical_ids.slice(chemicalNames.length).map((cid) => (
                 <EntityBadge
                   key={`c-${cid}`}
                   kind="chemical"
                   id={cid}
-                  size="xs"
+                  size="sm"
                   href={withLocale(`/chemical/${cid}`, locale)}
                   ariaLabel={t.common.hcidLabel(cid)}
                 />
@@ -181,7 +183,7 @@ export default async function NoteDetailPage({ params }: Params) {
                   key={`r-${rid}`}
                   kind="reaction"
                   id={rid}
-                  size="xs"
+                  size="sm"
                   href={withLocale(`/reaction/${rid}`, locale)}
                   ariaLabel={t.common.hridLabel(rid)}
                 />

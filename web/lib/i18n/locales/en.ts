@@ -535,11 +535,12 @@ const en: Dictionary = {
   },
 
   notes: {
-    linkedTitle: 'Linked notes',
+    linkedTitleChemical: 'Compound notes',
+    linkedTitleReaction: 'Reaction notes',
     /** Note detail: chemicals/reactions the note links to (vs linked notes on entity pages) */
     linkedEntitiesTitle: 'Linked entries',
     add: 'Add note',
-    emptyPublic: 'No public linked notes yet.',
+    emptyPublic: 'No notes yet.',
     loadFailed: 'Could not load notes.',
     aboutEntityNote: (name: string) => `Note on ${name}`,
     authorNote: (author: string) => `Note by ${author}`,
@@ -552,10 +553,7 @@ const en: Dictionary = {
     viewCount: (n: number) => `${n} views`,
     visibilityPrivate: 'Private',
     editInWorkbench: 'Edit',
-    viewFull: 'View full note',
     profileTitle: 'Public notes',
-    mineSection: 'My private notes',
-    mineManage: 'Manage in notes panel',
     filterChemical: 'Chemical',
     filterReaction: 'Reaction',
     filterClear: 'Clear filter',
@@ -1029,7 +1027,6 @@ If you cannot call Huagongshe MCP tools for now, still output the draft with the
     reactionCount: (n: number) => `${n} records`,
     mutual: 'Mutual follows',
     editProfile: 'Edit profile',
-    shareProfile: 'Share profile',
     noReactions: 'No public reactions yet.',
     contentError: 'Content could not be loaded. Please try again later.',
     peopleCount: (n: number) => `Saved by ${n}`,

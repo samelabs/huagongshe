@@ -546,11 +546,12 @@ const t = {
   },
 
   notes: {
-    linkedTitle: '关联笔记',
-    /** 笔记详情页：笔记关联的化合物/反应（区别于实体页的「关联笔记」） */
+    linkedTitleChemical: '化合物笔记',
+    linkedTitleReaction: '反应笔记',
+    /** 笔记详情页：笔记关联的化合物/反应（区别于实体页的「化合物笔记/反应笔记」） */
     linkedEntitiesTitle: '关联条目',
     add: '记一条',
-    emptyPublic: '还没有公开的关联笔记。',
+    emptyPublic: '还没有笔记。',
     loadFailed: '笔记读取失败。',
     aboutEntityNote: (name: string) => `关于 ${name} 的笔记`,
     authorNote: (author: string) => `${author} 的笔记`,
@@ -563,10 +564,7 @@ const t = {
     viewCount: (n: number) => `阅读 ${n}`,
     visibilityPrivate: '私有',
     editInWorkbench: '编辑',
-    viewFull: '查看全文',
     profileTitle: '公开笔记',
-    mineSection: '我的私有笔记',
-    mineManage: '在笔记面板管理',
     filterChemical: '化合物',
     filterReaction: '反应',
     filterClear: '清除筛选',
@@ -1037,8 +1035,6 @@ const t = {
     reactionCount: (n: number) => `${n} 条`,
     mutual: '互相关注',
     editProfile: '编辑资料',
-    /* 手机主页分享文字按钮（DESIGN_SYSTEM 6.6） */
-    shareProfile: '分享主页',
     noReactions: '还没有公开反应。',
     contentError: '内容暂时无法加载，请稍后重试。',
     peopleCount: (n: number) => `${n} 人收藏`,

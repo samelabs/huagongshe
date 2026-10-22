@@ -539,11 +539,12 @@ const de: Dictionary = {
   },
 
   notes: {
-    linkedTitle: 'Verknüpfte Notizen',
+    linkedTitleChemical: 'Notizen zur Verbindung',
+    linkedTitleReaction: 'Notizen zur Reaktion',
     /** Notizdetail: verknüpfte Chemikalien/Reaktionen (nicht „Verknüpfte Notizen“ auf Entitätsseiten) */
     linkedEntitiesTitle: 'Verknüpfte Einträge',
     add: 'Notiz hinzufügen',
-    emptyPublic: 'Noch keine öffentlichen verknüpften Notizen.',
+    emptyPublic: 'Noch keine Notizen.',
     loadFailed: 'Notizen konnten nicht geladen werden.',
     aboutEntityNote: (name: string) => `Notiz zu ${name}`,
     authorNote: (author: string) => `Notiz von ${author}`,
@@ -556,10 +557,7 @@ const de: Dictionary = {
     viewCount: (n: number) => `${n} Aufrufe`,
     visibilityPrivate: 'Privat',
     editInWorkbench: 'Bearbeiten',
-    viewFull: 'Ganze Notiz ansehen',
     profileTitle: 'Öffentliche Notizen',
-    mineSection: 'Meine privaten Notizen',
-    mineManage: 'Im Notiz-Panel verwalten',
     filterChemical: 'Verbindung',
     filterReaction: 'Reaktion',
     filterClear: 'Filter entfernen',
@@ -1033,7 +1031,6 @@ Wenn du die Huagongshe-MCP-Tools derzeit nicht aufrufen kannst, gib den Entwurf 
     reactionCount: (n: number) => `${n}`,
     mutual: 'Gegenseitig gefolgt',
     editProfile: 'Profil bearbeiten',
-    shareProfile: 'Profil teilen',
     noReactions: 'Noch keine öffentlichen Reaktionen.',
     contentError: 'Inhalte konnten nicht geladen werden. Bitte später erneut versuchen.',
     peopleCount: (n: number) => `Von ${n} gespeichert`,

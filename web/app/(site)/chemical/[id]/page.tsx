@@ -228,7 +228,7 @@ export default async function ChemicalPage({ params }: {
     ...(hasSafetyReal ? [["safety", t.chemical.page.safety] as [string, string]] : []),
     ...(hasIndustry ? [["industry", t.chemical.page.industry] as [string, string]] : []),
     ["reactions", t.chemical.relatedReactions],
-    ["linked-notes", t.notes.linkedTitle],
+    ["linked-notes", t.notes.linkedTitleChemical],
   ];
 
   /* 结构图卡 = 内容首屏的分子画像（图 + 子结构/相似检索入口），随正文滚动 */

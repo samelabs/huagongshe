@@ -112,9 +112,10 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-btn.primary { background: var(--action); color: var(--text-inverse); }
 .hg-btn.primary:hover, .hg-btn.primary.is-hover { background: var(--action-hover); }
 .hg-btn.primary.is-active { background: var(--action-pressed); }
-.hg-btn.secondary { background: var(--bg-surface); color: var(--text); border-color: var(--border-strong); }
-.hg-btn.secondary:hover, .hg-btn.secondary.is-hover { background: var(--bg-hover); }
-.hg-btn.secondary.is-active { background: var(--bg-pressed); }
+/* 次级按钮 = 安静的浅灰底、无边框（现代静默次级；描边白底是旧网页质感） */
+.hg-btn.secondary { background: var(--bg-subtle); color: var(--text-2); border-color: transparent; }
+.hg-btn.secondary:hover, .hg-btn.secondary.is-hover { background: var(--bg-pressed); color: var(--text); }
+.hg-btn.secondary.is-active { background: var(--border-strong); color: var(--text); }
 .hg-btn.tonal { background: var(--action-subtle); color: var(--action-ink); }
 .hg-btn.tonal:hover, .hg-btn.tonal.is-hover { background: var(--action-subtle-hover); }
 .hg-btn.tonal.is-active { background: var(--action-border); }
@@ -123,8 +124,9 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-btn.danger { background: var(--err); color: var(--text-inverse); }
 .hg-btn.danger:hover, .hg-btn.danger.is-hover { background: var(--err-hover); }
 .hg-btn.danger.is-active { background: var(--err-pressed); }
-.hg-btn.danger-quiet { background: var(--bg-surface); color: var(--err); border-color: var(--err-border); }
-.hg-btn.danger-quiet:hover, .hg-btn.danger-quiet.is-hover { background: var(--err-bg); }
+/* 危险静默 = 次级同构的浅红底（与 secondary 同族，只换色相） */
+.hg-btn.danger-quiet { background: var(--err-bg); color: var(--err); border-color: transparent; }
+.hg-btn.danger-quiet:hover, .hg-btn.danger-quiet.is-hover { background: var(--err-200); color: var(--err-hover); }
 .hg-btn:disabled { background: var(--bg-subtle); color: var(--text-disabled); border-color: transparent; cursor: not-allowed; transform: none; }
 .hg-btn.is-focus { outline: 2px solid var(--focus); outline-offset: 2px; }
 .hg-btn.icon { width: var(--bh); padding: 0; }
@@ -132,10 +134,10 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 /* loading 冻结交互反馈：hover/按压不改变颜色（颜色保持原 variant） */
 .hg-btn[aria-busy="true"]:hover, .hg-btn[aria-busy="true"]:active { transform: none; }
 .hg-btn.primary[aria-busy="true"]:hover { background: var(--action); }
-.hg-btn.secondary[aria-busy="true"]:hover { background: var(--bg-surface); }
+.hg-btn.secondary[aria-busy="true"]:hover { background: var(--bg-subtle); }
 .hg-btn.tonal[aria-busy="true"]:hover { background: var(--action-subtle); }
 .hg-btn.danger[aria-busy="true"]:hover { background: var(--err); }
-.hg-btn.danger-quiet[aria-busy="true"]:hover { background: var(--bg-surface); }
+.hg-btn.danger-quiet[aria-busy="true"]:hover { background: var(--err-bg); }
 .hg-btn.ghost[aria-busy="true"]:hover { background: transparent; color: var(--text-2); }
 .hg-spin {
   width: 14px; height: 14px; flex: none;

@@ -536,11 +536,12 @@ const ja: Dictionary = {
   },
 
   notes: {
-    linkedTitle: '関連ノート',
+    linkedTitleChemical: '化合物ノート',
+    linkedTitleReaction: '反応ノート',
     /** ノート詳細：ノートが紐づく化合物/反応（実体ページの「関連ノート」とは別） */
     linkedEntitiesTitle: '関連項目',
     add: 'ノートを追加',
-    emptyPublic: '公開された関連ノートはまだありません。',
+    emptyPublic: 'ノートはまだありません。',
     loadFailed: 'ノートを読み込めませんでした。',
     aboutEntityNote: (name: string) => `${name}に関するノート`,
     authorNote: (author: string) => `${author}のノート`,
@@ -553,10 +554,7 @@ const ja: Dictionary = {
     viewCount: (n: number) => `${n} 閲覧`,
     visibilityPrivate: '非公開',
     editInWorkbench: '編集',
-    viewFull: '全文を見る',
     profileTitle: '公開ノート',
-    mineSection: '自分の非公開ノート',
-    mineManage: 'ノートパネルで管理',
     filterChemical: '化合物',
     filterReaction: '反応',
     filterClear: 'フィルタを解除',
@@ -1030,7 +1028,6 @@ const ja: Dictionary = {
     reactionCount: (n: number) => `${n} 件`,
     mutual: '相互フォロー',
     editProfile: 'プロフィールを編集',
-    shareProfile: 'プロフィールを共有',
     noReactions: '公開反応はまだありません。',
     contentError: 'コンテンツを読み込めませんでした。後でもう一度お試しください。',
     peopleCount: (n: number) => `${n} 人が保存`,

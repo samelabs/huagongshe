@@ -42,6 +42,7 @@ type NoteCard = { id: number; slug: string; content: string; visibility: string;
 type NotesBlock = { items: NoteCard[]; total: number };
 
 const REACTIONS_PAGE_SIZE = 20;
+const NOTES_PAGE_SIZE = 8;
 
 /** 同请求内 metadata 与页面体共享的同一次取数（此前各拉一次后端，
  * cookie 内置 —— metadata 与页面看到同一份 is_me 投影）。 */
@@ -110,7 +111,8 @@ export default async function UserPage({ params, searchParams }: { params: Promi
     </PageFrame>;
   }
 
-  /* 正文数据：反应分页（tab=reactions）；笔记第一页 8 条（计数 + tab=notes 列表）。
+  /* 正文数据：反应与笔记各自分页（共用 page 参数，同一时刻只渲染一个 tab）；
+     笔记计数 + tab=notes 列表。
      两个区块失败互不影响（RetryNotice），粉丝预览失败只影响右栏叠放（退化为人数）。 */
   let reactions: Reaction[] = [];
   let reactionsUnavailable = false;
@@ -119,7 +121,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
 
   let notesBlock: NotesBlock | null = null;
   let notesUnavailable = false;
-  try { notesBlock = await apiGet<NotesBlock>(`/users/${encodeURIComponent(username)}/notes?page=1&page_size=8`); }
+  try { notesBlock = await apiGet<NotesBlock>(`/users/${encodeURIComponent(username)}/notes?page=${page}&page_size=${NOTES_PAGE_SIZE}`); }
   catch { notesUnavailable = true; }
 
   /* 反应卡收藏初始态：登录访客取自己的已收藏反应 id 集（失败按空集，乐观更新兜底） */
@@ -164,26 +166,39 @@ export default async function UserPage({ params, searchParams }: { params: Promi
           <RetryNotice>{t.notes.profileLoadFailed}</RetryNotice>
         )}
         {!notesUnavailable && notesBlock && notesBlock.total > 0 && (
-          <div className="pf-note-list">
-            {notesBlock.items.map((note) => {
-              const pres = noteListPresentation(note);
-              return (
-                <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.slug}`, locale)}>
-                  <div className="pf-note-head">
-                    {pres.title && <h3>{pres.title}</h3>}
-                    <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
-                  </div>
-                  <p className="pf-note-summary">{pres.body}</p>
-                  {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
-                    <div className="pf-note-refs">
-                      {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
-                      {note.reaction_ids.slice(0, 3).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
+          <>
+            <div className="pf-note-list">
+              {notesBlock.items.map((note) => {
+                const pres = noteListPresentation(note);
+                return (
+                  <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.slug}`, locale)}>
+                    <div className="pf-note-head">
+                      {pres.title && <h3>{pres.title}</h3>}
+                      <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
                     </div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
+                    <p className="pf-note-summary">{pres.body}</p>
+                    {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
+                      <div className="pf-note-refs">
+                        {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
+                        {note.reaction_ids.slice(0, 3).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+            {notesBlock.total > NOTES_PAGE_SIZE && (
+              <nav className="pf-pagination" aria-label={t.common.pageNav}>
+                {page > 1
+                  ? <Link className="hg-btn ghost sm" href={page === 2 ? `${base}?tab=notes` : `${base}?tab=notes&page=${page - 1}`}>{t.common.prev}</Link>
+                  : <span className="hg-btn ghost sm" aria-disabled="true">{t.common.prev}</span>}
+                <small className="pf-pagination-page">{t.common.pageOf(page, Math.ceil(notesBlock.total / NOTES_PAGE_SIZE))}</small>
+                {page * NOTES_PAGE_SIZE < notesBlock.total
+                  ? <Link className="hg-btn ghost sm" href={`${base}?tab=notes&page=${page + 1}`}>{t.common.next}</Link>
+                  : <span className="hg-btn ghost sm" aria-disabled="true">{t.common.next}</span>}
+              </nav>
+            )}
+          </>
         )}
         {!notesUnavailable && notesBlock && notesBlock.total === 0 && (
           <EmptyState

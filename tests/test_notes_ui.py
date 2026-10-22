@@ -262,25 +262,26 @@ class BackForwardUrlStateTests(unittest.TestCase):
 class NoteTruncationTests(unittest.TestCase):
     def test_css_clamp_rules_exist(self):
         css = read("app/globals.css")
-        self.assertIn("-webkit-line-clamp:6", css)
-        self.assertIn(".note-clamp", css)
+        self.assertIn("-webkit-line-clamp:2", css)
+        self.assertIn(".note-clamp-2", css)
         # clamp keeps pre-wrap + anywhere wrapping
         self.assertRegex(
-            css, r"\.note-clamp\{[^}]*white-space:pre-wrap[^}]*\}",
+            css, r"\.note-clamp-2\{[^}]*white-space:pre-wrap[^}]*\}",
         )
 
-    def test_cards_use_clamp_detail_page_does_not(self):
+    def test_lists_use_clamp_detail_page_does_not(self):
         entity = read("components/EntityNotes.tsx")
         panel = read("components/workbench/panels/NotesPanel.tsx")
         detail = read("app/(site)/note/[id]/page.tsx")
-        # 笔记列表行（概览/面板）标题与摘要统一走 noteListPresentation（首行
-        # 或中性标题 + 两行摘要），多行 clamp 只保留在实体页嵌入区（EntityNotes）
-        self.assertIn('className="note-clamp"', entity)
+        # 三处列表（实体页/工作台/公开主页）统一 noteListPresentation
+        # （首行或显式标题 + 两行摘要），多行 clamp 已随卡片样式退役
+        self.assertIn("noteListPresentation", entity)
+        self.assertIn("note-clamp-2", entity)
         self.assertIn("noteListPresentation", panel)
         self.assertNotIn("note-clamp", detail)
         self.assertIn("note-detail-content", detail)
 
-    def test_view_full_links_target_locale_aware_note_route(self):
+    def test_timeline_rows_link_to_locale_aware_note_route(self):
         entity = read("components/EntityNotes.tsx")
         panel = read("components/workbench/panels/NotesPanel.tsx")
         self.assertIn('withLocale(`/note/${', entity)
@@ -327,23 +328,32 @@ class NoteDetailPageTests(unittest.TestCase):
 
 
 class EntityNotesPrivateSectionTests(unittest.TestCase):
-    def test_private_section_renders_above_public(self):
+    """实体页笔记区 = 单一时间线：公开行 + 本人私有行同一行样式，
+    私有行仅多一枚可见性 Tag（不再有独立虚线容器/单独标题）。"""
+
+    def test_private_rows_merge_into_same_timeline(self):
         src = read("components/EntityNotes.tsx")
+        # 同一个 .entity-note-list 渲染私有行 + 公开行，私有行经 minePrivate 标记
+        self.assertIn('className="entity-note-list"', src)
+        self.assertIn("minePrivate.map", src)
+        self.assertIn("data.items.map", src)
         self.assertLess(
-            src.index("MyPrivateNotes"),
-            src.index("entity-note-list"),
+            src.index("minePrivate.map"),
+            src.index("data.items.map"),
+            "私有行应在公开行之前（时间线顶部）",
         )
-        # in the JSX the private block precedes the public list
-        body = src[src.index("return ("):]
-        self.assertLess(body.index("<MyPrivateNotes"), body.index('data.items.length > 0 && ('))
+        # 私有行带可见性 Tag，不再有独立容器/区块标题
+        self.assertIn("t.notes.visibilityPrivate", src)
+        self.assertNotIn("entity-note-private", src)
 
     def test_private_fetch_uses_session_endpoint(self):
         src = read("components/EntityNotes.tsx")
         self.assertIn("/users/me/notes?visibility=private", src)
 
-    def test_no_render_when_empty_or_failed(self):
+    def test_public_list_is_paginated(self):
         src = read("components/EntityNotes.tsx")
-        self.assertIn("data.items.length === 0) return null", src)
+        self.assertIn("page=${page}&page_size=${PAGE_SIZE}", src)
+        self.assertIn("t.common.pageOf(page, totalPages)", src)
 
 
 class ProfileNotesBlockTests(unittest.TestCase):
@@ -353,7 +363,13 @@ class ProfileNotesBlockTests(unittest.TestCase):
 
     def test_uses_public_notes_endpoint(self):
         src = read("app/(site)/user/[username]/page.tsx")
-        self.assertIn("/notes?page=1&page_size=8", src)
+        self.assertIn("/notes?page=${page}&page_size=${NOTES_PAGE_SIZE}", src)
+
+    def test_notes_tab_is_paginated(self):
+        src = read("app/(site)/user/[username]/page.tsx")
+        self.assertIn("notesBlock.total > NOTES_PAGE_SIZE && (", src)
+        self.assertIn("tab=notes&page=${page - 1}", src)
+        self.assertIn("tab=notes&page=${page + 1}", src)
 
     def test_cards_link_to_detail(self):
         src = read("app/(site)/user/[username]/page.tsx")
@@ -388,7 +404,8 @@ class DictionaryTreeTests(unittest.TestCase):
     LOCALES = ["zh-CN", "en", "ja", "ko", "de"]
     NEW_KEYS = [
         "detailTitle", "updatedLabel", "visibilityPublic", "visibilityPrivate",
-        "viewFull", "profileTitle", "mineSection", "mineManage",
+        "profileTitle",
+        "linkedTitleChemical", "linkedTitleReaction",
         "filterChemical", "filterReaction", "filterClear", "filterEmpty",
         "createReaction", "writeNote",
     ]
@@ -429,13 +446,13 @@ class DictionaryTreeTests(unittest.TestCase):
 
 
 class NotesListUiTests(unittest.TestCase):
-    def test_home_card_has_view_full_hint(self):
-        """ 查看全文提示：概览改版后 HomePanel 笔记行改为单行标题行
-        （链接直达详情页），note-view-full 提示在 EntityNotes 摘录卡上保留。"""
+    def test_entity_rows_are_unified_timeline(self):
+        """实体页笔记行 = 时间线行（标题直达详情 + 两行摘要），与工作台行
+        同一规范；逐行「查看全文」提示随卡片样式退役（标题即链接）。"""
         src = (ROOT / "web/components/EntityNotes.tsx").read_text(encoding="utf-8")
-        # 迁移：text-button → ui TextLink（note-view-full 定位类保留）
-        self.assertIn('<TextLink className="note-view-full"', src)
-        self.assertIn("t.notes.viewFull", src)
+        self.assertIn("noteListPresentation", src)
+        self.assertIn('className="entity-note-title"', src)
+        self.assertNotIn("note-view-full", src)
         home = (ROOT / "web/components/workbench/panels/HomePanel.tsx").read_text(encoding="utf-8")
         # 重设计：笔记行经 WbListRow（shared.tsx）统一 withLocale
         self.assertIn('href={`/note/${note.slug}`}', home)

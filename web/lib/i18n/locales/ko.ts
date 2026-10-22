@@ -538,11 +538,12 @@ const ko: Dictionary = {
   },
 
   notes: {
-    linkedTitle: '연결된 노트',
+    linkedTitleChemical: '화합물 노트',
+    linkedTitleReaction: '반응 노트',
     /** 노트 상세: 노트가 연결된 화합물/반응 (엔티티 페이지의 '연결된 노트'와 별개) */
     linkedEntitiesTitle: '연결 항목',
     add: '노트 추가',
-    emptyPublic: '공개된 연결 노트가 아직 없습니다.',
+    emptyPublic: '아직 노트가 없습니다.',
     loadFailed: '노트를 불러오지 못했습니다.',
     aboutEntityNote: (name: string) => `${name}에 관한 노트`,
     authorNote: (author: string) => `${author}의 노트`,
@@ -555,10 +556,7 @@ const ko: Dictionary = {
     viewCount: (n: number) => `조회 ${n}`,
     visibilityPrivate: '비공개',
     editInWorkbench: '편집',
-    viewFull: '전체 보기',
     profileTitle: '공개 노트',
-    mineSection: '내 비공개 노트',
-    mineManage: '노트 패널에서 관리',
     filterChemical: '화합물',
     filterReaction: '반응',
     filterClear: '필터 해제',
@@ -1032,7 +1030,6 @@ const ko: Dictionary = {
     reactionCount: (n: number) => `${n}건`,
     mutual: '맞팔로우',
     editProfile: '프로필 편집',
-    shareProfile: '프로필 공유',
     noReactions: '아직 공개 반응이 없습니다.',
     contentError: '콘텐츠를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.',
     peopleCount: (n: number) => `${n}명이 저장`,
