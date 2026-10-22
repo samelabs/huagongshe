@@ -558,11 +558,13 @@ class RepoWidePlaceholderHygiene(unittest.TestCase):
     """输出遮蔽误写入的占位符不得存在于仓库文本中。"""
 
     SUFFIXES = (".py", ".ts", ".tsx", ".md", ".txt", ".json", ".yaml", ".yml", ".css")
-    SKIP = ("node_modules", ".next", "venv", ".venv", ".git")
+    # .check-runs 是检查编排器的运行时产物(git 忽略), 其日志/result 按脱敏设计
+    # 携带遮蔽串 —— 与 node_modules/.next 同为按名剪除的非仓库文本。
+    SKIP = ("node_modules", ".next", "venv", ".venv", ".git", ".check-runs")
 
     def test_no_masked_placeholder_leaked_into_sources(self):
-        # 检测串用 chr() 拼出, 使本测试文件自身也不含该字面量 —— 因此无需排除任何文件,
-        # 生产源码扫描覆盖不降低。
+        # 检测串用 chr() 拼出, 使本测试文件自身也不含该字面量; 合法携带遮蔽串的
+        # 源码按同一约定程序拼装(local/check.py), 运行时产物目录经 SKIP 剪除。
         needle = chr(42) * 3
         bad: list = []
         for path in REPO.rglob("*"):

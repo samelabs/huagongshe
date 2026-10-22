@@ -40,6 +40,7 @@ Production site: https://huagongshe.com
 - 统一检查入口 local/check.py（preflight/web/backend/worker/release），docs/TESTING.md 为唯一权威手册
 - 本地与 CI 检查 fail-closed：exit/skip/xfail 共同定级、dev/build 互斥、超时与中断收尾、结果脱敏、Redis 锁跨 checkout、DB 保护顺序、前端测试单一 manifest 拒绝遗漏与重复
 - 注释与文案词表检查升级，代码/测试/运维配置存量过程语言清零；首页一级入口契约对齐（MCP、Skills 与 Plugin）
+- 占位符卫生与检查脱敏的机制冲突收口：检查编排器遮蔽串改程序拼装（源码不再携带字面量），卫生扫描剪除运行时产物目录（local/.check-runs 按脱敏设计携带遮蔽串）
 
 **视觉收口**
 - 化合物/反应互动视觉归一：中性胶囊行、CAS 归位、CID 退卡、头像色基准统一；实体页头部互动图标改静默图标钮

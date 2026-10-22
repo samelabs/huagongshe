@@ -95,12 +95,16 @@ def now_iso() -> str:
 
 _RUN_SECRETS = set()
 
+# 遮蔽串程序拼装, 源码不携带字面量 —— 与 tests/test_mcp_governance 的
+# 占位符卫生约定同一手法(仓库文本禁止出现三星遮蔽字面量)。
+_MASK = chr(42) * 3
+
 
 def redact(text: str) -> str:
-    """连接串密码段与 PGPASSWORD 注入值替换为 ***(日志与结果统一出口)。"""
+    """连接串密码段与 PGPASSWORD 注入值替换为三星遮蔽(日志与结果统一出口)。"""
     for secret in sorted(_RUN_SECRETS, key=len, reverse=True):
-        text = text.replace(secret, "***")
-    return _ENV_SECRET_RE.sub(r"\1***", _URL_SECRET_RE.sub(r"://\1:***@", text))
+        text = text.replace(secret, _MASK)
+    return _ENV_SECRET_RE.sub(r"\1" + _MASK, _URL_SECRET_RE.sub(r"://\1:" + _MASK + "@", text))
 
 
 def safe_value(value):
