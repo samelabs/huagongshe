@@ -90,12 +90,18 @@ resolve_chemical(identity_evidence)
 
 任何 absorb 合并必须先过独立函数 `can_merge(source, target)`：
 
+**判定优先级（先判先赢）**：CID 一致性先于 IK 一致性判定——两侧 CID
+一致（行上值，或行空侧由入站 `evidence_cid` 补齐后一致）即视为
+entity proof，直接放行；此后的 IK 差异**不参与判定**，只在
+identity_merge_log 的两侧快照里留痕。反向不成立：IK 一致不能补 CID
+证据的缺（见下）。
+
 **自动允许**：
 - 两行存在一致的非空 CID（行上值，或行空侧由入站 `evidence_cid` 补齐后一致）——entity proof 唯一来源
 
 **禁止自动合并**：
 - CID A ≠ CID B（两侧非空，含 evidence_cid 与行上 CID 冲突）——即使 CAS 相同
-- IK A ≠ IK B（两侧非空）
+- IK A ≠ IK B（两侧非空）——仅在两侧 CID 未能构成 entity proof（任一侧 CID 为空）时才到达此判定
 - **仅 same InChIKey 而无 CID entity proof**：返回 blocked，reason=`same_inchikey_without_entity_proof`（双方无证据冲突，只是证据不足，不是 CONFLICT）。Standard InChI 对部分互变异构归一，同 IK 可对应多个 PubChem entity（实测 151 组同 IK + 不同非空 CID），因此 IK 不单独授权 destructive merge
 - CAS 相同：永远只是 candidate evidence，不构成 merge evidence
 - CB 相同：同理
