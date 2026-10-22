@@ -86,29 +86,23 @@ export function SiteHeader() {
           </nav>
 
           <div className="sh-right">
-            {/* 铃铛对未读数的消费在 Provider 内部（HeaderBell）；
-                水合期由 HeaderBell 自占同形占位（语言键左侧的位置预留） */}
             <HeaderBell user={user} />
             <MoreMenu items={nav} routePath={routePath} />
             <div className="sh-lang">
               <LanguageSwitcher />
             </div>
-            {!ready ? (
-              /* 水合期账号位占位 = 登录态头像菜单同形：ready 翻转零位移；
-                 访客翻转成登录按钮时右缘锚定、无元素位移 */
-              <span className="sh-hydration-ph" aria-hidden="true">
-                <span className="hg-btn ghost sh-menu-trigger">
-                  <span className="hg-avatar s32" />
-                  <IconChevron className="sh-chev" />
-                </span>
-              </span>
-            ) : user ? (
-              <UserMenu user={user} />
-            ) : (
-              <Button variant="secondary" size="sm" className="sh-login-btn" href={withLocale("/login", locale)}>
-                {t.nav.login}
-              </Button>
-            )}
+            {/* 账号位定宽槽（.sh-account）：宽度 = 头像菜单触发钮，内容右对齐。
+                占位 / 头像菜单 / 登录按钮三种内容同槽，登录态翻转与水合翻转
+                都不改变槽宽 —— 语言键位置与登录态无关 */}
+            <div className="sh-account">
+              {!ready ? null : user ? (
+                <UserMenu user={user} />
+              ) : (
+                <Button variant="secondary" size="sm" className="sh-login-btn" href={withLocale("/login", locale)}>
+                  {t.nav.login}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* 手机（≤640）：标志 + 汉堡抽屉 + 语言切换（全站一套，不分公开/

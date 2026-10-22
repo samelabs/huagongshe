@@ -110,7 +110,7 @@ const de: Dictionary = {
   nav: {
     home: 'huagongshe.com Startseite',
     mainNav: 'Hauptnavigation',
-    login: 'Anmelden / Registrieren',
+    login: 'Anmelden',
     logout: 'Abmelden',
     logoutFailed: 'Abmelden fehlgeschlagen. Bitte erneut versuchen.',
     openMenu: 'Benutzermenü öffnen',

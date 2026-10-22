@@ -113,7 +113,7 @@ const t = {
   nav: {
     home: 'huagongshe.com 首页',
     mainNav: '主导航',
-    login: '登录 / 注册',
+    login: '登录',
     logout: '退出登录',
     logoutFailed: '登出失败，请重试',
     openMenu: '打开用户菜单',

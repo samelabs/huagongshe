@@ -109,7 +109,7 @@ const ko: Dictionary = {
   nav: {
     home: 'huagongshe.com 홈',
     mainNav: '주요 내비게이션',
-    login: '로그인 / 회원가입',
+    login: '로그인',
     logout: '로그아웃',
     logoutFailed: '로그아웃에 실패했습니다. 다시 시도해 주세요.',
     openMenu: '사용자 메뉴 열기',

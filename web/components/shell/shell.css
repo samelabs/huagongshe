@@ -63,8 +63,18 @@
 
 /* 右侧区 */
 .sh-right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex: none; }
-/* 水合期账号/汉堡占位：与登录态同形同尺寸（复用同一批类名量宽度），
-   visibility 隐藏 —— ready 翻转时零位移、零 pop-in（访客态翻转右缘锚定不位移） */
+/* 账号位定宽槽：宽度 = 头像菜单触发钮（左右(内边距16+边框1) + 头像32 +
+   内距4 + 箭头14 = 84），内容右对齐 —— 水合占位、头像菜单、访客登录
+   按钮三种内容同槽，槽宽恒定，语言键位置不随登录态与水合翻转变化；
+   触发钮尺寸构件变动时同步改此处 */
+.sh-account {
+  width: 84px;
+  display: flex;
+  justify-content: flex-end;
+  flex: none;
+}
+/* 水合期铃铛/汉堡占位：与登录态同形同尺寸（复用同一批类名量宽度），
+   visibility 隐藏 —— ready 翻转时零位移、零 pop-in */
 .sh-hydration-ph { display: inline-flex; align-items: center; gap: var(--sp-2); visibility: hidden; pointer-events: none; }
 .sh-bell { position: relative; }
 .sh-bell-dot {

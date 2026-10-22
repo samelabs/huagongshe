@@ -107,7 +107,7 @@ const ja: Dictionary = {
   nav: {
     home: 'huagongshe.com ホーム',
     mainNav: 'メインナビゲーション',
-    login: 'ログイン / 登録',
+    login: 'ログイン',
     logout: 'ログアウト',
     logoutFailed: 'ログアウトに失敗しました。もう一度お試しください。',
     openMenu: 'ユーザーメニューを開く',

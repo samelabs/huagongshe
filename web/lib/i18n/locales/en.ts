@@ -106,7 +106,7 @@ const en: Dictionary = {
   nav: {
     home: 'huagongshe.com home',
     mainNav: 'Main navigation',
-    login: 'Sign in / Register',
+    login: 'Sign in',
     logout: 'Sign out',
     logoutFailed: 'Sign out failed. Please try again.',
     openMenu: 'Open user menu',
