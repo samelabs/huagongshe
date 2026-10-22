@@ -172,6 +172,9 @@ main { flex: 1; background: var(--bg-page); }
 .entity-card h3 a { color: var(--text); }
 .entity-card-meta { margin: 0; color: var(--text-muted); font-size: var(--fs-13); line-height: 1.5; overflow-wrap: anywhere; }
 .entity-card > .hg-btn { align-self: start; }
+/* 结果行不横拉 1200 全宽 —— 与上方 620 检索条同族取阅读档宽，行内聚拢不散 */
+.search-page .entity-card-grid,
+.search-page .reaction-result { max-width: var(--w-reading); }
 
 /* 搜索路由加载态（loading.tsx）：Skeleton card × 3 */
 .search-skeleton { display: grid; gap: 10px; margin-top: 36px; }
@@ -1265,6 +1268,9 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
 .admin-nav a:hover { color: var(--text-inverse); background: rgba(255,255,255,.06); }
 *::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 .pipe-revive-btn:hover { background: rgba(30,144,255,.08); }
+/* 搜索结果行 hover：标题转操作色（与个人主页笔记行同一反馈语言） */
+.entity-card:hover h3 a { color: var(--action); }
+.reaction-result:hover .reaction-result-head a { color: var(--action); }
 }
 
 /* ── 实体页笔记（化合物笔记/反应笔记）：时间线行 —— 标题 + 两行摘要，
