@@ -155,7 +155,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
 
     {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
         笔记是社交承载，排在反应之前（DESIGN_SYSTEM 6.6；手机默认落本 tab）。
-        源码契约（tests/test_notes_ui_regression.py 等）：加载失败 ≠ total=0 —— 失败渲染
+        源码契约（tests/test_notes_ui.py）：加载失败 ≠ total=0 —— 失败渲染
         错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
         total=0 只渲染 tab 空状态（下方 EmptyState）。分区不挂标题（同反应 tab）── */}
     {tab === "notes" && (

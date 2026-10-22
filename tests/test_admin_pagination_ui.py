@@ -1,124 +1,19 @@
-"""Admin pagination UI + URL state 契约测试。
-
-分层:
-1. 纯函数 (lib/adminPagination.ts) — tsc 编译 + node 执行真实产物。
-   需要 web/node_modules (tsc) 与 node; 缺任一 → 整类 skip (NOT 无条件 skip):
-   core job (npm ci 后) 显式运行本模块 → 真测;
-   integration job (无 web deps, full python discover) → 明确 skip, 不报错。
-2. 三面板源码契约 — 纯文本断言, 无任何外部依赖。
-3. 共享 AdminPagination 组件 — 边界禁用契约。
-
-运行: python -m unittest tests.test_admin_pagination_ui -v
+"""Admin 分页源码契约: 共享 AdminPagination 组件与 users/reactions/skills
+三面板的 URL 状态与 offset 换算。分页纯函数的行为测试在
+web/lib/adminPagination.test.mjs。
 """
 
 from __future__ import annotations
 
-import json
-import subprocess
-import shutil
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
 
-# Node-only 层的硬依赖: tsc 二进制 + node 可执行。缺失时 skipClass (非 fail)。
-TSC_BIN = WEB / "node_modules" / ".bin" / "tsc"
-NODE_BIN = shutil.which("node")
-
 
 def read(p: str) -> str:
     return (WEB / p).read_text(encoding="utf-8")
-
-
-def load_pagination_module():
-    """tsc --module commonjs 编译 lib/adminPagination.ts 到 /tmp → .cjs → node require。
-
-    产物经 require() 拿到真实 exports (PAGE_SIZE/parseAdminPage/adminOffset/adminTotalPages)。
-    不改生产源码; 每次调用重新编译, 保证测的是当前源码。
-    """
-    out_dir = Path("/tmp/hgs-admin-pagination-test")
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    js = subprocess.run(
-        [str(TSC_BIN), "lib/adminPagination.ts", "--target", "ES2020",
-         "--module", "commonjs", "--esModuleInterop", "--skipLibCheck",
-         "--outDir", str(out_dir)],
-        cwd=WEB, capture_output=True, text=True, timeout=120,
-    )
-    cjs = out_dir / "adminPagination.js"
-    if js.returncode != 0 or not cjs.exists():
-        raise RuntimeError(f"tsc 编译失败: rc={js.returncode} {js.stderr[:500]}")
-    # 项目 package.json type:module 可能使 .js 被 node 按 ESM 解析 → 复制为 .cjs
-    dst = out_dir / "adminPagination.cjs"
-    dst.write_text(cjs.read_text(encoding="utf-8"), encoding="utf-8")
-
-    def run(exprs):
-        """exprs: JS 表达式列表(以 m. 前缀引用模块), 返回 JSON 值列表。"""
-        code = (
-            f"const m = require({json.dumps(str(dst))});\n"
-            "console.log(JSON.stringify([" + ",".join(exprs) + "]));"
-        )
-        r = subprocess.run([NODE_BIN, "-e", code], capture_output=True, text=True, timeout=30)
-        if r.returncode != 0:
-            raise RuntimeError(f"node 执行失败: {r.stderr[:300]}")
-        return json.loads(r.stdout.strip())
-
-    return run
-
-
-@unittest.skipUnless(TSC_BIN.exists() and NODE_BIN,
-                     "需要 web/node_modules(tsc) + node — core job 显式运行; "
-                     "integration(无 web deps)跳过, 见 ci.yml 分层")
-class PureFunctionTests(unittest.TestCase):
-    """parseAdminPage / adminOffset / adminTotalPages (跑真实 tsc 编译产物)。"""
-
-    @classmethod
-    def setUpClass(cls):
-        cls._run_fn = load_pagination_module()
-
-    def setUp(self):
-        self.run = type(self)._run_fn
-
-    def test_page_size_is_50(self):
-        self.assertEqual([50], self.run(["m.PAGE_SIZE"]))
-
-    def test_parse_admin_page_valid(self):
-        vals = self.run([
-            'm.parseAdminPage(null)',
-            'm.parseAdminPage("")',
-            'm.parseAdminPage("1")',
-            'm.parseAdminPage("2")',
-            'm.parseAdminPage("10")',
-        ])
-        self.assertEqual([1, 1, 1, 2, 10], vals)
-
-    def test_parse_admin_page_invalid_falls_to_1(self):
-        bad = ["0", "-1", "abc", "1.5", "1e2", " 2", "NaN", "Infinity"]
-        vals = self.run([f'm.parseAdminPage({json.dumps(b)})' for b in bad])
-        self.assertEqual([1] * len(bad), vals, f"非法 page 应按 1 处理: {bad}")
-
-    def test_admin_offset(self):
-        vals = self.run([
-            'm.adminOffset(1)',
-            'm.adminOffset(2)',
-            'm.adminOffset(10)',
-            'm.adminOffset(1, 25)',
-            'm.adminOffset(2, 25)',
-        ])
-        self.assertEqual([0, 50, 450, 0, 25], vals)
-
-    def test_admin_total_pages(self):
-        vals = self.run([
-            'm.adminTotalPages(0)',
-            'm.adminTotalPages(1)',
-            'm.adminTotalPages(50)',
-            'm.adminTotalPages(51)',
-            'm.adminTotalPages(480)',
-            'm.adminTotalPages(500)',
-            'm.adminTotalPages(501)',
-        ])
-        self.assertEqual([1, 1, 1, 2, 10, 10, 11], vals)
 
 
 class AdminPaginationComponentTests(unittest.TestCase):

@@ -1,37 +1,22 @@
-"""化合物显示名称 · 唯一解析规则 (locale-chemical-name)。
+"""化合物显示名称 · 唯一解析规则（resolver 规则本身的行为测试在
+web/lib/chemicalName.test.mjs）。
 
-背景(审计结论, 全部来自真实 schema 与数据):
+本文件锁两件事:
 
-- `chemistry.chemicals.preferred_name` ← PubChem `Title`(或 record_title)/ CB `identity.en`
-  —— English 常用名; `iupac_name` ← PubChem `IUPACName` —— 系统名。
-- `chemistry.name_index` 是派生镜像, `lang` 只有 cn/en, `kind` 五种:
-  name_cn(172,801 行 / 172,801 chemical_id, 即每化合物至多一条, 来自 CB identity.cn)、
-  alias_cn、alias_en、synonym_en、supplier(供应商名, 非展示名)。
-- 中文名此前只有 detail 页的 CB evidence 区块可见; H1/搜索结果/SEO 各自一套 fallback,
-  且 SEO <title> 是裸 `HCID {id}`, 与 OG title 不一致。
-
-本文件锁三件事:
-
-1. resolver 规则本身(直接执行 web/lib/chemicalName.ts 真身, 不是复制逻辑);
-2. API 只补 locale 名称原始字段(name_cn), 由 name_index 批量挂载, 不下发全量;
-3. 单链不变量: 任何展示名称的地方都必须消费同一 resolver, 禁止第二套 fallback。
+1. API 只补 locale 名称原始字段(name_cn), 由 name_index 批量挂载, 不下发全量;
+2. 单链不变量: 任何展示名称的地方都必须消费同一 resolver, 禁止第二套 fallback。
 """
 
 from __future__ import annotations
 
-import json
 import os
 import re
-import shutil
-import subprocess
-import tempfile
 import unittest
 
 os.environ.setdefault("HGS_DATABASE_URL", os.environ.get("TEST_DATABASE_URL", ""))
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
-RESOLVER_TS = os.path.join(WEB, "lib", "chemicalName.ts")
 CONSUMERS = [
     "web/components/EntityCard.tsx",
     "web/app/(site)/chemical/[id]/page.tsx",
@@ -54,104 +39,6 @@ from api.services import chemicals as chemicals_service  # noqa: E402
 def _read(rel: str) -> str:
     with open(os.path.join(ROOT, rel), encoding="utf-8") as fh:
         return fh.read()
-
-
-# ---------------------------------------------------------------------------
-# 1. resolver 规则(执行真身 TS 模块)
-# ---------------------------------------------------------------------------
-NODE_CASES = """
-const m = await import(RESOLVER_URL);
-const label = (id) => `HCID ${id}`;
-const cases = {
-  zh_cn_and_en: [{ id: 1, name_cn: "乙醇", preferred_name: "Ethanol", iupac_name: "ethanol", molecular_formula: "C2H6O" }, "zh-CN"],
-  zh_en_only: [{ id: 2, preferred_name: "Ethanol" }, "zh-CN"],
-  zh_systematic_only: [{ id: 3, iupac_name: "oxalonitrile", molecular_formula: "C2N2" }, "zh-CN"],
-  zh_formula_only: [{ id: 4, molecular_formula: "C2N2" }, "zh-CN"],
-  zh_nothing: [{ id: 5 }, "zh-CN"],
-  ja_cn_and_en: [{ id: 6, name_cn: "乙醇", preferred_name: "Ethanol" }, "ja-JP"],
-  en_locale_with_cn: [{ id: 7, name_cn: "乙醇", preferred_name: "Ethanol" }, "en-US"],
-  zh_blank_cn: [{ id: 8, name_cn: "   ", preferred_name: "Cyanogen" }, "zh-CN"],
-  zh_cn_equals_en: [{ id: 9, name_cn: "Cyanogen", preferred_name: "Cyanogen" }, "zh-CN"],
-  zh_cn_no_en_with_iupac: [{ id: 10, name_cn: "乙醇", iupac_name: "ethanol", molecular_formula: "C2H6O" }, "zh-CN"],
-};
-const out = {};
-for (const [key, [chem, locale]] of Object.entries(cases)) out[key] = m.resolveChemicalName(chem, label, locale);
-out.site_locale = m.SITE_LOCALE;
-console.log(JSON.stringify(out));
-"""
-
-
-def _run_resolver() -> dict:
-    """执行 resolver 真身(TS 模块)。
-
-    harness 说明: chemicalName.ts 合法使用 bundler 风格相对 import(`./locale`),
-    node --experimental-strip-types 不解析无扩展名相对导入; 改用 web 仓库自带
-    tsx 执行同一真身模块 —— 只调整测试执行方式, 生产源码/tsconfig/locale 架构
-    零改动, 仍执行真实 resolveChemicalName(非复制逻辑/非字符串扫描)。
-    """
-    if not shutil.which("node"):
-        raise unittest.SkipTest("node 不可用: 跳过 resolver 真身执行")
-    if not os.path.exists(RESOLVER_TS):
-        raise unittest.SkipTest(f"resolver 缺失: {RESOLVER_TS}")
-    tsx = os.path.join(WEB, "node_modules", ".bin", "tsx")
-    if not os.path.exists(tsx):
-        raise unittest.SkipTest("tsx 不可用: 跳过 resolver 真身执行")
-    script = f'const RESOLVER_URL = "file://{RESOLVER_TS}";\n' + NODE_CASES
-    with tempfile.NamedTemporaryFile("w", suffix=".mts", delete=False) as fh:
-        fh.write(script)
-        probe = fh.name
-    try:
-        proc = subprocess.run(
-            [tsx, probe], capture_output=True, text=True, cwd=WEB, timeout=120,
-        )
-    finally:
-        os.unlink(probe)
-    if proc.returncode != 0:
-        raise AssertionError(f"resolver 执行失败: {proc.stderr[-800:]}")
-    return json.loads(proc.stdout.strip().splitlines()[-1])
-
-
-class ResolverRuleTests(unittest.TestCase):
-    """locale -> 本地化名 -> 英文常用名 -> 系统名 -> 分子式 -> HCID。"""
-
-    @classmethod
-    def setUpClass(cls):
-        cls.result = _run_resolver()
-
-    def test_zh_with_localized_and_english(self):
-        got = self.result["zh_cn_and_en"]
-        self.assertEqual(("乙醇", "Ethanol", "name_cn"), (got["title"], got["secondary"], got["source"]))
-
-    def test_zh_english_only_no_secondary_duplication(self):
-        got = self.result["zh_en_only"]
-        self.assertEqual(("Ethanol", "preferred_name"), (got["title"], got["source"]))
-        self.assertIsNone(got["secondary"], "主标题本身就是英文名时不得重复 secondary")
-
-    def test_zh_systematic_then_formula_then_hcid(self):
-        self.assertEqual(("oxalonitrile", "iupac_name"), (self.result["zh_systematic_only"]["title"], self.result["zh_systematic_only"]["source"]))
-        self.assertEqual(("C2N2", "molecular_formula"), (self.result["zh_formula_only"]["title"], self.result["zh_formula_only"]["source"]))
-        self.assertEqual(("HCID 5", "hcid"), (self.result["zh_nothing"]["title"], self.result["zh_nothing"]["source"]))
-
-    def test_other_locale_falls_back_to_english(self):
-        for key in ("ja_cn_and_en", "en_locale_with_cn"):
-            got = self.result[key]
-            self.assertEqual("Ethanol", got["title"], key)
-            self.assertEqual("preferred_name", got["source"], key)
-            self.assertIsNone(got["secondary"], key)
-
-    def test_blank_and_identical_names_do_not_leak(self):
-        blank = self.result["zh_blank_cn"]
-        self.assertEqual(("Cyanogen", "preferred_name"), (blank["title"], blank["source"]))
-        same = self.result["zh_cn_equals_en"]
-        self.assertEqual("Cyanogen", same["title"])
-        self.assertIsNone(same["secondary"], "本地化名与英文名同串时不得重复展示")
-
-    def test_zh_without_english_falls_back_to_iupac_subtitle(self):
-        got = self.result["zh_cn_no_en_with_iupac"]
-        self.assertEqual(("乙醇", "ethanol", "name_cn"), (got["title"], got["secondary"], got["source"]))
-
-    def test_site_locale_is_zh_cn(self):
-        self.assertEqual("zh-CN", self.result["site_locale"])
 
 
 # ---------------------------------------------------------------------------

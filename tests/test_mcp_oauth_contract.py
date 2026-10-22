@@ -55,15 +55,27 @@ class McpOAuthContractTests(unittest.TestCase):
         self.assertIn('"agent" if auth_kind in ("agent", "oauth") else "web"', reactions)
         self.assertIn('auth_kind in ("agent", "oauth")', skills)
 
-    def test_optional_private_tools_use_read_scope_gate(self):
+    def _tool_body(self, tool_name: str) -> str:
         source = inspect.getsource(mcp_server.build_mcp_server)
-        for tool_name in ("get_reaction", "get_skill", "render_reaction_svg"):
+        tail = source[source.index(f"async def {tool_name}("):]
+        next_tool = tail.find("@server.tool", 1)
+        return tail if next_tool < 0 else tail[:next_tool]
+
+    def test_optional_private_tools_use_read_scope_gate(self):
+        """公开内容匿名可读; 带身份时按 read scope 判定能否读私有内容。"""
+        for tool_name in ("get_reaction", "render_reaction_svg"):
             with self.subTest(tool=tool_name):
-                start = source.index(f"async def {tool_name}(")
-                tail = source[start:]
-                next_tool = tail.find("@server.tool", 1)
-                body = tail if next_tool < 0 else tail[:next_tool]
+                body = self._tool_body(tool_name)
                 self.assertIn("_optional_tool_actor(", body)
+                self.assertIn('oauth_scope="read"', body)
+
+    def test_skill_tools_require_login_with_read_scope(self):
+        """技能浏览是登录能力: list_skills / get_skill 一律要求身份 + read scope。"""
+        for tool_name in ("list_skills", "get_skill"):
+            with self.subTest(tool=tool_name):
+                body = self._tool_body(tool_name)
+                self.assertIn("_require_tool_actor(", body)
+                self.assertNotIn("_optional_tool_actor(", body)
                 self.assertIn('oauth_scope="read"', body)
 
     def test_rest_bearer_resolver_does_not_claim_oauth_tokens(self):
