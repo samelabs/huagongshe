@@ -688,13 +688,11 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
    外层只在组与组之间换行，组内永不拆开 */
 .hg-head-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 
-/* 互动胶囊行: 徽标后的收藏/笔记/反应/分享/打印统一
-   胶囊表达 —— 中性细描边、图标随文字色(不上彩色)、图标+文本同构,
-   高度对齐徽标(按钮 sm 32 = 徽标 md)。收藏选中态以浅底整体表达,
-   不给图标单独上色。互动是化合物/反应未来的主入口, 视觉同族但不喧宾夺主 */
+/* 互动图标行: 徽标后的收藏/笔记/反应/分享/打印统一静默图标钮 ——
+   无描边、圆形、图标随文字色, 高度对齐徽标(按钮 sm 32 = 徽标 md)。
+   悬停浅底、收藏选中态浅蓝底; 描边胶囊与徽章并排时视觉过重,不再使用 */
 .hg-head-row .hg-btn {
-  border-radius: var(--r-pill);
-  border: 1px solid var(--border);
+  border-color: transparent;
   background: transparent;
   color: var(--text-2);
   font-weight: var(--fw-medium);

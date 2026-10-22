@@ -1293,7 +1293,7 @@ a.entity-note-link:hover span{color:var(--action)}
 .note-detail-page .hg-page-head-main{flex:1 1 100%}
 .note-detail-page .hg-page-head h1{text-align:center}
 .note-detail-page .hg-page-head-meta{display:flex;justify-content:center}
-.note-detail-page .hg-page-head-actions{margin-inline:auto}
+/* 操作行不居中 —— 标题/署名居中表达中心, 分享与本人操作靠右(基线行为) */
 .note-detail-links-section .hg-section-title{font-size:var(--fs-13);font-weight:var(--fw-medium);line-height:var(--lh-ui);letter-spacing:.06em;color:var(--text-muted)}
 .note-detail-meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:var(--sp-2) var(--sp-3)}
 .note-detail-views{color:var(--text-muted);font-size:var(--fs-12)}

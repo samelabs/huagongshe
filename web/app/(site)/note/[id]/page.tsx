@@ -164,7 +164,7 @@ export default async function NoteDetailPage({ params }: Params) {
             <div className="entity-note-links">
               {chemicalNames.map(({ id: cid, name }) => (
                 <Link key={`c-${cid}`} className="entity-note-link" href={withLocale(`/chemical/${cid}`, locale)}>
-                  <EntityBadge kind="chemical" id={cid} size="sm" ariaLabel={t.common.hcidLabel(cid)} />
+                  <EntityBadge kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />
                   <span>{name}</span>
                 </Link>
               ))}
@@ -173,7 +173,7 @@ export default async function NoteDetailPage({ params }: Params) {
                   key={`c-${cid}`}
                   kind="chemical"
                   id={cid}
-                  size="sm"
+                  size="xs"
                   href={withLocale(`/chemical/${cid}`, locale)}
                   ariaLabel={t.common.hcidLabel(cid)}
                 />
@@ -183,7 +183,7 @@ export default async function NoteDetailPage({ params }: Params) {
                   key={`r-${rid}`}
                   kind="reaction"
                   id={rid}
-                  size="sm"
+                  size="xs"
                   href={withLocale(`/reaction/${rid}`, locale)}
                   ariaLabel={t.common.hridLabel(rid)}
                 />
