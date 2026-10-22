@@ -45,10 +45,13 @@ jobs:
         env:
           # 明显 CI synthetic value — 不指向任何真实库, 也不得连接
           HGS_DATABASE_URL: postgresql+asyncpg://ci:ci@127.0.0.1:5432/unused
+        # 纯快检清单(无 DB); 全量 discover 在 integration job, 新增测试
+        # 文件由 integration 兜底入门禁, 清单只做提速。运行手册 docs/TESTING.md
         run: |
           python -m unittest \
             tests.test_gate \
             tests.test_db_gate \
+            tests.test_check_orchestrator \
             tests.test_security \
             tests.test_worker \
             tests.test_whole_record \
@@ -166,10 +169,13 @@ jobs:
           python scripts/migrate.py "postgresql://hgs_ci:ci-password@127.0.0.1:5432/test_hgs"
 
       - name: Run full test suite
+        # 全量唯一日常入口(CI 与 local/check.py release 各一次, 见
+        # docs/TESTING.md)。显式 canonical base URL, 不依赖默认值。
         env:
           HGS_DATABASE_URL: postgresql+asyncpg://hgs_ci:ci-password@127.0.0.1:5432/test_hgs
           TEST_DATABASE_URL: postgresql+asyncpg://hgs_ci:ci-password@127.0.0.1:5432/test_hgs?test_sentinel=hgs-test-db
           HGS_REDIS_URL: redis://127.0.0.1:6379/15
           HGS_SKILL_ROOT: ${{ runner.temp }}/hgs-skills
+          HGS_PUBLIC_BASE_URL: https://huagongshe.com
         run: |
           python -m unittest discover -s tests

@@ -36,5 +36,9 @@ local/stack/.env.local
 local/uploads/
 local/.dev*.log
 
+# 检查编排器 run 产物与 dev/build 互斥标记（见 docs/TESTING.md）
+local/.check-runs/
+local/.dev-active.json
+
 # 品牌源文件与生成脚本（不入库；产物在 web/public 与 web/app）
 brand/
