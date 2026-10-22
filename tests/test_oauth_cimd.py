@@ -169,6 +169,22 @@ class IpPolicyTests(unittest.TestCase):
                             "https://example.com/c.json"))
                 self.assertIn("forbidden address", raised.exception.description)
 
+    def test_slow_dns_resolution_hits_total_deadline(self):
+        """慢 DNS 受总截止线约束: 解析挂住 → 到点按拉取超时拒绝, 不无限等。"""
+        async def stalled_resolve(host, port):
+            await asyncio.sleep(600)
+
+        async def no_connect(*a, **k):
+            raise AssertionError("解析未按时完成时不得建连")
+
+        with patch.object(oauth_cimd, "_resolve_addresses", stalled_resolve), \
+             patch.object(asyncio, "open_connection", no_connect), \
+             patch.object(oauth_cimd, "FETCH_TIMEOUT_SECONDS", 0.2):
+            with self.assertRaises(svc.OAuthProtocolError) as raised:
+                asyncio.run(oauth_cimd._fetch_document(
+                    "https://example.com/c.json"))
+        self.assertIn("could not be fetched", raised.exception.description)
+
 
 class CacheAgeTests(unittest.TestCase):
     def test_default_and_clamping(self):
