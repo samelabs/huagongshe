@@ -33,11 +33,14 @@ from .services import oauth as oauth_svc
 auth_router = APIRouter(prefix="/auth", tags=["users"])
 router = APIRouter(prefix="/users", tags=["users"])
 USERNAME_RE = re.compile(r"^[a-z0-9_]{4,30}$")
+# 头像解码白名单：与前端上传入口允许的类型一致(JPEG/PNG/WEBP)，
+# 白名单外格式按无法识别处理
+AVATAR_SOURCE_FORMATS = ("JPEG", "PNG", "WEBP")
 
 def avatar_variants(raw: bytes) -> dict[int, bytes]:
     """Decode, resize and compress outside the API event loop."""
     try:
-        source = Image.open(io.BytesIO(raw))
+        source = Image.open(io.BytesIO(raw), formats=AVATAR_SOURCE_FORMATS)
         if source.width * source.height > 20_000_000:
             raise HTTPException(413, {"message": "头像像素尺寸过大", "kind": "avatar_pixels_too_large"})
         source.seek(0)
