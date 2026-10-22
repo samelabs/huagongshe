@@ -73,6 +73,20 @@ async function proxy(request: NextRequest, path: string): Promise<NextResponse> 
     ? undefined
     : await request.arrayBuffer();
 
+  // proxy 管线对请求体有缓冲上限(next.config proxyClientMaxBodySize,
+  // 与 nginx 上传入口同值): 超限被静默截断, content-length 头仍是原始
+  // 值 —— 截断体转发上游必然失败。按 413 + kind 明确拒绝, 不落到
+  // 502「上游服务不可用」。
+  if (body) {
+    const declared = parseInt(request.headers.get("content-length") ?? "", 10);
+    if (Number.isFinite(declared) && body.byteLength < declared) {
+      return NextResponse.json(
+        { detail: { message: "请求体超过大小上限", kind: "request_body_too_large" } },
+        { status: 413 },
+      );
+    }
+  }
+
   let upstream: Response;
   try {
     upstream = await fetch(target, {

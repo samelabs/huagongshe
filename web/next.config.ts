@@ -47,6 +47,12 @@ const nextConfig: NextConfig = {
   // 让 RSC 响应按 _rsc 区分 URL，可以安全进入共享缓存
   experimental: {
     validateRSCRequestHeaders: true,
+    // proxy 管线对经其路由的请求缓冲请求体并设上限(默认 10MB, 超限静默
+    // 截断)。技能包上传走 /api/* → Next BFF → FastAPI, 需容纳应用
+    // settings.skill_zip_max_bytes(12MiB) + multipart 开销 —— 与 nginx
+    // 上传入口(client_max_body_size 14M)同值对齐; 超过此值的请求被
+    // 截断后由 BFF 按 413 拒绝(app/api/[...path]/route.ts)。
+    proxyClientMaxBodySize: "14mb",
   },
   ...(buildSha ? { env: { HGS_BUILD_SHA: buildSha } } : {}),
   // 本地 dev 的 /uploads 静态服务（生产由 nginx 承担）：
