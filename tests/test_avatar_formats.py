@@ -2,6 +2,9 @@
 
 import io
 import unittest
+import struct
+import zlib
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from PIL import Image
@@ -33,6 +36,21 @@ class AvatarSourceFormatsTest(unittest.TestCase):
                     avatar_variants(_encode(fmt))
                 self.assertEqual(ctx.exception.status_code, 400)
                 self.assertEqual(ctx.exception.detail["kind"], "avatar_unrecognized")
+
+    def test_apng_canvas_rejected_before_native_allocation(self):
+        def chunk(kind, payload):
+            return (struct.pack(">I", len(payload)) + kind + payload
+                    + struct.pack(">I", zlib.crc32(kind + payload)))
+        raw = (b"\x89PNG\r\n\x1a\n"
+               + chunk(b"IHDR", struct.pack(">IIBBBBB", 21000, 21000, 8, 6, 0, 0, 0))
+               + chunk(b"acTL", struct.pack(">II", 2, 0))
+               + chunk(b"fcTL", struct.pack(">IIIIIHHBB", 0, 1, 1, 0, 0, 1, 10, 1, 0))
+               + chunk(b"IDAT", zlib.compress(b"\0" * 5)) + chunk(b"IEND", b""))
+        with patch.object(Image.core, "fill", side_effect=AssertionError("unsafe allocation")) as fill:
+            with self.assertRaises(HTTPException) as ctx:
+                avatar_variants(raw)
+        self.assertEqual(ctx.exception.status_code, 413)
+        fill.assert_not_called()
 
     def test_non_image_bytes_rejected(self):
         with self.assertRaises(HTTPException) as ctx:

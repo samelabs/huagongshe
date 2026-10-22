@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
+from unittest.mock import patch
 import unittest
 import uuid
 from urllib.parse import parse_qs, urlparse
@@ -105,6 +107,43 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
         value = int(row)
         self.reaction_ids.append(value)
         return value
+
+    async def test_concurrent_create_cannot_exceed_quota(self):
+        from api.core.config import settings
+        ready, release = asyncio.Event(), asyncio.Event()
+        original = svc._replace_references
+        async def hold_first(*args, **kwargs):
+            await original(*args, **kwargs)
+            if not ready.is_set():
+                ready.set()
+                await release.wait()
+        async def create():
+            async with self.Session() as db:
+                try:
+                    return await svc.create_note(db, actor_id=self.owner, visibility="private",
+                        content="quota concurrency", chemical_ids=[], reaction_ids=[])
+                except svc.NoteQuotaExceededError:
+                    return None
+        with patch.object(settings, "api_note_max_per_user", 1), patch.object(svc, "_replace_references", hold_first):
+            first = asyncio.create_task(create())
+            second = None
+            try:
+                await asyncio.wait_for(ready.wait(), 5)
+                second = asyncio.create_task(create())
+                async with self.engine.connect() as observer:
+                    async def wait_blocked():
+                        while not (await observer.execute(text("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'"))).scalar_one():
+                            if second.done():
+                                return
+                            await asyncio.sleep(0.01)
+                    await asyncio.wait_for(wait_blocked(), 5)
+            finally:
+                release.set()
+                results = await asyncio.wait_for(asyncio.gather(first, *([second] if second else [])), 5)
+        self.assertEqual(sum(item is not None for item in results), 1)
+        async with self.Session() as db:
+            count = (await db.execute(text("SELECT count(*) FROM community.notes WHERE owner_user_id=:id"), {"id": self.owner})).scalar_one()
+        self.assertEqual(count, 1)
 
     async def test_private_note_supports_mixed_context_and_owner_read(self):
         async with self.Session() as db:

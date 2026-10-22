@@ -187,6 +187,36 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
 
     # ── 签名与凭证 ──────────────────────────────────────────────────
 
+    async def test_out_of_range_ids_are_422_over_signed_http(self):
+        import httpx
+        from api.main import app
+        from api.core.database import get_db
+        cid = await self._make_client(scopes=[CHEMICAL_READ_SCOPE, REACTION_READ_SCOPE])
+        async def session():
+            async with self.Session() as db:
+                yield db
+        previous = app.dependency_overrides.get(get_db)
+        app.dependency_overrides[get_db] = session
+        try:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                for path, query in [
+                    ("/data/v1/chemicals/2147483648", ""),
+                    ("/data/v1/chemicals/lookup", "hcid=2147483648"),
+                    ("/data/v1/chemicals", "ids=1,2147483648"),
+                    ("/data/v1/chemicals/2147483648/reactions", ""),
+                    ("/data/v1/reactions/9223372036854775808", ""),
+                    ("/data/v1/reactions", "ids=1,9223372036854775808"),
+                ]:
+                    headers = self._auth_headers(cid, TOKEN, path, query)
+                    response = await client.get(path + ("?" + query if query else ""), headers=headers)
+                    self.assertEqual(response.status_code, 422, response.text)
+                    self.assertEqual(response.json()["error"]["code"], "invalid_parameter")
+        finally:
+            if previous is None:
+                app.dependency_overrides.pop(get_db, None)
+            else:
+                app.dependency_overrides[get_db] = previous
+
     async def test_valid_signed_request_succeeds(self):
         client_id = await self._make_client(scopes=[CHEMICAL_READ_SCOPE])
         path = f"/data/v1/chemicals/{self.hcid}"
@@ -396,10 +426,11 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         from api.services.chemicals import ChemicalNotFoundError
 
         calls = {"n": 0}
+        clock = {"now": 0.0}
 
         async def slow_detail(db, hcid, **_kw):
             calls["n"] += 1
-            await asyncio.sleep(0.05)
+            clock["now"] += 0.05
             if hcid == self.hcid:
                 return {"id": hcid}
             raise ChemicalNotFoundError()
@@ -410,7 +441,8 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         # 预算压到 0.06s：第 1 项耗时 0.05 通过，其后到点全部让位
         with _patch.object(dai, "get_chemical_detail", slow_detail), \
              _patch.object(dai, "project_chemical", fake_project), \
-             _patch.object(dai, "CHEMICAL_BATCH_BUDGET_SECONDS", 0.06):
+             _patch.object(dai, "CHEMICAL_BATCH_BUDGET_SECONDS", 0.06), \
+             _patch.object(dai, "time", types.SimpleNamespace(monotonic=lambda: clock["now"])):
             response = await self._call(
                 data_api.chemicals_batch, "/data/v1/chemicals", query,
                 self._auth_headers(client_id, TOKEN, "/data/v1/chemicals", query))

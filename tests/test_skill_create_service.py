@@ -244,6 +244,15 @@ class LoaderTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ArchiveKernelTests(unittest.TestCase):
+    def test_corrupt_member_crc_is_validation_error(self):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as archive:
+            archive.writestr("SKILL.md", SKILL_MD)
+        raw = buf.getvalue().replace(SKILL_MD, b"X" + SKILL_MD[1:], 1)
+        with self.assertRaises(SkillArchiveValidationError) as ctx:
+            svc.extract_skill_zip(raw)
+        self.assertEqual(ctx.exception.kind, SkillArchiveValidationError.INVALID_ARCHIVE)
+
     """§27 archive error matrix(18 类)。"""
 
     def _assert(self, raw, kind, detail):

@@ -15,12 +15,14 @@ import asyncio
 import hashlib
 import io
 import logging
+import lzma
 import os
 import re
 import shutil
 import subprocess
 import uuid
 import zipfile
+import zlib
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -358,7 +360,7 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
 
     try:
         archive = zipfile.ZipFile(io.BytesIO(raw))
-    except zipfile.BadZipFile:
+    except (zipfile.BadZipFile, UnicodeDecodeError):
         raise SkillArchiveValidationError(
             SkillArchiveValidationError.INVALID_ARCHIVE, "不是有效的 zip 文件")
 
@@ -407,8 +409,12 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.ARCHIVE_LIMIT,
                 f"解包后总量超过 {settings.skill_total_max_bytes // (1024 * 1024)}MB 上限")
-        with archive.open(info) as member:
-            raw_bytes = member.read(settings.skill_file_max_bytes + 1)
+        try:
+            with archive.open(info) as member:
+                raw_bytes = member.read(settings.skill_file_max_bytes + 1)
+        except (zipfile.BadZipFile, EOFError, RuntimeError, zlib.error, OSError, lzma.LZMAError) as exc:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.INVALID_ARCHIVE, "压缩包成员损坏或使用不支持的编码") from exc
         if len(raw_bytes) > settings.skill_file_max_bytes:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.ARCHIVE_LIMIT,

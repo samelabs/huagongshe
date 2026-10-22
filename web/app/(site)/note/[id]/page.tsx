@@ -147,7 +147,7 @@ export default async function NoteDetailPage({ params }: Params) {
               <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
             )}
             {hasSession && (
-              <NoteOwnerActions noteId={note.id} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />
+              <NoteOwnerActions noteId={note.id} noteSlug={note.slug} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />
             )}
           </div>
         ) : undefined}

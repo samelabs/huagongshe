@@ -97,6 +97,30 @@ class UsersSearchTests(unittest.IsolatedAsyncioTestCase):
         self.ids = ids
         await self._flush_rate_limit()
 
+    async def test_search_username_profile_has_unambiguous_http_route(self):
+        import httpx
+        from api.main import app
+        from api.core.database import get_db
+        owner = self.ids[f"{self.prefix}_alice"]
+        async with self.engine.begin() as db:
+            await db.execute(text("UPDATE community.users SET username='search' WHERE id=:id"), {"id": owner})
+        async def session():
+            async with self.Session() as db:
+                yield db
+        previous = app.dependency_overrides.get(get_db)
+        app.dependency_overrides[get_db] = session
+        try:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                profile = await client.get("/api/users/by-username/search")
+                self.assertEqual(profile.status_code, 200)
+                self.assertEqual(profile.json()["username"], "search")
+                self.assertEqual((await client.get("/api/users/search", params={"q": "search"})).status_code, 200)
+        finally:
+            if previous is None:
+                app.dependency_overrides.pop(get_db, None)
+            else:
+                app.dependency_overrides[get_db] = previous
+
     async def _flush_rate_limit(self):
         import redis.asyncio as redis
         from api.core.config import settings

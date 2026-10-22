@@ -418,7 +418,8 @@ def _fams() -> list[Family]:
               contract=Contract(frozenset({C.WEB}), X.NONE),
               note="用户搜索(前缀/包含, 公开字段, 限流); 仅 web 面"),
             S("profile", A.PUBLIC_OR_ACTOR, entrypoints=(
-                I(T.HTTP, "GET /api/users/{username}"),),
+                I(T.HTTP, "GET /api/users/{username}"),
+                I(T.HTTP, "GET /api/users/by-username/{username}")),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
             S("followers", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/users/{username}/followers"),),

@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 import unittest
@@ -303,6 +304,46 @@ class OauthConnectionsManageTests(unittest.IsolatedAsyncioTestCase):
                 headers, oauth_scope="read", agent_scope=None)
         self.assertIsNotNone(actor, "B 的 access token 必须仍然可用")
         self.assertIsNone(challenge)
+
+    async def test_disconnect_waits_for_refresh_and_revokes_new_pair(self):
+        ready, release = asyncio.Event(), asyncio.Event()
+        issuing = svc._issue_token_pair
+        async def held_issue(*args, **kwargs):
+            result = await issuing(*args, **kwargs)
+            ready.set()
+            await release.wait()
+            return result
+        async def refresh():
+            async with self.Session() as db:
+                return await svc.refresh_access_token(db, client_id=self.client_shared,
+                    refresh_token=self.refresh_a, scope=None, resource=self.resource)
+        pid = asyncio.Queue()
+        async def revoke():
+            async with self.Session() as db:
+                await pid.put((await db.execute(text("SELECT pg_backend_pid()"))).scalar_one())
+                await svc.revoke_connection(db, user_id=self.user_a, client_id=self.client_shared)
+        with patch.object(svc, "_issue_token_pair", held_issue):
+            first = asyncio.create_task(refresh())
+            second = None
+            try:
+                await asyncio.wait_for(ready.wait(), 5)
+                second = asyncio.create_task(revoke())
+                backend = await asyncio.wait_for(pid.get(), 5)
+                async with self.engine.connect() as observer:
+                    async def wait_blocked():
+                        while not (await observer.execute(text("SELECT cardinality(pg_blocking_pids(:pid))"), {"pid": backend})).scalar_one():
+                            if second.done():
+                                self.fail("revoke did not wait for the issuing transaction")
+                            await asyncio.sleep(0.01)
+                    await asyncio.wait_for(wait_blocked(), 5)
+            finally:
+                release.set()
+                results = await asyncio.wait_for(asyncio.gather(first, *([second] if second else [])), 5)
+        async with self.Session() as db:
+            self.assertIsNone(await svc.resolve_access_token(db, results[0]["access_token"], expected_resource=self.resource))
+            with self.assertRaises(svc.OAuthProtocolError):
+                await svc.refresh_access_token(db, client_id=self.client_shared,
+                    refresh_token=results[0]["refresh_token"], scope=None, resource=self.resource)
 
     async def test_repeated_and_unknown_revoke_are_idempotent_204(self):
         # 重复撤销与未知 client_id 都走 204 路径: 直调无异常即代表 204。

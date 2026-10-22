@@ -29,6 +29,22 @@ class DataApiInvalidParameter(Exception):
         self.message = message
 
 
+CHEMICAL_ID_MAX = 2_147_483_647
+REACTION_ID_MAX = 9_223_372_036_854_775_807
+
+
+def validate_id(value: int, maximum: int, label: str) -> int:
+    if not 1 <= value <= maximum:
+        raise DataApiInvalidParameter(f"{label} 必须在 1–{maximum} 之间")
+    return value
+
+
+def parse_ids(raw: list[str], maximum: int, label: str) -> list[int]:
+    if any(not part.isascii() or not part.isdecimal() for part in raw):
+        raise DataApiInvalidParameter(f"ids 只能包含 {label} 数字")
+    return [validate_id(int(part), maximum, label) for part in raw]
+
+
 def _match(label: str, rows: list[dict[str, Any]], locale: str) -> list[dict[str, Any]]:
     candidates = []
     for row in rows:
@@ -118,8 +134,7 @@ async def lookup(
         return {"candidates": _match("inchikey", rows, locale), "pending": None}
 
     if hcid is not None:
-        if hcid <= 0:
-            raise DataApiInvalidParameter("HCID 必须是正整数")
+        validate_id(hcid, CHEMICAL_ID_MAX, "HCID")
         rows = await fetch_chemicals(db, f"""
             SELECT {CHEMICAL_SELECT} FROM chemistry.chemicals c
             WHERE c.id = :id

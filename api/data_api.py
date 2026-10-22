@@ -24,7 +24,10 @@ from .services.data_api.auth import (
     DataApiAuthError, authorize_scope, check_nonce,
     load_client, verify_signature,
 )
-from .services.data_api.lookup import DataApiInvalidParameter, lookup
+from .services.data_api.lookup import (
+    DataApiInvalidParameter, lookup, validate_id, parse_ids,
+    CHEMICAL_ID_MAX, REACTION_ID_MAX,
+)
 from .services.data_api.metering import enforce_quota, record_usage
 from .services.data_api.projections import (
     project_chemical, project_reaction, project_reaction_summary,
@@ -178,12 +181,13 @@ async def chemical_detail(
     client = None
     try:
         client = await _authenticate(request, db, "/data/v1/chemicals/{hcid}")
+        validate_id(hcid, CHEMICAL_ID_MAX, "HCID")
         detail = await get_chemical_detail(
             db, hcid, actor_id=None, priority=PRIORITY_BACKGROUND,
             enrich="full", locale=locale, pb_display_limit=True)
         await record_usage(db, client.id)
         return _payload(request_id, chemical=project_chemical(detail, locale or "en", site_origin=SITE_ORIGIN))
-    except (DataApiAuthError, ChemicalNotFoundError) as exc:
+    except (DataApiAuthError, DataApiInvalidParameter, ChemicalNotFoundError) as exc:
         if client is not None:
             await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)
@@ -214,15 +218,7 @@ async def chemicals_batch(
                 content={"error": {"code": "invalid_parameter",
                                    "message": f"ids 数量须在 1–{CHEMICAL_BATCH_MAX} 之间"},
                          "request_id": request_id})
-        parsed: list[int] = []
-        for chunk in raw_ids:
-            if not chunk.isdigit():
-                return JSONResponse(
-                    status_code=422,
-                    content={"error": {"code": "invalid_parameter",
-                                       "message": "ids 只能包含 HCID 数字"},
-                             "request_id": request_id})
-            parsed.append(int(chunk))
+        parsed = parse_ids(raw_ids, CHEMICAL_ID_MAX, "HCID")
         items: list[dict[str, Any]] = []
         missing: list[int] = []
         deadline = time.monotonic() + CHEMICAL_BATCH_BUDGET_SECONDS
@@ -243,7 +239,7 @@ async def chemicals_batch(
         await record_usage(db, client.id)
         return _payload(request_id, items=items, missing=missing,
                         timed_out=timed_out)
-    except DataApiAuthError as exc:
+    except (DataApiAuthError, DataApiInvalidParameter) as exc:
         if client is not None:
             await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)
@@ -268,7 +264,10 @@ async def chemical_reactions(
     client = None
     try:
         client = await _authenticate(request, db, "/data/v1/chemicals/{hcid}/reactions")
+        validate_id(hcid, CHEMICAL_ID_MAX, "HCID")
         offset = (page - 1) * page_size
+        if offset > REACTION_ID_MAX:
+            raise DataApiInvalidParameter("page 超出分页范围")
         # 关联表主键含 role：同一反应里同一化合物可多角色并存，先按反应
         # 去重再分页 —— 否则同 HRID 重复出现、total 高估、页边界被重复占位
         rows = (await db.execute(text("""
@@ -296,7 +295,7 @@ async def chemical_reactions(
             total=int(total_row or 0),
             page=page, page_size=page_size,
             has_more=len(rows) > page_size)
-    except DataApiAuthError as exc:
+    except (DataApiAuthError, DataApiInvalidParameter) as exc:
         if client is not None:
             await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)
@@ -320,12 +319,13 @@ async def reaction_detail(
     client = None
     try:
         client = await _authenticate(request, db, "/data/v1/reactions/{hrid}")
+        validate_id(hrid, REACTION_ID_MAX, "HRID")
         reaction = await load_reaction_detail(db, hrid, viewer_id=0, viewer_is_admin=False)
         if reaction is None:
             raise ChemicalNotFoundError("反应不存在或不可见")
         await record_usage(db, client.id)
         return _payload(request_id, reaction=project_reaction(reaction, locale or "en", site_origin=SITE_ORIGIN))
-    except (DataApiAuthError, ChemicalNotFoundError) as exc:
+    except (DataApiAuthError, DataApiInvalidParameter, ChemicalNotFoundError) as exc:
         if client is not None:
             await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)
@@ -358,21 +358,16 @@ async def reactions_batch(
                          "request_id": request_id})
         items: list[dict[str, Any]] = []
         missing: list[int] = []
-        for chunk in raw_ids:
-            if not chunk.isdigit():
-                return JSONResponse(
-                    status_code=422,
-                    content={"error": {"code": "invalid_parameter",
-                                       "message": "ids 只能包含 HRID 数字"},
-                             "request_id": request_id})
-            reaction = await load_reaction_detail(db, int(chunk), viewer_id=0, viewer_is_admin=False)
+        parsed = parse_ids(raw_ids, REACTION_ID_MAX, "HRID")
+        for hrid in parsed:
+            reaction = await load_reaction_detail(db, hrid, viewer_id=0, viewer_is_admin=False)
             if reaction is None:
-                missing.append(int(chunk))
+                missing.append(hrid)
             else:
                 items.append(project_reaction(reaction, locale or "en", site_origin=SITE_ORIGIN))
         await record_usage(db, client.id)
         return _payload(request_id, items=items, missing=missing)
-    except DataApiAuthError as exc:
+    except (DataApiAuthError, DataApiInvalidParameter) as exc:
         if client is not None:
             await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)

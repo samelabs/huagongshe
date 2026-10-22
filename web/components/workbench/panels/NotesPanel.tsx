@@ -12,6 +12,7 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
 import { IconNote, IconPencil, IconTrash } from "@/components/ui/icons";
 import { apiDelete, apiGet } from "@/lib/api";
+import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { listParams, apiListQuery, savedNoteFitsView, savedNoteLandingParams } from "@/lib/notesQuery";
@@ -27,7 +28,7 @@ export function NotesPanel({
   visibility,
   initialData,
   createOpen = false,
-  editNoteId,
+  editNoteRef,
   initialChemicalId,
   initialReactionId,
   filterChemicalId,
@@ -36,13 +37,14 @@ export function NotesPanel({
   visibility: NoteVisibility;
   initialData?: NoteResponse | null;
   createOpen?: boolean;
-  /** : /aichem?tab=notes&edit=<id> 直接打开该笔记编辑器 */
-  editNoteId?: number;
+  /** : /aichem?tab=notes&edit=<slug> 直接打开该笔记编辑器 */
+  editNoteRef?: string;
   initialChemicalId?: number;
   initialReactionId?: number;
   filterChemicalId?: number;
   filterReactionId?: number;
 }) {
+  const { user } = useAccount();
   const t = useDictionary();
   const locale = useLocale();
   const router = useRouter();
@@ -105,16 +107,23 @@ export function NotesPanel({
     });
   }
 
-  // ?edit=<id> → 拉取该笔记并直接进入编辑器（一次挂载效果）
+  // ?edit=<slug> → 拉取该笔记并直接进入编辑器（一次挂载效果）
   useEffect(() => {
-    if (!editNoteId) return;
+    if (!editNoteRef || !user) return;
     let active = true;
     beginEditorSession();
-    apiGet<NoteItem>(`/notes/${editNoteId}`)
-      .then((note) => { if (active) setEditing(note); })
-      .catch(() => { /* 已删除/无权限时留在列表 */ });
+    apiGet<NoteItem>(`/notes/${editNoteRef}`)
+      .then((note) => {
+        if (!active) return;
+        if (note.username !== user.username) {
+          setActionError(t.notes.loadFailed);
+          return;
+        }
+        setEditing(note);
+      })
+      .catch(() => { if (active) setActionError(t.notes.loadFailed); });
     return () => { active = false; };
-  }, [editNoteId, beginEditorSession]);
+  }, [editNoteRef, beginEditorSession, t.notes.loadFailed, user]);
 
   // One filter identity: chemical takes precedence over reaction.
   const filterKey = filterChemicalId != null ? "chemical" : filterReactionId != null ? "reaction" : null;

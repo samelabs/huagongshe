@@ -2,7 +2,7 @@
 
 /**
  * NoteOwnerActions — 笔记详情页本人操作。
- * 编辑（secondary sm）→ 工作台笔记面板 ?edit=<id> 直接打开编辑器；
+ * 编辑（secondary sm）→ 工作台笔记面板 ?edit=<slug> 直接打开编辑器；
  * 删除（danger-quiet sm）经 useConfirm → DELETE /notes/{id}（现有端点）
  * → Toast + 跳回工作台笔记列表。
  */
@@ -16,7 +16,7 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 
-export function NoteOwnerActions({ noteId, ownerUsername, excerpt }: { noteId: number; ownerUsername: string; excerpt: string }) {
+export function NoteOwnerActions({ noteId, noteSlug, ownerUsername, excerpt }: { noteId: number; noteSlug: string; ownerUsername: string; excerpt: string }) {
   const router = useRouter();
   const { user } = useAccount();
   const t = useDictionary();
@@ -51,7 +51,7 @@ export function NoteOwnerActions({ noteId, ownerUsername, excerpt }: { noteId: n
 
   return (
     <div className="note-owner-actions">
-      <Button variant="secondary" size="sm" href={withLocale(`/aichem?tab=notes&edit=${noteId}`, locale)}>{t.notes.editInWorkbench}</Button>
+      <Button variant="secondary" size="sm" href={withLocale(`/aichem?tab=notes&edit=${encodeURIComponent(noteSlug)}`, locale)}>{t.notes.editInWorkbench}</Button>
       <Button variant="danger-quiet" size="sm" onClick={remove} loading={busy}>{t.common.delete}</Button>
     </div>
   );

@@ -48,7 +48,7 @@ const REACTIONS_PAGE_SIZE = 20;
 const loadProfile = cache(async (username: string): Promise<Profile> => {
   const cookieStore = await cookies();
   const headers = cookieStore.has("hgs_session") ? { Cookie: cookieStore.toString() } : undefined;
-  return apiGet<Profile>(`/users/${encodeURIComponent(username)}`, headers);
+  return apiGet<Profile>(`/users/by-username/${encodeURIComponent(username)}`, headers);
 });
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {

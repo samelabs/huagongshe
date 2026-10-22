@@ -222,6 +222,8 @@ async def create_note(
     from ..core.rate_limit import enforce
     await enforce("note-write-minute", str(actor_id),
                   settings.api_note_write_limit_per_minute, 60)
+    await db.execute(text(
+        "SELECT id FROM community.users WHERE id=:id FOR UPDATE"), {"id": actor_id})
     existing = int((await db.execute(text("""
         SELECT count(*) FROM community.notes WHERE owner_user_id=:owner
     """), {"owner": actor_id})).scalar() or 0)
@@ -240,23 +242,25 @@ async def create_note(
         note_id, note_slug = 0, ""
         for _ in range(5):  # slug 撞号(概率~1/36^7)重掷
             try:
-                ins = (await db.execute(text("""
-                    INSERT INTO community.notes(owner_user_id, visibility, content, title, slug)
-                    VALUES (:owner, :visibility, :content, :title, :slug)
-                    RETURNING id, slug
-                """), {
-                    "owner": actor_id,
-                    "visibility": visibility,
-                    "content": content,
-                    "title": title,
-                    "slug": _new_note_slug(),
-                })).first()
+                # A slug collision rolls back only this savepoint, retaining
+                # the owner lock and the quota check in the outer transaction.
+                async with db.begin_nested():
+                    ins = (await db.execute(text("""
+                        INSERT INTO community.notes(owner_user_id, visibility, content, title, slug)
+                        VALUES (:owner, :visibility, :content, :title, :slug)
+                        RETURNING id, slug
+                    """), {
+                        "owner": actor_id,
+                        "visibility": visibility,
+                        "content": content,
+                        "title": title,
+                        "slug": _new_note_slug(),
+                    })).first()
                 note_id, note_slug = int(ins[0]), str(ins[1])
                 break
             except IntegrityError as exc:
                 if "notes_slug_key" not in str(exc):
                     raise
-                await db.rollback()
         else:
             raise RuntimeError("笔记 slug 生成重试耗尽")
         await _replace_references(
