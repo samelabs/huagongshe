@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import unicodedata
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 MAX_NOTE_REFERENCES = 20
 MAX_NOTE_CONTENT_LENGTH = 30000
 MAX_NOTE_TITLE_LENGTH = 120
+
+# 关联实体 id 的整数边界 = 引用列的 int4 上限: 越界值在模型层 422,
+# 不放进 SQL 撞数据库类型错误
+RefId = Annotated[int, Field(ge=1, le=2_147_483_647)]
 
 
 def sanitize_note_content(value: str) -> str:
@@ -44,8 +48,8 @@ class NoteBody(BaseModel):
     # normalize_content . A declared max_length would run first and
     # wrongly reject raw input >30000 whose sanitized form fits.
     content: str = Field(min_length=1)
-    chemical_ids: list[int] = Field(default_factory=list)
-    reaction_ids: list[int] = Field(default_factory=list)
+    chemical_ids: list[RefId] = Field(default_factory=list)
+    reaction_ids: list[RefId] = Field(default_factory=list)
 
     @field_validator("content")
     @classmethod

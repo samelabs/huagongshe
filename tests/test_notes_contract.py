@@ -47,6 +47,16 @@ class NoteSchemaTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             NoteBody(content="x", chemical_ids=[0])
 
+    def test_reference_ids_over_int4_column_range_are_rejected(self):
+        """引用 id 超过 int4 列上限 → 模型层 422, 不放进 SQL 撞库。"""
+        with self.assertRaises(ValidationError):
+            NoteBody(content="x", chemical_ids=[2_147_483_648])
+        with self.assertRaises(ValidationError):
+            NoteBody(content="x", reaction_ids=[3_000_000_000])
+        # 边界值本身合法(含上限)
+        body = NoteBody(content="x", chemical_ids=[2_147_483_647])
+        self.assertEqual(body.chemical_ids, [2_147_483_647])
+
 
 class NoteArchitectureTests(unittest.TestCase):
     def test_service_is_transport_neutral(self):

@@ -133,8 +133,8 @@ async def delete_note(
 @router.get("/users/me/notes")
 async def my_notes(
     visibility: Literal["all", "public", "private"] = Query("all"),
-    chemical_id: int | None = Query(default=None, ge=1),
-    reaction_id: int | None = Query(default=None, ge=1),
+    chemical_id: int | None = Query(default=None, ge=1, le=2_147_483_647),
+    reaction_id: int | None = Query(default=None, ge=1, le=2_147_483_647),
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(20, ge=1, le=50),
     actor: Actor = Depends(current_session),
