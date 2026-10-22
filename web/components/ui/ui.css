@@ -96,7 +96,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   justify-content: center;
   gap: 6px;
   height: var(--bh);
-  padding: 0 var(--sp-4);
+  padding: 0 var(--sp-3);
   border-radius: var(--r-sm);
   border: 1px solid transparent;
   font: 500 var(--fs-14) / 1 var(--font-ui);
@@ -108,7 +108,8 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-btn svg { width: var(--icon-md); height: var(--icon-md); flex: none; }
 .hg-btn.sm svg { width: var(--icon-sm); height: var(--icon-sm); }
 .hg-btn.sm { --bh: var(--h-sm); padding: 0 12px; font-size: var(--fs-13); }
-.hg-btn.lg { --bh: var(--h-lg); padding: 0 var(--sp-6); font-size: var(--fs-16); }
+/* 内距随字号档（12/13→12, 16→16）——横距与字号匹配，不随高度放大 */
+.hg-btn.lg { --bh: var(--h-lg); padding: 0 var(--sp-4); font-size: var(--fs-16); }
 .hg-btn.primary { background: var(--action); color: var(--text-inverse); }
 .hg-btn.primary:hover, .hg-btn.primary.is-hover { background: var(--action-hover); }
 .hg-btn.primary.is-active { background: var(--action-pressed); }
