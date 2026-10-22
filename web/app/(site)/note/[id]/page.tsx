@@ -124,7 +124,9 @@ export default async function NoteDetailPage({ params }: Params) {
   return (
     <PageFrame tier="reading" className="note-detail-page">
       {/* 阅读页头部整体居中：不挂面包屑（作者在署名行已链接主页）；
-          公开态不贴公开 Tag（无锁即公开），私有出锁标 */}
+          公开态不贴公开 Tag（无锁即公开），私有出锁标。
+          署名行与分享/本人操作同一行 —— 署名居中，操作绝对定位行右端，
+          不再独占一行悬空 */}
       <PageHead
         title={title}
         meta={
@@ -134,19 +136,19 @@ export default async function NoteDetailPage({ params }: Params) {
             {note.visibility === "public" && (
               <span className="note-detail-views">{t.notes.viewCount(note.view_count ?? 0)}</span>
             )}
+            {(note.visibility === "public" || hasSession) && (
+              <div className="hg-head-row note-head-actions">
+                {/* 公开笔记与化合物/反应页同构：分享 iconOnly sm（私有不出） */}
+                {note.visibility === "public" && (
+                  <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
+                )}
+                {hasSession && (
+                  <NoteOwnerActions noteId={note.id} noteSlug={note.slug} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />
+                )}
+              </div>
+            )}
           </div>
         }
-        actions={(note.visibility === "public" || hasSession) ? (
-          <div className="hg-head-row">
-            {/* 公开笔记与化合物/反应页同构：分享 iconOnly sm（私有不出） */}
-            {note.visibility === "public" && (
-              <ShareButton title={title} iconOnly size="sm" ariaLabel={t.guide.share} />
-            )}
-            {hasSession && (
-              <NoteOwnerActions noteId={note.id} noteSlug={note.slug} ownerUsername={note.username} excerpt={note.content.slice(0, 24)} />
-            )}
-          </div>
-        ) : undefined}
       />
 
       <article className="note-detail">
