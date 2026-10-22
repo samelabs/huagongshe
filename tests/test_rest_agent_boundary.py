@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import ast
-import os
 import re
 import sys
 import unittest
@@ -101,7 +100,6 @@ class OptionalActorRejectsAgentTests(unittest.TestCase):
         import hashlib
         import secrets
         from sqlalchemy import text
-        from api.core.security import optional_actor
 
         async def body():
             eng = self._engine()
@@ -188,7 +186,6 @@ class SearchErrorKindPayloadTests(unittest.TestCase):
         return asyncio.run(coro)
 
     def test_invalid_cas_checkdigit_returns_kind_payload(self):
-        from sqlalchemy import text
         from sqlalchemy.ext.asyncio import create_async_engine
         from sqlalchemy.pool import NullPool
         from fastapi import HTTPException

@@ -245,9 +245,9 @@ class ReactivityAndReferencesTests(unittest.TestCase):
         self.assertEqual(out["references"]["2"], {"SourceName": "HSDB"})
 
 
-class FNew01ContractTests(unittest.TestCase):
+class CoreCidContractTests(unittest.TestCase):
     def test_core_has_no_cid_key(self):
-        """F-NEW-01 的事故形态锁: 解析器不产出 core.CID —— CID 回写只经
+        """解析器不产出 core.CID —— CID 回写只经
         query binding 授予(complete_pubchem_job), 两者不得重新耦合。"""
         record = _record(_section("InChIKey", _info(_swm("X"*14 + "-Y"*10 + "-N"))))
         out = parse_whole_record(_payload(record))

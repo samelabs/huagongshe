@@ -114,7 +114,6 @@ class DiscoveryFix31Tests(unittest.TestCase):
         主 reaction INSERT + statistics 仍 commit, discovery 无残留。"""
         from api.services.reactions import resolve_or_create_chemical
         from api.services import discovery as disc
-        ik = _ik("SVPTREACT")
         orig = disc.enqueue_discovery
         # RUN 唯一 SMILES: 防残留行命中 EQUIVALENT 短路(短路则不触发
         # trigger 路径, is_new=False 假红)。氟代链(F 结尾)与历史醇链
@@ -272,7 +271,6 @@ class DiscoveryFix31Tests(unittest.TestCase):
                 "maintenance.pubchem_identity_jobs WHERE id=:j"),
                 {"j": jid})).scalar()
 
-        from api.services.workqueue import lease_hash
         token = "t" * 43
 
         async def scenario():

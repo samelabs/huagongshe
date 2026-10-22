@@ -61,8 +61,8 @@ def _normalize_psql_url(database_url: str) -> str:
     """唯一窄口径 normalization: psql(libpq) 只认 postgresql://。
 
     生产标准 env 是 SQLAlchemy 形式 postgresql+asyncpg://…; 直接交给 psql 时
-    libpq 不识别该 scheme, 回退 local socket 以 OS 用户认证(历史事故: role
-    ubuntu does not exist → advisory lock LOCKED 永远拿不到)。
+    libpq 不识别该 scheme, 回退 local socket 以 OS 用户认证(表现为 role
+    <os user> does not exist, advisory lock 永远拿不到)。
 
     - postgresql+asyncpg://… → postgresql://…(只剥 driver 后缀)
     - 原生 postgresql://… 原样通过

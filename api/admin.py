@@ -19,7 +19,6 @@ from sqlalchemy.exc import IntegrityError
 import logging
 
 from .core.cache import cache_delete
-from .core.config import settings
 from .core.database import async_session, get_db
 from .core.security import Actor, current_session
 from .schemas.admin import UserStatusBody, UserRoleBody, ModerationBody, WorkerCreateBody, WorkerPatchBody, SkillVisibilityBody, CategoryBody, WORKER_SCOPES
@@ -819,7 +818,6 @@ async def pipeline(actor: Actor = Depends(admin), db=Depends(get_db)):
     # ── worker 在线状态 (A1: enabled ≠ online, runtime projection 见 pipeline_health) ──
     from .services.pipeline_health import (
         build_worker_runtimes, chain_health as chain_health_model,
-        RECENT_SUCCESS_S,
     )
     worker_rows = (await db.execute(text("""
         SELECT worker_id, display_name, enabled, scopes, last_seen_at

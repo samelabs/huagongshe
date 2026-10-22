@@ -1,9 +1,9 @@
-"""Phase 1c §11: regression anchors for previously-fixed Workbench Notes UI
+"""Regression anchors for Workbench Notes UI
 behaviors (editor cross-talk, cancel-reopen, create pre-association, async
 search races, list refresh, delete-failure recovery, Back/Forward URL state)
-plus P-3/P-7 UI anchors. Source-level behavior tests: they pin the concrete
+plus note UI anchors. Source-level behavior tests: they pin the concrete
 mechanisms (request-id guards, editor key resets, URL replace discipline)
-that the earlier fixes introduced, so a regression cannot silently reappear.
+so a regression cannot silently reappear.
 """
 
 from __future__ import annotations

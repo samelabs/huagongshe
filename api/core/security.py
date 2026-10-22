@@ -7,7 +7,7 @@ import hmac
 import os
 from dataclasses import dataclass
 
-from fastapi import Cookie, Depends, Header, HTTPException, Request
+from fastapi import Cookie, Depends, Header, HTTPException
 from sqlalchemy import text
 
 from .config import settings
@@ -128,7 +128,7 @@ async def current_actor(actor: Actor | None = Depends(optional_actor)) -> Actor:
 async def public_or_actor(
     actor: Actor | None = Depends(optional_actor),
 ) -> Actor | None:
-    """公开数据读 dependency(H1 方案 D): 匿名与已鉴权 actor 都可读。
+    """公开数据读 dependency: 匿名与已鉴权 actor 都可读。
 
     loopback 不再是 authorization evidence —— 本 dependency 不读取
     Request / client.host / XFF, transport 不是权限; 公开数据是否可读

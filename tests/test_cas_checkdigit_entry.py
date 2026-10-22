@@ -15,10 +15,7 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import re
 import unittest
-from urllib.parse import parse_qs, urlparse
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -215,7 +212,6 @@ class CasJobPendingDetailTests(unittest.TestCase):
         return self.run_coro(body())
 
     def test_absent_without_pending_job_and_queued_with(self):
-        from api.services.chemicals import get_chemical_detail
 
         async def prep(status: str | None):
             eng = _engine()

@@ -1,18 +1,18 @@
-"""F-NEW-01 回归 —— PubChem 回补链的 CID 回写（hermetic，需 test DB）。
+"""PubChem 回补链的 CID 回写（hermetic，需 test DB）。
 
-事故：worker/whole_record.py 的解析产物 core 不含 "CID" 键，而回调
-(complete_pubchem_job) 只把 core.CID 当作 incoming CID evidence ——
-主表 chemistry.chemicals.pubchem_cid 永远不回写，后续 enrichment 链断。
-修复：已验证的 query binding（job.query_value = worker 实际被派发请求的
-CID）作为可信 CID evidence —— core 缺 CID 时以 expected_cid 进。
+worker/whole_record.py 的解析产物 core 不含 "CID" 键；若回调
+(complete_pubchem_job) 只把 core.CID 当作 incoming CID evidence，主表
+chemistry.chemicals.pubchem_cid 永远不回写，后续 enrichment 链断。因此
+已验证的 query binding（job.query_value = worker 实际被派发请求的 CID）
+作为可信 CID evidence —— core 缺 CID 时以 expected_cid 进。
 
 锁四条：
-1. core 无 CID + query_value=<cid> → 主表 pubchem_cid 回写（修复主线）；
+1. core 无 CID + query_value=<cid> → 主表 pubchem_cid 回写（主线）；
 2. core.CID == query_value → 照常回写（既有行为回归）；
 3. 行上已有不同 CID → cid-conflict 硬闸：pubchem_cid 保持原值、事实零写入
    （「不同可信 CID 不得合并」不放松）；
 4. 他行已持有该 CID → same-CID 收敛（absorb）落 survivor，survivor 身份
-   不变（收敛路径回归 —— F-NEW-01 修复后该路径重新有流量）。
+   不变（收敛路径）。
 
 运行: TEST_DATABASE_URL="postgresql+asyncpg://…/test_hgs?test_sentinel=hgs-test-db" \
       python -m unittest tests.test_pubchem_cid_grant
@@ -191,13 +191,13 @@ class PubchemCidGrantTests(unittest.IsolatedAsyncioTestCase):
             return int(n) > 0
 
     async def test_1_query_binding_grants_cid_without_core_cid(self):
-        """F-NEW-01 主线：core 无 CID，query_value 回写主表。"""
+        """主线：core 无 CID，query_value 回写主表。"""
         chem = await self._make_chemical()
         jid, token = await self._lease_job(chem, str(CID))
         out = await self._complete(jid, token, {"payload": _make_payload()})
         self.assertEqual(out["status"], "ok")
         self.assertEqual(await self._cid_of(chem), CID,
-                         "query_value 未回写主表 pubchem_cid（F-NEW-01 回归）")
+                         "query_value 未回写主表 pubchem_cid")
         self.assertTrue(await self._details_exist(chem), "详情零写入")
 
     async def test_2_core_cid_matching_query_still_grants(self):

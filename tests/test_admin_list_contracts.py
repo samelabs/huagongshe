@@ -4,7 +4,7 @@
   GET /admin/users?q=&limit=&offset= -> {"total": N, "items": [...]}
   GET /admin/reactions?status=&limit=&offset= -> {"total": N, "items": [...]}
 
-Hermetic 原则 (本轮收口):
+Hermetic 原则:
   - 两套测试均自造唯一 RUN marker 数据, 不依赖测试库任何存量;
     GitHub fresh test_hgs 与服务器共享 test_hgs (含历史数据) 都必须通过。
   - reactions 期望值 = 真实 DB 过滤 count + marker 差值, 不写死环境快照数字。
@@ -205,7 +205,7 @@ class UsersListContractTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_u1_pagination_windows_desc_no_overlap(self):
         """U1: total > len(items); 两窗口不重叠; ORDER BY id DESC。"""
-        code, body = await _call_admin(f"/admin/users?limit=3&offset=0", 0)
+        code, body = await _call_admin("/admin/users?limit=3&offset=0", 0)
         self.assertEqual(200, code)
         self.assertIn("total", body); self.assertIn("items", body)
         all_ids = self.ids
@@ -213,7 +213,7 @@ class UsersListContractTests(unittest.IsolatedAsyncioTestCase):
         w1, w2 = body["items"], None
         self.assertEqual(3, len(w1))
         self.assertGreater(body["total"], len(w1))
-        code, w2body = await _call_admin(f"/admin/users?limit=3&offset=3", 0)
+        code, w2body = await _call_admin("/admin/users?limit=3&offset=3", 0)
         self.assertEqual(200, code)
         w2 = w2body["items"]
         self.assertEqual(3, len(w2))

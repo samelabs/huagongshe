@@ -316,7 +316,6 @@ class McpErrorBoundaryTests(unittest.TestCase):
         )
 
     def test_429_becomes_tool_error_compute_not_called(self):
-        from fastapi import HTTPException
         from mcp.server.mcpserver.exceptions import ToolError
         m, fn = self._tool_fn()
 
@@ -341,7 +340,6 @@ class McpErrorBoundaryTests(unittest.TestCase):
         self.assertEqual(computed, [])
 
     def test_503_becomes_tool_error_compute_not_called(self):
-        from fastapi import HTTPException
         from mcp.server.mcpserver.exceptions import ToolError
         m, fn = self._tool_fn()
 

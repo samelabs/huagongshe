@@ -13,7 +13,8 @@ from .core import rate_limit
 from .core.database import get_db
 from .core.rate_limit import RateLimitError
 from .core.security import Actor, current_session, optional_actor
-from .rate_limit_http import client_ip as _client_ip, enforce_http, to_http_exception
+from .core.rate_limit import client_ip as _client_ip
+from .rate_limit_http import enforce_http, to_http_exception
 from .services import oauth as svc
 from .services import oauth_cimd
 

@@ -10,7 +10,6 @@
 
 from __future__ import annotations
 
-import importlib
 import os
 import sys
 import unittest
@@ -53,9 +52,8 @@ class DbGateTests(unittest.TestCase):
         with self._with_env(None):
             try:
                 from api.core.config import settings  # noqa: F401
-                has_settings = True
             except Exception:
-                has_settings = False
+                pass
             with self.assertRaises(ProductionDbBlocked):
                 require_test_db()
             # 闸的拒绝与 settings 存在与否无关

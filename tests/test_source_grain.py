@@ -1,6 +1,5 @@
 # source grain 专项: (chemical_id, cb_number, locale) 存储/upsert/absorb/fan-out
 import asyncio
-import os
 import re
 import unittest
 
@@ -120,7 +119,6 @@ class SourceGrainTests(unittest.TestCase):
         ② 指定 cb_number=CB002 精确命中其自身 grain;
         ③ legacy(主表 cb NULL) 唯一命中 NULL-grain 行;
         ④ 无 source row → enqueue_first。"""
-        import asyncio
         from sqlalchemy import text
         from api.services.cb import cb_decide
 
@@ -130,7 +128,6 @@ class SourceGrainTests(unittest.TestCase):
         cid = self._insert_chem(cas, cb=P + "CB001")
 
         async def go():
-            from datetime import timedelta
             async with self.engine.begin() as db:
                 # CB001: ok, 新鲜
                 await db.execute(text("""
@@ -209,7 +206,6 @@ class SourceGrainTests(unittest.TestCase):
         cid = self._insert_chem(cas, cb=None)
 
         async def go():
-            from api.services.cb import upsert_externals
             async with self.engine.begin() as db:
                 await upsert_externals(db, chemical_id=cid, cas_number=cas[0],
                                        entry={"identity": {}}, suppliers=[],
@@ -248,9 +244,8 @@ class SourceGrainTests(unittest.TestCase):
         from api.services.identity import absorb
         cas = ["99999-33-3"]
         self._wipe(cas)
-        from sqlalchemy import text
         async def with_ik():
-            async with self.engine.begin() as db:
+            async with self.engine.begin():
                 for i, cid in enumerate((old, surv)):
                     pass
         old = self._insert_chem(cas)

@@ -243,7 +243,7 @@ class HttpAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(captured["owner_id"], 88)
 
     def test_browsing_wall_is_current_session_dependency(self):
-        """技能浏览登录墙(2026-10-22 收口): 四个 GET 端点与 archive 一样
+        """技能浏览登录墙: 四个 GET 端点与 archive 一样
         走 Depends(current_session) —— 401 映射在共享依赖里, handler 不再
         自带 mine-only 分支(直调 actor=None 已不可达)。"""
         from api import skills as skills_api

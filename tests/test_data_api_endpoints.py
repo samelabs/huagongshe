@@ -16,7 +16,7 @@ import types
 import unittest
 import uuid
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -145,7 +145,6 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
 
     async def _call(self, endpoint, path, query="", headers=None, db=None):
         import inspect
-        from urllib.parse import parse_qs
 
         request = FakeRequest(path, query, headers)
         kwargs: dict = {}

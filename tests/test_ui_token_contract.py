@@ -110,7 +110,7 @@ def font_size_findings() -> list[tuple[str, int, str]]:
     # inherit, the 16px input iOS-zoom guard, and a responsive clamp whose
     # BOTH ends are var(--fs-*) tokens (middle term free, e.g. 3.5vw)
     single = r"var\(--(wb-)?fs[a-z0-9-]*(?:, ?var\(--(wb-)?fs[a-z0-9-]*\))?\)"
-    clamp = rf"clamp\(var\(--fs-[a-z0-9-]+\), [^,]+, var\(--fs-[a-z0-9-]+\)\)"
+    clamp = r"clamp\(var\(--fs-[a-z0-9-]+\), [^,]+, var\(--fs-[a-z0-9-]+\)\)"
     allowed = re.compile(rf"^(?:{single}|{clamp}|inherit|16px)$")
     findings: list[tuple[str, int, str]] = []
     for p in scan_files():

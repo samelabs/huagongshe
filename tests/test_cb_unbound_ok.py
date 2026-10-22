@@ -8,8 +8,6 @@ worker lease → 真 cas_complete_job。不手工伪造 callback 状态。
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import os
 import random
 import sys
@@ -282,7 +280,7 @@ class CbUnboundOkTests(unittest.TestCase):
     def test_T2_ik_hits_B_binds_B(self):
         cas = f"{RUN}-12-2"
         ik = _ik("T2")
-        a = self._mk_chemical(f"ut4-p1-{RUN}-a", cas=cas)
+        self._mk_chemical(f"ut4-p1-{RUN}-a", cas=cas)
         b = self._mk_chemical(f"ut4-p1-{RUN}-b", cas=cas,
                               inchikey=ik, mol="CCO")
         jid = self._enqueue_unbound(cas)
@@ -394,8 +392,8 @@ class CbUnboundOkTests(unittest.TestCase):
 
     def test_T9_unresolved_ok_clears_negative(self):
         cas = f"{RUN}-19-9"
-        a = self._mk_chemical(f"ut4-p1-{RUN}-a", cas=cas)
-        b = self._mk_chemical(f"ut4-p1-{RUN}-b", cas=cas)
+        self._mk_chemical(f"ut4-p1-{RUN}-a", cas=cas)
+        self._mk_chemical(f"ut4-p1-{RUN}-b", cas=cas)
         # 旧 cas_locator negative (fresh)
         from api.services.cb import record_negative
         from sqlalchemy.ext.asyncio import AsyncSession
@@ -419,7 +417,7 @@ class CbUnboundOkTests(unittest.TestCase):
         ik = _ik("T10")
         a = self._mk_chemical(f"ut4-p1-{RUN}-a", cas=cas,
                               inchikey=ik, mol="CCO")
-        b = self._mk_chemical(f"ut4-p1-{RUN}-b", cas=cas)
+        self._mk_chemical(f"ut4-p1-{RUN}-b", cas=cas)
         from api.services.cb import record_negative
         from sqlalchemy.ext.asyncio import AsyncSession
 

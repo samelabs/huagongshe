@@ -7,7 +7,7 @@
   4. restart/start API 与 Web → 等 API/Web health 就绪 → **就绪后**才
      restart/start worker(worker 启动 preflight 鉴权
      /workapi/v1/jobs/lease 依赖 API; API 未就绪时 worker 会 exit 1
-     crash-loop, 21:32 部署事故即此因)
+     crash-loop)
   5. readiness: worker online 稳定窗 + public smoke + `pm2 save`
 
 不承诺 zero-downtime: restart 存在短暂维护窗口(已接受)。
@@ -35,9 +35,9 @@ CANONICAL_APPS = (
     "huagongshe",           # Web 127.0.0.1:3001
     "huagongshe-pubchem-worker",  # worker, HGS_WORKER_ID=server-local-1
 )
-# 部署顺序(21:32 事故修复): 先重启前置的 API/Web, 等 API health
-# 就绪后才重启 worker —— worker 启动 preflight 鉴权(/workapi/v1/jobs/lease)
-# 连不上 API 就 exit 1, 曾连续 crash-loop 5 次直到 API 就绪。
+# 部署顺序: 先重启前置的 API/Web, 等 API health 就绪后才重启 worker ——
+# worker 启动 preflight 鉴权(/workapi/v1/jobs/lease)连不上 API 就 exit 1,
+# 提前重启只会 crash-loop 到 API 就绪。
 FRONTING_APPS = CANONICAL_APPS[:2]
 WORKER_APP = CANONICAL_APPS[2]
 API_PORT = 8000
@@ -106,7 +106,7 @@ class Runner:
 # ---------------------------------------------------------------- guards --
 
 def require_non_root() -> None:
-    """mutating deploy 禁 root: root 会把 app 落进 root PM2 daemon(生产事故根因之一)。"""
+    """mutating deploy 禁 root: root 会把 app 落进 root PM2 daemon, 与运行账号的 daemon 分裂。"""
     if os.geteuid() == 0:
         raise DeployError(
             "不要使用: sudo python -m ops.deploy —— 部署脚本由 deployment user 执行; "
@@ -431,7 +431,7 @@ def deploy(runner: Runner | None = None,
     _event("ready.ok", target="web")
 
     # API 就绪后才重启 worker: 其启动 preflight 鉴权(/workapi/v1/jobs/lease)
-    # 依赖 API, 提前重启只会 crash-loop(21:32 事故根因)。
+    # 依赖 API, 提前重启只会 crash-loop。
     try:
         start_canonical(runner, WORKER_APP)
     except DeployError as e:

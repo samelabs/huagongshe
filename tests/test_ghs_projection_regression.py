@@ -1,13 +1,12 @@
 """GHS 分类投影键名 ghs_classification。
 
-事故（f1b8788 引入）：api/services/chemical_semantic.py 的投影白名单键名
-被提交成占位符字面量 «redacted:ghs_…»，PB 的 GHS 危险性分类在化合物
-detail 投影里静默丢失（数据库有数据、前端有展示位），REST full 与
-MCP get_chemical(full) 同源受影响。
+api/services/chemical_semantic.py 的投影白名单键名若被替换成占位符字面量
+«redacted:ghs_…»，PB 的 GHS 危险性分类会在化合物 detail 投影里静默丢失
+（数据库有数据、前端有展示位），REST full 与 MCP get_chemical(full) 同源受影响。
 
 本文件锁三层：
 1. 白名单元组本身含 ghs_classification，且不含任何 «redacted» 占位符
-   （事故的准确形态 —— 键名字面量被替换）；
+   （键名字面量被替换的形态）；
 2. build_semantic_detail 纯函数：pb 带 ghs_classification →
    safety.pb_sections 原样透传；
 3. MCP get_chemical(enrich="full") 拿到的 detail 含 GHS —— 以直调
@@ -24,7 +23,7 @@ from api.services import chemical_semantic
 
 
 class WhitelistKeyRegressionTests(unittest.TestCase):
-    """第 1 层：白名单键名字面量（事故的准确形态）。"""
+    """第 1 层：白名单键名字面量。"""
 
     def test_evidence_sections_contain_ghs_classification(self):
         self.assertIn("ghs_classification", chemical_semantic.PB_EVIDENCE_SECTIONS)

@@ -208,7 +208,6 @@ class McpSearchContractTests(unittest.TestCase):
                          "Search timed out. Use a more specific name, identifier, or structure.")
 
     def test_mcp_gate_httpexception_maps_to_toolerror(self):
-        from fastapi import HTTPException
         from mcp.server.mcpserver.exceptions import ToolError
         import api.mcp_server as m
         fn = self._tool_fn()

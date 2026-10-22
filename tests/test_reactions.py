@@ -1,24 +1,21 @@
 from __future__ import annotations
 
 import os
-import asyncio
 import inspect
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 from pydantic import ValidationError
 
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
-from api import reactions, social, users
+from api import reactions, users
 from api.services import reactions as reactions_service
 from api.services import notifications as notifications_service
 from api.core.config import settings
 from api.services.reactions import (ReactionValidationError,
                                     canonical_participants)
 from api.schemas.reactions import ParticipantBody, ReactionBody
-from api.core.security import Actor
 
 
 def body(**overrides) -> ReactionBody:

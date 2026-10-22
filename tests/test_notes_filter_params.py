@@ -233,7 +233,6 @@ class NotesListUiCloseoutTests(unittest.TestCase):
         self.assertIn("notesBlock.total > 0 && (", src)
 
     def test_r6_dictionary_keys_in_all_locales(self):
-        import re as _re
         for loc in ["zh-CN", "en", "ja", "ko", "de"]:
             src = (REPO / f"web/lib/i18n/locales/{loc}.ts").read_text(encoding="utf-8")
             body = src[src.index("  notes: {"):]

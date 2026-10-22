@@ -336,11 +336,10 @@ async def adjudicate_pubchem_identity(
     → fork 未收敛时撤回 CID grant(禁止制造 same-CID 分叉)。
     can_merge/absorb 冻结规则不变; 本函数只重排写序, 不新增任何合并权限。
 
-    F-NEW-02 / 收口: CID 是唯一身份锚(撤销裁决) — 行上
-    CID 与可信入站 CID 一致时, IK 差异是**溯源事实**不是 CONFLICT: 事实
-    照写, 行上 IK 按补空语义保留, 差异记结构化 warning(入站 IK 本身随
-    整包落在 chemical_pubchem.identifier_evidence, 溯源链完整)。此前整包
-    扣留并把任务记成功, 与"普通 enrichment 照走"的既有注释矛盾。
+    CID 是唯一身份锚 — 行上 CID 与可信入站 CID 一致时, IK 差异是
+    **溯源事实**不是 CONFLICT: 事实照写, 行上 IK 按补空语义保留, 差异记
+    结构化 warning(入站 IK 本身随整包落在 chemical_pubchem.identifier_evidence,
+    溯源链完整), 普通 enrichment 照走。
     """
     from ..pubchem_core import INCHIKEY_RE
     if inc_ik is not None and not INCHIKEY_RE.fullmatch(inc_ik):

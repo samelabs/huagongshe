@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import shutil
 import unittest
@@ -38,7 +37,6 @@ def load_pagination_module():
     产物经 require() 拿到真实 exports (PAGE_SIZE/parseAdminPage/adminOffset/adminTotalPages)。
     不改生产源码; 每次调用重新编译, 保证测的是当前源码。
     """
-    src = WEB / "lib" / "adminPagination.ts"
     out_dir = Path("/tmp/hgs-admin-pagination-test")
     if out_dir.exists():
         shutil.rmtree(out_dir)

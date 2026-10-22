@@ -1,10 +1,10 @@
 """MCP server: the curated agent-facing capability surface.
 
-认知模型(与 /api/agent-guide 的关系, 不得再表述为 1:1):
-- /api/agent-guide = HTTP Agent contract(自描述连接契约)。
-- /mcp = curated MCP tool surface(人工挑选、显式命名的工具面)。
-- MCP 工具**不从** OpenAPI / agent-guide 自动生成, 二者只是共享同一批业务
-  服务函数与同一套授权规则(resolve_actor / scopes)。
+认知模型:
+- /mcp = curated MCP tool surface(人工挑选、显式命名的工具面), 是 AI /
+  Agent 的唯一接入面; REST(/api/*) 只服务网站, 不接受 AI Key。
+- MCP 工具**不从** OpenAPI 自动生成, 与 REST 只共享同一批业务服务函数与
+  同一套授权规则(resolve_actor / scopes)。
 - HTTP 能力允许比 MCP 多(例: 技能 zip 二进制下载 /skills/{id}/archive 只有
   HTTP 面, 不映射为 MCP 工具)。工具数量不作对齐目标。
 
@@ -27,7 +27,7 @@ import logging
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import Field
 
 from .core.rate_limit import RateLimitError
@@ -868,7 +868,6 @@ def build_mcp_server() -> MCPServer:
         # adapter 只保留: 参数验证/clamp、auth、会话获取、错误映射。
         from .services.search import SearchError as _SearchError
         from .services.search import execute_search as _execute_search
-        from .core.rate_limit import RateLimitError as _RateLimitError
 
         async with async_session() as _session:
             try:

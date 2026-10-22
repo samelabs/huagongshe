@@ -1,8 +1,7 @@
-"""F-OAUTH-01 回归 —— 管理员停用账号撤销 OAuth 凭证（hermetic，需 test DB）。
+"""管理员停用账号撤销 OAuth 凭证（hermetic，需 test DB）。
 
-事故：admin set_user_status(disabled) 只删 sessions/API Key，不撤 OAuth ——
-停用期间可用 refresh token 继续轮换、用未用 code 兑换新凭证，重新启用后
-旧授权直接复活。
+停用若只删 sessions/API Key、不撤 OAuth，停用期间仍可用 refresh token
+继续轮换、用未用 code 兑换新凭证，重新启用后旧授权直接复活。
 
 锁三条：
 1. 停用同事务清空四类 OAuth 凭证（authorization_requests / codes /

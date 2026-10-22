@@ -120,9 +120,7 @@ class ConflictFailClosedTests(unittest.TestCase):
         return asyncio.run(go())
 
     def test_resolver_conflict_and_no_third_row_reaction_path(self):
-        from sqlalchemy import text
-        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-        from sqlalchemy.pool import NullPool
+        from sqlalchemy.ext.asyncio import AsyncSession
         from api.services.identity import resolve_chemical
         from api.services.reactions import (
             UnresolvedIdentityError, resolve_or_create_chemical)
@@ -175,9 +173,7 @@ class ConflictFailClosedTests(unittest.TestCase):
 
     def test_http_adapter_maps_409(self):
         """adapter 映射: UnresolvedIdentityError → HTTPException 409。"""
-        from fastapi import HTTPException
         from api.reactions import create_reaction as create_route
-        from api.services.reactions import UnresolvedIdentityError
         import inspect
 
         src = inspect.getsource(create_route)
@@ -186,9 +182,7 @@ class ConflictFailClosedTests(unittest.TestCase):
 
     def test_search_path_conflict_no_create_no_500(self):
         """search SMILES optional-create: CONFLICT → 降级不建行不 500。"""
-        from sqlalchemy import text
-        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-        from sqlalchemy.pool import NullPool
+        from sqlalchemy.ext.asyncio import AsyncSession
         from unittest.mock import patch
         from api.services import reactions as reactions_svc
         from api.services.search import execute_search

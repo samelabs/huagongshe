@@ -186,7 +186,7 @@ class McpReactionDetailTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_owner_and_admin_viewer_facts(self):
         """§8: owner → (id, False); admin → (id, True); 无 credential → (0, False)。"""
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import MagicMock
 
         # owner: Bearer 解析为普通 actor
         owner = MagicMock(); owner.id = 42; owner.role = "user"

@@ -21,7 +21,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import os
 import random
 import secrets
 import sys
@@ -157,7 +156,6 @@ class TokenPlaintextContractTests(unittest.TestCase):
         from api.schemas.users import TokenBody
         from sqlalchemy import text
 
-        uid = None
         async def go():
             engine = _engine()
             try:
@@ -191,7 +189,6 @@ class TokenPlaintextContractTests(unittest.TestCase):
         from api.users import create_token, list_tokens
         from api.schemas.users import TokenBody
 
-        uid = None
         async def go():
             engine = _engine()
             try:
@@ -224,7 +221,6 @@ class TokenPlaintextContractTests(unittest.TestCase):
         from api.core.security import optional_actor, current_actor
         from sqlalchemy import text
 
-        uid = None
         # 长度须 ≥32: resolve_actor 对过短 Bearer 一律不认(认证层规则)
         token = f"hgs_contract_{secrets.token_urlsafe(24)}"
         async def go():
@@ -269,7 +265,6 @@ class TokenPlaintextContractTests(unittest.TestCase):
         from api.users import list_tokens
         from sqlalchemy import text
 
-        uid = None
         async def go():
             engine = _engine()
             try:
@@ -336,7 +331,6 @@ class TokenPlaintextContractTests(unittest.TestCase):
         from api.users import create_token, list_tokens
         from api.schemas.users import TokenBody
 
-        uid = None
         async def go():
             engine = _engine()
             try:
@@ -365,7 +359,6 @@ class TokenPlaintextContractTests(unittest.TestCase):
         from api.users import create_token
         from api.schemas.users import TokenBody
 
-        uid = None
         async def go():
             engine = _engine()
             try:
@@ -415,7 +408,6 @@ class TokenPlaintextContractTests(unittest.TestCase):
         from api.schemas.users import TokenBody
         from sqlalchemy import text
 
-        uid = None
         async def go():
             engine = _engine()
             try:

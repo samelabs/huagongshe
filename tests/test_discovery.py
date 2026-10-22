@@ -25,7 +25,6 @@ import os
 import random
 import string
 import unittest
-import uuid
 
 DB_URL = None
 try:

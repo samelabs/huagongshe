@@ -20,7 +20,6 @@ import unittest
 import zipfile
 from unittest.mock import patch
 
-from fastapi import HTTPException
 
 from api import skills as skills_module
 from api.core.rate_limit import LimiterUnavailable, RateLimited
@@ -262,7 +261,7 @@ class ArchiveKernelTests(unittest.TestCase):
         # ZipFile 写入时绝对路径可能被规范化 → 构造 BadZip 场景不适用;
         # 用反斜杠路径直测 UNSAFE_PATH 分支
         self._assert(raw, SkillArchiveValidationError.UNSAFE_PATH,
-                     f"非法路径：/etc/passwd")
+                     "非法路径：/etc/passwd")
 
     def test_traversal(self):
         raw = _zip_bytes({"../escape.txt": b"x"})
@@ -422,7 +421,7 @@ class TransactionTests(unittest.IsolatedAsyncioTestCase):
         order = []
         db = _Exec(results=[("INSERT INTO community.skills", 99)])
         orig_exec = db.execute
-        orig_commit, orig_rollback = db.commit, db.rollback
+        orig_commit, _orig_rollback = db.commit, db.rollback
 
         async def execute(sql, params=None):
             sql = str(sql)
@@ -564,7 +563,6 @@ class HttpAdapterTests(unittest.TestCase):
         self.assertIn("archive_loader", src)
 
     def test_neutral_error_mappings(self):
-        import asyncio
         cases = [
             (SkillArchiveValidationError("k", "zip-err"), 400, "zip-err"),
             (SkillCategoryError("cat-err"), 400, "cat-err"),

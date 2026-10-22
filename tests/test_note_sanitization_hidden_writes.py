@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlparse
 
 from pydantic import ValidationError
 
-from api.schemas.notes import MAX_NOTE_CONTENT_LENGTH, NoteBody, sanitize_note_content
+from api.schemas.notes import MAX_NOTE_CONTENT_LENGTH, NoteBody
 
 # ---------------------------------------------------------------------------
 # sanitize happens BEFORE the final length cap

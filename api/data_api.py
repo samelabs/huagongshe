@@ -21,8 +21,8 @@ from .core.database import get_db
 from .core import rate_limit
 from .services.chemicals import ChemicalNotFoundError, get_chemical_detail
 from .services.data_api.auth import (
-    DataApiAuthError, authorize_scope, body_sha256_hex, check_nonce,
-    load_client, sign_message, verify_signature,
+    DataApiAuthError, authorize_scope, check_nonce,
+    load_client, verify_signature,
 )
 from .services.data_api.lookup import DataApiInvalidParameter, lookup
 from .services.data_api.metering import enforce_quota, record_usage
@@ -158,7 +158,7 @@ async def chemicals_lookup(
     except ChemicalNotFoundError as exc:
         await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.warning("data api lookup failed", exc_info=True)
         if client is not None:
             await record_usage(db, client.id, error=True)
@@ -187,7 +187,7 @@ async def chemical_detail(
         if client is not None:
             await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.warning("data api chemical detail failed", exc_info=True)
         if client is not None:
             await record_usage(db, client.id, error=True)
@@ -247,7 +247,7 @@ async def chemicals_batch(
         if client is not None:
             await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.warning("data api chemicals batch failed", exc_info=True)
         if client is not None:
             await record_usage(db, client.id, error=True)
@@ -300,7 +300,7 @@ async def chemical_reactions(
         if client is not None:
             await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.warning("data api chemical reactions failed", exc_info=True)
         if client is not None:
             await record_usage(db, client.id, error=True)
@@ -329,7 +329,7 @@ async def reaction_detail(
         if client is not None:
             await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.warning("data api reaction detail failed", exc_info=True)
         if client is not None:
             await record_usage(db, client.id, error=True)
@@ -376,7 +376,7 @@ async def reactions_batch(
         if client is not None:
             await record_usage(db, client.id, error=True)
         return _error_response(exc, request_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.warning("data api reactions batch failed", exc_info=True)
         if client is not None:
             await record_usage(db, client.id, error=True)

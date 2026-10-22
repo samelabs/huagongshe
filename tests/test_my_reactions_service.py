@@ -57,7 +57,6 @@ class _FakeDB:
 
 class ServiceTests(unittest.IsolatedAsyncioTestCase):
     async def test_all_branch_uses_bounded_union_sql(self):
-        db = _FakeDB()
         captured = {}
 
         class _SpyDB(_FakeDB):
@@ -106,7 +105,6 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
 
 
     async def test_visibility_private_branch_sql(self):
-        db = _FakeDB()
         captured = {}
 
         class _SpyDB(_FakeDB):

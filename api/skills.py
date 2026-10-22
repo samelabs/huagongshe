@@ -28,7 +28,6 @@ from .services.skills import (
     SkillArchiveValidationError, SkillCategoryError, SkillSlugConflictError)
 from .services.skills import create_skill as create_skill_service
 from .services.skills import extract_skill_zip
-from .services.skills import validate_category
 # lifecycle owner(唯一 owner): adapter 只做 neutral error → HTTP 映射。
 from .services.skills import (SkillArchiveUnavailableError, SkillFileNotFoundError,
     SkillFilesystemError, SkillNotFoundError, SkillUpdateValidationError,

@@ -27,7 +27,7 @@ os.environ.setdefault(
 
 from api.core import rate_limit as rl  # noqa: E402
 from api.core.rate_limit import (  # noqa: E402
-    LimiterUnavailable, RateLimited, RateLimitError, ResourceBusy,
+    LimiterUnavailable, RateLimited, ResourceBusy,
 )
 
 

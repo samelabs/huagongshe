@@ -275,16 +275,14 @@ async def create_note(
     return await get_note(db, note_ref=note_slug, actor_id=actor_id)
 
 
-async def get_note(db, *, note_ref: int | str, actor_id: int | None) -> dict[str, Any]:
-    """按数字 id 或 7 位 slug 取笔记(URL 双通, 旧 id 链接不失效)。"""
-    # /P-1: hidden notes 404 for everyone (including the owner); private
-    # notes only for the owning session; public+visible notes anonymously.
-    # 停用作者的公开笔记保留可见 ——
-    # 不再经 users join 的 status='active' 过滤, 由 active 标记
-    # 让前端渲染「已停用」; 私有笔记仍实际不可达(停用即撤销全部会话)。
-    # ref 形态二选一(数字=id / 其他=slug): 避免 NULL 参数无法定型的歧义
-    ref_match = "n.id=:ref" if str(note_ref).isdigit() else "n.slug=:ref"
-    row = (await db.execute(text(f"""
+async def get_note(db, *, note_ref: str, actor_id: int | None) -> dict[str, Any]:
+    """按 7 位 slug 取笔记(slug 是笔记唯一公共标识)。"""
+    # hidden notes 404 for everyone (including the owner); private notes
+    # only for the owning session; public+visible notes anonymously.
+    # 停用作者的公开笔记保留可见: 不经 users join 的 status='active' 过滤,
+    # 由 active 标记让前端渲染「已停用」; 私有笔记仍实际不可达(停用即撤销
+    # 全部会话)。
+    row = (await db.execute(text("""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
                n.title,n.slug,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,

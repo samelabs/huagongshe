@@ -28,7 +28,6 @@ os.environ.setdefault(
     "postgresql+asyncpg://governance:governance@127.0.0.1:5432/unused",
 )
 
-from api.services import search as svc  # noqa: E402
 from api.services.search import SearchError, execute_search  # noqa: E402
 
 TUP = (  # run_search_query 返回 8 元组

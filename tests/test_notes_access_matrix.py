@@ -1,5 +1,5 @@
-"""Phase 1c tests: P-5 sanitization, P-1 access matrix, P-2 public profile API,
-P-6/P-8 private+entity filter isolation.
+"""Notes tests: content sanitization, access matrix, public profile API,
+private + entity filter isolation.
 
 Service/schema-level integration tests run against the gated TEST database
 when available; the rest are pure-unit and always run.
@@ -211,7 +211,7 @@ class NoteAccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
     async def test_p2_public_notes_do_not_leak_private_hrid(self):
         async with self.Session() as db:
             rid = await self._reaction(db, visibility="public")
-            note = await svc.create_note(
+            await svc.create_note(
                 db, actor_id=self.owner, visibility="public",
                 content="will lose its reference", chemical_ids=[], reaction_ids=[rid])
             await db.execute(text(

@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import json
 import os
 import re
 import time
@@ -43,7 +42,7 @@ except Exception:  # pragma: no cover - 无 test DB 时跳过 DB 用例
     DB_URL = None
 
 from api.core import rate_limit
-from api.core.cache import cache_delete, cache_get, cache_set, pool
+from api.core.cache import cache_delete, cache_get, cache_set
 from api.services import chemicals as chemicals_service
 from api.services import search as search_service
 import api.routes as routes
@@ -346,7 +345,7 @@ class LeaseLayerTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase):
 
         rate_limit.acquire_lease = flaky
         try:
-            with self.assertRaises(LimiterUnavailable) as ctx:
+            with self.assertRaises(LimiterUnavailable):
                 await rate_limit.structure_enter(9, bucket=self.BUCKET)
         finally:
             rate_limit.acquire_lease = original
@@ -688,7 +687,7 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
         original = cache_module.current_pool
         cache_module.current_pool = lambda: broken
         try:
-            with self.assertRaises(LimiterUnavailable) as ctx:
+            with self.assertRaises(LimiterUnavailable):
                 await rate_limit.acquire_lease(self.BUCKET, "global", 4)
         finally:
             cache_module.current_pool = original
@@ -702,7 +701,7 @@ class LeaseFailClosedTests(LoopLocalRedisMixin, unittest.IsolatedAsyncioTestCase
         original = cache_module.current_pool
         cache_module.current_pool = lambda: broken
         try:
-            with self.assertRaises(LimiterUnavailable) as ctx:
+            with self.assertRaises(LimiterUnavailable):
                 await rate_limit.structure_enter(1, bucket=self.BUCKET)
         finally:
             cache_module.current_pool = original

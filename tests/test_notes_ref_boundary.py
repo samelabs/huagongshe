@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import unittest
-from unittest.mock import MagicMock
 
 from api.services.notes import NoteReferenceError, _validate_references
 

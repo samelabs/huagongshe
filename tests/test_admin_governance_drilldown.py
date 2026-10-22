@@ -18,7 +18,6 @@ fixture 全部建在 test_hgs, teardown 清理。
 from __future__ import annotations
 
 import asyncio
-import os
 import unittest
 
 from sqlalchemy import text
@@ -206,7 +205,7 @@ class FixtureTests(GovBase):
 
     def test_drilldown_limit_and_unknown(self):
         """验收4: drill-down 有 LIMIT; 未知/无证据 key 明确拒绝。"""
-        from api.services.pipeline_governance import DRILL_LIMIT, DRILL_UNSUPPORTED, drill_down
+        from api.services.pipeline_governance import DRILL_LIMIT, drill_down
         self.assertLessEqual(DRILL_LIMIT, 50)
         async def run():
             eng = create_async_engine(DB)

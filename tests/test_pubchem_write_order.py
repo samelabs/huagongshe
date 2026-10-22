@@ -1,4 +1,4 @@
-"""§2 PubChem identity 写前— 真实生产顺序集成测试 (规范收口)。
+"""§2 PubChem identity 写前 — 真实生产顺序集成测试。
 
 链路: worker callback(complete_job) → incoming CID/IK → identity validation
       → sync → reconcile。
@@ -333,7 +333,6 @@ class PubChemWriteOrderTests(unittest.TestCase):
                 """), {"a": holder, "b": src})).scalar())
         self.assertEqual(_run(cnt_redirect()), 0, "holder IK 冲突不得产生 redirect")
         # 无 merge_log
-        from sqlalchemy import text
         async def cnt():
             async with self.engine.begin() as db:
                 return int((await db.execute(text("""
@@ -471,7 +470,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
                          "IK 可匹配其他行也不得绕过 query binding 产生 merge")
 
     def test_18_query_binding_grants_cid_when_core_cid_missing(self):
-        """E: query=X / incoming CID 缺失 → query binding 仍授 CID（F-NEW-01 修复）。
+        """E: query=X / incoming CID 缺失 → query binding 仍授 CID。
 
         whole_record 解析产物 core 不含 CID —— 已验证的 job.query_value（worker
         实际被派发请求的 CID）是可信 CID evidence，主表 pubchem_cid 必须回写；
@@ -485,7 +484,7 @@ class PubChemWriteOrderTests(unittest.TestCase):
         row = self._get_row(row_id)
         self.assertIsNotNone(row)
         self.assertEqual(row["pubchem_cid"], cid18,
-                         "incoming 无 CID → query binding 应授 CID（F-NEW-01）")
+                         "incoming 无 CID → query binding 应授 CID")
         self.assertEqual(row["inchikey"], IK_A, "IK-only 补空原规范保持")
 
 

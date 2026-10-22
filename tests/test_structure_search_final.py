@@ -149,7 +149,6 @@ class CappedContractTests(unittest.TestCase):
         self.assertFalse(result[7], "similarity 模式 capped 恒 false")
 
     def test_routes_response_includes_capped(self):
-        from api import routes as routes_module
 
         # capped 组装唯一 owner = orchestration
         from api.services import search as search_service

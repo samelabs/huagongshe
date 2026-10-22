@@ -596,7 +596,7 @@ async def _dedupe_rekey(db: Any, *, schema: str, table: str,
 
     碰撞键 dedupe_key = PK 去掉 chemical_id 的列 (如 reaction_chemicals
     为 (reaction_id, role), name_index 为 (source,kind,normalized))。
-    同 dedupe_key 双侧有行时统一 UPDATE 会撞 PK (真实事故实证):
+    同 dedupe_key 双侧有行时统一 UPDATE 会撞 PK, 因此分三步:
     1. 白名单 payload 列先补 survivor 空值(old 独有信息不静默丢)
     2. 删 old 侧同键行(survivor 行已承载合并内容)
     3. 剩余 old 行(键不冲突)改指
@@ -720,7 +720,7 @@ async def _absorb_verified(db: Any, *, survivor_id: int, absorbed_id: int,
                 survivor_id=survivor_id, absorbed_id=absorbed_id,
                 cfg=cfg)
         elif strategy == "DEDUPE_REKEY":
-            # 复合键含 chemical_id (reaction_chemicals 真实事故实证):
+            # 复合键含 chemical_id (如 reaction_chemicals):
             # 同 dedupe_key 双侧有行 → 先按白名单补 survivor 空值(payload
             # 不静默丢, 冲突留痕), 再删 old 同键行, 剩余 old 行改指。
             conflicts = await _dedupe_rekey(

@@ -319,7 +319,6 @@ class OauthConnectionsManageTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_agent_token_cannot_list_connections(self):
         """ 收紧: 凭据管理只认网页会话, AI Key(agent)调用 403。"""
-        import asyncio
         import inspect
 
         from fastapi import HTTPException

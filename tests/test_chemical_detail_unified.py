@@ -321,8 +321,8 @@ class FullOrchestrationTests(unittest.TestCase):
     def test_full_pb_ghs_classification_survives(self):
         """REST full 的 safety.pb_sections 必须含 GHS 分类。
 
-        事故：chemical_semantic 白名单键名曾被提交成占位符字面量
-        «redacted:ghs_…»（f1b8788），GHS 分类在 detail 投影里静默丢失。
+        chemical_semantic 白名单键名若被替换成占位符字面量，GHS 分类会在
+        detail 投影里静默丢失。
         """
         ghs = {"codes": ["H302"], "pictograms": ["GHS07"], "statements": "吞咽有害"}
         result = self._full(pb_details={

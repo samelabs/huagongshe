@@ -34,10 +34,8 @@ os.environ.setdefault(
 
 import api.core.rate_limit as rate_limit  # noqa: E402
 import api.mcp_server as mcp_server  # noqa: E402
-import api.mol as mol  # noqa: E402
 import api.services.rendering as render_service  # noqa: E402
 import api.routes as routes  # noqa: E402
-import api.skills as skills  # noqa: E402
 from api.core.security import Actor  # noqa: E402
 from mcp.server.mcpserver.exceptions import ToolError  # noqa: E402
 
@@ -340,7 +338,7 @@ class ToolSurfaceAndVersion(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class ValidateSkillScope(unittest.TestCase):
-    """B4(2026-10 收口): REST 已不接受 AI Key, agent-only 的 require_scope
+    """REST 不接受 AI Key, agent-only 的 require_scope
     分支随之退役 —— scope 闸门只存在于 MCP 侧(_require_tool_actor)。"""
 
     def test_rest_adapters_no_longer_call_require_scope(self):
@@ -545,7 +543,6 @@ class StructureGateCompat(unittest.TestCase):
     def test_routes_still_imports_the_same_names(self):
         # HTTP/MCP 均经 shared orchestration(闸门 owner=
         # services/search.execute_search); routes 不再持有结构闸门符号
-        from api.services import search as _search_service
         self.assertIn("execute_search", dir(routes))
         src = (REPO / "api" / "services" / "search.py").read_text(encoding="utf-8")
         self.assertIn("structure_exit", src)

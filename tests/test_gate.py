@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 import unittest
 
 from api.services.gate import LADDER, _silence_for, gate_record_error, gate_silence_remaining

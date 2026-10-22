@@ -1,8 +1,7 @@
 # 本地开发环境（唯一入口）
 
-> 端口与目录收口：此前 dev 端口多次漂移且 compose 栈躺在
-> `.rc-acceptance` 草稿目录，本目录是收口后的唯一规范形态。**web dev 不进
-> docker**（HMR/文件监听走宿主机），docker 只放有状态服务（db/redis/api）。
+> 本目录是本地开发环境的唯一规范形态。**web dev 不进 docker**（HMR/文件
+> 监听走宿主机），docker 只放有状态服务（db/redis/api）。
 
 ## 目录
 

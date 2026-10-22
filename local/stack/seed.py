@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""seed.py — 本地栈种子数据(.rc-acceptance/tools/stack, 不入库)。
+"""seed.py — 本地栈种子数据。
 
 只通过 HTTP API(默认 http://127.0.0.1:8000)写入, 不直接碰数据库。
 可重复执行: 注册 409 视为已存在; 反应用固定 Idempotency-Key 重放;

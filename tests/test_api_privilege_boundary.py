@@ -26,11 +26,9 @@ try:
 except Exception:
     DB_URL = None
 
-from fastapi import HTTPException
 
 import api.routes as routes
 from api.core import security
-from api.core.rate_limit import is_loopback_host
 from api.services import enrichment as enrichment_service
 from api.services import search as search_service
 
@@ -113,7 +111,6 @@ class RefreshUseCasePolicyTests(unittest.TestCase):
         if DB_URL is None:
             self.skipTest("缺少合规 TEST_DATABASE_URL：此测试必须在测试库中运行")
         import asyncio
-        from datetime import datetime, timedelta, timezone
         from sqlalchemy import text as sql_text
         from sqlalchemy.ext.asyncio import create_async_engine
 

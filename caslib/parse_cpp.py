@@ -124,7 +124,7 @@ _PROP_KEY_L10N = {
     "比熱容量": "specific_heat", "爆発限界(explosive limit)": "explosive_limit",
     "安定性": "stability", "外見": "appearance", "貯蔵温度": "storage",
     "由来生物": "biological_source", "主な用途": "main_application",
-    "化粧品成分の機能": "cosmetic_function", "PH": "ph",
+    "化粧品成分の機能": "cosmetic_function",
     "臭気閾値(Odor Threshold)": "odor_threshold",
     "CAS データベース": "cas_db_ref", "EPAの化学物質情報": "epa_ref",
     "NISTの化学物質情報": "nist_ref",
@@ -150,7 +150,7 @@ _PROP_KEY_L10N = {
     "Surface Tension": "surface_tension", "Specific Heat": "specific_heat",
     "Explosive Limit": "explosive_limit", "Stability": "stability",
     "Appearance": "appearance", "Storage Conditions": "storage",
-    "storage temp.": "storage", "Dielectric Constant": "dielectric_constant",
+    "Dielectric Constant": "dielectric_constant",
     "FEMA": "fema", "JECFA Number": "jecfa",
 }
 _PROP_KEY.update(_PROP_KEY_L10N)

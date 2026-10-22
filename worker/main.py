@@ -341,7 +341,7 @@ async def process_cas_job(
             entry = parse_cpp_page(cpp_html, locale=locale) if cpp_html else None
             # source grain: 语言行 payload 必须携带本 job 的 cb_number —
             # 缺失时 callback upsert 收 cb=None 落 legacy NULL 粒度, 同 chemical
-            # 的 CB001/en 与 CB002/en 互相覆盖(语言层折叠事故)。
+            # 的 CB001/en 与 CB002/en 互相覆盖。
             if entry is None:
                 # 判定成功的"无变体"(含空壳200): not_found — B-minimal;
                 # complete 侧据 (cb_number, locale) 落
