@@ -254,7 +254,11 @@ class SkillSlugResolution(unittest.TestCase):
             raise AssertionError("numeric skill_id 不得进入 slug resolver")
 
         log: list = []
+        async def _auth(_headers):
+            return actor(actor_id=7)
+
         with patch.object(mcp_server, "_resolve_skill_slug", boom), \
+                patch.object(mcp_server, "_actor_from_headers", _auth), \
                 patch.object(mcp_server, "async_session", fake_session_factory(log)):
             for value in (163, "163"):
                 log.clear()
@@ -276,7 +280,11 @@ class SkillSlugResolution(unittest.TestCase):
             return 163
 
         log: list = []
+        async def _auth(_headers):
+            return actor(actor_id=7)
+
         with patch.object(mcp_server, "_resolve_skill_slug", spy), \
+                patch.object(mcp_server, "_actor_from_headers", _auth), \
                 patch.object(mcp_server, "async_session", fake_session_factory(log)):
             try:
                 asyncio.run(build_server().call_tool(

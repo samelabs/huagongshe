@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { apiGet } from "@/lib/api.server";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { localeAlternates } from "@/lib/alternates";
 import { SkillsClient, type Skill, type Category } from "./SkillsClient";
 import { buildShareMetadata } from "@/lib/shareMeta";
 
-async function skillsCount(): Promise<number | null> {
+async function skillsCount(cookie: string | null): Promise<number | null> {
   try {
-    const data = await apiGet<{ total: number }>(`/skills?scope=public&page=1&page_size=1`);
+    const data = await apiGet<{ total: number }>(`/skills?scope=public&page=1&page_size=1`,
+      cookie ? { cookie } : undefined);
     return typeof data.total === "number" ? data.total : null;
   } catch {
     return null;
@@ -17,7 +20,8 @@ async function skillsCount(): Promise<number | null> {
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
-  const n = await skillsCount();
+  const cookie = (await headers()).get("cookie");
+  const n = await skillsCount(cookie);
   const count = t.skills.countUnit(n);
   const shareMeta = buildShareMetadata({
     title: t.skills.metaOgTitle(t.brand.name),
@@ -37,25 +41,26 @@ export async function generateMetadata(): Promise<Metadata> {
     title: t.skills.openLibrary,
     description: t.skills.metaDesc(count),
     alternates: localeAlternates("/skills", locale),
-    robots: { index: true, follow: true },
+    // 技能浏览是登录能力: 私有面不进索引
+    robots: { index: false, follow: false },
     ...shareMeta,
   };
 }
 
 export const dynamic = "force-dynamic";
 
-async function loadCategories(): Promise<Category[] | null> {
+async function loadCategories(cookie: string): Promise<Category[] | null> {
   try {
-    return await apiGet<Category[]>("/skills/categories");
+    return await apiGet<Category[]>("/skills/categories", { cookie });
   } catch {
     return null;
   }
 }
 
-async function loadSkills(): Promise<{ skills: Skill[]; error: boolean }> {
+async function loadSkills(cookie: string): Promise<{ skills: Skill[]; error: boolean }> {
   try {
     const first = await apiGet<{ total: number; items: Skill[] }>(
-      "/skills?scope=public&page=1&page_size=100",
+      "/skills?scope=public&page=1&page_size=100", { cookie },
     );
     const all: Skill[] = [...first.items];
     const total = first.total;
@@ -63,7 +68,7 @@ async function loadSkills(): Promise<{ skills: Skill[]; error: boolean }> {
       const remainingPages = Math.ceil(total / 100);
       const pagePromises: Promise<{ items: Skill[] }>[] = [];
       for (let p = 2; p <= remainingPages; p++) {
-        pagePromises.push(apiGet<{ items: Skill[] }>(`/skills?scope=public&page=${p}&page_size=100`));
+        pagePromises.push(apiGet<{ items: Skill[] }>(`/skills?scope=public&page=${p}&page_size=100`, { cookie }));
       }
       const rest = await Promise.all(pagePromises);
       for (const r of rest) all.push(...r.items);
@@ -76,11 +81,15 @@ async function loadSkills(): Promise<{ skills: Skill[]; error: boolean }> {
 
 export default async function SkillsPage() {
   const t = await getRequestDictionary();
+  // 技能浏览是登录能力(HTTP/MCP 同墙): 无会话直接引导登录, 不渲染列表
+  const cookieStore = await cookies();
+  if (!cookieStore.has("hgs_session")) redirect("/login?next=/skills");
+  const cookie = cookieStore.toString();
   // 分类与技能列表并行请求；错误分开处理（分类失败只隐藏导航，不整页报错）
   const [cats, skillsResult, totalCount] = await Promise.all([
-    loadCategories(),
-    loadSkills(),
-    skillsCount(),
+    loadCategories(cookie),
+    loadSkills(cookie),
+    skillsCount(cookie),
   ]);
 
   const skills = skillsResult.skills;

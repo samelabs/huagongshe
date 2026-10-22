@@ -273,8 +273,9 @@ class HttpMigrationTests(unittest.TestCase):
             raise SkillNotAccessibleError("技能不存在")
 
         async def run():
+            actor = MagicMock(); actor.id = 1
             with patch.object(api_skills, "get_skill_detail_service", boom):
-                await api_skills.get_skill(5, actor=None, db=object())
+                await api_skills.get_skill(5, actor=actor, db=object())
         try:
             asyncio.run(run())
             self.fail("expected HTTPException")
@@ -360,9 +361,16 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         if actor == "UNSET":
             async def fake_actor(headers):
                 return None
-        else:
+        elif actor is not None:
+            # _require_tool_actor 要求可用鉴权形态: 桩 actor 统一按 agent key
+            actor.auth_kind = "agent"
+            actor.scopes = ()
+
             async def fake_actor(headers):
                 return actor
+        else:
+            async def fake_actor(headers):
+                return None
 
         async def fake_detail(db, sid, *, actor_id):
             if detail == "RAISE":
@@ -378,19 +386,34 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
             except ToolError as exc:
                 return exc
 
-    async def test_numeric_get_works_anonymous_public(self):
+    async def test_numeric_get_anonymous_returns_oauth_challenge(self):
+        """技能浏览是登录能力: 匿名收到 OAuth challenge(HTTP 同墙 401)。"""
+        async def boom_detail(db, sid, *, actor_id):
+            raise AssertionError("登录墙先于 detail: 匿名不得触达 service")
+
+        import api.mcp_server as mcp
+        with patch.object(mcp, "_actor_from_headers", _wrap(None)), \
+             patch.object(skills_service, "get_skill_detail", boom_detail):
+            r = await (await self._tool_fn())(skill_id=42, ctx=_Ctx())
+        self.assertTrue(r.is_error)
+        challenge = (r.meta or {}).get("mcp/www_authenticate") or []
+        self.assertTrue(challenge)
+        self.assertIn('scope="read"', challenge[0])
+
+    async def test_numeric_get_works_for_actor(self):
         captured = {}
+        actor = MagicMock(); actor.id = 42; actor.auth_kind = "agent"; actor.scopes = ()
 
         async def fake_detail(db, sid, *, actor_id):
             captured.update(sid=sid, actor_id=actor_id)
             return {"id": sid, "skill_md": "x"}
 
         import api.mcp_server as mcp
-        with patch.object(mcp, "_actor_from_headers", _wrap(None)), \
+        with patch.object(mcp, "_actor_from_headers", _wrap(actor)), \
              patch.object(skills_service, "get_skill_detail", fake_detail):
             r = await (await self._tool_fn())(skill_id=42, ctx=_Ctx())
         self.assertEqual(r["id"], 42)
-        self.assertIsNone(captured["actor_id"])
+        self.assertEqual(captured["actor_id"], 42)
 
     async def test_slug_get_works_via_adapter_resolver(self):
         import api.mcp_server as mcp
@@ -403,7 +426,9 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
             captured.update(sid=sid)
             return {"id": sid}
 
+        actor = MagicMock(); actor.id = 9; actor.auth_kind = "agent"; actor.scopes = ()
         with patch.object(mcp, "_resolve_skill_slug", fake_resolve), \
+             patch.object(mcp, "_actor_from_headers", _wrap(actor)), \
              patch.object(skills_service, "get_skill_detail", fake_detail):
             r = await (await self._tool_fn())(skill_id="my-slug", ctx=_Ctx())
         self.assertEqual(r["id"], 77)
@@ -416,11 +441,13 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(r, ToolError)
         self.assertEqual(str(r), "Skill not found or not accessible.")
 
-    async def test_missing_tool_error_exact(self):
-        from mcp.server.mcpserver.exceptions import ToolError
+    async def test_missing_anonymous_challenge_before_access(self):
+        """登录墙先于访问判定: 匿名不泄露技能存在性, 直接 challenge。"""
         r = await self._call(actor=None, detail="RAISE", skill_id=5)
-        self.assertIsInstance(r, ToolError)
-        self.assertEqual(str(r), "Skill not found or not accessible.")
+        self.assertTrue(r.is_error)
+        challenge = (r.meta or {}).get("mcp/www_authenticate") or []
+        self.assertTrue(challenge)
+        self.assertIn('scope="read"', challenge[0])
 
     async def test_admin_non_owner_private_same_tool_error(self):
         from mcp.server.mcpserver.exceptions import ToolError
@@ -437,6 +464,7 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
             captured.update(actor_id=actor_id)
             return {"id": sid, "visibility": "private"}
 
+        actor.auth_kind = "agent"; actor.scopes = ()
         import api.mcp_server as mcp
         with patch.object(mcp, "_actor_from_headers", _wrap(actor)), \
              patch.object(skills_service, "get_skill_detail", fake_detail):

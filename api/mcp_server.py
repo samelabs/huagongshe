@@ -1055,12 +1055,12 @@ def build_mcp_server() -> MCPServer:
             raise ToolError("The reaction SMILES could not be rendered.")
         return svg
 
-    @server.tool(name="list_skills", title="List skills", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
+    @server.tool(name="list_skills", title="List skills", annotations=ANN_READ_CLOSED, meta=SEC_OAUTH_READ)
     async def list_skills(
         scope: Annotated[Literal["public", "mine"], Field(
-            description="public lists the public skill pool anonymously; "
-                        "mine lists the caller's own skills (requires "
-                        "authentication).")] = "public",
+            description="public lists the public skill pool; "
+                        "mine lists the caller's own skills. Both "
+                        "require authentication.")] = "public",
         q: Annotated[str, Field(
             max_length=SKILL_QUERY_MAX_LENGTH,
             description="Optional case-insensitive title/slug filter.")] = "",
@@ -1074,24 +1074,22 @@ def build_mcp_server() -> MCPServer:
             description="Results per page.")] = SEARCH_PAGE_SIZE_DEFAULT,
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """List reusable skills. scope=public is available anonymously; scope=mine
-        requires authentication and returns the caller's own skills."""
+        """List reusable skills (login required). scope=public lists the public
+        skill pool; scope=mine lists the caller's own skills."""
         from .services.skills import list_skills as _list_service
 
-        actor = await _actor_from_headers(ctx.headers if ctx else None)
+        # 技能浏览是登录能力(HTTP GET /skills 同墙): public 与 mine 都要
+        # 求登录; AI Key 保留, OAuth 依 advertised read scope。
+        actor, auth_result = await _require_tool_actor(
+            ctx.headers if ctx else None,
+            oauth_scope="read",
+            agent_scope=None,
+        )
+        if auth_result is not None:
+            return auth_result  # type: ignore[return-value]
+        assert actor is not None
         if scope not in ("public", "mine"):
             raise ToolError("scope must be either public or mine.")
-        if scope == "mine":
-            # Existing AI Keys keep the historical login-only policy; OAuth uses
-            # the advertised read scope.
-            actor, auth_result = await _require_tool_actor(
-                ctx.headers if ctx else None,
-                oauth_scope="read",
-                agent_scope=None,
-            )
-            if auth_result is not None:
-                return auth_result  # type: ignore[return-value]
-            assert actor is not None
         q = (q or "")[:120]
         category = (category or "")[:40]
         page = min(max(page, 1), LIST_PAGE_MAX)
@@ -1104,14 +1102,15 @@ def build_mcp_server() -> MCPServer:
             )
             return {**listed, "items": [_public_skill(i) for i in listed.get("items") or []]}
 
-    @server.tool(name="get_skill", title="Get skill", annotations=ANN_READ_CLOSED, meta=SEC_OPTIONAL_READ)
+    @server.tool(name="get_skill", title="Get skill", annotations=ANN_READ_CLOSED, meta=SEC_OAUTH_READ)
     async def get_skill(
         skill_id: Annotated[int | str, Field(
             description="Numeric skill ID or slug, e.g. "
                         "huagongshe-reaction-publisher.")],
         ctx: Context = None,  # type: ignore[assignment]
     ) -> dict[str, Any]:
-        """Return a skill manifest, file list, and full SKILL.md text.
+        """Return a skill manifest, file list, and full SKILL.md text
+        (login required).
 
         skill_id accepts either a numeric ID or a slug such as
         huagongshe-reaction-publisher. Binary file contents are not returned.
@@ -1119,10 +1118,15 @@ def build_mcp_server() -> MCPServer:
         from .services.skills import SkillNotAccessibleError
         from .services.skills import get_skill_detail as _detail_service
 
-        actor, auth_result = await _optional_tool_actor(
-            ctx.headers if ctx else None, oauth_scope="read")
+        # 技能浏览是登录能力(HTTP GET /skills/{id} 同墙)。
+        actor, auth_result = await _require_tool_actor(
+            ctx.headers if ctx else None,
+            oauth_scope="read",
+            agent_scope=None,
+        )
         if auth_result is not None:
             return auth_result  # type: ignore[return-value]
+        assert actor is not None
         if isinstance(skill_id, str):
             candidate = skill_id.strip()
             if candidate.isdigit():

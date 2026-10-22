@@ -5,12 +5,12 @@
 ## AI integration (read this first)
 
 - **Zero configuration**: add `https://huagongshe.com/mcp` to your MCP client (Streamable HTTP transport). The public tools work anonymously — no account or registration needed.
-- **Account-only capabilities**: structure search (substructure/similarity), reading and writing your own reactions, and saving your own skills. To use them, the user must identify themselves in person: MCP clients with OAuth support open the authorization page when needed, where the user logs in and confirms; clients without OAuth support use an AI Key that the user creates after logging in (Account Settings → AI Key, https://huagongshe.com/me/settings/api-tokens) and send it as `Authorization: Bearer <AI Key>`.
+- **Account-only capabilities**: structure search (substructure/similarity), skills (browsing and saving), and reading and writing your own reactions. To use them, the user must identify themselves in person: MCP clients with OAuth support open the authorization page when needed, where the user logs in and confirms; clients without OAuth support use an AI Key that the user creates after logging in (Account Settings → AI Key, https://huagongshe.com/me/settings/api-tokens) and send it as `Authorization: Bearer <AI Key>`.
 - **MCP OAuth** (recommended where supported): standard Authorization Code flow with PKCE S256; scopes: `read`, `reaction:write`, `skill:write`.
 - **MCP connection guide**: https://huagongshe.com/mcp-guide
 
-**Anonymous**: unified search (exact mode), compound detail, public reaction detail, molecule/reaction SVG, public skills, stoichiometry calculation
-**After the user identifies themselves (OAuth / AI Key)**: structure search (substructure/similarity), reading your own private reactions/skills, listing your reactions, validating/creating reactions, validating/saving skills
+**Anonymous**: unified search (exact mode), compound detail, public reaction detail, molecule/reaction SVG, stoichiometry calculation
+**After the user identifies themselves (OAuth / AI Key)**: structure search (substructure/similarity), skills (public pool and your own), listing your reactions, validating/creating reactions, validating/saving skills
 
 ## What you can call
 
@@ -22,8 +22,8 @@
 4. `render_molecule_svg`: Render 2D SVG structure image for a compound.
 5. `render_reaction_svg`: Render 2D SVG equation image for a reaction.
 6. `calculate_stoichiometry`: Calculate reaction charge table, theoretical yield, and solvent volumes based on a basis component.
-7. `list_skills`: Browse public and accessible scientific agent skills.
-8. `get_skill`: Read skill definition, files, and metadata by slug.
+7. `list_skills`: Browse public and accessible scientific agent skills (login required).
+8. `get_skill`: Read skill definition, files, and metadata by slug (login required).
 9. `list_my_reactions`: List reactions created by the authenticated user.
 10. `validate_reaction`: Validate and canonicalize reaction draft (RDKit check without saving).
 11. `create_reaction`: Save a user-confirmed reaction into personal workbench (requires Idempotency-Key).
