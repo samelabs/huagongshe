@@ -55,6 +55,7 @@ class MoleculeServiceTests(unittest.TestCase):
         self.assertIsNotNone(svg)
         self.assertIn("<svg", svg)
         self.assertNotIn("<?xml", svg)
+        self.assertNotIn("<rect", svg, "SVG 必须透明背景, 不得自带白色底 <rect>")
 
     def test_png_normal_render(self):
         png = svc.smiles_to_png("CCO", 500, 375)
@@ -135,6 +136,7 @@ class ReactionVisibilityServiceTests(unittest.TestCase):
         self.assertIsNotNone(svg)
         self.assertIn("<svg", svg)
         self.assertNotIn("<?xml", svg)
+        self.assertNotIn("<rect", svg, "反应式 SVG 必须透明背景, 不得自带白色底 <rect>")
 
     def test_reaction_bad_smiles_returns_none(self):
         self.assertIsNone(svc.reaction_to_svg("not a reaction"))

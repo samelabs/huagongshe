@@ -145,7 +145,6 @@ const ja: Dictionary = {
     /* ── 第一画面のAI接入 ── */
     entryLabel: 'AI 接続',
     entryMcp: 'MCP 接続',
-    entryWorkbench: 'ウェブワークベンチ',
     entrySkills: 'Skills',
     entryPlugin: "Agent Plugin",
     entryMcpCopy: 'MCP サーバーアドレスをコピー',

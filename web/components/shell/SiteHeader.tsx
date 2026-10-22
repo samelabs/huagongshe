@@ -5,7 +5,7 @@
  *
  * 公开页 (site) 与工作台 (workbench) 共用；外壳实例全程不卸载，工作台
  * 形态由上下文驱动（ShellWorkbenchChrome）。桌面 / 平板 / 手机三态：
- * - 桌面（≥）：标志 · 主导航（查询/Skills/MCP/工作台）·
+ * - 桌面（≥）：标志 · 主导航（查询/MCP/工作台/Skills）·
  * 铃铛（未读红点，链接 /aichem?tab=activity）· 语言 · 头像菜单。无搜索框。
  * - 平板（641–）：主导航收进「更多」菜单。
  * - 手机（≤640）：高 --header-h-m，标志 + 汉堡抽屉 ≡ + 语言切换 ——
@@ -42,14 +42,14 @@ import { MobileTabBar } from "./MobileTabBar";
 
 type NavItem = { href: string; label: string; match: (routePath: string) => boolean };
 
-/** 主导航四项（首页 / Skills / MCP / 工作台），「更多」菜单与桌面导航共用 */
+/** 主导航四项（首页 / MCP / 工作台 / Skills），「更多」菜单与桌面导航共用 */
 function useNavItems(): NavItem[] {
   const t = useDictionary();
   return [
     { href: "/", label: t.nav.tabHome, match: (p) => p === "/" || p === "" },
-    { href: "/skills", label: t.nav.skills, match: (p) => p.startsWith("/skills") },
     { href: "/mcp-guide", label: t.nav.mcp, match: (p) => p.startsWith("/mcp-guide") },
     { href: "/aichem", label: t.nav.tabWorkbench, match: (p) => p === "/aichem" || p.startsWith("/aichem/") || p.startsWith("/submit") || p.startsWith("/me") },
+    { href: "/skills", label: t.nav.skills, match: (p) => p.startsWith("/skills") },
   ];
 }
 

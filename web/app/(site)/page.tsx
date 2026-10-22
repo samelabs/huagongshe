@@ -51,7 +51,7 @@ export default async function Home() {
         <SearchHero />
       </section>
 
-      {/* ── AI 接入入口: 第一屏直接给出地址与主入口 MCP / Skills / 工作台 /
+      {/* ── AI 接入入口: 第一屏直接给出地址与主入口 MCP / Skills /
           Agent Plugin（tests/test_release_governance.py）。Agent Plugin
           直接下载随代码部署的插件包（web/public/downloads，见
           scripts/build_plugin_package.py）。 ── */}
@@ -61,7 +61,6 @@ export default async function Home() {
           <nav className="guide-actions home-entry-actions">
             <Button variant="primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Button>
             <Button variant="secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Button>
-            <Button variant="secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Button>
             <Button variant="secondary" href={PLUGIN_PACKAGE_URL} download>
               {t.home.entryPlugin}
             </Button>

@@ -147,22 +147,16 @@ main { flex: 1; background: var(--bg-page); }
 .context-loading { padding: 35px 0; color: var(--text-muted); }
 
 
-/* ── 搜索结果卡片 EntityCard（DESIGN_SYSTEM 3.13 / 6.2）：缩略图 112×84 + HCID sm +
-   名称(fs-16/600) + 元信息 + 右侧收藏 ghost icon；SMILES 不在卡片显示 ── */
+/* ── 搜索结果行（DESIGN_SYSTEM 3.13 / 6.2）：结构图按原生比例直出 +
+   HCID sm + 名称(fs-16/600) + 元信息 + 右侧收藏 ghost icon；
+   无卡片框 —— 双层卡片框挤压 1:1 结构图的可读性, 行间靠间距分隔；
+   SMILES 不在行上显示 ── */
 .entity-card-grid { display: grid; gap: 10px; }
 .entity-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: var(--sp-4);
   align-items: center;
-  padding: var(--sp-3) var(--sp-4);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--bg-surface);
-  transition: border-color .15s, box-shadow .15s;
-}
-@media (hover:hover) {
-  .entity-card:hover { border-color: var(--action-border); box-shadow: 0 2px 8px rgba(0,0,0,.04); }
 }
 .entity-card-thumb {
   width: 112px;
@@ -170,10 +164,6 @@ main { flex: 1; background: var(--bg-page); }
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  background: var(--bg-surface);
-  overflow: hidden;
 }
 .entity-card-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .entity-card-copy { min-width: 0; display: grid; gap: 4px; justify-items: start; }
@@ -247,10 +237,12 @@ main { flex: 1; background: var(--bg-page); }
 /* 结构图卡片 = 图区 + 检索按钮行：子结构/相似结构检索随卡片展示，
    所有宽度直接可见（未登录点击去登录，逻辑在链接组件内）。
    结构卡是内容件，居内容首屏左列与概述并排（chem-lead）；右侧栏只留功能。 */
-.chem-struct { align-self: start; display: flex; flex-direction: column; width: 300px; margin: 0; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-surface); overflow: hidden; }
+/* 结构图（无卡片框）：内容首屏的分子画像直出(图 + 子结构/相似检索入口),
+   随正文滚动 —— 不套边框/底色, 保持 1:1 可读性 */
+.chem-struct { align-self: start; display: flex; flex-direction: column; width: 300px; margin: 0; }
 .chem-struct-figure { display: grid; place-items: center; min-height: 220px; }
 .chem-struct img { max-width: 100%; max-height: 220px; object-fit: contain; }
-.chem-struct-links { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-3); border-top: 1px solid var(--border); }
+.chem-struct-links { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-3) 0 0; border-top: 1px solid var(--border); }
 /* 内容首屏：结构图（左）｜概述（右）；窄幅自动上下叠放 */
 .chem-lead { display: flex; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-6); }
 .chem-lead > .chem-struct { flex: none; }

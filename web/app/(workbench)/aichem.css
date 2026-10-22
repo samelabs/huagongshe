@@ -370,7 +370,7 @@
 .wb-row-icon svg { width: var(--icon-sm); height: var(--icon-sm); }
 .wb-row-icon.reaction { color: var(--wb-reaction-ink); background: var(--wb-reaction-bg); }
 .wb-row-icon img { width: 100%; height: 100%; object-fit: contain; }
-/* 缩略图（方程式/结构式）：高 48（6.7 我的反应行） */
+/* 缩略图（方程式/结构式）：高 48, 无框直出 —— 卡片框挤压结构图可读性 */
 .wb-row-thumb {
   flex: none;
   display: flex;
@@ -379,9 +379,6 @@
   height: 48px;
   min-width: 72px;
   max-width: 160px;
-  border: 1px solid var(--wb-line);
-  border-radius: var(--wb-r-sm);
-  background: var(--wb-paper);
   overflow: hidden;
   padding: 0 4px;
 }
@@ -542,15 +539,17 @@
   word-break: break-word;
 }
 .wb-feed-eq {
-  display: block;
-  width: 100%;
+  display: inline-block;
+  max-width: 100%;
   height: 64px;
   border: 1px solid var(--wb-line);
   border-radius: var(--wb-r-sm);
   background: var(--wb-paper);
   overflow: hidden;
 }
-.wb-feed-eq img { display: block; width: 100%; height: 64px; object-fit: contain; }
+/* 方程式图按自身比例缩放(高 64 定尺), 边框贴合内容不满宽;
+   宽度约束只放在外框(max-width:100%), img 不加 max-width 避免 inline-block 宽度收缩循环依赖 */
+.wb-feed-eq img { display: block; width: auto; height: 64px; object-fit: contain; }
 .wb-feed-actions { display: flex; gap: var(--wb-sp-2); }
 
 /* 通知笔记卡片 */

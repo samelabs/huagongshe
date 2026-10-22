@@ -8,11 +8,12 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 
 /**
- * EntityCard（chemical）— 搜索结果卡片（DESIGN_SYSTEM 3.13/6.2）。
- * 结构缩略图 112×84 + HCID 徽标 sm + 名称（fs-16/600，链接）+ 元信息
- * （别名 · CAS · 分子式）+ 右侧收藏 ghost icon（乐观更新)。
- * CID 不上卡片: 它只是数据库标识之一, 详情标识区承载。
- * SMILES 不在卡片显示（详情页有 CodeField）。
+ * EntityCard（chemical）— 搜索结果行（DESIGN_SYSTEM 3.13/6.2）。
+ * 无卡片框：结构图按原生比例直出（112×84 位）+ HCID 徽标 sm + 名称
+ * （fs-16/600，链接）+ 元信息（别名 · CAS · 分子式）+ 右侧收藏 ghost
+ * icon（乐观更新) —— 外围卡片框会挤压 1:1 结构图的可读性。
+ * CID 不上行: 它只是数据库标识之一, 详情标识区承载。
+ * SMILES 不在行上显示（详情页有 CodeField）。
  */
 export async function EntityCard({ chemical, favored = false }: { chemical: Chemical; favored?: boolean }) {
   const t = await getRequestDictionary();

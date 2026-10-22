@@ -147,7 +147,6 @@ const ko: Dictionary = {
     /* ── 첫 화면 AI 연동 ── */
     entryLabel: 'AI 연결',
     entryMcp: 'MCP 연결',
-    entryWorkbench: '웹 워크벤치',
     entrySkills: 'Skills',
     entryPlugin: "Agent Plugin",
     entryMcpCopy: 'MCP 서버 주소 복사',

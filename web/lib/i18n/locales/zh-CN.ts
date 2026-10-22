@@ -151,7 +151,6 @@ const t = {
     /* ── 第一屏接入入口 ── */
     entryLabel: 'AI 接入',
     entryMcp: 'MCP 接入',
-    entryWorkbench: '网页工作台',
     entrySkills: 'Skills',
     entryPlugin: "Agent Plugin",
     /* ：MCP 地址复制按钮 aria / Plugin 状态说明 + Tag warn 文案 */

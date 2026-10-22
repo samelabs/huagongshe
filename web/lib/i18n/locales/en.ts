@@ -144,7 +144,6 @@ const en: Dictionary = {
     /* ── First-screen AI entries ── */
     entryLabel: 'AI access',
     entryMcp: 'Connect MCP',
-    entryWorkbench: 'Web workbench',
     entrySkills: 'Skills',
     entryPlugin: "Agent Plugin",
     entryMcpCopy: 'Copy MCP server address',

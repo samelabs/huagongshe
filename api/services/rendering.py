@@ -113,6 +113,7 @@ def smiles_to_svg(smiles: str, width: int = 400, height: int = 300) -> str | Non
         AllChem.Compute2DCoords(mol)
         drawer = Draw.rdMolDraw2D.MolDraw2DSVG(width, height)
         opts = drawer.drawOptions()
+        opts.clearBackground = False
         opts.bondLineWidth = 2
         opts.scaleBondWidth = False
         opts.padding = 0.12
@@ -163,6 +164,7 @@ def reaction_to_svg(reaction_smiles: str, width: int = 1200, height: int = 300) 
                 atom.SetAtomMapNum(0)
         drawer = Draw.rdMolDraw2D.MolDraw2DSVG(width, height)
         options = drawer.drawOptions()
+        options.clearBackground = False
         options.bondLineWidth = 1.8
         options.scaleBondWidth = False
         options.padding = 0.08

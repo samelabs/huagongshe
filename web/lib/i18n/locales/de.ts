@@ -148,7 +148,6 @@ const de: Dictionary = {
     /* ── KI-Einstieg auf dem ersten Bildschirm ── */
     entryLabel: 'KI-Anbindung',
     entryMcp: 'MCP verbinden',
-    entryWorkbench: 'Web-Workbench',
     entrySkills: 'Skills',
     entryPlugin: "Agent Plugin",
     entryMcpCopy: 'MCP-Serveradresse kopieren',

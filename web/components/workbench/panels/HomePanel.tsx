@@ -111,8 +111,9 @@ export function HomePanel({ counts, initialNotes, initialReactions, initialFavor
 
   const mineTabs = [
     { id: "recent", label: t.me.mineTabRecent },
-    { id: "reactions", label: t.me.mineTabReactions, count: counts.public_reactions + counts.private_reactions },
+    // 笔记排在反应之前 —— 与侧栏/公开主页/手机各暴露点同一排序
     { id: "notes", label: t.me.mineTabNotes, count: counts.notes },
+    { id: "reactions", label: t.me.mineTabReactions, count: counts.public_reactions + counts.private_reactions },
     { id: "saved", label: t.me.mineTabSaved, count: counts.chemicals + counts.reactions },
   ];
   const viewAllHref = mineTab === "reactions" ? "/aichem?tab=mine" : mineTab === "notes" ? "/aichem?tab=notes" : mineTab === "saved" ? "/aichem?tab=saved" : "/aichem?tab=mine";
