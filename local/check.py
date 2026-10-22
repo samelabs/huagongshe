@@ -858,11 +858,14 @@ def run_worker_steps(worker_run: Run, install_timeout: int, timeout: int):
     worker_run.registry.append(
         {"kind": "container_tmpdir", "ident": f"/tmp/{worker_run.run_id}"})
     home = ["-e", f"HOME=/home/{TESTER_USER}"]
+    # pip 轮子缓存放容器内持久目录(tester 家): 「干净 venv + 只装
+    # requirements-worker」的验证语义不变, 但免得每次门禁全量重下大轮子。
+    pip_cache = f"/home/{TESTER_USER}/.cache/pip"
     code, _, _, err = worker_run.docker(
         "mkdir", ["exec", "-u", TESTER_USER, API_CONTAINER, "mkdir", "-p",
-                  f"/tmp/{worker_run.run_id}/pipcache"], timeout=60)
+                  pip_cache], timeout=60)
     if code != 0:
-        raise BlockedError("run 目录创建失败: " + err.strip()[:300])
+        raise BlockedError("pip 缓存目录创建失败: " + err.strip()[:300])
     code, _, _, err = worker_run.docker(
         "venv-create", ["exec", "-u", TESTER_USER, *home, API_CONTAINER,
                         "python3", "-m", "venv", venv], timeout=300)
@@ -876,10 +879,14 @@ def run_worker_steps(worker_run: Run, install_timeout: int, timeout: int):
     if code != 0 or "/opt/venv" in out:
         raise BlockedError("干净 venv 未隔离(可见应用 site-packages 或探测失败): "
                            + out.strip()[:200] + err.strip()[:200])
+    # 宿主 PIP_INDEX_URL 透传(容器到官方源的链路慢时可注入镜像);
+    # 未设即 pip 默认官方源, 仓库不指定任何镜像。
+    index_env = (["-e", "PIP_INDEX_URL=" + os.environ["PIP_INDEX_URL"]]
+                 if os.environ.get("PIP_INDEX_URL") else [])
     code, timed_out, _, stderr = worker_run.exec(
         "pip-install-worker-reqs",
-        ["docker", "exec", "-u", TESTER_USER, *home,
-         "-e", f"PIP_CACHE_DIR=/tmp/{worker_run.run_id}/pipcache",
+        ["docker", "exec", "-u", TESTER_USER, *home, *index_env,
+         "-e", f"PIP_CACHE_DIR={pip_cache}",
          API_CONTAINER, "bash", "-c",
          f"{venv}/bin/pip install --disable-pip-version-check --retries 2 "
          f"--timeout 60 -r /repo/requirements-worker.txt"],
@@ -993,6 +1000,14 @@ def cmd_preflight(args) -> int:
 RELEASE_PHASES = ["freeze", "mutex-guard", "fresh-db", "backend-full",
                   "web", "build", "worker"]
 
+# 设计内 skip 的固化许可(不必每次 CLI 重复): OneToOneMergeTests 继承
+# IdentityResolutionTests, 显式 skipTest 让父类回归只跑一次(避免 cas_jobs
+# 部分唯一索引跨类残留), 覆盖用例由父类在同一 discover 中执行。
+RELEASE_DEFAULT_ALLOW_SKIP = (
+    "tests.test_identity.OneToOneMergeTests"
+    ".test_5_absorb_migrates_all_registered_references",
+)
+
 
 def release_dev_guard(run: Run):
     """build 前的 dev 在跑判定: 标记或端口证据任一命中即拒绝。
@@ -1070,7 +1085,9 @@ def cmd_release(args) -> int:
             raise FailError(f"unittest 子进程退出 {code}")
         parsed = parse_unittest_output(stderr)
         run.info("unittest_summary", parsed)
-        v = verdict(parsed, args.allow_skip, args.allow_xfail)
+        v = verdict(parsed, sorted(set(args.allow_skip)
+                                   | set(RELEASE_DEFAULT_ALLOW_SKIP)),
+                    args.allow_xfail)
         if v["status"] != "PASS":
             raise FailError("backend-full: " + (v["reason"] or "")
                             + "; 明细 " + json.dumps(v.get("details", []),
