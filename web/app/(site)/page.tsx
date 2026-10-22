@@ -2,7 +2,6 @@ import { SearchHero } from "@/components/SearchHero";
 import { CodeField } from "@/components/ui/CodeField";
 import { Button } from "@/components/ui/Button";
 import { PageFrame } from "@/components/ui/PageFrame";
-import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
 import type { Metadata } from "next";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
@@ -54,8 +53,10 @@ export default async function Home() {
       {/* ── AI 接入入口: 第一屏直接给出地址与主入口 MCP / Skills /
           Agent Plugin（tests/test_release_governance.py）。Agent Plugin
           直接下载随代码部署的插件包（web/public/downloads，见
-          scripts/build_plugin_package.py）。 ── */}
-      <Section title={t.home.entryLabel} className="home-entry-section">
+          scripts/build_plugin_package.py）。与 hero 同轴的居中组合，
+          弱化小标签替代分区大标题。 ── */}
+      <section className="home-entry-section" aria-label={t.home.entryLabel}>
+        <p className="home-entry-kicker">{t.home.entryLabel}</p>
         <div className="home-entry">
           <CodeField value="https://huagongshe.com/mcp" copyLabel={t.home.entryMcpCopy} className="home-entry-code" />
           <nav className="guide-actions home-entry-actions">
@@ -66,7 +67,7 @@ export default async function Home() {
             </Button>
           </nav>
         </div>
-      </Section>
+      </section>
     </PageFrame>
   );
 }
