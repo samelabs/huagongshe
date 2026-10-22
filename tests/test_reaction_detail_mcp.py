@@ -105,6 +105,23 @@ class ServiceVisibilityTests(unittest.IsolatedAsyncioTestCase):
                     "participants", "workup", "creator"):
             self.assertIn(key, data)
 
+    async def test_non_finite_db_values_still_json_serializable(self):
+        """存量行可能带 inf/NaN(float8 列) —— 详情组装必须清洗成 None,
+        严格 JSON(allow_nan=False)可序列化, 不炸详情端点。"""
+        import json
+        row = _BaseRow()
+        row._cols[9] = float("inf")     # ph
+        row._cols[13] = float("nan")    # duration.value
+        row._cols[16] = float("-inf")   # pressure.value
+        data = await self._load(_FakeDB(row))
+        self.assertIsNotNone(data)
+        text = json.dumps(data, allow_nan=False, default=str)
+        self.assertNotIn("Infinity", text)
+        self.assertNotIn("NaN", text)
+        self.assertIsNone(data["ph"])
+        self.assertIsNone(data["duration"]["value"])
+        self.assertIsNone(data["pressure"]["value"])
+
 
 class McpReactionDetailTests(unittest.IsolatedAsyncioTestCase):
     """§8/§9 MCP: 直调 service, viewer facts 传播, ToolError boundary。"""

@@ -8,12 +8,12 @@ class ParticipantBody(BaseModel):
     role: Literal["REACTANT", "REAGENT", "CATALYST", "SOLVENT", "PRODUCT"]
     smiles: str = Field(min_length=1, max_length=4000)
     occurrence_count: int = Field(default=1, ge=1, le=20)
-    amount_value: float | None = Field(default=None, ge=0)
+    amount_value: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     amount_unit: str | None = Field(default=None, max_length=40)
-    equivalents: float | None = Field(default=None, ge=0)
-    concentration_value: float | None = Field(default=None, ge=0)
+    equivalents: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    concentration_value: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     concentration_unit: str | None = Field(default=None, max_length=40)
-    yield_percent: float | None = Field(default=None, ge=0, le=100)
+    yield_percent: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def validate_fields(self):
@@ -32,13 +32,13 @@ class ReactionBody(BaseModel):
     participants: list[ParticipantBody] = Field(min_length=2, max_length=100)
     procedure_details: str | None = Field(default=None, max_length=30000)
     conditions_detail: str | None = Field(default=None, max_length=10000)
-    temperature_value: float | None = None
+    temperature_value: float | None = Field(default=None, allow_inf_nan=False)
     temperature_unit: Literal["CELSIUS", "KELVIN"] | None = None
-    duration_value: float | None = Field(default=None, gt=0)
+    duration_value: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     duration_unit: Literal["MINUTE", "HOUR", "DAY"] | None = None
-    ph: float | None = Field(default=None, ge=0, le=14)
+    ph: float | None = Field(default=None, ge=0, le=14, allow_inf_nan=False)
     atmosphere: str | None = Field(default=None, max_length=120)
-    pressure_value: float | None = Field(default=None, gt=0)
+    pressure_value: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     pressure_unit: str | None = Field(default=None, max_length=40)
     workup_details: str | None = Field(default=None, max_length=10000)
     safety_notes: str | None = Field(default=None, max_length=10000)

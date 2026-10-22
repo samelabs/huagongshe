@@ -60,6 +60,22 @@ class ReactionContractTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             ParticipantBody(role="REACTANT", smiles="CCO", yield_percent=50)
 
+    def test_non_finite_numbers_are_rejected(self) -> None:
+        """Infinity/NaN 一律 422: 无界字段(温度)与 ge=0 字段(投料)都
+        不能放过非有限值 —— 否则 inf>=0 为真, 会一路写进库。"""
+        with self.assertRaises(ValidationError):
+            body(temperature_value=float("inf"), temperature_unit="CELSIUS")
+        with self.assertRaises(ValidationError):
+            body(participants=[
+                {"role": "REACTANT", "smiles": "CCO"},
+                {"role": "PRODUCT", "smiles": "CC=O",
+                 "amount_value": float("inf"), "amount_unit": "g"},
+            ])
+        with self.assertRaises(ValidationError):
+            body(ph=float("nan"))
+        with self.assertRaises(ValidationError):
+            body(duration_value=float("inf"), duration_unit="HOUR")
+
     def test_duplicate_role_and_structure_is_rejected(self) -> None:
         value = body(participants=[
             {"role": "REACTANT", "smiles": "CCO"},

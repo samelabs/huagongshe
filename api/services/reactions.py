@@ -80,8 +80,10 @@ async def load_reaction_detail(
     for row in participants:
         item = chemical_dict(row)
         item.update(
-            role=row[17],occurrence_count=row[18],amount_value=row[19],amount_unit=row[20],
-            equivalents=row[21],concentration_value=row[22],concentration_unit=row[23],
+            role=row[17],occurrence_count=row[18],
+            amount_value=clean_float(row[19]),amount_unit=row[20],
+            equivalents=clean_float(row[21]),
+            concentration_value=clean_float(row[22]),concentration_unit=row[23],
             yield_percent=clean_float(row[24]),
         )
         compounds.append(item)
@@ -138,11 +140,11 @@ async def load_reaction_detail(
         "source_type": base[19], "doi": base[20], "patent": base[21],
         "publication_url": base[22], "source_citation": base[23],
         "procedure_details": base[7], "safety_notes": base[8],
-        "reflux": base[27], "ph": base[9], "conditions_detail": conditions_detail,
+        "reflux": base[27], "ph": clean_float(base[9]), "conditions_detail": conditions_detail,
         "temperature": temperature_out,
-        "duration": ({"value": base[13], "unit": base[14]} if base[13] is not None else None),
+        "duration": ({"value": clean_float(base[13]), "unit": base[14]} if base[13] is not None else None),
         "atmosphere": base[15],
-        "pressure": ({"value": base[16], "unit": base[17]} if base[16] is not None else None),
+        "pressure": ({"value": clean_float(base[16]), "unit": base[17]} if base[16] is not None else None),
         "workup_details": base[18], "note": base[24],
         # 停用作者的公开反应保留可见, active 供
         # 前端渲染「已停用」标记并隐藏关注按钮(关注端点本就拒绝停用目标)。
