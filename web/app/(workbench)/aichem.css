@@ -632,14 +632,12 @@
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--wb-sp-2);
 }
+/* 化合物结果行无卡片框: 结构图直出, 外框挤压结构图可读性 */
 .wb-search-chemical {
   display: flex;
   align-items: center;
   gap: var(--wb-sp-3);
-  padding: var(--wb-sp-3) var(--wb-sp-4);
-  border: 1px solid var(--wb-line);
-  border-radius: var(--wb-r-md);
-  background: var(--wb-paper);
+  padding: var(--wb-sp-2) 0;
 }
 .wb-search-chemical img {
   flex-shrink: 0;
@@ -1413,10 +1411,6 @@
 /* ── hover 交互: 只在真指针设备生效(触屏跳过, 避免首点粘滞) ── */
 @media (hover: hover) and (pointer: fine) {
 .wb-search-submit:hover { background: var(--wb-blue-deep); }
-.wb-search-chemical:hover {
-  border-color: var(--wb-blue-border);
-  background: var(--wb-blue-tint);
-}
 .wb-search-reaction:hover {
   border-color: var(--wb-blue-border);
   background: var(--wb-blue-tint);
