@@ -5,8 +5,8 @@
 - HGS 产品版本(仓库根 VERSION)= 1.7.1, 且 MCP serverInfo 读取同一来源
 - 版本号单一来源 —— settings.api_version 同样读 VERSION(旧
   "HTTP API contract version 1.0.0" 双版本轴约定已撤销)
-- 首页一级入口不再暴露 Agent API 与 AI Key; /api/agent-guide 与
-  /me/settings/api-tokens 路由本身保留
+- 首页一级入口只保留 MCP / Skills / Agent Plugin; Agent API、
+  AI Key 与工作台不单列; /api/agent-guide 与 /me/settings/api-tokens 路由本身保留
 - MCP Guide 页仍提供 AI Key 入口
 - Plugin 包版本独立于产品版本(1.0.0), MCP target 指向生产 /mcp
 """
@@ -55,7 +55,7 @@ class ProductVersionContract(unittest.TestCase):
         self.assertEqual(settings.api_version, self.version)
 
 class HomePageEntryContract(unittest.TestCase):
-    """首页源码结构契约: MCP / Skills / Workbench / Plugin，AI Key 不单列。"""
+    """首页源码结构契约: MCP / Skills / Plugin，AI Key 与工作台不单列。"""
 
     @classmethod
     def setUpClass(cls):
@@ -64,7 +64,8 @@ class HomePageEntryContract(unittest.TestCase):
     def test_home_primary_entries(self):
         self.assertIn('"/mcp-guide"', self.source)
         self.assertIn('"/skills"', self.source)
-        self.assertIn('"/aichem"', self.source)
+        self.assertNotIn('"/aichem"', self.source)
+        self.assertNotIn("entryWorkbench", self.source)
         self.assertIn("entryPlugin", self.source)
         # Agent Plugin 直接下载随代码部署的插件包, 地址与打包产物一致
         from scripts.build_plugin_package import package_path
@@ -109,6 +110,7 @@ class CompatibilitySurfaceKept(unittest.TestCase):
             source = (WEB / "lib" / "i18n" / "locales" / f"{locale}.ts").read_text(encoding="utf-8")
             self.assertNotIn("entryApi", source, locale)
             self.assertNotIn("entryKey", source, locale)
+            self.assertNotIn("entryWorkbench", source, locale)
             self.assertIn("entryPlugin", source, locale)
             self.assertIn("pluginStatus", source, locale)
             self.assertIn("languageSwitcher", source, locale)
