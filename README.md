@@ -36,17 +36,16 @@
 
 ## API 边界
 
-- `/api/*`：网站与用户 AI Agent 共用的查询和用户能力。
-- `/api/agent-guide`：AI/Agent 的公开自描述连接入口；携带 Token 时确认所属账号，并返回真实可用操作、字段要求、安全规则和调用顺序。
-- `/mcp`：MCP 连接入口。
+- `/api/*`：网站内部接口，只认网页登录会话；AI Key 调用返回 401。
+- `/mcp`：AI / Agent 的唯一接入入口。
 - `/guide`：面向用户的网页记录、AI 对话提示词与 Skill 使用指南。
 - `/workapi/*`：worker HMAC 面，只服务受信任 PubChem worker，与用户 Agent 完全无关。
 
-网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 AI Key（即 API Token，Bearer 传输）：Key 属于用户账号，用于 Agent/API 调用；列表仅本人网页会话可读，响应带 `Cache-Control: private, no-store`；Key 明文有意保存在账号下，可在设置页再次查看和复制，无明文的旧 Key 显示为空。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
+网站使用安全 HttpOnly Cookie。AI Agent 使用用户创建的 AI Key（即 API Token，Bearer 传输）：Key 属于用户账号，只用于 MCP 接入；列表仅本人网页会话可读，响应带 `Cache-Control: private, no-store`；Key 明文有意保存在账号下，可在设置页再次查看和复制，无明文的旧 Key 显示为空。AI 正式提交反应必须提供 `Idempotency-Key`，网络重试不会重复创建 HRID。查询和写入均由 Redis 限速。
 
 ## MCP 与 Agent 接入
 
-- MCP 端点：`https://huagongshe.com/mcp`（Streamable HTTP），共 13 个工具；读取类工具匿名可用，写入类需授权。
+- MCP 端点：`https://huagongshe.com/mcp`（Streamable HTTP），共 13 个工具；化合物/反应查询、结构图与投料计算匿名可用，结构检索、技能、个人数据与写入需授权。
 - Agent 身份两种：AI Key（`hgs_` 前缀，Bearer 直连），或标准 OAuth 2.1（Authorization Code + PKCE S256，公开客户端），scope 为 `read`、`reaction:write`、`skill:write`。
 - OAuth 客户端身份三种并存且平等：Client ID Metadata Document（client_id 为一个 https URL，授权服务器拉取该 URL 上的 JSON 元数据并按其中 redirect_uris 校验，无需注册，推荐陌生/个人 Agent 使用）、动态客户端注册（`/oauth/register`，RFC 7591）、预登记 client_id。
 - 发现地址：`/.well-known/oauth-protected-resource/mcp`（RFC 9728 标准路径；根路径 `/.well-known/oauth-protected-resource` 保留为客户端回退发现地址）与 `/.well-known/oauth-authorization-server`。

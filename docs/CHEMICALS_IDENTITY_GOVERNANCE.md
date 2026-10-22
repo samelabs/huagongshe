@@ -1,7 +1,6 @@
 # chemicals 身份裁定机制规范（Identity Resolution & Reconciliation Spec）
 
 > 状态：**规范冻结版**。本文是行为契约，代码实现以本规范为准；实现与规范冲突时修实现，不改规范。
-> 评审背景：初版方案经外部评审（codex）给出"有条件通过"，本文已吸收全部评审意见并冻结规则。
 > 术语：**resolve** 解决"新数据应该去哪里"；**reconcile** 解决"原来分叉的数据，在证据变强以后怎样收敛"。
 
 ## 〇、总原则
@@ -31,22 +30,9 @@
 | cas_numbers | ~130 万 | 是 | 否 | 否 |
 | cb_number | 2.2 万 | 否 | 否 | 否 |
 
-## 二、现状问题（历史成因）
+## 二、设计动因
 
-| 入口 | 查重键 | 结果 |
-|---|---|---|
-| SMILES 建行（`api/reactions.py`） | inchikey+advisory 锁 | PB 全量行大多 mol 为空 → 撞不上 → 建新行；锁引入前历史缝遗留 41 组重复 |
-| CAS 占位建行（`api/services/cb.py:531`） | 仅 cas_numbers | 不查 inchikey/cid → 388 组双行 |
-| 历史迁移自治行（07-19 RDKit 吸收） | 无键（孤儿结构直接 INSERT） | 0902 PB 回补 cid 后撞全量行 → 2,866 组 cid 双行 |
-
-**共性根因**：建行时行上没有已回填的强键可比对；回补拿到强键时盲写 job 携带的行 id，不重定位。表现为：同一化合物裂成多行，结构数据与市场数据劈在不同行。
-
-**实测数据（生产库）**：
-
-- 2,866 组 cid 双行：逐组字段比对，名差异 2,476 组为单侧空、220 组为同物异写；分子量差>0.5 的 0 组；inchikey 差异全部为低行空——未发现实质数据冲突。本质是 catalog 行与自治富化行的 identity convergence，非疑似重复
-- 2,866 组被引用面：reaction_chemicals 3,035（双侧）、ord.compound 同量级、chemical_cb 27、supplier_listing 1,062 在低侧——双侧均有引用，只能合并不能删
-- 388 组 cas 双行 + 41 组 SMILES 重复
-- sqlite 导入预演（采样 8,000）：cas 命中单行 50.3% / 多行 5.1% / miss 44.5%。预备导入 89.6 万 cas，5.1% 多行 ≈ 4.6 万——**这些不是需要"聪明选择"的 4.6 万次，而是机制应明确识别出的 4.6 万个 AMBIGUOUS**
+多条入口各自建行、各用一种键查重（SMILES 建行查 inchikey，CAS 占位建行只查 cas_numbers），而主表大部分行在建行时还没有回填强键可比对；回补拿到强键时若盲写任务携带的行 id、不重新定位，同一化合物就会裂成多行，结构数据与市场数据劈在不同行。本规范把定位（resolve）与收敛（reconcile）统一成一套机制，所有入口共用。
 
 ## 三、机制规范（行为契约）
 
@@ -86,7 +72,7 @@ resolve_chemical(identity_evidence)
 - **identity judgement**（是否同一实体）：只由 3.2/3.3 的证据规则决定
 - **survivor selection**（合并时保留哪一行）：**仅在已证明等价之后**生效，可用热度分（cb/preferred_name/cid 齐全度、结构行优先）
 
-### 3.5 merge gate（can_merge 硬闸，0906 终审收紧版）
+### 3.5 merge gate（can_merge 硬闸）
 
 任何 absorb 合并必须先过独立函数 `can_merge(source, target)`：
 
@@ -107,7 +93,7 @@ identity_merge_log 的两侧快照里留痕。反向不成立：IK 一致不能�
 - CB 相同：同理
 - `evidence_ik` 仅用于候选定位/结构一致性辅助，单独不得授权合并
 
-**candidate equivalence ≠ entity equivalence**（0906 终审新增总则）
+**candidate equivalence ≠ entity equivalence**（总则）
 
 ### 3.6 absorb 前置条件（全部存在才允许跑批量合并）
 
@@ -126,11 +112,11 @@ identity_merge_log 的两侧快照里留痕。反向不成立：IK 一致不能�
 
 ## 四、实现现状与差距
 
-**已实现并上线**（统一 resolver + merge 基建为正式机制版本，后续演进见 git history）：
+**已实现**：
 
 - `resolve_chemical()` 五状态 resolver（EXACT / EQUIVALENT / AMBIGUOUS / CONFLICT / NEW），advisory 锁
 - 无 hottest-row 身份猜测（AMBIGUOUS 不猜、CONFLICT 不吞）
-- `can_merge()` 独立硬闸（0906 终审收紧：唯一 entity proof = 一致非空 CID）
+- `can_merge()` 独立硬闸（唯一 entity proof = 一致非空 CID）
 - `absorb()` 强制过 `can_merge()`，不过闸抛 `MergeBlockedError`（fail-closed）
 - 引用表 registry `CHEMICAL_REFERENCE_TABLES` + per-table merge strategy（REKEY_MANY / MERGE_ONE_TO_ONE / DEDUPE_REKEY）+ PG FK 元数据覆盖断言
 - `maintenance.identity_merge_log`（JSONB snapshot 审计）
@@ -140,26 +126,15 @@ identity_merge_log 的两侧快照里留痕。反向不成立：IK 一致不能�
 
 **数据库实际 schema**：`maintenance.identity_merge_log`、`maintenance.chemical_identity_redirect`（均位于 maintenance schema，非 chemistry schema）。
 
-**与规范的差距**：无已知实现性差距；后续差距按轮次任务单独立项，不在本文混写。
+**与规范的差距**：无已知实现性差距。
 
-## 五、历史实施记录（非当前行为契约）
+## 五、不变式（机制前提）
 
-以下为 0906–0907 治理上线时的执行记录与当时排期，**仅作历史存档**；数量反映当时 production cohort 的实际状态，不是永久规范事实，当前行为以第三节机制与代码为准：
-
-- 引用表注册+FK 断言测试、name_index 去重、identity_merge_log、chemical_identity_redirect（merge 基建）
-- 2,866 组 can_merge dry-run（SAFE/CONFLICT 分布验证后才开自动 absorb）
-- 41 组历史 SMILES 重复 reconciliation（RDKit 重算 ik → 过 merge gate）
-- sqlite 89.6 万导入：单 CAS 多命中一律 AMBIGUOUS，AMBIGUOUS 数据入队等结构判据
-- 388 组 CAS 双行：不专项强行消重、不按 CAS 批量合并；任一侧获得 CID entity proof 时进入统一 reconciliation，符合 merge gate 的自动吸收，其余保持并存
-- 歧义 review：量级起来后加，非首发阻断项
-
-## 六、不变式（既往裁定，作为机制前提）
-
-- cid 是源内区分键、ik 是跨源判据、cas 是弱键(1→N)、cb 是印记不是键（0830 裁定）
+- cid 是源内区分键、ik 是跨源判据、cas 是弱键(1→N)、cb 是印记不是键
 - 一 CAS→N CID 合法共享 cb 号；主词条选择权在源站（CAS 页重定向），本地不选主
 - 结构变更须拍板后执行；大表操作必须 statement_timeout 放宽+断点续跑
 
-## 七、流程总图
+## 六、流程总图
 
 ```
                 外部数据
