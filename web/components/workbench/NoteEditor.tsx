@@ -55,6 +55,9 @@ export function NoteEditor({
   const [reactionIds, setReactionIds] = useState<number[]>(note?.reaction_ids ?? initialReactionIds);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  /** 保存重入守卫：busy 是异步 state，同步点击/Enter/重试连发时
+   *  state 尚未翻转 —— 同步 ref 保证在途期间只发出 1 个请求 */
+  const savingRef = useRef(false);
 
   /** 初始快照：dirty = 与快照不一致（完全等于快照即无可丢失的修改） */
   const baseline = useRef({
@@ -108,6 +111,7 @@ export function NoteEditor({
   }, [busy, error, dirty, note]);
 
   async function doSave() {
+    if (savingRef.current) return;
     const body = {
       visibility,
       title: title.trim() || null,
@@ -116,6 +120,7 @@ export function NoteEditor({
       reaction_ids: reactionIds,
     };
     if (!body.content) return;
+    savingRef.current = true;
     setBusy(true);
     setError("");
     try {
@@ -143,6 +148,7 @@ export function NoteEditor({
       setError(message);
       toast.error(message);
     } finally {
+      savingRef.current = false;
       setBusy(false);
     }
   }
