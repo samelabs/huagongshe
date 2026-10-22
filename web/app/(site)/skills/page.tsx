@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { apiGet } from "@/lib/api.server";
+import type { User } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
+import { withLocale } from "@/lib/localePath";
 import { localeAlternates } from "@/lib/alternates";
 import { SkillsClient, type Skill, type Category } from "./SkillsClient";
 import { buildShareMetadata } from "@/lib/shareMeta";
@@ -79,12 +81,24 @@ async function loadSkills(cookie: string): Promise<{ skills: Skill[]; error: boo
   }
 }
 
+async function getUser(cookieHeader: string | null): Promise<User | null> {
+  try {
+    if (!cookieHeader) return null;
+    return await apiGet<User>("/users/me", { cookie: cookieHeader });
+  } catch { return null; }
+}
+
 export default async function SkillsPage() {
   const t = await getRequestDictionary();
-  // 技能浏览是登录能力(HTTP/MCP 同墙): 无会话直接引导登录, 不渲染列表
-  const cookieStore = await cookies();
-  if (!cookieStore.has("hgs_session")) redirect("/login?next=/skills");
-  const cookie = cookieStore.toString();
+  const locale = await getRequestLocale();
+  // 技能浏览是登录能力(HTTP/MCP 同墙): 会话无效(含伪造/过期)直接引导登录,
+  // 不渲染列表 —— 判定走 /users/me 而非 cookie 是否存在
+  const h = await headers();
+  // 技能浏览是登录能力(HTTP/MCP 同墙): 会话无效(含伪造/过期)直接引导登录,
+  // 不渲染列表 —— 判定走 /users/me 而非 cookie 是否存在
+  const user = await getUser(h.get("cookie"));
+  if (!user) redirect(withLocale(`/login?next=${encodeURIComponent("/skills")}`, locale));
+  const cookie = h.get("cookie") as string;
   // 分类与技能列表并行请求；错误分开处理（分类失败只隐藏导航，不整页报错）
   const [cats, skillsResult, totalCount] = await Promise.all([
     loadCategories(cookie),
