@@ -47,15 +47,22 @@ class NoteSchemaTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             NoteBody(content="x", chemical_ids=[0])
 
-    def test_reference_ids_over_int4_column_range_are_rejected(self):
-        """引用 id 超过 int4 列上限 → 模型层 422, 不放进 SQL 撞库。"""
+    def test_reference_ids_over_column_range_are_rejected(self):
+        """引用 id 上界按引用列类型分开: 化合物 int4、反应 int8 ——
+        越界在模型层 422, 不放进 SQL 撞库。"""
+        # 化合物引用列是 int4: 超 int4 拒绝
         with self.assertRaises(ValidationError):
             NoteBody(content="x", chemical_ids=[2_147_483_648])
+        # 反应引用列是 int8: int4 之上仍合法, int8 之上拒绝
+        body = NoteBody(content="x", reaction_ids=[3_000_000_000])
+        self.assertEqual(body.reaction_ids, [3_000_000_000])
         with self.assertRaises(ValidationError):
-            NoteBody(content="x", reaction_ids=[3_000_000_000])
-        # 边界值本身合法(含上限)
-        body = NoteBody(content="x", chemical_ids=[2_147_483_647])
-        self.assertEqual(body.chemical_ids, [2_147_483_647])
+            NoteBody(content="x", reaction_ids=[9_223_372_036_854_775_808])
+        # 两侧各自的上限值本身合法
+        ok = NoteBody(content="x", chemical_ids=[2_147_483_647],
+                      reaction_ids=[9_223_372_036_854_775_807])
+        self.assertEqual(ok.chemical_ids, [2_147_483_647])
+        self.assertEqual(ok.reaction_ids, [9_223_372_036_854_775_807])
 
 
 class NoteArchitectureTests(unittest.TestCase):

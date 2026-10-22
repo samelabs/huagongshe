@@ -133,8 +133,9 @@ async def delete_note(
 @router.get("/users/me/notes")
 async def my_notes(
     visibility: Literal["all", "public", "private"] = Query("all"),
+    # 筛选参数上界按被引用列类型: chemicals.id int4 / reactions.id int8
     chemical_id: int | None = Query(default=None, ge=1, le=2_147_483_647),
-    reaction_id: int | None = Query(default=None, ge=1, le=2_147_483_647),
+    reaction_id: int | None = Query(default=None, ge=1, le=9_223_372_036_854_775_807),
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(20, ge=1, le=50),
     actor: Actor = Depends(current_session),
@@ -197,7 +198,7 @@ async def chemical_notes(
 
 @router.get("/reactions/{reaction_id}/notes")
 async def reaction_notes(
-    reaction_id: int = Path(..., ge=1, le=2_147_483_647),
+    reaction_id: int = Path(..., ge=1, le=9_223_372_036_854_775_807),  # reactions.id int8
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(20, ge=1, le=50),
     db=Depends(get_db),

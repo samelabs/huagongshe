@@ -11,9 +11,12 @@ MAX_NOTE_REFERENCES = 20
 MAX_NOTE_CONTENT_LENGTH = 30000
 MAX_NOTE_TITLE_LENGTH = 120
 
-# 关联实体 id 的整数边界 = 引用列的 int4 上限: 越界值在模型层 422,
-# 不放进 SQL 撞数据库类型错误
-RefId = Annotated[int, Field(ge=1, le=2_147_483_647)]
+# 关联实体 id 的整数边界按引用列类型分开: 化合物引用列是 int4,
+# 反应引用列是 int8 —— 越界值在模型层 422, 不放进 SQL 撞数据库类型错误
+REF_CHEMICAL_MAX = 2_147_483_647          # chemistry.chemicals.id (integer)
+REF_REACTION_MAX = 9_223_372_036_854_775_807  # chemistry.reactions.id (bigint)
+ChemicalRefId = Annotated[int, Field(ge=1, le=REF_CHEMICAL_MAX)]
+ReactionRefId = Annotated[int, Field(ge=1, le=REF_REACTION_MAX)]
 
 
 def sanitize_note_content(value: str) -> str:
@@ -48,8 +51,8 @@ class NoteBody(BaseModel):
     # normalize_content . A declared max_length would run first and
     # wrongly reject raw input >30000 whose sanitized form fits.
     content: str = Field(min_length=1)
-    chemical_ids: list[RefId] = Field(default_factory=list)
-    reaction_ids: list[RefId] = Field(default_factory=list)
+    chemical_ids: list[ChemicalRefId] = Field(default_factory=list)
+    reaction_ids: list[ReactionRefId] = Field(default_factory=list)
 
     @field_validator("content")
     @classmethod
