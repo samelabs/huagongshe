@@ -63,6 +63,9 @@
 
 /* 右侧区 */
 .sh-right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+/* 水合期账号/汉堡占位：与登录态同形同尺寸（复用同一批类名量宽度），
+   visibility 隐藏 —— ready 翻转时零位移、零 pop-in（访客态翻转右缘锚定不位移） */
+.sh-hydration-ph { display: inline-flex; align-items: center; gap: var(--sp-2); visibility: hidden; pointer-events: none; }
 .sh-bell { position: relative; }
 .sh-bell-dot {
   position: absolute; top: 6px; right: 7px;

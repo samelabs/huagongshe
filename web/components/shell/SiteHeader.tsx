@@ -31,7 +31,7 @@ import type { User } from "@/lib/api";
 import { HgsLogo } from "@/components/ui/HgsLogo";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { IconBell, IconChevron } from "@/components/ui/icons";
+import { IconBell, IconChevron, IconMenu } from "@/components/ui/icons";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { ShellUnreadProvider, useShellUnread } from "./ShellUnread";
 import { useShellWorkbenchChrome } from "./ShellWorkbenchChrome";
@@ -86,17 +86,21 @@ export function SiteHeader() {
           </nav>
 
           <div className="sh-right">
-            {/* 铃铛对未读数的消费在 Provider 内部（HeaderBell） */}
+            {/* 铃铛对未读数的消费在 Provider 内部（HeaderBell）；
+                水合期由 HeaderBell 自占同形占位（语言键左侧的位置预留） */}
             <HeaderBell user={user} />
             <MoreMenu items={nav} routePath={routePath} />
             <div className="sh-lang">
               <LanguageSwitcher />
             </div>
             {!ready ? (
-              <span aria-hidden="true" tabIndex={-1} style={{ visibility: "hidden" }}>
-                <Button variant="secondary" size="sm" className="sh-login-btn">
-                  {t.nav.login}
-                </Button>
+              /* 水合期账号位占位 = 登录态头像菜单同形：ready 翻转零位移；
+                 访客翻转成登录按钮时右缘锚定、无元素位移 */
+              <span className="sh-hydration-ph" aria-hidden="true">
+                <span className="hg-btn ghost sh-menu-trigger">
+                  <span className="hg-avatar s32" />
+                  <IconChevron className="sh-chev" />
+                </span>
               </span>
             ) : user ? (
               <UserMenu user={user} />
@@ -112,11 +116,17 @@ export function SiteHeader() {
               导航/账户设置/退出登录）；匿名只有标志与语言。整页打开工作台
               时抽屉随服务端 HTML 直接输出。 */}
           <div className="sh-mobile-right">
-            {user && (
+            {!ready ? (
+              /* 水合期汉堡占位：登录用户 ready 后同位替换零 pop-in；访客
+                 占位消失时右侧锚定的语言键不位移 */
+              <span className="sh-hydration-ph" aria-hidden="true">
+                <span className="hg-btn ghost icon wb-burger"><IconMenu width={22} height={22} /></span>
+              </span>
+            ) : user ? (
               <Suspense>
                 <WbMobileNav counts={chrome?.counts ?? null} user={user} />
               </Suspense>
-            )}
+            ) : null}
             <div className="sh-lang-m">
               <LanguageSwitcher />
             </div>
@@ -133,8 +143,16 @@ export function SiteHeader() {
 function HeaderBell({ user }: { user: User | null }) {
   const t = useDictionary();
   const locale = useLocale();
+  const { ready } = useAccount();
   const unread = useShellUnread();
-  if (!user) return null;
+  // 水合期占位同形同位（语言键左侧）；ready 后访客态收敛为无
+  if (!user) {
+    return !ready ? (
+      <span className="sh-hydration-ph" aria-hidden="true">
+        <span className="hg-btn ghost icon sh-bell"><IconBell /></span>
+      </span>
+    ) : null;
+  }
   return (
     <Link
       href={withLocale("/aichem?tab=activity", locale)}

@@ -203,6 +203,9 @@
   flex-direction: column;
   gap: var(--wb-sp-2);
 }
+/* 骨架行高对齐真实列表行（行式内容 ≈ 图标 36 + 上下 padding 8×2）：
+   骨架→真实替换时面板总高不再大幅跳变 */
+.wb-skeleton-list .hg-sk.row { height: 52px; border-radius: var(--wb-r-sm); }
 
 /* ── 状态文字 ── */
 .wb-state {
