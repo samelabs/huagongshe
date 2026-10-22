@@ -91,8 +91,6 @@ async function getUser(cookieHeader: string | null): Promise<User | null> {
 export default async function SkillsPage() {
   const t = await getRequestDictionary();
   const locale = await getRequestLocale();
-  // 技能浏览是登录能力(HTTP/MCP 同墙): 会话无效(含伪造/过期)直接引导登录,
-  // 不渲染列表 —— 判定走 /users/me 而非 cookie 是否存在
   const h = await headers();
   // 技能浏览是登录能力(HTTP/MCP 同墙): 会话无效(含伪造/过期)直接引导登录,
   // 不渲染列表 —— 判定走 /users/me 而非 cookie 是否存在
