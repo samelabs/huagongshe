@@ -448,14 +448,20 @@ async def list_tokens(response: Response, actor: Actor = Depends(current_session
         SELECT id,name,token_prefix,token_plain AS token,scopes,created_at,expires_at,last_used_at
         FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL
+          AND (expires_at IS NULL OR expires_at>now())
         ORDER BY id DESC
-        LIMIT 5  -- 与创建上限(5 个有效 Key)一致的有界防御
+        LIMIT 5  -- 与创建上限(5 个有效 Key)一致的有界防御; 过滤口径同创建:
+                  -- 只列未撤销且未过期的 Key, 有效 Key 不被过期 Key 挤掉
     """), {"id": actor.id})).mappings().all()
     return [dict(row) for row in rows]
 
 
 @router.post("/me/tokens", status_code=201)
 async def create_token(body: TokenBody, actor: Actor = Depends(current_session), db=Depends(get_db)):
+    # 配额计数与 INSERT 同事务内按用户串行化(锁用户行): 并发创建时
+    # 后到者在锁上排队, 重读计数命中上限 → 一个 201、一个 409
+    await db.execute(text(
+        "SELECT id FROM community.users WHERE id=:id FOR UPDATE"), {"id": actor.id})
     active = int((await db.execute(text("""
         SELECT count(*) FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now())

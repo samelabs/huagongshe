@@ -358,6 +358,101 @@ class TokenPlaintextContractTests(unittest.TestCase):
         self.assertNotIn("token_plain", items[0], "对外字段名是 token, 不回传列名 token_plain")
         self.assertEqual(serialized.count(plain), 1, "列表里明文只出现在 token 字段一次")
 
+    def test_create_concurrent_one_succeeds_one_409(self):
+        """并发创建串行化: 已有 4 个有效 Key 时两个并发创建,
+        恰一个成功、另一个 409 api_token_limit, 落库恰 5 行。"""
+        from fastapi import HTTPException
+        from api.users import create_token
+        from api.schemas.users import TokenBody
+
+        uid = None
+        async def go():
+            engine = _engine()
+            try:
+                uid = await _make_user(engine, "g")
+                actor = _actor(uid)
+                maker = _session_fn(engine)
+                for i in range(4):
+                    async with maker() as session:
+                        await create_token(
+                            body=TokenBody(name=f"pre{i}", expires_in_days=None),
+                            actor=actor, db=session)
+                # 两个独立连接并发创建 —— 与两个真实 HTTP 请求同构
+                async with maker() as s1, maker() as s2:
+                    results = await asyncio.gather(
+                        create_token(body=TokenBody(name="race1", expires_in_days=None),
+                                     actor=actor, db=s1),
+                        create_token(body=TokenBody(name="race2", expires_in_days=None),
+                                     actor=actor, db=s2),
+                        return_exceptions=True)
+                from sqlalchemy import text
+                async with engine.connect() as c:
+                    total = (await c.execute(text(
+                        "SELECT count(*) FROM community.user_api_tokens"
+                        " WHERE user_id=:u"), {"u": uid})).scalar()
+                return results, total
+            finally:
+                if uid is not None:
+                    await _cleanup_user(engine, uid)
+
+        results, total = asyncio.run(go())
+        statuses = []
+        for r in results:
+            if isinstance(r, HTTPException):
+                statuses.append((str(r.status_code), r.detail.get("kind")))
+            else:
+                statuses.append(("201", None))
+        self.assertEqual(sorted(s[0] for s in statuses), ["201", "409"],
+                         "并发创建必须一个成功一个 409")
+        conflict = next(r for r in results if isinstance(r, HTTPException))
+        self.assertEqual(conflict.detail.get("kind"), "api_token_limit")
+        self.assertEqual(total, 5, "落库必须恰 5 行(上限不被并发越过)")
+
+    def test_list_excludes_expired_keys(self):
+        """列表口径与创建上限一致: 只返回未撤销且未过期的 Key,
+        过期 Key 不占列表名额、不挤掉有效 Key。"""
+        from api.users import create_token, list_tokens
+        from api.schemas.users import TokenBody
+        from sqlalchemy import text
+
+        uid = None
+        async def go():
+            engine = _engine()
+            try:
+                uid = await _make_user(engine, "h")
+                actor = _actor(uid)
+                maker = _session_fn(engine)
+                # 2 个过期 + 5 个有效: 过期若混入, 有效 Key 会被 LIMIT 挤掉
+                for i in range(2):
+                    async with maker() as session:
+                        await create_token(
+                            body=TokenBody(name=f"expired{i}", expires_in_days=1),
+                            actor=actor, db=session)
+                async with engine.begin() as db:
+                    await db.execute(text(
+                        "UPDATE community.user_api_tokens SET expires_at=now()-interval '1 day'"
+                        " WHERE user_id=:u"), {"u": uid})
+                for i in range(5):
+                    async with maker() as session:
+                        await create_token(
+                            body=TokenBody(name=f"active{i}", expires_in_days=None),
+                            actor=actor, db=session)
+                async with maker() as session:
+                    resp = _Resp()
+                    items = await list_tokens(response=resp, actor=actor, db=session)
+                return items
+            finally:
+                if uid is not None:
+                    await _cleanup_user(engine, uid)
+
+        items = asyncio.run(go())
+        names = {item["name"] for item in items}
+        self.assertEqual(len(items), 5, "恰 5 个有效 Key 全部可见")
+        self.assertTrue(names <= {f"active{i}" for i in range(5)},
+                        f"列表不得含过期 Key: {names}")
+        self.assertTrue(all(item["expires_at"] is None or
+                            str(item["expires_at"]) > "" for item in items))
+
 
 if __name__ == "__main__":
     unittest.main()
