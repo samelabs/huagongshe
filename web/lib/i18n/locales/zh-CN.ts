@@ -423,7 +423,7 @@ const t = {
     skillCategoryPick: '选择分类',
     skillPublishFailed: '发布失败',
     skillUnpublishFailed: '转为私有失败',
-    skillsUploadHint: '支持根目录含 SKILL.md 的 zip 格式。',
+    skillsUploadHint: '支持根目录含 SKILL.md 的 zip 格式，最大 12MB。',
     skillsEmpty: '还没有技能，上传第一个 zip 技能包',
     unitSkill: '个技能',
     unitFiles: '个文件',

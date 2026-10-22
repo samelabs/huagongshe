@@ -416,7 +416,7 @@ const de: Dictionary = {
     skillCategoryPick: 'Kategorie wählen',
     skillPublishFailed: 'Veröffentlichen fehlgeschlagen',
     skillUnpublishFailed: 'Privatstellen fehlgeschlagen',
-    skillsUploadHint: 'Zip mit SKILL.md im Hauptverzeichnis wird unterstützt.',
+    skillsUploadHint: 'Zip mit SKILL.md im Hauptverzeichnis wird unterstützt, bis 12 MB.',
     skillsEmpty: 'Noch keine Skills. Lade dein erstes ZIP-Skill-Paket hoch',
     unitSkill: 'Skills',
     unitFiles: 'Dateien',

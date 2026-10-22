@@ -415,7 +415,7 @@ const ko: Dictionary = {
     skillCategoryPick: '분류 선택',
     skillPublishFailed: '게시에 실패했습니다',
     skillUnpublishFailed: '비공개 전환에 실패했습니다',
-    skillsUploadHint: '루트에 SKILL.md가 포함된 zip을 지원합니다.',
+    skillsUploadHint: '루트에 SKILL.md가 포함된 zip을 지원합니다(최대 12MB).',
     skillsEmpty: '아직 스킬이 없습니다. 첫 zip 스킬 패키지를 업로드해 보세요',
     unitSkill: '개',
     unitFiles: '개',

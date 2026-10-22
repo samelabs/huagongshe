@@ -413,7 +413,7 @@ const ja: Dictionary = {
     skillCategoryPick: 'カテゴリを選択',
     skillPublishFailed: '公開に失敗しました',
     skillUnpublishFailed: '非公開化に失敗しました',
-    skillsUploadHint: 'ルートに SKILL.md を含む zip に対応しています。',
+    skillsUploadHint: 'ルートに SKILL.md を含む zip に対応しています（最大 12MB）。',
     skillsEmpty: 'スキルがまだありません。最初の zip スキルパッケージをアップロードしましょう',
     unitSkill: 'スキル',
     unitFiles: 'ファイル',

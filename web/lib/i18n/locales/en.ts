@@ -412,7 +412,7 @@ const en: Dictionary = {
     skillCategoryPick: 'Pick a category',
     skillPublishFailed: 'Publish failed',
     skillUnpublishFailed: 'Could not make private',
-    skillsUploadHint: 'Upload a zip with SKILL.md at its root.',
+    skillsUploadHint: 'Upload a zip with SKILL.md at its root, up to 12 MB.',
     skillsEmpty: 'No skills yet — upload your first zip skill package',
     unitSkill: 'skills',
     unitFiles: 'files',

@@ -1468,6 +1468,13 @@ def build_mcp_server() -> MCPServer:
 _mcp_server: MCPServer | None = None
 
 
+def mcp_request_body_limit(skill_zip_max_bytes: int) -> int:
+    """Streamable HTTP 请求体上限: 技能包工具收 Base64(zip), 请求体 =
+    ZIP 上限 × 4/3 加 JSON 封装余量 —— 唯一来源是 settings 的 ZIP 上限,
+    SDK 默认 4 MiB 装不下, 会把合规技能包挡在工具校验之前。"""
+    return skill_zip_max_bytes * 4 // 3 + 2 * 1024 * 1024
+
+
 def mount_mcp(app: FastAPI) -> None:
     """Build the MCP server and mount its streamable-http app at /mcp."""
     global _mcp_server
@@ -1478,6 +1485,7 @@ def mount_mcp(app: FastAPI) -> None:
         # DNS rebinding 防护按 host=127.0.0.1 默认开启且只放行 localhost Host 头,
         # 经 nginx(公网域名) 反代必 403 — 本服务边界在 nginx, 此处显式关闭.
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        max_request_body_size=mcp_request_body_limit(settings.skill_zip_max_bytes),
         host="0.0.0.0",
     )
     # 终局: 挂根 + 子路径 /mcp → MCP 端点 = /mcp(规范路径, 关键路由锁死)。
