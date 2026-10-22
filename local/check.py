@@ -24,6 +24,10 @@ import argparse
 import datetime
 import fcntl
 import json
+import hashlib
+import signal
+import shlex
+import traceback
 import os
 import re
 import secrets
@@ -35,11 +39,16 @@ import time
 import urllib.parse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "local"))
+import next_lock
+
 RUNS_DIR = os.path.join(ROOT, "local", ".check-runs")
 STACK_ENV_FILE = os.path.join(ROOT, "local", "stack", ".env.local")
 DEV_MARKER = os.path.join(ROOT, "local", ".dev-active.json")
 BUILD_MARKER = os.path.join(ROOT, "local", ".check-runs", "build-active.json")
-REDIS_LOCK_FILE = os.path.join(RUNS_DIR, "redis-db15.lock")
+REDIS_LOCK_FILE = os.path.join(tempfile.gettempdir(), "hgs-check-redis-db15.lock")
+BUILD_LOCK_FILE = os.path.join(RUNS_DIR, "next-output.lock")
+_ACTIVE_RUN = None
 
 API_CONTAINER = "hgs_local_api"
 DB_CONTAINER = "hgs_local_db"
@@ -62,7 +71,7 @@ _URL_SECRET_RE = re.compile(r"://([^:/@\s]+):([^@\s]+)@")
 _ENV_SECRET_RE = re.compile(r"\b(PGPASSWORD=)[^\s]+")
 _RAN_RE = re.compile(r"^Ran (\d+) tests? in ", re.M)
 _SKIP_LINE_RE = re.compile(
-    r"^(test_\S+|runTest) \(([^)]+)\) \.\.\. skipped ['\"]?(.*?)['\"]?\s*$", re.M)
+    r"^(test_\S+|runTest|setUpClass|tearDownClass|setUpModule|tearDownModule) \(([^)]+)\) \.\.\. skipped ['\"]?(.*?)['\"]?\s*$", re.M)
 _XFAIL_LINE_RE = re.compile(
     r"^(test_\S+|runTest) \(([^)]+)\) \.\.\. expected failure", re.M)
 _TAIL_RE = re.compile(r"^(OK|FAILED)\b(?:\s*\((.*)\))?\s*$", re.M)
@@ -84,9 +93,24 @@ def now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+_RUN_SECRETS = set()
+
+
 def redact(text: str) -> str:
     """连接串密码段与 PGPASSWORD 注入值替换为 ***(日志与结果统一出口)。"""
+    for secret in sorted(_RUN_SECRETS, key=len, reverse=True):
+        text = text.replace(secret, "***")
     return _ENV_SECRET_RE.sub(r"\1***", _URL_SECRET_RE.sub(r"://\1:***@", text))
+
+
+def safe_value(value):
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, dict):
+        return {redact(str(k)): safe_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [safe_value(v) for v in value]
+    return value
 
 
 def parse_db_url(url: str) -> dict:
@@ -140,10 +164,15 @@ def run_db_name() -> str:
 
 def build_test_urls(user: str, password: str, host: str, port: int, dbname: str):
     """构造同库的 TEST/HGS 两个 URL(TEST 带 sentinel)并预检一致性。"""
-    cred = f"{user}:{urllib.parse.quote(password, safe='')}@{host}:{port}/{dbname}"
+    cred = f"{urllib.parse.quote(user, safe='')}:{urllib.parse.quote(password, safe='')}@{host}:{port}/{dbname}"
     test_url = f"{SENTINELED_SCHEME}{cred}?test_sentinel={DB_SENTINEL}"
     app_url = f"{SENTINELED_SCHEME}{cred}"
     assert_same_target(test_url, app_url)
+    sys.path.insert(0, ROOT) if ROOT not in sys.path else None
+    from tests.db_gate import require_test_db
+    require_test_db(test_url)
+    if not RUN_DB_NAME_RE.fullmatch(dbname):
+        raise EnvTargetMismatch("目标不是本 run 专有库")
     return test_url, app_url, f"{NATIVE_SCHEME}{cred}"
 
 
@@ -160,6 +189,9 @@ def load_stack_env() -> dict:
     for key in ("HGS_DB_USER", "HGS_DB_PASSWORD"):
         if not values.get(key):
             raise BlockedError(f"{STACK_ENV_FILE} 缺少 {key}: 本地栈未初始化, 见 local/README.md")
+    for key, value in values.items():
+        if value and ("PASSWORD" in key or "SECRET" in key or key.startswith("SEED_HGS_")):
+            _RUN_SECRETS.update((value, urllib.parse.quote(value, safe="")))
     return values
 
 
@@ -180,8 +212,10 @@ def read_marker(path: str):
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
         return data if isinstance(data, dict) and int(data.get("pid", 0)) > 0 else None
-    except (OSError, ValueError, TypeError):
+    except FileNotFoundError:
         return None
+    except (OSError, ValueError, TypeError) as exc:
+        raise BlockedError(f"互斥标记无法确认: {path}") from exc
 
 
 def write_marker(path: str, kind: str) -> None:
@@ -228,8 +262,10 @@ def _case_id(paren: str, name: str) -> str:
 
 
 def parse_unittest_output(text: str) -> dict:
-    ran = _RAN_RE.search(text)
-    tail = _TAIL_RE.search(text)
+    ran_matches = list(_RAN_RE.finditer(text))
+    tail_matches = list(_TAIL_RE.finditer(text))
+    ran = ran_matches[-1] if ran_matches else None
+    tail = tail_matches[-1] if tail_matches else None
     counts = {"failures": 0, "errors": 0, "skipped": 0,
               "expected failures": 0, "unexpected successes": 0}
     status = None
@@ -247,15 +283,23 @@ def parse_unittest_output(text: str) -> dict:
             "counts": counts, "skip_details": skips, "xfail_details": xfails}
 
 
-def verdict(parsed: dict, allowed_skips=()) -> dict:
+def verdict(parsed: dict, allowed_skips=(), allowed_xfails=()) -> dict:
     """定级 PASS/FAIL: 空选择、失败、未许可 skip 都不得为 PASS。"""
     allowed = set(allowed_skips)
+    if parsed.get("status") != "OK":
+        return {"status": "FAIL", "reason": "unittest 未完整成功结束"}
+    if parsed["counts"]["skipped"] != len(parsed["skip_details"]):
+        return {"status": "FAIL", "reason": "skip 统计与逐项记录不一致"}
+    if parsed["counts"]["expected failures"] != len(parsed["xfail_details"]):
+        return {"status": "FAIL", "reason": "xfail 统计与逐项记录不一致"}
     if parsed["ran"] == 0:
         return {"status": "FAIL", "reason": "选择被执行的用例为 0: 空选择不得记为通过"}
     bad = {k: v for k, v in parsed["counts"].items()
            if k in ("failures", "errors", "unexpected successes") and v}
     if bad:
         return {"status": "FAIL", "reason": f"unittest 统计失败项: {bad}"}
+    if any(case not in set(allowed_xfails) for case in parsed["xfail_details"]):
+        return {"status": "FAIL", "reason": "存在未许可的 expected failure"}
     skipped = parsed["counts"]["skipped"]
     if skipped:
         unexpected = [s for s in parsed["skip_details"]
@@ -289,11 +333,14 @@ def cleanup_resources(registry, executor):
 
 class Run:
     def __init__(self, name: str):
+        global _ACTIVE_RUN
         self.run_id = new_run_id()
         self.name = name
         self.dir = os.path.join(RUNS_DIR, self.run_id)
         os.makedirs(self.dir, exist_ok=True)
+        _ACTIVE_RUN = self
         self.started = now_iso()
+        self.processes_stopped = True
         self.steps = []
         self.registry = []       # 本 run 创建的资源(清理只认这份登记)
         self.context = {}
@@ -308,32 +355,98 @@ class Run:
         return step
 
     def exec(self, name, cmd, *, timeout=600, env=None, cwd=None):
-        """执行命令并落脱敏日志; 返回 (code, timed_out, stdout, stderr)。"""
+        """Keep local and container process groups owned until they stop."""
         self._seq += 1
         base = os.path.join(self.dir, f"{self._seq:02d}_{name}")
+        original = list(cmd)
+        remote = None
+        token = f"{self.run_id}-{self._seq}"
+        if cmd[:2] == ["docker", "exec"]:
+            for container in (API_CONTAINER, DB_CONTAINER):
+                if container in cmd:
+                    i = cmd.index(container)
+                    remote = container
+                    cmd = cmd[:i+1] + ["bash", "/repo/local/run_step.sh", token,
+                                      str(timeout)] + cmd[i+1:]
+                    break
+        started = now_iso()
+        execution_started = time.monotonic()
+        deadline = timeout + 10 if remote else timeout
+        code, timed_out, launch_error = None, False, None
+        stdout = stderr = ""
+        proc = None
         try:
-            proc = subprocess.run(cmd, env=env, cwd=cwd, timeout=timeout,
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            code, timed_out = proc.returncode, False
-            stdout = proc.stdout.decode("utf-8", "replace")
-            stderr = proc.stderr.decode("utf-8", "replace")
-        except subprocess.TimeoutExpired as exc:
-            code, timed_out = None, True
-            stdout = (exc.stdout or b"").decode("utf-8", "replace")
-            stderr = (exc.stderr or b"").decode("utf-8", "replace")
-            stderr += f"\n[check.py] 超时上限 {timeout}s 触发, 进程被终止\n"
-        with open(base + ".out", "w", encoding="utf-8") as fh:
-            fh.write(redact(stdout))
-        with open(base + ".err", "w", encoding="utf-8") as fh:
-            fh.write(redact(stderr))
-        self.step({"name": name, "exit_code": code, "timed_out": timed_out,
-                   "cmd": redact(" ".join(cmd))})
+            proc = subprocess.Popen(cmd, env=env, cwd=cwd, start_new_session=True,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    pass_fds=next_lock.held_fds())
+            out, err = proc.communicate(timeout=deadline)
+            code = proc.returncode
+            timed_out = remote is not None and (code == 124 or (code == 137 and time.monotonic() - execution_started >= timeout))
+            stdout, stderr = out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+        except (subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
+            timed_out = isinstance(exc, subprocess.TimeoutExpired)
+            if remote:
+                try:
+                    stopped = subprocess.run(
+                        ["docker", "exec", remote, "bash", "/repo/local/run_step.sh", "--stop", token],
+                        capture_output=True, timeout=15).returncode == 0
+                except (OSError, subprocess.TimeoutExpired):
+                    stopped = False
+                self.processes_stopped = self.processes_stopped and stopped
+                if not stopped:
+                    with open(REDIS_LOCK_FILE + ".unsafe", "w") as fh:
+                        json.dump({"run": self.run_id, "container": remote, "step": token}, fh)
+            if proc:
+                for sig in (signal.SIGTERM, signal.SIGKILL):
+                    if proc.poll() is not None:
+                        break
+                    try:
+                        os.killpg(proc.pid, sig)
+                    except PermissionError:
+                        try:
+                            proc.send_signal(sig)
+                        except PermissionError as exc:
+                            self.processes_stopped = False
+                            raise BlockedError("无法终止宿主子进程；资源保留待处理") from exc
+                        except ProcessLookupError:
+                            pass
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        continue
+                try:
+                    out, err = proc.communicate(timeout=3)
+                except subprocess.TimeoutExpired as exc:
+                    self.processes_stopped = False
+                    raise BlockedError("宿主子进程未停止，保留资源待处理") from exc
+                stdout, stderr = out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
+            if not self.processes_stopped:
+                raise BlockedError("无法确认远程进程停止；资源保留，禁止并发测试")
+            if not timed_out:
+                raise BlockedError("检查被中断；本 run 进程已停止")
+            stderr += f"\n[check.py] 超时 {timeout}s，本 run 进程组已终止\n"
+        except OSError as exc:
+            launch_error = str(exc)
+            stderr = launch_error
+        finally:
+            for suffix, value in ((".out", stdout), (".err", stderr)):
+                with open(base + suffix, "w", encoding="utf-8") as fh:
+                    fh.write(redact(value))
+            self.step({"name": name, "exit_code": code, "timed_out": timed_out,
+                       "cmd": redact(" ".join(original)), "cwd": cwd or os.getcwd(),
+                       "started": started, "finished": now_iso()})
+        if launch_error:
+            raise BlockedError("无法执行检查: " + launch_error)
         return code, timed_out, stdout, stderr
 
     def docker(self, name, args, *, timeout=600, env=None):
         return self.exec(name, ["docker", *args], timeout=timeout, env=env)
 
     def finish(self, overall: str, message: str) -> int:
+        if overall == "PASS" and any(not r["cleaned"] for r in self.cleanup_results):
+            overall, message = "BLOCKED", "检查已执行，但资源清理未完成"
         result = {
             "run_id": self.run_id, "command": self.name,
             "started": self.started, "finished": now_iso(),
@@ -347,8 +460,8 @@ class Run:
         }
         path = os.path.join(self.dir, "result.json")
         with open(path, "w", encoding="utf-8") as fh:
-            json.dump(result, fh, ensure_ascii=False, indent=2)
-        print(f"[check.py] overall={overall} {message}")
+            json.dump(safe_value(result), fh, ensure_ascii=False, indent=2)
+        print(redact(f"[check.py] overall={overall} {message}"))
         print(f"[check.py] 结果与日志: {path}")
         return {"PASS": EXIT_PASS, "FAIL": EXIT_FAIL,
                 "BLOCKED": EXIT_BLOCKED}[overall]
@@ -367,6 +480,30 @@ def git_snapshot(run: Run):
     run.info("head", head)
     run.info("dirty", [line for line in status if line.strip()])
     return head, status
+
+
+def source_fingerprint():
+    result = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+                            cwd=ROOT, capture_output=True, check=True)
+    digest = hashlib.sha256()
+    for raw in sorted(set(result.stdout.split(b"\0")) - {b""}):
+        name = os.fsdecode(raw)
+        if name.startswith("docs/"):
+            continue
+        path = os.path.join(ROOT, name)
+        digest.update(raw + b"\0")
+        try:
+            with open(path, "rb") as fh:
+                digest.update(fh.read())
+        except FileNotFoundError:
+            digest.update(b"<deleted>")
+    return digest.hexdigest()
+
+
+def assert_frozen(run):
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    if head != run.context["frozen_head"] or source_fingerprint() != run.context["frozen_source"]:
+        raise BlockedError("发布检查期间 HEAD 或受测内容已变化，本轮结果作废")
 
 
 def docker_containers_running(names) -> dict:
@@ -390,6 +527,20 @@ def require_stack(run: Run) -> dict:
             "本地栈容器未运行: " + ", ".join(missing)
             + "; 先按 local/README.md 起栈(cd local/stack && docker compose "
               "--env-file .env.local up -d)")
+    for container in (API_CONTAINER, DB_CONTAINER):
+        inspected = subprocess.run(["docker", "inspect", "--format", "{{json .Mounts}}", container],
+                                   capture_output=True, text=True, timeout=30)
+        if inspected.returncode:
+            raise BlockedError(f"不能检查 {container} 的源码挂载")
+        sources = [m["Source"] for m in json.loads(inspected.stdout)
+                   if m.get("Destination") == "/repo"]
+        def host_path(value):
+            for prefix in ("/host_mnt", "/run/desktop/mnt/host"):
+                if value.startswith(prefix + "/"):
+                    value = value[len(prefix):]
+            return os.path.realpath(value)
+        if len(sources) != 1 or host_path(sources[0]) != os.path.realpath(ROOT):
+            raise BlockedError(f"{container} 的 /repo 不属于当前 checkout，拒绝错树验证")
     return states
 
 
@@ -419,12 +570,11 @@ def db_exists(run: Run, dbname: str) -> bool:
     return code == 0 and out.strip() == "1"
 
 
-def create_run_db(run: Run, cred: dict) -> str:
-    dbname = run_db_name()
+def create_run_db(run: Run, cred: dict, dbname: str) -> str:
     if db_exists(run, dbname):
         raise BlockedError(
             f"专有库 {dbname} 已存在但不是本 run 创建的; 拒绝动用, 换 run 重试")
-    code, _, _, err = as_pg(run, "createdb", f"createdb -O {cred['user']} {dbname}")
+    code, _, _, err = as_pg(run, "createdb", f"createdb -O {shlex.quote(cred['user'])} {dbname}")
     if code != 0:
         raise BlockedError("createdb 失败: " + err.strip()[:400])
     run.registry.append({"kind": "run_db", "ident": dbname})
@@ -439,7 +589,7 @@ def apply_baseline_and_migrations(run: Run, cred: dict, dbname: str):
             cred=cred, timeout=1200)
         if code != 0:
             raise BlockedError(f"{sql} 执行失败: " + err.strip()[:400])
-    native = f"{NATIVE_SCHEME}{cred['user']}:{cred['password']}@db:5432/{dbname}"
+    native = f"{NATIVE_SCHEME}{urllib.parse.quote(cred['user'], safe='')}:{urllib.parse.quote(cred['password'], safe='')}@db:5432/{dbname}"
     # 迁移 URL 必须是 psql 可用原生 scheme 且不带 sentinel(见 AGENTS)
     code, _, _, err = run.docker(
         "migrate-forward",
@@ -451,8 +601,8 @@ def apply_baseline_and_migrations(run: Run, cred: dict, dbname: str):
 
 def verify_tester(run: Run):
     code, _, out, err = run.docker(
-        "tester-uid", ["exec", API_CONTAINER, "id", TESTER_USER], timeout=60)
-    if code != 0:
+        "tester-uid", ["exec", "-u", TESTER_USER, API_CONTAINER, "id", "-u"], timeout=60)
+    if code != 0 or not out.strip().isdigit() or int(out.strip()) == 0:
         raise BlockedError(
             f"容器内缺少非 root 用户 {TESTER_USER}: 镜像过旧, 需重建"
             "(cd local/stack && docker compose --env-file .env.local "
@@ -477,8 +627,23 @@ class RedisLock:
         self.handle = None
 
     def acquire(self):
-        self.handle = open(REDIS_LOCK_FILE, "w")
-        fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX)
+        self.handle = open(REDIS_LOCK_FILE, "a+")
+        deadline = time.monotonic() + 30
+        while True:
+            try:
+                fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    self.handle.close()
+                    self.handle = None
+                    raise BlockedError("Redis DB15 被其他 run 占用，等待30s超时")
+                time.sleep(0.1)
+        if os.path.exists(REDIS_LOCK_FILE + ".unsafe"):
+            self.release()
+            raise BlockedError("上轮远程进程停止未确认；先核实隔离标记再使用 Redis DB15")
+        self.handle.seek(0)
+        self.handle.truncate()
         self.handle.write(f"{os.getpid()} {now_iso()}\n")
         self.handle.flush()
 
@@ -557,19 +722,23 @@ def real_cleanup_executor(run: Run):
 
 
 def do_cleanup(run: Run):
+    if not run.processes_stopped:
+        run.cleanup_results = [{"kind": r["kind"], "ident": r["ident"],
+                                "cleaned": False, "error": "进程停止未确认"} for r in run.registry]
+        return
     results = cleanup_resources(run.registry, real_cleanup_executor(run))
     run.cleanup_results = results
     leftover = [r for r in results if not r["cleaned"]]
     if leftover:
         print("[check.py] 清理失败残留(需人工处理): "
-              + json.dumps(leftover, ensure_ascii=False))
+              + json.dumps(safe_value(leftover), ensure_ascii=False))
 
 
 def cmd_backend(args) -> int:
     validate_modules(args.tests)
     run = Run("backend")
     git_snapshot(run)
-    run.info("invoked_cwd", os.getcwd())
+    run.info("invoked_cwd", globals().get("_INVOKED_CWD", os.getcwd()))
     run.info("modules", args.tests)
     run.info("test_redis", TEST_REDIS_URL)
     lock = RedisLock()
@@ -585,17 +754,18 @@ def cmd_backend(args) -> int:
             "venv-python-version",
             ["exec", API_CONTAINER, VENV_PYTHON, "--version"], timeout=60)
         run.info("backend_python", out.strip())
-        dbname = create_run_db(run, cred)
-        apply_baseline_and_migrations(run, cred, dbname)
+        dbname = run_db_name()
         test_url, app_url, _ = build_test_urls(
             cred["user"], cred["password"], "db", 5432, dbname)
+        create_run_db(run, cred, dbname)
+        apply_baseline_and_migrations(run, cred, dbname)
         run.info("test_db", {"host": "db", "port": 5432, "database": dbname,
                              "user": cred["user"]})
         prepare_container_dirs(run, run.run_id)
         env_args = docker_test_env(test_url, app_url, run.run_id)
-        check_modules_importable(run, args.tests, env_args)
         lock.acquire()
         held = True
+        check_modules_importable(run, args.tests, env_args)
         code, timed_out, _, stderr = run.exec(
             "unittest",
             ["docker", "exec", *env_args, API_CONTAINER, "bash", "-lc",
@@ -604,9 +774,11 @@ def cmd_backend(args) -> int:
             timeout=args.timeout)
         if timed_out:
             raise BlockedError(f"unittest 超过 {args.timeout}s 被终止")
+        if code != 0:
+            raise FailError(f"unittest 子进程退出 {code}")
         parsed = parse_unittest_output(stderr)
         run.info("unittest_summary", parsed)
-        v = verdict(parsed, args.allow_skip)
+        v = verdict(parsed, args.allow_skip, args.allow_xfail)
         if v["status"] != "PASS":
             raise FailError(v["reason"] or "unittest 失败")
         outcome = ("PASS", f"ran={parsed['ran']} "
@@ -644,7 +816,9 @@ def host_node_version():
 def run_web_steps(run: Run, timeout: int):
     major, version = host_node_version()
     run.info("node", version)
-    if major < NODE_MIN_MAJOR:
+    capability = subprocess.run(["node", "--experimental-strip-types", "-e", ""],
+                                capture_output=True, timeout=30) if major >= NODE_MIN_MAJOR else None
+    if major < NODE_MIN_MAJOR or capability.returncode != 0:
         raise BlockedError(
             f"宿主 Node {version or '缺失'} 低于基准 {NODE_MIN_MAJOR} 系列")
     if not os.path.isdir(os.path.join(ROOT, "web", "node_modules")):
@@ -660,7 +834,7 @@ def run_web_steps(run: Run, timeout: int):
 def cmd_web(args) -> int:
     run = Run("web")
     git_snapshot(run)
-    run.info("invoked_cwd", os.getcwd())
+    run.info("invoked_cwd", globals().get("_INVOKED_CWD", os.getcwd()))
     try:
         run_web_steps(run, args.timeout)
         return run.finish("PASS", "tsc/test:unit/test:locale/check:api-layer 全过")
@@ -675,6 +849,7 @@ def cmd_web(args) -> int:
 def run_worker_steps(worker_run: Run, install_timeout: int, timeout: int):
     require_stack(worker_run)
     verify_tester(worker_run)
+    worker_run.info("worker_python", tool_version(["docker", "exec", API_CONTAINER, "python3", "--version"]))
     venv = f"/tmp/{worker_run.run_id}/wvenv"
     worker_run.registry.append(
         {"kind": "container_tmpdir", "ident": f"/tmp/{worker_run.run_id}"})
@@ -726,7 +901,7 @@ def run_worker_steps(worker_run: Run, install_timeout: int, timeout: int):
 def cmd_worker(args) -> int:
     run = Run("worker")
     git_snapshot(run)
-    run.info("invoked_cwd", os.getcwd())
+    run.info("invoked_cwd", globals().get("_INVOKED_CWD", os.getcwd()))
     outcome = ("BLOCKED", "未执行")
     try:
         run_worker_steps(run, args.install_timeout, args.timeout)
@@ -765,7 +940,7 @@ def tool_version(argv):
 def cmd_preflight(args) -> int:
     run = Run("preflight")
     git_snapshot(run)
-    run.info("invoked_cwd", os.getcwd())
+    run.info("invoked_cwd", globals().get("_INVOKED_CWD", os.getcwd()))
     run.info("repo_root", ROOT)
     branch = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"],
                             cwd=ROOT, capture_output=True, text=True)
@@ -822,11 +997,8 @@ def release_dev_guard(run: Run):
     占端口进程时由操作者腾出端口或改用隔离 checkout, 绝不猎杀进程。
     """
     action, message = dev_build_decision(DEV_MARKER, BUILD_MARKER)
-    if action == "dev_active":
+    if action in ("dev_active", "build_active"):
         raise BlockedError(message)
-    if action == "stale":
-        remove_marker(DEV_MARKER)
-        remove_marker(BUILD_MARKER)
     if port_listening(3000):
         raise BlockedError(
             "端口 3000 有监听(疑似 next dev 在跑, 含旧标记机制前启动的"
@@ -838,7 +1010,7 @@ def release_dev_guard(run: Run):
 def cmd_release(args) -> int:
     run = Run("release")
     head, status = git_snapshot(run)
-    run.info("invoked_cwd", os.getcwd())
+    run.info("invoked_cwd", globals().get("_INVOKED_CWD", os.getcwd()))
     run.info("phases", RELEASE_PHASES)
     if args.dry_run:
         plan = {"phases": RELEASE_PHASES,
@@ -853,6 +1025,7 @@ def cmd_release(args) -> int:
         print("[check.py] dry-run 只列计划: 未执行检查、未触任何库、未装包")
         return EXIT_PASS
     run.info("frozen_head", head)
+    run.info("frozen_source", source_fingerprint())
     if status:
         print(f"[check.py] 工作树有 {len(status)} 个未提交改动: 本次结果只作为"
               " working-tree 证据, 不冒充已提交 SHA 的发行证据")
@@ -869,10 +1042,11 @@ def cmd_release(args) -> int:
                 "password": stack_env["HGS_DB_PASSWORD"]}
         require_stack(run)
         verify_tester(run)
-        dbname = create_run_db(run, cred)
-        apply_baseline_and_migrations(run, cred, dbname)
+        dbname = run_db_name()
         test_url, app_url, _ = build_test_urls(
             cred["user"], cred["password"], "db", 5432, dbname)
+        create_run_db(run, cred, dbname)
+        apply_baseline_and_migrations(run, cred, dbname)
         run.info("test_db", {"host": "db", "port": 5432, "database": dbname,
                              "user": cred["user"]})
         run.info("test_redis", TEST_REDIS_URL)
@@ -884,13 +1058,15 @@ def cmd_release(args) -> int:
             "unittest-discover",
             ["docker", "exec", *env_args, API_CONTAINER, "bash", "-lc",
              "cd /repo && exec " + VENV_PYTHON
-             + " -m unittest discover -s tests -v"],
+             + " -m unittest discover -s tests -t . -v"],
             timeout=args.backend_timeout)
         if timed_out:
             raise BlockedError(f"全量后端超时({args.backend_timeout}s)")
+        if code != 0:
+            raise FailError(f"unittest 子进程退出 {code}")
         parsed = parse_unittest_output(stderr)
         run.info("unittest_summary", parsed)
-        v = verdict(parsed, args.allow_skip)
+        v = verdict(parsed, args.allow_skip, args.allow_xfail)
         if v["status"] != "PASS":
             raise FailError("backend-full: " + (v["reason"] or "")
                             + "; 明细 " + json.dumps(v.get("details", []),
@@ -898,19 +1074,27 @@ def cmd_release(args) -> int:
         lock.release()
         held = False
         # web + build + worker
+        assert_frozen(run)
         run_web_steps(run, 900)
-        release_dev_guard(run)
-        write_marker(BUILD_MARKER, "build")
-        build_marker_on = True
         try:
-            code, timed_out, _, _ = run.exec(
-                "next-build", ["npm", "run", "build"],
-                cwd=os.path.join(ROOT, "web"), timeout=args.build_timeout)
-            if timed_out or code != 0:
-                raise FailError("production build 失败")
-        finally:
-            remove_marker(BUILD_MARKER)
-            build_marker_on = False
+            with next_lock.OutputLock():
+                assert_frozen(run)
+                release_dev_guard(run)
+                write_marker(BUILD_MARKER, "build")
+                build_marker_on = True
+                try:
+                    code, timed_out, _, _ = run.exec(
+                        "next-build", ["npm", "run", "build"],
+                        cwd=os.path.join(ROOT, "web"), timeout=args.build_timeout)
+                    if timed_out or code != 0:
+                        raise FailError("production build 失败")
+                finally:
+                    remove_marker(BUILD_MARKER)
+                    build_marker_on = False
+        except RuntimeError as exc:
+            if isinstance(exc, (BlockedError, FailError)):
+                raise
+            raise BlockedError(str(exc)) from exc
         worker_run = Run("release-worker")
         run.info("worker_run_id", worker_run.run_id)
         worker_outcome = ("BLOCKED", "未执行")
@@ -926,7 +1110,9 @@ def cmd_release(args) -> int:
             do_cleanup(worker_run)
         worker_run.finish(*worker_outcome)
         if worker_outcome[0] != "PASS":
-            raise FailError("worker 阶段未通过: " + worker_outcome[1])
+            raise (BlockedError if worker_outcome[0] == "BLOCKED" else FailError)(
+                "worker 阶段未通过: " + worker_outcome[1])
+        assert_frozen(run)
         outcome = ("PASS", "发布门禁全阶段完成(证据见 run 目录)")
     except (BlockedError, EnvTargetMismatch) as exc:
         outcome = ("BLOCKED", str(exc))
@@ -942,6 +1128,13 @@ def cmd_release(args) -> int:
 
 
 # ─── CLI ───
+
+def positive_timeout(raw):
+    value = int(raw)
+    if value <= 0:
+        raise argparse.ArgumentTypeError("timeout 必须大于0")
+    return value
+
 
 class Parser(argparse.ArgumentParser):
     def error(self, message):  # 用法错误统一退出码 3
@@ -959,35 +1152,42 @@ def build_parser() -> Parser:
         .set_defaults(func=cmd_preflight)
 
     web = sub.add_parser("web", help="前端检查(默认不 build)")
-    web.add_argument("--timeout", type=int, default=900)
+    web.add_argument("--timeout", type=positive_timeout, default=900)
     web.set_defaults(func=cmd_web)
 
     backend = sub.add_parser("backend", help="容器内非 root 后端最小模块集")
     backend.add_argument("--tests", nargs="+", required=True,
                          metavar="tests.<module>",
                          help="显式模块列表; 空选择/未知模块非零退出, 不 fallback 全量")
-    backend.add_argument("--timeout", type=int, default=1800)
+    backend.add_argument("--timeout", type=positive_timeout, default=1800)
     backend.add_argument("--allow-skip", nargs="*", default=[], metavar="CASE",
                          help="许可的用例级 skip(完整 id 逐项列出); 不接受整模块白名单")
+    backend.add_argument("--allow-xfail", nargs="*", default=[], metavar="CASE")
     backend.set_defaults(func=cmd_backend)
 
     worker = sub.add_parser("worker", help="干净 venv worker 导入检查")
-    worker.add_argument("--install-timeout", type=int, default=900)
-    worker.add_argument("--timeout", type=int, default=300)
+    worker.add_argument("--install-timeout", type=positive_timeout, default=900)
+    worker.add_argument("--timeout", type=positive_timeout, default=300)
     worker.set_defaults(func=cmd_worker)
 
     release = sub.add_parser("release", help="显式发布门禁")
     release.add_argument("--dry-run", action="store_true", help="只列计划, 不执行")
-    release.add_argument("--backend-timeout", type=int, default=3600)
-    release.add_argument("--build-timeout", type=int, default=1800)
-    release.add_argument("--worker-install-timeout", type=int, default=900)
-    release.add_argument("--worker-timeout", type=int, default=300)
+    release.add_argument("--backend-timeout", type=positive_timeout, default=3600)
+    release.add_argument("--build-timeout", type=positive_timeout, default=1800)
+    release.add_argument("--worker-install-timeout", type=positive_timeout, default=900)
+    release.add_argument("--worker-timeout", type=positive_timeout, default=300)
     release.add_argument("--allow-skip", nargs="*", default=[], metavar="CASE")
+    release.add_argument("--allow-xfail", nargs="*", default=[], metavar="CASE")
     release.set_defaults(func=cmd_release)
     return ap
 
 
+def interrupt_check(*_):
+    raise KeyboardInterrupt()
+
+
 def main(argv=None) -> int:
+    signal.signal(signal.SIGTERM, interrupt_check)
     argv = list(sys.argv[1:] if argv is None else argv)
     args = build_parser().parse_args(argv)
     invoked_cwd = os.getcwd()
@@ -1000,14 +1200,27 @@ def main(argv=None) -> int:
         print(f"check.py: 拒绝执行 — cwd {invoked_cwd} 不在仓库 {ROOT} 内, "
               "不得静默跑另一套树", file=sys.stderr)
         return EXIT_USAGE
+    global _INVOKED_CWD
+    _INVOKED_CWD = invoked_cwd
     if invoked_cwd != ROOT:
         print(f"[check.py] 从 {invoked_cwd} 调用, 切回仓库根 {ROOT}")
         os.chdir(ROOT)
     try:
         return args.func(args)
     except UsageError as exc:
-        print(f"check.py: {exc}", file=sys.stderr)
+        print(redact(f"check.py: {exc}"), file=sys.stderr)
         return EXIT_USAGE
+    except (OSError, BlockedError) as exc:
+        if _ACTIVE_RUN:
+            return _ACTIVE_RUN.finish("BLOCKED", str(exc))
+        print(redact(str(exc)), file=sys.stderr)
+        return EXIT_BLOCKED
+    except Exception:
+        detail = redact(traceback.format_exc())
+        if _ACTIVE_RUN:
+            return _ACTIVE_RUN.finish("FAIL", detail)
+        print(detail, file=sys.stderr)
+        return EXIT_FAIL
 
 
 if __name__ == "__main__":

@@ -53,8 +53,8 @@ CONTRIBUTING、local/README、local/stack/README、CI 只作场景入口, 不再
   bootstrap + forward 迁移后全量 discover; 显式设置两个数据库 URL 指向
   同一库、canonical `HGS_PUBLIC_BASE_URL=https://huagongshe.com`、临时
   skill 目录。hosted runner 本身非 root。
-- CI 不依赖本地 Docker Desktop; 本地也不假定宿主装有 asyncpg。新增有
-  意义的测试自动被 integration 的全量 discover 覆盖 — 纯快检清单只做
+- CI 不依赖本地 Docker Desktop; 本地也不假定宿主装有 asyncpg。新增 Python
+  测试由 integration discover 覆盖；前端 runtime 测试由 `web/test-suites.json` 分组并校验遗漏/重复 — 纯快检清单只做
   提速, 不做准入边界。
 
 ## 3. 测试分级(最小充分集)
@@ -93,7 +93,7 @@ CONTRIBUTING、local/README、local/stack/README、CI 只作场景入口, 不再
 4. 管理身份(postgres)只用于建/删本 run 专有库; 运行身份是应用账号,
    OS 层非 root 是另一重独立约束, 报告分别记录。
 5. Redis 用测试逻辑库 `redis://redis:6379/15`; 编排器以主机侧文件锁
-   (`local/.check-runs/redis-db15.lock`)串行化使用同一逻辑库的 run。
+   (主机临时目录的 `hgs-check-redis-db15.lock`, 跨 checkout 共用)串行化使用同一逻辑库的 run。
    手工在容器里跑测试时不得与编排器 run 并发。禁止 FLUSHDB。
 6. 清理只认本 run 登记的资源(专有库、容器 /tmp 目录): dropdb 前目标名
    必须匹配专有库模式, 不按 `test_*` 通配删、不终止他人会话、不动演示库
@@ -105,8 +105,7 @@ CONTRIBUTING、local/README、local/stack/README、CI 只作场景入口, 不再
 - `web` 子命令不 build; production build 只进 release 门禁。
 - 同一 checkout 上 `next dev` 与 `next build` 共用 `web/.next`, 并发互
   相破坏。互斥机制:
-  - `local/dev.sh` 运行期持有 `local/.dev-active.json`(pid); 编排器
-    build 持有 `local/.check-runs/build-active.json`(pid)。
+  - dev 与 build 共同持有 `local/.check-runs/next-output.lock` 原子文件锁，覆盖子进程生命周期；PID JSON 只作诊断。第二个 dev/build 拒绝启动。
   - release 的 build 阶段前查互斥: 标记存活即 BLOCKED; 标记对应的进程
     已死视为残留, 清理后继续; 端口 3000 有监听时保守拒绝(覆盖旧标记
     机制之前启动的 dev), 不猎杀进程 — 由操作者停 dev、腾端口或改用
@@ -127,8 +126,7 @@ BLOCKED/FAIL — **不得用应用 venv 的通过冒充干净环境通过**。CI
 
 `python3 local/check.py release`(可选 `--dry-run` 只列计划)。阶段:
 
-1. freeze: 记录 HEAD 与脏文件; 有未提交改动的结果只作 working-tree
-   证据, 不冒充已提交 SHA 的发行证据。
+1. freeze: 记录 HEAD、受测内容指纹与脏文件；阶段间和结束复核，代码变化则本轮作废。未提交改动只作 working-tree 证据。容器 /repo 必须属于当前 checkout，建库前核实。
 2. mutex-guard: dev/build 互斥(见 §5)。
 3. fresh-db: 新专有库 baseline + bootstrap + forward。
 4. backend-full: 容器内非 root 全量 discover(canonical
@@ -150,7 +148,8 @@ BLOCKED/FAIL — **不得用应用 venv 的通过冒充干净环境通过**。CI
 - 有意 skip 必须是测试文件内显式声明的领域理由(如父类已跑的重复用例),
   门禁侧用 `--allow-skip` 逐用例声明; 依赖"库里恰好有旧样本"的 skip 属
   夹具缺陷, 修夹具而不是加白名单。
-- xfail 必须有依据且不得覆盖本批要修的缺陷; 结果文件逐项记录。
+- xfail 必须有依据且不得覆盖本批缺陷；默认非通过，许可需 `--allow-xfail <完整用例id>`，结果逐项记录。CI host 经 `local/unittest_gate.py` 使用同一结果判定。
+- 容器步骤通过 `local/run_step.sh` 管理自有进程组和远程 deadline；宿主也终止并等待自己的进程组。停止未确认时保留资源并以 Redis 隔离标记阻止后续测试，核实后才解除；不得删除标记来冒充进程已停止。
 
 ## 9. 已退役的旧命令(不得回流)
 

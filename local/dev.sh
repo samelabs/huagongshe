@@ -15,6 +15,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+if [ "${HGS_NEXT_LOCK_HELD:-}" != "$PWD/local/.check-runs/next-output.lock" ]; then
+  exec python3 local/next_lock.py bash local/dev.sh
+fi
+
 DEV_MARKER="local/.dev-active.json"
 BUILD_MARKER="local/.check-runs/build-active.json"
 

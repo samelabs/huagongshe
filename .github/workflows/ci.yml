@@ -48,7 +48,7 @@ jobs:
         # 纯快检清单(无 DB); 全量 discover 在 integration job, 新增测试
         # 文件由 integration 兜底入门禁, 清单只做提速。运行手册 docs/TESTING.md
         run: |
-          python -m unittest \
+          python local/unittest_gate.py -v \
             tests.test_gate \
             tests.test_db_gate \
             tests.test_check_orchestrator \
@@ -178,4 +178,5 @@ jobs:
           HGS_SKILL_ROOT: ${{ runner.temp }}/hgs-skills
           HGS_PUBLIC_BASE_URL: https://huagongshe.com
         run: |
-          python -m unittest discover -s tests
+          python local/unittest_gate.py discover -s tests -t . -v \
+            --allow-skip tests.test_identity.OneToOneMergeTests.test_5_absorb_migrates_all_registered_references

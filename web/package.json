@@ -6,8 +6,8 @@
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "test:locale": "tsx --conditions=react-server --test lib/localePath.test.mjs lib/languageSwitcher.test.mjs lib/proxy.test.mjs lib/runtimeI18n.test.mjs lib/alternates.test.mjs lib/hcidTemplate.test.mjs lib/localeCheck.test.mjs lib/api.server.test.mjs lib/chemicalName.test.mjs lib/sitemap.test.mjs",
-    "test:unit": "node --test --experimental-strip-types lib/govSeverity.test.mjs lib/profileMerge.test.mjs lib/noteHeadline.test.mjs lib/notesQuery.test.mjs lib/adminPagination.test.mjs",
+    "test:locale": "node scripts/runTests.mjs locale",
+    "test:unit": "node scripts/runTests.mjs unit",
     "check:api-layer": "node scripts/checkApiLayer.mjs"
   },
   "dependencies": {

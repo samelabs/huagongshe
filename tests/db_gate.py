@@ -42,9 +42,9 @@ def _sentinel(url: str) -> str | None:
     return m.group(1) if m else None
 
 
-def require_test_db() -> str:
+def require_test_db(url: str | None = None) -> str:
     """返回合规 TEST_DATABASE_URL; 任何不合规抛 ProductionDbBlocked。"""
-    url = os.environ.get("TEST_DATABASE_URL")
+    url = os.environ.get("TEST_DATABASE_URL") if url is None else url
     if not url:
         raise ProductionDbBlocked(
             "TEST_DATABASE_URL 未设置: DB integration tests 必须显式指定测试库, "

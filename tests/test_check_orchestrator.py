@@ -12,6 +12,8 @@
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import importlib.util
 import json
 import os
@@ -100,6 +102,10 @@ class VerdictTests(unittest.TestCase):
         self.assertEqual(parsed["ran"], 2)
         self.assertEqual(check.verdict(parsed)["status"], "PASS")
 
+    def test_incomplete_and_unexplained_skips_fail(self):
+        for output in ("Ran 1 test in 0.1s\n", "Ran 1 test in 0.1s\nOK (skipped=1)\n"):
+            self.assertEqual(check.verdict(check.parse_unittest_output(output))["status"], "FAIL")
+
     def test_zero_ran_is_failure(self):
         self.assertEqual(
             check.verdict(self._parsed(ran=0))["status"], "FAIL")
@@ -150,7 +156,8 @@ class VerdictTests(unittest.TestCase):
         parsed = check.parse_unittest_output(text)
         self.assertEqual(parsed["counts"]["expected failures"], 1)
         self.assertEqual(parsed["xfail_details"], ["tests.m.T.test_x"])
-        self.assertEqual(check.verdict(parsed)["status"], "PASS")
+        self.assertEqual(check.verdict(parsed)["status"], "FAIL")
+        self.assertEqual(check.verdict(parsed, allowed_xfails=["tests.m.T.test_x"])["status"], "PASS")
 
 
 class CleanupOwnershipTests(unittest.TestCase):
@@ -232,11 +239,11 @@ class DevBuildMutexTests(unittest.TestCase):
         action, _ = check.dev_build_decision(self.dev, self.build, self._alive)
         self.assertEqual(action, "ok")
 
-    def test_corrupt_marker_treated_as_absent(self):
+    def test_corrupt_marker_blocks(self):
         with open(self.dev, "w") as fh:
             fh.write("{not json")
-        action, _ = check.dev_build_decision(self.dev, self.build, self._alive)
-        self.assertEqual(action, "ok")
+        with self.assertRaises(check.BlockedError):
+            check.dev_build_decision(self.dev, self.build, self._alive)
 
 
 class CliGuardTests(unittest.TestCase):
@@ -253,6 +260,58 @@ class CliGuardTests(unittest.TestCase):
     def test_redact_strips_passwords(self):
         text = "postgresql://u:secretpw@db:5432/x"
         self.assertNotIn("secretpw", check.redact(text))
+
+
+class ExecutionBoundaryTests(unittest.TestCase):
+    def test_denied_host_termination_preserves_resources(self):
+        proc = unittest.mock.Mock()
+        proc.communicate.side_effect = KeyboardInterrupt()
+        proc.poll.return_value = None
+        proc.send_signal.side_effect = PermissionError()
+        with tempfile.TemporaryDirectory() as tmp, \
+                unittest.mock.patch.object(check, "RUNS_DIR", tmp), \
+                unittest.mock.patch.object(check.subprocess, "Popen", return_value=proc), \
+                unittest.mock.patch.object(check.os, "killpg", side_effect=PermissionError()):
+            run = check.Run("denied-stop")
+            with self.assertRaises(check.BlockedError):
+                run.exec("command", ["owned-command"])
+            self.assertFalse(run.processes_stopped)
+
+    def test_target_rejection_precedes_database_creation(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+                unittest.mock.patch.object(check, "RUNS_DIR", tmp), \
+                unittest.mock.patch.object(check, "load_stack_env", return_value={"HGS_DB_USER": "fake", "HGS_DB_PASSWORD": "fake"}), \
+                unittest.mock.patch.object(check, "require_stack"), \
+                unittest.mock.patch.object(check, "verify_tester"), \
+                unittest.mock.patch.object(check.Run, "docker", return_value=(0, False, "Python 3.12", "")), \
+                unittest.mock.patch.object(check, "build_test_urls", side_effect=check.EnvTargetMismatch("wrong target")), \
+                unittest.mock.patch.object(check, "create_run_db") as create:
+            args = check.build_parser().parse_args(["backend", "--tests", "tests.test_gate"])
+            self.assertEqual(check.cmd_backend(args), 2)
+            create.assert_not_called()
+
+    def test_finish_redacts_nested_results_and_console(self):
+        secret = "synthetic password @:%"
+        with tempfile.TemporaryDirectory() as tmp, \
+                unittest.mock.patch.object(check, "RUNS_DIR", tmp), \
+                unittest.mock.patch.object(check, "_RUN_SECRETS", {secret}), \
+                contextlib.redirect_stdout(io.StringIO()) as console:
+            run = check.Run("redaction")
+            run.info("nested", {"error": secret})
+            run.finish("BLOCKED", secret)
+            payload = open(os.path.join(run.dir, "result.json")).read()
+            self.assertNotIn(secret, payload)
+            self.assertNotIn(secret, console.getvalue())
+
+    def test_live_build_guard_blocks_release(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dev, build = os.path.join(tmp, "dev"), os.path.join(tmp, "build")
+            check.write_marker(build, "build")
+            with unittest.mock.patch.object(check, "DEV_MARKER", dev), \
+                    unittest.mock.patch.object(check, "BUILD_MARKER", build), \
+                    unittest.mock.patch.object(check, "port_listening", return_value=False):
+                with self.assertRaises(check.BlockedError):
+                    check.release_dev_guard(None)
 
 
 if __name__ == "__main__":
