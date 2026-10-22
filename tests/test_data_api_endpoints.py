@@ -441,6 +441,59 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self._status(response), 404)
         self.assertEqual(self._json(response)["error"]["code"], "not_found")
 
+    async def test_name_lookup_exact_and_contains(self):
+        """名称检索带凭据: 精确命中走 preferred_name 等值(match=name),
+        模糊命中走 name_index 包含(match=name_contains)。"""
+        from urllib.parse import urlencode
+        exact_name = f"二茂铁衍生物{self.run}"
+        alias_norm = f"ferrocene-alias-{self.run}"
+        async with self.Session() as db:
+            prior = (await db.execute(text(
+                "SELECT preferred_name FROM chemistry.chemicals WHERE id=:id"),
+                {"id": self.hcid})).scalar()
+            await db.execute(text(
+                "UPDATE chemistry.chemicals SET preferred_name=:pn WHERE id=:id"),
+                {"pn": exact_name, "id": self.hcid})
+            await db.execute(text("""
+                INSERT INTO chemistry.name_index (chemical_id,name,lang,normalized,source,kind)
+                VALUES (:id,:nm,'en',:nm,'cb','alias_en')
+            """), {"id": self.hcid, "nm": alias_norm})
+            await db.commit()
+        try:
+            client_id = await self._make_client(scopes=[CHEMICAL_READ_SCOPE])
+            path = "/data/v1/chemicals/lookup"
+            q = urlencode({"name": exact_name, "locale": "zh-CN"})
+            response = await self._call(
+                data_api.chemicals_lookup, path, q,
+                self._auth_headers(client_id, TOKEN, path, q))
+            self.assertEqual(self._status(response), 200)
+            payload = self._json(response)
+            self.assertTrue(payload["candidates"])
+            top = payload["candidates"][0]
+            self.assertEqual(top["hcid"], self.hcid)
+            self.assertEqual(top["match"], "name")
+
+            # 查询词是别称的真子串: 精确等值不命中, 走 name_index 包含
+            fragment = self.run
+            q2 = urlencode({"name": fragment, "locale": "zh-CN"})
+            response2 = await self._call(
+                data_api.chemicals_lookup, path, q2,
+                self._auth_headers(client_id, TOKEN, path, q2))
+            self.assertEqual(self._status(response2), 200)
+            payload2 = self._json(response2)
+            self.assertTrue(payload2["candidates"])
+            self.assertEqual(payload2["candidates"][0]["match"], "name_contains")
+            self.assertIn(self.hcid, [c["hcid"] for c in payload2["candidates"]])
+        finally:
+            async with self.Session() as db:
+                await db.execute(text(
+                    "DELETE FROM chemistry.name_index WHERE chemical_id=:id AND normalized=:nm"),
+                    {"id": self.hcid, "nm": alias_norm})
+                await db.execute(text(
+                    "UPDATE chemistry.chemicals SET preferred_name=:pn WHERE id=:id"),
+                    {"pn": prior, "id": self.hcid})
+                await db.commit()
+
     async def test_dual_role_reaction_counted_once(self):
         """同一反应中同一化合物双角色（反应物+产物）：只计一次、不占页位。"""
         async with self.Session() as db:

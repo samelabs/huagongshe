@@ -402,9 +402,15 @@ def _fams() -> list[Family]:
             S("notifications", A.ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/users/me/notifications"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
-            S("notifications_read", A.SESSION, entrypoints=(
+        )),
+        Family("social.notifications", E.WRITE, scenarios=(
+            S("notifications_read_all", A.SESSION, entrypoints=(
                 I(T.HTTP, "POST /api/users/me/notifications/read"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("notification_read", A.SESSION, entrypoints=(
+                I(T.HTTP, "POST /api/users/me/notifications/{notification_id}/read"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE),
+              note="单条已读: 收件人对自己收件箱的所有权判定, 幂等"),
         )),
         Family("user.public", E.READ, scenarios=(
             S("users_search", A.PUBLIC_OR_ACTOR, entrypoints=(

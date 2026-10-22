@@ -9,6 +9,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from sqlalchemy import text
+
 from ...chemistry import CAS_RE, canonicalize_smiles, cas_checkdigit_valid
 from ..cb import PRIORITY_BACKGROUND, cas_search_state, enqueue_cas_search_fetch
 from ..chemicals import fetch_chemicals, CHEMICAL_SELECT
@@ -36,8 +38,6 @@ def _match(label: str, rows: list[dict[str, Any]], locale: str) -> list[dict[str
 
 
 async def _by_ids(db: Any, ids: list[int], locale: str, label: str) -> list[dict[str, Any]]:
-    from sqlalchemy import text as _text
-
     if not ids:
         return []
     rows = await fetch_chemicals(db, f"""
@@ -59,8 +59,6 @@ async def lookup(
     入队走后台优先级档（PRIORITY_BACKGROUND），不占用户优先级 —— 采集
     压力由每凭证额度约束，入队沿用站内去重。
     """
-    from sqlalchemy import text
-
     if cas is not None:
         cas = cas.strip()
         if not CAS_RE.fullmatch(cas) or not cas_checkdigit_valid(cas):
@@ -134,7 +132,7 @@ async def lookup(
             raise DataApiInvalidParameter("名称不能为空")
         nq = normalize_name(query)
         # 名称精确等值: 各语言名称平等参与(name_index 镜像全部语言)。
-        ids = (await db.execute(_text("""
+        ids = (await db.execute(text("""
             (SELECT c.id FROM chemistry.chemicals c
               WHERE lower(c.preferred_name) = lower(:q) OR lower(c.iupac_name) = lower(:q)
               ORDER BY c.id LIMIT :n)
@@ -147,7 +145,7 @@ async def lookup(
         if not ids:
             if len(nq) < FUZZY_MIN_CHARS:
                 return {"candidates": [], "pending": None}
-            ids = (await db.execute(_text("""
+            ids = (await db.execute(text("""
                 SELECT DISTINCT chemical_id FROM chemistry.name_index
                 WHERE normalized LIKE '%' || :nq || '%'
                 ORDER BY chemical_id LIMIT :n
