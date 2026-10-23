@@ -42,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function GuidePage() {
   const locale = await getRequestLocale();
   const t = await getRequestDictionary();
-  return <PageFrame tier="reading" className="guide-page">
+  return <PageFrame tier="content" className="guide-page">
     <PageHead
       breadcrumb={[
         { label: t.chemical.home, href: withLocale("/", locale) },

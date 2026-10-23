@@ -28,7 +28,7 @@ export default function McpPage() {
   const t = useDictionary();
   const locale = useLocale();
   return <>
-    <PageFrame tier="reading" className="guide-page mcp-page">
+    <PageFrame tier="content" className="guide-page mcp-page">
       <PageHead
         breadcrumb={[
           { label: t.chemical.home, href: withLocale("/", locale) },
@@ -102,7 +102,7 @@ export default function McpPage() {
       </Section>
     </PageFrame>
 
-    <PageFrame tier="reading" className="guide-page mcp-page">
+    <PageFrame tier="content" className="guide-page mcp-page">
       <Section title={t.mcp.agentsKicker}>
         <div className="guide-agent-stack">
           <AgentSteps title={t.mcp.qwenTitle} desc={t.mcp.qwenDesc} steps={t.mcp.qwenSteps} />

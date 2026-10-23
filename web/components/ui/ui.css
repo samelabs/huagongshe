@@ -627,6 +627,10 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-inline: auto;
   min-width: 0;
 }
+.hg-page-frame--content {
+  max-width: var(--w-content);
+  margin-inline: auto;
+}
 .hg-page-frame--reading {
   max-width: var(--w-reading);
   margin-inline: auto;

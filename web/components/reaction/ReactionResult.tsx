@@ -4,6 +4,11 @@ import { reactionSvgUrl, USER_SUBMITTED_SOURCE, type ReactionLookup, type Reacti
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 
+/**
+ * ReactionResult — 搜索结果行（反应），与化合物结果行同一行语言：
+ * 方程式图主视觉（168×92 无框直出）+ HRID 链接与事实行 +
+ * 来源行 + 行尾角色标注（静默文本）。行间发丝线分隔，不用卡片框。
+ */
 export async function ReactionResult({ reaction }: { reaction: ReactionSummary | ReactionLookup }) {
   const t = await getRequestDictionary();
   const locale = await getRequestLocale();
@@ -15,7 +20,7 @@ export async function ReactionResult({ reaction }: { reaction: ReactionSummary |
   const href = withLocale(`/reaction/${reaction.id}`, locale);
   const lookup = "ord_id" in reaction ? reaction : null;
   const sourceLabel = reaction.dataset_name === USER_SUBMITTED_SOURCE ? t.reaction.userSubmitted : reaction.dataset_name;
-  const source = [sourceLabel, reaction.doi, reaction.patent].filter(Boolean).join(" · ");
+  const source = [sourceLabel, reaction.doi, reaction.patent, lookup?.ord_id].filter(Boolean).join(" · ");
   const roles = "matched_roles" in reaction
     ? reaction.matched_roles.map((role) => roleLabels[role] || role).join("、")
     : null;
@@ -35,27 +40,22 @@ export async function ReactionResult({ reaction }: { reaction: ReactionSummary |
 
   return (
     <article className="reaction-result">
-      <div className="reaction-result-head">
-        <div>
-          <Link href={href}><EntityId kind="reaction" id={reaction.id} ariaLabel={t.common.hridLabel(reaction.id)} /></Link>
-          {facts && <p className="reaction-result-summary">{facts}</p>}
-          {sourceLabel && <p className="reaction-source-name">{sourceLabel}</p>}
-        </div>
-        <div className="reaction-badges">
-          {roles && <span>{t.reaction.rolePrefix(roles)}</span>}
-          {lookup?.ord_id && <span>{lookup.ord_id}</span>}
-        </div>
-      </div>
       {reaction.reaction_smiles ? (
-        <Link className="reaction-preview" href={href}>
+        <Link className="reaction-result-thumb" href={href} aria-label={t.reaction.equationAlt(reaction.id)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={reactionSvgUrl(reaction.id)} width="1100" height="220" alt={t.reaction.equationAlt(reaction.id)} loading="lazy" />
         </Link>
-      ) : <div className="reaction-preview unavailable">{t.reaction.equationUnavailable}</div>}
-      <div className="reaction-result-foot">
-        <p>{source || t.reaction.noSource}</p>
-        <Link href={href}>{t.common.view}</Link>
+      ) : (
+        <div className="reaction-result-thumb unavailable">{t.reaction.equationUnavailable}</div>
+      )}
+      <div className="reaction-result-copy">
+        <p className="reaction-result-title">
+          <Link href={href}><EntityId kind="reaction" id={reaction.id} ariaLabel={t.common.hridLabel(reaction.id)} /></Link>
+          {facts && <span>{facts}</span>}
+        </p>
+        <p className="reaction-result-meta">{source || t.reaction.noSource}</p>
       </div>
+      {roles && <span className="reaction-result-roles">{t.reaction.rolePrefix(roles)}</span>}
     </article>
   );
 }
