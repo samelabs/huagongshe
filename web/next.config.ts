@@ -7,7 +7,8 @@ import { networkInterfaces } from "node:os";
 /**
  * 线上只读截图的 build 标记(纪律）：dev 环境把当前 commit 短哈希
  * 经 env 注入为 HGS_BUILD_SHA，app/layout.tsx 在 <html data-build> 输出，
- * shoot.mjs 断言「渲染的 UI = 当前 commit」。只在 NODE_ENV=development
+ * 截图工具（shoot.mjs，位于库外归档 huagongshe-archive/rc-acceptance-tools）
+ * 断言「渲染的 UI = 当前 commit」。只在 NODE_ENV=development
  * 注入；生产构建不带 build 指纹（避免按 sha 产生缓存分片）。
  */
 function devBuildSha(): string {
