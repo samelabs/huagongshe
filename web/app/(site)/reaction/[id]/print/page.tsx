@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { reactionTitleText } from "@/lib/reactionTitle";
-import { PrintButton } from "@/components/PrintButton";
+import { PrintButton } from "@/components/ui/PrintButton";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { apiGet } from "@/lib/api.server";

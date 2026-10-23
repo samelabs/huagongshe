@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AiSubmissionPrompt } from "@/components/AiSubmissionPrompt";
-import { ShareButton } from "@/components/ShareButton";
+import { AiSubmissionPrompt } from "@/components/shared/AiSubmissionPrompt";
+import { ShareButton } from "@/components/ui/ShareButton";
 import { CodeField } from "@/components/ui/CodeField";
 import { PageFrame } from "@/components/ui/PageFrame";
 import { PageHead } from "@/components/ui/PageHead";

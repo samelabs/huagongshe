@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { NoteOwnerActions } from "@/components/NoteOwnerActions";
-import { ShareButton } from "@/components/ShareButton";
+import { NoteOwnerActions } from "@/components/shared/NoteOwnerActions";
+import { ShareButton } from "@/components/ui/ShareButton";
 import { Byline } from "@/components/ui/Byline";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { IconLock } from "@/components/ui/icons";

@@ -28,7 +28,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { FollowButton } from "@/components/shared/FollowButton";
-import { ShareButton } from "@/components/ShareButton";
+import { ShareButton } from "@/components/ui/ShareButton";
 import { Tag } from "@/components/ui/Tag";
 import { IconPin, IconCal, IconHome, IconUsers } from "@/components/ui/icons";
 import { SITE_ORIGIN } from "@/lib/alternates";

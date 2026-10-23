@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Molecule } from "@/components/Molecule";
+import { Molecule } from "@/components/chemical/Molecule";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import type { Chemical } from "@/lib/api";

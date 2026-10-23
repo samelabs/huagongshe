@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { EntityCard } from "@/components/EntityCard";
-import { ReactionResult } from "@/components/ReactionResult";
-import { SearchHero } from "@/components/SearchHero";
-import { UrlTabs } from "@/components/UrlTabs";
+import { EntityCard } from "@/components/shared/EntityCard";
+import { ReactionResult } from "@/components/reaction/ReactionResult";
+import { SearchHero } from "@/components/shared/SearchHero";
+import { UrlTabs } from "@/components/ui/UrlTabs";
 import { Notice } from "@/components/ui/Notice";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageFrame } from "@/components/ui/PageFrame";

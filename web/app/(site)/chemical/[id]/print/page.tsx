@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PrintButton } from "@/components/PrintButton";
+import { PrintButton } from "@/components/ui/PrintButton";
 import { notFound } from "next/navigation";
 import { apiGet } from "@/lib/api.server";
 import { isApiGone, isEntityId, type Chemical, type SemanticDetail, type ProseItem, type EvidenceBlock } from "@/lib/api";

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { UrlTabs, type UrlTabItem } from "@/components/UrlTabs";
+import { UrlTabs, type UrlTabItem } from "@/components/ui/UrlTabs";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale, stripLocalePrefix } from "@/lib/localePath";
 

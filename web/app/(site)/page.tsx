@@ -1,4 +1,4 @@
-import { SearchHero } from "@/components/SearchHero";
+import { SearchHero } from "@/components/shared/SearchHero";
 import { CodeField } from "@/components/ui/CodeField";
 import { Button } from "@/components/ui/Button";
 import { PageFrame } from "@/components/ui/PageFrame";

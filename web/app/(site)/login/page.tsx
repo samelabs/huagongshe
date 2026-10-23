@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AccountForm } from "@/components/AccountForm";
+import { AccountForm } from "@/components/shared/AccountForm";
 import { PageFrame } from "@/components/ui/PageFrame";
 import { getRequestDictionary } from "@/lib/serverI18n";
 
