@@ -1,6 +1,6 @@
 """错误分类与写入/刷新分离的契约测试。
 
-源码级契约断言(与 tests/test_notes_ui_contract.py 同风格, 零依赖可跑):
+源码级契约断言(零依赖可跑):
 - NoteEditor: 401/429 状态分支先于 kind 映射; 400+kind 五语言分类;
   未知失败安全回退 notesSaveFailed。
 - SkillsPanel: 401/403/429 专用键, 400/409 透出业务 detail, 5xx 与网络

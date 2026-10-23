@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { cookies, headers } from "next/headers";
 import { AccountProvider } from "@/components/shared/AccountContext";
 import { I18nProvider } from "@/components/shared/I18nContext";
@@ -124,8 +125,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </I18nProvider>
         </AccountProvider>
         {/* sw.js 对 /_next/static 缓存优先，前提是文件名带内容哈希 —— 只有生产构建满足；
-            开发服务器的文件名不随内容变，注册会把旧样式永久钉在缓存里，故开发时注销。 */}
-        <script dangerouslySetInnerHTML={{ __html: process.env.NODE_ENV === "production"
+            开发服务器的文件名不随内容变，注册会把旧样式永久钉在缓存里，故开发时注销。
+            next/script 承载内联脚本：SSR 注入 + 客户端导航后也会执行（裸 <script>
+            在客户端渲染路径不执行，React 19 起直接警告）。 */}
+        <Script id="sw-register" dangerouslySetInnerHTML={{ __html: process.env.NODE_ENV === "production"
           ? `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}`
           : `if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister()})});if(window.caches){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k)})})}}` }} />
       </body>

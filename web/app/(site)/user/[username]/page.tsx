@@ -38,17 +38,18 @@ type Reaction = {
   /* 参与物投影（与详情接口同形状）：卡片标题按「主反应物 → 主产物」解析 */
   participants?: TitledParticipant[];
 };
-type NoteCard = { id: number; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
+type NoteCard = { id: number; slug: string; content: string; visibility: string; updated_at: string; chemical_ids: number[]; reaction_ids: number[] };
 type NotesBlock = { items: NoteCard[]; total: number };
 
 const REACTIONS_PAGE_SIZE = 20;
+const NOTES_PAGE_SIZE = 8;
 
 /** 同请求内 metadata 与页面体共享的同一次取数（此前各拉一次后端，
  * cookie 内置 —— metadata 与页面看到同一份 is_me 投影）。 */
 const loadProfile = cache(async (username: string): Promise<Profile> => {
   const cookieStore = await cookies();
   const headers = cookieStore.has("hgs_session") ? { Cookie: cookieStore.toString() } : undefined;
-  return apiGet<Profile>(`/users/${encodeURIComponent(username)}`, headers);
+  return apiGet<Profile>(`/users/by-username/${encodeURIComponent(username)}`, headers);
 });
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
@@ -110,7 +111,8 @@ export default async function UserPage({ params, searchParams }: { params: Promi
     </PageFrame>;
   }
 
-  /* 正文数据：反应分页（tab=reactions）；笔记第一页 8 条（计数 + tab=notes 列表）。
+  /* 正文数据：反应与笔记各自分页（共用 page 参数，同一时刻只渲染一个 tab）；
+     笔记计数 + tab=notes 列表。
      两个区块失败互不影响（RetryNotice），粉丝预览失败只影响右栏叠放（退化为人数）。 */
   let reactions: Reaction[] = [];
   let reactionsUnavailable = false;
@@ -119,7 +121,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
 
   let notesBlock: NotesBlock | null = null;
   let notesUnavailable = false;
-  try { notesBlock = await apiGet<NotesBlock>(`/users/${encodeURIComponent(username)}/notes?page=1&page_size=8`); }
+  try { notesBlock = await apiGet<NotesBlock>(`/users/${encodeURIComponent(username)}/notes?page=${page}&page_size=${NOTES_PAGE_SIZE}`); }
   catch { notesUnavailable = true; }
 
   /* 反应卡收藏初始态：登录访客取自己的已收藏反应 id 集（失败按空集，乐观更新兜底） */
@@ -152,6 +154,60 @@ export default async function UserPage({ params, searchParams }: { params: Promi
     }} />
 
     <ProfileTabs username={profile.username} tab={tab} reactionCount={profile.public_reactions} noteCount={notesTotal} />
+
+    {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
+        笔记是社交承载，排在反应之前（DESIGN_SYSTEM 6.6；手机默认落本 tab）。
+        源码契约（tests/test_notes_ui.py）：加载失败 ≠ total=0 —— 失败渲染
+        错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
+        total=0 只渲染 tab 空状态（下方 EmptyState）。分区不挂标题（同反应 tab）── */}
+    {tab === "notes" && (
+      <Section className="pf-tab-body">
+        {notesUnavailable && (
+          <RetryNotice>{t.notes.profileLoadFailed}</RetryNotice>
+        )}
+        {!notesUnavailable && notesBlock && notesBlock.total > 0 && (
+          <>
+            <div className="pf-note-list">
+              {notesBlock.items.map((note) => {
+                const pres = noteListPresentation(note);
+                return (
+                  <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.slug}`, locale)}>
+                    <div className="pf-note-head">
+                      {pres.title && <h3>{pres.title}</h3>}
+                      <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
+                    </div>
+                    <p className="pf-note-summary">{pres.body}</p>
+                    {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
+                      <div className="pf-note-refs">
+                        {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
+                        {note.reaction_ids.slice(0, 3).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+            {notesBlock.total > NOTES_PAGE_SIZE && (
+              <nav className="pf-pagination" aria-label={t.common.pageNav}>
+                {page > 1
+                  ? <Link className="hg-btn ghost sm" href={page === 2 ? `${base}?tab=notes` : `${base}?tab=notes&page=${page - 1}`}>{t.common.prev}</Link>
+                  : <span className="hg-btn ghost sm" aria-disabled="true">{t.common.prev}</span>}
+                <small className="pf-pagination-page">{t.common.pageOf(page, Math.ceil(notesBlock.total / NOTES_PAGE_SIZE))}</small>
+                {page * NOTES_PAGE_SIZE < notesBlock.total
+                  ? <Link className="hg-btn ghost sm" href={`${base}?tab=notes&page=${page + 1}`}>{t.common.next}</Link>
+                  : <span className="hg-btn ghost sm" aria-disabled="true">{t.common.next}</span>}
+              </nav>
+            )}
+          </>
+        )}
+        {!notesUnavailable && notesBlock && notesBlock.total === 0 && (
+          <EmptyState
+            title={profile.is_me ? t.user.emptyNotesSelf : t.user.emptyNotesVisitor}
+            action={profile.is_me ? { label: t.notes.writeNote, href: withLocale("/aichem?tab=notes&new=1", locale) } : undefined}
+          />
+        )}
+      </Section>
+    )}
 
     {/* ── 反应 tab：两列卡片（手机一列），分页沿用 page 参数。
         分区不挂标题 —— Tabs 已带计数与选中态（不重复标题） ── */}
@@ -201,46 +257,6 @@ export default async function UserPage({ params, searchParams }: { params: Promi
           <EmptyState
             title={profile.is_me ? t.user.emptyReactionsSelf : t.user.emptyReactionsVisitor}
             action={profile.is_me ? { label: t.notes.createReaction, href: withLocale("/submit", locale) } : undefined}
-          />
-        )}
-      </Section>
-    )}
-
-    {/* ── 笔记 tab：标题 + 两行摘要 + 关联徽标 xs + 日期，点击进详情。
-        源码契约（tests/test_notes_ui_regression.py 等）：加载失败 ≠ total=0 —— 失败渲染
-        错误态（Notice err + 重试），成功且 total>0 才渲染列表 DOM，
-        total=0 只渲染 tab 空状态（下方 EmptyState）。分区不挂标题（同反应 tab）── */}
-    {tab === "notes" && (
-      <Section className="pf-tab-body">
-        {notesUnavailable && (
-          <RetryNotice>{t.notes.profileLoadFailed}</RetryNotice>
-        )}
-        {!notesUnavailable && notesBlock && notesBlock.total > 0 && (
-          <div className="pf-note-list">
-            {notesBlock.items.map((note) => {
-              const pres = noteListPresentation(note);
-              return (
-                <Link className="pf-note-card" key={note.id} href={withLocale(`/note/${note.id}`, locale)}>
-                  <div className="pf-note-head">
-                    {pres.title && <h3>{pres.title}</h3>}
-                    <time dateTime={note.updated_at}>{new Date(note.updated_at).toLocaleDateString(locale)}</time>
-                  </div>
-                  <p className="pf-note-summary">{pres.body}</p>
-                  {(note.chemical_ids.length > 0 || note.reaction_ids.length > 0) && (
-                    <div className="pf-note-refs">
-                      {note.chemical_ids.slice(0, 3).map((cid) => <EntityBadge key={`c${cid}`} kind="chemical" id={cid} size="xs" ariaLabel={t.common.hcidLabel(cid)} />)}
-                      {note.reaction_ids.slice(0, 3).map((rid) => <EntityBadge key={`r${rid}`} kind="reaction" id={rid} size="xs" ariaLabel={t.common.hridLabel(rid)} />)}
-                    </div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        )}
-        {!notesUnavailable && notesBlock && notesBlock.total === 0 && (
-          <EmptyState
-            title={profile.is_me ? t.user.emptyNotesSelf : t.user.emptyNotesVisitor}
-            action={profile.is_me ? { label: t.notes.writeNote, href: withLocale("/aichem?tab=notes&new=1", locale) } : undefined}
           />
         )}
       </Section>

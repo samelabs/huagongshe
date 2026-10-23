@@ -12,6 +12,8 @@ import { withLocale } from "@/lib/localePath";
 export function SiteFooter() {
   const t = useDictionary();
   const locale = useLocale();
+  // 版本号构建时自仓库根 VERSION 注入（与 /api/health、MCP serverInfo 同源）
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? "";
   return (
     <footer className="sh-footer">
       <span>
@@ -32,6 +34,7 @@ export function SiteFooter() {
         {" · "}
         <Link href={withLocale("/support", locale)} className="sh-footer-link">{t.nav.footerSupport}</Link>
       </span>
+      {appVersion ? <span>v{appVersion}</span> : null}
     </footer>
   );
 }

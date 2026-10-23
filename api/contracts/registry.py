@@ -252,7 +252,8 @@ def _fams() -> list[Family]:
         # ------------------------------------------------------------------
         Family("note.read", E.READ, scenarios=(
             S("detail", A.PUBLIC_OR_ACTOR, entrypoints=(
-                I(T.HTTP, "GET /api/notes/{note_id}"),),
+                I(T.HTTP, "GET /api/notes/{ref}"),  # ref=7位slug(公共唯一标识)
+              ),
               contract=Contract(frozenset({C.WEB}), X.NONE),
               note="public visible anonymous; private owner context is exposed only "
                    "when the resolved actor is an interactive session"),
@@ -401,9 +402,15 @@ def _fams() -> list[Family]:
             S("notifications", A.ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/users/me/notifications"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
-            S("notifications_read", A.SESSION, entrypoints=(
+        )),
+        Family("social.notifications", E.WRITE, scenarios=(
+            S("notifications_read_all", A.SESSION, entrypoints=(
                 I(T.HTTP, "POST /api/users/me/notifications/read"),),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
+            S("notification_read", A.SESSION, entrypoints=(
+                I(T.HTTP, "POST /api/users/me/notifications/{notification_id}/read"),),
+              contract=Contract(frozenset({C.WEB}), X.NONE),
+              note="单条已读: 收件人对自己收件箱的所有权判定, 幂等"),
         )),
         Family("user.public", E.READ, scenarios=(
             S("users_search", A.PUBLIC_OR_ACTOR, entrypoints=(
@@ -411,7 +418,8 @@ def _fams() -> list[Family]:
               contract=Contract(frozenset({C.WEB}), X.NONE),
               note="用户搜索(前缀/包含, 公开字段, 限流); 仅 web 面"),
             S("profile", A.PUBLIC_OR_ACTOR, entrypoints=(
-                I(T.HTTP, "GET /api/users/{username}"),),
+                I(T.HTTP, "GET /api/users/{username}"),
+                I(T.HTTP, "GET /api/users/by-username/{username}")),
               contract=Contract(frozenset({C.WEB}), X.NONE)),
             S("followers", A.PUBLIC_OR_ACTOR, entrypoints=(
                 I(T.HTTP, "GET /api/users/{username}/followers"),),

@@ -10,13 +10,14 @@
  * 本人名片另有主页短链行：huagongshe.com/u/{username}（规范短址，
  * 不带 locale，307 协商语言）+ 复制 / 分享两枚图标钮 —— 注意这是主页自身
  * 地址，与元信息行里的「个人网址」（用户自填外部链接）是两回事。
+ * 短链行本人与访客同构（公开主页可直接分发地址）。
  * 操作（5.5：一组只一个 primary，其余 secondary 同尺寸）：访客 = 关注（primary
- * 乐观更新，已关注转 secondary hover「取消关注」）+ 分享主页；本人 = 编辑资料
- * (secondary) + 进入工作台(primary)，分享由短链行图标承载。分享复制统一
+ * 乐观更新，已关注转 secondary hover「取消关注」，分享由短链行图标承载）；
+ * 本人 = 编辑资料 (secondary) + 进入工作台(primary)。分享复制统一
  * Toast 反馈。退出登录不在名片 —— 桌面头像菜单 / 手机抽屉承载（2.3）。
  * 关注/取消时头部数据行的粉丝数同步 ±1（FollowButton onChange）。
  * 手机（≤640，参考 DESIGN_SYSTEM 6.6）：头像 64 + 反应/粉丝/关注 三数横排 →
- * 名字+关系 Tag → @username → 简介 → 元信息行 → 短链行（本人）→ 操作两列
+ * 名字+关系 Tag → @username → 简介 → 元信息行 → 短链行 → 操作两列
  * 等宽 lg 网格（globals.css .pf-acts）。
  */
 import Link from "next/link";
@@ -27,7 +28,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { FollowButton } from "@/components/shared/FollowButton";
-import { ShareButton } from "@/components/ShareButton";
+import { ShareButton } from "@/components/ui/ShareButton";
 import { Tag } from "@/components/ui/Tag";
 import { IconPin, IconCal, IconHome, IconUsers } from "@/components/ui/icons";
 import { SITE_ORIGIN } from "@/lib/alternates";
@@ -82,7 +83,7 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
 
   return (
     <header className="pf-head">
-      <Avatar id={profile.id} name={profile.display_name} src={profile.avatar_url} size={80} />
+      <Avatar id={profile.username} name={profile.display_name} src={profile.avatar_url} size={80} />
       <div className="pf-info">
         <h1>
           {profile.display_name}
@@ -123,15 +124,14 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
             ? <Link href={followingHref}><strong>{profile.following}</strong>{t.user.following}</Link>
             : <span><strong>{profile.following}</strong>{t.user.following}</span>}
         </div>
-        {profile.is_me && (
-          // 主页短链行：展示 + 复制 + 分享（复制 28px 图标钮；分享 ghost 图标钮，
-          // Toast 反馈）。短址 = SITE_ORIGIN/u/{username}，展示时省略协议。
-          <div className="pf-url">
-            <span className="pf-url-text mono">{shareUrl.replace(/^https:\/\//, "")}</span>
-            <CopyButton value={shareUrl} ariaLabel={t.me.profileCopyLabel} />
-            <ShareButton url={shareUrl} title={shareTitle} iconOnly variant="ghost" size="sm" ariaLabel={t.me.profileShareLabel} feedback="toast" />
-          </div>
-        )}
+        {/* 主页短链行：展示 + 复制 + 分享（复制 28px 图标钮；分享 ghost 图标钮，
+            Toast 反馈）。短址 = SITE_ORIGIN/u/{username}，展示时省略协议。
+            访客与本人同构 —— 公开主页可直接分发地址。 */}
+        <div className="pf-url">
+          <span className="pf-url-text mono">{shareUrl.replace(/^https:\/\//, "")}</span>
+          <CopyButton value={shareUrl} ariaLabel={t.me.profileCopyLabel} />
+          <ShareButton url={shareUrl} title={shareTitle} iconOnly variant="ghost" size="sm" ariaLabel={t.me.profileShareLabel} feedback="toast" />
+        </div>
       </div>
       <div className="pf-acts">
         {profile.is_me ? (
@@ -140,18 +140,15 @@ export function ProfileHeader({ profile }: { profile: ProfileHeaderData }) {
             <Button variant="primary" href={withLocale("/aichem", locale)}>{t.user.enterWorkbench}</Button>
           </>
         ) : (
-          <>
-            <FollowButton
-              endpoint={`/users/${encodeURIComponent(profile.username)}/follow`}
-              initial={profile.is_following}
-              showCount={false}
-              activeVariant="secondary"
-              activeHoverText={t.follow.unfollow}
-              onChange={(next) => setFollowers((value) => Math.max(value + (next ? 1 : -1), 0))}
-            />
-            {/* 分享主页：与主人态同一单形态 */}
-            <ShareButton url={shareUrl} title={shareTitle} label={t.user.shareProfile} variant="secondary" size="md" ariaLabel={t.me.profileShareLabel} feedback="toast" />
-          </>
+          /* 访客操作只留关注；分享由短链行图标承载（与本人态同构） */
+          <FollowButton
+            endpoint={`/users/${encodeURIComponent(profile.username)}/follow`}
+            initial={profile.is_following}
+            showCount={false}
+            activeVariant="secondary"
+            activeHoverText={t.follow.unfollow}
+            onChange={(next) => setFollowers((value) => Math.max(value + (next ? 1 : -1), 0))}
+          />
         )}
       </div>
     </header>

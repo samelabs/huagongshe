@@ -34,10 +34,8 @@ os.environ.setdefault(
 
 import api.core.rate_limit as rate_limit  # noqa: E402
 import api.mcp_server as mcp_server  # noqa: E402
-import api.mol as mol  # noqa: E402
 import api.services.rendering as render_service  # noqa: E402
 import api.routes as routes  # noqa: E402
-import api.skills as skills  # noqa: E402
 from api.core.security import Actor  # noqa: E402
 from mcp.server.mcpserver.exceptions import ToolError  # noqa: E402
 
@@ -254,7 +252,11 @@ class SkillSlugResolution(unittest.TestCase):
             raise AssertionError("numeric skill_id 不得进入 slug resolver")
 
         log: list = []
+        async def _auth(_headers):
+            return actor(actor_id=7)
+
         with patch.object(mcp_server, "_resolve_skill_slug", boom), \
+                patch.object(mcp_server, "_actor_from_headers", _auth), \
                 patch.object(mcp_server, "async_session", fake_session_factory(log)):
             for value in (163, "163"):
                 log.clear()
@@ -276,7 +278,11 @@ class SkillSlugResolution(unittest.TestCase):
             return 163
 
         log: list = []
+        async def _auth(_headers):
+            return actor(actor_id=7)
+
         with patch.object(mcp_server, "_resolve_skill_slug", spy), \
+                patch.object(mcp_server, "_actor_from_headers", _auth), \
                 patch.object(mcp_server, "async_session", fake_session_factory(log)):
             try:
                 asyncio.run(build_server().call_tool(
@@ -332,7 +338,7 @@ class ToolSurfaceAndVersion(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class ValidateSkillScope(unittest.TestCase):
-    """B4(2026-10 收口): REST 已不接受 AI Key, agent-only 的 require_scope
+    """REST 不接受 AI Key, agent-only 的 require_scope
     分支随之退役 —— scope 闸门只存在于 MCP 侧(_require_tool_actor)。"""
 
     def test_rest_adapters_no_longer_call_require_scope(self):
@@ -537,7 +543,6 @@ class StructureGateCompat(unittest.TestCase):
     def test_routes_still_imports_the_same_names(self):
         # HTTP/MCP 均经 shared orchestration(闸门 owner=
         # services/search.execute_search); routes 不再持有结构闸门符号
-        from api.services import search as _search_service
         self.assertIn("execute_search", dir(routes))
         src = (REPO / "api" / "services" / "search.py").read_text(encoding="utf-8")
         self.assertIn("structure_exit", src)
@@ -553,11 +558,13 @@ class RepoWidePlaceholderHygiene(unittest.TestCase):
     """输出遮蔽误写入的占位符不得存在于仓库文本中。"""
 
     SUFFIXES = (".py", ".ts", ".tsx", ".md", ".txt", ".json", ".yaml", ".yml", ".css")
-    SKIP = ("node_modules", ".next", "venv", ".venv", ".git")
+    # .check-runs 是检查编排器的运行时产物(git 忽略), 其日志/result 按脱敏设计
+    # 携带遮蔽串 —— 与 node_modules/.next 同为按名剪除的非仓库文本。
+    SKIP = ("node_modules", ".next", "venv", ".venv", ".git", ".check-runs")
 
     def test_no_masked_placeholder_leaked_into_sources(self):
-        # 检测串用 chr() 拼出, 使本测试文件自身也不含该字面量 —— 因此无需排除任何文件,
-        # 生产源码扫描覆盖不降低。
+        # 检测串用 chr() 拼出, 使本测试文件自身也不含该字面量; 合法携带遮蔽串的
+        # 源码按同一约定程序拼装(local/check.py), 运行时产物目录经 SKIP 剪除。
         needle = chr(42) * 3
         bad: list = []
         for path in REPO.rglob("*"):

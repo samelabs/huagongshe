@@ -205,7 +205,6 @@ function isViewerScopedPage(rest: string): boolean {
 function isPublicEdgeCacheablePage(rest: string): boolean {
   if (rest === "/") return true;
   if (rest === "/search") return true;
-  if (rest === "/skills") return true;
   if (rest === "/guide") return true;
   if (rest === "/mcp-guide") return true;
   if (rest === "/privacy" || rest === "/terms" || rest === "/support") return true;

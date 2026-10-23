@@ -63,6 +63,20 @@
 
 /* 右侧区 */
 .sh-right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+/* 账号位定宽槽：宽度 = max(头像菜单触发钮, 五语种最长登录按钮) 取整 ——
+   头像菜单 84(左右(内边距16+边框1) + 头像32 + 内距4 + 箭头14), 最长
+   登录按钮是德语 Anmelden ≈88; 内容右对齐。水合占位、头像菜单、访客
+   登录按钮三种内容同槽, 槽宽恒定, 语言键位置不随登录态与水合翻转变化;
+   两侧构件(触发钮/登录文案)变动时同步复核此处 */
+.sh-account {
+  width: 89px;
+  display: flex;
+  justify-content: flex-end;
+  flex: none;
+}
+/* 水合期铃铛/汉堡占位：与登录态同形同尺寸（复用同一批类名量宽度），
+   visibility 隐藏 —— ready 翻转时零位移、零 pop-in */
+.sh-hydration-ph { display: inline-flex; align-items: center; gap: var(--sp-2); visibility: hidden; pointer-events: none; }
 .sh-bell { position: relative; }
 .sh-bell-dot {
   position: absolute; top: 6px; right: 7px;
@@ -165,6 +179,14 @@
   box-sizing: border-box;
   background: var(--bg-surface);
   border-top: 1px solid var(--border);
+  transition: transform var(--dur-fast) ease, visibility var(--dur-fast) ease;
+}
+/* 键盘弹出退场（规范 2.3）：MobileTabBar 经 visualViewport 判定后挂
+   .sh-tabbar-kb，底栏滑出视口且不可交互，键盘收起恢复 —— iOS 输入法
+   会把 fixed 底栏顶到键盘上方，这是治理手段，不是显示/隐藏的通用开关 */
+.sh-tabbar-kb {
+  transform: translateY(calc(100% + env(safe-area-inset-bottom)));
+  visibility: hidden;
 }
 @media (max-width: 640px) {
   .sh-tabbar { display: grid; }
@@ -226,15 +248,18 @@
   padding: 0 var(--sp-4) var(--sp-4);
 }
 .wb-drawer-body .wb-quick-actions { padding: var(--sp-3) var(--sp-2) var(--sp-2); }
-.wb-nav-group + .wb-nav-group { margin-top: var(--sp-6); }
+.wb-nav-group + .wb-nav-group { margin-top: var(--sp-8); }
 
+/* 分组标题与条目拉开层级: 小一号、轻一档、拉开字距 —— 分类是结构信息,
+   不是可点选项(视觉上不得与条目同权重) */
 .wb-nav-label {
   margin: 0 0 var(--sp-2);
   padding: 0 var(--sp-3);
   font-size: var(--fs-12);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-regular);
   color: var(--text-muted);
-  letter-spacing: .02em;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .wb-nav-link {
@@ -246,13 +271,13 @@
   margin-bottom: 1px;
   border-radius: var(--r-sm);
   font-size: var(--fs-14);
-  font-weight: var(--fw-regular);
-  color: var(--text-2);
+  font-weight: var(--fw-medium);
+  color: var(--text);
   cursor: pointer;
 }
 .wb-nav-link > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 16px 图标槽（1.6 / 6.7） */
+/* 16px 图标槽（1.6 / 6.7）—— 默认与文字同灰,悬停/选中跟文字走 */
 .wb-nav-icon {
   flex: none;
   width: 16px;
@@ -260,11 +285,11 @@
   color: var(--text-muted);
 }
 
-/* 当前项（2.3 / 6.7）：action-subtle 底 / action-ink 文字 / 500 / 图标 action */
+/* 当前项（2.3 / 6.7）：action-subtle 底 / action-ink 文字 / 图标 action,
+   左缘 2px action 竖条钉住选中位 */
 .wb-nav-link.active {
   background: var(--action-subtle);
   color: var(--action-ink);
-  font-weight: var(--fw-medium);
 }
 .wb-nav-link.active .wb-nav-icon { color: var(--action); }
 
@@ -383,5 +408,6 @@
 }
 .wb-drawer-close:hover { background: var(--bg-page); color: var(--text); }
 @media (hover: hover) and (pointer: fine) {
-  .wb-nav-link:hover { background: var(--bg-page); color: var(--text); }
+  .wb-nav-link:hover { background: var(--bg-hover); color: var(--text); }
+  .wb-nav-link:hover .wb-nav-icon { color: var(--text-2); }
 }

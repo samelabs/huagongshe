@@ -178,7 +178,6 @@ class McpRenderSmilesBoundTests(unittest.TestCase):
             reload(render_svc)
 
     def test_direct_512_passes_length_guard(self):
-        from mcp.server.mcpserver.exceptions import ToolError
         from api.services import rendering as render_svc
 
         calls: list[str] = []
@@ -195,7 +194,7 @@ class McpRenderSmilesBoundTests(unittest.TestCase):
     def test_chemical_id_path_not_bounded_by_512(self):
         """DB 路径 SMILES(受写入校验)不套 direct-input 512 限制:
         用长 smiles 的库内行验证 renderer 收到完整串。"""
-        from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+        from sqlalchemy.ext.asyncio import create_async_engine
         from sqlalchemy.pool import NullPool
         from sqlalchemy import text
         from api.services import rendering as render_svc

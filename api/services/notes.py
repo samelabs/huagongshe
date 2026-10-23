@@ -8,10 +8,15 @@ This module is transport-neutral: no FastAPI/MCP imports.
 
 from __future__ import annotations
 
+import secrets
+import string
+
 import logging
 from typing import Any
 
 from sqlalchemy import text
+
+from .notifications import notify_new_note_safely
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +46,12 @@ class NoteReferenceError(Exception):
 
 class NoteEntityNotFoundError(Exception):
     """Entity-scoped public Note query target does not exist or is not public."""
+
+
+def _new_note_slug() -> str:
+    """7 位小写字母数字随机 slug(URL 标识); 撞号由唯一索引兜底, 调用方重掷。"""
+    alphabet = string.ascii_lowercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(7))
 
 
 def _page_payload(items: list[dict[str, Any]], total: int, page: int, page_size: int) -> dict[str, Any]:
@@ -195,47 +206,13 @@ class NoteQuotaExceededError(Exception):
     kind = "note_quota_exceeded"
 
 
-async def notify_new_note(db, owner_id: int, note_id: int) -> None:
-    """公开笔记 fan-out 到关注者(与 reactions.notify_new_reaction 同构)。
-
-    dedupe_key 挡重: 私有→公开→私有→公开 只通知一次; 笔记转回私有/被
-    隐藏/删除时由动态查询的 join 条件(join notes visibility/moderation)
-    或 FK CASCADE 物理消除, 不需要撤回通知。
-    """
-    await db.execute(text("""
-        INSERT INTO community.notifications
-          (user_id,event_type,actor_user_id,note_id,dedupe_key)
-        SELECT follower_user_id,'new_note',:owner_id,:note_id,
-               'new-note:' || follower_user_id::text || ':' || :note_id_text
-        FROM community.user_follows
-        WHERE followed_user_id=:owner_id AND follower_user_id<>:owner_id
-        ON CONFLICT (dedupe_key) DO NOTHING
-    """), {
-        "owner_id": owner_id, "note_id": note_id, "note_id_text": str(note_id),
-    })
-
-
-async def notify_new_note_safely(db, owner_id: int, note_id: int) -> None:
-    """辅助 fan-out 不进核心写预算(与 notify_new_reaction_safely 同构)。"""
-    try:
-        await db.execute(text("SET LOCAL statement_timeout='1000ms'"))
-        await notify_new_note(db, owner_id, note_id)
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        logger.warning(
-            "note activity notification skipped",
-            exc_info=True,
-            extra={"owner_id": owner_id, "note_id": note_id},
-        )
-
-
 async def create_note(
     db,
     *,
     actor_id: int,
     visibility: str,
     content: str,
+    title: str | None = None,
     chemical_ids: list[int],
     reaction_ids: list[int],
 ) -> dict[str, Any]:
@@ -245,6 +222,8 @@ async def create_note(
     from ..core.rate_limit import enforce
     await enforce("note-write-minute", str(actor_id),
                   settings.api_note_write_limit_per_minute, 60)
+    await db.execute(text(
+        "SELECT id FROM community.users WHERE id=:id FOR UPDATE"), {"id": actor_id})
     existing = int((await db.execute(text("""
         SELECT count(*) FROM community.notes WHERE owner_user_id=:owner
     """), {"owner": actor_id})).scalar() or 0)
@@ -259,15 +238,31 @@ async def create_note(
         reaction_ids=reaction_ids,
     )
     try:
-        note_id = int((await db.execute(text("""
-            INSERT INTO community.notes(owner_user_id, visibility, content)
-            VALUES (:owner, :visibility, :content)
-            RETURNING id
-        """), {
-            "owner": actor_id,
-            "visibility": visibility,
-            "content": content,
-        })).scalar_one())
+        from sqlalchemy.exc import IntegrityError
+        note_id, note_slug = 0, ""
+        for _ in range(5):  # slug 撞号(概率~1/36^7)重掷
+            try:
+                # A slug collision rolls back only this savepoint, retaining
+                # the owner lock and the quota check in the outer transaction.
+                async with db.begin_nested():
+                    ins = (await db.execute(text("""
+                        INSERT INTO community.notes(owner_user_id, visibility, content, title, slug)
+                        VALUES (:owner, :visibility, :content, :title, :slug)
+                        RETURNING id, slug
+                    """), {
+                        "owner": actor_id,
+                        "visibility": visibility,
+                        "content": content,
+                        "title": title,
+                        "slug": _new_note_slug(),
+                    })).first()
+                note_id, note_slug = int(ins[0]), str(ins[1])
+                break
+            except IntegrityError as exc:
+                if "notes_slug_key" not in str(exc):
+                    raise
+        else:
+            raise RuntimeError("笔记 slug 生成重试耗尽")
         await _replace_references(
             db,
             note_id=note_id,
@@ -281,30 +276,47 @@ async def create_note(
     if visibility == "public":
         # 创建即公开 → 通知关注者(失败不影响笔记保存)。
         await notify_new_note_safely(db, actor_id, note_id)
-    return await get_note(db, note_id=note_id, actor_id=actor_id)
+    return await get_note(db, note_ref=note_slug, actor_id=actor_id)
 
 
-async def get_note(db, *, note_id: int, actor_id: int | None) -> dict[str, Any]:
-    # /P-1: hidden notes 404 for everyone (including the owner); private
-    # notes only for the owning session; public+visible notes anonymously.
-    # 停用作者的公开笔记保留可见 ——
-    # 不再经 users join 的 status='active' 过滤, 由 active 标记
-    # 让前端渲染「已停用」; 私有笔记仍实际不可达(停用即撤销全部会话)。
+async def get_note(db, *, note_ref: str, actor_id: int | None) -> dict[str, Any]:
+    """按 7 位 slug 取笔记(slug 是笔记唯一公共标识)。"""
+    # hidden notes 404 for everyone (including the owner); private notes
+    # only for the owning session; public+visible notes anonymously.
+    # 停用作者的公开笔记保留可见: 不经 users join 的 status='active' 过滤,
+    # 由 active 标记让前端渲染「已停用」; 私有笔记仍实际不可达(停用即撤销
+    # 全部会话)。
     row = (await db.execute(text("""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
+               n.title,n.slug,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
         JOIN community.users u ON u.id=n.owner_user_id
-        WHERE n.id=:id
+        WHERE n.slug=:ref
           AND n.moderation_status='visible'
           AND (
             n.owner_user_id=:actor
             OR n.visibility='public'
           )
-    """), {"id": note_id, "actor": actor_id or 0})).mappings().first()
+    """), {
+        "ref": str(note_ref),
+        "actor": actor_id or 0,
+    })).mappings().first()
     if row is None:
         raise NoteNotAccessibleError("笔记不存在")
+    # 阅读量: 公开笔记的非作者读取计数(匿名计入;失败不影响读取)。
+    # visibility 是纯客观列, 与任何"发布时间"无关。
+    if row["visibility"] == "public" and actor_id != row["owner_user_id"]:
+        try:
+            await db.execute(text("""
+                UPDATE community.notes SET view_count = view_count + 1
+                WHERE id=:id
+            """), {"id": row["id"]})
+            await db.commit()
+            row = {**row, "view_count": int(row["view_count"] or 0) + 1}
+        except Exception:
+            await db.rollback()
     return (await _hydrate_rows(db, [row], viewer_id=actor_id))[0]
 
 
@@ -315,6 +327,7 @@ async def update_note(
     actor_id: int,
     visibility: str,
     content: str,
+    title: str | None = None,
     chemical_ids: list[int],
     reaction_ids: list[int],
 ) -> dict[str, Any]:
@@ -328,7 +341,7 @@ async def update_note(
     await enforce("note-write-minute", str(actor_id),
                   settings.api_note_write_limit_per_minute, 60)
     current = (await db.execute(text("""
-        SELECT n.owner_user_id, n.visibility
+        SELECT n.owner_user_id, n.visibility, n.slug
         FROM community.notes n
         JOIN community.users u ON u.id=n.owner_user_id AND u.status='active'
         WHERE n.id=:id
@@ -348,12 +361,13 @@ async def update_note(
     try:
         await db.execute(text("""
             UPDATE community.notes
-            SET visibility=:visibility, content=:content, updated_at=now()
+            SET visibility=:visibility, content=:content, title=:title, updated_at=now()
             WHERE id=:id
         """), {
             "id": note_id,
             "visibility": visibility,
             "content": content,
+            "title": title,
         })
         await _replace_references(
             db,
@@ -369,7 +383,7 @@ async def update_note(
         # 私有→公开才通知(与 update_reaction 触发口径一致;
         # 一直公开的内容编辑不重复打扰, dedupe_key 再兜一层)。
         await notify_new_note_safely(db, actor_id, note_id)
-    return await get_note(db, note_id=note_id, actor_id=actor_id)
+    return await get_note(db, note_ref=current[2], actor_id=actor_id)
 
 
 async def delete_note(db, *, note_id: int, actor_id: int) -> None:
@@ -434,6 +448,7 @@ async def list_my_notes(
     """), params)).scalar() or 0)
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
+               n.title,n.slug,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
@@ -476,6 +491,7 @@ async def list_public_user_notes(
     """), params)).scalar() or 0)
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
+               n.title,n.slug,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n
@@ -533,6 +549,7 @@ async def list_entity_notes(
     # active 供前端渲染「已停用」标记。
     rows = (await db.execute(text(f"""
         SELECT n.id,n.owner_user_id,n.visibility,n.moderation_status,n.content,
+               n.title,n.slug,n.view_count,
                n.created_at,n.updated_at,u.username,u.display_name,
                u.avatar_path AS avatar_url,(u.status='active') AS active
         FROM community.notes n

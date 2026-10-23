@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Button } from "@/components/ui/Button";
@@ -193,6 +195,9 @@ export function SkillsClient({
 }
 
 function SkillCard({ skill, cat, labels }: { skill: Skill; cat: Category | undefined; labels: Dictionary }) {
+  const { user } = useAccount();
+  const router = useRouter();
+  const locale = useLocale();
   return (
     <article className="skills-card">
       <div className="skills-card-accent" style={{ backgroundColor: cat?.color || "var(--n-500)" }} />
@@ -220,6 +225,13 @@ function SkillCard({ skill, cat, labels }: { skill: Skill; cat: Category | undef
             className="skills-btn skills-btn-download"
             href={`/api/skills/${skill.id}/archive`}
             download={`${skill.slug}.zip`}
+            /* 下载是登录能力: 匿名点击引导登录, 回跳本页 */
+            onClick={(event) => {
+              if (!user) {
+                event.preventDefault();
+                router.push(withLocale(`/login?next=${encodeURIComponent(withLocale(`/skills`, locale))}`, locale));
+              }
+            }}
           >
             {labels.skills.download}
           </Button>

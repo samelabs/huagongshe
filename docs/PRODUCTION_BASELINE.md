@@ -7,7 +7,8 @@ token、xray 上游凭据）一律不入库，只记录位置与形态。
 ## 1. 部署用户与 sudoers 免密放行
 
 - 部署用户（deployment user）：生产上的普通用户（非 root），PM2 以该
-  用户运行全部三个 app（`hgs_api` / `hgs_worker` / `hgs_web`）。
+  用户运行全部三个 app（`huagongshe-api` / `huagongshe` /
+  `huagongshe-pubchem-worker`，与 `ecosystem.config.cjs` 的 canonical 名一致）。
 - `ops.deploy` 全程以该用户执行；**唯一**的特权操作是 nginx 相关的单独
   `sudo -n`，sudoers 精确放行以下四条（均带 NOPASSWD）：
 
@@ -30,8 +31,8 @@ Cmnd_Alias HGS_NGINX = \
 
 | 端口 | 服务 | 说明 |
 |---|---|---|
-| 8000 | FastAPI（hgs_api） | 仅经 nginx `/api/`、`/mcp`、`/data/` 转发 |
-| 3001 | Next（hgs_web） | 仅经 nginx `/` 转发 |
+| 8000 | FastAPI（huagongshe-api） | 仅经 nginx `/api/`、`/mcp`、`/data/` 转发 |
+| 3001 | Next（huagongshe） | 仅经 nginx `/` 转发 |
 | 6379 | Redis | 限流/缓存/nonce（DB 1 运行、DB 15 测试） |
 | 5432 | PostgreSQL 16 | 业务库 |
 | 12345 | xray SOCKS（PubChem 出口） | worker 主数据链路依赖 |
@@ -108,7 +109,7 @@ migrate/admin/运维连接与 psql 手工操作 ≈ 10；余量 ≥ 60 留给突
    + scopes（`pubchem` / `cas`）。
 2. 把 `HGS_WORKER_TOKEN`、`HGS_WORKER_ID`、`HGS_WORKAPI_URL`
    （`http://127.0.0.1:8000`）写进 worker 运行环境（PM2 env）。
-3. 重启 `hgs_worker`；启动日志必须出现 `auth preflight ok`——preflight
+3. 重启 `huagongshe-pubchem-worker`；启动日志必须出现 `auth preflight ok`——preflight
    失败会 crash-loop（设计如此：凭证不对不允许领取任务）。
 4. 发放顺序：**先注册凭证再起 worker**（顺序颠倒会造成启动风暴）。
 

@@ -6,7 +6,6 @@
 import hashlib
 import hmac
 import json
-import os
 import time
 import unittest
 import uuid
@@ -106,10 +105,10 @@ class WorkApiContractTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        # 测试凭据自清: 不在生产库留 it-contract-test-worker(污染事故)
+        # 测试凭据自清: 不在库里留 it-contract-test-worker
         try:
             # 独立临时 engine(避免与 TestClient portal 的 app engine 跨 loop)
-            import asyncio as _aio, os as _os
+            import asyncio as _aio
             from sqlalchemy.ext.asyncio import create_async_engine as _ce
             from sqlalchemy import text as _t
             async def _cleanup():

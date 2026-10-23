@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { apiPost, apiPut, ApiError } from "@/lib/api";
 import { useDictionary } from "@/components/shared/I18nContext";
 import { Button } from "@/components/ui/Button";
-import { Field, Select, Textarea } from "@/components/ui/Field";
+import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
@@ -49,21 +49,27 @@ export function NoteEditor({
   const confirm = useConfirm();
   const toast = useToast();
   const [visibility, setVisibility] = useState<"private" | "public">(note?.visibility ?? "private");
+  const [title, setTitle] = useState(note?.title ?? "");
   const [content, setContent] = useState(note?.content ?? "");
   const [chemicalIds, setChemicalIds] = useState<number[]>(note?.chemical_ids ?? initialChemicalIds);
   const [reactionIds, setReactionIds] = useState<number[]>(note?.reaction_ids ?? initialReactionIds);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  /** 保存重入守卫：busy 是异步 state，同步点击/Enter/重试连发时
+   *  state 尚未翻转 —— 同步 ref 保证在途期间只发出 1 个请求 */
+  const savingRef = useRef(false);
 
   /** 初始快照：dirty = 与快照不一致（完全等于快照即无可丢失的修改） */
   const baseline = useRef({
     visibility: note?.visibility ?? "private",
+    title: note?.title ?? "",
     content: note?.content ?? "",
     chemicalIds: (note?.chemical_ids ?? initialChemicalIds).join(","),
     reactionIds: (note?.reaction_ids ?? initialReactionIds).join(","),
   });
   const changed =
     visibility !== baseline.current.visibility
+    || title !== baseline.current.title
     || content !== baseline.current.content
     || chemicalIds.join(",") !== baseline.current.chemicalIds
     || reactionIds.join(",") !== baseline.current.reactionIds;
@@ -81,11 +87,13 @@ export function NoteEditor({
    * 重开（key 不变）由 resetNonce 触发内部草稿重置 —— 等价于重挂载。 */
   useEffect(() => {
     setVisibility(note?.visibility ?? "private");
+    setTitle(note?.title ?? "");
     setContent(note?.content ?? "");
     setChemicalIds(note?.chemical_ids ?? initialChemicalIds);
     setReactionIds(note?.reaction_ids ?? initialReactionIds);
     baseline.current = {
       visibility: note?.visibility ?? "private",
+      title: note?.title ?? "",
       content: note?.content ?? "",
       chemicalIds: (note?.chemical_ids ?? initialChemicalIds).join(","),
       reactionIds: (note?.reaction_ids ?? initialReactionIds).join(","),
@@ -103,13 +111,16 @@ export function NoteEditor({
   }, [busy, error, dirty, note]);
 
   async function doSave() {
+    if (savingRef.current) return;
     const body = {
       visibility,
+      title: title.trim() || null,
       content: content.trim(),
       chemical_ids: chemicalIds,
       reaction_ids: reactionIds,
     };
     if (!body.content) return;
+    savingRef.current = true;
     setBusy(true);
     setError("");
     try {
@@ -137,6 +148,7 @@ export function NoteEditor({
       setError(message);
       toast.error(message);
     } finally {
+      savingRef.current = false;
       setBusy(false);
     }
   }
@@ -176,6 +188,16 @@ export function NoteEditor({
           </Field>
         </div>
       </div>
+      <Field label={t.editor.titleLabel} htmlFor="wb-note-title">
+        <Input
+          id="wb-note-title"
+          value={title}
+          maxLength={120}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder={t.me.notesTitlePlaceholder}
+          disabled={busy}
+        />
+      </Field>
       <Field label={t.editor.contentLabel} htmlFor="wb-note-content">
         <Textarea
           id="wb-note-content"

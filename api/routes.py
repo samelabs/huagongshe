@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
-from sqlalchemy import text
 
 from .core.cache import cache_get, cache_set
 from .core.database import get_db
@@ -29,12 +27,10 @@ _STATUS_BY_KIND = {
     BACKEND_UNAVAILABLE: 503,
 }
 from .services.chemicals import (
-    CHEMICAL_SELECT,
     ChemicalNotFoundError, get_chemical_detail,
-    fetch_chemicals, reaction_summaries,
+    reaction_summaries,
     load_public_config, load_datasets, load_sitemap_reactions,
-    load_synonyms_page, fill_detail_context,
-    normalize_enrich,
+    load_synonyms_page, normalize_enrich,
 )
 
 router = APIRouter(tags=["chemistry"])

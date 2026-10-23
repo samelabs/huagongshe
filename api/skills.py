@@ -20,7 +20,7 @@ from .core.config import settings
 from .core.database import get_db
 from .rate_limit_http import enforce_http, to_http_exception
 from .core.rate_limit import RateLimitError
-from .core.security import Actor, current_actor, public_or_actor
+from .core.security import Actor, current_actor, current_session
 from .services.skills import (list_skills as list_skills_service,
     SkillNotAccessibleError, get_skill_detail as get_skill_detail_service,
     load_accessible_skill)
@@ -28,7 +28,6 @@ from .services.skills import (
     SkillArchiveValidationError, SkillCategoryError, SkillSlugConflictError)
 from .services.skills import create_skill as create_skill_service
 from .services.skills import extract_skill_zip
-from .services.skills import validate_category
 # lifecycle owner(唯一 owner): adapter 只做 neutral error → HTTP 映射。
 from .services.skills import (SkillArchiveUnavailableError, SkillFileNotFoundError,
     SkillFilesystemError, SkillNotFoundError, SkillUpdateValidationError,
@@ -135,10 +134,10 @@ async def _load_accessible_skill_http(db, skill_id: int, actor: Actor | None) ->
 @router.get(
     "/skills/categories",
     operation_id="list_skill_categories",
-    summary="分类字典（公开；公开页与工作台的分类唯一来源）",
+    summary="分类字典（需登录；公开页与工作台的分类唯一来源）",
 )
 async def list_skill_categories(
-    actor: Actor | None = Depends(public_or_actor),
+    actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
     rows = (await db.execute(text("""
@@ -158,17 +157,12 @@ async def list_skills(
     q: str = Query("", max_length=120),
     category: str = Query("", max_length=40),
     page: int = Query(1, ge=1, le=500), page_size: int = Query(30, ge=1, le=100),
-    actor: Actor | None = Depends(public_or_actor),
+    actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
-    if scope == "mine":
-        if actor is None:
-            raise HTTPException(401, {"message": "列出自己的技能需要登录", "kind": "login_required"})
-        owner_id: int | None = actor.id
-    else:
-        owner_id = None
-    # query kernel 下沉 services/skills.list_skills
-    # (skill.query.list), adapter 只余 validation+登录墙。
+    # 技能浏览是登录能力(与 archive 同墙): current_session 已完成 401 映射。
+    owner_id: int | None = actor.id if scope == "mine" else None
+    # query kernel 下沉 services/skills.list_skills (skill.query.list)。
     return await list_skills_service(
         db, scope=scope, owner_id=owner_id, q=q, category=category,
         page=page, page_size=page_size,
@@ -182,14 +176,14 @@ async def list_skills(
 )
 async def get_skill(
     skill_id: int = PathParam(..., ge=1),
-    actor: Actor | None = Depends(public_or_actor),
+    actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
     # detail orchestration 下沉 services.skills.get_skill_detail,
-    # adapter 只余 neutral → 404 映射。
+    # adapter 只余登录墙 + neutral → 404 映射。
     try:
         return await get_skill_detail_service(
-            db, skill_id, actor_id=actor.id if actor else None)
+            db, skill_id, actor_id=actor.id)
     except SkillNotAccessibleError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -202,7 +196,7 @@ async def get_skill(
 async def get_skill_file(
     skill_id: int = PathParam(..., ge=1),
     file_path: str = PathParam(...),
-    actor: Actor | None = Depends(public_or_actor),
+    actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
     await _load_accessible_skill_http(db, skill_id, actor)
@@ -217,13 +211,15 @@ async def get_skill_file(
 @router.get(
     "/skills/{skill_id}/archive",
     operation_id="download_skill_archive",
-    summary="下载技能完整 zip 包",
+    summary="下载技能完整 zip 包（需登录；匿名 401）",
 )
 async def download_skill_archive(
     skill_id: int = PathParam(..., ge=1),
-    actor: Actor | None = Depends(public_or_actor),
+    actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
+    # 下载是登录能力: 技能浏览/文件预览保持公开,
+    # zip 落盘要走会话。current_session 已完成 401 映射。
     manifest = await _load_accessible_skill_http(db, skill_id, actor)
     # skill_files 查询 + 目录/文件缺失判定 + zip 组装归
     # services.skills.build_skill_archive; adapter 只余 access 404 桥 +
@@ -322,7 +318,7 @@ async def create_skill(
 @router.patch(
     "/skills/{skill_id}",
     operation_id="update_skill",
-    summary="更新技能标题或描述（分类与公开态由平台管理，不在此路径）",
+    summary="更新技能标题/描述/分类/公开态（owner 自发布；平台策展另走管理端）",
 )
 async def update_skill(
     body: dict[str, Any],
@@ -339,7 +335,8 @@ async def update_skill(
     try:
         return await update_skill_metadata(
             db, skill_id, title=body.get("title"),
-            description=body.get("description"), actor_id=actor.id)
+            description=body.get("description"), actor_id=actor.id,
+            visibility=body.get("visibility"), category=body.get("category"))
     except SkillUpdateValidationError as exc:
         raise HTTPException(400, exc.detail) from exc
 

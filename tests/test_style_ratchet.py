@@ -21,7 +21,6 @@ class StyleLiteralRatchetTests(unittest.TestCase):
     def test_count_rebound_detected(self):
         """负向测试:基线内取值的出现次数回升必须失败(只查成员不查次数时漏检)。"""
         import json
-        from pathlib import Path
         baseline = json.loads(style_ratchet.BASELINE.read_text(encoding="utf-8"))
         # 取基线里真实存在的 spacing 取值,当前次数 +1 模拟反弹
         victim = next(iter(baseline["spacing_px"]))

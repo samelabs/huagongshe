@@ -6,12 +6,15 @@
  * 规则出口 —— 任何展示化合物名称的地方都必须消费本函数结果, 不允许再写
  * `preferred_name || iupac_name || ...` 之类的第二套链。
  *
- * 规则(与数据源一一对应, 不猜、不翻译、不由 CAS/SMILES 推导):
+ * 规则(常用名/品名是本体, CAS 是标签级重要 —— 标题
+ * 按名称链展示, 不以 CAS 作标题; CAS 在标签区与 html title/分享 meta 里
+ * 优先前置, 由各消费面自行组合):
  *   当前 locale 的常用名  ← chemistry.name_index kind='name_cn' (镜像 chemical_cb.identity.cn, 汉语)
  *   → English 常用名       ← chemistry.chemicals.preferred_name (PubChem Title / CB identity.en)
  *   → 系统名(IUPAC)        ← chemistry.chemicals.iupac_name (PubChem IUPACName)
  *   → 分子式               ← chemistry.chemicals.molecular_formula
- *   → HCID {id}            ← i18n 现有标签 t.common.hcidLabel
+ *   → CAS 号               ← chemistry.chemicals.cas / cas_numbers[0]
+ *   → HCID {id}            ← i18n 现有标签 t.common.hcidLabel(新建行/无数据行)
  *
  * secondary: 主标题是本地化名称时给出英文常用名, 缺英文常用名时以
  *            系统名(IUPAC)兜底; 与主标题相同(忽略大小写)时不展示,
@@ -97,4 +100,3 @@ export function resolveChemicalName(
 
   return { title, secondary, source };
 }
-

@@ -20,7 +20,6 @@ import unittest
 import zipfile
 from unittest.mock import patch
 
-from fastapi import HTTPException
 
 from api import skills as skills_module
 from api.core.rate_limit import LimiterUnavailable, RateLimited
@@ -245,6 +244,15 @@ class LoaderTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ArchiveKernelTests(unittest.TestCase):
+    def test_corrupt_member_crc_is_validation_error(self):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as archive:
+            archive.writestr("SKILL.md", SKILL_MD)
+        raw = buf.getvalue().replace(SKILL_MD, b"X" + SKILL_MD[1:], 1)
+        with self.assertRaises(SkillArchiveValidationError) as ctx:
+            svc.extract_skill_zip(raw)
+        self.assertEqual(ctx.exception.kind, SkillArchiveValidationError.INVALID_ARCHIVE)
+
     """§27 archive error matrix(18 类)。"""
 
     def _assert(self, raw, kind, detail):
@@ -262,7 +270,7 @@ class ArchiveKernelTests(unittest.TestCase):
         # ZipFile 写入时绝对路径可能被规范化 → 构造 BadZip 场景不适用;
         # 用反斜杠路径直测 UNSAFE_PATH 分支
         self._assert(raw, SkillArchiveValidationError.UNSAFE_PATH,
-                     f"非法路径：/etc/passwd")
+                     "非法路径：/etc/passwd")
 
     def test_traversal(self):
         raw = _zip_bytes({"../escape.txt": b"x"})
@@ -422,7 +430,7 @@ class TransactionTests(unittest.IsolatedAsyncioTestCase):
         order = []
         db = _Exec(results=[("INSERT INTO community.skills", 99)])
         orig_exec = db.execute
-        orig_commit, orig_rollback = db.commit, db.rollback
+        orig_commit, _orig_rollback = db.commit, db.rollback
 
         async def execute(sql, params=None):
             sql = str(sql)
@@ -564,7 +572,6 @@ class HttpAdapterTests(unittest.TestCase):
         self.assertIn("archive_loader", src)
 
     def test_neutral_error_mappings(self):
-        import asyncio
         cases = [
             (SkillArchiveValidationError("k", "zip-err"), 400, "zip-err"),
             (SkillCategoryError("cat-err"), 400, "cat-err"),

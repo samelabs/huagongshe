@@ -321,7 +321,7 @@ class DbLiteralGateTests(unittest.TestCase):
                          "超大 ID 必须 422(此前穿到 SQL 撞 DataError 500)")
 
     def test_doi_dual_source_single_row(self):
-        from api.services.chemicals import InvalidDoiError, reaction_lookup
+        from api.services.chemicals import reaction_lookup
 
         async def go():
             from sqlalchemy import text

@@ -7,10 +7,11 @@
 |---|---|---|---|
 | db | ubuntu:24.04 + postgresql-16 + postgresql-16-rdkit | 集群在命名卷 `hgs_local_pgdata`；首次启动自动 initdb、建角色/库、跑 `migrations/0000_baseline.sql` + `0001_bootstrap_reference_data.sql`（hgs_local 与 test_hgs 两个库都建） | **55433** → 5432 |
 | redis | redis:7 | 纯缓存/限流，不落盘 | **56380** → 6379 |
-| api | python:3.12-slim + requirements.txt | 仓库根目录只读挂载 `/repo`；镜像内 apt 装 psql 客户端与 rdkit 绘图所需的 X11/expat 系统库；启动时装依赖到持久 venv、跑 `scripts/migrate.py`（两个库）、uvicorn 8000 | **8000** |
+| api | python:3.12-slim + requirements.txt | 仓库根目录只读挂载 `/repo`；镜像内 apt 装 psql 客户端与 rdkit 绘图所需的 X11/expat 系统库；启动时装依赖到持久 venv、跑 `scripts/migrate.py`（两个库）、uvicorn 8000；含非 root 测试用户 `tester`(uid 1000) | **8000** |
 
 > 端口 55432/56379 已被本机其他项目占用，故取相邻端口。
-> 不启动 pubchem worker（本地不拉外部数据；化合物行由反应创建/SMILES 搜索时的 RDKit 本地建行产生）。
+> 不启动 pubchem worker（本地不拉外部数据；化合物行由反应创建/SMILES
+> 搜索时的 RDKit 本地建行产生）。
 
 凭据全部是随机生成的本地假值，在 `stack/.env.local`（不入库）：DB 密码、
 `hgs_demo` / `hgs_peer` 两个测试账号密码。
@@ -26,11 +27,7 @@ curl http://127.0.0.1:8000/api/health               # 应返回 ok
 docker compose --env-file .env.local down           # 停（数据保留在卷里）
 ```
 
-前端（默认连 127.0.0.1:8000，无需 API_BASE）：
-
-```bash
-cd web && npm run dev -- -p 3104    # 每轮验收换新端口，避开浏览器旧 CSS 缓存
-```
+前端走仓库根的 `local/dev.sh`（见 ../README.md）。
 
 ## 重置数据库
 
@@ -63,79 +60,36 @@ python3 seed.py    # 幂等，重复执行数据不变
 笔记 id 1/2；收藏 HCID 4（阿司匹林）/ 1（水杨酸）/ 10（水杨酸甲酯）；
 demo 动态 2 条（peer 的两条公开反应）。
 
-## 跑完整测试套件（CI 同款）
+## 跑测试（容器内、非 root、每 run 专有库）
 
-与 CI 对齐的四个要点：**venv python**（`/opt/venv/bin/python`，容器系统 python 没有依赖）、
-**非 root 用户** `tester`（部分故障注入测试在 root 下不生效，CI runner 是非 root）、
-**HGS_PUBLIC_BASE_URL 对齐 CI 默认值**（不设即默认 `https://huagongshe.com`；本地
-runtime 用 localhost 是故意的，跑测试时覆盖回来）、**干净的 test_hgs**（CI 每次全新库；
-连跑两轮套件后 planner 类断言会被残留数据影响，重跑前先按下面命令重置）。
-
-**重置 + 全套一条龙（step6 起为本目录标准入口；用户要求 = tester 非 root、
-venv python、HGS_PUBLIC_BASE_URL 对齐 CI、pristine test_hgs）：**
+后端测试不手写 docker exec 长命令、不共用 `test_hgs`。统一入口在仓库根：
 
 ```bash
-cd local/stack
-PW=$(grep HGS_DB_PASSWORD .env.local | cut -d= -f2)
-
-# 1) 重置 test_hgs 到 pristine（baseline + bootstrap + migrate）
-docker compose --env-file .env.local exec db su postgres -s /bin/bash -c \
-  "/usr/lib/postgresql/16/bin/psql -c \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='test_hgs' AND pid<>pg_backend_pid()\"; /usr/lib/postgresql/16/bin/dropdb test_hgs; /usr/lib/postgresql/16/bin/createdb -O hgs_local test_hgs"
-docker compose --env-file .env.local exec db bash -c \
-  "PGPASSWORD=$PW psql -h 127.0.0.1 -U hgs_local -d test_hgs -v ON_ERROR_STOP=1 -f /repo/migrations/0000_baseline.sql >/dev/null && PGPASSWORD=$PW psql -h 127.0.0.1 -U hgs_local -d test_hgs -v ON_ERROR_STOP=1 -f /repo/migrations/0001_bootstrap_reference_data.sql >/dev/null"
-docker compose --env-file .env.local exec api python /repo/scripts/migrate.py "postgresql://hgs_local:$PW@db:5432/test_hgs"
-
-# 2) 清掉以 root 跑过测试留下的 /tmp 残留（否则 tester 下 setUpClass PermissionError）
-docker compose --env-file .env.local exec api rm -rf /tmp/hgs-admin-pagination-test
-
-# 3) 全套（discover tests）
-docker compose --env-file .env.local exec -u tester -e HOME=/home/tester \
-  -e TEST_DATABASE_URL="postgresql+asyncpg://hgs_local:$PW@db:5432/test_hgs?test_sentinel=hgs-test-db" \
-  -e HGS_DATABASE_URL="postgresql+asyncpg://hgs_local:$PW@db:5432/test_hgs" \
-  -e HGS_REDIS_URL="redis://redis:6379/15" \
-  -e HGS_SKILL_ROOT=/tmp/hgs-skills \
-  -e HGS_PUBLIC_BASE_URL=https://huagongshe.com \
-  api bash -lc 'cd /repo && /opt/venv/bin/python -m unittest discover -s tests'
+python3 local/check.py backend --tests tests.<模块> …   # 最小模块集
+python3 local/check.py release                          # 发布门禁(全量, 显式)
 ```
 
-测试库是 db 容器里单独的 `test_hgs`（带 `?test_sentinel=hgs-test-db` 哨兵，
-`tests/db_gate.py` 强制），与运行库 `hgs_local` 互不污染。
+编排器自动完成：每 run 专有库 `test_hgs_<随机>`（baseline + bootstrap +
+forward 迁移）、`TEST_DATABASE_URL`/`HGS_DATABASE_URL` 一致性预检、非 root
+`tester` 执行、Redis 测试逻辑库 DB15 的 run 间串行、结束只清理本 run 登记
+的资源。栈初始化建的共享 `test_hgs` 不再作为测试目标。细节见
+`docs/TESTING.md`。
 
-**验收脚本反复登录会撞限流**：login 限流 = 15 次 / 900s / 账号（redis 键
-`rate:login:*`）。需要立刻重跑时清桶：
+**验收脚本反复登录会撞限流**（login 限流 = 15 次 / 900s / 账号，redis 键
+`rate:login:*`）。这是对演示栈(hgs_local 库)的人工运维操作，需要立刻重跑
+演示脚本时清桶：
 
 ```bash
 docker exec hgs_local_redis redis-cli --scan --pattern "rate:login*" | xargs -r docker exec -i hgs_local_redis redis-cli DEL
 ```
 
 **种子幂等不重置"已读"**：点过动态页后 unread 变 0 且重跑 seed 不会恢复
-（notifications.read_at 已写）。要恢复徽标场景（ix-check 场景 7 内置了这一步）：
+（notifications.read_at 已写）。要恢复徽标场景：
 
 ```bash
 docker compose --env-file .env.local exec db su postgres -s /bin/bash -c \
   "/usr/lib/postgresql/16/bin/psql -d hgs_local -c \"UPDATE community.notifications SET read_at=NULL WHERE event_type='new_reaction'\""
 ```
-
-**pristine test_hgs 上的基线结果**：`Ran 1478 tests …
-FAILED (failures=1, errors=1, skipped=1, expected failures=1)`。两个非预期项
-都是"开发机 checkout vs CI checkout"的环境差异，不是代码问题（step3 起持续，
-两轮 pristine 复跑均复现同样两项）：
-`test_no_masked_placeholder_leaked_into_sources` 扫到宿主 `.venv/`（CI checkout 没有）；
-`test_chemical_name_resolver.ResolverRuleTests` setUpClass 跑宿主 `web/node_modules`
-里的 tsx/esbuild（darwin 二进制在 linux 容器里不可用；CI integration 无 web deps 时
-该测试走 skip 分支）。除这两项外 0 失败。
-
-## 登录截图（shoot.mjs）
-
-```bash
-cd ../  # _(已收编至 local/stack)_/tools
-node shoot.mjs --base http://localhost:3104 --out ../ui/step3/local \
-  --pages 'aichem=/zh-CN/aichem' --widths 1440,375 --login hgs_demo
-```
-
-`--login` 仅允许 localhost 目标；用页面表单真实登录（每宽度一个 context 登录一次），
-密码取自 `stack/.env.local`。会话 cookie 带 Secure 标记，Chromium 在
-http://localhost 下接受（localhost 是安全上下文）。
 
 ## 线上数据只读渲染（本地前端连生产 API）
 
@@ -146,15 +100,17 @@ http://localhost 下接受（localhost 是安全上下文）。
 rsync -a --exclude node_modules --exclude .next web/ /tmp/hgs-prod/web/
 cd /tmp/hgs-prod/web && npm ci
 API_BASE=https://huagongshe.com/api API_ORIGIN_INTERNAL=https://huagongshe.com \
-  npm run dev -- -p 3107
+  npm run dev -- -p <任选空闲端口>
 ```
 
 注意：生产 `/api/config` 会注入 51.la 统计与 AdSense 脚本，本机加载 403/挂起
-会卡死 networkidle —— 截图工具需 route-block `sdk.51.la` / `pagead2.googlesyndication.com`
-（见 tools/step6-shoot.mjs）。
+会卡死 networkidle —— 截图工具需 route-block `sdk.51.la` /
+`pagead2.googlesyndication.com`。
 
 ## 已知边界
 
 - api 容器内仓库是**只读**挂载；任何需要写仓库文件的操作（如改代码）在宿主机做。
 - Docker Desktop 内存约 2.9GB 且与其他项目容器共享；redis 限了 128MB，PG 未限。
 - `scripts/migrate.py` 需要 psql（api 镜像已装 postgresql-client）。
+- 测试用户 `tester` 缺失（`docker exec hgs_local_api id tester` 失败）说明镜像
+  过旧：`docker compose --env-file .env.local up -d --build api` 重建。

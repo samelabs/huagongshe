@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { ChemPageNav } from "@/components/ChemPageNav";
-import { DataRow } from "@/components/DataRow";
-import { EntityNotes } from "@/components/EntityNotes";
-import { ReactionOwnerActions } from "@/components/ReactionOwnerActions";
-import { ShareButton } from "@/components/ShareButton";
+import { ChemPageNav } from "@/components/shared/ChemPageNav";
+import { DataRow } from "@/components/ui/DataRow";
+import { EntityNotes } from "@/components/shared/EntityNotes";
+import { ReactionOwnerActions } from "@/components/reaction/ReactionOwnerActions";
+import { ShareButton } from "@/components/ui/ShareButton";
 import { Button } from "@/components/ui/Button";
-import { IconPrinter } from "@/components/ui/icons";
+import { IconPlus, IconPrinter } from "@/components/ui/icons";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { Byline } from "@/components/ui/Byline";
 import { EntityBadge } from "@/components/ui/EntityBadge";
@@ -18,7 +18,7 @@ import { PageFrame } from "@/components/ui/PageFrame";
 import { PageHead } from "@/components/ui/PageHead";
 import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
-import { Molecule } from "@/components/Molecule";
+import { Molecule } from "@/components/chemical/Molecule";
 import { apiGet } from "@/lib/api.server";
 import { isApiGone, isEntityId, reactionSvgUrl, type Chemical, type ReactionDetail } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
@@ -156,7 +156,7 @@ export default async function ReactionPage({ params }: {
     ...(hasSafety ? [["safety", t.reaction.safety] as [string, string]] : []),
     ...(hasNotes ? [["notes", t.reaction.notes] as [string, string]] : []),
     ...(hasSources ? [["sources", t.reaction.sources] as [string, string]] : []),
-    ["linked-notes", t.notes.linkedTitle],
+    ["linked-notes", t.notes.linkedTitleReaction],
   ];
 
   const jsonLd = {
@@ -206,6 +206,8 @@ export default async function ReactionPage({ params }: {
           </div>
         )}
         actions={<>
+          {/* 互动胶囊行: 徽标后 收藏|+笔记|分享|打印, 排序与化合物页同构
+              新建入口常显, 未登录由工作台服务端门带回跳 */}
           <div className="hg-head-row">
             <EntityBadge
               kind="reaction"
@@ -214,18 +216,21 @@ export default async function ReactionPage({ params }: {
               state={reaction.visibility === "private" ? "private" : undefined}
               ariaLabel={t.common.hridLabel(reaction.id)}
             />
+            <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" variant="ghost" size="sm" showCount={false} withIcon />
+            <Button variant="ghost" size="sm" href={withLocale(`/aichem?tab=notes&reaction=${reaction.id}&new=1`, locale)}>
+              <IconPlus />
+              {t.user.tabNotes}
+            </Button>
             <ShareButton title={t.reaction.jsonLdName(reaction.id)} iconOnly size="sm" ariaLabel={t.guide.share} />
             <Button variant="ghost" size="sm" iconOnly newWindow href={withLocale(`/reaction/${reaction.id}/print`, locale)} aria-label={t.common.print}>
               <IconPrinter />
             </Button>
           </div>
-          <div className="hg-head-row">
-            {reaction.is_owner ? (
+          {reaction.is_owner && (
+            <div className="hg-head-row">
               <ReactionOwnerActions reactionId={reaction.id} />
-            ) : (
-              <FollowButton endpoint={`/reactions/${reaction.id}/follow`} initial={reaction.is_following} count={reaction.follower_count} label="favor" variant="tonal" withIcon />
-            )}
-          </div>
+            </div>
+          )}
         </>}
       />
 

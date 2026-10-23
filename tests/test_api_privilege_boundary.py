@@ -26,16 +26,55 @@ try:
 except Exception:
     DB_URL = None
 
-from fastapi import HTTPException
 
 import api.routes as routes
 from api.core import security
-from api.core.rate_limit import is_loopback_host
 from api.services import enrichment as enrichment_service
 from api.services import search as search_service
 
 
 RUN = "h1d"
+
+STALE_FIXTURE_NAME = "refresh-policy-fixture"
+
+
+async def _insert_stale_fixture(db, chemical_id: int, cid: int) -> None:
+    """自建 stale 样本: chemicals 行 + fetched_at 早于刷新窗口的详情行。
+
+    刷新行为测试不依赖库里恰好存在旧数据; 夹具用远离业务序列的
+    id/cid 段, 随机取值避免与并行测试碰撞, 由 _drop_fixture 负责清理。
+    """
+    from sqlalchemy import text as sql_text
+    await db.execute(sql_text("""
+        INSERT INTO chemistry.chemicals (id, pubchem_cid, preferred_name)
+        VALUES (:id, :cid, :name)
+    """), {"id": chemical_id, "cid": cid, "name": STALE_FIXTURE_NAME})
+    await db.execute(sql_text("""
+        INSERT INTO chemistry.chemical_pubchem (chemical_id, record_title, fetched_at)
+        VALUES (:id, :name, now() - interval '300 days')
+    """), {"id": chemical_id, "name": STALE_FIXTURE_NAME})
+
+
+async def _drop_fixture(engine, chemical_id: int) -> None:
+    """夹具自清理: 先删本 id 的任务行, 再删详情行与化合物行。"""
+    from sqlalchemy import text as sql_text
+    async with engine.begin() as db:
+        await db.execute(sql_text(
+            "DELETE FROM maintenance.pubchem_jobs WHERE chemical_id=:id"),
+            {"id": chemical_id})
+        await db.execute(sql_text(
+            "DELETE FROM chemistry.chemical_pubchem WHERE chemical_id=:id"),
+            {"id": chemical_id})
+        await db.execute(sql_text(
+            "DELETE FROM chemistry.chemicals WHERE id=:id"),
+            {"id": chemical_id})
+
+
+def _fixture_ids() -> tuple:
+    """int4 上界内远离业务序列的随机 id/cid 对。"""
+    import random
+    return (random.randint(2_000_000_000, 2_140_000_000),
+            random.randint(1_900_000_000, 2_100_000_000))
 
 
 class PublicOrActorSemanticsTests(unittest.TestCase):
@@ -109,35 +148,25 @@ class RefreshUseCasePolicyTests(unittest.TestCase):
         )
 
     def test_h_allow_refresh_false_zero_enqueue(self):
-        """H: allow_refresh=False → stale 时零 enqueue, 返回 needs_refresh=True。"""
+        """H: allow_refresh=False → stale 时零 enqueue, 返回 needs_refresh=True。
+
+        stale 样本由测试自建并清理, 不依赖库内是否恰好有旧数据。"""
         if DB_URL is None:
             self.skipTest("缺少合规 TEST_DATABASE_URL：此测试必须在测试库中运行")
         import asyncio
-        from datetime import datetime, timedelta, timezone
         from sqlalchemy import text as sql_text
         from sqlalchemy.ext.asyncio import create_async_engine
 
         async def go():
             engine = create_async_engine(DB_URL)
+            chemical_id, cid = _fixture_ids()
             try:
                 async with engine.begin() as db:
-                    row = (await db.execute(sql_text("""
-                        SELECT c.id, c.pubchem_cid, cp.fetched_at
-                        FROM chemistry.chemicals c
-                        LEFT JOIN chemistry.chemical_pubchem cp
-                          ON cp.chemical_id=c.id
-                        WHERE c.pubchem_cid IS NOT NULL
-                          AND (cp.fetched_at IS NULL
-                               OR cp.fetched_at < now() - interval '200 days')
-                        LIMIT 1
-                    """))).fetchone()
-                if row is None:
-                    self.skipTest("test_hgs 无 stale 样本行")
-                chemical_id = row[0]
+                    await _insert_stale_fixture(db, chemical_id, cid)
                 async with engine.begin() as db:
                     before = (await db.execute(sql_text(
                         "SELECT count(*) FROM maintenance.pubchem_jobs "
-                        "WHERE chemical_id=:c AND request_context->>'reason'='chemical_details'"
+                        "WHERE chemical_id=:c"
                     ), {"c": chemical_id})).scalar()
                 async with engine.begin() as db:
                     details, job_id, needs = await enrichment_service.enqueue_chemical_if_needed(
@@ -146,20 +175,22 @@ class RefreshUseCasePolicyTests(unittest.TestCase):
                 async with engine.begin() as db:
                     after = (await db.execute(sql_text(
                         "SELECT count(*) FROM maintenance.pubchem_jobs "
-                        "WHERE chemical_id=:c AND request_context->>'reason'='chemical_details'"
+                        "WHERE chemical_id=:c"
                     ), {"c": chemical_id})).scalar()
+                self.assertEqual(before, 0, "夹具起始应无任务行")
                 self.assertIsNone(job_id, "allow_refresh=False 不得 enqueue")
                 self.assertTrue(needs, "stale 行应报 needs_refresh")
-                self.assertEqual(before, after, "pubchem_jobs 零新增")
+                self.assertEqual(after, 0, "pubchem_jobs 零新增")
             finally:
+                await _drop_fixture(engine, chemical_id)
                 await engine.dispose()
-
 
         asyncio.run(go())
 
     def test_f_public_anonymous_refresh_enqueues(self):
         """F: 匿名(无 actor)详情读驱动回补仍按产品策略入队(行为不变,
-        依据已从 loopback 换为 use-case)。以 stale 行直调验证 priority=50 路径。"""
+        依据已从 loopback 换为 use-case)。以自建 stale 行直调验证
+        priority=50 路径, 夹具与任务行均由测试清理。"""
         if DB_URL is None:
             self.skipTest("缺少合规 TEST_DATABASE_URL：此测试必须在测试库中运行")
         import asyncio
@@ -168,36 +199,24 @@ class RefreshUseCasePolicyTests(unittest.TestCase):
 
         async def go():
             engine = create_async_engine(DB_URL)
+            chemical_id, cid = _fixture_ids()
             try:
                 async with engine.begin() as db:
-                    row = (await db.execute(sql_text("""
-                        SELECT c.id FROM chemistry.chemicals c
-                        LEFT JOIN chemistry.chemical_pubchem cp
-                          ON cp.chemical_id=c.id
-                        WHERE c.pubchem_cid IS NOT NULL
-                          AND (cp.fetched_at IS NULL
-                               OR cp.fetched_at < now() - interval '200 days')
-                          AND NOT EXISTS (
-                              SELECT 1 FROM maintenance.pubchem_jobs j
-                              WHERE j.chemical_id=c.id)
-                        LIMIT 1
-                    """))).fetchone()
-                if row is None:
-                    self.skipTest("无可用样本行")
-                chemical_id = row[0]
+                    await _insert_stale_fixture(db, chemical_id, cid)
                 async with engine.begin() as db:
                     details, job_id, needs = await enrichment_service.enqueue_chemical_if_needed(
                         db, chemical_id, allow_refresh=True, priority=50,
                     )
                 self.assertIsNotNone(job_id, "产品策略允许 → 应 enqueue")
-                # 清理本测试产生的 job
-                engine2 = create_async_engine(DB_URL)
-                async with engine2.begin() as db:
-                    await db.execute(sql_text(
-                        "DELETE FROM maintenance.pubchem_jobs WHERE id=:j"
-                    ), {"j": job_id})
-                await engine2.dispose()
+                async with engine.begin() as db:
+                    row = (await db.execute(sql_text(
+                        "SELECT priority FROM maintenance.pubchem_jobs "
+                        "WHERE chemical_id=:c"
+                    ), {"c": chemical_id})).fetchone()
+                self.assertIsNotNone(row, "任务行应存在, 随夹具一并清理")
+                self.assertEqual(row[0], 50, "匿名路径入队 priority=50")
             finally:
+                await _drop_fixture(engine, chemical_id)
                 await engine.dispose()
         asyncio.run(go())
 

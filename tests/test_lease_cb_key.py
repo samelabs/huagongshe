@@ -1,8 +1,7 @@
 # lease cb 键域专项: request_context.source_cb 必须按 jobId 取, 不得回落错主表
-# 背景: cb_map 键域混用(jobId 写入 / chemicalId lookup)致 source_cb 永远失效,
-# targeted canary 跨 cb 串抓事故。本测试直打测试 DB + claim SQL (必须过测试库闸)。
+# cb_map 键域若混用(jobId 写入 / chemicalId lookup), source_cb 永远失效,
+# 同一化合物的不同 CB 编号被串抓。本测试直打测试 DB + claim SQL (必须过测试库闸)。
 import asyncio
-import os
 import re
 import unittest
 

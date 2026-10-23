@@ -161,8 +161,9 @@ class FetchedDocument:
 async def _fetch_document(url: str) -> FetchedDocument:
     """SSRF 加固的 HTTPS GET: 解析 DNS → 校验全部 IP → 逐个地址建连。
 
-    只发一次请求(不跟随重定向), 总耗时(含逐地址重试)受 5 秒上限约束,
-    响应体上限 5 KB。TLS 证书按 URL 的 host 校验(server_hostname),
+    只发一次请求(不跟随重定向)。DNS 解析、IP 校验、逐地址建连/握手/
+    读取共用同一条 5 秒截止线 —— 解析不游离在总超时之外, 慢 DNS 拉不长
+    总耗时。响应体上限 5 KB。TLS 证书按 URL 的 host 校验(server_hostname),
     连接却钉在已校验的 IP 上, DNS rebinding 在两次解析之间切换地址也无效。
     IPv4 优先(同族保持解析顺序): 生产机无 IPv6 出口, 混合解析时
     随机选中 AAAA 会导致必然失败, 所以逐个地址尝试到成功为止。
@@ -170,17 +171,6 @@ async def _fetch_document(url: str) -> FetchedDocument:
     parsed = urlsplit(url)
     host = parsed.hostname
     port = parsed.port or 443
-    try:
-        addresses = await _resolve_addresses(host, port)
-    except OSError as exc:
-        raise OAuthProtocolError(
-            "invalid_request", "client_id host could not be resolved."
-        ) from exc
-    if not addresses or any(not _ip_allowed(ip) for ip in addresses):
-        raise OAuthProtocolError(
-            "invalid_request",
-            "client_id host resolves to a forbidden address.",
-        )
     path = parsed.path or "/"
     if parsed.query:
         path += "?" + parsed.query
@@ -194,6 +184,14 @@ async def _fetch_document(url: str) -> FetchedDocument:
         "Connection: close\r\n"
         "\r\n"
     ).encode("ascii")
+
+    async def _resolve() -> list[str]:
+        try:
+            return await _resolve_addresses(host, port)
+        except OSError as exc:
+            raise OAuthProtocolError(
+                "invalid_request", "client_id host could not be resolved."
+            ) from exc
 
     async def _attempt(address: str) -> FetchedDocument:
         reader, writer = await asyncio.open_connection(
@@ -249,6 +247,12 @@ async def _fetch_document(url: str) -> FetchedDocument:
                 pass
 
     async def _do_fetch() -> FetchedDocument:
+        addresses = await _resolve()
+        if not addresses or any(not _ip_allowed(ip) for ip in addresses):
+            raise OAuthProtocolError(
+                "invalid_request",
+                "client_id host resolves to a forbidden address.",
+            )
         last_error: OSError | None = None
         for address in addresses:
             try:

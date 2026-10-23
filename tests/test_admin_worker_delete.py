@@ -158,7 +158,6 @@ class WorkerDeleteContractTests(unittest.IsolatedAsyncioTestCase):
     WID = f"wdel-{RUN}"
 
     async def asyncSetUp(self):
-        import asyncio
         from sqlalchemy.ext.asyncio import async_sessionmaker
         from sqlalchemy import text
         eng = _engine()

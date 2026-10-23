@@ -15,6 +15,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
+import { SEARCH_PLACEHOLDER } from "@/lib/searchPlaceholder";
 import { withLocale } from "@/lib/localePath";
 import { Button } from "@/components/ui/Button";
 import { Segmented } from "@/components/ui/Segmented";
@@ -79,7 +80,7 @@ export function SearchHero({ initial = "", initialMode = "exact", autoFocus = fa
             enterKeyHint="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t.search.placeholder}
+            placeholder={SEARCH_PLACEHOLDER}
             aria-label={contextLabel ?? t.search.title}
             autoComplete="off"
             spellCheck={false}

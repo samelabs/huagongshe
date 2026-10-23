@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from ..chemistry import canonicalize_smiles
 from ..core.config import settings
 from ..core.rate_limit import enforce
+from .notifications import notify_new_reaction_safely
 from ..schemas.reactions import ReactionBody
 
 from .chemicals import CHEMICAL_SELECT, attach_localized_names, chemical_dict, clean_float
@@ -79,8 +80,10 @@ async def load_reaction_detail(
     for row in participants:
         item = chemical_dict(row)
         item.update(
-            role=row[17],occurrence_count=row[18],amount_value=row[19],amount_unit=row[20],
-            equivalents=row[21],concentration_value=row[22],concentration_unit=row[23],
+            role=row[17],occurrence_count=row[18],
+            amount_value=clean_float(row[19]),amount_unit=row[20],
+            equivalents=clean_float(row[21]),
+            concentration_value=clean_float(row[22]),concentration_unit=row[23],
             yield_percent=clean_float(row[24]),
         )
         compounds.append(item)
@@ -137,11 +140,11 @@ async def load_reaction_detail(
         "source_type": base[19], "doi": base[20], "patent": base[21],
         "publication_url": base[22], "source_citation": base[23],
         "procedure_details": base[7], "safety_notes": base[8],
-        "reflux": base[27], "ph": base[9], "conditions_detail": conditions_detail,
+        "reflux": base[27], "ph": clean_float(base[9]), "conditions_detail": conditions_detail,
         "temperature": temperature_out,
-        "duration": ({"value": base[13], "unit": base[14]} if base[13] is not None else None),
+        "duration": ({"value": clean_float(base[13]), "unit": base[14]} if base[13] is not None else None),
         "atmosphere": base[15],
-        "pressure": ({"value": base[16], "unit": base[17]} if base[16] is not None else None),
+        "pressure": ({"value": clean_float(base[16]), "unit": base[17]} if base[16] is not None else None),
         "workup_details": base[18], "note": base[24],
         # 停用作者的公开反应保留可见, active 供
         # 前端渲染「已停用」标记并隐藏关注按钮(关注端点本就拒绝停用目标)。
@@ -458,35 +461,6 @@ async def write_relationships(db, reaction_id: int, participants: list[dict[str,
               (:reaction_id,:chemical_id,:role,:occurrence_count,:amount_value,:amount_unit,
                :equivalents,:concentration_value,:concentration_unit,:yield_percent)
         """), {"reaction_id": reaction_id, **item})
-
-
-async def notify_new_reaction(db, actor_id: int, reaction_id: int) -> None:
-    await db.execute(text("""
-        INSERT INTO community.notifications
-          (user_id,event_type,actor_user_id,reaction_id,dedupe_key)
-        SELECT follower_user_id,'new_reaction',:actor_id,:reaction_id,
-               'new-reaction:' || follower_user_id::text || ':' || :reaction_id_text
-        FROM community.user_follows
-        WHERE followed_user_id=:actor_id AND follower_user_id<>:actor_id
-        ON CONFLICT (dedupe_key) DO NOTHING
-    """), {
-        "actor_id": actor_id, "reaction_id": reaction_id, "reaction_id_text": str(reaction_id),
-    })
-
-
-async def notify_new_reaction_safely(db, actor_id: int, reaction_id: int) -> None:
-    """Keep auxiliary activity fan-out outside and below the core write budget."""
-    try:
-        await db.execute(text("SET LOCAL statement_timeout='1000ms'"))
-        await notify_new_reaction(db, actor_id, reaction_id)
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        logger.warning(
-            "reaction activity notification skipped",
-            exc_info=True,
-            extra={"actor_id": actor_id, "reaction_id": reaction_id},
-        )
 
 
 async def reaction_response(db, reaction_id: int, created_chemicals: list[int] | None = None) -> dict[str, Any]:

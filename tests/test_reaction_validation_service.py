@@ -19,7 +19,6 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 from api import reactions as reactions_module
-from api.core import rate_limit
 from api.core.rate_limit import LimiterUnavailable, RateLimited
 from api.schemas.reactions import ReactionBody, ParticipantBody
 from api.services import reactions as services_reactions

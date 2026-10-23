@@ -233,7 +233,6 @@ class McpContractTests(unittest.TestCase):
         self.assertIn("raise ToolError(_search_error_message(exc)) from exc", source)
 
     def test_mcp_search_has_no_httpexception_catch(self) -> None:
-        import api.mcp_server as mcp
         from api.services import search as search_mod
         source = inspect.getsource(search_mod.run_search_query)
         # 查询内核到 MCP 边界之间不存在 except HTTPException 假 neutral

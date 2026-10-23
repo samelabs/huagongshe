@@ -5,7 +5,7 @@
  *
  * 公开页 (site) 与工作台 (workbench) 共用；外壳实例全程不卸载，工作台
  * 形态由上下文驱动（ShellWorkbenchChrome）。桌面 / 平板 / 手机三态：
- * - 桌面（≥）：标志 · 主导航（查询/Skills/MCP/工作台）·
+ * - 桌面（≥）：标志 · 主导航（查询/MCP/工作台/Skills）·
  * 铃铛（未读红点，链接 /aichem?tab=activity）· 语言 · 头像菜单。无搜索框。
  * - 平板（641–）：主导航收进「更多」菜单。
  * - 手机（≤640）：高 --header-h-m，标志 + 汉堡抽屉 ≡ + 语言切换 ——
@@ -31,7 +31,7 @@ import type { User } from "@/lib/api";
 import { HgsLogo } from "@/components/ui/HgsLogo";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { IconBell, IconChevron } from "@/components/ui/icons";
+import { IconBell, IconChevron, IconMenu } from "@/components/ui/icons";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { ShellUnreadProvider, useShellUnread } from "./ShellUnread";
 import { useShellWorkbenchChrome } from "./ShellWorkbenchChrome";
@@ -42,14 +42,14 @@ import { MobileTabBar } from "./MobileTabBar";
 
 type NavItem = { href: string; label: string; match: (routePath: string) => boolean };
 
-/** 主导航四项（首页 / Skills / MCP / 工作台），「更多」菜单与桌面导航共用 */
+/** 主导航四项（首页 / MCP / 工作台 / Skills），「更多」菜单与桌面导航共用 */
 function useNavItems(): NavItem[] {
   const t = useDictionary();
   return [
     { href: "/", label: t.nav.tabHome, match: (p) => p === "/" || p === "" },
-    { href: "/skills", label: t.nav.skills, match: (p) => p.startsWith("/skills") },
     { href: "/mcp-guide", label: t.nav.mcp, match: (p) => p.startsWith("/mcp-guide") },
     { href: "/aichem", label: t.nav.tabWorkbench, match: (p) => p === "/aichem" || p.startsWith("/aichem/") || p.startsWith("/submit") || p.startsWith("/me") },
+    { href: "/skills", label: t.nav.skills, match: (p) => p.startsWith("/skills") },
   ];
 }
 
@@ -86,25 +86,23 @@ export function SiteHeader() {
           </nav>
 
           <div className="sh-right">
-            {/* 铃铛对未读数的消费在 Provider 内部（HeaderBell） */}
             <HeaderBell user={user} />
             <MoreMenu items={nav} routePath={routePath} />
             <div className="sh-lang">
               <LanguageSwitcher />
             </div>
-            {!ready ? (
-              <span aria-hidden="true" tabIndex={-1} style={{ visibility: "hidden" }}>
-                <Button variant="secondary" size="sm" className="sh-login-btn">
+            {/* 账号位定宽槽（.sh-account）：宽度 = 头像菜单触发钮，内容右对齐。
+                占位 / 头像菜单 / 登录按钮三种内容同槽，登录态翻转与水合翻转
+                都不改变槽宽 —— 语言键位置与登录态无关 */}
+            <div className="sh-account">
+              {!ready ? null : user ? (
+                <UserMenu user={user} />
+              ) : (
+                <Button variant="secondary" size="sm" className="sh-login-btn" href={withLocale("/login", locale)}>
                   {t.nav.login}
                 </Button>
-              </span>
-            ) : user ? (
-              <UserMenu user={user} />
-            ) : (
-              <Button variant="secondary" size="sm" className="sh-login-btn" href={withLocale("/login", locale)}>
-                {t.nav.login}
-              </Button>
-            )}
+              )}
+            </div>
           </div>
 
           {/* 手机（≤640）：标志 + 汉堡抽屉 + 语言切换（全站一套，不分公开/
@@ -112,11 +110,17 @@ export function SiteHeader() {
               导航/账户设置/退出登录）；匿名只有标志与语言。整页打开工作台
               时抽屉随服务端 HTML 直接输出。 */}
           <div className="sh-mobile-right">
-            {user && (
+            {!ready ? (
+              /* 水合期汉堡占位：登录用户 ready 后同位替换零 pop-in；访客
+                 占位消失时右侧锚定的语言键不位移 */
+              <span className="sh-hydration-ph" aria-hidden="true">
+                <span className="hg-btn ghost icon wb-burger"><IconMenu width={22} height={22} /></span>
+              </span>
+            ) : user ? (
               <Suspense>
                 <WbMobileNav counts={chrome?.counts ?? null} user={user} />
               </Suspense>
-            )}
+            ) : null}
             <div className="sh-lang-m">
               <LanguageSwitcher />
             </div>
@@ -133,8 +137,16 @@ export function SiteHeader() {
 function HeaderBell({ user }: { user: User | null }) {
   const t = useDictionary();
   const locale = useLocale();
+  const { ready } = useAccount();
   const unread = useShellUnread();
-  if (!user) return null;
+  // 水合期占位同形同位（语言键左侧）；ready 后访客态收敛为无
+  if (!user) {
+    return !ready ? (
+      <span className="sh-hydration-ph" aria-hidden="true">
+        <span className="hg-btn ghost icon sh-bell"><IconBell /></span>
+      </span>
+    ) : null;
+  }
   return (
     <Link
       href={withLocale("/aichem?tab=activity", locale)}
@@ -166,7 +178,7 @@ function UserMenu({ user }: { user: User }) {
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <Avatar id={user.id} name={user.display_name} src={user.avatar_url} size={32} />
+        <Avatar id={user.username} name={user.display_name} src={user.avatar_url} size={32} />
         <IconChevron className="sh-chev" />
       </button>
       {open && (

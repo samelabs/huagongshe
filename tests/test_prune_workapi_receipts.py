@@ -136,7 +136,6 @@ class PruneBehaviorTests(unittest.TestCase):
     def _run(self, *argv):
         mod = _load_script()
         from api.core import database as db_mod
-        test_factory = None
 
         async def _factory():
             from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -152,7 +151,6 @@ class PruneBehaviorTests(unittest.TestCase):
             return mk
 
         # 简化: 以测试库 URL 重建 sessionmaker
-        import api.core.config as cfg
         holder["orig"] = db_mod.async_session
         holder["orig_engine"] = db_mod.engine
         test_eng = self._engine()
@@ -212,7 +210,6 @@ class PruneBehaviorTests(unittest.TestCase):
         self.assertIn("deleted=0", out2, "重复运行第二次 deleted=0")
 
     def test_db_error_nonzero_exit(self):
-        from sqlalchemy import text
         mod = _load_script()
 
         async def boom(*a, **k):

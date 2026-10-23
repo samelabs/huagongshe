@@ -95,7 +95,7 @@ export function SamelabsDataClients() {
     {error && <Notice tone="err">{error}</Notice>}
 
     {issued && (
-      <div className="token-secret" style={{ marginTop: 12 }}>
+      <div className="token-secret">
         <strong>凭证已发放 — 令牌仅此一次可见，请立即交对接方保存</strong>
         <code className="token-code">{issued.client_id}</code>
         <code className="token-code">{issued.token}</code>
@@ -103,7 +103,7 @@ export function SamelabsDataClients() {
       </div>
     )}
 
-    <div className="form-fields" style={{ maxWidth: 560 }}>
+    <div className="form-fields admin-form-narrow">
       <Field label="名称">
         <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={120} />
       </Field>
@@ -111,7 +111,7 @@ export function SamelabsDataClients() {
         <Input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} maxLength={200} />
       </Field>
       <Field label="scope">
-        <div style={{ display: "flex", gap: 12 }}>
+        <div className="admin-scope-row">
           {SCOPE_OPTIONS.map((scope) => (
             <Checkbox key={scope} label={scope}
                       checked={form.scopes.includes(scope)}
@@ -131,7 +131,7 @@ export function SamelabsDataClients() {
     </div>
 
     {items.length > 0 && (
-      <table className="samelabs-table" style={{ marginTop: 24 }}>
+      <table className="samelabs-table">
         <thead>
           <tr>
             <th>client_id</th><th>名称</th><th>scope</th><th>额度(分/天)</th>

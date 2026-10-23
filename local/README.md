@@ -1,8 +1,7 @@
 # 本地开发环境（唯一入口）
 
-> 端口与目录收口：此前 dev 端口多次漂移且 compose 栈躺在
-> `.rc-acceptance` 草稿目录，本目录是收口后的唯一规范形态。**web dev 不进
-> docker**（HMR/文件监听走宿主机），docker 只放有状态服务（db/redis/api）。
+> 本目录是本地开发环境的唯一规范形态。**web dev 不进 docker**（HMR/文件
+> 监听走宿主机），docker 只放有状态服务（db/redis/api）。
 
 ## 目录
 
@@ -31,6 +30,21 @@ local/dev.sh          # http://localhost:3000
 手机真机：与电脑同网段访问 `http://<电脑IP>:3000`。`web/next.config.ts` 的
 `allowedDevOrigins` 会在 dev 启动时自动放行本机局域网地址（生产构建恒为空
 名单）；`/uploads/*` 由 dev-only rewrite 转 3010 静态服务（生产零配置）。
+dev 与 production build 在同一 checkout 上互斥（标记 + 端口守卫，见
+docs/TESTING.md）。
+
+## 检查入口
+
+```bash
+python3 local/check.py preflight                # 只读环境盘点
+python3 local/check.py web                      # 前端四件套(不 build)
+python3 local/check.py backend --tests tests.<模块> …   # 后端最小模块集
+python3 local/check.py worker                   # 干净 venv worker 检查
+python3 local/check.py release --dry-run        # 发布门禁计划
+```
+
+每 run 自动建专有测试库/临时目录并只清理本 run 资源; 手册见
+`docs/TESTING.md`(权威), 栈细节见 `stack/README.md`。
 
 ## 端口清单（历史漂移 3102/3103/3110/8009 全部废弃）
 
@@ -40,5 +54,3 @@ local/dev.sh          # http://localhost:3000
 | 3010 | /uploads 静态服务 | 127.0.0.1 |
 | 8000 | FastAPI（compose api） | 127.0.0.1 |
 | 55433 / 56380 | postgres / redis（compose） | 127.0.0.1 |
-
-栈的详细说明（镜像构成、测试库、容器内跑全套测试）见 `stack/README.md`。

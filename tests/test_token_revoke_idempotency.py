@@ -91,7 +91,6 @@ class TokenRevokeSemanticsTests(unittest.TestCase):
         from api.schemas.users import PasswordBody
         from sqlalchemy import text
 
-        uid = None
         async def go():
             engine = self._engine()
             try:
@@ -142,7 +141,6 @@ class TokenRevokeSemanticsTests(unittest.TestCase):
         from api.core.security import Actor
         from sqlalchemy import text
 
-        uid = None
         async def go():
             engine = self._engine()
             try:
@@ -186,7 +184,6 @@ class TokenRevokeSemanticsTests(unittest.TestCase):
         from api.users import list_tokens
         from sqlalchemy import text
 
-        uid = None
         async def go():
             engine = self._engine()
             try:
@@ -258,7 +255,6 @@ class SkillsRaceTests(unittest.TestCase):
 
         async def go():
             from api.services.skills import _create_skill_record
-            from api.services.skills import load_accessible_skill
             nonlocal uid
             try:
                 async with engine.begin() as db:

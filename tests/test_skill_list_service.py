@@ -196,7 +196,7 @@ class ServiceTests(unittest.IsolatedAsyncioTestCase):
 
 
 class HttpAdapterTests(unittest.IsolatedAsyncioTestCase):
-    async def test_public_anonymous_passes_owner_none(self):
+    async def test_public_scope_passes_owner_none(self):
         from api import skills as skills_api
         captured = {}
 
@@ -242,16 +242,14 @@ class HttpAdapterTests(unittest.IsolatedAsyncioTestCase):
                                          actor=actor, db=object())
         self.assertEqual(captured["owner_id"], 88)
 
-    async def test_mine_anonymous_401_exact(self):
-        from fastapi import HTTPException
+    def test_browsing_wall_is_current_session_dependency(self):
+        """技能浏览登录墙: 四个 GET 端点与 archive 一样
+        走 Depends(current_session) —— 401 映射在共享依赖里, handler 不再
+        自带 mine-only 分支(直调 actor=None 已不可达)。"""
         from api import skills as skills_api
-        with self.assertRaises(HTTPException) as ctx:
-            await skills_api.list_skills(scope="mine", q="", category="",
-                                         page=1, page_size=30,
-                                         actor=None, db=object())
-        self.assertEqual(ctx.exception.status_code, 401)
-        self.assertEqual(ctx.exception.detail, {
-            "message": "列出自己的技能需要登录", "kind": "login_required"})
+        for name in ("list_skill_categories", "list_skills", "get_skill", "get_skill_file"):
+            src = inspect.getsource(getattr(skills_api, name))
+            self.assertIn("Depends(current_session)", src, name)
 
     def test_http_validation_signature_unchanged(self):
         from api import skills as skills_api
@@ -312,9 +310,20 @@ class McpAdapterTests(unittest.IsolatedAsyncioTestCase):
             except ToolError as exc:
                 return exc
 
-    async def test_public_anonymous_works(self):
+    async def test_public_anonymous_returns_oauth_challenge(self):
+        """技能浏览是登录能力: scope=public 匿名同样收到 OAuth challenge
+        (HTTP GET /skills 同墙 401)。"""
+        r = await self._call(actor=None, scope="public")
+        self.assertTrue(r.is_error)
+        challenge = (r.meta or {}).get("mcp/www_authenticate") or []
+        self.assertTrue(challenge)
+        self.assertIn('scope="read"', challenge[0])
+        self.assertIn('error="invalid_token"', challenge[0])
+
+    async def test_public_actor_lists_public_pool(self):
         captured = {}
-        r = await self._call(actor=None, captured=captured, scope="public")
+        r = await self._call(actor=MagicMock(id=5, auth_kind="agent", scopes=()),
+                             captured=captured, scope="public")
         self.assertEqual(r, {"total": 0, "items": []})
         self.assertEqual(captured["scope"], "public")
         self.assertIsNone(captured["owner_id"])
@@ -339,13 +348,13 @@ class McpAdapterTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_invalid_scope_tool_error(self):
         from mcp.server.mcpserver.exceptions import ToolError
-        actor = MagicMock(); actor.id = 1
+        actor = MagicMock(); actor.id = 1; actor.auth_kind = "agent"; actor.scopes = ()
         r = await self._call(actor=actor, scope="wrong")
         self.assertIsInstance(r, ToolError)
         self.assertIn("scope", str(r))
 
     async def test_q_and_category_truncate(self):
-        actor = MagicMock(); actor.id = 1
+        actor = MagicMock(); actor.id = 1; actor.auth_kind = "agent"; actor.scopes = ()
         captured = {}
         await self._call(actor=actor, captured=captured,
                          q="x" * 300, category="y" * 100)
@@ -353,23 +362,26 @@ class McpAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(captured["category"]), 40)
 
     async def test_page_clamp(self):
+        actor = MagicMock(); actor.id = 1; actor.auth_kind = "agent"; actor.scopes = ()
         captured = {}
-        await self._call(captured=captured, page=0)
+        await self._call(actor=actor, captured=captured, page=0)
         self.assertEqual(captured["page"], 1)
-        await self._call(captured=captured, page=99999)
+        await self._call(actor=actor, captured=captured, page=99999)
         self.assertEqual(captured["page"], 500)
 
     async def test_page_size_clamp(self):
+        actor = MagicMock(); actor.id = 1; actor.auth_kind = "agent"; actor.scopes = ()
         captured = {}
-        await self._call(captured=captured, page_size=0)
+        await self._call(actor=actor, captured=captured, page_size=0)
         self.assertEqual(captured["page_size"], 1)
-        await self._call(captured=captured, page_size=9999)
+        await self._call(actor=actor, captured=captured, page_size=9999)
         self.assertEqual(captured["page_size"], 100)
 
     async def test_success_returns_service_dict_verbatim(self):
         svc = {"total": 2, "page": 1, "page_size": 30,
                "items": [{"id": 1}, {"id": 2}]}
-        r = await self._call(actor=None, result=svc, scope="public")
+        actor = MagicMock(); actor.id = 1; actor.auth_kind = "agent"; actor.scopes = ()
+        r = await self._call(actor=actor, result=svc, scope="public")
         self.assertEqual(r, svc)
 
     def test_mcp_no_http_handler_call_no_leakage(self):

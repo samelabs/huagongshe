@@ -4,7 +4,6 @@ import os
 import inspect
 import unittest
 
-from fastapi import HTTPException
 
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
@@ -64,7 +63,7 @@ class StructureSearchContractTests(unittest.TestCase):
         self.assertFalse(is_loopback_host("203.0.113.8"))
 
     def test_structure_modes_share_the_public_read_gate(self) -> None:
-        """结构模式登录墙(H1 保持): mode!=exact 需已鉴权 actor, exact 匿名照旧.
+        """结构模式登录墙: mode!=exact 需已鉴权 actor, exact 匿名照旧.
         墙由 c75424c 建立、73f2ab3 拆除、 重建(拆墙评估漏算并发面).
         H1 方案 D 重命名 dependency 为 public_or_actor, 本墙语义不变。
         """

@@ -1,0 +1,21 @@
+{
+  "unit": [
+    "lib/govSeverity.test.mjs",
+    "lib/profileMerge.test.mjs",
+    "lib/noteHeadline.test.mjs",
+    "lib/notesQuery.test.mjs",
+    "lib/adminPagination.test.mjs"
+  ],
+  "locale": [
+    "lib/localePath.test.mjs",
+    "lib/languageSwitcher.test.mjs",
+    "lib/proxy.test.mjs",
+    "lib/runtimeI18n.test.mjs",
+    "lib/alternates.test.mjs",
+    "lib/hcidTemplate.test.mjs",
+    "lib/localeCheck.test.mjs",
+    "lib/api.server.test.mjs",
+    "lib/chemicalName.test.mjs",
+    "lib/sitemap.test.mjs"
+  ]
+}

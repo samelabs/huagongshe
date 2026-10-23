@@ -1,11 +1,14 @@
 import type { NextConfig } from "next";
 import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { networkInterfaces } from "node:os";
 
 /**
  * 线上只读截图的 build 标记(纪律）：dev 环境把当前 commit 短哈希
  * 经 env 注入为 HGS_BUILD_SHA，app/layout.tsx 在 <html data-build> 输出，
- * shoot.mjs 断言「渲染的 UI = 当前 commit」。只在 NODE_ENV=development
+ * 截图工具（shoot.mjs，位于库外归档 huagongshe-archive/rc-acceptance-tools）
+ * 断言「渲染的 UI = 当前 commit」。只在 NODE_ENV=development
  * 注入；生产构建不带 build 指纹（避免按 sha 产生缓存分片）。
  */
 function devBuildSha(): string {
@@ -19,6 +22,21 @@ function devBuildSha(): string {
 }
 
 const buildSha = devBuildSha();
+
+/**
+ * 产品版本单源 = 仓库根 VERSION（与 /api/health 的 app.version、MCP
+ * serverInfo.version 同源）。构建时读入注入 NEXT_PUBLIC_APP_VERSION，
+ * 页脚展示随发布自动更新；文件缺失/为空直接 build 失败——web 侧不允许
+ * 出现第二个版本声明（package.json 不带 version 字段）。
+ */
+function appVersion(): string {
+  const versionFile = join(process.cwd(), "..", "VERSION");
+  const value = readFileSync(versionFile, "utf8").trim();
+  if (!value) {
+    throw new Error(`仓库根 VERSION 文件为空: ${versionFile}`);
+  }
+  return value;
+}
 
 /**
  * 开发服务器放行的本机来源：手机经局域网访问时，Next 默认拦截跨源的开发资源
@@ -47,8 +65,17 @@ const nextConfig: NextConfig = {
   // 让 RSC 响应按 _rsc 区分 URL，可以安全进入共享缓存
   experimental: {
     validateRSCRequestHeaders: true,
+    // proxy 管线对经其路由的请求缓冲请求体并设上限(默认 10MB, 超限静默
+    // 截断)。技能包上传走 /api/* → Next BFF → FastAPI, 需容纳应用
+    // settings.skill_zip_max_bytes(12MiB) + multipart 开销 —— 与 nginx
+    // 上传入口(client_max_body_size 14M)同值对齐; 超过此值的请求被
+    // 截断后由 BFF 按 413 拒绝(app/api/[...path]/route.ts)。
+    proxyClientMaxBodySize: "14mb",
   },
-  ...(buildSha ? { env: { HGS_BUILD_SHA: buildSha } } : {}),
+  env: {
+    NEXT_PUBLIC_APP_VERSION: appVersion(),
+    ...(buildSha ? { HGS_BUILD_SHA: buildSha } : {}),
+  },
   // 本地 dev 的 /uploads 静态服务（生产由 nginx 承担）：
   // 上传文件落 local/uploads（与 hgs_local_api 容器同 bind），由
   // local/stack/uploads_server.py 提供；仅 development 生效，生产零配置。

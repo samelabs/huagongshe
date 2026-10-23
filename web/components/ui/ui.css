@@ -96,7 +96,7 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   justify-content: center;
   gap: 6px;
   height: var(--bh);
-  padding: 0 var(--sp-4);
+  padding: 0 var(--sp-3);
   border-radius: var(--r-sm);
   border: 1px solid transparent;
   font: 500 var(--fs-14) / 1 var(--font-ui);
@@ -108,13 +108,15 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-btn svg { width: var(--icon-md); height: var(--icon-md); flex: none; }
 .hg-btn.sm svg { width: var(--icon-sm); height: var(--icon-sm); }
 .hg-btn.sm { --bh: var(--h-sm); padding: 0 12px; font-size: var(--fs-13); }
-.hg-btn.lg { --bh: var(--h-lg); padding: 0 var(--sp-6); font-size: var(--fs-16); }
+/* 内距随字号档（12/13→12, 16→16）——横距与字号匹配，不随高度放大 */
+.hg-btn.lg { --bh: var(--h-lg); padding: 0 var(--sp-4); font-size: var(--fs-16); }
 .hg-btn.primary { background: var(--action); color: var(--text-inverse); }
 .hg-btn.primary:hover, .hg-btn.primary.is-hover { background: var(--action-hover); }
 .hg-btn.primary.is-active { background: var(--action-pressed); }
-.hg-btn.secondary { background: var(--bg-surface); color: var(--text); border-color: var(--border-strong); }
-.hg-btn.secondary:hover, .hg-btn.secondary.is-hover { background: var(--bg-hover); }
-.hg-btn.secondary.is-active { background: var(--bg-pressed); }
+/* 次级按钮 = 安静的浅灰底、无边框（现代静默次级；描边白底是旧网页质感） */
+.hg-btn.secondary { background: var(--bg-subtle); color: var(--text-2); border-color: transparent; }
+.hg-btn.secondary:hover, .hg-btn.secondary.is-hover { background: var(--bg-pressed); color: var(--text); }
+.hg-btn.secondary.is-active { background: var(--border-strong); color: var(--text); }
 .hg-btn.tonal { background: var(--action-subtle); color: var(--action-ink); }
 .hg-btn.tonal:hover, .hg-btn.tonal.is-hover { background: var(--action-subtle-hover); }
 .hg-btn.tonal.is-active { background: var(--action-border); }
@@ -123,8 +125,9 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 .hg-btn.danger { background: var(--err); color: var(--text-inverse); }
 .hg-btn.danger:hover, .hg-btn.danger.is-hover { background: var(--err-hover); }
 .hg-btn.danger.is-active { background: var(--err-pressed); }
-.hg-btn.danger-quiet { background: var(--bg-surface); color: var(--err); border-color: var(--err-border); }
-.hg-btn.danger-quiet:hover, .hg-btn.danger-quiet.is-hover { background: var(--err-bg); }
+/* 危险静默 = 次级同构的浅红底（与 secondary 同族，只换色相） */
+.hg-btn.danger-quiet { background: var(--err-bg); color: var(--err); border-color: transparent; }
+.hg-btn.danger-quiet:hover, .hg-btn.danger-quiet.is-hover { background: var(--err-200); color: var(--err-hover); }
 .hg-btn:disabled { background: var(--bg-subtle); color: var(--text-disabled); border-color: transparent; cursor: not-allowed; transform: none; }
 .hg-btn.is-focus { outline: 2px solid var(--focus); outline-offset: 2px; }
 .hg-btn.icon { width: var(--bh); padding: 0; }
@@ -132,10 +135,10 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 /* loading 冻结交互反馈：hover/按压不改变颜色（颜色保持原 variant） */
 .hg-btn[aria-busy="true"]:hover, .hg-btn[aria-busy="true"]:active { transform: none; }
 .hg-btn.primary[aria-busy="true"]:hover { background: var(--action); }
-.hg-btn.secondary[aria-busy="true"]:hover { background: var(--bg-surface); }
+.hg-btn.secondary[aria-busy="true"]:hover { background: var(--bg-subtle); }
 .hg-btn.tonal[aria-busy="true"]:hover { background: var(--action-subtle); }
 .hg-btn.danger[aria-busy="true"]:hover { background: var(--err); }
-.hg-btn.danger-quiet[aria-busy="true"]:hover { background: var(--bg-surface); }
+.hg-btn.danger-quiet[aria-busy="true"]:hover { background: var(--err-bg); }
 .hg-btn.ghost[aria-busy="true"]:hover { background: transparent; color: var(--text-2); }
 .hg-spin {
   width: 14px; height: 14px; flex: none;
@@ -624,22 +627,22 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-inline: auto;
   min-width: 0;
 }
+.hg-page-frame--content {
+  max-width: var(--w-content);
+  margin-inline: auto;
+}
 .hg-page-frame--reading {
   max-width: var(--w-reading);
-  margin-left: max(20px, calc((100% - var(--w-wide)) / 2));
-  margin-right: auto;
+  margin-inline: auto;
 }
-/* 框架 E 单卡：卡片居中（DESIGN_SYSTEM 2.2 / 2.4）—— 与阅读档左对齐相反,
-   表单卡是页面唯一的居中窄栏 */
+/* 框架 E 单卡（DESIGN_SYSTEM 2.4） */
 .hg-page-frame--form {
   max-width: var(--w-form);
   margin-inline: auto;
 }
-/* 手机档与顶栏 .sh-inner 同一公式（calc(100% - 24px)，两侧 12px）——
-   左缘对齐检查在 375 下同样要求 H1 与 logo 像素差为 0 */
+/* 手机档与顶栏 .sh-inner 同一公式（calc(100% - 24px)，两侧 12px） */
 @media (max-width: 640px) {
   .hg-page-frame { width: calc(100% - 24px); }
-  .hg-page-frame--reading { margin-left: 12px; }
 }
 
 .hg-page-head {
@@ -684,6 +687,26 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
 /* 互动行分组：每组（标识/分享/打印、收藏或本人操作）是行内弹性整体，
    外层只在组与组之间换行，组内永不拆开 */
 .hg-head-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+
+/* 互动图标行: 徽标后的收藏/笔记/反应/分享/打印统一静默图标钮 ——
+   无描边、圆形、图标随文字色, 高度对齐徽标(按钮 sm 32 = 徽标 md)。
+   悬停浅底、收藏选中态浅蓝底; 描边胶囊与徽章并排时视觉过重,不再使用 */
+.hg-head-row .hg-btn {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-2);
+  font-weight: var(--fw-medium);
+}
+.hg-head-row .hg-btn svg { color: inherit; }
+.hg-head-row .hg-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.hg-head-row .hg-btn[aria-pressed="true"] {
+  background: var(--action-subtle);
+  border-color: transparent;
+  color: var(--action-ink);
+}
 /* 本人操作（编辑/删除）保持在行尾 */
 .hg-head-row:has(.owner-actions) { margin-inline-start: auto; }
 

@@ -272,7 +272,6 @@ class CbNegativeTests(unittest.TestCase):
     LEASE_TOKEN = "s4lease-tokens4lease-tokens4lease"
 
     def _mk_job(self, chemical_id: int, cas: str) -> int:
-        import uuid
         from api.services.workqueue import lease_hash
 
         digest = hashlib.sha256(cas.encode()).hexdigest()[:16]
@@ -346,7 +345,7 @@ class CbNegativeTests(unittest.TestCase):
         零新 job。"""
         from api.services.cb import cas_search_state
         cas = f"{RUN}-02-{RUN % 10}"
-        cid = self._mk_chemical(cas_numbers=[cas])
+        self._mk_chemical(cas_numbers=[cas])
 
         async def go():
             from sqlalchemy.ext.asyncio import AsyncSession
@@ -370,7 +369,7 @@ class CbNegativeTests(unittest.TestCase):
         """矩阵4: expired → 允许 requery (cas_search_state 照常入列)。"""
         from api.services.cb import cas_search_state, record_negative
         cas = f"{RUN}-03-{RUN % 10}"
-        cid = self._mk_chemical(cas_numbers=[cas])
+        self._mk_chemical(cas_numbers=[cas])
 
         async def go():
             from sqlalchemy import text
@@ -508,7 +507,6 @@ class CbNegativeTests(unittest.TestCase):
         (chemical_id=NULL) 明确 not_found → 同事务记 cas_locator
         negative + job DELETE。真链: 双行同 CAS → resolve AMBIGUOUS
         → enqueue_cas_search_fetch → NULL job → 真 complete。"""
-        import string
         from sqlalchemy.ext.asyncio import AsyncSession
         from api.services.cb import cas_search_state, enqueue_cas_search_fetch
         from api.services.identity import resolve_chemical

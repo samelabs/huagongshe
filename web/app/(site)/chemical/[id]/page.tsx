@@ -3,22 +3,22 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { ChemicalActions, ChemicalStructureLinks } from "@/components/ChemicalActions";
-import { ChemPageNav } from "@/components/ChemPageNav";
-import { DataRow } from "@/components/DataRow";
-import { DetailRefresher } from "@/components/DetailRefresher";
-import { GroupToggle } from "@/components/GroupToggle";
+import { ChemicalActions, ChemicalStructureLinks } from "@/components/chemical/ChemicalActions";
+import { ChemPageNav } from "@/components/shared/ChemPageNav";
+import { DataRow } from "@/components/ui/DataRow";
+import { DetailRefresher } from "@/components/chemical/DetailRefresher";
+import { GroupToggle } from "@/components/chemical/GroupToggle";
 import { EntityBadge } from "@/components/ui/EntityBadge";
-import { EntityNotes } from "@/components/EntityNotes";
+import { EntityNotes } from "@/components/shared/EntityNotes";
 import { Button } from "@/components/ui/Button";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { PageFrame } from "@/components/ui/PageFrame";
 import { PageHead } from "@/components/ui/PageHead";
 import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
-import { Molecule } from "@/components/Molecule";
-import { ReactionList } from "@/components/ReactionList";
-import { SynonymExplorer } from "@/components/SynonymExplorer";
+import { Molecule } from "@/components/chemical/Molecule";
+import { ReactionList } from "@/components/chemical/ReactionList";
+import { SynonymExplorer } from "@/components/chemical/SynonymExplorer";
 import { cbInFlight } from "@/components/chemicalStatus";
 import { isSummary, type EvidenceEntry } from "@/components/chemicalEvidence";
 import { apiGet } from "@/lib/api.server";
@@ -28,7 +28,7 @@ import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale, type Locale } from "@/lib/localePath";
 import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
-import { ShareButton } from "@/components/ShareButton";
+import { ShareButton } from "@/components/ui/ShareButton";
 import { IconPrinter } from "@/components/ui/icons";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 
@@ -62,10 +62,16 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     if (isApiGone(error)) notFound();
     return null; // 后端暂不可用：退化为通用标题，不让 metadata 500
   });
-  // 与页面 H1 同源: 同一 resolver、同一 locale, 不允许 SEO 自己再写一套 fallback
-  const { title: displayName } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel, locale);
-  const pageTitle = `${displayName} (${t.common.hcidShort(id)})`;
-  const description = t.chemical.descFor(displayName);
+  // 与页面 H1 同源: 同一 resolver、同一 locale, 不允许 SEO 自己再写一套 fallback。
+  // H1/标题用名称(本体); CAS 是标签级重要 —— html title 与分享 meta 里
+  // CAS 前置。无数据行(落到编号标签)不追加编号后缀。
+  const { title: displayName, source: nameSource } = resolveChemicalName({ ...(chemical ?? {}), id }, t.common.hcidLabel, locale);
+  const baseTitle = nameSource === "hcid" ? displayName : `${displayName} (${t.common.hcidShort(id)})`;
+  const casVal = (chemical?.cas_numbers?.[0] ?? "").toString().trim();
+  const pageTitle = casVal ? `CAS ${casVal} ${baseTitle}` : baseTitle;
+  const description = casVal
+    ? `CAS ${casVal} | ${t.chemical.descFor(displayName)}`
+    : t.chemical.descFor(displayName);
   // 有可渲染结构 → 1:1 结构图分享卡；没有 → 兜底横版品牌图
   const hasStructure = Boolean(chemical?.smiles || chemical?.pubchem_smiles);
   const shareMeta = buildShareMetadata({
@@ -222,7 +228,7 @@ export default async function ChemicalPage({ params }: {
     ...(hasSafetyReal ? [["safety", t.chemical.page.safety] as [string, string]] : []),
     ...(hasIndustry ? [["industry", t.chemical.page.industry] as [string, string]] : []),
     ["reactions", t.chemical.relatedReactions],
-    ["linked-notes", t.notes.linkedTitle],
+    ["linked-notes", t.notes.linkedTitleChemical],
   ];
 
   /* 结构图卡 = 内容首屏的分子画像（图 + 子结构/相似检索入口），随正文滚动 */
@@ -250,16 +256,10 @@ export default async function ChemicalPage({ params }: {
         subtitle={secondary || undefined}
         actions={
           <div className="hg-head-row">
-            {/* 身份与功能同一行：HCID/CAS 是锚，收藏/分享/打印紧随，不断行 */}
+            {/* 身份与功能同一行：HCID 是锚，互动胶囊紧随（CAS 在基本信息首行） */}
             <div className="chem-chips">
               {source !== "hcid" && (
-                <EntityBadge kind="chemical" id={chemical.id} size="sm" ariaLabel={t.common.hcidLabel(chemical.id)} />
-              )}
-              {chemical.cas_numbers[0] && source !== "cas" && (
-                <Tag className="chem-cas-chip">
-                  CAS {chemical.cas_numbers[0]}
-                  <CopyButton value={chemical.cas_numbers[0]} ariaLabel={`${t.common.copy} CAS`} />
-                </Tag>
+                <EntityBadge kind="chemical" id={chemical.id} size="md" ariaLabel={t.common.hcidLabel(chemical.id)} />
               )}
             </div>
             <ChemicalActions
@@ -291,6 +291,9 @@ export default async function ChemicalPage({ params }: {
               {hasBasics && (
               <Section id="basics" title={t.chemical.page.basics}>
                 <dl className="chem-dl">
+                  {chemical.cas_numbers[0] && (
+                    <DataRow label="CAS" value={chemical.cas_numbers[0]} mono copyable copyLabel={`${t.common.copy} CAS`} />
+                  )}
                   <DataRow label={t.chemical.identity.standardSmiles} value={chemical.smiles} mono copyable copyLabel={`${t.common.copy} SMILES`} />
                   <DataRow label="InChIKey" value={chemical.inchikey} mono copyable copyLabel={`${t.common.copy} InChIKey`} />
                   <DataRow label={t.chemical.identity.formula} value={chemical.molecular_formula} />

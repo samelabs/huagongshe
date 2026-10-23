@@ -12,8 +12,10 @@ import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
 import { IconNote, IconPencil, IconTrash } from "@/components/ui/icons";
 import { apiDelete, apiGet } from "@/lib/api";
+import { useAccount } from "@/components/shared/AccountContext";
 import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
+import { listParams, apiListQuery, savedNoteFitsView, savedNoteLandingParams } from "@/lib/notesQuery";
 import { NoteEditor } from "../NoteEditor";
 import { PanelError, PanelHeading, PanelLoading, Pagination, SlowNotice, VisibilityTag, WbListRow, noteListPresentation, relativeTime } from "../shared";
 import type { LoadState, NoteItem, NoteResponse, NoteVisibility, PanelProps } from "../types";
@@ -21,42 +23,12 @@ import { TextLink } from "@/components/ui/TextLink";
 
 const empty = (): NoteResponse => ({ items: [], total: 0, page: 1, page_size: 20 });
 
-/** Entity filter param serialization — single source of truth for both the
- * page URL params (chemical/reaction) and the API query params
- * (chemical_id/reaction_id). Chemical wins when both are present (P-8). */
-function filterParams(chemicalId?: number, reactionId?: number): URLSearchParams {
-  const params = new URLSearchParams();
-  if (chemicalId != null) params.set("chemical", String(chemicalId));
-  else if (reactionId != null) params.set("reaction", String(reactionId));
-  return params;
-}
-
-/** Full list-page URL params for a given view state. */
-function listParams(visibility: NoteVisibility, chemicalId?: number, reactionId?: number, page = 1): URLSearchParams {
-  const params = filterParams(chemicalId, reactionId);
-  if (visibility !== "all") params.set("visibility", visibility);
-  if (page > 1) params.set("page", String(page));
-  return params;
-}
-
-/** API query string: URL filter names map 1:1 to chemical_id/reaction_id. */
-function apiListQuery(visibility: NoteVisibility, chemicalId?: number, reactionId?: number, page = 1): string {
-  const params = new URLSearchParams();
-  params.set("visibility", visibility);
-  const filter = filterParams(chemicalId, reactionId);
-  if (filter.has("chemical")) params.set("chemical_id", filter.get("chemical")!);
-  else if (filter.has("reaction")) params.set("reaction_id", filter.get("reaction")!);
-  params.set("page", String(page));
-  params.set("page_size", "20");
-  return params.toString();
-}
-
 export function NotesPanel({
   page,
   visibility,
   initialData,
   createOpen = false,
-  editNoteId,
+  editNoteRef,
   initialChemicalId,
   initialReactionId,
   filterChemicalId,
@@ -65,13 +37,14 @@ export function NotesPanel({
   visibility: NoteVisibility;
   initialData?: NoteResponse | null;
   createOpen?: boolean;
-  /** : /aichem?tab=notes&edit=<id> 直接打开该笔记编辑器 */
-  editNoteId?: number;
+  /** : /aichem?tab=notes&edit=<slug> 直接打开该笔记编辑器 */
+  editNoteRef?: string;
   initialChemicalId?: number;
   initialReactionId?: number;
   filterChemicalId?: number;
   filterReactionId?: number;
 }) {
+  const { user } = useAccount();
   const t = useDictionary();
   const locale = useLocale();
   const router = useRouter();
@@ -134,18 +107,25 @@ export function NotesPanel({
     });
   }
 
-  // ?edit=<id> → 拉取该笔记并直接进入编辑器（一次挂载效果）
+  // ?edit=<slug> → 拉取该笔记并直接进入编辑器（一次挂载效果）
   useEffect(() => {
-    if (!editNoteId) return;
+    if (!editNoteRef || !user) return;
     let active = true;
     beginEditorSession();
-    apiGet<NoteItem>(`/notes/${editNoteId}`)
-      .then((note) => { if (active) setEditing(note); })
-      .catch(() => { /* 已删除/无权限时留在列表 */ });
+    apiGet<NoteItem>(`/notes/${editNoteRef}`)
+      .then((note) => {
+        if (!active) return;
+        if (note.username !== user.username) {
+          setActionError(t.notes.loadFailed);
+          return;
+        }
+        setEditing(note);
+      })
+      .catch(() => { if (active) setActionError(t.notes.loadFailed); });
     return () => { active = false; };
-  }, [editNoteId, beginEditorSession]);
+  }, [editNoteRef, beginEditorSession, t.notes.loadFailed, user]);
 
-  // One filter identity: chemical takes precedence over reaction (P-8).
+  // One filter identity: chemical takes precedence over reaction.
   const filterKey = filterChemicalId != null ? "chemical" : filterReactionId != null ? "reaction" : null;
   const filterId = filterChemicalId ?? filterReactionId;
 
@@ -235,14 +215,12 @@ export function NotesPanel({
    * 切换到另一编辑器（或已关闭）时，这里仅刷新列表，不动当前编辑器、
    * 不导航（迟到的 setEditing(null)/router.replace 会把新编辑器关掉）。 */
   async function handleSaved(saved: NoteItem, session: number) {
-    const visibleHere = visibility === "all" || visibility === saved.visibility;
-    const inFilter = filterKey === null
-      || (filterKey === "chemical" && saved.chemical_ids.includes(filterChemicalId!))
-      || (filterKey === "reaction" && saved.reaction_ids.includes(filterReactionId!));
+    const view = { visibility, page, chemicalId: filterChemicalId, reactionId: filterReactionId };
+    const fitsView = savedNoteFitsView(view, saved);
     if (session !== editorSessionRef.current) {
       // 过期会话的保存回执：当前列表若能直接反映该笔记就原地刷新，否则留待
       // 下次筛选/翻页自然刷新 —— 绝不动用户正在用的编辑器。
-      if (page === 1 && visibleHere && inFilter) await load();
+      if (fitsView) await load();
       return;
     }
     const created = creating && !editing;
@@ -250,24 +228,12 @@ export function NotesPanel({
     setEditing(null);
     if (created) setCreateContext({ chemicalIds: [], reactionIds: [] });
 
-    if (page === 1 && visibleHere && inFilter) {
+    if (fitsView) {
       await load();
       if (createOpen) router.replace(listHref(1));
       return;
     }
-    // F2: the landing list must actually contain the saved note. When the
-    // note no longer matches the current entity filter, DROP the filter
-    // instead of keeping it — keeping it would navigate to a list the note
-    // cannot appear in. Keep it only when the note still references the
-    // filtered entity (e.g. an edit that removed other references).
-    const params = new URLSearchParams({ tab: "notes" });
-    params.set("visibility", saved.visibility);
-    if (filterKey === "chemical" && saved.chemical_ids.includes(filterChemicalId!)) {
-      params.set("chemical", String(filterChemicalId));
-    } else if (filterKey === "reaction" && saved.reaction_ids.includes(filterReactionId!)) {
-      params.set("reaction", String(filterReactionId));
-    }
-    router.replace(withLocale(`/aichem?${params.toString()}`, locale));
+    router.replace(withLocale(`/aichem?${savedNoteLandingParams(view, saved).toString()}`, locale));
   }
 
   /** 删除前确认弹窗（问句标题 + 对象摘录 + 具体动作按钮）；成功/失败都
@@ -310,16 +276,18 @@ export function NotesPanel({
         action={<Button variant="primary" size="sm" onClick={openCreate}>{t.me.notesNew}</Button>}
       />
 
+      {/* 编辑器打开时本面板即编辑场景 —— 筛选与列表让位(不叠挂) */}
+      {!creating && !editing && (
       <Segmented
         ariaLabel={t.me.notesFilter}
         options={filterOptions}
         value={visibility}
         onChange={(value) => switchVisibility(value)}
-      />
+      />)}
 
-      {/* P-8: entity filter breadcrumb — chemical takes precedence when both
+      {/* Entity filter breadcrumb — chemical takes precedence when both
           params exist; clear returns to the unfiltered list. */}
-      {filterKey && (
+      {!creating && !editing && filterKey && (
         <div className="wb-filter-crumbs">
           <span className="wb-filter-crumb">
             {filterKey === "chemical" ? t.notes.filterChemical : t.notes.filterReaction}: <EntityId kind={filterKey} id={filterId!} compact />
@@ -344,20 +312,20 @@ export function NotesPanel({
         />
       )}
 
-      {state === "loading" && <><PanelLoading variant="list" rows={4} /><SlowNotice active onRetry={() => void load()} /></>}
-      {state === "error" && <PanelError error={error} />}
+      {!creating && !editing && state === "loading" && <><PanelLoading variant="list" rows={4} /><SlowNotice active onRetry={() => void load()} /></>}
+      {!creating && !editing && state === "error" && <PanelError error={error} />}
       {/* R6: delete failure keeps the list mounted with a recoverable state */}
-      {actionError && state !== "error" && (
+      {!creating && !editing && actionError && state !== "error" && (
         <p className="wb-panel-inline-error" role="alert">{actionError}</p>
       )}
-      {state === "ready" && (data.items.length ? (
+      {!creating && !editing && state === "ready" && (data.items.length ? (
         <div className="wb-row-list">
           {data.items.map((note) => {
             const pres = noteListPresentation(note);
             return (
             <WbListRow
               key={note.id}
-              href={`/note/${note.id}`}
+              href={`/note/${note.slug}`}
               icon={<IconNote />}
               title={pres.title ?? pres.body}
               titleMultiline={pres.title == null}
@@ -398,7 +366,7 @@ export function NotesPanel({
         </EmptyState>
       ))}
 
-      {state === "ready" && data.total > data.page_size && (
+      {!creating && !editing && state === "ready" && data.total > data.page_size && (
         <Pagination
           page={page}
           pageSize={data.page_size}

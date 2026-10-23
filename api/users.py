@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import secrets
+import struct
 import tempfile
 from datetime import datetime, timedelta, timezone
 
@@ -33,15 +34,25 @@ from .services import oauth as oauth_svc
 auth_router = APIRouter(prefix="/auth", tags=["users"])
 router = APIRouter(prefix="/users", tags=["users"])
 USERNAME_RE = re.compile(r"^[a-z0-9_]{4,30}$")
+# 头像解码白名单：与前端上传入口允许的类型一致(JPEG/PNG/WEBP)，
+# 白名单外格式按无法识别处理
+AVATAR_SOURCE_FORMATS = ("JPEG", "PNG", "WEBP")
 
 def avatar_variants(raw: bytes) -> dict[int, bytes]:
     """Decode, resize and compress outside the API event loop."""
+    # PNG/APNG may allocate the IHDR canvas during Image.open itself.
+    if raw.startswith(b"\x89PNG\r\n\x1a\n") and len(raw) >= 24 and raw[12:16] == b"IHDR":
+        width, height = struct.unpack(">II", raw[16:24])
+        if width * height > 20_000_000:
+            raise HTTPException(413, {"message": "头像像素尺寸过大", "kind": "avatar_pixels_too_large"})
     try:
-        source = Image.open(io.BytesIO(raw))
+        source = Image.open(io.BytesIO(raw), formats=AVATAR_SOURCE_FORMATS)
         if source.width * source.height > 20_000_000:
             raise HTTPException(413, {"message": "头像像素尺寸过大", "kind": "avatar_pixels_too_large"})
         source.seek(0)
         source = ImageOps.exif_transpose(source).convert("RGB")
+    except Image.DecompressionBombError as exc:
+        raise HTTPException(413, {"message": "头像像素尺寸过大", "kind": "avatar_pixels_too_large"}) from exc
     except (UnidentifiedImageError, OSError) as exc:
         raise HTTPException(400, {"message": "无法识别头像图片", "kind": "avatar_unrecognized"}) from exc
     result: dict[int, bytes] = {}
@@ -291,8 +302,8 @@ async def dashboard_summary(actor: Actor = Depends(current_actor), db=Depends(ge
     """), {"id": actor.id})).one()
     # 未读数与 /users/me/notifications 同一过滤条件(含 new_note),
     # 未读数恒等于列表里未读的条数。
-    from .social import unread_activity_count
-    unread = await unread_activity_count(db, actor.id)
+    from .services.notifications import unread_count
+    unread = await unread_count(db, actor.id)
     return {
         "username": row[0], "display_name": row[1], "bio": row[2], "avatar_url": row[3],
         "created_at": row[4], "active": bool(row[11]),
@@ -445,14 +456,20 @@ async def list_tokens(response: Response, actor: Actor = Depends(current_session
         SELECT id,name,token_prefix,token_plain AS token,scopes,created_at,expires_at,last_used_at
         FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL
+          AND (expires_at IS NULL OR expires_at>now())
         ORDER BY id DESC
-        LIMIT 5  -- 与创建上限(5 个有效 Key)一致的有界防御
+        LIMIT 5  -- 与创建上限(5 个有效 Key)一致的有界防御; 过滤口径同创建:
+                  -- 只列未撤销且未过期的 Key, 有效 Key 不被过期 Key 挤掉
     """), {"id": actor.id})).mappings().all()
     return [dict(row) for row in rows]
 
 
 @router.post("/me/tokens", status_code=201)
 async def create_token(body: TokenBody, actor: Actor = Depends(current_session), db=Depends(get_db)):
+    # 配额计数与 INSERT 同事务内按用户串行化(锁用户行): 并发创建时
+    # 后到者在锁上排队, 重读计数命中上限 → 一个 201、一个 409
+    await db.execute(text(
+        "SELECT id FROM community.users WHERE id=:id FOR UPDATE"), {"id": actor.id})
     active = int((await db.execute(text("""
         SELECT count(*) FROM community.user_api_tokens
         WHERE user_id=:id AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now())
@@ -520,6 +537,7 @@ async def revoke_oauth_connection(
 
 
 @router.get("/{username}")
+@router.get("/by-username/{username}")
 async def public_profile(username: str, actor: Actor | None = Depends(public_or_actor), db=Depends(get_db)):
     viewer_id = actor.id if actor else 0
     # 停用账号主页不再 404 ——

@@ -15,12 +15,14 @@ import asyncio
 import hashlib
 import io
 import logging
+import lzma
 import os
 import re
 import shutil
 import subprocess
 import uuid
 import zipfile
+import zlib
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -358,7 +360,7 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
 
     try:
         archive = zipfile.ZipFile(io.BytesIO(raw))
-    except zipfile.BadZipFile:
+    except (zipfile.BadZipFile, UnicodeDecodeError):
         raise SkillArchiveValidationError(
             SkillArchiveValidationError.INVALID_ARCHIVE, "不是有效的 zip 文件")
 
@@ -407,8 +409,12 @@ def extract_skill_zip(raw: bytes) -> dict[str, Any]:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.ARCHIVE_LIMIT,
                 f"解包后总量超过 {settings.skill_total_max_bytes // (1024 * 1024)}MB 上限")
-        with archive.open(info) as member:
-            raw_bytes = member.read(settings.skill_file_max_bytes + 1)
+        try:
+            with archive.open(info) as member:
+                raw_bytes = member.read(settings.skill_file_max_bytes + 1)
+        except (zipfile.BadZipFile, EOFError, RuntimeError, zlib.error, OSError, lzma.LZMAError) as exc:
+            raise SkillArchiveValidationError(
+                SkillArchiveValidationError.INVALID_ARCHIVE, "压缩包成员损坏或使用不支持的编码") from exc
         if len(raw_bytes) > settings.skill_file_max_bytes:
             raise SkillArchiveValidationError(
                 SkillArchiveValidationError.ARCHIVE_LIMIT,
@@ -825,29 +831,63 @@ async def delete_skill_lifecycle(db, skill_id: int) -> None:
 
 async def update_skill_metadata(
     db, skill_id: int, *, title: Any, description: Any, actor_id: int,
+    visibility: Any = None, category: Any = None,
 ) -> dict[str, Any]:
     """skill metadata update 唯一 owner(PATCH /skills/{id};)。
 
     adapter 保留 agent 403 / access 404 桥 / owner 403 授权判定; 本函数拥有
-    validation + DB mutation + commit + readback。update 只改 title/description,
-    无 filesystem 参与 —— 因此不存在 FS staging / FS 补偿面(不发明 staging)。
+    validation + DB mutation + commit + readback。update 改 title/description
+    与发布(visibility/category), 无 filesystem 参与 —— 因此不存在 FS staging /
+    FS 补偿面(不发明 staging)。
+
+    发布规则: owner 可自发布 —— visibility='public' 时
+    category 必须已设(本次或既有的合法 active 分类), 公开技能进前台
+    skills 栏目同一分类体系; origin 保持 'user'(社区技能, 平台策展的
+    official 升级仍走管理端)。published_at 仅首次公开时落(now), 公开态
+    本身是客观列、与时间解耦。
     """
-    if title is None and description is None:
+    if title is None and description is None and visibility is None and category is None:
         raise SkillUpdateValidationError()
     # P2c(审计): 空/纯空白 title 此前直落 UPDATE, 撞 CHECK
     # char_length(title)>=1 → IntegrityError 500; 与 None 同道 400。
     if title is not None and not str(title).strip():
         raise SkillUpdateValidationError("标题不能为空")
+    if visibility is not None and visibility not in ("public", "private"):
+        raise SkillUpdateValidationError("公开态只允许 public/private")
+
+    category_val = str(category).strip() if category is not None else None
+    if category_val:
+        known = (await db.execute(text("""
+            SELECT 1 FROM community.skill_categories WHERE name=:n AND active
+        """), {"n": category_val})).scalar()
+        if not known:
+            raise SkillUpdateValidationError("分类不在可选词表内")
+
+    if visibility == "public":
+        # 发布前提: 分类已设 —— 公开技能必须归入前台分类体系
+        effective = category_val or (await db.execute(text(
+            "SELECT category FROM community.skills WHERE id=:id"
+        ), {"id": skill_id})).scalar()
+        if not effective:
+            raise SkillUpdateValidationError("发布前需要选择分类")
+
     await db.execute(text("""
         UPDATE community.skills SET
           title=coalesce(:title,title),
           description=coalesce(:description,description),
+          category=coalesce(:category,category),
+          visibility=coalesce(:visibility,visibility),
+          published_at=CASE
+            WHEN :visibility='public' AND published_at IS NULL THEN now()
+            ELSE published_at END,
           updated_at=now()
         WHERE id=:id
     """), {
         "id": skill_id,
         "title": str(title)[:120] if title is not None else None,
         "description": str(description)[:500] if description is not None else None,
+        "category": category_val,
+        "visibility": visibility,
     })
     await db.commit()
     return await load_accessible_skill(db, skill_id, actor_id=actor_id)

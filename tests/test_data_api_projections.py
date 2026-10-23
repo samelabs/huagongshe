@@ -61,7 +61,6 @@ class ProjectionParityTests(unittest.TestCase):
         zh = project_chemical(_load("996", "zh-CN"), "zh-CN", site_origin=SITE)
         labels = [row["label"].strip().lower() for row in zh["properties"]]
         self.assertEqual(len(labels), len(set(labels)), "性质分区内字段不得重复")
-        joined = " ".join(row["values"][0] for row in zh["properties"] if row["values"])
         # 熔点值必须带单位(原始文本自带 "°C")
         melting = next((row for row in zh["properties"]
                         if row["label"] == "Melting point"), None)

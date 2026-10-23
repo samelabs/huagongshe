@@ -383,7 +383,7 @@ class A2MergePayloadTests(CounterexampleBase):
                          "survivor '{}' 未吸收对方非空 ghs_classification")
 
 
-# ── A3 F-NEW-02 / ─────────────────────────────────────────────────
+# ── 同 CID + IK 差异 ─────────────────────────────────────────────────
 
 class A3PubchemIkDivergenceTests(CounterexampleBase):
     def _payload(self, cid: int, ik: str) -> dict:
@@ -437,14 +437,14 @@ class A3PubchemIkDivergenceTests(CounterexampleBase):
     async def test_same_cid_ik_divergence_facts_land(self):
         """同一可信 CID + IK 差异 → 事实落库、行 IK 保留、回执 ok。
 
-        CID 是唯一身份锚(撤销裁决）：IK 差异记录溯源，不扣留整包。"""
+        CID 是唯一身份锚：IK 差异记录溯源，不扣留整包。"""
         chem = await self._chemical(cid=CID, ik=IK_OTHER, mol_smiles="CCO")
         jid, token = await self._lease(chem, str(CID))
         out = await self._complete(jid, token, self._payload(CID, IK_ETHANOL))
         self.assertEqual(out["status"], "ok")
         row = await self._row(chem)
         self.assertIsNotNone(row.get("iupac_name") or None,
-                             "同 CID + IK 差异: 整包事实被扣留(F-NEW-02)")
+                             "同 CID + IK 差异: 整包事实被扣留")
         self.assertEqual(row["iupac_name"], "ethanol-different-ik",
                          "core 字段未落库")
         self.assertEqual(row["inchikey"], IK_OTHER,
@@ -455,7 +455,7 @@ class A3PubchemIkDivergenceTests(CounterexampleBase):
                 SELECT count(*) FROM chemistry.chemical_pubchem
                 WHERE chemical_id=:c
             """), {"c": chem})).scalar()
-        self.assertEqual(int(n), 1, "详情子表被扣留(F-NEW-02)")
+        self.assertEqual(int(n), 1, "详情子表被扣留")
         self.assertEqual(await self._receipt_status(jid), "ok",
                          "事实已落库, 回执不应记 withheld")
 

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
+from unittest.mock import patch
 import unittest
 import uuid
 from urllib.parse import parse_qs, urlparse
@@ -106,6 +108,43 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
         self.reaction_ids.append(value)
         return value
 
+    async def test_concurrent_create_cannot_exceed_quota(self):
+        from api.core.config import settings
+        ready, release = asyncio.Event(), asyncio.Event()
+        original = svc._replace_references
+        async def hold_first(*args, **kwargs):
+            await original(*args, **kwargs)
+            if not ready.is_set():
+                ready.set()
+                await release.wait()
+        async def create():
+            async with self.Session() as db:
+                try:
+                    return await svc.create_note(db, actor_id=self.owner, visibility="private",
+                        content="quota concurrency", chemical_ids=[], reaction_ids=[])
+                except svc.NoteQuotaExceededError:
+                    return None
+        with patch.object(settings, "api_note_max_per_user", 1), patch.object(svc, "_replace_references", hold_first):
+            first = asyncio.create_task(create())
+            second = None
+            try:
+                await asyncio.wait_for(ready.wait(), 5)
+                second = asyncio.create_task(create())
+                async with self.engine.connect() as observer:
+                    async def wait_blocked():
+                        while not (await observer.execute(text("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'"))).scalar_one():
+                            if second.done():
+                                return
+                            await asyncio.sleep(0.01)
+                    await asyncio.wait_for(wait_blocked(), 5)
+            finally:
+                release.set()
+                results = await asyncio.wait_for(asyncio.gather(first, *([second] if second else [])), 5)
+        self.assertEqual(sum(item is not None for item in results), 1)
+        async with self.Session() as db:
+            count = (await db.execute(text("SELECT count(*) FROM community.notes WHERE owner_user_id=:id"), {"id": self.owner})).scalar_one()
+        self.assertEqual(count, 1)
+
     async def test_private_note_supports_mixed_context_and_owner_read(self):
         async with self.Session() as db:
             note = await svc.create_note(
@@ -120,12 +159,12 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(note["chemical_ids"], [self.chemical])
             self.assertEqual(note["reaction_ids"], [self.private_reaction])
 
-            owner_view = await svc.get_note(db, note_id=note["id"], actor_id=self.owner)
+            owner_view = await svc.get_note(db, note_ref=note["slug"], actor_id=self.owner)
             self.assertEqual(owner_view["content"], "route observation")
             with self.assertRaises(svc.NoteNotAccessibleError):
-                await svc.get_note(db, note_id=note["id"], actor_id=self.other)
+                await svc.get_note(db, note_ref=note["slug"], actor_id=self.other)
             with self.assertRaises(svc.NoteNotAccessibleError):
-                await svc.get_note(db, note_id=note["id"], actor_id=None)
+                await svc.get_note(db, note_ref=note["slug"], actor_id=None)
 
     async def test_foreign_private_reaction_is_fail_closed(self):
         async with self.Session() as db:
@@ -150,7 +189,7 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
                 chemical_ids=[self.chemical],
                 reaction_ids=[self.public_reaction],
             )
-            anonymous = await svc.get_note(db, note_id=public_note["id"], actor_id=None)
+            anonymous = await svc.get_note(db, note_ref=public_note["slug"], actor_id=None)
             self.assertEqual(anonymous["id"], public_note["id"])
 
             with self.assertRaises(svc.NoteReferenceError):
@@ -183,7 +222,7 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
                     chemical_ids=[],
                     reaction_ids=[self.private_reaction],
                 )
-            fresh = await svc.get_note(db, note_id=note["id"], actor_id=self.owner)
+            fresh = await svc.get_note(db, note_ref=note["slug"], actor_id=self.owner)
             self.assertEqual(fresh["visibility"], "private")
 
     async def test_entity_public_list_excludes_private_notes(self):
@@ -234,7 +273,7 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
                 chemical_ids=[self.chemical],
                 reaction_ids=[foreign_public],
             )
-            before = await svc.get_note(db, note_id=note["id"], actor_id=None)
+            before = await svc.get_note(db, note_ref=note["slug"], actor_id=None)
             self.assertEqual(before["reaction_ids"], [foreign_public])
 
             await db.execute(text("""
@@ -244,13 +283,13 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
             """), {"id": foreign_public})
             await db.commit()
 
-            anonymous = await svc.get_note(db, note_id=note["id"], actor_id=None)
+            anonymous = await svc.get_note(db, note_ref=note["slug"], actor_id=None)
             self.assertEqual(anonymous["reaction_ids"], [])
 
             # The Note owner does not own the reaction, so their Workbench view
             # must not reveal the now-private foreign HRID either.
             owner_view = await svc.get_note(
-                db, note_id=note["id"], actor_id=self.owner)
+                db, note_ref=note["slug"], actor_id=self.owner)
             self.assertEqual(owner_view["reaction_ids"], [])
 
     async def test_entity_public_total_matches_visible_active_author_rows(self):
@@ -293,7 +332,7 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
             )
             await db.commit()
             self.reaction_ids.remove(self.private_reaction)
-            loaded = await svc.get_note(db, note_id=note["id"], actor_id=self.owner)
+            loaded = await svc.get_note(db, note_ref=note["slug"], actor_id=self.owner)
             self.assertEqual(loaded["reaction_ids"], [])
             self.assertEqual(loaded["content"], "survives")
 
@@ -306,7 +345,7 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
                 await svc.delete_note(db, note_id=note["id"], actor_id=self.other)
             await svc.delete_note(db, note_id=note["id"], actor_id=self.owner)
             with self.assertRaises(svc.NoteNotAccessibleError):
-                await svc.get_note(db, note_id=note["id"], actor_id=self.owner)
+                await svc.get_note(db, note_ref=note["slug"], actor_id=self.owner)
 
     async def test_identity_merge_rekeys_and_deduplicates_note_chemical_refs(self):
         cid = 1_850_000_000 + int(uuid.uuid4().hex[:6], 16) % 100_000_000

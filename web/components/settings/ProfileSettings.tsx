@@ -36,7 +36,7 @@ export function ProfileSettings() {
   useEffect(() => {
     if (!user) return;
     let active = true;
-    apiGet<Record<string, string>>(`/users/${encodeURIComponent(user.username)}`).then((value) => {
+    apiGet<Record<string, string>>(`/users/by-username/${encodeURIComponent(user.username)}`).then((value) => {
       if (!active) return;
       setProfile((prev) => mergeLateProfile(prev, value, touchedRef.current));
     }).catch(() => {});

@@ -110,7 +110,7 @@ class IdentityResolutionTests(unittest.TestCase):
                         cas_numbers @> ARRAY[:c] OR inchikey IN (:ik,:ik2)
                         OR pubchem_cid IN (:a,:b)
                 """), {"c": CAS, "ik": IK, "ik2": IK2, "a": CID_A, "b": CID_B})
-                # cas_jobs 部分唯一索引 dedupe: 本测试前缀直清(卫生收口)
+                # cas_jobs 部分唯一索引 dedupe: 本测试前缀直清
                 await c.execute(text(
                     "DELETE FROM maintenance.cas_jobs"
                     " WHERE dedupe_key LIKE 'test-dedupe-%'"))

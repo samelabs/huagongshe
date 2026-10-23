@@ -126,7 +126,7 @@ export default function DataApiDocsPage() {
     <>
       {/* 文档主体走阅读档；字段/端点表列宽超阅读档，各自放 page 档页框
           （组件 tier 组合表达宽表突破，不写页面私有样式） */}
-      <PageFrame tier="reading" className="data-api-page">
+      <PageFrame tier="content" className="data-api-page">
         <PageHead
           title="Data service API"
           subtitle={<>Huagongshe issues credentials to authorized systems for on-demand compound
@@ -151,7 +151,7 @@ export default function DataApiDocsPage() {
         </Section>
       </PageFrame>
 
-      <PageFrame tier="reading" className="data-api-page">
+      <PageFrame tier="content" className="data-api-page">
         <Section title="Scopes">
           <p className="doc-prose">
             <code className="token-code">data:chemical:read</code> covers the four

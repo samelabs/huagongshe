@@ -1,23 +1,21 @@
 from __future__ import annotations
 
 import os
-import asyncio
 import inspect
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 from pydantic import ValidationError
 
 os.environ.setdefault("HGS_DATABASE_URL", "postgresql+asyncpg://test:test@127.0.0.1/test")
 
-from api import reactions, social, users
+from api import reactions, users
 from api.services import reactions as reactions_service
+from api.services import notifications as notifications_service
 from api.core.config import settings
 from api.services.reactions import (ReactionValidationError,
                                     canonical_participants)
 from api.schemas.reactions import ParticipantBody, ReactionBody
-from api.core.security import Actor
 
 
 def body(**overrides) -> ReactionBody:
@@ -59,6 +57,22 @@ class ReactionContractTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             ParticipantBody(role="REACTANT", smiles="CCO", yield_percent=50)
 
+    def test_non_finite_numbers_are_rejected(self) -> None:
+        """Infinity/NaN 一律 422: 无界字段(温度)与 ge=0 字段(投料)都
+        不能放过非有限值 —— 否则 inf>=0 为真, 会一路写进库。"""
+        with self.assertRaises(ValidationError):
+            body(temperature_value=float("inf"), temperature_unit="CELSIUS")
+        with self.assertRaises(ValidationError):
+            body(participants=[
+                {"role": "REACTANT", "smiles": "CCO"},
+                {"role": "PRODUCT", "smiles": "CC=O",
+                 "amount_value": float("inf"), "amount_unit": "g"},
+            ])
+        with self.assertRaises(ValidationError):
+            body(ph=float("nan"))
+        with self.assertRaises(ValidationError):
+            body(duration_value=float("inf"), duration_unit="HOUR")
+
     def test_duplicate_role_and_structure_is_rejected(self) -> None:
         value = body(participants=[
             {"role": "REACTANT", "smiles": "CCO"},
@@ -82,38 +96,38 @@ class ReactionContractTests(unittest.TestCase):
         self.assertEqual(expression, "CCO.CCO>>CC=O")
 
     def test_notification_keys_cast_numeric_parameters(self) -> None:
-        source = inspect.getsource(reactions_service)
+        source = inspect.getsource(notifications_service)
         self.assertIn('"reaction_id_text": str(reaction_id)', source)
 
     def test_activity_is_only_new_reactions_from_followed_users(self) -> None:
-        source = inspect.getsource(reactions_service.notify_new_reaction)
+        source = inspect.getsource(notifications_service.notify_new_reaction)
         self.assertIn("FROM community.user_follows", source)
         self.assertNotIn("chemical_follows", source)
         self.assertNotIn("reaction_updated", inspect.getsource(reactions_service.update_reaction))
 
     def test_activity_cannot_block_the_core_reaction_transaction(self) -> None:
-        source = inspect.getsource(reactions_service.notify_new_reaction_safely)
+        source = inspect.getsource(notifications_service.notify_new_reaction_safely)
         self.assertIn("statement_timeout='1000ms'", source)
         self.assertIn("await db.rollback()", source)
         create_source = inspect.getsource(reactions_service.create_reaction)
         self.assertLess(create_source.index("await db.commit()"), create_source.index("notify_new_reaction_safely"))
 
     def test_activity_feed_only_returns_current_visible_followed_reactions(self) -> None:
-        # feed 过滤条件提取为 social 模块级共享常量(notifications 端点
-        # 与 unread_activity_count 同一过滤), 静态断言随之看模块源; dashboard
-        # 未读数委托 unread_activity_count(不再自带 SQL)。
-        social_source = inspect.getsource(social)
-        self.assertIn("JOIN community.user_follows", social_source)
-        self.assertIn("n.created_at>=", social_source)
-        self.assertIn("r.visibility='public'", social_source)
-        self.assertIn("r.moderation_status='visible'", social_source)
+        # feed 过滤条件的 owner 已收编到 services/notifications(列表/未读数
+        # 同一 SQL 事实源); 静态断言看 owner 模块源, dashboard 未读数委托
+        # unread_count(social 端点只做 HTTP 映射)。
+        nsvc_source = inspect.getsource(notifications_service)
+        self.assertIn("JOIN community.user_follows", nsvc_source)
+        self.assertIn("n.created_at>=", nsvc_source)
+        self.assertIn("r.visibility='public'", nsvc_source)
+        self.assertIn("r.moderation_status='visible'", nsvc_source)
         # 笔记事件与反应事件同构过滤
-        self.assertIn("nt.visibility='public'", social_source)
-        self.assertIn("nt.moderation_status='visible'", social_source)
-        feed_source = inspect.getsource(social.notifications)
+        self.assertIn("nt.visibility='public'", nsvc_source)
+        self.assertIn("nt.moderation_status='visible'", nsvc_source)
+        feed_source = inspect.getsource(notifications_service.list_notifications)
         self.assertIn("ORDER BY n.created_at DESC,n.id DESC", feed_source)
         summary_source = inspect.getsource(users.dashboard_summary)
-        self.assertIn("unread_activity_count", summary_source)
+        self.assertIn("unread_count", summary_source)
 
     def test_activity_feed_has_a_bounded_order_index(self) -> None:
         migration = Path("migrations/history/20260722_optimize_activity_feed.sql").read_text()

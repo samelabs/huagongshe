@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { GlyphRx } from "@/components/ui/icons";
 import { apiGet, apiPost } from "@/lib/api";
@@ -12,9 +13,10 @@ import type { LoadState, NoticeResponse, PageResponse, PanelProps, Reaction } fr
 
 const empty = (): NoticeResponse => ({ items: [], total: 0, page: 1, page_size: 50 });
 
-/** 通知面板（?tab=activity）：通知的唯一表达位。
- * 进入面板后按现有逻辑标记已读，侧栏与底部 tab 的
- * 未读数同步清零（WorkbenchCounts.refresh → router.refresh → SSR 重取）。 */
+/** 通知面板（?tab=activity）：收件箱的表达位。
+ * 已读/未读是逐条状态：未读条目带标记，点开通知指向的内容即单条已读，
+ * 「全部已读」批量置位 —— 进入面板本身不改变已读状态（未读数由
+ * WorkbenchCounts.refresh → router.refresh → SSR 重取保持与列表同口径）。 */
 export function ActivityPanel({ page, initialData }: PanelProps & { initialData?: NoticeResponse | null }) {
   const t = useDictionary();
   const locale = useLocale();
@@ -35,7 +37,7 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
     return () => { active = false; };
   }, [page]);
 
-  /** 客户端重载（请求序号防串台）；SSR 命中时只补标记已读 */
+  /** 客户端重载（请求序号防串台）；SSR 命中时直接用预取数据 */
   async function load() {
     const requestId = ++latestLoad.current;
     setState("loading");
@@ -45,12 +47,6 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
       if (requestId !== latestLoad.current) return;
       setNotices(value);
       setState("ready");
-      if (page === 1 && value.items.some((item) => !item.read_at)) {
-        await apiPost("/users/me/notifications/read").catch(() => {});
-        if (requestId !== latestLoad.current) return;
-        setNotices((current) => ({ ...current, items: current.items.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })) }));
-        refreshCounts();
-      }
     } catch (err) {
       if (requestId !== latestLoad.current) return;
       setError(err);
@@ -58,16 +54,34 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
     }
   }
 
+  /** 单条已读：点开通知指向的内容即消费该通知（乐观置位；失败不回滚，
+   * 下次进入面板由列表口径自愈）。 */
+  function markRead(id: number) {
+    setNotices((current) => current ? {
+      ...current,
+      items: current.items.map((n) => n.id === id && !n.read_at ? { ...n, read_at: new Date().toISOString() } : n),
+    } : current);
+    apiPost(`/users/me/notifications/${id}/read`).then(() => refreshCounts()).catch(() => {});
+  }
+
+  /** 全量已读（后端按收件人全量置位，含动态流不可见的残留行） */
+  async function markAllRead() {
+    const stamp = new Date().toISOString();
+    setNotices((current) => current ? {
+      ...current,
+      items: current.items.map((n) => ({ ...n, read_at: n.read_at ?? stamp })),
+    } : current);
+    try {
+      await apiPost("/users/me/notifications/read");
+      refreshCounts();
+    } catch {
+      void load();
+    }
+  }
+
   useEffect(() => {
     if (!mounted.current && initialData) {
       mounted.current = true;
-      // SSR 预取了数据，但仍需标记已读
-      if (page === 1 && initialData.items.some((item) => !item.read_at)) {
-        apiPost("/users/me/notifications/read").then(() => {
-          setNotices((current) => ({ ...current, items: current.items.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })) }));
-          refreshCounts();
-        }).catch(() => {});
-      }
       return;
     }
     mounted.current = true;
@@ -77,13 +91,26 @@ export function ActivityPanel({ page, initialData }: PanelProps & { initialData?
 
   return (
     <section className="wb-panel">
-      <PanelHeading title={t.me.tabNotifications} count={state === "ready" ? notices.total : undefined} />
+      <PanelHeading
+        title={t.me.tabNotifications}
+        count={state === "ready" ? notices.total : undefined}
+        action={state === "ready" && notices.items.some((n) => !n.read_at) ? (
+          <Button variant="ghost" size="sm" onClick={() => void markAllRead()}>{t.me.markAllRead}</Button>
+        ) : undefined}
+      />
       {state === "loading" && <><PanelLoading variant="list" /><SlowNotice active onRetry={() => void load()} /></>}
       {state === "error" && <PanelError error={error} />}
       {state === "ready" && (notices.items.length
         ? <div className="wb-feed-list">
             {notices.items.map((item) => (
-              <ActivityFeedCard key={item.id} item={item} favored={item.reaction_id != null ? favoredIds.has(item.reaction_id) : false} t={t} locale={locale} />
+              <ActivityFeedCard
+                key={item.id}
+                item={item}
+                favored={item.reaction_id != null ? favoredIds.has(item.reaction_id) : false}
+                t={t}
+                locale={locale}
+                onOpen={() => markRead(item.id)}
+              />
             ))}
           </div>
         : <EmptyState icon={<GlyphRx />} title={t.me.notificationsEmptyTitle} action={{ label: t.me.discoverCta, href: withLocale("/aichem?tab=people", locale) }}>{t.me.notificationsEmptyDesc}</EmptyState>)}

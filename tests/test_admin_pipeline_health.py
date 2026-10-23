@@ -25,7 +25,6 @@ LAYOUT = WEB / "app/(site)/samelabs/layout.tsx"
 PANEL = WEB / "components/samelabs/PipelinePanel.tsx"
 
 from api.services.pipeline_health import (  # noqa: E402
-    RECENT_SUCCESS_S,
     WORKER_OFFLINE_S,
     WORKER_STALE_S,
     WorkerRuntime,

@@ -197,7 +197,7 @@ async def complete_pubchem_job(
                     "facts withheld, zero merge (fail-closed)",
                     job[0], chemical_id, expected_cid, inc_cid, inc_ik)
             else:
-                # F-NEW-01: 解析器可能不产出 core.CID（whole_record 现状）。
+                # 解析器可能不产出 core.CID（whole_record 只解析整包记录）。
                 # 已验证的 query binding（job.query_value = worker 实际被派发
                 # 请求的 CID）本身就是可信 CID evidence —— core 缺 CID 时以
                 # expected_cid 进，主表 pubchem_cid 才能回写。行上已有
@@ -367,9 +367,9 @@ async def lease_cas_jobs(
                 WHERE id = ANY(CAST(:ids AS bigint[]))
                   AND request_context ? 'source_cb'
             """), {"ids": [r[0] for r in rows]})).fetchall()
-            # fix: 键域分离 — context 按 jobId, 主表按 chemicalId。
-            # 旧版两域混写同一 cb_map, lookup 恒用 chemicalId → source_cb 永远
-            # 取不到, 全部错误回落主表(跨 cb 串抓事故根因)
+            # 键域分离 — context 按 jobId, 主表按 chemicalId。两域若混写同一
+            # 映射, 按 chemicalId 查不到 source_cb, 会错误回落主表 cb_number,
+            # 同一化合物的不同 CB 编号被串抓。
             cb_by_job = {r[0]: r[1] for r in ctx_rows}
             fb_rows = (await db.execute(text("""
                 SELECT id, cb_number FROM chemistry.chemicals

@@ -16,7 +16,7 @@ import types
 import unittest
 import uuid
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -145,7 +145,6 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
 
     async def _call(self, endpoint, path, query="", headers=None, db=None):
         import inspect
-        from urllib.parse import parse_qs
 
         request = FakeRequest(path, query, headers)
         kwargs: dict = {}
@@ -187,6 +186,36 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         return headers
 
     # ── 签名与凭证 ──────────────────────────────────────────────────
+
+    async def test_out_of_range_ids_are_422_over_signed_http(self):
+        import httpx
+        from api.main import app
+        from api.core.database import get_db
+        cid = await self._make_client(scopes=[CHEMICAL_READ_SCOPE, REACTION_READ_SCOPE])
+        async def session():
+            async with self.Session() as db:
+                yield db
+        previous = app.dependency_overrides.get(get_db)
+        app.dependency_overrides[get_db] = session
+        try:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                for path, query in [
+                    ("/data/v1/chemicals/2147483648", ""),
+                    ("/data/v1/chemicals/lookup", "hcid=2147483648"),
+                    ("/data/v1/chemicals", "ids=1,2147483648"),
+                    ("/data/v1/chemicals/2147483648/reactions", ""),
+                    ("/data/v1/reactions/9223372036854775808", ""),
+                    ("/data/v1/reactions", "ids=1,9223372036854775808"),
+                ]:
+                    headers = self._auth_headers(cid, TOKEN, path, query)
+                    response = await client.get(path + ("?" + query if query else ""), headers=headers)
+                    self.assertEqual(response.status_code, 422, response.text)
+                    self.assertEqual(response.json()["error"]["code"], "invalid_parameter")
+        finally:
+            if previous is None:
+                app.dependency_overrides.pop(get_db, None)
+            else:
+                app.dependency_overrides[get_db] = previous
 
     async def test_valid_signed_request_succeeds(self):
         client_id = await self._make_client(scopes=[CHEMICAL_READ_SCOPE])
@@ -397,10 +426,11 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         from api.services.chemicals import ChemicalNotFoundError
 
         calls = {"n": 0}
+        clock = {"now": 0.0}
 
         async def slow_detail(db, hcid, **_kw):
             calls["n"] += 1
-            await asyncio.sleep(0.05)
+            clock["now"] += 0.05
             if hcid == self.hcid:
                 return {"id": hcid}
             raise ChemicalNotFoundError()
@@ -411,7 +441,8 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
         # 预算压到 0.06s：第 1 项耗时 0.05 通过，其后到点全部让位
         with _patch.object(dai, "get_chemical_detail", slow_detail), \
              _patch.object(dai, "project_chemical", fake_project), \
-             _patch.object(dai, "CHEMICAL_BATCH_BUDGET_SECONDS", 0.06):
+             _patch.object(dai, "CHEMICAL_BATCH_BUDGET_SECONDS", 0.06), \
+             _patch.object(dai, "time", types.SimpleNamespace(monotonic=lambda: clock["now"])):
             response = await self._call(
                 data_api.chemicals_batch, "/data/v1/chemicals", query,
                 self._auth_headers(client_id, TOKEN, "/data/v1/chemicals", query))
@@ -440,6 +471,59 @@ class DataApiEndpointTests(unittest.IsolatedAsyncioTestCase):
             self._auth_headers(client_id, TOKEN, path))
         self.assertEqual(self._status(response), 404)
         self.assertEqual(self._json(response)["error"]["code"], "not_found")
+
+    async def test_name_lookup_exact_and_contains(self):
+        """名称检索带凭据: 精确命中走 preferred_name 等值(match=name),
+        模糊命中走 name_index 包含(match=name_contains)。"""
+        from urllib.parse import urlencode
+        exact_name = f"二茂铁衍生物{self.run}"
+        alias_norm = f"ferrocene-alias-{self.run}"
+        async with self.Session() as db:
+            prior = (await db.execute(text(
+                "SELECT preferred_name FROM chemistry.chemicals WHERE id=:id"),
+                {"id": self.hcid})).scalar()
+            await db.execute(text(
+                "UPDATE chemistry.chemicals SET preferred_name=:pn WHERE id=:id"),
+                {"pn": exact_name, "id": self.hcid})
+            await db.execute(text("""
+                INSERT INTO chemistry.name_index (chemical_id,name,lang,normalized,source,kind)
+                VALUES (:id,:nm,'en',:nm,'cb','alias_en')
+            """), {"id": self.hcid, "nm": alias_norm})
+            await db.commit()
+        try:
+            client_id = await self._make_client(scopes=[CHEMICAL_READ_SCOPE])
+            path = "/data/v1/chemicals/lookup"
+            q = urlencode({"name": exact_name, "locale": "zh-CN"})
+            response = await self._call(
+                data_api.chemicals_lookup, path, q,
+                self._auth_headers(client_id, TOKEN, path, q))
+            self.assertEqual(self._status(response), 200)
+            payload = self._json(response)
+            self.assertTrue(payload["candidates"])
+            top = payload["candidates"][0]
+            self.assertEqual(top["hcid"], self.hcid)
+            self.assertEqual(top["match"], "name")
+
+            # 查询词是别称的真子串: 精确等值不命中, 走 name_index 包含
+            fragment = self.run
+            q2 = urlencode({"name": fragment, "locale": "zh-CN"})
+            response2 = await self._call(
+                data_api.chemicals_lookup, path, q2,
+                self._auth_headers(client_id, TOKEN, path, q2))
+            self.assertEqual(self._status(response2), 200)
+            payload2 = self._json(response2)
+            self.assertTrue(payload2["candidates"])
+            self.assertEqual(payload2["candidates"][0]["match"], "name_contains")
+            self.assertIn(self.hcid, [c["hcid"] for c in payload2["candidates"]])
+        finally:
+            async with self.Session() as db:
+                await db.execute(text(
+                    "DELETE FROM chemistry.name_index WHERE chemical_id=:id AND normalized=:nm"),
+                    {"id": self.hcid, "nm": alias_norm})
+                await db.execute(text(
+                    "UPDATE chemistry.chemicals SET preferred_name=:pn WHERE id=:id"),
+                    {"pn": prior, "id": self.hcid})
+                await db.commit()
 
     async def test_dual_role_reaction_counted_once(self):
         """同一反应中同一化合物双角色（反应物+产物）：只计一次、不占页位。"""

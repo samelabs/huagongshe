@@ -25,7 +25,7 @@ export function AvatarSettings() {
   return <section className="form-section">
     <div className="form-section-head"><div><p>{t.settings.avatar.desc}</p></div></div>
     <div className="avatar-settings-preview">
-      <Avatar id={user.id} name={user.display_name || user.username} src={user.avatar_url} size={80} />
+      <Avatar id={user.username} name={user.display_name || user.username} src={user.avatar_url} size={80} />
       <div><strong>{t.settings.avatar.current}</strong><small>{t.settings.avatar.hint}</small></div>
     </div>
     <form method="post" className="avatar-upload" onSubmit={async (event) => {

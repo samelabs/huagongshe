@@ -1,8 +1,7 @@
-import { SearchHero } from "@/components/SearchHero";
+import { SearchHero } from "@/components/shared/SearchHero";
 import { CodeField } from "@/components/ui/CodeField";
 import { Button } from "@/components/ui/Button";
 import { PageFrame } from "@/components/ui/PageFrame";
-import { Section } from "@/components/ui/Section";
 import { Tag } from "@/components/ui/Tag";
 import type { Metadata } from "next";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
@@ -51,23 +50,22 @@ export default async function Home() {
         <SearchHero />
       </section>
 
-      {/* ── AI 接入入口: 第一屏直接给出地址与主入口 MCP / Skills / 工作台 /
-          Agent Plugin（tests/test_release_governance.py）。Agent Plugin
-          直接下载随代码部署的插件包（web/public/downloads，见
-          scripts/build_plugin_package.py）。 ── */}
-      <Section title={t.home.entryLabel} className="home-entry-section">
+      {/* ── AI 接入入口: 第一屏直接给出地址与主入口 MCP / Skills /
+          Agent Plugin。地址胶囊即语义，独立小标签撤除（section 的
+          aria-label 保留无障碍命名）。Agent Plugin 直接下载随代码部署的
+          插件包（web/public/downloads，见 scripts/build_plugin_package.py）。 ── */}
+      <section className="home-entry-section" aria-label={t.home.entryLabel}>
         <div className="home-entry">
           <CodeField value="https://huagongshe.com/mcp" copyLabel={t.home.entryMcpCopy} className="home-entry-code" />
           <nav className="guide-actions home-entry-actions">
             <Button variant="primary" href={withLocale("/mcp-guide", locale)}>{t.home.entryMcp}</Button>
             <Button variant="secondary" href={withLocale("/skills", locale)}>{t.home.entrySkills}</Button>
-            <Button variant="secondary" href={withLocale("/aichem", locale)}>{t.home.entryWorkbench}</Button>
             <Button variant="secondary" href={PLUGIN_PACKAGE_URL} download>
               {t.home.entryPlugin}
             </Button>
           </nav>
         </div>
-      </Section>
+      </section>
     </PageFrame>
   );
 }

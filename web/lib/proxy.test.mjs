@@ -193,7 +193,6 @@ test("匿名访问公开页面: public 300s 边缘缓存", async () => {
     "/en/reaction/1",
     "/zh-CN/note/2001",
     "/en/user/demo",
-    "/zh-CN/skills",
     "/en/guide",
     "/ja/mcp-guide",
     "/en/privacy",
@@ -209,8 +208,8 @@ test("匿名访问公开页面: public 300s 边缘缓存", async () => {
   }
 });
 
-test("非个人化公开页(/zh-CN, /zh-CN/skills): 带 hgs_session 依然 public, 无 set-cookie, x-site-edge-cache=public", async () => {
-  for (const p of ["/zh-CN", "/zh-CN/skills"]) {
+test("非个人化公开页(/zh-CN): 带 hgs_session 依然 public; /skills 登录化后恒 private", async () => {
+  for (const p of ["/zh-CN"]) {
     const r = await proxy(nextReq(p, { cookie: "hgs_session=fake_session_token" }));
     assert.equal(
       r.headers.get("cache-control"),
@@ -276,7 +275,6 @@ test("可缓存的匿名公开响应一定没有 Set-Cookie", async () => {
     "/en/reaction/1",
     "/zh-CN/note/2001",
     "/en/user/demo",
-    "/zh-CN/skills",
     "/en/guide",
     "/ja/mcp-guide",
     "/en/privacy",
@@ -312,13 +310,12 @@ test("不可缓存响应(带登录会话、非公开页)以及 307 跳转正常�
   assert.match(r5.headers.getSetCookie().join("; "), /site_locale=en/);
 });
 
-test("/zh-CN/skills RSC 请求形态矩阵", async () => {
-  // 1. 用同一个导入函数，根据测试请求头算出正确哈希 → public
+test("/zh-CN/skills 登录化: 任何请求形态恒 private(无公开缓存)", async () => {
+  // 1. 用同一个导入函数，根据测试请求头算出正确哈希 —— 即便哈希匹配也 private
   const rscHash = await computeCacheBustingSearchParam(undefined, undefined, undefined, undefined);
   const r1 = await proxy(nextReq(`/zh-CN/skills?_rsc=${rscHash}`, { headers: { rsc: "1" } }));
-  assert.equal(r1.headers.get("cache-control"), "public, max-age=0, s-maxage=300, stale-while-revalidate=86400");
-  assert.equal(r1.headers.get("x-middleware-request-x-site-edge-cache"), "public");
-  assert.equal(r1.headers.getSetCookie().length, 0);
+  assert.equal(r1.headers.get("cache-control"), "private, no-store");
+  assert.equal(r1.headers.get("x-middleware-request-x-site-edge-cache"), "private");
 
   // 2. 带 rsc:1 且 _rsc=zzz (哈希不匹配) → private
   const r2 = await proxy(nextReq("/zh-CN/skills?_rsc=zzz", { headers: { rsc: "1" } }));
@@ -335,12 +332,11 @@ test("/zh-CN/skills RSC 请求形态矩阵", async () => {
   assert.equal(r4.headers.get("cache-control"), "private, no-store");
   assert.equal(r4.headers.get("x-middleware-request-x-site-edge-cache"), "private");
 
-  // 5. next-router-prefetch:1 加正确哈希 → public
+  // 5. next-router-prefetch:1 加正确哈希 —— /skills 登录化后仍 private
   const prefetchHash = await computeCacheBustingSearchParam("1", undefined, undefined, undefined);
   const r5 = await proxy(nextReq(`/zh-CN/skills?_rsc=${prefetchHash}`, { headers: { "next-router-prefetch": "1" } }));
-  assert.equal(r5.headers.get("cache-control"), "public, max-age=0, s-maxage=300, stale-while-revalidate=86400");
-  assert.equal(r5.headers.get("x-middleware-request-x-site-edge-cache"), "public");
-  assert.equal(r5.headers.getSetCookie().length, 0);
+  assert.equal(r5.headers.get("cache-control"), "private, no-store");
+  assert.equal(r5.headers.get("x-middleware-request-x-site-edge-cache"), "private");
 });
 
 test("/zh-CN/login 任何情况都是 private", async () => {

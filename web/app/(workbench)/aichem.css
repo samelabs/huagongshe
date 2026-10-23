@@ -203,6 +203,9 @@
   flex-direction: column;
   gap: var(--wb-sp-2);
 }
+/* 骨架行高对齐真实列表行（行式内容 ≈ 图标 36 + 上下 padding 8×2）：
+   骨架→真实替换时面板总高不再大幅跳变 */
+.wb-skeleton-list .hg-sk.row { height: 52px; border-radius: var(--wb-r-sm); }
 
 /* ── 状态文字 ── */
 .wb-state {
@@ -367,7 +370,7 @@
 .wb-row-icon svg { width: var(--icon-sm); height: var(--icon-sm); }
 .wb-row-icon.reaction { color: var(--wb-reaction-ink); background: var(--wb-reaction-bg); }
 .wb-row-icon img { width: 100%; height: 100%; object-fit: contain; }
-/* 缩略图（方程式/结构式）：高 48（6.7 我的反应行） */
+/* 缩略图（方程式/结构式）：高 48, 无框直出 —— 卡片框挤压结构图可读性 */
 .wb-row-thumb {
   flex: none;
   display: flex;
@@ -376,9 +379,6 @@
   height: 48px;
   min-width: 72px;
   max-width: 160px;
-  border: 1px solid var(--wb-line);
-  border-radius: var(--wb-r-sm);
-  background: var(--wb-paper);
   overflow: hidden;
   padding: 0 4px;
 }
@@ -511,7 +511,10 @@
 
 /* 通知卡片 */
 .wb-feed-list { display: flex; flex-direction: column; gap: var(--wb-sp-4); }
-.wb-feed-item { display: flex; gap: var(--wb-sp-2); }
+.wb-feed-item { position: relative; display: flex; gap: var(--wb-sp-2); }
+/* 未读标记：逐条 read_at 的视觉表达（收件箱语义，不随打开面板清零） */
+.wb-feed-dot { position: absolute; top: var(--wb-sp-2); right: 0; width: var(--wb-sp-2); height: var(--wb-sp-2); border-radius: 50%; background: var(--action); }
+.wb-feed-item.is-unread .wb-feed-note-title strong { font-weight: var(--fw-semibold); }
 .wb-feed-body { flex: 1; min-width: 0; display: grid; gap: 4px; justify-items: start; }
 .wb-feed-line {
   margin: 0;
@@ -536,15 +539,17 @@
   word-break: break-word;
 }
 .wb-feed-eq {
-  display: block;
-  width: 100%;
+  display: inline-block;
+  max-width: 100%;
   height: 64px;
   border: 1px solid var(--wb-line);
   border-radius: var(--wb-r-sm);
   background: var(--wb-paper);
   overflow: hidden;
 }
-.wb-feed-eq img { display: block; width: 100%; height: 64px; object-fit: contain; }
+/* 方程式图按自身比例缩放(高 64 定尺), 边框贴合内容不满宽;
+   宽度约束只放在外框(max-width:100%), img 不加 max-width 避免 inline-block 宽度收缩循环依赖 */
+.wb-feed-eq img { display: block; width: auto; height: 64px; object-fit: contain; }
 .wb-feed-actions { display: flex; gap: var(--wb-sp-2); }
 
 /* 通知笔记卡片 */
@@ -555,6 +560,7 @@
   font-size: var(--wb-fs-sm);
   color: var(--wb-quiet);
 }
+.wb-feed-author-name span { color: var(--wb-quiet); font-weight: var(--wb-w-regular); }
 .wb-feed-author-name {
   color: var(--wb-ink);
   font-weight: var(--wb-w-semibold);
@@ -626,14 +632,12 @@
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--wb-sp-2);
 }
+/* 化合物结果行无卡片框: 结构图直出, 外框挤压结构图可读性 */
 .wb-search-chemical {
   display: flex;
   align-items: center;
   gap: var(--wb-sp-3);
-  padding: var(--wb-sp-3) var(--wb-sp-4);
-  border: 1px solid var(--wb-line);
-  border-radius: var(--wb-r-md);
-  background: var(--wb-paper);
+  padding: var(--wb-sp-2) 0;
 }
 .wb-search-chemical img {
   flex-shrink: 0;
@@ -1407,10 +1411,6 @@
 /* ── hover 交互: 只在真指针设备生效(触屏跳过, 避免首点粘滞) ── */
 @media (hover: hover) and (pointer: fine) {
 .wb-search-submit:hover { background: var(--wb-blue-deep); }
-.wb-search-chemical:hover {
-  border-color: var(--wb-blue-border);
-  background: var(--wb-blue-tint);
-}
 .wb-search-reaction:hover {
   border-color: var(--wb-blue-border);
   background: var(--wb-blue-tint);

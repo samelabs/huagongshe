@@ -83,6 +83,8 @@ export type Notice = {
   reaction_id: number | null;
   chemical_id: number | null;
   note_id?: number | null;
+  /** 笔记公共 slug(动态 feed 链接用); 无笔记事件为 null */
+  note_slug?: string | null;
   note_excerpt?: string | null;
   actor_username: string;
   actor_display_name: string | null;

@@ -7,6 +7,7 @@ import { WbQuickActions } from "./WbQuickActions";
 import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { IconMenu } from "@/components/ui/icons";
 import { useLogout } from "@/components/shared/useLogout";
 import type { Counts } from "./types";
 import type { User } from "@/lib/api";
@@ -64,11 +65,7 @@ export function WbMobileNav({ counts, user }: {
         className="wb-burger"
         onClick={() => setOpen(true)}
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-          <line x1="4" y1="7" x2="20" y2="7" />
-          <line x1="4" y1="12" x2="20" y2="12" />
-          <line x1="4" y1="17" x2="20" y2="17" />
-        </svg>
+        <IconMenu width={22} height={22} />
       </Button>
 
       {/* overlay — 常驻 DOM，opacity + pointer-events 切换 */}
@@ -88,7 +85,7 @@ export function WbMobileNav({ counts, user }: {
       >
         <div className="wb-drawer-head">
           <div className="wb-drawer-user">
-            <Avatar id={user.id} name={user.display_name} src={user.avatar_url} size={32} />
+            <Avatar id={user.username} name={user.display_name} src={user.avatar_url} size={32} />
             <div className="wb-drawer-user-meta">
               <strong>{user.display_name}</strong>
               <span>@{user.username}</span>

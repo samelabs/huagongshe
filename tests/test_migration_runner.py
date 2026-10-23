@@ -152,7 +152,6 @@ class MigrationRunnerTests(unittest.TestCase):
         → 至少一个 runner 非零退出; 锁有效时 B 等 A commit 后重读
         tracking → skip, 双方 0 退出。
         """
-        import time
         self._write(
             "20260911_01_concurrent_once.sql",
             "CREATE TABLE chemistry.runner_concurrent_once (id int PRIMARY KEY, "

@@ -62,12 +62,14 @@ class PrivateReactionExposureTests(unittest.IsolatedAsyncioTestCase):
                 """), {"rx": rx, "chem": self.chemical})
             # 本人公开笔记挂自己的私有反应(公开笔记挂私有反应的唯一合法路径:
             # 挂时公开, 之后反应转私有)
-            self.note = int((await conn.execute(text("""
+            _n = (await conn.execute(text("""
                 INSERT INTO community.notes(
-                    owner_user_id,visibility,moderation_status,content)
-                VALUES (:owner,'public','visible',:content) RETURNING id
-            """), {"owner": self.owner, "content": f"expo note {self.tag}"}
-            )).scalar_one())
+                    owner_user_id,visibility,moderation_status,content,slug)
+                VALUES (:owner,'public','visible',:content,:slug) RETURNING id, slug
+            """), {"owner": self.owner, "slug": self.tag[:7],
+                   "content": f"expo note {self.tag}"}
+            )).first()
+            self.note, self.note_slug = int(_n[0]), str(_n[1])
             await conn.execute(text("""
                 INSERT INTO community.note_reactions(note_id,reaction_id)
                 VALUES (:note,:rx)
@@ -245,9 +247,9 @@ class PrivateReactionExposureTests(unittest.IsolatedAsyncioTestCase):
     async def test_public_note_hides_private_reaction_badge(self):
         from api.services.notes import get_note
         async with self.Session() as db:
-            anon_note = await get_note(db, note_id=self.note, actor_id=None)
-            other_note = await get_note(db, note_id=self.note, actor_id=self.other)
-            owner_note = await get_note(db, note_id=self.note, actor_id=self.owner)
+            anon_note = await get_note(db, note_ref=self.note_slug, actor_id=None)
+            other_note = await get_note(db, note_ref=self.note_slug, actor_id=self.other)
+            owner_note = await get_note(db, note_ref=self.note_slug, actor_id=self.owner)
         self.assertNotIn(self.private_rx, anon_note["reaction_ids"],
                          "匿名读公开笔记不得看到私有反应 HRID")
         self.assertNotIn(self.private_rx, other_note["reaction_ids"])

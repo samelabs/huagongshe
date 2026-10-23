@@ -1,5 +1,5 @@
-"""Phase 1c tests: P-5 sanitization, P-1 access matrix, P-2 public profile API,
-P-6/P-8 private+entity filter isolation.
+"""Notes tests: content sanitization, access matrix, public profile API,
+private + entity filter isolation.
 
 Service/schema-level integration tests run against the gated TEST database
 when available; the rest are pure-unit and always run.
@@ -103,6 +103,7 @@ class NoteAccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
         self.tag = uuid.uuid4().hex[:10]
         self.user_ids: list[int] = []
         self.note_ids: list[int] = []
+        self.note_slugs: dict[int, str] = {}
         self.reaction_ids: list[int] = []
         async with self.Session() as db:
             self.owner = await self._user(db, "p1o")
@@ -140,12 +141,14 @@ class NoteAccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
         return uid
 
     async def _note(self, db, owner, visibility, moderation="visible") -> int:
+        slug = uuid.uuid4().hex[:7]
         nid = int((await db.execute(text("""
-            INSERT INTO community.notes(owner_user_id,visibility,moderation_status,content)
-            VALUES (:o,:v,:m,'matrix note') RETURNING id
-        """), {"o": owner, "v": visibility, "m": moderation})).scalar_one())
+            INSERT INTO community.notes(owner_user_id,visibility,moderation_status,content,slug)
+            VALUES (:o,:v,:m,'matrix note',:s) RETURNING id
+        """), {"o": owner, "v": visibility, "m": moderation, "s": slug})).scalar_one())
         await db.flush()
         self.note_ids.append(nid)
+        self.note_slugs[nid] = slug
         return nid
 
     async def _reaction(self, db, visibility="private") -> int:
@@ -167,23 +170,23 @@ class NoteAccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
             await db.commit()
 
             # anonymous public 200
-            self.assertEqual((await svc.get_note(db, note_id=pub, actor_id=None))["id"], pub)
+            self.assertEqual((await svc.get_note(db, note_ref=self.note_slugs[pub], actor_id=None))["id"], pub)
             # anonymous private 404
             with self.assertRaises(svc.NoteNotAccessibleError):
-                await svc.get_note(db, note_id=priv, actor_id=None)
+                await svc.get_note(db, note_ref=self.note_slugs[priv], actor_id=None)
             # owner private 200
-            self.assertEqual((await svc.get_note(db, note_id=priv, actor_id=self.owner))["id"], priv)
+            self.assertEqual((await svc.get_note(db, note_ref=self.note_slugs[priv], actor_id=self.owner))["id"], priv)
             # non-owner private 404
             with self.assertRaises(svc.NoteNotAccessibleError):
-                await svc.get_note(db, note_id=priv, actor_id=self.other)
+                await svc.get_note(db, note_ref=self.note_slugs[priv], actor_id=self.other)
             # hidden 404 even for owner (both visibilities)
             for nid in (hidden_pub, hidden_priv):
                 with self.assertRaises(svc.NoteNotAccessibleError):
-                    await svc.get_note(db, note_id=nid, actor_id=self.owner)
+                    await svc.get_note(db, note_ref=self.note_slugs[nid], actor_id=self.owner)
             # 停用作者的公开
             # 笔记保留可见(此前 404) —— 停用态只影响作者主页/关注, 不撤内容;
             # active=False 供前端渲染「已停用」标记。
-            inactive_row = await svc.get_note(db, note_id=inactive_pub, actor_id=None)
+            inactive_row = await svc.get_note(db, note_ref=self.note_slugs[inactive_pub], actor_id=None)
             self.assertEqual(inactive_row["id"], inactive_pub)
             self.assertIs(inactive_row["active"], False)
             # 停用作者无法登录(会话已撤), private 笔记实际不可达 ——
@@ -208,7 +211,7 @@ class NoteAccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
     async def test_p2_public_notes_do_not_leak_private_hrid(self):
         async with self.Session() as db:
             rid = await self._reaction(db, visibility="public")
-            note = await svc.create_note(
+            await svc.create_note(
                 db, actor_id=self.owner, visibility="public",
                 content="will lose its reference", chemical_ids=[], reaction_ids=[rid])
             await db.execute(text(
@@ -234,7 +237,7 @@ class NoteAccessMatrixDbTests(unittest.IsolatedAsyncioTestCase):
                 "SELECT content FROM community.notes WHERE id=:i"), {"i": note["id"]})).scalar_one()
             self.assertEqual(row, "line1\nline2line3tail\ttab")
             # API-shaped read returns exactly the stored content
-            reread = await svc.get_note(db, note_id=note["id"], actor_id=self.owner)
+            reread = await svc.get_note(db, note_ref=note["slug"], actor_id=self.owner)
             self.assertEqual(reread["content"], row)
 
     async def test_p6_private_filter_returns_only_own_private_for_entity(self):

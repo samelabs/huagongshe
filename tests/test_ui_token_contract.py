@@ -110,7 +110,7 @@ def font_size_findings() -> list[tuple[str, int, str]]:
     # inherit, the 16px input iOS-zoom guard, and a responsive clamp whose
     # BOTH ends are var(--fs-*) tokens (middle term free, e.g. 3.5vw)
     single = r"var\(--(wb-)?fs[a-z0-9-]*(?:, ?var\(--(wb-)?fs[a-z0-9-]*\))?\)"
-    clamp = rf"clamp\(var\(--fs-[a-z0-9-]+\), [^,]+, var\(--fs-[a-z0-9-]+\)\)"
+    clamp = r"clamp\(var\(--fs-[a-z0-9-]+\), [^,]+, var\(--fs-[a-z0-9-]+\)\)"
     allowed = re.compile(rf"^(?:{single}|{clamp}|inherit|16px)$")
     findings: list[tuple[str, int, str]] = []
     for p in scan_files():
@@ -303,9 +303,9 @@ NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
      "已选实体 chip：ui 无可关闭 Chip 原语"),
     ("components/workbench/panels/StoichPanel.tsx", "wb-stoich",
      "投料计算器紧凑网格（6.7）：单元格级密度需求，hg-input 标准控件尺寸会破坏表格布局；含 radio（ui 无 Radio 原语）"),
-    ("components/PrintButton.tsx", 'className="pr-btn"',
+    ("components/ui/PrintButton.tsx", 'className="pr-btn"',
      "打印报告工具栏按钮：打印页自有报告版式（pr-btn），不进 hg-btn 体系"),
-    ("components/SearchHero.tsx", "inputRef",
+    ("components/shared/SearchHero.tsx", "inputRef",
      "首页大搜索框内层 input：srch-box-wrap 提供边框/焦点体系，内层必须裸置"),
 ]
 

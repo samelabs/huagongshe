@@ -144,9 +144,9 @@ class ReadinessAndSmokeTests(unittest.TestCase):
         self.assertFalse(self._run_deploy(r))
 
     def test_worker_restarts_only_after_fronting_apps_ready(self):
-        """ 21:32 事故回归锁: worker 重启必须发生在 API/Web health
-        就绪之后 —— worker 启动 preflight 鉴权(/workapi/v1/jobs/lease)依赖
-        API, 提前重启只会 exit 1 crash-loop(当时连续 5 次)。"""
+        """worker 重启必须发生在 API/Web health 就绪之后 —— worker 启动
+        preflight 鉴权(/workapi/v1/jobs/lease)依赖 API, 提前重启只会
+        exit 1 crash-loop。"""
         r = _ok_world()
         timeline: list[str] = []
 
@@ -188,7 +188,7 @@ class ReadinessAndSmokeTests(unittest.TestCase):
             if c[:2] in (["pm2", "start"], ["pm2", "restart"]) and "--only" in c:
                 targets.append(c[c.index("--only") + 1])
         self.assertNotIn("huagongshe-pubchem-worker", targets,
-                         "API 未就绪就重启 worker = 复发 2026-10-14 事故")
+                         "API 未就绪就重启 worker 会 crash-loop")
 
     def test_success_path_starts_three_apps_and_saves(self):
         r = _ok_world()

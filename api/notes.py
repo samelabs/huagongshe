@@ -49,6 +49,7 @@ async def create_note(
             actor_id=actor.id,
             visibility=body.visibility,
             content=body.content,
+            title=body.title,
             chemical_ids=body.chemical_ids,
             reaction_ids=body.reaction_ids,
         )
@@ -68,21 +69,20 @@ async def create_note(
             409, {"message": str(exc), "kind": exc.kind}) from exc
 
 
-@router.get("/notes/{note_id}")
+@router.get("/notes/{ref}")
 async def get_note(
-    note_id: int = Path(..., ge=1, le=2_147_483_647),
+    ref: str = Path(..., pattern=r"^[a-z0-9]{7}$"),
     actor: Actor | None = Depends(public_or_actor),
     db=Depends(get_db),
 ):
     try:
-        # Public notes are anonymous-readable. Private owner context is Web-only
-        # (machine actors must not silently gain a
-        # private Notes read surface before Notes has an explicit Agent contract.
+        # 公开笔记匿名可读; 私有仅属主会话(Web)。公共取用走 7 位 slug
+        # (管理操作另走数字 id 端点)。机器会话不读私有。
         owner_session_id = (
             actor.id if actor is not None and actor.auth_kind == "session" else None
         )
         return await get_note_service(
-            db, note_id=note_id, actor_id=owner_session_id)
+            db, note_ref=ref, actor_id=owner_session_id)
     except NoteNotAccessibleError as exc:
         raise _note_not_found(exc) from exc
 
@@ -101,6 +101,7 @@ async def update_note(
             actor_id=actor.id,
             visibility=body.visibility,
             content=body.content,
+            title=body.title,
             chemical_ids=body.chemical_ids,
             reaction_ids=body.reaction_ids,
         )
@@ -132,8 +133,9 @@ async def delete_note(
 @router.get("/users/me/notes")
 async def my_notes(
     visibility: Literal["all", "public", "private"] = Query("all"),
-    chemical_id: int | None = Query(default=None, ge=1),
-    reaction_id: int | None = Query(default=None, ge=1),
+    # 筛选参数上界按被引用列类型: chemicals.id int4 / reactions.id int8
+    chemical_id: int | None = Query(default=None, ge=1, le=2_147_483_647),
+    reaction_id: int | None = Query(default=None, ge=1, le=9_223_372_036_854_775_807),
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(20, ge=1, le=50),
     actor: Actor = Depends(current_session),
@@ -196,7 +198,7 @@ async def chemical_notes(
 
 @router.get("/reactions/{reaction_id}/notes")
 async def reaction_notes(
-    reaction_id: int = Path(..., ge=1, le=2_147_483_647),
+    reaction_id: int = Path(..., ge=1, le=9_223_372_036_854_775_807),  # reactions.id int8
     page: int = Query(1, ge=1, le=500),
     page_size: int = Query(20, ge=1, le=50),
     db=Depends(get_db),

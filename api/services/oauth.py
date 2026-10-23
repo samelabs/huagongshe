@@ -320,6 +320,7 @@ async def begin_authorization(
 async def complete_authorization(
     db, *, user_id: int, request_id: str, approve: bool
 ) -> str:
+    await _lock_user(db, user_id)
     row = (await db.execute(text("""
         SELECT id,client_id,redirect_uri,scopes,state,resource,code_challenge
         FROM community.oauth_authorization_requests
@@ -363,6 +364,27 @@ async def complete_authorization(
     return _redirect_with(row["redirect_uri"], code=code, state=row["state"])
 
 
+async def _lock_user(db, user_id: int) -> None:
+    """Serialize grants with disconnect, password changes and account disable."""
+    active = (await db.execute(text("""
+        SELECT id FROM community.users
+        WHERE id=:id AND status='active' FOR UPDATE
+    """), {"id": user_id})).scalar()
+    if active is None:
+        raise OAuthProtocolError("invalid_grant", "User is no longer active.")
+
+
+async def _lock_credential_owner(db, table: str, column: str, value: str, client_id: str) -> None:
+    owner = (await db.execute(text(f"""
+        SELECT user_id FROM community.{table}
+        WHERE {column}=:digest AND client_id=:client_id
+    """), {"digest": _digest(value), "client_id": client_id})).scalar()
+    if owner is None:
+        raise OAuthProtocolError("invalid_grant", "Credential is invalid or expired.")
+    # Revalidate the credential under this lock in the caller's next statement.
+    await _lock_user(db, int(owner))
+
+
 async def _issue_token_pair(
     db,
     *,
@@ -372,6 +394,7 @@ async def _issue_token_pair(
     resource: str,
     issue_refresh: bool,
 ) -> dict[str, Any]:
+    await _lock_user(db, user_id)
     access = _plain("hgo_at_", 32)
     access_expiry = datetime.now(timezone.utc) + timedelta(seconds=ACCESS_TOKEN_SECONDS)
     await db.execute(text("""
@@ -429,6 +452,8 @@ async def exchange_authorization_code(
         raise OAuthProtocolError(
             "unauthorized_client", "Client is not registered for authorization_code."
         )
+    await _lock_credential_owner(
+        db, "oauth_authorization_codes", "code_hash", code, client_id)
     row = (await db.execute(text("""
         SELECT c.id,c.user_id,c.client_id,c.redirect_uri,c.scopes,c.resource,c.code_challenge
         FROM community.oauth_authorization_codes c
@@ -480,6 +505,8 @@ async def refresh_access_token(
         raise OAuthProtocolError(
             "unauthorized_client", "Client is not registered for refresh_token."
         )
+    await _lock_credential_owner(
+        db, "oauth_refresh_tokens", "token_hash", refresh_token, client_id)
     row = (await db.execute(text("""
         SELECT t.id,t.user_id,t.client_id,t.scopes,t.resource
         FROM community.oauth_refresh_tokens t
@@ -575,6 +602,15 @@ async def revoke_connection(db, *, user_id: int, client_id: str) -> None:
     and unknown client_ids still succeed so the response cannot leak whether
     another user ever authorized the client.
     """
+    await _lock_user(db, user_id)
+    await db.execute(text("""
+        UPDATE community.oauth_authorization_codes SET used_at=now()
+        WHERE user_id=:user_id AND client_id=:client_id AND used_at IS NULL
+    """), {"user_id": user_id, "client_id": client_id})
+    await db.execute(text("""
+        DELETE FROM community.oauth_authorization_requests
+        WHERE user_id=:user_id AND client_id=:client_id
+    """), {"user_id": user_id, "client_id": client_id})
     await db.execute(text("""
         UPDATE community.oauth_access_tokens
         SET revoked_at=now()

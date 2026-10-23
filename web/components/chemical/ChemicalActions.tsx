@@ -20,7 +20,7 @@ import { useDictionary, useLocale } from "@/components/shared/I18nContext";
 import { withLocale } from "@/lib/localePath";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
-import { IconStar, IconSearch } from "@/components/ui/icons";
+import { IconStar, IconSearch, IconPlus } from "@/components/ui/icons";
 
 export function ChemicalActions({ chemicalId, initialFollowing, initialCount }: {
   chemicalId: number;
@@ -66,10 +66,13 @@ export function ChemicalActions({ chemicalId, initialFollowing, initialCount }: 
     }
   }
 
+  // 新建入口常显(未登录由 /aichem 与 /submit 的服务端登录门带回跳):
+  // 笔记落工作台编辑并预填本化合物; 反应落提交页。
   return (
     <div className="chem-actions">
       <Button
-        variant="tonal"
+        variant="ghost"
+        size="sm"
         aria-pressed={following}
         loading={busy}
         onClick={() => void setFavor(!following)}
@@ -77,7 +80,14 @@ export function ChemicalActions({ chemicalId, initialFollowing, initialCount }: 
       >
         <IconStar />
         <span>{following ? t.follow.favoring : t.follow.favor}</span>
-        <strong className="chem-favor-count">{count.toLocaleString(locale)}</strong>
+      </Button>
+      <Button variant="ghost" size="sm" href={withLocale(`/aichem?tab=notes&chemical=${chemicalId}&new=1`, locale)}>
+        <IconPlus />
+        {t.user.tabNotes}
+      </Button>
+      <Button variant="ghost" size="sm" href={withLocale("/submit", locale)}>
+        <IconPlus />
+        {t.user.tabReactions}
       </Button>
     </div>
   );
