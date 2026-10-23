@@ -627,12 +627,11 @@ a.hg-eb:hover .v { background: var(--bg-hover); }
   margin-inline: auto;
   min-width: 0;
 }
-/* 对齐按场景取值：宽档容器与外壳左缘对齐；窄阅读列与单卡居中 */
 .hg-page-frame--reading {
   max-width: var(--w-reading);
   margin-inline: auto;
 }
-/* 框架 E 单卡：卡片居中（DESIGN_SYSTEM 2.2 / 2.4） */
+/* 框架 E 单卡（DESIGN_SYSTEM 2.4） */
 .hg-page-frame--form {
   max-width: var(--w-form);
   margin-inline: auto;
