@@ -71,6 +71,8 @@ const ja: Dictionary = {
     loadingAccount: 'アカウントを取得中…',
     errRetry: '読み込みに失敗しました。もう一度お試しください。',
     loginRequired: '先にログインしてください',
+    chooseFile: 'ファイルを選択',
+    noFileChosen: 'ファイル未選択',
     loginOrRegister: 'ログイン / 登録',
     loginHint: 'ログインして反応記録と保存アイテムを管理しましょう。',
     delete: '削除',

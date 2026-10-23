@@ -5,7 +5,7 @@ import { PageFrame } from "@/components/ui/PageFrame";
 import { Tag } from "@/components/ui/Tag";
 import type { Metadata } from "next";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
-import { localeAlternates, ogLocaleTag } from "@/lib/alternates";
+import { localeCanonical, ogLocaleTag } from "@/lib/alternates";
 import { withLocale } from "@/lib/localePath";
 
 /** 随代码部署的 Agent Plugin 下载包（scripts/build_plugin_package.py 产物） */
@@ -33,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { absolute: t.brand.seoTitle },
     description: t.brand.seoDesc,
-    alternates: localeAlternates("/", locale),
+    alternates: localeCanonical("/", locale),
     ...shareMeta,
   };
 }

@@ -74,6 +74,8 @@ const de: Dictionary = {
     loadingAccount: 'Konto wird geladen…',
     errRetry: 'Laden fehlgeschlagen. Bitte erneut versuchen.',
     loginRequired: 'Bitte zuerst anmelden',
+    chooseFile: 'Datei auswählen',
+    noFileChosen: 'Keine Datei ausgewählt',
     loginOrRegister: 'Anmelden / Registrieren',
     loginHint: 'Melde dich an, um Reaktionsaufzeichnungen und gespeicherte Einträge zu verwalten.',
     delete: 'Löschen',

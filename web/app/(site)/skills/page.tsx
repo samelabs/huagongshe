@@ -5,7 +5,7 @@ import { apiGet } from "@/lib/api.server";
 import type { User } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
-import { localeAlternates } from "@/lib/alternates";
+import { localeCanonical } from "@/lib/alternates";
 import { SkillsClient, type Skill, type Category } from "./SkillsClient";
 import { buildShareMetadata } from "@/lib/shareMeta";
 
@@ -42,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t.skills.openLibrary,
     description: t.skills.metaDesc(count),
-    alternates: localeAlternates("/skills", locale),
+    alternates: localeCanonical("/skills", locale),
     // 技能浏览是登录能力: 私有面不进索引
     robots: { index: false, follow: false },
     ...shareMeta,

@@ -312,9 +312,9 @@ class StoichNoteLinkTests(unittest.TestCase):
 
 
 class NoteDetailPageTests(unittest.TestCase):
-    def test_metadata_has_canonical_and_alternates(self):
+    def test_metadata_has_self_canonical(self):
         src = read("app/(site)/note/[id]/page.tsx")
-        self.assertIn("localeAlternates", src)
+        self.assertIn("localeCanonical(canonical, locale)", src)
 
     def test_privacy_404_via_service(self):
         page_src = read("app/(site)/note/[id]/page.tsx")

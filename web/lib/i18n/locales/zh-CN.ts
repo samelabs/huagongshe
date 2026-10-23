@@ -77,6 +77,8 @@ const t = {
     loadingAccount: '正在读取账号…',
     errRetry: '加载失败，请重试',
     loginRequired: '请先登录',
+    chooseFile: '选择文件',
+    noFileChosen: '未选择文件',
     loginOrRegister: '登录或注册',
     loginHint: '登录后管理你的反应记录和收藏。',
     delete: '删除',

@@ -1,15 +1,18 @@
 /**
  * alternates · canonical / hreflang / OG locale / 绝对 URL 构建小 helper
  *
- * 单一职责: 给定无前缀公开路径 → 按 Next Metadata API 的 alternates 形态
- * 返回当前语言 canonical + 五语言 hreflang + x-default; 以及全站唯一的
- * ogLocaleTag 映射与 SITE_ORIGIN 绝对 URL。
+ * 单一职责: 按 Next Metadata API 的 alternates 形态给出 canonical / hreflang;
+ * 以及全站唯一的 ogLocaleTag 映射与 SITE_ORIGIN 绝对 URL。
+ *
+ * 多语言边界(业务架构): 只有化合物存在按语言渲染的内容(本地化名称与
+ * 各语言事实), 只有化合物页声明 hreflang —— chemicalAlternates 只接受
+ * 化合物 id, 其他路径无从生成 hreflang。其余公开页是隐性多语言: 界面随
+ * locale 渲染, 只给自引用 canonical(localeCanonical), 不宣告其他语言版本,
+ * 不产生重复 URL 集合。
  *
  * 规则(与 proxy.ts / localePath.ts 同一 locale 体系, 不建第二份):
  *  - canonical 用正式 locale 前缀 URL(相对路径, metadataBase 负责拼域名)
- *  - hreflang 覆盖 SUPPORTED_LOCALES 全部五种语言
- *  - x-default → FALLBACK_LOCALE(en) 版本
- *  - path 必须是无前缀内部路径(如 /chemical/2244); 由调用方保证
+ *  - 化合物 hreflang 覆盖 SUPPORTED_LOCALES 全部五种语言, x-default → FALLBACK_LOCALE(en)
  */
 
 import type { Metadata } from "next";
@@ -38,7 +41,14 @@ export function localizedAbsoluteUrl(path: string, locale: Locale): string {
   return SITE_ORIGIN + withLocale(path, locale);
 }
 
-export function localeAlternates(path: string, locale: Locale): Metadata["alternates"] {
+/** 隐性多语言页: 只有当前 locale 的自引用 canonical(path 为无前缀内部路径) */
+export function localeCanonical(path: string, locale: Locale): Metadata["alternates"] {
+  return { canonical: withLocale(path, locale) };
+}
+
+/** 化合物页: 自引用 canonical + 五语言 hreflang + x-default */
+export function chemicalAlternates(chemicalId: number | string, locale: Locale): Metadata["alternates"] {
+  const path = `/chemical/${chemicalId}`;
   return {
     canonical: withLocale(path, locale),
     languages: {

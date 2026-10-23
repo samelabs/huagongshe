@@ -70,6 +70,8 @@ const en: Dictionary = {
     loadingAccount: 'Loading account…',
     errRetry: 'Failed to load. Please try again.',
     loginRequired: 'Please sign in first',
+    chooseFile: 'Choose file',
+    noFileChosen: 'No file chosen',
     loginOrRegister: 'Sign in or register',
     loginHint: 'Sign in to manage your reaction records and saved items.',
     delete: 'Delete',

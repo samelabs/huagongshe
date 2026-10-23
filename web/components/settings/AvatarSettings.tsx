@@ -51,7 +51,8 @@ export function AvatarSettings() {
           accept="image/jpeg,image/png,image/webp"
           required
           disabled={uploading}
-          buttonText={t.settings.avatar.selectFile ?? "选择文件"}
+          buttonText={t.common.chooseFile}
+          placeholder={t.common.noFileChosen}
         />
       </Field>
       <Button type="submit" variant="primary" loading={uploading}>{uploading ? t.settings.avatar.uploading : t.settings.avatar.uploadBtn}</Button>

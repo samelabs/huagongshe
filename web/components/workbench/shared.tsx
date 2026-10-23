@@ -8,7 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { EntityBadge } from "@/components/ui/EntityBadge";
 import { FollowButton } from "@/components/shared/FollowButton";
 import { Button } from "@/components/ui/Button";
-import { GlyphRx, IconNote } from "@/components/ui/icons";
+import { GlyphRx, IconNote, IconUser } from "@/components/ui/icons";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tag } from "@/components/ui/Tag";
 import { ApiError, reactionSvgUrl } from "@/lib/api";
@@ -187,7 +187,7 @@ export function ActivityFeedCard({ item, favored, t, locale, onOpen }: {
           <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
           <div className="wb-feed-actions">
             <Button variant="ghost" size="sm" href={withLocale(`/user/${encodeURIComponent(item.actor_username)}`, locale)} onClick={onOpen}>
-              {t.me.feedOpen}
+              <IconUser />{t.me.feedOpen}
             </Button>
           </div>
         </div>

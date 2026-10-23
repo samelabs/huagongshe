@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { GlyphChem } from "@/components/ui/icons";
 import { apiGet } from "@/lib/api.server";
 import { apiErrorMessage, ApiError, type Chemical, type ReactionLookup, type SearchResponse } from "@/lib/api";
-import { localeAlternates } from "@/lib/alternates";
+import { localeCanonical } from "@/lib/alternates";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
 import type { Metadata } from "next";
@@ -61,7 +61,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   return {
     title: t.search.title,
     description: t.search.seoDesc,
-    alternates: localeAlternates("/search", locale),
+    alternates: localeCanonical("/search", locale),
     ...shareMeta,
   };
 }

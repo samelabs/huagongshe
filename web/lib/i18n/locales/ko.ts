@@ -73,6 +73,8 @@ const ko: Dictionary = {
     loadingAccount: '계정을 불러오는 중…',
     errRetry: '불러오지 못했습니다. 다시 시도해 주세요.',
     loginRequired: '먼저 로그인해 주세요',
+    chooseFile: '파일 선택',
+    noFileChosen: '선택된 파일 없음',
     loginOrRegister: '로그인 / 회원가입',
     loginHint: '로그인하여 반응 기록과 저장한 항목을 관리하세요.',
     delete: '삭제',

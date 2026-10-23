@@ -1,6 +1,7 @@
-"""SEO metadata source contracts: parameterized search noindex, EN-only legal
-canonical, MCP guide and login metadata. Sitemap behavior is tested against the
-real module in web/lib/sitemap.test.mjs.
+"""SEO metadata source contracts: hreflang boundary (chemical pages only),
+parameterized search noindex, EN-only legal canonical, MCP guide and login
+metadata. Sitemap behavior is tested against the real module in
+web/lib/sitemap.test.mjs.
 """
 
 from __future__ import annotations
@@ -9,6 +10,26 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+
+
+class HreflangBoundaryTests(unittest.TestCase):
+    """多语言边界: 只有化合物页声明 hreflang, 其余公开页隐性多语言(自引用 canonical)。"""
+
+    def test_only_chemical_page_declares_hreflang(self):
+        users = []
+        for path in (REPO / "web/app").rglob("*.tsx"):
+            src = path.read_text(encoding="utf-8")
+            if "chemicalAlternates" in src or "languages:" in src:
+                users.append(path.relative_to(REPO / "web/app").as_posix())
+        self.assertEqual(users, ["(site)/chemical/[id]/page.tsx"])
+
+    def test_implicit_pages_use_self_canonical(self):
+        for rel in ("(site)/page.tsx", "(site)/search/page.tsx", "(site)/reaction/[id]/page.tsx",
+                    "(site)/note/[id]/page.tsx", "(site)/user/[username]/page.tsx",
+                    "(site)/guide/page.tsx", "(site)/skills/page.tsx",
+                    "(site)/mcp-guide/layout.tsx"):
+            src = (REPO / "web/app" / rel).read_text(encoding="utf-8")
+            self.assertIn("alternates: localeCanonical(", src, rel)
 
 
 class SearchMetadataTests(unittest.TestCase):
@@ -23,7 +44,7 @@ class SearchMetadataTests(unittest.TestCase):
         self.assertIn("robots: { index: false, follow: true }", self.src)
 
     def test_bare_search_entry_has_canonical_and_description(self):
-        self.assertIn('localeAlternates("/search", locale)', self.src)
+        self.assertIn('localeCanonical("/search", locale)', self.src)
         self.assertIn("description: t.search.seoDesc", self.src)
         self.assertIn("title: t.search.title", self.src)
 
@@ -55,7 +76,7 @@ class LegalPagesTests(unittest.TestCase):
             self.assertIn('if (locale === "en")', src)
             self.assertIn("robots: { index: false, follow: true }", src)
             # 不添加 hreflang(不存在真实译文)
-            self.assertNotIn("localeAlternates", src)
+            self.assertNotIn("chemicalAlternates", src)
 
     def test_english_body_preserved(self):
         # 正文未重写: 英文法律原文仍在
@@ -87,7 +108,7 @@ class McpGuideMetadataTests(unittest.TestCase):
         layout = (REPO / "web/app/(site)/mcp-guide/layout.tsx").read_text(encoding="utf-8")
         page = (REPO / "web/app/(site)/mcp-guide/page.tsx").read_text(encoding="utf-8")
         self.assertIn("export async function generateMetadata", layout)
-        self.assertIn('localeAlternates("/mcp-guide", locale)', layout)
+        self.assertIn('localeCanonical("/mcp-guide", locale)', layout)
         self.assertIn("description: t.mcp.heroBody", layout)
         # 无 noindex —— 允许索引
         self.assertNotIn("robots", layout)

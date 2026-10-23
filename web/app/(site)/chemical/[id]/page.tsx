@@ -26,7 +26,7 @@ import { isApiGone, isEntityId, type Chemical, type ReactionSummary, type Semant
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { withLocale, type Locale } from "@/lib/localePath";
-import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
+import { chemicalAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { IconPrinter } from "@/components/ui/icons";
@@ -98,7 +98,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: pageTitle,
     description,
-    alternates: localeAlternates(canonical, locale),
+    alternates: chemicalAlternates(id, locale),
     ...shareMeta,
   };
 }

@@ -8,7 +8,7 @@ import { PageHead } from "@/components/ui/PageHead";
 import { Section } from "@/components/ui/Section";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
-import { localeAlternates } from "@/lib/alternates";
+import { localeCanonical } from "@/lib/alternates";
 
 import { buildShareMetadata } from "@/lib/shareMeta";
 
@@ -32,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t.guide.title,
     description: t.guide.desc,
-    alternates: localeAlternates("/guide", locale),
+    alternates: localeCanonical("/guide", locale),
     ...shareMeta,
   };
 }

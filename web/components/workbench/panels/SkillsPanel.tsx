@@ -6,6 +6,7 @@ import { ApiError, apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { FileUpload } from "@/components/ui/FileUpload";
 import { IconSparkle } from "@/components/ui/icons";
 import { Notice } from "@/components/ui/Notice";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -55,6 +56,8 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  /** 上传结束后重挂选择器: 清空所选文件与已选文件名 */
+  const [pickerKey, setPickerKey] = useState(0);
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [categoryDraft, setCategoryDraft] = useState<Record<number, string>>({});
   useEffect(() => {
@@ -129,7 +132,7 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
       setUploadError(skillsErrorMessage(err, t, t.me.skillUploadFailed));
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+      setPickerKey((k) => k + 1);
     }
   }
 
@@ -172,7 +175,8 @@ export function SkillsPanel({ page, initialData }: { page: number; initialData?:
       <PanelHeading title={t.me.navSkills} subtitle={t.me.skillsHint} count={state === "ready" ? skills.total : undefined} unit={t.me.unitSkill} />
       <div className="wb-skills-upload">
         <div className="wb-skills-upload-row">
-          <input ref={fileRef} type="file" accept=".zip" aria-label={t.me.skillsPickZip} />
+          <FileUpload key={pickerKey} ref={fileRef} className="wb-skills-picker" accept=".zip" disabled={uploading}
+            buttonText={t.me.skillsPickZip} placeholder={t.common.noFileChosen} />
           <Button variant="secondary" size="sm" loading={uploading} onClick={() => void handleUpload()}>
             {uploading ? t.me.skillsUploading : t.me.skillsUpload}
           </Button>

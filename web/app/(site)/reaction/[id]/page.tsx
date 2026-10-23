@@ -25,7 +25,7 @@ import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { reactionTitleText } from "@/lib/reactionTitle";
 import { withLocale } from "@/lib/localePath";
-import { localeAlternates, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
+import { localeCanonical, ogLocaleTag, localizedAbsoluteUrl } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
 import type { Dictionary } from "@/lib/i18n/locales/zh-CN";
 import type { Locale } from "@/lib/i18n/locales";
@@ -87,7 +87,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: pageTitle,
     description,
-    alternates: localeAlternates(canonical, locale),
+    alternates: localeCanonical(canonical, locale),
     ...shareMeta,
   };
 }

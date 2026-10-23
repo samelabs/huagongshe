@@ -15,7 +15,7 @@ import { apiGet } from "@/lib/api.server";
 import { isApiNotFound, isApiGone, type Chemical, type NoteItem } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
-import { localeAlternates } from "@/lib/alternates";
+import { localeCanonical } from "@/lib/alternates";
 import { resolveChemicalName } from "@/lib/chemicalName";
 import { resolveNotePresentation } from "@/lib/noteHeadline";
 import { buildShareMetadata } from "@/lib/shareMeta";
@@ -77,7 +77,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return {
     title: pageTitle,
     description,
-    alternates: localeAlternates(canonical, locale),
+    alternates: localeCanonical(canonical, locale),
     ...shareMeta,
   };
 }

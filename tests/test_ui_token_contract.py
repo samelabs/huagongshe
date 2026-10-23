@@ -281,8 +281,6 @@ NATIVE_FORM_RE = re.compile(r"<(button|input|select|textarea)\b")
 
 # 行级白名单: (relpath, 行内必须包含的子串, 理由)
 NATIVE_FORM_WHITELIST: list[tuple[str, str, str]] = [
-    ("components/workbench/panels/SkillsPanel.tsx", 'type="file"',
-     "文件上传 input：必须原生（按钮触发 ref.click()，ui Input 无 file 语义）"),
     ("components/samelabs/WorkersPanel.tsx", 'type="checkbox"',
      "复选框：ui 无 Checkbox 原语，浏览器原生勾选框外观"),
     ("components/samelabs/SkillsAdminPanel.tsx", 'type="color"',

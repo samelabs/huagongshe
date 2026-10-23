@@ -3,9 +3,9 @@
 /**
  * ChemicalActions — 化合物详情头部的互动件。
  *
- * ChemicalActions（互动行组）：收藏（tonal 浅色 + 计数）——乐观更新，点击
- * 立即翻状态并出 Toast（带「撤销」），请求失败回滚并 toast 报错；401
- * 回滚后跳登录页带回跳地址。
+ * ChemicalActions（互动行组，ghost sm 静默图标钮）：收藏（aria-pressed 表达
+ * 已收藏）· 新建笔记 · 新建反应。收藏乐观更新，点击立即翻状态并出 Toast
+ * （带「撤销」），请求失败回滚并 toast 报错；401 回滚后跳登录页带回跳地址。
  * ChemicalStructureLinks（结构图卡片按钮行）：子结构检索 / 相似结构
  * （secondary），所有宽度直接显示；未登录也显示，点击去登录页
  * （next=本页）。

@@ -1,7 +1,8 @@
 /**
  * alternates helper 真实 SUT 测试
  *
- * - localeAlternates: canonical 当前 locale / 五语言 alternates / x-default→en / 无前缀 canonical 不出现
+ * - chemicalAlternates: 化合物页 canonical 当前 locale / 五语言 hreflang / x-default→en
+ * - localeCanonical: 隐性多语言页只有自引用 canonical, 不出现 hreflang 集合
  * - ogLocaleTag: 直接 import 真实实现验证五 locale 映射(不维护镜像映射表)
  * - localizedAbsoluteUrl: SITE_ORIGIN + withLocale 组合
  *
@@ -14,48 +15,35 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 const req = createRequire(import.meta.url);
-const { localeAlternates, ogLocaleTag, localizedAbsoluteUrl, SITE_ORIGIN } = req("./alternates.ts");
+const { chemicalAlternates, localeCanonical, ogLocaleTag, localizedAbsoluteUrl, SITE_ORIGIN } = req("./alternates.ts");
 const { SUPPORTED_LOCALES } = req("./i18n/locales.ts");
 
-test("canonical 指向当前 locale 版本(带前缀)", () => {
-  assert.equal(localeAlternates("/chemical/2244", "en")?.canonical, "/en/chemical/2244");
-  assert.equal(localeAlternates("/chemical/2244", "ja")?.canonical, "/ja/chemical/2244");
-  assert.equal(localeAlternates("/chemical/2244", "zh-CN")?.canonical, "/zh-CN/chemical/2244");
+test("化合物 canonical 指向当前 locale 版本(带前缀)", () => {
+  assert.equal(chemicalAlternates(2244, "en")?.canonical, "/en/chemical/2244");
+  assert.equal(chemicalAlternates("2244", "ja")?.canonical, "/ja/chemical/2244");
+  assert.equal(chemicalAlternates(2244, "zh-CN")?.canonical, "/zh-CN/chemical/2244");
 });
 
-test("五语言 alternates 全带正式 locale prefix", () => {
-  const alt = localeAlternates("/chemical/2244", "de");
-  const langs = alt?.languages;
+test("化合物五语言 hreflang 全带正式 locale prefix 且同一 path", () => {
+  const langs = chemicalAlternates(2244, "de")?.languages;
   for (const l of SUPPORTED_LOCALES) {
-    assert.ok(langs[l], `缺 ${l}`);
-    assert.ok(langs[l].startsWith("/" + l + "/"), `${l} → ${langs[l]} 无前缀`);
-  }
-  assert.equal(langs["zh-CN"], "/zh-CN/chemical/2244");
-  assert.equal(langs["en"], "/en/chemical/2244");
-  assert.equal(langs["ja"], "/ja/chemical/2244");
-  assert.equal(langs["ko"], "/ko/chemical/2244");
-  assert.equal(langs["de"], "/de/chemical/2244");
-});
-
-test("x-default → en 版本", () => {
-  const alt = localeAlternates("/reaction/2", "ko");
-  assert.equal((alt?.languages)["x-default"], "/en/reaction/2");
-});
-
-test("canonical 永远不是无前缀 URL", () => {
-  for (const l of SUPPORTED_LOCALES) {
-    const c = localeAlternates("/skills", l)?.canonical;
-    assert.ok(c.startsWith("/" + l), `${l}: canonical=${c} 缺前缀`);
-    assert.notEqual(c, "/skills");
+    assert.equal(langs[l], `/${l}/chemical/2244`, `${l} → ${langs[l]}`);
   }
 });
 
-test("动态路径透传: /chemical/2244 在五语言 alternates 中保持同一 path", () => {
-  const alt = localeAlternates("/chemical/2244", "en");
-  const langs = alt?.languages;
+test("化合物 x-default → en 版本", () => {
+  assert.equal((chemicalAlternates(2, "ko")?.languages)["x-default"], "/en/chemical/2");
+});
+
+test("隐性多语言页: 只有自引用 canonical, 没有 hreflang 集合", () => {
   for (const l of SUPPORTED_LOCALES) {
-    assert.ok(langs[l].endsWith("/chemical/2244"), `${l}: ${langs[l]} 路径被改写`);
+    for (const path of ["/", "/reaction/2", "/note/abc1234", "/skills"]) {
+      const alt = localeCanonical(path, l);
+      assert.deepEqual(Object.keys(alt), ["canonical"]);
+      assert.ok(alt.canonical.startsWith("/" + l), `${l}: canonical=${alt.canonical} 缺前缀`);
+    }
   }
+  assert.equal(localeCanonical("/reaction/2", "ja").canonical, "/ja/reaction/2");
 });
 
 // ═══ ogLocaleTag(真实实现, 无镜像表) ═══

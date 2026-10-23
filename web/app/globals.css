@@ -81,7 +81,9 @@ main { flex: 1; background: var(--bg-page); }
 }
 
 /* ── 大搜索框 + 检索方式（DESIGN_SYSTEM 6.1 / 6.2：首页与 /search 共用 SearchHero）── */
-.srch-hero { margin-top: 24px; display: grid; gap: var(--sp-3); justify-items: stretch; text-align: left; max-width: var(--w-reading); }
+/* 单列轨道 minmax(0,1fr)：检索方式 Segmented 的单行内容宽不得撑宽轨道（auto 轨道会让
+   整条检索条溢出窄屏），由 .srch-modes 自身横向滚动承接 */
+.srch-hero { margin-top: 24px; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); justify-items: stretch; text-align: left; max-width: var(--w-reading); }
 /* 搜索框：页头下方左对齐，宽 620（内容样式，版式由 PageHead 承担） */
 .search-page .srch-hero { margin-top: 22px; width: min(var(--w-search), 100%); }
 .srch-box { display: flex; align-items: stretch; gap: var(--sp-2); }
@@ -796,7 +798,7 @@ label.checkbox-row { display: flex; align-items: center; gap: 6px; font-size: va
   .hero { padding: 44px 0 36px; }
   .hero h1 { font-size: clamp(var(--fs-22), 6vw, var(--fs-28)); }
   .hero-subtitle { font-size: var(--fs-14); }
-  /* 大搜索框（SearchHero）手机 — 查询按钮换到输入框下方占满宽度；
+  /* 大搜索框（SearchHero）手机 — 查询按钮仍与输入框同行；
      Segmented 已自带横向滚动（.srch-modes）。 */
   .srch-hero { margin-top: 24px; }
   .search-page .srch-hero { width: 100%; }

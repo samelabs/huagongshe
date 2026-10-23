@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
-import { localeAlternates } from "@/lib/alternates";
+import { localeCanonical } from "@/lib/alternates";
 
 import { buildShareMetadata } from "@/lib/shareMeta";
 
@@ -24,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { absolute: `${t.mcp.hero}｜${t.brand.name}` },
     description: t.mcp.heroBody,
-    alternates: localeAlternates("/mcp-guide", locale),
+    alternates: localeCanonical("/mcp-guide", locale),
     ...shareMeta,
   };
 }

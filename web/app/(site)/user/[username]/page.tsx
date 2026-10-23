@@ -17,7 +17,7 @@ import { apiGet } from "@/lib/api.server";
 import { isApiNotFound, reactionSvgUrl } from "@/lib/api";
 import { getRequestDictionary, getRequestLocale } from "@/lib/serverI18n";
 import { withLocale } from "@/lib/localePath";
-import { localeAlternates, ogLocaleTag, SITE_ORIGIN } from "@/lib/alternates";
+import { localeCanonical, ogLocaleTag, SITE_ORIGIN } from "@/lib/alternates";
 import { buildShareMetadata } from "@/lib/shareMeta";
 import { noteListPresentation } from "@/lib/noteHeadline";
 import { reactionTitleText, type TitledParticipant } from "@/lib/reactionTitle";
@@ -75,7 +75,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
   return {
     title: `${profile?.display_name ?? username}`,
     description: t.user.desc,
-    alternates: localeAlternates(canonical, locale),
+    alternates: localeCanonical(canonical, locale),
     ...shareMeta,
   };
 }
