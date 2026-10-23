@@ -16,6 +16,7 @@
 - **后端测试经 `check.py backend --tests tests.<模块>…` 跑**：自动建每 run 专有测试库、非 root `tester`、非 root 下执行，结束后只清理本 run 资源；不再手写 docker exec 长命令、不再共用 `test_hgs`。
 - **测试结果 gate 提交**：`git commit` 不许盲排在测试命令之后；测试非绿先停在 commit 前，分辨真失败与环境假失败。
 - 推送前本地等价检查：`python3 local/check.py web`；后端改动跑 `check.py backend --tests tests.<涉及模块>…`（改到通知/关注链路加 `tests.test_activity_feed_notes`；改样式/设计令牌加 `tests.test_ui_token_contract tests.test_style_ratchet`）。
+- **生产边界**：生产库与生产主机只在发布窗口经 `docs/DEPLOYMENT.md` 流程触达（先迁移后部署）；开发、探针与检查一律走本地栈。生产库的迁移与变更按发布流程执行，不混入日常开发节奏。
 
 ## 本地环境速查
 

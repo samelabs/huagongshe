@@ -2,6 +2,8 @@
 
 化工社AIchem是化工社推出的开放、非商业化的AI化学工作台，线上域名为 `https://huagongshe.com`。
 
+产品版本以仓库根 `VERSION` 文件为唯一真相：`/api/health` 的 app.version、MCP serverInfo 与全站页脚尾行同源展示，随发布自动更新；web 侧构建时读入注入，`package.json` 不带 version 字段。
+
 ## 产品主线
 
 - `chemistry.chemicals` 是全局化合物身份底座。PubChem、DSSTox 和 RDKit/ORD 只作为来源和补全能力，不形成并行产品库。

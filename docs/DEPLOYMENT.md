@@ -118,27 +118,12 @@ location /data/ {
 }
 ```
 
-## 生产配置（只列出不自动变更的项，I-070）
+## 生产配置
 
-本节只是生产机配置的**记录与核对清单**——`ops.deploy` 不会自动修改这些参数；
-部署时在生产环境执行变更与核对。与仓库默认不同的 PG 参数（`ALTER SYSTEM` 级）：
-
-| 参数 | 生产值 | 说明 |
-| --- | --- | --- |
-| `work_mem` | 32MB | 结构检索/名称检索排序内存 |
-| `jit` | off | 稳定计划延迟（OLTP 场景禁用 JIT 编译开销） |
-| `log_min_duration_statement` | 1s | 慢查询日志阈值 |
-| `effective_io_concurrency` | 200 | NVMe 语境的预读并发 |
-| `track_io_timing` | on | I/O 计时（`pg_stat_statements` I/O 归因） |
-| `shared_buffers` | 2GB | 实例内存配额下的 PG 共享缓冲 |
-
-`ALTER SYSTEM` 参数存放于 `postgresql.auto.conf`；`shared_buffers` 调整需重启
-PG 方能生效，其余为 reload 级。
-
-**needrestart**（Debian/Ubuntu 自动重启策略）：生产配置为**只列出、不自动重启**
-的模式——包升级后需要重启的服务（含 PG major 升级后的 `postgresql`、`nginx` 等）
-只出现在 needrestart 报告里，由值班人按维护窗口人工决定；`ops.deploy` 的 pm2 托管
-应用不经过 needrestart。
+生产机"仓库之外"的运行前提与参数（PG `ALTER SYSTEM` 值、端口与防火墙、
+needrestart、sudoers、xray 出口等）唯一记录在
+**`docs/PRODUCTION_BASELINE.md`**——`ops.deploy` 不自动变更其中任何一项，
+部署时按该清单核对。本文件只保留部署流程本身。
 
 ### 公网冒烟（部署后必过，任一失败 deploy 非零退出）
 

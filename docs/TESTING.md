@@ -15,7 +15,7 @@ CONTRIBUTING、local/README、local/stack/README、CI 只作场景入口, 不再
 | `web` | 前端四件套 | 宿主 Node 跑 `tsc --noEmit`、`test:unit`、`test:locale`、`check:api-layer`; 默认不 build、不全站截图 |
 | `backend --tests tests.<模块>…` | 后端最小模块集 | 容器 `/opt/venv` 内、非 root `tester` 下跑**显式**模块; 每 run 专有测试库; 空选择/未知模块非零退出, 不 fallback 全量 |
 | `worker` | 干净 worker 环境 | api 容器内一次性 venv 只装 `requirements-worker.txt`, 跑 `scripts/check_worker_imports.py`; 自证不读应用 site-packages |
-| `release` | 显式发布门禁 | 冻结 SHA → 专有库全量后端 → web → production build → worker; `--dry-run` 只列计划。日常禁止随手执行 |
+| `release` | 显式发布门禁 | 冻结 SHA → 专有库全量后端 → web → production build → worker; `--dry-run` 只列计划。发版时执行 |
 
 **退出码合同**: `0=PASS`(该阶段真实完成) · `1=FAIL`(断言/命令失败) ·
 `2=BLOCKED`(环境/依赖未就绪、超时、模块缺失) · `3=用法错误`(空选择、
@@ -118,9 +118,10 @@ CONTRIBUTING、local/README、local/stack/README、CI 只作场景入口, 不再
 `check.py worker`: api 容器内一次性 venv(`python3 -m venv`, 无系统
 site-packages), 只装 `requirements-worker.txt`(aiohttp、aiohttp-socks、
 rdkit), 运行 `scripts/check_worker_imports.py`(解析 worker 全部 import,
-含函数级)。安装/执行有界(默认 900s/300s, 可调); 超时或失败如实记
-BLOCKED/FAIL — **不得用应用 venv 的通过冒充干净环境通过**。CI core job
-在 hosted runner 上做同一检查。
+含函数级)。安装走容器内持久轮子缓存(tester 家目录, 复用已下载轮子);
+宿主 `PIP_INDEX_URL` 透传注入镜像(仓库默认官方源)。安装/执行有界
+(默认 900s/300s, 可调); 超时或失败如实记 BLOCKED/FAIL — 应用 venv 的
+通过不能冒充干净环境通过。CI core job 在 hosted runner 上做同一检查。
 
 ## 7. release 门禁(显式)
 
@@ -136,9 +137,9 @@ BLOCKED/FAIL — **不得用应用 venv 的通过冒充干净环境通过**。CI
 7. worker: 干净 venv 导入检查。
 
 汇总状态只在全部阶段完成后才 PASS; 任何阶段 BLOCKED/FAIL 即整体非零。
-已知的有意 skip(如 Identity 子类显式跳过重复父类用例)必须用
-`--allow-skip <完整用例id>` 逐项声明并能在结果里对上, 不接受整模块
-白名单。release 不部署、不推送、不打 tag — 部署见 docs/DEPLOYMENT.md。
+编排器已把 identity 子类去重 skip 固化为默认许可(`RELEASE_DEFAULT_ALLOW_SKIP`);
+新的有意 skip 用 `--allow-skip <完整用例id>` 逐项声明并能在结果里对上, 整模块
+白名单不生效。release 不部署、不推送、不打 tag — 部署见 docs/DEPLOYMENT.md。
 
 ## 8. skip / xfail / 失败判定
 
@@ -149,16 +150,4 @@ BLOCKED/FAIL — **不得用应用 venv 的通过冒充干净环境通过**。CI
   门禁侧用 `--allow-skip` 逐用例声明; 依赖"库里恰好有旧样本"的 skip 属
   夹具缺陷, 修夹具而不是加白名单。
 - xfail 必须有依据且不得覆盖本批缺陷；默认非通过，许可需 `--allow-xfail <完整用例id>`，结果逐项记录。CI host 经 `local/unittest_gate.py` 使用同一结果判定。
-- 容器步骤通过 `local/run_step.sh` 管理自有进程组和远程 deadline；宿主也终止并等待自己的进程组。停止未确认时保留资源并以 Redis 隔离标记阻止后续测试，核实后才解除；不得删除标记来冒充进程已停止。
-
-## 9. 已退役的旧命令(不得回流)
-
-| 旧命令/规则 | 去向 |
-|---|---|
-| CONTRIBUTING 的 `pytest` 命令 | 仓库测试是 unittest; 入口统一 `check.py backend` |
-| CONTRIBUTING 的每 PR 全量 discover + build | 全量只在 CI 与 release; PR 用最小充分集 |
-| CONTRIBUTING 的独立 uvicorn / `npm run dev` 本地运行 | 本地唯一受管入口 `local/dev.sh`(生产命令在 docs/DEPLOYMENT.md) |
-| local/stack/README 的共享 `test_hgs` 重置一条龙(杀全部连接、URL 带密码、rm root 残留) | `check.py backend` 每 run 专有库; 共享 `test_hgs` 仅栈初始化产物, 不再作为测试目标 |
-| 旧"1478 项基线含环境失败豁免"说法 | 失效基线删除; 以当次结果为准 |
-| 3104/3107 换端口与 shoot.mjs 截图工具引用 | 工具已不存在; 截图验收另按 UI 批次执行 |
-| 手抄容器内 docker exec 长命令(AGENTS/README) | 由 `check.py` 承担, 文档只留入口 |
+- 容器步骤通过 `local/run_step.sh` 管理自有进程组和远程 deadline；宿主也终止并等待自己的进程组。停止未确认时保留资源并以 Redis 隔离标记阻止后续测试，核实后才解除。
