@@ -53,7 +53,7 @@ jobs:
             tests.test_db_gate \
             tests.test_check_orchestrator \
             tests.test_security \
-            tests.test_worker \
+            tests.test_worker_pubchem \
             tests.test_whole_record \
             tests.test_locale_payload_cb \
             tests.test_cb_mol \

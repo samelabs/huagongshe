@@ -195,7 +195,7 @@ class AsyncRaceTests(unittest.TestCase):
         self.assertIn("requestId !== latestLoad.current", panel)
 
     def test_entity_notes_drop_inflight_on_unmount_or_change(self):
-        src = read("components/EntityNotes.tsx")
+        src = read("components/shared/EntityNotes.tsx")
         self.assertIn("let active = true", src)
         self.assertIn("if (active)", src)
 
@@ -270,7 +270,7 @@ class NoteTruncationTests(unittest.TestCase):
         )
 
     def test_lists_use_clamp_detail_page_does_not(self):
-        entity = read("components/EntityNotes.tsx")
+        entity = read("components/shared/EntityNotes.tsx")
         panel = read("components/workbench/panels/NotesPanel.tsx")
         detail = read("app/(site)/note/[id]/page.tsx")
         # 三处列表（实体页/工作台/公开主页）统一 noteListPresentation
@@ -282,7 +282,7 @@ class NoteTruncationTests(unittest.TestCase):
         self.assertIn("note-detail-content", detail)
 
     def test_timeline_rows_link_to_locale_aware_note_route(self):
-        entity = read("components/EntityNotes.tsx")
+        entity = read("components/shared/EntityNotes.tsx")
         panel = read("components/workbench/panels/NotesPanel.tsx")
         self.assertIn('withLocale(`/note/${', entity)
         # 笔记面板行链接经 WbListRow（shared.tsx）统一 withLocale
@@ -290,7 +290,7 @@ class NoteTruncationTests(unittest.TestCase):
         self.assertIn("withLocale(href, locale)", read("components/workbench/shared.tsx"))
 
     def test_empty_reference_area_not_rendered(self):
-        entity = read("components/EntityNotes.tsx")
+        entity = read("components/shared/EntityNotes.tsx")
         # 空引用区不渲染 DOM：条件提取为 hasRefs（语义同内联条件式）
         self.assertIn(
             "const hasRefs = note.chemical_ids.length > 0 || note.reaction_ids.length > 0;", entity)
@@ -334,7 +334,7 @@ class EntityNotesPrivateSectionTests(unittest.TestCase):
     私有行仅多一枚可见性 Tag（不再有独立虚线容器/单独标题）。"""
 
     def test_private_rows_merge_into_same_timeline(self):
-        src = read("components/EntityNotes.tsx")
+        src = read("components/shared/EntityNotes.tsx")
         # 同一个 .entity-note-list 渲染私有行 + 公开行，私有行经 minePrivate 标记
         self.assertIn('className="entity-note-list"', src)
         self.assertIn("minePrivate.map", src)
@@ -349,11 +349,11 @@ class EntityNotesPrivateSectionTests(unittest.TestCase):
         self.assertNotIn("entity-note-private", src)
 
     def test_private_fetch_uses_session_endpoint(self):
-        src = read("components/EntityNotes.tsx")
+        src = read("components/shared/EntityNotes.tsx")
         self.assertIn("/users/me/notes?visibility=private", src)
 
     def test_public_list_is_paginated(self):
-        src = read("components/EntityNotes.tsx")
+        src = read("components/shared/EntityNotes.tsx")
         self.assertIn("page=${page}&page_size=${PAGE_SIZE}", src)
         self.assertIn("t.common.pageOf(page, totalPages)", src)
 
@@ -451,7 +451,7 @@ class NotesListUiTests(unittest.TestCase):
     def test_entity_rows_are_unified_timeline(self):
         """实体页笔记行 = 时间线行（标题直达详情 + 两行摘要），与工作台行
         同一规范；逐行「查看全文」提示随卡片样式退役（标题即链接）。"""
-        src = (ROOT / "web/components/EntityNotes.tsx").read_text(encoding="utf-8")
+        src = (ROOT / "web/components/shared/EntityNotes.tsx").read_text(encoding="utf-8")
         self.assertIn("noteListPresentation", src)
         self.assertIn('className="entity-note-title"', src)
         self.assertNotIn("note-view-full", src)

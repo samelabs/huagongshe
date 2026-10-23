@@ -27,14 +27,14 @@ def _read(rel: str) -> str:
 class ChemicalDetailStructureLinksTests(unittest.TestCase):
     """chemical detail: 结构搜索入口必须是 q+mode, 无 chemical_id。
 
-    结构检索入口在 components/ChemicalActions.tsx 的
+    结构检索入口在 components/chemical/ChemicalActions.tsx 的
     ChemicalStructureLinks(结构图卡片按钮行); 未登录仍显示, 点击去登录页
     并带 next=本页回跳(不再隐藏按钮); 已登录仍跳
     /search?q=<smiles>&mode=<mode>; 无 smiles 整个组件不渲染。
     """
 
     def test_links_are_q_plus_mode_without_chemical_id(self):
-        source = _read(os.path.join("web", "components", "ChemicalActions.tsx"))
+        source = _read(os.path.join("web", "components", "chemical", "ChemicalActions.tsx"))
         self.assertIn(
             "`/search?q=${encodeURIComponent(smiles)}&mode=${mode}`", source,
             "substructure/similarity 入口必须是 /search?q=<smiles>&mode=<mode>"
@@ -48,7 +48,7 @@ class ChemicalDetailStructureLinksTests(unittest.TestCase):
         self.assertNotIn("chemical_id=", page, "detail 页不得再生成 chemical_id 查询参数")
 
     def test_links_gated_on_smiles_and_login_redirect(self):
-        source = _read(os.path.join("web", "components", "ChemicalActions.tsx"))
+        source = _read(os.path.join("web", "components", "chemical", "ChemicalActions.tsx"))
         # 无 smiles 时结构检索组件整体不渲染(早退门控)
         self.assertIn("if (!smiles) return null", source,
                       "结构检索入口必须受 smiles 门控")

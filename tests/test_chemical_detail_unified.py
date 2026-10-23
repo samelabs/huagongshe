@@ -835,7 +835,14 @@ class RealDbCoreFullTests(unittest.TestCase):
                     cid = (await session.execute(text(
                         "SELECT id FROM chemistry.chemicals ORDER BY id LIMIT 1"))).scalar()
                     if cid is None:
-                        self.skipTest("test DB 无 chemicals 行")
+                        # 夹具自建(TESTING.md: 不依赖其他模块先种数据/执行顺序):
+                        # 子集运行碰到空 run 库时种一行最小化合物; full enrich 无条件
+                        # 构造 details, 裸行足够。run 专有库随 run 丢弃即清理边界。
+                        cid = 987_654_321
+                        await session.execute(text(
+                            "INSERT INTO chemistry.chemicals (id, preferred_name)"
+                            " VALUES (:id, 'core-full-fixture')"), {"id": int(cid)})
+                        await session.commit()
                     core = await svc.get_chemical_detail(
                         session, int(cid), actor_id=None, priority=50, enrich="core")
                 async with AsyncSession(engine) as s2:

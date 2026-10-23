@@ -18,7 +18,7 @@ os.environ.setdefault("HGS_DATABASE_URL", os.environ.get("TEST_DATABASE_URL", ""
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
 CONSUMERS = [
-    "web/components/EntityCard.tsx",
+    "web/components/shared/EntityCard.tsx",
     "web/app/(site)/chemical/[id]/page.tsx",
     "web/app/(site)/reaction/[id]/page.tsx",
     "web/components/workbench/panels/SearchPanel.tsx",
