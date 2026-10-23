@@ -61,7 +61,7 @@ main { flex: 1; background: var(--bg-page); }
 /* ── 首页（版式件 PageFrame）：标题、搜索与接入入口在框内；标题搜索区按现行规则居中 ── */
 .home { padding-bottom: var(--sp-12); }
 .hero { text-align: center; max-width: var(--w-reading); margin-inline: auto; padding: clamp(var(--sp-12), 8vh, var(--sp-16)) 0 var(--sp-8); }
-.hero .srch-hero { margin-inline: auto; }
+.hero .srch-hero { width: min(var(--w-search), 100%); margin-inline: auto; }
 /* Segmented 的 className 落在内层 .hg-seg —— 居中要打在外层 wrapper（grid 子项）上 */
 .hero .srch-hero > .hg-seg-wrap { justify-self: center; max-width: 100%; }
 .hero h1 {
@@ -83,7 +83,7 @@ main { flex: 1; background: var(--bg-page); }
 /* ── 大搜索框 + 检索方式（DESIGN_SYSTEM 6.1 / 6.2：首页与 /search 共用 SearchHero）── */
 .srch-hero { margin-top: 24px; display: grid; gap: var(--sp-3); justify-items: stretch; text-align: left; max-width: var(--w-reading); }
 /* 搜索框：页头下方左对齐，宽 620（内容样式，版式由 PageHead 承担） */
-.search-page .srch-hero { margin-top: 22px; width: min(620px, 100%); }
+.search-page .srch-hero { margin-top: 22px; width: min(var(--w-search), 100%); }
 .srch-box { display: flex; align-items: stretch; gap: var(--sp-2); }
 .srch-box-wrap {
   flex: 1;
@@ -1160,15 +1160,10 @@ a.casext-tag-link:focus-visible { outline: 2px solid var(--action); outline-offs
   }
 }
 
-/* ── 首页 AI 接入入口(第一屏) ── */
-/* MCP 区块 = CodeField 地址 → 三入口按钮 → 说明 + Tag warn「未上架」 */
-/* 分区收进与首页搜索区相同的阅读列（电脑端居中）；分区标题在该列内靠左，与卡片左缘对齐 */
-/* ── 首页 AI 接入区：与 hero 同轴的居中组合 —— 弱化小标签 + MCP 地址胶囊
-   + 入口钮。无卡片框（hero 之下的安静收尾，不与居中首屏抢形） ── */
-.home-entry-section { max-width: var(--w-reading); margin-inline: auto; margin-block-start: var(--sp-6); }
-.home-entry-kicker { margin: 0 0 var(--sp-4); font-size: var(--fs-13); font-weight: 600; color: var(--text-muted); letter-spacing: .08em; text-align: center; }
-.home-entry { display: grid; justify-items: center; gap: var(--sp-4); text-align: center; }
-/* 地址胶囊与按钮行按内容宽居中（MCP 地址定长，远小于阅读栏，不溢出） */
+/* ── 首页 AI 接入区：与 hero 同轴的单行组合 —— 地址胶囊即语义（独立
+   小标签撤除），入口钮随行居中、自然换行；无卡片框，hero 之下的安静收尾 ── */
+.home-entry-section { margin-block-start: var(--sp-6); }
+.home-entry { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--sp-2) var(--sp-3); }
 .home-entry-code .hg-code code { font-size: var(--fs-13); }
 .home-entry-actions { margin-top: 0; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--sp-2); }
 /* 手机端改为结构上保证的 2×2 等宽网格 —— 长文案语言下 flex-wrap 会排出

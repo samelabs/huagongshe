@@ -51,12 +51,10 @@ export default async function Home() {
       </section>
 
       {/* ── AI 接入入口: 第一屏直接给出地址与主入口 MCP / Skills /
-          Agent Plugin（tests/test_release_governance.py）。Agent Plugin
-          直接下载随代码部署的插件包（web/public/downloads，见
-          scripts/build_plugin_package.py）。与 hero 同轴的居中组合，
-          弱化小标签替代分区大标题。 ── */}
+          Agent Plugin。地址胶囊即语义，独立小标签撤除（section 的
+          aria-label 保留无障碍命名）。Agent Plugin 直接下载随代码部署的
+          插件包（web/public/downloads，见 scripts/build_plugin_package.py）。 ── */}
       <section className="home-entry-section" aria-label={t.home.entryLabel}>
-        <p className="home-entry-kicker">{t.home.entryLabel}</p>
         <div className="home-entry">
           <CodeField value="https://huagongshe.com/mcp" copyLabel={t.home.entryMcpCopy} className="home-entry-code" />
           <nav className="guide-actions home-entry-actions">
