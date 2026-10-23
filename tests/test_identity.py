@@ -50,7 +50,9 @@ CB = "7777777"
 
 
 @unittest.skipUnless(DB_URL, "需要 PG")
-class IdentityResolutionTests(unittest.TestCase):
+class _IdentityDbFixture(unittest.TestCase):
+    """identity 用例共用夹具(引擎/事件循环/标记行清理/_insert), 本类不含用例。"""
+
     @classmethod
     def setUpClass(cls):
         import asyncio
@@ -152,6 +154,9 @@ class IdentityResolutionTests(unittest.TestCase):
                 {"m": TEST_MOL, "id": rid})
         return rid
 
+
+@unittest.skipUnless(DB_URL, "需要 PG")
+class IdentityResolutionTests(_IdentityDbFixture):
     # -- 矩阵 -------------------------------------------------------------
 
     def test_1_same_ik_distinct_cids_conflict_no_absorb(self):
@@ -602,11 +607,8 @@ class IdentityResolutionTests(unittest.TestCase):
 
 
 
-class OneToOneMergeTests(IdentityResolutionTests):
-    # 父类回归用例(test_5..test_8)只跑一次 — 本类只加载 1:1 矩阵,
-    # 避免 cas_jobs 部分唯一索引 dedupe_key='test-dedupe-1' 跨类残留。
-    def test_5_absorb_migrates_all_registered_references(self):
-        self.skipTest("回归用例由 IdentityResolutionTests 承担")
+@unittest.skipUnless(DB_URL, "需要 PG")
+class OneToOneMergeTests(_IdentityDbFixture):
     """0906 canary cid2273 修复: 1:1 子表合并策略矩阵。"""
 
     def test_registry_strategy_completeness(self):
@@ -1058,7 +1060,7 @@ class OneToOneMergeTests(IdentityResolutionTests):
 
 
 @unittest.skipUnless(DB_URL, "需要 PG")
-class GateCoverageTests(IdentityResolutionTests):
+class GateCoverageTests(_IdentityDbFixture):
     """门禁覆盖: search CAS bypass 修复 + pubchem 强身份回补 gate。"""
 
     def test_cas_bypass_unique_hit_uses_resolver_id(self):

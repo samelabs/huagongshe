@@ -230,6 +230,21 @@ class DetailServiceTests(unittest.IsolatedAsyncioTestCase):
 class HttpMigrationTests(unittest.TestCase):
     """§19: 9 个 production call site 全迁移 + 关键行为。"""
 
+    def test_skill_id_path_bound_matches_mcp_id_max(self):
+        """REST 每条 /skills/{skill_id} 路由与 MCP get_skill 同一上界(ID_MAX),
+        越界 id 在入参校验 422, 不进 SQL 撞 int8 溢出。"""
+        import annotated_types
+        from api.mcp.limits import ID_MAX
+        from api.skills import router
+
+        routes = [r for r in router.routes if "{skill_id}" in getattr(r, "path", "")]
+        self.assertTrue(routes)
+        for route in routes:
+            param = next(p for p in route.dependant.path_params if p.name == "skill_id")
+            bounds = {type(m): m for m in param.field_info.metadata}
+            self.assertEqual(bounds[annotated_types.Ge].ge, 1, route.path)
+            self.assertEqual(bounds[annotated_types.Le].le, ID_MAX, route.path)
+
     def test_old_helper_absent_and_all_callers_migrated(self):
         from api import skills as api_skills
         source = inspect.getsource(api_skills)

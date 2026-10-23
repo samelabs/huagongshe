@@ -23,11 +23,13 @@ Production site: https://huagongshe.com
 **技能与 MCP**
 - skills 全站改登录后使用：REST/MCP/web 三面同墙；/skills 闸门按会话有效性判定，伪造/过期会话同样引导登录
 - 用户技能自发布进公开池（分类沿袭词表），下载设登录墙；MCP 指南口径五语种同步
+- 自发布分类校验与创建同源（同一词表判定）：空分类值视为未提供，公开技能不会落成空分类；沿用的既有分类已停用时拒绝发布；/skills/{id} 路径 id 上界与 MCP 同源，越界 422
 
 **通知与社交**
 - 通知链路补全个人事件：新粉丝与反应被收藏；已读未读逐条表达，读写收编单一 owner
 - 动态归位通知、工作台布局收口；Redis 连接池随事件循环收尾
 - 收藏无作者的导入反应不再 500；feed 作者行补 @handle
+- 新粉丝通知可打开（关注者主页），点开即单条已读
 
 **性能与外壳**
 - 公开页面按路由判定边缘缓存，RSC 按请求头哈希可共享缓存；skipProxyUrlNormalize 开启；首屏登录占位与水合同形、顶栏账号位定宽槽，访客/登录与水合翻转零位移
@@ -42,6 +44,7 @@ Production site: https://huagongshe.com
 - 本地与 CI 检查 fail-closed：exit/skip/xfail 共同定级、dev/build 互斥、超时与中断收尾、结果脱敏、Redis 锁跨 checkout、DB 保护顺序、前端测试单一 manifest 拒绝遗漏与重复
 - 注释与文案词表检查升级，代码/测试/运维配置存量过程语言清零；首页一级入口契约对齐（MCP、Skills 与 Plugin）
 - 代码结构收口：web 组件按域归组（chemical/reaction/shared/ui/samelabs，根层散件清零）；MCP 实现层与注册面分层（api/mcp 限值/错误映射/请求侧原语/输出投影四件套，工具注册面与历史导入/patch 面不变）
+- 门禁 skip/xfail 解析覆盖带 docstring 用例的两行输出；identity 测试夹具与用例分层（各类只跑自己的用例），撤除永久许可 skip；next dev 不再在 web/ 生成第二份 AGENTS.md
 - 占位符卫生与检查脱敏的机制冲突收口：检查编排器遮蔽串改程序拼装（源码不再携带字面量），卫生扫描剪除运行时产物目录（local/.check-runs 按脱敏设计携带遮蔽串）
 
 **视觉收口**

@@ -7,6 +7,8 @@
 3. 全量已读: 含动态流不可见的残留行（隐藏行不再挂未读）。
 4. 不变量: 未读数 == 列表里未读的条数（部分已读后仍成立）。
 5. 写入侧经 owner 扇出（follow → new_follower 直达收件人）。
+6. 端点接线: 关注用户 → new_follower、收藏公开反应 → reaction_favorited
+   （重复关注/取关再关注不重复打扰; 无作者的导入反应无人可通知）。
 
 直调 service/endpoint 函数 + 真链测试库。
 """
@@ -47,6 +49,7 @@ class NotificationReadStateTests(unittest.IsolatedAsyncioTestCase):
         self.engine = create_async_engine(ASYNC_URL)
         self.Session = async_sessionmaker(self.engine, expire_on_commit=False)
         self.tag = uuid.uuid4().hex[:10]
+        self.reaction_ids: list[int] = []
         async with self.engine.begin() as conn:
             ids = (await conn.execute(text("""
                 INSERT INTO community.users(username,email,password_hash,display_name)
@@ -66,6 +69,12 @@ class NotificationReadStateTests(unittest.IsolatedAsyncioTestCase):
         # users 删除级联: notes → notifications(note_id) 与
         # notifications(user_id/actor_user_id)、user_follows 全部随行消失。
         async with self.engine.begin() as conn:
+            # reactions.created_by_user_id 为 ON DELETE RESTRICT: 先删反应夹具
+            if self.reaction_ids:
+                await conn.execute(
+                    text("DELETE FROM chemistry.reactions WHERE id = ANY(:ids)"),
+                    {"ids": self.reaction_ids},
+                )
             await conn.execute(
                 text("DELETE FROM community.users WHERE id IN (:a,:f)"),
                 {"a": self.author, "f": self.follower},
@@ -84,14 +93,26 @@ class NotificationReadStateTests(unittest.IsolatedAsyncioTestCase):
                 ids.append(int(result["id"]))
         return ids[0], ids[1]
 
-    async def _feed(self) -> dict:
+    async def _feed(self, user_id: int | None = None) -> dict:
         from api.social import notifications
         async with self.Session() as db:
-            return await notifications(page=1, page_size=50, actor=_actor(self.follower), db=db)
+            return await notifications(
+                page=1, page_size=50, actor=_actor(user_id or self.follower), db=db)
 
-    async def _unread(self) -> int:
+    async def _unread(self, user_id: int | None = None) -> int:
         async with self.Session() as db:
-            return await notifications_svc.unread_count(db, self.follower)
+            return await notifications_svc.unread_count(db, user_id or self.follower)
+
+    async def _insert_reaction(self, owner: int | None) -> int:
+        async with self.engine.begin() as conn:
+            rid = int((await conn.execute(text("""
+                INSERT INTO chemistry.reactions(
+                    created_by_user_id,visibility,moderation_status,created_via,source_type
+                ) VALUES (:owner,'public','visible','web','self')
+                RETURNING id
+            """), {"owner": owner})).scalar_one())
+        self.reaction_ids.append(rid)
+        return rid
 
     async def test_single_read_marks_only_target_row(self):
         await self._notify_two_notes()
@@ -192,6 +213,35 @@ class NotificationReadStateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(feed["items"][0]["event_type"], "new_follower")
         self.assertIsNone(feed["items"][0]["read_at"])
         self.assertEqual(await self._unread(), 1)
+
+    async def test_follow_user_endpoint_notifies_followed_user_once(self):
+        from api.social import follow_user, unfollow_user
+        username = f"nrs_a_{self.tag}"
+        # 关注 → 取关 → 再关注 → 重复关注: 收件人只收一条 new_follower
+        for action in (follow_user, unfollow_user, follow_user, follow_user):
+            async with self.Session() as db:
+                await action(username=username, actor=_actor(self.follower), db=db)
+        feed = await self._feed(self.author)
+        followers = [i for i in feed["items"] if i["event_type"] == "new_follower"]
+        self.assertEqual(len(followers), 1)
+        self.assertEqual(followers[0]["actor_username"], f"nrs_f_{self.tag}")
+        self.assertEqual(await self._unread(self.author), 1)
+
+    async def test_follow_reaction_endpoint_notifies_author_only_when_present(self):
+        from api.social import follow_reaction
+        authored = await self._insert_reaction(self.author)
+        imported = await self._insert_reaction(None)
+        for rid in (authored, imported, authored):
+            async with self.Session() as db:
+                await follow_reaction(reaction_id=rid, actor=_actor(self.follower), db=db)
+        feed = await self._feed(self.author)
+        favorited = [i for i in feed["items"] if i["event_type"] == "reaction_favorited"]
+        self.assertEqual([i["reaction_id"] for i in favorited], [authored])
+        async with self.engine.connect() as conn:
+            orphan = (await conn.execute(text("""
+                SELECT count(*) FROM community.notifications WHERE reaction_id=:r
+            """), {"r": imported})).scalar_one()
+        self.assertEqual(orphan, 0)
 
 
 if __name__ == "__main__":

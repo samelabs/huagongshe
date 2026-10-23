@@ -846,7 +846,10 @@ async def update_skill_metadata(
     official 升级仍走管理端)。published_at 仅首次公开时落(now), 公开态
     本身是客观列、与时间解耦。
     """
-    if title is None and description is None and visibility is None and category is None:
+    # 分类与创建同一口径(validate_category): 空值 = 未提供, 不是"清空" ——
+    # 公开技能必须归入分类, PATCH 不提供清除分类的写法。
+    category_val = (str(category).strip() or None) if category is not None else None
+    if title is None and description is None and visibility is None and category_val is None:
         raise SkillUpdateValidationError()
     # P2c(审计): 空/纯空白 title 此前直落 UPDATE, 撞 CHECK
     # char_length(title)>=1 → IntegrityError 500; 与 None 同道 400。
@@ -855,21 +858,17 @@ async def update_skill_metadata(
     if visibility is not None and visibility not in ("public", "private"):
         raise SkillUpdateValidationError("公开态只允许 public/private")
 
-    category_val = str(category).strip() if category is not None else None
-    if category_val:
-        known = (await db.execute(text("""
-            SELECT 1 FROM community.skill_categories WHERE name=:n AND active
-        """), {"n": category_val})).scalar()
-        if not known:
-            raise SkillUpdateValidationError("分类不在可选词表内")
+    await validate_category(db, category_val)
 
-    if visibility == "public":
-        # 发布前提: 分类已设 —— 公开技能必须归入前台分类体系
-        effective = category_val or (await db.execute(text(
+    if visibility == "public" and category_val is None:
+        # 发布前提: 公开技能必须归入前台分类体系 —— 沿用的既有分类同样
+        # 须在词表内(可能已停用)
+        existing = (await db.execute(text(
             "SELECT category FROM community.skills WHERE id=:id"
         ), {"id": skill_id})).scalar()
-        if not effective:
+        if not existing:
             raise SkillUpdateValidationError("发布前需要选择分类")
+        await validate_category(db, existing)
 
     await db.execute(text("""
         UPDATE community.skills SET

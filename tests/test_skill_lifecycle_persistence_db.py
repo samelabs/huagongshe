@@ -9,7 +9,9 @@ community.skills / community.skill_files + 真实 skill_root 目录, 断言"调�
 - delete DB exists + FS missing: 按冻结 contract 成功(无可清理对象);
 - delete DB missing + FS exists(orphan): 404 且**不**动 FS(E4 不引入后台清理 job);
 - repeated delete: 保持既有 API contract(404), 不改语义;
-- update 只做 DB metadata mutation: 正常提交可见、commit 失败无半更新、校验失败零写。
+- update 只做 DB metadata mutation: 正常提交可见、commit 失败无半更新、校验失败零写;
+- owner 自发布: 公开必须归入有效分类(既有分类停用同样拒绝), 空分类值 = 未提供,
+  公开技能不会落成空分类; published_at 只在首次公开时落。
 
 测试库: 必须 TEST_DATABASE_URL 过 tests/db_gate.py 闸, 否则 skip(既有 skip 基线内)。
 """
@@ -99,6 +101,7 @@ class SkillLifecyclePersistenceDbTests(unittest.IsolatedAsyncioTestCase):
         self._orig_skill_root = settings.skill_root
         settings.skill_root = str(self.root)
         self.uid = None
+        self.categories: list[str] = []
         self._pool = redis.ConnectionPool.from_url(settings.redis_url, decode_responses=True)
         self._pool_patches = [patch.object(cache, "pool", self._pool),
                               patch.object(rate_limit, "pool", self._pool, create=True)]
@@ -111,6 +114,11 @@ class SkillLifecyclePersistenceDbTests(unittest.IsolatedAsyncioTestCase):
             async with self.engine.begin() as conn:
                 await conn.execute(
                     text("DELETE FROM community.users WHERE id=:i"), {"i": self.uid})
+        if self.categories:
+            async with self.engine.begin() as conn:
+                await conn.execute(
+                    text("DELETE FROM community.skill_categories WHERE name = ANY(:n)"),
+                    {"n": self.categories})
         await self.engine.dispose()
         await self._pool.disconnect()
         for p in self._pool_patches:
@@ -147,6 +155,22 @@ class SkillLifecyclePersistenceDbTests(unittest.IsolatedAsyncioTestCase):
                 "SELECT count(*) FROM community.skill_files WHERE skill_id=:i"),
                 {"i": sid})).scalar()
         return int(skills), int(files)
+
+    async def _mk_category(self, *, active: bool = True) -> str:
+        name = f"e4cat-{uuid.uuid4().hex[:10]}"
+        async with self.engine.begin() as conn:
+            await conn.execute(text("""
+                INSERT INTO community.skill_categories(name,abbr,color,active)
+                VALUES (:n,'ET','#123456',:a)
+            """), {"n": name, "a": active})
+        self.categories.append(name)
+        return name
+
+    async def _publish_state(self, sid: int):
+        async with self.engine.connect() as conn:
+            return (await conn.execute(text(
+                "SELECT visibility, category, published_at FROM community.skills WHERE id=:i"),
+                {"i": sid})).fetchone()
 
     def _canonical(self, sid: int) -> Path:
         return Path(settings.skill_root) / str(sid)
@@ -340,6 +364,76 @@ class SkillLifecyclePersistenceDbTests(unittest.IsolatedAsyncioTestCase):
                 "SELECT title, updated_at FROM community.skills WHERE id=:i"),
                 {"i": sid})).fetchone()
         self.assertEqual((now[0], now[1]), (old[0], old[1]), "校验失败不得写库")
+
+    # ---- owner self-publish ---------------------------------------------
+    async def test_publish_requires_category(self):
+        sid = await self._create()
+        async with self.Session() as db:
+            with self.assertRaises(svc.SkillUpdateValidationError) as ctx:
+                await svc.update_skill_metadata(
+                    db, sid, title=None, description=None, actor_id=self.uid,
+                    visibility="public", category="  ")
+        self.assertEqual(str(ctx.exception), "发布前需要选择分类")
+        self.assertEqual((await self._publish_state(sid))[:2], ("private", None))
+
+    async def test_publish_with_unknown_category_is_category_error(self):
+        sid = await self._create()
+        async with self.Session() as db:
+            with self.assertRaises(svc.SkillCategoryError):
+                await svc.update_skill_metadata(
+                    db, sid, title=None, description=None, actor_id=self.uid,
+                    visibility="public", category=f"nope-{uuid.uuid4().hex[:8]}")
+        self.assertEqual((await self._publish_state(sid))[:2], ("private", None))
+
+    async def test_publish_sets_category_and_first_published_at(self):
+        sid = await self._create()
+        cat = await self._mk_category()
+        async with self.Session() as db:
+            out = await svc.update_skill_metadata(
+                db, sid, title=None, description=None, actor_id=self.uid,
+                visibility="public", category=cat)
+        self.assertEqual((out["visibility"], out["category"]), ("public", cat))
+        first = (await self._publish_state(sid))[2]
+        self.assertIsNotNone(first)
+        # 撤回再公开: published_at 保留首次公开时间
+        for vis in ("private", "public"):
+            async with self.Session() as db:
+                await svc.update_skill_metadata(
+                    db, sid, title=None, description=None, actor_id=self.uid,
+                    visibility=vis)
+        self.assertEqual(await self._publish_state(sid), ("public", cat, first))
+
+    async def test_empty_category_on_public_skill_is_not_a_clear(self):
+        sid = await self._create()
+        cat = await self._mk_category()
+        async with self.Session() as db:
+            await svc.update_skill_metadata(
+                db, sid, title=None, description=None, actor_id=self.uid,
+                visibility="public", category=cat)
+        # 只带空分类 = 无可更新字段; 带其他字段时分类保持原值
+        async with self.Session() as db:
+            with self.assertRaises(svc.SkillUpdateValidationError):
+                await svc.update_skill_metadata(
+                    db, sid, title=None, description=None, actor_id=self.uid,
+                    category="")
+        async with self.Session() as db:
+            await svc.update_skill_metadata(
+                db, sid, title="E4 新标题", description=None, actor_id=self.uid,
+                category=" ")
+        self.assertEqual((await self._publish_state(sid))[:2], ("public", cat))
+
+    async def test_publish_with_deactivated_existing_category_is_rejected(self):
+        sid = await self._create()
+        cat = await self._mk_category(active=False)
+        async with self.engine.begin() as conn:
+            await conn.execute(text(
+                "UPDATE community.skills SET category=:c WHERE id=:i"), {"c": cat, "i": sid})
+        async with self.Session() as db:
+            with self.assertRaises(svc.SkillCategoryError):
+                await svc.update_skill_metadata(
+                    db, sid, title=None, description=None, actor_id=self.uid,
+                    visibility="public")
+        self.assertEqual((await self._publish_state(sid))[0], "private")
 
     # ---- archive / file read domain ------------------------------------
     async def test_archive_normal_and_file_reads(self):

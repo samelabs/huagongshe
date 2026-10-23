@@ -380,6 +380,39 @@ class NotesPersistenceTests(unittest.IsolatedAsyncioTestCase):
             if b != survivor and b in self.chemical_ids:
                 self.chemical_ids.remove(b)
 
+    async def test_view_count_counts_non_owner_reads_of_public_note(self):
+        async def stored(note_id: int) -> int:
+            async with self.engine.connect() as conn:
+                return int((await conn.execute(text(
+                    "SELECT view_count FROM community.notes WHERE id=:i"),
+                    {"i": note_id})).scalar_one())
+
+        async with self.Session() as db:
+            public = await svc.create_note(
+                db, actor_id=self.owner, visibility="public", content="view count",
+                chemical_ids=[], reaction_ids=[])
+            private = await svc.create_note(
+                db, actor_id=self.owner, visibility="private", content="private view",
+                chemical_ids=[], reaction_ids=[])
+        self.assertEqual(public["view_count"], 0)
+
+        # 匿名与他人读取各计一次, 返回值与落库同步
+        async with self.Session() as db:
+            anonymous = await svc.get_note(db, note_ref=public["slug"], actor_id=None)
+        self.assertEqual(anonymous["view_count"], 1)
+        async with self.Session() as db:
+            other = await svc.get_note(db, note_ref=public["slug"], actor_id=self.other)
+        self.assertEqual(other["view_count"], 2)
+        # 作者本人读取不计
+        async with self.Session() as db:
+            owner_view = await svc.get_note(db, note_ref=public["slug"], actor_id=self.owner)
+        self.assertEqual(owner_view["view_count"], 2)
+        self.assertEqual(await stored(public["id"]), 2)
+        # 私有笔记只有作者可读, 不计数
+        async with self.Session() as db:
+            await svc.get_note(db, note_ref=private["slug"], actor_id=self.owner)
+        self.assertEqual(await stored(private["id"]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -59,6 +59,8 @@ function devLanOrigins(): string[] {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // 开发纪律唯一入口是仓库根 AGENTS.md; next dev 不在 web/ 下生成第二份
+  agentRules: false,
   allowedDevOrigins: devLanOrigins(),
   // 让 proxy 能看到 RSC 请求头与 _rsc 以判定能否缓存
   skipProxyUrlNormalize: true,

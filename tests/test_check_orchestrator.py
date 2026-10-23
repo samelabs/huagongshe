@@ -134,9 +134,8 @@ class VerdictTests(unittest.TestCase):
         self.assertTrue(v["details"])
 
     def test_permitted_case_level_skip_passes_only_that_case(self):
-        case = ("tests.test_identity.OneToOneMergeTests"
-                ".test_5_absorb_migrates_all_registered_references")
-        detail = f"{case}: 回归用例由 IdentityResolutionTests 承担"
+        case = "tests.m.T.test_a"
+        detail = f"{case}: 设计内跳过"
         parsed = self._parsed(ran=9,
                               counts={"failures": 0, "errors": 0, "skipped": 1,
                                       "expected failures": 0,
@@ -144,8 +143,7 @@ class VerdictTests(unittest.TestCase):
                               skip_details=[detail])
         self.assertEqual(check.verdict(parsed, [case])["status"], "PASS")
         # 整模块白名单不吸收同模块其他用例的 skip
-        other = ("tests.test_identity.OneToOneMergeTests"
-                 ".test_another_case: whatever")
+        other = "tests.m.T.test_another_case: whatever"
         self.assertEqual(
             check.verdict(dict(parsed, skip_details=[other]), [case])["status"],
             "FAIL")
@@ -158,6 +156,26 @@ class VerdictTests(unittest.TestCase):
         self.assertEqual(parsed["xfail_details"], ["tests.m.T.test_x"])
         self.assertEqual(check.verdict(parsed)["status"], "FAIL")
         self.assertEqual(check.verdict(parsed, allowed_xfails=["tests.m.T.test_x"])["status"], "PASS")
+
+    def test_docstring_case_skip_and_xfail_are_recorded(self):
+        # unittest -v 实际输出: 带 docstring 的用例结果落在第二行
+        text = ("test_a (tests.m.T.test_a) ... skipped 'plain'\n"
+                "test_b (tests.m.T.test_b)\n"
+                "Has a docstring. ... skipped 'documented'\n"
+                "test_c (tests.m.T.test_c)\n"
+                "Documented xfail. ... expected failure\n"
+                "\n" + "-" * 70 + "\n"
+                "Ran 3 tests in 0.0s\n\nOK (skipped=2, expected failures=1)\n")
+        parsed = check.parse_unittest_output(text)
+        self.assertEqual(parsed["skip_details"], ["tests.m.T.test_a: plain",
+                                                  "tests.m.T.test_b: documented"])
+        self.assertEqual(parsed["xfail_details"], ["tests.m.T.test_c"])
+        self.assertEqual(check.verdict(
+            parsed, ["tests.m.T.test_a", "tests.m.T.test_b"],
+            ["tests.m.T.test_c"])["status"], "PASS")
+        # 许可只覆盖逐项点名的用例
+        self.assertEqual(check.verdict(
+            parsed, ["tests.m.T.test_a"], ["tests.m.T.test_c"])["status"], "FAIL")
 
 
 class CleanupOwnershipTests(unittest.TestCase):

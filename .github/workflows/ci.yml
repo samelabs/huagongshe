@@ -178,5 +178,4 @@ jobs:
           HGS_SKILL_ROOT: ${{ runner.temp }}/hgs-skills
           HGS_PUBLIC_BASE_URL: https://huagongshe.com
         run: |
-          python local/unittest_gate.py discover -s tests -t . -v \
-            --allow-skip tests.test_identity.OneToOneMergeTests.test_5_absorb_migrates_all_registered_references
+          python local/unittest_gate.py discover -s tests -t . -v

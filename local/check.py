@@ -70,10 +70,14 @@ TEST_MODULE_RE = re.compile(r"^tests\.[a-z0-9_]+$")
 _URL_SECRET_RE = re.compile(r"://([^:/@\s]+):([^@\s]+)@")
 _ENV_SECRET_RE = re.compile(r"\b(PGPASSWORD=)[^\s]+")
 _RAN_RE = re.compile(r"^Ran (\d+) tests? in ", re.M)
+# unittest -v 对带 docstring 的用例输出两行("name (id)" 换行 "docstring 首行 ... 结果"),
+# 单行与两行形态同一口径计入。
+_DOC_LINE = r"(?:\n[^\n]*?)?"
 _SKIP_LINE_RE = re.compile(
-    r"^(test_\S+|runTest|setUpClass|tearDownClass|setUpModule|tearDownModule) \(([^)]+)\) \.\.\. skipped ['\"]?(.*?)['\"]?\s*$", re.M)
+    r"^(test_\S+|runTest|setUpClass|tearDownClass|setUpModule|tearDownModule) \(([^)]+)\)"
+    + _DOC_LINE + r" \.\.\. skipped ['\"]?(.*?)['\"]?\s*$", re.M)
 _XFAIL_LINE_RE = re.compile(
-    r"^(test_\S+|runTest) \(([^)]+)\) \.\.\. expected failure", re.M)
+    r"^(test_\S+|runTest) \(([^)]+)\)" + _DOC_LINE + r" \.\.\. expected failure", re.M)
 _TAIL_RE = re.compile(r"^(OK|FAILED)\b(?:\s*\((.*)\))?\s*$", re.M)
 
 
@@ -1000,14 +1004,6 @@ def cmd_preflight(args) -> int:
 RELEASE_PHASES = ["freeze", "mutex-guard", "fresh-db", "backend-full",
                   "web", "build", "worker"]
 
-# 设计内 skip 的固化许可(不必每次 CLI 重复): OneToOneMergeTests 继承
-# IdentityResolutionTests, 显式 skipTest 让父类回归只跑一次(避免 cas_jobs
-# 部分唯一索引跨类残留), 覆盖用例由父类在同一 discover 中执行。
-RELEASE_DEFAULT_ALLOW_SKIP = (
-    "tests.test_identity.OneToOneMergeTests"
-    ".test_5_absorb_migrates_all_registered_references",
-)
-
 
 def release_dev_guard(run: Run):
     """build 前的 dev 在跑判定: 标记或端口证据任一命中即拒绝。
@@ -1085,9 +1081,7 @@ def cmd_release(args) -> int:
             raise FailError(f"unittest 子进程退出 {code}")
         parsed = parse_unittest_output(stderr)
         run.info("unittest_summary", parsed)
-        v = verdict(parsed, sorted(set(args.allow_skip)
-                                   | set(RELEASE_DEFAULT_ALLOW_SKIP)),
-                    args.allow_xfail)
+        v = verdict(parsed, args.allow_skip, args.allow_xfail)
         if v["status"] != "PASS":
             raise FailError("backend-full: " + (v["reason"] or "")
                             + "; 明细 " + json.dumps(v.get("details", []),

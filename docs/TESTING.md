@@ -137,8 +137,7 @@ rdkit), 运行 `scripts/check_worker_imports.py`(解析 worker 全部 import,
 7. worker: 干净 venv 导入检查。
 
 汇总状态只在全部阶段完成后才 PASS; 任何阶段 BLOCKED/FAIL 即整体非零。
-编排器已把 identity 子类去重 skip 固化为默认许可(`RELEASE_DEFAULT_ALLOW_SKIP`);
-新的有意 skip 用 `--allow-skip <完整用例id>` 逐项声明并能在结果里对上, 整模块
+有意 skip 用 `--allow-skip <完整用例id>` 逐项声明并能在结果里对上, 整模块
 白名单不生效。release 不部署、不推送、不打 tag — 部署见 docs/DEPLOYMENT.md。
 
 ## 8. skip / xfail / 失败判定

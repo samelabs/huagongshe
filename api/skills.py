@@ -175,7 +175,7 @@ async def list_skills(
     summary="读取技能 manifest、文件树与 SKILL.md 全文",
 )
 async def get_skill(
-    skill_id: int = PathParam(..., ge=1),
+    skill_id: int = PathParam(..., ge=1, le=2_147_483_647),
     actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
@@ -194,7 +194,7 @@ async def get_skill(
     summary="读取技能内单个文本文件",
 )
 async def get_skill_file(
-    skill_id: int = PathParam(..., ge=1),
+    skill_id: int = PathParam(..., ge=1, le=2_147_483_647),
     file_path: str = PathParam(...),
     actor: Actor = Depends(current_session),
     db=Depends(get_db),
@@ -214,12 +214,11 @@ async def get_skill_file(
     summary="下载技能完整 zip 包（需登录；匿名 401）",
 )
 async def download_skill_archive(
-    skill_id: int = PathParam(..., ge=1),
+    skill_id: int = PathParam(..., ge=1, le=2_147_483_647),
     actor: Actor = Depends(current_session),
     db=Depends(get_db),
 ):
-    # 下载是登录能力: 技能浏览/文件预览保持公开,
-    # zip 落盘要走会话。current_session 已完成 401 映射。
+    # 下载与浏览/文件预览同墙(登录能力): current_session 已完成 401 映射。
     manifest = await _load_accessible_skill_http(db, skill_id, actor)
     # skill_files 查询 + 目录/文件缺失判定 + zip 组装归
     # services.skills.build_skill_archive; adapter 只余 access 404 桥 +
@@ -322,7 +321,7 @@ async def create_skill(
 )
 async def update_skill(
     body: dict[str, Any],
-    skill_id: int = PathParam(..., ge=1),
+    skill_id: int = PathParam(..., ge=1, le=2_147_483_647),
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):
@@ -339,6 +338,8 @@ async def update_skill(
             visibility=body.get("visibility"), category=body.get("category"))
     except SkillUpdateValidationError as exc:
         raise HTTPException(400, exc.detail) from exc
+    except SkillCategoryError as exc:
+        raise HTTPException(400, {"message": exc.detail, "kind": "category_invalid"}) from exc
 
 
 @router.delete(
@@ -348,7 +349,7 @@ async def update_skill(
     summary="删除技能及其全部文件",
 )
 async def delete_skill(
-    skill_id: int = PathParam(..., ge=1),
+    skill_id: int = PathParam(..., ge=1, le=2_147_483_647),
     actor: Actor = Depends(current_actor),
     db=Depends(get_db),
 ):

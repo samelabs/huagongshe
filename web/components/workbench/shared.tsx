@@ -158,7 +158,7 @@ export function VisibilityTag({ visibility, t }: { visibility: "public" | "priva
 
 /* ── 通知卡片（DESIGN_SYSTEM 6.7）：通知面板（?tab=activity）唯一表达位。
    四类事件：new_reaction / new_note（关注面发布）/ new_follower（个人事项，
-   纯文本卡）/ reaction_favorited（个人事项；收件人=作者，作者不能收藏自己的
+   打开 = 关注者主页）/ reaction_favorited（个人事项；收件人=作者，作者不能收藏自己的
    反应 → 不渲染收藏钮，仅打开）。 ── */
 export function ActivityFeedCard({ item, favored, t, locale, onOpen }: {
   item: Notice;
@@ -185,6 +185,11 @@ export function ActivityFeedCard({ item, favored, t, locale, onOpen }: {
         <div className="wb-feed-body">
           <p className="wb-feed-line">{t.me.feedActorFollow(actorName)}</p>
           <time dateTime={item.created_at}>{relativeTime(item.created_at, locale)}</time>
+          <div className="wb-feed-actions">
+            <Button variant="ghost" size="sm" href={withLocale(`/user/${encodeURIComponent(item.actor_username)}`, locale)} onClick={onOpen}>
+              {t.me.feedOpen}
+            </Button>
+          </div>
         </div>
       </article>
     );

@@ -197,10 +197,10 @@ function isViewerScopedPage(rest: string): boolean {
 
 /**
  * 判断已剥离 locale 前缀的路径是否属于公开可边缘缓存的页面：
- * 首页、搜索、化合物、反应、笔记、公开主页、Skills、guide、mcp-guide、privacy、terms、support。
+ * 首页、搜索、化合物、反应、笔记、公开主页、guide、mcp-guide、privacy、terms、support。
  * RSC 按 _rsc 区分 URL，并由服务端哈希校验保证安全；请求形态不一致（mixed）时不缓存；
  * 与访问者有关的路由带会话时不缓存。
- * 不缓存：工作台(/aichem)、设置(/me)、登录(/login)、提交(/submit)、管理端(/samelabs)等。
+ * 不缓存：工作台(/aichem)、设置(/me)、登录(/login)、提交(/submit)、Skills(登录后使用)、管理端(/samelabs)等。
  */
 function isPublicEdgeCacheablePage(rest: string): boolean {
   if (rest === "/") return true;
